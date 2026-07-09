@@ -1,3 +1,10 @@
+---
+title: CONTEXT.md Format
+category: domain-modeling
+enforcement: domain-modeling skill (written by), most other skills (read by) — not mechanically gate-checked
+version: 1.0.0
+---
+
 # CONTEXT.md Format
 
 ## Structure

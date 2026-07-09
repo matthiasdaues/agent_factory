@@ -10,7 +10,7 @@ Actively build and sharpen the project's domain model as you design — challeng
 
 ## Domain awareness
 
-During codebase exploration, also look for existing documentation. See [CONTEXT-FORMAT.md](CONTEXT-FORMAT.md) for the single-context vs multi-context file layout. Create `CONTEXT.md` and `docs/adr/` lazily — only when the first term or ADR is actually needed.
+During codebase exploration, also look for existing documentation. See [context-format.md](../../rulebooks/context-format.md) for the single-context vs multi-context file layout. Create `CONTEXT.md` and `docs/adr/` lazily — only when the first term or ADR is actually needed.
 
 ## During the session
 
@@ -32,10 +32,10 @@ When someone states how something works, check whether the code agrees. If you f
 
 ### Update CONTEXT.md inline
 
-When a term is resolved, update `CONTEXT.md` right there — don't batch. Use the format in [CONTEXT-FORMAT.md](CONTEXT-FORMAT.md).
+When a term is resolved, update `CONTEXT.md` right there — don't batch. Use the format in [context-format.md](../../rulebooks/context-format.md).
 
 `CONTEXT.md` is a glossary only — no implementation details, no spec content, no scratch notes.
 
 ### Offer ADRs sparingly
 
-Offer an ADR only when all three of [ADR-FORMAT.md](ADR-FORMAT.md)'s criteria hold (hard to reverse, surprising without context, real trade-off). Use that format.
+When a decision is hard to reverse, surprising without context, and the result of a real trade-off — all three — invoke `write-adr`. It owns the format; this skill carries no ADR-writing logic of its own.

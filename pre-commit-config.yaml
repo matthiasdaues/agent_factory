@@ -36,11 +36,11 @@ repos:
         files: ^docs/spec/
 
       - id: arch-lint
-        name: arch-lint (arc42 <-> Structurizr consistency)
+        name: arch-lint (arc42 <-> Structurizr consistency, ADR frontmatter)
         entry: python3 scripts/arch-lint --docs-dir docs --no-validate
         language: system
         pass_filenames: false
-        files: ^docs/(architecture\.dsl|05_building_block_view\.md|assets/images/.*)$
+        files: ^docs/(architecture\.dsl|05_building_block_view\.md|assets/images/.*|adr/.*\.md)$
 
       - id: backlog-lint
         name: backlog-lint (story schema & traceability gate)

@@ -18,7 +18,7 @@ Run in this order — cheap and universal first, project-specific last:
 | 2   | Ruff check        | `pyproject.toml` or any `*.py` exists      | `ruff check --fix .`                                                         |
 | 3   | Ruff format       | Same as above                              | `ruff format .`                                                              |
 | 4   | spec-lint         | `docs/spec/` exists                        | `scripts/spec-lint --spec-dir docs/spec --graph docs/spec/traceability.json` |
-| 5   | arch-lint         | `docs/architecture.dsl` exists             | `scripts/arch-lint --docs-dir docs --no-validate`                            |
+| 5   | arch-lint         | `docs/architecture.dsl` or `docs/adr/` exists | `scripts/arch-lint --docs-dir docs --no-validate`                         |
 | 6   | backlog-lint      | `backlog/` exists                          | `scripts/backlog-lint --backlog-dir backlog`                                 |
 | 7   | matrix-lint       | `model-matrix.conf` exists                 | `scripts/matrix-lint --matrix model-matrix.conf`                             |
 | 8   | statemachine-lint | `docs/spec/` exists                        | `scripts/statemachine-lint --spec-dir docs/spec`                             |

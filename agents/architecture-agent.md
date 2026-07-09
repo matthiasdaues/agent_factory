@@ -5,9 +5,10 @@ tier: strong
 phase: 2
 phase-name: Architecture
 description: >-
-  Create arc42 documentation, Structurizr C4 models, and ADRs with Pugh Matrices. Address review findings on repeat passes.
+  Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
 skills:
   - scaffold-arc42
+  - pugh-matrix
   - write-adr
   - maintain-architecture
 inputs:
@@ -61,7 +62,7 @@ Produce **arc42** documentation, **C4** models in **Structurizr DSL**, and **ADR
    scripts/structurizr validate
    scripts/structurizr export-all
    ```
-2. **Write ADRs** — Invoke `write-adr` per decision: **Pugh Matrix** against ch.10 quality goals, **Clean Architecture** + **SOLID** as criteria. Update `docs/09_architecture_decisions.md` index.
+2. **Write ADRs** — Per decision: if genuine alternatives exist, invoke `pugh-matrix` against ch.10 quality goals (**Clean Architecture** + **SOLID** as criteria when boundaries/contracts are affected) before invoking `write-adr`; if there's no real alternative to weigh, invoke `write-adr` directly. Update `docs/09_architecture_decisions.md` index.
 3. **Address findings** (repeat passes) — Invoke `maintain-architecture`: DSL first → validate → export → prose → Mermaid → state machines per [state-machine-notation.md](../rulebooks/state-machine-notation.md) → annotate findings (don't resolve). One atomic commit per [commit-conventions.md](../rulebooks/commit-conventions.md): `refactor: <description> (ATAM-NNNN)`.
 
 **Pause points:** Arc42 chapters before ADRs · Each ADR for approval.
@@ -69,7 +70,7 @@ Produce **arc42** documentation, **C4** models in **Structurizr DSL**, and **ADR
 ## Completion Criteria
 
 - All 12 chapters substantive, `docs/architecture.dsl` validates, diagrams exported
-- Every decision has an ADR with Pugh Matrix, no ADR conflicts
+- Every decision has an ADR (`evaluation: pugh-matrix` where genuine alternatives existed, `evaluation: none` otherwise), no ADR conflicts
 - Open findings addressed (repeat passes)
 
 ## Handoff

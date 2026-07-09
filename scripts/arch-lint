@@ -11,6 +11,15 @@ Checks
   2. Coupling    — the core components and the ports named in chapter 5
                    (05_building_block_view.md) must match the model, both ways.
   3. Validate    — run `structurizr validate` when Docker is available; skip otherwise.
+  4. ADR         — every docs/adr/*.md has `status` and `evaluation` (pugh-matrix |
+                   none) in frontmatter, and a matrix-shaped table is present iff
+                   evaluation is pugh-matrix. Independent of 1-3: runs whenever
+                   docs/adr/ exists, arc42 or not (write-adr owns this format).
+
+Checks 1-3 (DSL/chapter-5 coupling) only apply when the project has *some* arc42
+artifacts — neither dsl nor ch5 present means arc42 isn't in use here, and those
+checks are skipped rather than erroring. One present without the other is a real
+inconsistency and still errors.
 
 Usage
   arch-lint --docs-dir docs
@@ -126,6 +135,29 @@ def ch5_ports(md: str) -> set[str]:
     return set()
 
 
+# --- ADR frontmatter parsing (stdlib only, scalar keys only — id/status/evaluation) ---
+
+
+def _parse_adr_frontmatter(text: str) -> dict[str, str] | None:
+    if not text.startswith("---"):
+        return None
+    end = text.find("\n---", 3)
+    if end == -1:
+        return None
+    block = text[3:end].strip("\n")
+    fm: dict[str, str] = {}
+    for line in block.splitlines():
+        if ":" not in line:
+            continue
+        key, _, val = line.partition(":")
+        fm[key.strip()] = val.strip().strip('"').strip("'")
+    return fm
+
+
+_VALID_STATUS = re.compile(r"^(proposed|accepted|deprecated|superseded by ADR-\d+)$")
+_MATRIX_MARKER = re.compile(r"\*\*Weighted total\*\*", re.IGNORECASE)
+
+
 # --- Checks ----------------------------------------------------------------
 
 
@@ -190,6 +222,46 @@ def check_validate(rep: Report, docs_dir: Path) -> None:
         rep.error("ARCH-VALIDATE", f"structurizr validate failed: {last[0]}")
 
 
+def check_adr_evaluation(rep: Report, adr_dir: Path) -> None:
+    for path in sorted(adr_dir.glob("*.md")):
+        text = path.read_text()
+        fm = _parse_adr_frontmatter(text)
+        if fm is None:
+            rep.error("ARCH-ADR-FM", f"{path.name}: missing or malformed YAML frontmatter")
+            continue
+
+        status = fm.get("status")
+        if not status:
+            rep.error("ARCH-ADR-STATUS", f"{path.name}: frontmatter has no 'status'")
+        elif not _VALID_STATUS.match(status):
+            rep.error(
+                "ARCH-ADR-STATUS",
+                f"{path.name}: status '{status}' is not one of "
+                f"proposed|accepted|deprecated|superseded by ADR-NNNN",
+            )
+
+        evaluation = fm.get("evaluation")
+        if evaluation not in ("pugh-matrix", "none"):
+            rep.error(
+                "ARCH-ADR-EVAL",
+                f"{path.name}: frontmatter 'evaluation' must be 'pugh-matrix' or "
+                f"'none', got {evaluation!r}",
+            )
+            continue
+
+        has_matrix = bool(_MATRIX_MARKER.search(text))
+        if evaluation == "pugh-matrix" and not has_matrix:
+            rep.error(
+                "ARCH-ADR-EVAL",
+                f"{path.name}: evaluation: pugh-matrix but no matrix table found in body",
+            )
+        if evaluation == "none" and has_matrix:
+            rep.error(
+                "ARCH-ADR-EVAL",
+                f"{path.name}: evaluation: none but a matrix-shaped table is present in body",
+            )
+
+
 def _env() -> dict:
     import os
 
@@ -213,20 +285,30 @@ def main(argv: list[str] | None = None) -> int:
     dsl_path = docs / "architecture.dsl"
     ch5_path = docs / "05_building_block_view.md"
     images = sorted((docs / "assets" / "images").glob("*.png"))
+    adr_dir = docs / "adr"
 
     rep = Report()
 
-    if not dsl_path.exists():
-        rep.error("ARCH-MISSING", f"{dsl_path} not found")
-    if not ch5_path.exists():
-        rep.error("ARCH-MISSING", f"{ch5_path} not found")
+    # Checks 1-3 (DSL <-> chapter-5 coupling) only apply when the project has
+    # some arc42 in progress. Neither file present => arc42 isn't in use here,
+    # skip silently. One without the other => genuine inconsistency, error.
+    if dsl_path.exists() or ch5_path.exists():
+        if not dsl_path.exists():
+            rep.error("ARCH-MISSING", f"{dsl_path} not found")
+        if not ch5_path.exists():
+            rep.error("ARCH-MISSING", f"{ch5_path} not found")
 
-    if dsl_path.exists():
-        check_staleness(rep, dsl_path, images)
-    if dsl_path.exists() and ch5_path.exists():
-        check_coupling(rep, dsl_path.read_text(), ch5_path.read_text())
-    if not args.no_validate:
-        check_validate(rep, docs)
+        if dsl_path.exists():
+            check_staleness(rep, dsl_path, images)
+        if dsl_path.exists() and ch5_path.exists():
+            check_coupling(rep, dsl_path.read_text(), ch5_path.read_text())
+        if not args.no_validate:
+            check_validate(rep, docs)
+
+    # Check 4 (ADR frontmatter) is independent of arc42 — write-adr owns ADRs
+    # in any project, with or without arc42 chapters.
+    if adr_dir.exists():
+        check_adr_evaluation(rep, adr_dir)
 
     rep.print()
     return 1 if rep.n(ERROR) else 0
