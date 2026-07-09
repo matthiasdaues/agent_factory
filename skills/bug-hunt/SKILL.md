@@ -1,6 +1,7 @@
 ---
 name: bug-hunt
 description: Exploratory testing followed by a TDD bug-fix loop. Find bugs, file findings, fix with regression tests, retest.
+category: quality
 disable-model-invocation: true
 ---
 
@@ -20,7 +21,7 @@ Focus areas:
 - **Concurrency and timing** — race conditions, stale reads, double submissions
 - **Extension paths** — every extension in the persona use cases, not just the happy path. Verify against **Gherkin** acceptance criteria where they exist.
 
-File each bug immediately per [finding-format.md](../../rulebooks/finding-format.md) with tag `BUG`: reproduction steps, expected vs actual behaviour, violated Use Case ID in `traces`.
+File each bug immediately per [finding-format.md](../../rulebooks/finding-format.md) with tag `BUG`: reproduction steps, expected vs actual behaviour, violated Use Case ID in `traces`. Format the finding file via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
 
 ## Phase: Fix
 

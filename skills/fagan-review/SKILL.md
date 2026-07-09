@@ -1,6 +1,7 @@
 ---
 name: fagan-review
 description: Structured code review following the Fagan Inspection method — correctness, Clean Architecture, SOLID, maintainability.
+category: quality
 disable-model-invocation: true
 ---
 
@@ -31,6 +32,8 @@ For every changed file, check:
 ## Step 3 — Write the review report
 
 Save as `docs/reviews/fagan-review-YYYY-MM-DD.md` per [report-format.md](../../rulebooks/report-format.md). File findings per [finding-format.md](../../rulebooks/finding-format.md) with tag `FAGAN`.
+
+Format both the report and any finding files via `scripts/mdformat --number` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
 
 ## Step 4 — Done-check
 

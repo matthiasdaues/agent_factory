@@ -1,0 +1,43 @@
+#!/bin/bash
+# scratchpad - Append a note to session-scratchpad.md, sectioned by date
+#
+# Reads the note from stdin, writes to ./session-scratchpad.md (project
+# root, cwd-relative). Creates the file if missing. Starts a new "## YYYY-MM-DD"
+# section when the most recent date section isn't today. Appends the note as
+# a bulleted list entry under the current date section.
+#
+# Usage:
+#   echo "note text" | scripts/scratchpad
+#
+# Multi-line stdin is collapsed to a single line (embedded newlines -> spaces)
+# so every note is always exactly one valid bullet. Formatted via
+# scripts/mdformat after every append, per rulebooks/markdown-formatting.md.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+FILE="session-scratchpad.md"
+TODAY=$(date +%Y-%m-%d)
+
+NOTE=$(cat)
+NOTE="${NOTE//$'\n'/ }"
+
+if [ -z "${NOTE// }" ]; then
+    echo "scratchpad: no input on stdin" >&2
+    exit 1
+fi
+
+if [ ! -f "$FILE" ]; then
+    printf '# scratchpad\n\n## %s\n' "$TODAY" > "$FILE"
+fi
+
+LAST_DATE=$(grep '^## ' "$FILE" | tail -1 | sed 's/^## //')
+
+if [ "$LAST_DATE" != "$TODAY" ]; then
+    printf '\n## %s\n' "$TODAY" >> "$FILE"
+fi
+
+printf -- '- %s\n' "$NOTE" >> "$FILE"
+
+"$SCRIPT_DIR/mdformat" --number "$FILE"

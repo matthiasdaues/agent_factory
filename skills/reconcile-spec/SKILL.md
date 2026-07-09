@@ -1,6 +1,7 @@
 ---
 name: reconcile-spec
 description: Comprehensive code-vs-spec reconciliation — build truth maps, diff, update or flag every discrepancy.
+category: implementation
 disable-model-invocation: true
 ---
 
@@ -40,6 +41,8 @@ Order by severity: code defects → spec-stale (most-referenced first) → undoc
 For **spec stale** and **undocumented** items: update the affected spec or architecture file. For new ADRs, invoke `write-adr`. For **terminology drift**: update `CONTEXT.md` via the `domain-modeling` skill. Run `spec-lint` and `arch-lint` after updates.
 
 For **code defects**: do not fix — file per [finding-format.md](../../rulebooks/finding-format.md) with tag `RECON`.
+
+Format every updated spec/architecture file via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
 
 ## Step 3 — Write the reconciliation report
 

@@ -1,6 +1,7 @@
 ---
 name: derive-spec
 description: Derive the full specification chain from a PRD — actor-goal list, persona use cases, system use cases, supplementary specs.
+category: requirements
 disable-model-invocation: true
 ---
 
@@ -75,3 +76,5 @@ docs/spec/
 ```
 
 All files cross-reference each other with relative Markdown links and Use Case IDs.
+
+Format each file via `scripts/mdformat --number <path>` as it's written, per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).

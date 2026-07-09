@@ -1,6 +1,7 @@
 ---
 name: write-prd
 description: Synthesise a Product Requirements Document from clarified requirements.
+category: requirements
 disable-model-invocation: true
 ---
 
@@ -21,6 +22,8 @@ Write `docs/spec/prd.md` covering:
 5. **Non-Functional Requirements** — performance, security, reliability, operability
 6. **Constraints and Assumptions** — technology, timeline, organisational, regulatory
 7. **Open Questions** — each referencing an entry in `docs/spec/todos.md`
+
+Format via `scripts/mdformat --number docs/spec/prd.md` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
 
 **Completion**: `docs/spec/prd.md` exists with all seven sections filled — no placeholder text, no silently assumed decisions.
 

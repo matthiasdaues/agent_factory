@@ -1,6 +1,7 @@
 ---
 name: validate
 description: Run every applicable deterministic gate on demand, mid-session — the custom lint scripts plus ruff and mdformat — without needing a git commit.
+category: utility
 disable-model-invocation: true
 ---
 
@@ -22,8 +23,11 @@ Run in this order — cheap and universal first, project-specific last:
 | 6   | backlog-lint      | `backlog/` exists                          | `scripts/backlog-lint --backlog-dir backlog`                                 |
 | 7   | matrix-lint       | `model-matrix.conf` exists                 | `scripts/matrix-lint --matrix model-matrix.conf`                             |
 | 8   | statemachine-lint | `docs/spec/` exists                        | `scripts/statemachine-lint --spec-dir docs/spec`                             |
+| 9   | index-lint        | `agents/` or `skills/` exists               | `scripts/index-lint --check`                                                |
 
-**Ruff is Python-specific, not universal.** Gates 2-3 are the one pair genuinely conditional on implementation language — the factory itself (agents/skills/playbooks/rulebooks, gates 1 and 4-8) is language-agnostic; only a Python target project pulls in ruff. A non-Python project should see gates 2-3 reported as skipped, not failed.
+**Ruff is Python-specific, not universal.** Gates 2-3 are the one pair genuinely conditional on implementation language — the factory itself (agents/skills/playbooks/rulebooks, gates 1 and 4-9) is language-agnostic; only a Python target project pulls in ruff. A non-Python project should see gates 2-3 reported as skipped, not failed.
+
+**index-lint uses `--check` here, not the default write mode.** `validate` reports pass/fail, it doesn't rewrite project files as a side effect of checking — if `INDEX.md` is stale, report `FAIL` and let the user (or `commit`, which already runs `validate` first) decide to regenerate via a plain `scripts/index-lint`.
 
 **Path convention.** Every script and gate above is project-root-relative, matching the portable `pre-commit-config.yaml` template — run `validate` from the project root. Inside this monorepo's own dev environment, prefix the doc/backlog paths with `orchestrator/` instead (e.g. `--spec-dir orchestrator/docs/spec`), matching `orchestrator/.pre-commit-config.yaml`'s own dev-config convention.
 

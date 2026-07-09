@@ -1,6 +1,7 @@
 ---
 name: domain-modeling
 description: Build and sharpen a project's domain model — challenge terminology, record architecture decisions, update CONTEXT.md and docs/adr/ inline as decisions crystallise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
+category: utility
 source: https://github.com/mattpocock/skills/
 ---
 
@@ -32,7 +33,7 @@ When someone states how something works, check whether the code agrees. If you f
 
 ### Update CONTEXT.md inline
 
-When a term is resolved, update `CONTEXT.md` right there — don't batch. Use the format in [context-format.md](../../rulebooks/context-format.md).
+When a term is resolved, update `CONTEXT.md` right there — don't batch. Use the format in [context-format.md](../../rulebooks/context-format.md). Format via `scripts/mdformat --number CONTEXT.md` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
 
 `CONTEXT.md` is a glossary only — no implementation details, no spec content, no scratch notes.
 

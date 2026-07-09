@@ -1,6 +1,7 @@
 ---
 name: write-adr
 description: Document an architecture decision as an ADR (Nygard format). The sole owner of ADR format in this project — every ADR, from any caller, is written by this skill.
+category: architecture
 disable-model-invocation: true
 ---
 
@@ -52,6 +53,8 @@ evaluation: pugh-matrix | none
 ```
 
 If this decision supersedes an earlier ADR, update that ADR's `status` to `superseded by ADR-NNNN`. If `docs/09_architecture_decisions.md` exists (arc42 chapter-9 index), update it to link the new ADR; if it doesn't exist, skip — not every project using this skill has arc42 documentation.
+
+Format the new ADR (and the chapter-9 index, if updated) via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
 
 **Completion**: ADR has `status` and `evaluation` in frontmatter, full Nygard body, matrix embedded iff `evaluation: pugh-matrix`, no unresolved conflicts, index updated where one exists.
 

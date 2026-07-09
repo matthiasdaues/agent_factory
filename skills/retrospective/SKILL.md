@@ -1,6 +1,7 @@
 ---
 name: retrospective
 description: Run a structured session retrospective across five categories. Produces a timestamped report in docs/reviews/.
+category: utility
 disable-model-invocation: true
 ---
 
@@ -38,6 +39,8 @@ docs/reviews/retro-YYYY-MM-DD.md
 ```
 
 Use today's date. If a retro already exists for today, append a sequence number: `retro-YYYY-MM-DD-2.md`.
+
+Format via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
 
 **Completion**: report written, all five sections populated with evidence.
 

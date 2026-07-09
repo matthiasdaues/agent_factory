@@ -1,6 +1,7 @@
 ---
 name: capture-vision
 description: Capture a project vision through structured interview.
+category: requirements
 disable-model-invocation: true
 ---
 

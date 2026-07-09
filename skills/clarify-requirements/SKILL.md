@@ -1,6 +1,7 @@
 ---
 name: clarify-requirements
 description: Selects and runs the right requirements-clarification interview — Socratic (inline), grill-me (greenfield), or grill-with-docs (brownfield).
+category: requirements
 disable-model-invocation: true
 ---
 

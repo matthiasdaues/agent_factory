@@ -1,6 +1,7 @@
 ---
 name: commit
 description: Compose a Conventional Commit message from the session's context and commit — invoked explicitly, never automatically.
+category: utility
 disable-model-invocation: true
 ---
 

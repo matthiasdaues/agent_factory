@@ -1,6 +1,7 @@
 ---
 name: security-review
 description: Security-focused code review based on the OWASP Top 10.
+category: quality
 disable-model-invocation: true
 ---
 
@@ -32,3 +33,5 @@ Minimise false positives — do not flag a theoretical risk without a plausible 
 ## Step 3 — Write the review report
 
 Save as `docs/reviews/security-review-YYYY-MM-DD.md` per [report-format.md](../../rulebooks/report-format.md). File findings per [finding-format.md](../../rulebooks/finding-format.md) with tag `SEC` for findings rated Medium or higher.
+
+Format both the report and any finding files via `scripts/mdformat --number` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).

@@ -1,6 +1,7 @@
 ---
 name: grilling
 description: Relentless interview to sharpen a plan or design until reaching shared understanding. Use when the user wants to stress-test a plan, get grilled on their design, or mentions "grill me".
+category: utility
 source: https://github.com/mattpocock/skills/
 ---
 

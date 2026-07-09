@@ -1,6 +1,7 @@
 ---
 name: maintain-architecture
 description: Maintain arc42 architecture docs with architecture.dsl as the single source of truth. Covers DSL-first workflow, image export, Mermaid derivation, and state machine pseudocode.
+category: architecture
 disable-model-invocation: true
 ---
 
@@ -65,6 +66,8 @@ Update the relevant arc42 chapters to match the model. The mapping:
 | `Deployment`     | §7 Deployment View     | `![Deployment](assets/images/Deployment.png)`          |
 
 For chapters 5 (tables) and 9 (ADR index): element names and port lists must match the DSL. `arch-lint` enforces this for components and ports.
+
+Format every updated chapter via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
 
 **Completion**: `arch-lint --docs-dir docs` reports 0 errors. Do not commit yet.
 

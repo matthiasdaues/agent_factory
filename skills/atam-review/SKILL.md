@@ -1,6 +1,7 @@
 ---
 name: atam-review
 description: Two-pass architecture review — deterministic arch-lint (structure, DSL consistency, diagram references) then ATAM evaluation against quality attribute scenarios. Files findings as local markdown files.
+category: architecture
 disable-model-invocation: true
 ---
 
@@ -49,6 +50,8 @@ Save as `docs/reviews/atam-review.md` per [report-format.md](../../rulebooks/rep
 6. **Tradeoff summary** — table of identified tradeoffs.
 
 File findings per [finding-format.md](../../rulebooks/finding-format.md) with tag `ATAM` for risks rated Medium or higher.
+
+Format both the report and any finding files via `scripts/mdformat --number` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
 
 ## Step 5 — Verify prior findings (repeat passes only)
 

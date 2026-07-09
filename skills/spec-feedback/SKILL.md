@@ -1,6 +1,7 @@
 ---
 name: spec-feedback
 description: Check whether specification or architecture needs updating after implementation reveals gaps, changed rules, or inaccurate contracts. Use when the user mentions spec drift, docs are stale, or implementation contradicts the spec.
+category: implementation
 ---
 
 # Spec Feedback
@@ -29,6 +30,8 @@ For each discrepancy:
 - Update the spec file to match the implemented behaviour.
 - If an architecture decision changed, invoke the `write-adr` skill.
 - Check the update itself against **Clean Architecture** and **SOLID** — don't introduce a violation while fixing drift.
+
+Format every updated file via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
 
 **Completion**: spec matches implemented behaviour, no undocumented behaviour exists in the code, architecture documentation reflects the current system structure.
 

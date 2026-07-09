@@ -1,6 +1,7 @@
 ---
 name: create-backlog
 description: Break specification and architecture into a local backlog of markdown stories — EPICs and User Stories with INVEST criteria and MoSCoW priority.
+category: planning
 disable-model-invocation: true
 ---
 
@@ -54,6 +55,8 @@ Respect **Clean Architecture** layer boundaries — each story touches one layer
 Each story records in `traces`: Use Case ID(s) it implements (e.g. `UC-01`, `UC-A2`), the arc42 component(s) it touches, and any constraining ADR(s).
 
 Judge each story's `classification` (`trivial | standard | hard`) — the difficulty band the model matrix maps to a tier.
+
+Format each story file via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
 
 **Completion**: every User Goal covered by at least one story, all stories meet INVEST, `traces` and `classification` present.
 

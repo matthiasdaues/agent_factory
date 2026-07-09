@@ -1,6 +1,7 @@
 ---
 name: inspect-spec
 description: Two-pass specification review — deterministic spec-lint then LLM semantic inspection. Files findings as local markdown files.
+category: requirements
 disable-model-invocation: true
 ---
 
@@ -43,6 +44,8 @@ Save as `docs/reviews/spec-review-YYYY-MM-DD.md` per [report-format.md](../../ru
 4. **Traceability summary** — orphans and gaps from `traceability.json`.
 
 File findings per [finding-format.md](../../rulebooks/finding-format.md) with tag `SPEC`.
+
+Format both the report and any finding files via `scripts/mdformat --number` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
 
 ## Step 4 — Verify prior findings (repeat passes only)
 

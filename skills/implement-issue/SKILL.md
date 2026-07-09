@@ -1,6 +1,7 @@
 ---
 name: implement-issue
 description: Implement a single backlog story with TDD — analyse, red-green, commit, check docs.
+category: implementation
 disable-model-invocation: true
 ---
 

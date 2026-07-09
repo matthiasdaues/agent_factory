@@ -62,3 +62,10 @@ repos:
         language: system
         pass_filenames: false
         files: ^docs/spec/.*\.md$
+
+      - id: index-lint
+        name: index-lint (regenerate INDEX.md from agent/skill frontmatter)
+        entry: python3 scripts/index-lint
+        language: system
+        pass_filenames: false
+        files: ^(agents/.*\.md|skills/.*/SKILL\.md)$

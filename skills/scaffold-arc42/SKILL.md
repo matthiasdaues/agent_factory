@@ -1,6 +1,7 @@
 ---
 name: scaffold-arc42
 description: Create arc42 architecture documentation and a Structurizr C4 model from the specification.
+category: architecture
 disable-model-invocation: true
 ---
 
@@ -41,6 +42,8 @@ Rules:
 - Fill each chapter from the specification in `docs/spec/` — **no placeholder text**.
 
 Template reference: [`matthiasdaues/arc42-markdown-template`](https://github.com/matthiasdaues/arc42-markdown-template).
+
+Format every chapter file and `docs/README.md` via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
 
 **Completion**: all 12 chapter files exist with substantive content, every chapter starts with the back-link, `docs/README.md` links to all chapters and all links resolve.
 

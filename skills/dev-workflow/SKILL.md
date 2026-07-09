@@ -1,6 +1,7 @@
 ---
 name: dev-workflow
 description: Semantic-anchor-driven software development workflow. A router skill that maps phases to skills and agents.
+category: utility
 disable-model-invocation: true
 ---
 

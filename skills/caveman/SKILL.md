@@ -6,6 +6,7 @@ description: >-
   accuracy. The workflow's default communication style for everything except
   specification and documentation prose (which stay Plain English, Strunk &
   White). Adapted from JuliusBrussee/caveman.
+category: utility
 ---
 
 # Caveman
