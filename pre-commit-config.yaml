@@ -1,0 +1,64 @@
+# Pre-commit hooks for Agent HQ projects.
+# Copied by project-init tooling — paths are project-root-relative.
+# The deterministic gate scripts live in scripts/ (also copied by init).
+# mdformat and ruff are language/project gates; see skills/validate/SKILL.md
+# for the same checks run on demand, mid-session, without a commit.
+
+repos:
+  - repo: local
+    hooks:
+      # formats all markdown files — zero local install, see scripts/mdformat
+      - id: mdformat
+        name: mdformat
+        entry: scripts/mdformat --number
+        language: system
+        types: [markdown]
+
+      # lints all python files (skip if the project isn't Python)
+      - id: ruff-check
+        name: ruff check
+        entry: ruff check --fix
+        language: system
+        types_or: [python, pyi, jupyter]
+
+      # lints python code blocks in markdown
+      - id: ruff-format
+        name: ruff format
+        entry: ruff format
+        language: system
+        types_or: [python, pyi, jupyter]
+
+      - id: spec-lint
+        name: spec-lint (specification consistency & traceability)
+        entry: python3 scripts/spec-lint
+        language: system
+        pass_filenames: false
+        files: ^docs/spec/
+
+      - id: arch-lint
+        name: arch-lint (arc42 <-> Structurizr consistency)
+        entry: python3 scripts/arch-lint --docs-dir docs --no-validate
+        language: system
+        pass_filenames: false
+        files: ^docs/(architecture\.dsl|05_building_block_view\.md|assets/images/.*)$
+
+      - id: backlog-lint
+        name: backlog-lint (story schema & traceability gate)
+        entry: python3 scripts/backlog-lint --backlog-dir backlog
+        language: system
+        pass_filenames: false
+        files: ^backlog/ST-.*\.md$
+
+      - id: matrix-lint
+        name: matrix-lint (model matrix consistency gate)
+        entry: python3 scripts/matrix-lint --matrix model-matrix.conf
+        language: system
+        pass_filenames: false
+        files: ^model-matrix\.conf$
+
+      - id: statemachine-lint
+        name: statemachine-lint (pseudocode ↔ Mermaid consistency)
+        entry: python3 scripts/statemachine-lint --spec-dir docs/spec
+        language: system
+        pass_filenames: false
+        files: ^docs/spec/.*\.md$

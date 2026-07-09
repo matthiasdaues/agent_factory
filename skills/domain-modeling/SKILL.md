@@ -1,0 +1,41 @@
+---
+name: domain-modeling
+description: Build and sharpen a project's domain model — challenge terminology, record architecture decisions, update CONTEXT.md and docs/adr/ inline as decisions crystallise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
+source: https://github.com/mattpocock/skills/
+---
+
+# Domain Modeling
+
+Actively build and sharpen the project's domain model as you design — challenging terms, inventing edge-case scenarios, and writing the glossary and decisions down the moment they crystallise. Merely *reading* `CONTEXT.md` for vocabulary is not this skill; that's a one-line habit any skill can do. This skill is for *changing* the model, not just consuming it.
+
+## Domain awareness
+
+During codebase exploration, also look for existing documentation. See [CONTEXT-FORMAT.md](CONTEXT-FORMAT.md) for the single-context vs multi-context file layout. Create `CONTEXT.md` and `docs/adr/` lazily — only when the first term or ADR is actually needed.
+
+## During the session
+
+### Challenge against the glossary
+
+When a term conflicts with `CONTEXT.md`, call it out immediately. "Your glossary defines 'cancellation' as X, but you seem to mean Y — which is it?"
+
+### Sharpen fuzzy language
+
+When a vague or overloaded term appears, propose a precise canonical term. "You're saying 'account' — do you mean the Customer or the User? Those are different things."
+
+### Discuss concrete scenarios
+
+When domain relationships are being discussed, stress-test them with specific scenarios that probe edge cases and force precision about the boundaries between concepts.
+
+### Cross-reference with code
+
+When someone states how something works, check whether the code agrees. If you find a contradiction, surface it: "The code cancels entire Orders, but partial cancellation was just described — which is right?"
+
+### Update CONTEXT.md inline
+
+When a term is resolved, update `CONTEXT.md` right there — don't batch. Use the format in [CONTEXT-FORMAT.md](CONTEXT-FORMAT.md).
+
+`CONTEXT.md` is a glossary only — no implementation details, no spec content, no scratch notes.
+
+### Offer ADRs sparingly
+
+Offer an ADR only when all three of [ADR-FORMAT.md](ADR-FORMAT.md)'s criteria hold (hard to reverse, surprising without context, real trade-off). Use that format.

@@ -1,0 +1,27 @@
+#!/bin/bash
+# mdformat - Zero-local-install wrapper around mdformat + its plugins
+#
+# The factory's Markdown artifacts (specs, ADRs, findings, reports) need
+# mdformat plus three plugins (mdformat-gfm for tables, mdformat-ruff for
+# Python code blocks, mdformat-frontmatter to protect YAML frontmatter).
+# Rather than requiring every consuming project to declare these in its own
+# pyproject.toml (T-37), this wraps `uvx` so the same command works whether
+# or not the target project is even a Python project — mirroring
+# scripts/structurizr's zero-local-install pattern (Docker there, uvx here).
+#
+# Usage: scripts/mdformat [mdformat args...]
+#   scripts/mdformat --check .      # CI/gate mode, non-zero exit on drift
+#   scripts/mdformat --number .     # format in place, as pre-commit runs it
+
+set -euo pipefail
+
+if ! command -v uvx &> /dev/null; then
+    echo "Error: uvx not found. Install uv: https://docs.astral.sh/uv/" >&2
+    exit 1
+fi
+
+exec uvx \
+    --with mdformat-gfm \
+    --with mdformat-ruff \
+    --with mdformat-frontmatter \
+    mdformat "$@"

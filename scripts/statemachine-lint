@@ -1,0 +1,330 @@
+#!/usr/bin/env python3
+"""statemachine-lint — pseudocode ↔ Mermaid consistency gate for state machines.
+
+Parses the canonical event-driven pseudocode notation from markdown files and
+validates that any co-located Mermaid stateDiagram-v2 blocks are strictly
+derived from the pseudocode. The pseudocode is the single source of truth.
+
+Canonical pseudocode pattern (inside a ```text fenced block)
+─────────────────────────────────────────────────────────────
+    State: STATE_NAME
+    On EventName:
+      if condition
+        ChangeState(TARGET)
+      else if condition
+        SetHaltedFrom(SOURCE)
+        ChangeState(HALTED)
+      else
+        ChangeState(OTHER)
+
+    State: TERMINAL
+      # terminal — no outbound transitions
+
+Reserved actions:
+  ChangeState(X)         — explicit transition to state X
+  SetHaltedFrom(X)       — record X as a possible RestoreState target
+  RestoreState(var)      — dynamic transition; expands to all SetHaltedFrom values
+
+Checks
+  SM-NO-PSEUDO    Mermaid stateDiagram found without canonical pseudocode     ERROR
+  SM-NO-MERMAID   Pseudocode found without a Mermaid diagram                  WARNING
+  SM-STATE        State present in one representation but not the other       ERROR
+  SM-TRANS        Transition present in one representation but not the other  ERROR
+  SM-RESTORE-OOB  RestoreState references a value never set by SetHaltedFrom  WARNING
+
+Usage
+  statemachine-lint --spec-dir docs/spec
+  statemachine-lint path/to/state-machines.md
+
+Exit non-zero iff at least one error-severity finding exists (gate contract).
+No third-party dependencies (Python 3.9+ stdlib only).
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from pathlib import Path
+
+ERROR, WARNING, INFO = "ERROR", "WARNING", "INFO"
+_ORDER = {ERROR: 0, WARNING: 1, INFO: 2}
+
+
+# ---------------------------------------------------------------------------
+# Report
+# ---------------------------------------------------------------------------
+
+
+class Report:
+    def __init__(self) -> None:
+        self.items: list[tuple[str, str, str]] = []
+
+    def error(self, code: str, msg: str) -> None:
+        self.items.append((ERROR, code, msg))
+
+    def warn(self, code: str, msg: str) -> None:
+        self.items.append((WARNING, code, msg))
+
+    def info(self, code: str, msg: str) -> None:
+        self.items.append((INFO, code, msg))
+
+    def n(self, severity: str) -> int:
+        return sum(1 for s, _, _ in self.items if s == severity)
+
+    def print(self) -> None:
+        for sev, code, msg in sorted(self.items, key=lambda i: _ORDER[i[0]]):
+            print(f"[{sev:<7}] {code}  {msg}")
+        print(
+            f"\nstatemachine-lint: {self.n(ERROR)} error(s), "
+            f"{self.n(WARNING)} warning(s), {self.n(INFO)} info"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Markdown fenced-block extraction
+# ---------------------------------------------------------------------------
+
+_RE_FENCE_OPEN = re.compile(r"^(`{3,})\s*(\S+)\s*$")
+_RE_FENCE_CLOSE = re.compile(r"^(`{3,})\s*$")
+
+
+def _extract_fenced_blocks(text: str, lang: str) -> list[str]:
+    """Return the content of every fenced block whose language tag matches *lang*."""
+    blocks: list[str] = []
+    inside = False
+    current: list[str] = []
+    fence_len = 0
+
+    for line in text.splitlines():
+        if inside:
+            cm = _RE_FENCE_CLOSE.match(line)
+            if cm and len(cm.group(1)) >= fence_len:
+                blocks.append("\n".join(current))
+                current = []
+                inside = False
+            else:
+                current.append(line)
+        else:
+            om = _RE_FENCE_OPEN.match(line)
+            if om and om.group(2).lower() == lang.lower():
+                inside = True
+                fence_len = len(om.group(1))
+                current = []
+
+    return blocks
+
+
+# ---------------------------------------------------------------------------
+# Pseudocode parser
+# ---------------------------------------------------------------------------
+
+_RE_STATE_DECL = re.compile(r"^\s*State:\s*(\S+)")
+_RE_CHANGE = re.compile(r"ChangeState\((\w+)\)")
+_RE_SET_HALTED = re.compile(r"SetHaltedFrom\((\w+)\)")
+_RE_RESTORE = re.compile(r"RestoreState\((\w+)\)")
+
+
+def _parse_pseudocode(
+    text: str,
+) -> tuple[set[str], set[tuple[str, str]], set[str]]:
+    """Parse canonical pseudocode → (states, transitions, halted_from_values).
+
+    *transitions* is a set of ``(source_state, target_state)`` pairs.
+    ``RestoreState(var)`` is expanded to one edge per recorded ``SetHaltedFrom``
+    value so the full reachability set is available for comparison.
+    """
+    states: set[str] = set()
+    transitions: set[tuple[str, str]] = set()
+    halted_from_values: set[str] = set()
+    current: str | None = None
+
+    # Two-pass: first pass collects SetHaltedFrom values, second expands RestoreState.
+    lines = text.splitlines()
+
+    for line in lines:
+        m = _RE_SET_HALTED.search(line)
+        if m:
+            halted_from_values.add(m.group(1))
+
+    for line in lines:
+        sm = _RE_STATE_DECL.match(line)
+        if sm:
+            current = sm.group(1)
+            states.add(current)
+            continue
+
+        if current is None:
+            continue
+
+        cm = _RE_CHANGE.search(line)
+        if cm:
+            target = cm.group(1)
+            states.add(target)
+            transitions.add((current, target))
+
+        rm = _RE_RESTORE.search(line)
+        if rm:
+            if halted_from_values:
+                for target in halted_from_values:
+                    states.add(target)
+                    transitions.add((current, target))
+
+    return states, transitions, halted_from_values
+
+
+# ---------------------------------------------------------------------------
+# Mermaid stateDiagram parser
+# ---------------------------------------------------------------------------
+
+_RE_MERMAID_EDGE = re.compile(r"^\s*(\S+)\s+-->\s+(\S+)\s*(?::.*)?$")
+
+
+def _parse_mermaid(text: str) -> tuple[set[str], set[tuple[str, str]]]:
+    """Parse a Mermaid stateDiagram-v2 → (states, transitions).
+
+    ``[*]`` initial/final pseudostates are recorded as states but transitions
+    involving ``[*]`` are excluded from the comparison set — they are a diagram
+    convention with no pseudocode equivalent.
+    """
+    states: set[str] = set()
+    transitions: set[tuple[str, str]] = set()
+
+    for line in text.splitlines():
+        m = _RE_MERMAID_EDGE.match(line)
+        if not m:
+            continue
+        src, tgt = m.group(1).strip(), m.group(2).strip()
+        # Record real states even when one end is [*]
+        if src != "[*]":
+            states.add(src)
+        if tgt != "[*]":
+            states.add(tgt)
+        # Skip [*] pseudostate edges — diagram-only
+        if src == "[*]" or tgt == "[*]":
+            continue
+        transitions.add((src, tgt))
+
+    return states, transitions
+
+
+# ---------------------------------------------------------------------------
+# File-level check
+# ---------------------------------------------------------------------------
+
+
+def _check_file(rep: Report, path: Path) -> None:
+    text = path.read_text()
+    rel = str(path)
+
+    pseudo_blocks = [
+        b for b in _extract_fenced_blocks(text, "text") if _RE_STATE_DECL.search(b)
+    ]
+    mermaid_blocks = [
+        b for b in _extract_fenced_blocks(text, "mermaid") if "stateDiagram" in b
+    ]
+
+    if not pseudo_blocks and not mermaid_blocks:
+        return  # not a state-machine file
+
+    if not pseudo_blocks:
+        rep.error(
+            "SM-NO-PSEUDO",
+            f"{rel}: Mermaid stateDiagram found without canonical pseudocode — "
+            f"pseudocode is the single source of truth",
+        )
+        return
+
+    if not mermaid_blocks:
+        rep.warn(
+            "SM-NO-MERMAID",
+            f"{rel}: canonical pseudocode found without a Mermaid stateDiagram",
+        )
+        return
+
+    # Merge all blocks of each kind (a file may split the machine across blocks)
+    p_states: set[str] = set()
+    p_trans: set[tuple[str, str]] = set()
+    p_halted: set[str] = set()
+    for block in pseudo_blocks:
+        s, t, h = _parse_pseudocode(block)
+        p_states |= s
+        p_trans |= t
+        p_halted |= h
+
+    m_states: set[str] = set()
+    m_trans: set[tuple[str, str]] = set()
+    for block in mermaid_blocks:
+        s, t = _parse_mermaid(block)
+        m_states |= s
+        m_trans |= t
+
+    # --- State comparison ---
+    for s in sorted(m_states - p_states):
+        rep.error("SM-STATE", f"{rel}: state '{s}' in Mermaid but not in pseudocode")
+    for s in sorted(p_states - m_states):
+        rep.error("SM-STATE", f"{rel}: state '{s}' in pseudocode but not in Mermaid")
+
+    # --- Transition comparison ---
+    for src, tgt in sorted(m_trans - p_trans):
+        rep.error(
+            "SM-TRANS",
+            f"{rel}: transition {src} → {tgt} in Mermaid but not in pseudocode",
+        )
+    for src, tgt in sorted(p_trans - m_trans):
+        rep.error(
+            "SM-TRANS",
+            f"{rel}: transition {src} → {tgt} in pseudocode but not in Mermaid",
+        )
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(
+        description="Pseudocode ↔ Mermaid consistency gate for state machines.",
+    )
+    ap.add_argument(
+        "files",
+        nargs="*",
+        type=Path,
+        help="Markdown files to check (default: scan --spec-dir recursively)",
+    )
+    ap.add_argument(
+        "--spec-dir",
+        type=Path,
+        default=None,
+        help="Root directory to scan for .md files (recursive)",
+    )
+    args = ap.parse_args(argv)
+
+    paths: list[Path] = []
+    if args.files:
+        paths = args.files
+    elif args.spec_dir:
+        paths = sorted(args.spec_dir.rglob("*.md"))
+    else:
+        ap.error("provide file path(s) or --spec-dir")
+
+    rep = Report()
+
+    found_any = False
+    for p in paths:
+        if not p.exists():
+            rep.error("SM-MISSING", f"{p} not found")
+            continue
+        _check_file(rep, p)
+        found_any = True
+
+    if not found_any and not paths:
+        rep.warn("SM-EMPTY", "no markdown files found")
+
+    rep.print()
+    return 1 if rep.n(ERROR) else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

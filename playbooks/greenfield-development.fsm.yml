@@ -1,0 +1,349 @@
+# Greenfield Development Workflow State Machine
+# Executable gate-enforced workflow derived from greenfield-development.md
+
+version: 1.0.0
+type: workflow-state-machine
+playbook: greenfield-development
+
+# Gate condition library
+gate_conditions:
+  project_initialized:
+    type: file_exists
+    path: .git/config
+  
+  context_exists:
+    type: file_exists
+    path: CONTEXT.md
+  
+  spec_exists:
+    type: files_exist
+    paths:
+      - docs/spec/prd.md
+      - docs/spec/actor-goal-list.md
+      - docs/spec/use_cases/*.md
+  
+  no_open_spec_findings:
+    type: no_open_findings
+    pattern: SPEC-*.md
+  
+  no_open_atam_findings:
+    type: no_open_findings
+    pattern: ATAM-*.md
+  
+  no_open_recon_findings:
+    type: no_open_findings
+    pattern: RECON-*.md
+  
+  no_open_qa_findings:
+    type: no_open_findings
+    patterns:
+      - FAGAN-*.md
+      - SEC-*.md
+      - BUG-*.md
+  
+  architecture_exists:
+    type: files_exist
+    paths:
+      - docs/*.md  # arc42
+      - docs/adr/*.md
+      - docs/architecture.dsl
+  
+  backlog_exists:
+    type: files_exist
+    paths:
+      - backlog/ST-*.md
+  
+  backlog_valid:
+    type: script_exit_zero
+    script: scripts/backlog-lint --backlog-dir backlog
+  
+  code_exists:
+    type: files_exist
+    paths:
+      - src/**/*
+      - tests/**/*
+
+# State machine
+states:
+  INIT:
+    description: Project setup
+    entry_conditions:
+      - project_initialized
+    
+    on:
+      StartRequirements:
+        transitions:
+          to: PHASE_1_REQUIREMENTS
+
+  # Phase 1: Requirements
+  PHASE_1_REQUIREMENTS:
+    description: Gather requirements, write specification
+    entry_conditions:
+      - project_initialized
+    
+    agent: requirements-agent
+    session: stateful
+    
+    outputs:
+      - docs/spec/prd.md
+      - docs/spec/actor-goal-list.md
+      - docs/spec/use_cases/*.md
+      - docs/spec/supplementary_specs/*.md
+    
+    on:
+      SpecComplete:
+        exit_conditions:
+          - spec_exists
+        transitions:
+          - to: PHASE_1_GATE
+
+  PHASE_1_GATE:
+    description: Validate specification
+    entry_conditions:
+      - spec_exists
+    
+    agent: spec-review-agent
+    session: stateless  # Fresh session, no memory
+    
+    outputs:
+      - docs/reviews/spec-review-*.md
+      - docs/findings/SPEC-*.md
+    
+    on:
+      ReviewComplete:
+        exit_conditions:
+          - no_open_spec_findings
+        transitions:
+          - if: no_open_spec_findings
+            to: PHASE_2_ARCHITECTURE
+          - else:
+            to: PHASE_1_REQUIREMENTS  # Loop back
+
+  # Phase 2: Architecture
+  PHASE_2_ARCHITECTURE:
+    description: Design architecture, write ADRs
+    entry_conditions:
+      - spec_exists
+      - no_open_spec_findings
+    
+    agent: architecture-agent
+    session: stateful
+    
+    outputs:
+      - docs/*.md  # arc42 chapters
+      - docs/adr/*.md
+      - docs/architecture.dsl
+      - docs/assets/images/*
+    
+    on:
+      ArchitectureComplete:
+        exit_conditions:
+          - architecture_exists
+        transitions:
+          - to: PHASE_2_GATE
+
+  PHASE_2_GATE:
+    description: Validate architecture (ATAM)
+    entry_conditions:
+      - architecture_exists
+    
+    agent: architecture-review-agent
+    session: stateless
+    
+    outputs:
+      - docs/reviews/atam-review.md
+      - docs/findings/ATAM-*.md
+    
+    on:
+      ReviewComplete:
+        exit_conditions:
+          - no_open_atam_findings
+        transitions:
+          - if: no_open_atam_findings
+            to: PHASE_3_PLANNING
+          - else:
+            to: PHASE_2_ARCHITECTURE
+
+  # Phase 3: Planning
+  PHASE_3_PLANNING:
+    description: Create backlog from spec
+    entry_conditions:
+      - spec_exists
+      - architecture_exists
+      - no_open_spec_findings
+      - no_open_atam_findings
+    
+    agent: planning-agent
+    session: stateful
+    
+    outputs:
+      - backlog/ST-*.md
+    
+    on:
+      BacklogComplete:
+        exit_conditions:
+          - backlog_exists
+          - backlog_valid
+        transitions:
+          - if: backlog_valid
+            to: PHASE_3_APPROVAL
+          - else:
+            to: PHASE_3_PLANNING  # Fix errors
+
+  PHASE_3_APPROVAL:
+    description: Manual backlog approval
+    entry_conditions:
+      - backlog_exists
+      - backlog_valid
+    
+    agent: null  # Human approval
+    
+    on:
+      BacklogApproved:
+        transitions:
+          - to: PHASE_4_IMPLEMENTATION
+      
+      BacklogRejected:
+        transitions:
+          - to: PHASE_3_PLANNING
+
+  # Phase 4: Implementation
+  PHASE_4_IMPLEMENTATION:
+    description: Implement stories from backlog
+    entry_conditions:
+      - backlog_exists
+      - backlog_valid
+    
+    agent: implementation-agent  # Spawns developer-agent subagents
+    session: stateful
+    
+    outputs:
+      - src/**/*
+      - tests/**/*
+      - git commits
+    
+    on:
+      ImplementationComplete:
+        exit_conditions:
+          - code_exists
+        transitions:
+          - to: PHASE_4_GATE
+
+  PHASE_4_GATE:
+    description: Reconcile code with spec
+    entry_conditions:
+      - code_exists
+      - spec_exists
+    
+    agent: reconciliation-agent
+    session: stateless
+    
+    outputs:
+      - docs/reviews/reconciliation-*.md
+      - docs/findings/RECON-*.md
+      - docs/spec/**/*.md  # Updates from code
+    
+    on:
+      ReconciliationComplete:
+        exit_conditions:
+          - no_open_recon_findings
+        transitions:
+          - if: no_open_recon_findings
+            to: PHASE_5_QUALITY
+          - else:
+            to: PHASE_4_IMPLEMENTATION
+
+  # Phase 5: Quality Assurance
+  PHASE_5_QUALITY:
+    description: Fagan review, security review, bug hunt
+    entry_conditions:
+      - code_exists
+      - no_open_recon_findings
+    
+    agent: qa-agent
+    session: stateless
+    
+    outputs:
+      - docs/reviews/fagan-review-*.md
+      - docs/reviews/security-review-*.md
+      - docs/findings/FAGAN-*.md
+      - docs/findings/SEC-*.md
+      - docs/findings/BUG-*.md
+    
+    on:
+      QAComplete:
+        exit_conditions:
+          - no_open_qa_findings
+        transitions:
+          - if: no_open_qa_findings
+            to: DONE
+          - else:
+            to: PHASE_5_FIX
+
+  PHASE_5_FIX:
+    description: Fix QA findings
+    entry_conditions:
+      - code_exists
+    
+    agent: implementation-agent
+    session: stateful
+    
+    outputs:
+      - src/**/*
+      - tests/**/*
+      - git commits
+    
+    on:
+      FixesComplete:
+        transitions:
+          - to: PHASE_5_QUALITY  # Re-run QA
+
+  DONE:
+    description: All phases complete, ready to merge
+    entry_conditions:
+      - spec_exists
+      - architecture_exists
+      - backlog_exists
+      - code_exists
+      - no_open_spec_findings
+      - no_open_atam_findings
+      - no_open_recon_findings
+      - no_open_qa_findings
+    
+    final: true
+
+# Halt conditions (circuit breakers)
+halt_conditions:
+  - type: max_iterations
+    state: PHASE_1_REQUIREMENTS
+    event: ReviewComplete
+    limit: 5
+    message: "Spec review looped 5 times. Escalate to human."
+  
+  - type: max_iterations
+    state: PHASE_2_ARCHITECTURE
+    event: ReviewComplete
+    limit: 5
+    message: "Architecture review looped 5 times. Escalate to human."
+  
+  - type: max_iterations
+    state: PHASE_5_QUALITY
+    event: QAComplete
+    limit: 5
+    message: "QA looped 5 times. Escalate to human."
+  
+  - type: script_failure
+    script: adapter_auth_check
+    message: "Adapter auth failed. Not author-fixable. Escalate."
+  
+  - type: circular_dependency
+    file_pattern: backlog/ST-*.md
+    message: "Circular dependencies in backlog. Escalate."
+
+# Audit trail
+audit:
+  log_state_entry: true
+  log_gate_checks: true
+  log_transitions: true
+  log_halt_conditions: true
+  output_file: .orchestrator/audit.log

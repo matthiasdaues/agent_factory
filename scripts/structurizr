@@ -1,0 +1,119 @@
+#!/bin/bash
+# structurizr - Docker-only wrapper for the Structurizr DSL export pipeline
+#
+# This script provides a unified interface to Structurizr export, validation,
+# and inspection operations without requiring local installation of Structurizr,
+# Playwright, or any other tool. All operations run inside a Docker container.
+#
+# Usage:
+#   ./structurizr <subcommand> [args...]
+#
+# Subcommands:
+#   export-png   - Export all views as PNG files to docs/assets/images/
+#   export-svg   - Export all views as SVG files to docs/assets/images/
+#   export-all   - Export all views as both SVG and PNG (svg first, then png)
+#   validate     - Validate the DSL model for syntax and semantic errors
+#   list-views   - List all view keys defined in the DSL workspace
+
+set -euo pipefail
+
+# Configuration
+IMAGE="${STRUCTURIZR_IMAGE:-structurizr/structurizr:2026.05.22-playwright}"
+DOCS_DIR="${STRUCTURIZR_DOCS:-$(pwd)/docs}"
+IMAGES_DIR="${DOCS_DIR}/assets/images"
+
+# Validate that docs directory exists
+if [ ! -d "${DOCS_DIR}" ]; then
+    echo "Error: docs directory does not exist at ${DOCS_DIR}" >&2
+    exit 1
+fi
+
+# Create output directory for exports (required by US-RP-002 and US-RP-003)
+mkdir -p "${IMAGES_DIR}"
+
+# Ensure docker is available
+if ! command -v docker &> /dev/null; then
+    echo "Error: Docker is not installed or not in PATH" >&2
+    exit 1
+fi
+
+# Strip the "structurizr-" prefix from exported filenames.
+# Structurizr exports as structurizr-<ViewKey>.<ext>; we want <ViewKey>.<ext>.
+strip_prefix() {
+    for f in "${IMAGES_DIR}"/structurizr-*; do
+        [ -e "$f" ] || continue
+        local base
+        base="$(basename "$f")"
+        local stripped="${base#structurizr-}"
+        mv "$f" "${IMAGES_DIR}/${stripped}"
+    done
+}
+
+# Subcommand dispatcher
+case "${1:-}" in
+    export-png)
+        docker run --rm \
+            -v "${DOCS_DIR}:/workspace" \
+            "${IMAGE}" export -format png -workspace /workspace/architecture.dsl -output /workspace/assets/images
+        strip_prefix
+        ;;
+    export-svg)
+        docker run --rm \
+            -v "${DOCS_DIR}:/workspace" \
+            "${IMAGE}" export -format svg -workspace /workspace/architecture.dsl -output /workspace/assets/images
+        strip_prefix
+        ;;
+    export-all)
+        # Run svg export first, then png export.
+        # Both formats are always attempted; exit non-zero if either fails.
+        SVG_EXIT=0
+        PNG_EXIT=0
+
+        docker run --rm \
+            -v "${DOCS_DIR}:/workspace" \
+            "${IMAGE}" export -format svg -workspace /workspace/architecture.dsl -output /workspace/assets/images \
+            || SVG_EXIT=$?
+
+        [ "${SVG_EXIT}" -eq 0 ] || echo "Warning: SVG export failed (exit ${SVG_EXIT})" >&2
+
+        docker run --rm \
+            -v "${DOCS_DIR}:/workspace" \
+            "${IMAGE}" export -format png -workspace /workspace/architecture.dsl -output /workspace/assets/images \
+            || PNG_EXIT=$?
+
+        [ "${PNG_EXIT}" -eq 0 ] || echo "Warning: PNG export failed (exit ${PNG_EXIT})" >&2
+
+        if [ "${SVG_EXIT}" -ne 0 ] || [ "${PNG_EXIT}" -ne 0 ]; then
+            # Exit with the larger of the two exit codes to preserve specific failure information
+            exit $(( SVG_EXIT > PNG_EXIT ? SVG_EXIT : PNG_EXIT ))
+        fi
+        strip_prefix
+        ;;
+    validate)
+        exec docker run --rm \
+            -v "${DOCS_DIR}:/workspace" \
+            "${IMAGE}" validate -workspace /workspace/architecture.dsl
+        ;;
+    list-views)
+        exec docker run --rm \
+            -v "${DOCS_DIR}:/workspace" \
+            "${IMAGE}" list-views -workspace /workspace/architecture.dsl
+        ;;
+    *)
+        # Unknown subcommand
+        cat >&2 <<EOF
+Usage: $(basename "$0") <subcommand> [args...]
+
+Subcommands:
+  export-png   - Export all views as PNG files to docs/assets/images/
+  export-svg   - Export all views as SVG files to docs/assets/images/
+  export-all   - Export all views as both SVG and PNG
+  validate     - Validate the DSL model
+  list-views   - List all view keys in the workspace
+
+Default image: ${IMAGE}
+Override with:  STRUCTURIZR_IMAGE=<image> ./structurizr <subcommand>
+EOF
+        exit 1
+        ;;
+esac

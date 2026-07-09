@@ -1,0 +1,606 @@
+#!/usr/bin/env python3
+# spec-lint - Deterministic consistency & traceability linter for docs/spec/.
+#
+# This is the Pass-1 (deterministic) half of the spec review mechanism. It parses
+# the Markdown specification artifacts, builds a traceability graph from the declared
+# IDs (UC-##, BR-###, entities, actors), and reports the defect classes a parser can
+# catch exactly and cheaply — leaving semantic judgement to the inspect-spec LLM pass.
+#
+# It has NO third-party dependencies (Python 3.8+ stdlib only), so it runs anywhere
+# without a virtualenv, mirroring the zero-install intent of scripts/structurizr.
+#
+# Usage:
+#   ./spec-lint [--spec-dir docs/spec] [--context CONTEXT.md]
+#               [--format text|json] [--graph docs/spec/traceability.json]
+#               [--gate-todos] [--report-only]
+#
+# Exit code: number of ERROR-severity findings (0 = clean), unless --report-only.
+# Findings are grouped by code so the LLM reviewer and CI can both consume them.
+#
+# Every check is intentionally conservative: it flags only what is deterministically
+# provable from the declared structure, to keep false positives near zero. Heuristic
+# checks are marked (heuristic) in their message and emitted at warning/info severity.
+
+import argparse
+import json
+import re
+import sys
+from dataclasses import dataclass, field, asdict
+from pathlib import Path
+from typing import Dict, List, Set
+
+SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
+
+# --- Regexes for declared anchors -------------------------------------------------
+RE_UC = re.compile(r"\bUC-(\d{1,3})\b")
+RE_AG = re.compile(r"\bAG-(\d{1,3})\b")
+RE_BR = re.compile(r"\bBR-(\d{1,3})\b")
+RE_BR_DEF = re.compile(r"^\s*(?:[-*]\s*)?\*{0,2}BR-(\d{1,3})\*{0,2}\s*[:.—-]")
+RE_FENCE = re.compile(r"^```+\s*([A-Za-z0-9_-]*)\s*$")
+RE_MERMAID_TRANSITION = re.compile(r"^\s*(.+?)\s*-->\s*(.+?)\s*(?::.*)?$")
+# Mermaid ER relationship: ENTITY1 <cardinality-glyphs> ENTITY2 : label
+# Cardinality tokens contain |, o, {, }, --, .. — matched loosely as a no-space run.
+RE_ERD_REL = re.compile(r"^\s*([A-Za-z_]\w*)\s+\S+\s+([A-Za-z_]\w*)\s*:")
+RE_ERD_ENTITY_BLOCK = re.compile(r"^\s*([A-Za-z_][\w-]*)\s*\{")
+RE_LIST_PREFIX = re.compile(r"^\s*(?:[-*+]\s+|\d+[.)]\s+)")
+PLACEHOLDER_WORDS = re.compile(
+    r"\b(TODO|TBD|FIXME|XXX|TKTK|lorem ipsum|placeholder)\b", re.I
+)
+
+REQUIRED_UC_SECTIONS = [
+    ("primary actor", "Primary Actor"),
+    ("stakeholder", "Stakeholders & Interests"),
+    ("trigger", "Trigger"),
+    ("precondition", "Preconditions"),
+    ("main success scenario", "Main Success Scenario"),
+    ("extension", "Extensions"),
+    ("postcondition", "Postconditions"),
+    ("business rule", "Business Rules"),
+]
+
+REQUIRED_ARTIFACTS = [
+    "prd.md",
+    "actor-goal-list.md",
+    "use_cases",
+    "supplementary_specs/entity-model.md",
+    "supplementary_specs/validation-rules.md",
+]
+
+
+@dataclass
+class Finding:
+    code: str
+    severity: str  # error | warning | info
+    artifact: str
+    message: str
+
+    def line(self) -> str:
+        return (
+            f"[{self.severity.upper():7}] {self.code}  {self.artifact}: {self.message}"
+        )
+
+
+@dataclass
+class Graph:
+    use_cases: Set[str] = field(default_factory=set)
+    actor_goals: Set[str] = field(
+        default_factory=set
+    )  # AG-## declared in actor-goal-list
+    goal_refs: Set[str] = field(
+        default_factory=set
+    )  # AG-## a use case claims to realize
+    business_rules_defined: Set[str] = field(default_factory=set)
+    business_rules_referenced: Set[str] = field(default_factory=set)
+    entities: Set[str] = field(default_factory=set)
+    entities_with_attrs: Set[str] = field(default_factory=set)
+    edges: List[Dict[str, str]] = field(default_factory=list)
+
+    def as_json(self) -> dict:
+        return {
+            "generated_by": "spec-lint",
+            "nodes": {
+                "actor_goals": sorted(self.actor_goals),
+                "use_cases": sorted(self.use_cases),
+                "business_rules": sorted(self.business_rules_defined),
+                "entities": sorted(self.entities),
+            },
+            "edges": self.edges,
+        }
+
+
+def read(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return ""
+
+
+def fenced_blocks(text: str, lang: str) -> List[str]:
+    """Return the bodies of ```<lang> ... ``` fenced code blocks."""
+    blocks, buf, inside, cur_lang = [], [], False, ""
+    for ln in text.splitlines():
+        m = RE_FENCE.match(ln)
+        if m:
+            if inside:
+                if cur_lang.lower() == lang.lower():
+                    blocks.append("\n".join(buf))
+                buf, inside = [], False
+            else:
+                inside, cur_lang = True, m.group(1)
+            continue
+        if inside:
+            buf.append(ln)
+    return blocks
+
+
+# --- Individual checks ------------------------------------------------------------
+
+
+def check_required_artifacts(spec: Path) -> List[Finding]:
+    out = []
+    for rel in REQUIRED_ARTIFACTS:
+        if not (spec / rel).exists():
+            out.append(
+                Finding("STRUCT005", "error", rel, "required spec artifact is missing")
+            )
+    return out
+
+
+def check_use_cases(spec: Path, graph: Graph) -> List[Finding]:
+    out = []
+    uc_dir = spec / "use_cases"
+    if not uc_dir.is_dir():
+        return out
+    for f in sorted(uc_dir.glob("UC-*.md")):
+        rel = str(f.relative_to(spec.parent))
+        text = read(f)
+        low = text.lower()
+
+        if not re.match(r"^UC-\d{1,3}-[a-z0-9-]+\.md$", f.name):
+            out.append(
+                Finding(
+                    "STRUCT004",
+                    "warning",
+                    rel,
+                    "filename does not match UC-XX-short-name.md",
+                )
+            )
+
+        if not re.search(
+            r"(?im)^\s*(?:[-*]\s*)?\*{0,2}realizes\*{0,2}\s*:.*\bAG-\d", text
+        ):
+            out.append(
+                Finding(
+                    "STRUCT006",
+                    "warning",
+                    rel,
+                    "use case does not declare which goal it realizes (Realizes: AG-##)",
+                )
+            )
+
+        for needle, label in REQUIRED_UC_SECTIONS:
+            if needle not in low:
+                out.append(
+                    Finding(
+                        "STRUCT001",
+                        "error",
+                        rel,
+                        f"missing required Cockburn section: {label}",
+                    )
+                )
+
+        gherkin = fenced_blocks(text, "gherkin") or (
+            [
+                "\n".join(
+                    ln
+                    for ln in text.splitlines()
+                    if re.match(r"\s*(Feature|Scenario|Given|When|Then|And):?", ln)
+                )
+            ]
+            if "scenario" in low
+            else []
+        )
+        if not gherkin or "scenario" not in low:
+            out.append(
+                Finding(
+                    "STRUCT002",
+                    "error",
+                    rel,
+                    "no Gherkin acceptance criteria (Scenario) found",
+                )
+            )
+        else:
+            joined = "\n".join(gherkin).lower()
+            if "when" not in joined or "then" not in joined:
+                out.append(
+                    Finding(
+                        "FMT002",
+                        "warning",
+                        rel,
+                        "Gherkin present but missing When/Then keywords",
+                    )
+                )
+
+        if not fenced_blocks(text, "mermaid"):
+            out.append(
+                Finding(
+                    "STRUCT003", "warning", rel, "no Mermaid activity diagram found"
+                )
+            )
+
+        for m in PLACEHOLDER_WORDS.finditer(text):
+            out.append(
+                Finding(
+                    "FMT003", "warning", rel, f"placeholder text found: '{m.group(0)}'"
+                )
+            )
+    return out
+
+
+def collect_graph(spec: Path, graph: Graph) -> None:
+    uc_dir = spec / "use_cases"
+    if uc_dir.is_dir():
+        for f in uc_dir.glob("UC-*.md"):
+            m = re.match(r"(UC-\d{1,3})", f.name)
+            if m:
+                graph.use_cases.add(m.group(1))
+
+    for m in RE_AG.finditer(read(spec / "actor-goal-list.md")):
+        graph.actor_goals.add(f"AG-{int(m.group(1)):02d}")
+
+    for f in spec.rglob("*.md"):
+        text = read(f)
+        uc_here = None
+        m = re.match(r"(UC-\d{1,3})", f.name)
+        if m:
+            uc_here = m.group(1)
+            graph.use_cases.add(uc_here)
+            # Only the `Realizes: AG-##` declaration line establishes coverage —
+            # an incidental mention of another goal elsewhere in the use case does not.
+            for ln in text.splitlines():
+                if re.match(r"\s*(?:[-*]\s*)?\*{0,2}realizes\*{0,2}\s*:", ln, re.I):
+                    for ag in RE_AG.finditer(ln):
+                        agid = f"AG-{int(ag.group(1)):02d}"
+                        graph.goal_refs.add(agid)
+                        graph.edges.append(
+                            {"from": uc_here, "rel": "realizes", "to": agid}
+                        )
+        for ln in text.splitlines():
+            defm = RE_BR_DEF.match(ln)
+            if defm:
+                graph.business_rules_defined.add(f"BR-{int(defm.group(1)):03d}")
+            for br in RE_BR.finditer(ln):
+                bid = f"BR-{int(br.group(1)):03d}"
+                if not RE_BR_DEF.match(ln):
+                    graph.business_rules_referenced.add(bid)
+                if uc_here:
+                    graph.edges.append(
+                        {"from": uc_here, "rel": "references_br", "to": bid}
+                    )
+
+    erd = spec / "supplementary_specs" / "entity-model.md"
+    for block in fenced_blocks(read(erd), "mermaid"):
+        if "erdiagram" not in block.lower():
+            continue
+        for ln in block.splitlines():
+            bm = RE_ERD_ENTITY_BLOCK.match(ln)
+            if bm:
+                graph.entities.add(bm.group(1).upper())
+                graph.entities_with_attrs.add(bm.group(1).upper())
+            rm = RE_ERD_REL.match(ln)
+            if rm:
+                graph.entities.add(rm.group(1).upper())
+                graph.entities.add(rm.group(2).upper())
+
+
+def check_traceability(spec: Path, graph: Graph) -> List[Finding]:
+    out = []
+
+    # BR referenced but never defined (hard error) / defined but never used (info).
+    for bid in sorted(graph.business_rules_referenced - graph.business_rules_defined):
+        out.append(
+            Finding(
+                "TRACE002",
+                "error",
+                "docs/spec",
+                f"{bid} is referenced but never defined in a Business Rules section",
+            )
+        )
+    for bid in sorted(graph.business_rules_defined - graph.business_rules_referenced):
+        out.append(
+            Finding(
+                "TRACE003",
+                "info",
+                "docs/spec",
+                f"{bid} is defined but never referenced elsewhere",
+            )
+        )
+
+    # Any UC-## cross-reference that points at a non-existent use case.
+    for f in spec.rglob("*.md"):
+        rel = str(f.relative_to(spec.parent))
+        for m in RE_UC.finditer(read(f)):
+            uid = f"UC-{int(m.group(1)):02d}"
+            alt = f"UC-{m.group(1)}"
+            if uid not in graph.use_cases and alt not in graph.use_cases:
+                out.append(
+                    Finding(
+                        "TRACE006",
+                        "warning",
+                        rel,
+                        f"cross-reference to {m.group(0)} which has no matching use case file",
+                    )
+                )
+                break  # one report per file is enough
+
+    # Entities that appear only in relationships, with no attribute block, are
+    # underspecified — a genuine completeness gap the ERD can prove on its own.
+    for ent in sorted(graph.entities - graph.entities_with_attrs):
+        out.append(
+            Finding(
+                "TRACE004",
+                "info",
+                "docs/spec/supplementary_specs/entity-model.md",
+                f"entity '{ent}' is used in a relationship but has no attribute block defined",
+            )
+        )
+    return out
+
+
+def check_actor_goal_coverage(spec: Path, graph: Graph) -> List[Finding]:
+    agl = spec / "actor-goal-list.md"
+    if not agl.exists():
+        return []
+    text = read(agl)
+
+    # Preferred path: goals carry AG-## IDs, so coverage is a deterministic graph check —
+    # every User Goal must be realized by at least one use case that references its ID.
+    user_goal_ids = set()
+    for ln in text.splitlines():
+        m = RE_AG.search(ln)
+        if m and re.search(r"user\s+goal", ln, re.I):
+            user_goal_ids.add(f"AG-{int(m.group(1)):02d}")
+    if user_goal_ids:
+        return [
+            Finding(
+                "TRACE001",
+                "warning",
+                "docs/spec/actor-goal-list.md",
+                f"User Goal {ag} is not realized by any use case",
+            )
+            for ag in sorted(user_goal_ids - graph.goal_refs)
+        ]
+
+    # Fallback heuristic for specs that have not adopted AG-## IDs yet.
+    user_goals = len(re.findall(r"user\s+goal", text, re.I))
+    if user_goals and len(graph.use_cases) < user_goals:
+        return [
+            Finding(
+                "TRACE001",
+                "warning",
+                "docs/spec/actor-goal-list.md",
+                f"{user_goals} User Goals listed but only {len(graph.use_cases)} "
+                f"use case files exist — possible coverage gap (heuristic)",
+            )
+        ]
+    return []
+
+
+def check_ears(spec: Path) -> List[Finding]:
+    out = []
+    suc = spec / "use_cases" / "system-use-cases.md"
+    if not suc.exists():
+        return out
+    ubiquitous = re.compile(r"^(the\s+\S+|\S+)\s+shall\b", re.I)
+    keyword = re.compile(r"^(when|while|where|if)\b", re.I)
+    for raw in read(suc).splitlines():
+        ln = RE_LIST_PREFIX.sub("", raw).strip().strip("*_`")
+        if re.search(r"\bshall\b", ln, re.I):
+            if len(re.findall(r"\bshall\b", ln, re.I)) > 1:
+                out.append(
+                    Finding(
+                        "FMT004",
+                        "warning",
+                        "docs/spec/use_cases/system-use-cases.md",
+                        f"non-atomic requirement (multiple 'shall'): '{ln[:70]}'",
+                    )
+                )
+            if not (ubiquitous.match(ln) or keyword.match(ln)):
+                out.append(
+                    Finding(
+                        "FMT001",
+                        "info",
+                        "docs/spec/use_cases/system-use-cases.md",
+                        f"possible non-EARS requirement (heuristic): '{ln[:70]}'",
+                    )
+                )
+    return out
+
+
+def check_state_machines(spec: Path) -> List[Finding]:
+    out = []
+    sm = spec / "supplementary_specs" / "state-machines.md"
+    if not sm.exists():
+        return out
+    rel = "docs/spec/supplementary_specs/state-machines.md"
+    for block in fenced_blocks(read(sm), "mermaid"):
+        if "statediagram" not in block.lower():
+            continue
+        succ: Dict[str, Set[str]] = {}
+        initial: Set[str] = set()
+        nodes: Set[str] = set()
+        terminal: Set[str] = set()
+        for ln in block.splitlines():
+            m = RE_MERMAID_TRANSITION.match(ln.strip())
+            if not m:
+                continue
+            a, b = m.group(1).strip(), m.group(2).strip()
+            if a == "[*]":
+                initial.add(b)
+                nodes.add(b)
+            elif b == "[*]":
+                terminal.add(a)
+                nodes.add(a)
+            else:
+                succ.setdefault(a, set()).add(b)
+                nodes.update({a, b})
+        if not initial:
+            out.append(
+                Finding(
+                    "SM003",
+                    "warning",
+                    rel,
+                    "state diagram has no initial transition ([*] --> State)",
+                )
+            )
+            continue
+        reached, stack = set(initial), list(initial)
+        while stack:
+            n = stack.pop()
+            for nxt in succ.get(n, ()):
+                if nxt not in reached:
+                    reached.add(nxt)
+                    stack.append(nxt)
+        for n in sorted(nodes - reached):
+            out.append(
+                Finding(
+                    "SM001",
+                    "warning",
+                    rel,
+                    f"state '{n}' is unreachable from the initial state",
+                )
+            )
+        for n in sorted(nodes):
+            if n not in succ and n not in terminal:
+                out.append(
+                    Finding(
+                        "SM002",
+                        "warning",
+                        rel,
+                        f"state '{n}' is a non-terminal dead end (no outgoing transition, no [*])",
+                    )
+                )
+    return out
+
+
+def check_todos(spec: Path, gate: bool) -> List[Finding]:
+    todos = spec / "todos.md"
+    if not todos.exists():
+        return []
+    open_items = len(re.findall(r"^\s*-\s*\[\s\]", read(todos), re.M))
+    if open_items:
+        sev = "error" if gate else "info"
+        return [
+            Finding(
+                "TODO001",
+                sev,
+                "docs/spec/todos.md",
+                f"{open_items} unresolved todo item(s) remain",
+            )
+        ]
+    return []
+
+
+def check_glossary(spec: Path, context: Path) -> List[Finding]:
+    if not context or not context.exists():
+        return []
+    terms = set(re.findall(r"^\s*[-*]\s*\*\*([A-Z][\w /-]+?)\*\*", read(context), re.M))
+    if not terms:
+        return []
+    corpus = "\n".join(read(f) for f in spec.rglob("*.md")).lower()
+    out = []
+    for t in sorted(terms):
+        if t.lower() not in corpus:
+            out.append(
+                Finding(
+                    "GLOSS001",
+                    "info",
+                    "CONTEXT.md",
+                    f"glossary term '{t}' is never used in the spec (heuristic)",
+                )
+            )
+    return out
+
+
+# --- Driver -----------------------------------------------------------------------
+
+
+def run(spec: Path, context: Path, gate_todos: bool) -> (List[Finding], Graph):
+    graph = Graph()
+    findings: List[Finding] = []
+    findings += check_required_artifacts(spec)
+    collect_graph(spec, graph)
+    findings += check_use_cases(spec, graph)
+    findings += check_traceability(spec, graph)
+    findings += check_actor_goal_coverage(spec, graph)
+    findings += check_ears(spec)
+    findings += check_state_machines(spec)
+    findings += check_todos(spec, gate_todos)
+    findings += check_glossary(spec, context)
+    findings.sort(key=lambda f: (-SEVERITY_ORDER[f.severity], f.code, f.artifact))
+    return findings, graph
+
+
+def main() -> int:
+    p = argparse.ArgumentParser(
+        description="Deterministic spec consistency & traceability linter."
+    )
+    p.add_argument("--spec-dir", default="docs/spec")
+    p.add_argument("--context", default="CONTEXT.md")
+    p.add_argument("--format", choices=["text", "json"], default="text")
+    p.add_argument(
+        "--graph",
+        nargs="?",
+        const="docs/spec/traceability.json",
+        default=None,
+        help="write the traceability graph as JSON to this path",
+    )
+    p.add_argument(
+        "--gate-todos", action="store_true", help="treat unresolved todos as an error"
+    )
+    p.add_argument(
+        "--report-only",
+        action="store_true",
+        help="always exit 0 (report without gating)",
+    )
+    args = p.parse_args()
+
+    spec = Path(args.spec_dir)
+    if not spec.is_dir():
+        print(f"Error: spec directory not found at {spec}", file=sys.stderr)
+        return 2
+
+    findings, graph = run(spec, Path(args.context), args.gate_todos)
+    counts = {s: sum(1 for f in findings if f.severity == s) for s in SEVERITY_ORDER}
+
+    if args.graph:
+        Path(args.graph).write_text(
+            json.dumps(graph.as_json(), indent=2) + "\n", encoding="utf-8"
+        )
+
+    if args.format == "json":
+        print(
+            json.dumps(
+                {
+                    "findings": [asdict(f) for f in findings],
+                    "summary": counts,
+                },
+                indent=2,
+            )
+        )
+    else:
+        for f in findings:
+            print(f.line())
+        print(
+            f"\nspec-lint: {counts['error']} error(s), "
+            f"{counts['warning']} warning(s), {counts['info']} info "
+            f"across {len(list(spec.rglob('*.md')))} spec file(s)."
+        )
+        if args.graph:
+            print(f"traceability graph written to {args.graph}")
+
+    return 0 if args.report_only else counts["error"]
+
+
+if __name__ == "__main__":
+    sys.exit(main())

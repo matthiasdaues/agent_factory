@@ -1,0 +1,236 @@
+#!/usr/bin/env python3
+"""arch-lint — deterministic consistency gate for arc42 + Structurizr docs.
+
+Catches the drift class from the DSL-drift post-mortem: prose chapters and the
+Structurizr model (`architecture.dsl`) evolving out of step, with no check to
+tie them together. Same spirit as `spec-lint`: a deterministic gate, blocking
+only on error-severity findings, runnable as a pre-commit hook.
+
+Checks
+  1. Staleness   — architecture.dsl newer than an exported image => re-export needed.
+  2. Coupling    — the core components and the ports named in chapter 5
+                   (05_building_block_view.md) must match the model, both ways.
+  3. Validate    — run `structurizr validate` when Docker is available; skip otherwise.
+
+Usage
+  arch-lint --docs-dir docs
+  arch-lint --docs-dir docs --no-validate
+
+Exit non-zero iff at least one error-severity finding exists (gate contract).
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+ERROR, WARNING, INFO = "ERROR", "WARNING", "INFO"
+_ORDER = {ERROR: 0, WARNING: 1, INFO: 2}
+
+
+class Report:
+    def __init__(self) -> None:
+        self.items: list[tuple[str, str, str]] = []
+
+    def add(self, severity: str, code: str, message: str) -> None:
+        self.items.append((severity, code, message))
+
+    def error(self, code: str, msg: str) -> None:
+        self.add(ERROR, code, msg)
+
+    def warn(self, code: str, msg: str) -> None:
+        self.add(WARNING, code, msg)
+
+    def info(self, code: str, msg: str) -> None:
+        self.add(INFO, code, msg)
+
+    def n(self, severity: str) -> int:
+        return sum(1 for s, _, _ in self.items if s == severity)
+
+    def print(self) -> None:
+        for sev, code, msg in sorted(self.items, key=lambda i: _ORDER[i[0]]):
+            print(f"[{sev:<7}] {code}  {msg}")
+        print(
+            f"\narch-lint: {self.n(ERROR)} error(s), "
+            f"{self.n(WARNING)} warning(s), {self.n(INFO)} info"
+        )
+
+
+# --- DSL parsing -----------------------------------------------------------
+
+
+def _block(text: str, start_marker: str) -> str:
+    """Return the brace-delimited block that follows start_marker."""
+    i = text.find(start_marker)
+    if i == -1:
+        return ""
+    i = text.find("{", i)
+    if i == -1:
+        return ""
+    depth, j = 0, i
+    for j in range(i, len(text)):
+        if text[j] == "{":
+            depth += 1
+        elif text[j] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[i + 1 : j]
+    return text[i + 1 :]
+
+
+def dsl_core_components(dsl: str) -> set[str]:
+    core = _block(dsl, "core = container")
+    return set(re.findall(r'=\s*component\s+"([^"]+)"', core))
+
+
+def dsl_ports(dsl: str) -> set[str]:
+    m = re.search(r'ports\s*=\s*component\s+"Ports"\s+"([^"]*)"', dsl)
+    if not m:
+        return set()
+    desc = m.group(1)
+    if ":" in desc:
+        desc = desc.split(":", 1)[1]
+    return {t.strip().rstrip(".") for t in desc.split(",") if t.strip()}
+
+
+# --- Chapter 5 parsing -----------------------------------------------------
+
+
+def _section(md: str, start: str, end: str) -> str:
+    i = md.find(start)
+    if i == -1:
+        return ""
+    j = md.find(end, i + len(start))
+    return md[i : j if j != -1 else len(md)]
+
+
+def ch5_core_components(md: str) -> set[str]:
+    sec = _section(md, "## 5.2", "## 5.3")
+    names = set()
+    for line in sec.splitlines():
+        m = re.match(r"\|\s*\*\*([^*|]+)\*\*\s*\|", line)
+        if m:
+            names.add(m.group(1).strip())
+    return names
+
+
+def ch5_ports(md: str) -> set[str]:
+    sec = _section(md, "## 5.2", "## 5.3")
+    for line in sec.splitlines():
+        if re.match(r"\|\s*\*\*Ports\*\*\s*\|", line):
+            return {t.strip() for t in re.findall(r"`([^`]+)`", line)}
+    return set()
+
+
+# --- Checks ----------------------------------------------------------------
+
+
+def check_staleness(rep: Report, dsl_path: Path, images: list[Path]) -> None:
+    if not images:
+        rep.warn("ARCH-STALE", "no exported images found; run `structurizr export-all`")
+        return
+    dsl_mtime = dsl_path.stat().st_mtime
+    stale = [p for p in images if p.stat().st_mtime < dsl_mtime]
+    if stale:
+        names = ", ".join(sorted(p.name for p in stale))
+        rep.error(
+            "ARCH-STALE",
+            f"architecture.dsl is newer than exported image(s): {names}. "
+            f"Re-run `structurizr export-all`.",
+        )
+
+
+def check_coupling(rep: Report, dsl: str, ch5: str) -> None:
+    for kind, dset, cset in (
+        ("component", dsl_core_components(dsl), ch5_core_components(ch5)),
+        ("port", dsl_ports(dsl), ch5_ports(ch5)),
+    ):
+        if not dset or not cset:
+            rep.warn("ARCH-PARSE", f"could not extract {kind}s from DSL or chapter 5")
+            continue
+        for missing in sorted(cset - dset):
+            rep.error(
+                "ARCH-COUPLE",
+                f"{kind} '{missing}' is in chapter 5 but not in architecture.dsl",
+            )
+        for missing in sorted(dset - cset):
+            rep.error(
+                "ARCH-COUPLE",
+                f"{kind} '{missing}' is in architecture.dsl but not in chapter 5",
+            )
+
+
+def check_validate(rep: Report, docs_dir: Path) -> None:
+    structurizr = Path(__file__).resolve().parent / "structurizr"
+    if not structurizr.exists():
+        rep.info("ARCH-VALIDATE", "structurizr wrapper not found; skipped")
+        return
+    if shutil.which("docker") is None:
+        rep.info("ARCH-VALIDATE", "docker unavailable; validation skipped")
+        return
+    docs_abs = docs_dir.resolve()
+    try:
+        r = subprocess.run(
+            [str(structurizr), "validate"],
+            cwd=docs_abs.parent,
+            env={**_env(), "STRUCTURIZR_DOCS": str(docs_abs)},
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        rep.warn("ARCH-VALIDATE", f"validation could not run: {exc}")
+        return
+    if r.returncode != 0:
+        last = (r.stderr or r.stdout).strip().splitlines()[-1:] or ["(no output)"]
+        rep.error("ARCH-VALIDATE", f"structurizr validate failed: {last[0]}")
+
+
+def _env() -> dict:
+    import os
+
+    return dict(os.environ)
+
+
+# --- Main ------------------------------------------------------------------
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(
+        description="Consistency gate for arc42 + Structurizr docs."
+    )
+    ap.add_argument("--docs-dir", default="docs", type=Path)
+    ap.add_argument(
+        "--no-validate", action="store_true", help="skip structurizr validate"
+    )
+    args = ap.parse_args(argv)
+
+    docs = args.docs_dir
+    dsl_path = docs / "architecture.dsl"
+    ch5_path = docs / "05_building_block_view.md"
+    images = sorted((docs / "assets" / "images").glob("*.png"))
+
+    rep = Report()
+
+    if not dsl_path.exists():
+        rep.error("ARCH-MISSING", f"{dsl_path} not found")
+    if not ch5_path.exists():
+        rep.error("ARCH-MISSING", f"{ch5_path} not found")
+
+    if dsl_path.exists():
+        check_staleness(rep, dsl_path, images)
+    if dsl_path.exists() and ch5_path.exists():
+        check_coupling(rep, dsl_path.read_text(), ch5_path.read_text())
+    if not args.no_validate:
+        check_validate(rep, docs)
+
+    rep.print()
+    return 1 if rep.n(ERROR) else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

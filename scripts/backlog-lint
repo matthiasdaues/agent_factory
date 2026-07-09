@@ -1,0 +1,476 @@
+#!/usr/bin/env python3
+"""backlog-lint — deterministic schema & traceability gate for backlog stories.
+
+Validates every ``backlog/ST-NNNN.md`` story file against the StoryFrontmatter
+schema (interface-contracts.md) and checks cross-story consistency (dep
+references, id↔filename match).  This is the planning phase's gate hook
+(VR-022, ADR-0008).
+
+No third-party dependencies (Python 3.8+ stdlib only), matching spec-lint and
+arch-lint (ADR-0006).
+
+Usage
+  backlog-lint --backlog-dir backlog
+  backlog-lint --backlog-dir backlog --format json --report-only
+
+Exit code: number of ERROR-severity findings (0 = clean), unless --report-only.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
+
+# --- Schema constants ---------------------------------------------------------
+
+VALID_CLASSIFICATIONS = {"trivial", "standard", "hard"}
+VALID_STATUSES = {"pending", "in-progress", "done", "blocked"}
+RE_STORY_ID = re.compile(r"^ST-\d{4,}$")
+REQUIRED_FIELDS = {"id", "epic", "title", "classification", "status", "outputs"}
+OPTIONAL_FIELDS = {"deps", "traces"}
+ALL_FIELDS = REQUIRED_FIELDS | OPTIONAL_FIELDS
+
+# Machine fields whose names must not appear as standalone terms in the prose body.
+MACHINE_FIELD_NAMES = {"classification", "deps", "traces", "outputs"}
+
+
+@dataclass
+class Finding:
+    code: str
+    severity: str
+    artifact: str
+    message: str
+
+    def line(self) -> str:
+        return (
+            f"[{self.severity.upper():7}] {self.code}  {self.artifact}: {self.message}"
+        )
+
+
+# --- YAML frontmatter parser (stdlib only) ------------------------------------
+
+
+def _parse_yaml_value(raw: str) -> Any:
+    """Minimal YAML value parser — handles strings, lists, booleans, null."""
+    val = raw.strip()
+    if not val or val in ("~", "null"):
+        return None
+    if val in ("true", "True", "yes"):
+        return True
+    if val in ("false", "False", "no"):
+        return False
+    # Inline flow sequence: [a, b, c]
+    if val.startswith("[") and val.endswith("]"):
+        inner = val[1:-1]
+        if not inner.strip():
+            return []
+        return [_unquote(t.strip()) for t in inner.split(",") if t.strip()]
+    return _unquote(val)
+
+
+def _unquote(s: str) -> str:
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in ('"', "'"):
+        return s[1:-1]
+    return s
+
+
+def parse_frontmatter(text: str) -> Tuple[Optional[Dict[str, Any]], str]:
+    """Return (frontmatter_dict | None, body) from ``---``-delimited YAML."""
+    lines = text.split("\n")
+    if not lines or lines[0].strip() != "---":
+        return None, text
+
+    end = None
+    for i, ln in enumerate(lines[1:], start=1):
+        if ln.strip() == "---":
+            end = i
+            break
+    if end is None:
+        return None, text
+
+    fm: Dict[str, Any] = {}
+    current_key: Optional[str] = None
+    current_list: Optional[List[str]] = None
+
+    for ln in lines[1:end]:
+        # Block-sequence continuation: "  - item"
+        list_item = re.match(r"^\s+-\s+(.+)$", ln)
+        if list_item and current_key is not None:
+            if current_list is None:
+                current_list = []
+            current_list.append(_unquote(list_item.group(1).strip()))
+            continue
+
+        # Flush pending list
+        if current_key is not None and current_list is not None:
+            fm[current_key] = current_list
+            current_list = None
+            current_key = None
+
+        m = re.match(r"^([A-Za-z_][A-Za-z0-9_-]*)\s*:\s*(.*)?$", ln)
+        if m:
+            key = m.group(1)
+            raw_val = (m.group(2) or "").strip()
+            if not raw_val:
+                # Could be followed by block sequence lines
+                current_key = key
+                current_list = None
+                fm[key] = None  # placeholder
+            else:
+                current_key = key
+                current_list = None
+                fm[key] = _parse_yaml_value(raw_val)
+
+    # Flush trailing list
+    if current_key is not None and current_list is not None:
+        fm[current_key] = current_list
+
+    body = "\n".join(lines[end + 1 :])
+    return fm, body
+
+
+def _project_root(backlog_dir: Path) -> Path:
+    """Resolve the project root used for output globs."""
+    return backlog_dir.resolve().parent
+
+
+def _matching_output_paths(project_root: Path, outputs: List[Any]) -> Set[Path]:
+    """Return files under project_root that match any declared output glob."""
+    matches: Set[Path] = set()
+    for pattern in outputs:
+        if not isinstance(pattern, str) or not pattern.strip():
+            continue
+        try:
+            for path in project_root.glob(pattern):
+                if path.is_file():
+                    matches.add(path)
+        except (NotImplementedError, ValueError):
+            continue
+    return matches
+
+
+# --- Checks -------------------------------------------------------------------
+
+
+def check_story(
+    path: Path, fm: Dict[str, Any], body: str, all_ids: Set[str], project_root: Path
+) -> List[Finding]:
+    """Validate one story's frontmatter and body."""
+    rel = path.name
+    out: List[Finding] = []
+
+    # --- filename ↔ id consistency ---
+    expected_id = path.stem  # ST-NNNN
+    fm_id = fm.get("id")
+    if fm_id and fm_id != expected_id:
+        out.append(
+            Finding(
+                "BL-ID",
+                "error",
+                rel,
+                f"frontmatter id '{fm_id}' does not match filename '{expected_id}'",
+            )
+        )
+
+    # --- required fields ---
+    for fld in sorted(REQUIRED_FIELDS):
+        if fld not in fm or fm[fld] is None:
+            out.append(
+                Finding(
+                    "BL-MISSING", "error", rel, f"required field '{fld}' is missing"
+                )
+            )
+
+    # --- no extra fields ---
+    for fld in sorted(set(fm.keys()) - ALL_FIELDS):
+        out.append(
+            Finding(
+                "BL-EXTRA",
+                "warning",
+                rel,
+                f"unknown field '{fld}' (not in StoryFrontmatter schema)",
+            )
+        )
+
+    # --- id pattern ---
+    if fm_id is not None and not RE_STORY_ID.match(str(fm_id)):
+        out.append(
+            Finding(
+                "BL-ID", "error", rel, f"id '{fm_id}' does not match pattern ST-NNNN"
+            )
+        )
+
+    # --- enum fields ---
+    cls = fm.get("classification")
+    if cls is not None and cls not in VALID_CLASSIFICATIONS:
+        out.append(
+            Finding(
+                "BL-ENUM",
+                "error",
+                rel,
+                f"classification '{cls}' not in {{trivial, standard, hard}}",
+            )
+        )
+
+    status = fm.get("status")
+    if status is not None and status not in VALID_STATUSES:
+        out.append(
+            Finding(
+                "BL-ENUM",
+                "error",
+                rel,
+                f"status '{status}' not in {{pending, in-progress, done, blocked}}",
+            )
+        )
+
+    # --- deps: type, pattern, and referential integrity ---
+    deps = fm.get("deps")
+    if deps is not None:
+        if not isinstance(deps, list):
+            out.append(Finding("BL-TYPE", "error", rel, "deps must be an array"))
+        else:
+            for d in deps:
+                if not RE_STORY_ID.match(str(d)):
+                    out.append(
+                        Finding(
+                            "BL-DEP",
+                            "error",
+                            rel,
+                            f"dep '{d}' does not match pattern ST-NNNN",
+                        )
+                    )
+                elif d not in all_ids:
+                    out.append(
+                        Finding(
+                            "BL-DEP",
+                            "warning",
+                            rel,
+                            f"dep '{d}' references a non-existent story",
+                        )
+                    )
+
+    # --- traces: type ---
+    traces = fm.get("traces")
+    if traces is not None and not isinstance(traces, list):
+        out.append(Finding("BL-TYPE", "error", rel, "traces must be an array"))
+
+    # --- outputs: type ---
+    outputs = fm.get("outputs")
+    if outputs is not None and not isinstance(outputs, list):
+        out.append(Finding("BL-TYPE", "error", rel, "outputs must be an array"))
+    elif isinstance(outputs, list):
+        if len(outputs) == 0:
+            out.append(Finding("BL-EMPTY", "warning", rel, "outputs is empty"))
+        matching_outputs = _matching_output_paths(project_root, outputs)
+        if status == "done" and not matching_outputs:
+            out.append(
+                Finding(
+                    "VR-027",
+                    "error",
+                    rel,
+                    "status 'done' requires at least one existing file matching outputs",
+                )
+            )
+        elif status != "done" and matching_outputs:
+            matched = ", ".join(
+                sorted(str(p.relative_to(project_root)) for p in matching_outputs)
+            )
+            out.append(
+                Finding(
+                    "VR-028",
+                    "warning",
+                    rel,
+                    f"outputs match existing file(s): {matched}",
+                )
+            )
+
+    # --- machine field names must not appear as headings/terms in body ---
+    for fld in MACHINE_FIELD_NAMES:
+        # Match as a heading (## classification) or a bold term (**classification**)
+        if re.search(rf"(?im)^#+\s+{re.escape(fld)}\b", body) or re.search(
+            rf"\*\*{re.escape(fld)}\*\*", body, re.I
+        ):
+            out.append(
+                Finding(
+                    "BL-DUP",
+                    "warning",
+                    rel,
+                    f"machine field '{fld}' appears to be restated in the prose body",
+                )
+            )
+
+    return out
+
+
+def check_backlog(backlog_dir: Path) -> Tuple[List[Finding], int]:
+    """Validate all stories in the backlog directory."""
+    findings: List[Finding] = []
+
+    if not backlog_dir.is_dir():
+        findings.append(
+            Finding(
+                "BL-DIR", "error", str(backlog_dir), "backlog directory does not exist"
+            )
+        )
+        return findings, 0
+
+    story_files = sorted(backlog_dir.glob("ST-*.md"))
+    if not story_files:
+        findings.append(
+            Finding(
+                "BL-EMPTY",
+                "info",
+                str(backlog_dir),
+                "no story files found in backlog directory",
+            )
+        )
+        return findings, 0
+
+    # First pass: collect all ids for referential integrity on deps.
+    all_ids: Set[str] = set()
+    parsed: List[Tuple[Path, Optional[Dict[str, Any]], str]] = []
+    project_root = _project_root(backlog_dir)
+    for sf in story_files:
+        text = sf.read_text(encoding="utf-8")
+        fm, body = parse_frontmatter(text)
+        parsed.append((sf, fm, body))
+        if fm and fm.get("id"):
+            all_ids.add(fm["id"])
+
+    # Check filename pattern for all files.
+    for sf in story_files:
+        if not re.match(r"^ST-\d{4,}\.md$", sf.name):
+            findings.append(
+                Finding(
+                    "BL-NAME",
+                    "warning",
+                    sf.name,
+                    "filename does not match ST-NNNN.md pattern",
+                )
+            )
+
+    # Second pass: validate each story.
+    for sf, fm, body in parsed:
+        if fm is None:
+            findings.append(
+                Finding(
+                    "BL-PARSE",
+                    "error",
+                    sf.name,
+                    "file has no valid YAML frontmatter (missing --- delimiters)",
+                )
+            )
+            continue
+        findings += check_story(sf, fm, body, all_ids, project_root)
+
+    # Cross-story: duplicate ids.
+    id_counts: Dict[str, int] = {}
+    for _, fm, _ in parsed:
+        if fm and fm.get("id"):
+            id_counts[fm["id"]] = id_counts.get(fm["id"], 0) + 1
+    for sid, cnt in sorted(id_counts.items()):
+        if cnt > 1:
+            findings.append(
+                Finding(
+                    "BL-DUP-ID",
+                    "error",
+                    "backlog",
+                    f"duplicate story id '{sid}' appears {cnt} times",
+                )
+            )
+
+    # Cross-story: circular deps (simple cycle detection).
+    dep_graph: Dict[str, List[str]] = {}
+    for _, fm, _ in parsed:
+        if fm and fm.get("id") and isinstance(fm.get("deps"), list):
+            dep_graph[fm["id"]] = [d for d in fm["deps"] if isinstance(d, str)]
+    cycles = _detect_cycles(dep_graph)
+    for cycle in cycles:
+        findings.append(
+            Finding(
+                "BL-CYCLE", "error", "backlog", f"dependency cycle: {' → '.join(cycle)}"
+            )
+        )
+
+    findings.sort(key=lambda f: (-SEVERITY_ORDER[f.severity], f.code, f.artifact))
+    return findings, len(story_files)
+
+
+def _detect_cycles(graph: Dict[str, List[str]]) -> List[List[str]]:
+    """Return a list of cycles found via DFS."""
+    visited: Set[str] = set()
+    on_stack: Set[str] = set()
+    cycles: List[List[str]] = []
+    path: List[str] = []
+
+    def dfs(node: str) -> None:
+        if node in on_stack:
+            idx = path.index(node)
+            cycles.append(path[idx:] + [node])
+            return
+        if node in visited:
+            return
+        visited.add(node)
+        on_stack.add(node)
+        path.append(node)
+        for dep in graph.get(node, []):
+            dfs(dep)
+        path.pop()
+        on_stack.discard(node)
+
+    for n in sorted(graph):
+        dfs(n)
+    return cycles
+
+
+# --- Driver -------------------------------------------------------------------
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(
+        description="Deterministic schema & traceability gate for backlog stories."
+    )
+    p.add_argument("--backlog-dir", default="backlog", type=Path)
+    p.add_argument("--format", choices=["text", "json"], default="text", dest="fmt")
+    p.add_argument(
+        "--report-only",
+        action="store_true",
+        help="always exit 0 (report without gating)",
+    )
+    args = p.parse_args(argv)
+
+    findings, count = check_backlog(args.backlog_dir)
+    counts = {s: sum(1 for f in findings if f.severity == s) for s in SEVERITY_ORDER}
+
+    if args.fmt == "json":
+        print(
+            json.dumps(
+                {
+                    "findings": [asdict(f) for f in findings],
+                    "summary": counts,
+                    "stories": count,
+                },
+                indent=2,
+            )
+        )
+    else:
+        for f in findings:
+            print(f.line())
+        print(
+            f"\nbacklog-lint: {counts['error']} error(s), "
+            f"{counts['warning']} warning(s), {counts['info']} info "
+            f"across {count} story file(s)."
+        )
+
+    return 0 if args.report_only else counts["error"]
+
+
+if __name__ == "__main__":
+    sys.exit(main())
