@@ -57,13 +57,15 @@ Follow these steps on a fresh macOS or Linux machine.
 
 You need five tools. If any are already installed, skip that line.
 
-| Tool                 | What it does                           | Install                                                                                                           |
-| -------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Git**              | Version control                        | macOS: `xcode-select --install`; Linux: `sudo apt install git` (Debian/Ubuntu) or `sudo dnf install git` (Fedora) |
-| **Python ≥ 3.10**    | Runs the orchestrator and lint scripts | macOS: `brew install python@3.12`; Linux: `sudo apt install python3.12` or equivalent                             |
-| **uv**               | Fast Python package manager            | `curl -LsSf https://astral.sh/uv/install.sh \| sh` ([docs](https://docs.astral.sh/uv/))                           |
-| **Docker**           | Runs Structurizr for diagram export    | [Install Docker](https://docs.docker.com/get-docker/)                                                             |
-| **An AI coding CLI** | The agent runtime                      | See below                                                                                                         |
+| Tool                 | What it does                                                                                                   | Install                                                                                                           |
+| -------------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Git**              | Version control                                                                                                | macOS: `xcode-select --install`; Linux: `sudo apt install git` (Debian/Ubuntu) or `sudo dnf install git` (Fedora) |
+| **Python ≥ 3.10**    | Runs the orchestrator and lint scripts                                                                         | macOS: `brew install python@3.12`; Linux: `sudo apt install python3.12` or equivalent                             |
+| **uv**               | Runs `mdformat`, `ruff`, and `pre-commit` on demand via `uvx` — nothing else to install for linting/formatting | `curl -LsSf https://astral.sh/uv/install.sh \| sh` ([docs](https://docs.astral.sh/uv/))                           |
+| **Docker**           | Runs Structurizr for diagram export                                                                            | [Install Docker](https://docs.docker.com/get-docker/)                                                             |
+| **An AI coding CLI** | The agent runtime                                                                                              | See below                                                                                                         |
+
+You do **not** need to separately install `ruff`, `mdformat`, or `pre-commit` — every gate script and hook runs them through `uvx`, matching `scripts/structurizr`'s zero-local-install pattern (Docker there, `uvx` here).
 
 #### Exemplary AI coding CLIs
 
@@ -83,5 +85,6 @@ Install **one** (or more) of these. The examples in this README use GitHub Copil
 ```bash
 git --version          # ≥ 2.x
 python3 --version      # ≥ 3.10
+uvx --version           # bundled with uv
 docker info            # daemon running
 ```

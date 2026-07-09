@@ -14,17 +14,17 @@ repos:
         language: system
         types: [markdown]
 
-      # lints all python files (skip if the project isn't Python)
+      # lints all python files (skip if the project isn't Python) — zero local install, via uvx
       - id: ruff-check
         name: ruff check
-        entry: ruff check --fix
+        entry: uvx ruff check --fix
         language: system
         types_or: [python, pyi, jupyter]
 
-      # lints python code blocks in markdown
+      # lints python code blocks in markdown — zero local install, via uvx
       - id: ruff-format
         name: ruff format
-        entry: ruff format
+        entry: uvx ruff format
         language: system
         types_or: [python, pyi, jupyter]
 

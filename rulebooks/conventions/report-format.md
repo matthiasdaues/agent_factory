@@ -19,7 +19,7 @@ Shared format for all review and inspection skills.
 
 - **Defect** — the artifact is wrong: contradicts spec, breaks a principle with consequences, has a bug, or is unusable as-is.
 - **Suggestion** — usable but improvable: sharper wording, simplification, idiomatic pattern.
-- **Question** — needs the author to clarify intent. Also record in `docs/spec/todos.md`.
+- **Question** — needs the author to clarify intent. Also record in `docs/spec/todo.md` per [todo-format.md](todo-format.md).
 
 Every finding must state **what is wrong** and **what to do** — no "this looks off" without a fix direction.
 

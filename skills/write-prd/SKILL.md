@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # Write PRD
 
-Formalise the clarified requirements into a PRD. Do not interview the user — synthesise what the conversation has already established. Reference `docs/spec/todos.md` for pending decisions.
+Formalise the clarified requirements into a PRD. Do not interview the user — synthesise what the conversation has already established. Reference `docs/spec/todo.md` for pending decisions.
 
 Read `docs/CONTEXT.md` if it exists — use the project's domain vocabulary throughout.
 
@@ -21,7 +21,7 @@ Write `docs/spec/prd.md` covering:
 4. **Functional Requirements** — what the system does, grouped by capability
 5. **Non-Functional Requirements** — performance, security, reliability, operability
 6. **Constraints and Assumptions** — technology, timeline, organisational, regulatory
-7. **Open Questions** — each referencing an entry in `docs/spec/todos.md`
+7. **Open Questions** — each referencing an entry in `docs/spec/todo.md`
 
 Format via `scripts/mdformat --number docs/spec/prd.md` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 

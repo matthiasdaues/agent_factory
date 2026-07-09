@@ -25,7 +25,7 @@ Use the **Socratic Method** with **MECE**. Ask at most 3 questions at a time. Ke
 
 ## Rules (all branches)
 
-- Collect every open item in `docs/spec/todos.md`.
+- Collect every open item in `docs/spec/todo.md`.
 - Match `docs/CONTEXT.md` domain vocabulary.
 - Never accept "it should just work" — demand specifics.
 - Every question gets a recommended answer, even lightweight ones.

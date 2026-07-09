@@ -32,6 +32,10 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 - **MUST** include the story or bug ID in parentheses on every implementation commit — `<type>: <description> (<ID>)`. → [commit-conventions.md](conventions/commit-conventions.md)
 
+## Cross-references
+
+- **MUST** write every reference to another artifact in this repo (ADR, finding, todo entry, rulebook, skill, agent, spec document) as a full markdown link, anchored to the specific section where the target has one — never a bare ID, code span, or parenthetical. → [cross-reference-format.md](conventions/cross-reference-format.md)
+
 ## Findings
 
 - **MUST** file every Defect, and every finding at or above the review's blocking severity, as its own `docs/findings/<TAG>-NNNN.md`. → [finding-format.md](conventions/finding-format.md)
@@ -49,6 +53,10 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 - **MUST** treat event-driven pseudocode as the single source of truth for state machines — Mermaid is derived, never authored first. → [state-machine-notation.md](conventions/state-machine-notation.md)
 - **MUST** keep every `ChangeState(X)` in pseudocode and its Mermaid edge in exact correspondence — no mismatches. → [state-machine-notation.md](conventions/state-machine-notation.md)
+
+## Todos
+
+- **MUST** file every deferred decision or unresolved question as an entry in `docs/spec/todo.md` — not left implicit in conversation. → [todo-format.md](conventions/todo-format.md)
 
 ## Versioning
 

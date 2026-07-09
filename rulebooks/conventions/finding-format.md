@@ -35,7 +35,7 @@ For most reviews the blocking severity is **Critical** or **Major** (see [report
 ```markdown
 ---
 id: SPEC-0001
-source: spec-review          # the review that produced it (spec-review, atam-review, fagan-review, security-review, reconcile, bug-hunt)
+source: spec-review          # the review that produced it (spec-review, atam-review, fagan-review, security-review, reconcile, bug-hunt, grilling)
 severity: major              # critical | major | minor  (or the review's own scale, e.g. high|medium|low)
 category: defect             # defect | suggestion | question
 artifact: docs/spec/prd.md#NFR-01   # file#anchor or path:line the finding is about
