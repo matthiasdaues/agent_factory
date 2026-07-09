@@ -97,6 +97,5 @@ stateDiagram-v2
 
 ## References
 
-- Source: `orchestrator/docs/spec/supplementary_specs/state-machines.md`
 - Enforcement: `scripts/statemachine-lint`
 - Hook: `.git/hooks/pre-commit` (if configured)

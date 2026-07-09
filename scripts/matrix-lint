@@ -9,8 +9,8 @@ classifications, malformed entries, and unreferenced facts.
 No third-party dependencies (Python 3.8+ stdlib only, ADR-0006).
 
 Usage
-  matrix-lint --matrix model-matrix.conf
-  matrix-lint --matrix model-matrix.conf --format json --report-only
+  matrix-lint --matrix config/model-matrix.conf
+  matrix-lint --matrix config/model-matrix.conf --format json --report-only
 
 Exit code: number of ERROR-severity findings (0 = clean), unless --report-only.
 """

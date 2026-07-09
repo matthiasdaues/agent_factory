@@ -43,7 +43,7 @@ Feature-branch commits follow [commit-conventions.md](commit-conventions.md) —
 
 ## Enforcement
 
-Enforced by the implementation-agent's own dispatch algorithm, not a git hook — the check that a merge sequence was genuinely overlap-safe needs live backlog state (every ready story's declared outputs) that no static hook has access to. This rulebook states the **what** (branch scope, merge-order constraint, SHA tracking); `agents/implementation-agent.md` (Steps 1–5) and [T-35](../orchestrator/docs/spec/todos.md) own the **how** — the actual overlap-detection and wave-planning algorithm.
+Enforced by the implementation-agent's own dispatch algorithm, not a git hook — the check that a merge sequence was genuinely overlap-safe needs live backlog state (every ready story's declared outputs) that no static hook has access to. This rulebook states the **what** (branch scope, merge-order constraint, SHA tracking); `agents/implementation-agent.md` (Steps 1–5) and T-35 own the **how** — the actual overlap-detection and wave-planning algorithm.
 
 ## Example
 
@@ -67,7 +67,6 @@ story/ST-0021, story/ST-0051, story/ST-0054, story/ST-0056          # parallel: 
 
 ## References
 
-- [T-35, orchestrator/docs/spec/todos.md](../orchestrator/docs/spec/todos.md) — origin of this policy
 - [commit-conventions.md](commit-conventions.md) — commit format on feature branches
 - [versioning-policy.md](versioning-policy.md) — related but distinct: governs release tags, not in-progress branches
 - `agents/implementation-agent.md` — the enforcing agent's workflow

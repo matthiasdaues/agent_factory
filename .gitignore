@@ -1,4 +1,10 @@
+# Local AI memories
+.claude
+
+# Local ephemeral notes
+session-scratchpad.md
+
+# Python specific folders and files
 __pycache__/
 *.pyc
 
-session-scratchpad.md

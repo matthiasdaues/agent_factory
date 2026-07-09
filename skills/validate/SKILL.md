@@ -21,7 +21,7 @@ Run in this order — cheap and universal first, project-specific last:
 | 4   | spec-lint         | `docs/spec/` exists                           | `scripts/spec-lint --spec-dir docs/spec --graph docs/spec/traceability.json` |
 | 5   | arch-lint         | `docs/architecture.dsl` or `docs/adr/` exists | `scripts/arch-lint --docs-dir docs --no-validate`                            |
 | 6   | backlog-lint      | `backlog/` exists                             | `scripts/backlog-lint --backlog-dir backlog`                                 |
-| 7   | matrix-lint       | `model-matrix.conf` exists                    | `scripts/matrix-lint --matrix model-matrix.conf`                             |
+| 7   | matrix-lint       | `config/model-matrix.conf` exists             | `scripts/matrix-lint --matrix config/model-matrix.conf`                      |
 | 8   | statemachine-lint | `docs/spec/` exists                           | `scripts/statemachine-lint --spec-dir docs/spec`                             |
 | 9   | index-lint        | `agents/` or `skills/` exists                 | `scripts/index-lint --check`                                                 |
 
@@ -29,11 +29,11 @@ Run in this order — cheap and universal first, project-specific last:
 
 **index-lint uses `--check` here, not the default write mode.** `validate` reports pass/fail, it doesn't rewrite project files as a side effect of checking — if `INDEX.md` is stale, report `FAIL` and let the user (or `commit`, which already runs `validate` first) decide to regenerate via a plain `scripts/index-lint`.
 
-**Path convention.** Every script and gate above is project-root-relative, matching the portable `pre-commit-config.yaml` template — run `validate` from the project root. Inside this monorepo's own dev environment, prefix the doc/backlog paths with `orchestrator/` instead (e.g. `--spec-dir orchestrator/docs/spec`), matching `orchestrator/.pre-commit-config.yaml`'s own dev-config convention.
+**Path convention.** Every script and gate above is project-root-relative, matching the portable `config/pre-commit-config.yaml` template — run `validate` from the project root.
 
 ## Step 1 — Detect applicable gates
 
-Check for each condition column above before running its gate. Report which gates will run and which are skipped, with the reason (e.g. "matrix-lint: skipped, no model-matrix.conf — this project has no orchestrator-managed model matrix").
+Check for each condition column above before running its gate. Report which gates will run and which are skipped, with the reason (e.g. "matrix-lint: skipped, no config/model-matrix.conf — this project has no model matrix").
 
 ## Step 2 — Run each applicable gate
 

@@ -51,10 +51,10 @@ repos:
 
       - id: matrix-lint
         name: matrix-lint (model matrix consistency gate)
-        entry: python3 scripts/matrix-lint --matrix model-matrix.conf
+        entry: python3 scripts/matrix-lint --matrix config/model-matrix.conf
         language: system
         pass_filenames: false
-        files: ^model-matrix\.conf$
+        files: ^config/model-matrix\.conf$
 
       - id: statemachine-lint
         name: statemachine-lint (pseudocode ↔ Mermaid consistency)

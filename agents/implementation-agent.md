@@ -13,7 +13,7 @@ description: >-
 skills: []
 inputs:
   - backlog/ST-*.md
-  - model-matrix.conf
+  - config/model-matrix.conf
   - docs/spec/prd.md
   - docs/spec/use_cases/*.md
   - docs/spec/supplementary_specs/*.md
