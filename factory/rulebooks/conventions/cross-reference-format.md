@@ -23,13 +23,13 @@ Applies to prose/body content. Does **not** apply to structured frontmatter fiel
 
 ## Examples
 
-Wrong: `See ADR-0001 for the collision-avoidance design.`
+Wrong: `See the QA Agent for how findings hand off downstream.`
 
-Right: `See [ADR-0001](../adr/0001-skill-agent-name-collision-avoidance.md#decision) for the collision-avoidance design.`
+Right: `See the [QA Agent § Handoff](../../agents/qa-agent.md#handoff) for how findings hand off downstream.`
 
 Wrong: `Tracked in docs/spec/todo.md#T-0001.`
 
-Right: `Tracked in [T-0001](../../docs/spec/todo.md#t-0001-cursor-mdc-adapter-for-configagentsmd).`
+Right: `Tracked in [T-0001](../../../docs/spec/todo.md#t-0001-cursor-mdc-adapter-for-configagentsmd).`
 
 ## Why
 

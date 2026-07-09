@@ -33,18 +33,18 @@ In manual mode, the review agents invoke the linters directly as their first ste
 
 | Gate                   | Fires at                        | What it checks                                                                                                                      |
 | ---------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `scripts/spec-lint`    | Phase 1 → 2 boundary            | Use-case coverage, traceability links between PRD → actor-goals → use cases → supplementary specs, ID uniqueness, required sections |
-| `scripts/arch-lint`    | Phase 2 → 3 boundary            | arc42 chapters exist and cross-reference the Structurizr DSL, ADR index consistency, diagram file references                        |
-| `scripts/backlog-lint` | Phase 3 → 4 boundary            | YAML frontmatter schema, dependency graph acyclicity, priority and status values                                                    |
-| `scripts/matrix-lint`  | `config/model-matrix.conf` edit | `config/model-matrix.conf` syntax, required fields, valid tier/model mappings                                                       |
+| `factory/scripts/spec-lint`    | Phase 1 → 2 boundary            | Use-case coverage, traceability links between PRD → actor-goals → use cases → supplementary specs, ID uniqueness, required sections |
+| `factory/scripts/arch-lint`    | Phase 2 → 3 boundary            | arc42 chapters exist and cross-reference the Structurizr DSL, ADR index consistency, diagram file references                        |
+| `factory/scripts/backlog-lint` | Phase 3 → 4 boundary            | YAML frontmatter schema, dependency graph acyclicity, priority and status values                                                    |
+| `factory/scripts/matrix-lint`  | `factory/config/model-matrix.conf` edit | `factory/config/model-matrix.conf` syntax, required fields, valid tier/model mappings                                                       |
 
-The scripts live in `scripts/`, are stdlib-only Python, and can be run standalone:
+The scripts live in `factory/scripts/`, are stdlib-only Python, and can be run standalone:
 
 ```bash
-scripts/spec-lint docs/spec/
-scripts/arch-lint --docs-dir docs/
-scripts/backlog-lint backlog/
-scripts/matrix-lint config/model-matrix.conf
+factory/scripts/spec-lint docs/spec/
+factory/scripts/arch-lint --docs-dir docs/
+factory/scripts/backlog-lint backlog/
+factory/scripts/matrix-lint factory/config/model-matrix.conf
 ```
 
 ______________________________________________________________________
@@ -65,7 +65,7 @@ You need five tools. If any are already installed, skip that line.
 | **Docker**           | Runs Structurizr for diagram export                                                                            | [Install Docker](https://docs.docker.com/get-docker/)                                                             |
 | **An AI coding CLI** | The agent runtime                                                                                              | See below                                                                                                         |
 
-You do **not** need to separately install `ruff`, `mdformat`, or `pre-commit` — every gate script and hook runs them through `uvx`, matching `scripts/structurizr`'s zero-local-install pattern (Docker there, `uvx` here).
+You do **not** need to separately install `ruff`, `mdformat`, or `pre-commit` — every gate script and hook runs them through `uvx`, matching `factory/scripts/structurizr`'s zero-local-install pattern (Docker there, `uvx` here).
 
 #### Exemplary AI coding CLIs
 
@@ -75,10 +75,6 @@ Install **one** (or more) of these. The examples in this README use GitHub Copil
 | ------------------------------------------------------------- | -------------------------------------------- |
 | [GitHub Copilot CLI](https://docs.github.com/en/copilot)      | Requires a Copilot subscription and `gh` CLI |
 | [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | `npm install -g @anthropic-ai/claude-code`   |
-| [Gemini CLI](https://github.com/google-gemini/gemini-cli)     | `npm install -g @anthropic-ai/gemini-cli`    |
-| [Codex / OpenCode](https://github.com/openai/codex)           | See vendor README                            |
-| [Cursor](https://cursor.sh)                                   | Download from website                        |
-| Any tool that reads `AGENTS.md`                               | —                                            |
 
 #### Verify everything is ready
 

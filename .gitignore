@@ -1,5 +1,6 @@
-# Local AI memories
+# Local AI folders
 .claude
+.github
 
 # Local ephemeral notes
 session-scratchpad.md

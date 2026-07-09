@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""index-lint - Generate/verify INDEX.md from agents/ and skills/ frontmatter.
+"""index-lint - Generate/verify factory/INDEX.md from factory/agents/ and factory/skills/ frontmatter.
 
 INDEX.md is a generated artifact, never hand-edited: agents grouped by their
 `phase`/`phase-name` frontmatter, skills grouped by their `category`
@@ -7,10 +7,12 @@ frontmatter. Same spirit as the other *-lint scripts: deterministic, stdlib
 only (Python 3.8+), a minimal targeted frontmatter parser (not full YAML) —
 matching spec-lint/backlog-lint's own zero-dependency approach.
 
-Usage
-  index-lint                          # regenerate INDEX.md in place
-  index-lint --check                  # gate mode: exit 1 if INDEX.md is stale, write nothing
-  index-lint --agents-dir agents --skills-dir skills --out INDEX.md
+Usage (run from the repo root; generated links are computed relative to
+--out's own directory, not the repo root, so --out and the two --*-dir
+flags must point at directories that are actually siblings on disk)
+  index-lint                          # regenerate factory/INDEX.md in place
+  index-lint --check                  # gate mode: exit 1 if stale, write nothing
+  index-lint --agents-dir factory/agents --skills-dir factory/skills --out factory/INDEX.md
 
 Exit code: 0 if INDEX.md is (now, or already) up to date; 1 in --check mode
 if it was stale.
@@ -19,6 +21,7 @@ if it was stale.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 import sys
@@ -227,9 +230,17 @@ def render_skills_section(skills: list[dict[str, str]]) -> tuple[str, list[str]]
     return "\n".join(lines), warnings
 
 
-def render_index(agents_dir: Path, skills_dir: Path) -> tuple[str, list[str]]:
+def render_index(agents_dir: Path, skills_dir: Path, out: Path) -> tuple[str, list[str]]:
     agents = load_agents(agents_dir)
     skills = load_skills(skills_dir)
+
+    out_dir = out.parent
+
+    for a in agents:
+        a["_path"] = os.path.relpath(a["_path"], start=out_dir)
+
+    for s in skills:
+        s["_path"] = os.path.relpath(s["_path"], start=out_dir)
 
     agents_section, aw = render_agents_section(agents)
     skills_section, sw = render_skills_section(skills)
@@ -275,9 +286,9 @@ def format_markdown(text: str) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Generate/verify INDEX.md from frontmatter.")
-    ap.add_argument("--agents-dir", default="agents", type=Path)
-    ap.add_argument("--skills-dir", default="skills", type=Path)
-    ap.add_argument("--out", default="INDEX.md", type=Path)
+    ap.add_argument("--agents-dir", default="factory/agents", type=Path)
+    ap.add_argument("--skills-dir", default="factory/skills", type=Path)
+    ap.add_argument("--out", default="factory/INDEX.md", type=Path)
     ap.add_argument(
         "--check",
         action="store_true",
@@ -286,7 +297,7 @@ def main(argv: list[str] | None = None) -> int:
 
     args = ap.parse_args(argv)
 
-    content, warnings = render_index(args.agents_dir, args.skills_dir)
+    content, warnings = render_index(args.agents_dir, args.skills_dir, args.out)
     content = format_markdown(content)
 
     for w in warnings:

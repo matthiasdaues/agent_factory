@@ -1,16 +1,16 @@
 # Pre-commit hooks for Agent HQ projects.
 # Copied by project-init tooling — paths are project-root-relative.
-# The deterministic gate scripts live in scripts/ (also copied by init).
-# mdformat and ruff are language/project gates; see skills/validate/SKILL.md
+# The deterministic gate scripts live in factory/scripts/ (also copied by init).
+# mdformat and ruff are language/project gates; see factory/skills/validate/SKILL.md
 # for the same checks run on demand, mid-session, without a commit.
 
 repos:
   - repo: local
     hooks:
-      # formats all markdown files — zero local install, see scripts/mdformat
+      # formats all markdown files — zero local install, see factory/scripts/mdformat
       - id: mdformat
         name: mdformat
-        entry: scripts/mdformat --number
+        entry: factory/scripts/mdformat --number
         language: system
         types: [markdown]
 
@@ -30,42 +30,42 @@ repos:
 
       - id: spec-lint
         name: spec-lint (specification consistency & traceability)
-        entry: python3 scripts/spec-lint
+        entry: python3 factory/scripts/spec-lint
         language: system
         pass_filenames: false
         files: ^docs/spec/
 
       - id: arch-lint
         name: arch-lint (arc42 <-> Structurizr consistency, ADR frontmatter)
-        entry: python3 scripts/arch-lint --docs-dir docs --no-validate
+        entry: python3 factory/scripts/arch-lint --docs-dir docs --no-validate
         language: system
         pass_filenames: false
         files: ^docs/(architecture\.dsl|05_building_block_view\.md|assets/images/.*|adr/.*\.md)$
 
       - id: backlog-lint
         name: backlog-lint (story schema & traceability gate)
-        entry: python3 scripts/backlog-lint --backlog-dir backlog
+        entry: python3 factory/scripts/backlog-lint --backlog-dir backlog
         language: system
         pass_filenames: false
         files: ^backlog/ST-.*\.md$
 
       - id: matrix-lint
         name: matrix-lint (model matrix consistency gate)
-        entry: python3 scripts/matrix-lint --matrix config/model-matrix.conf
+        entry: python3 factory/scripts/matrix-lint --matrix config/model-matrix.conf
         language: system
         pass_filenames: false
         files: ^config/model-matrix\.conf$
 
       - id: statemachine-lint
         name: statemachine-lint (pseudocode ↔ Mermaid consistency)
-        entry: python3 scripts/statemachine-lint --spec-dir docs/spec
+        entry: python3 factory/scripts/statemachine-lint --spec-dir docs/spec
         language: system
         pass_filenames: false
         files: ^docs/spec/.*\.md$
 
       - id: index-lint
         name: index-lint (regenerate INDEX.md from agent/skill frontmatter)
-        entry: python3 scripts/index-lint
+        entry: python3 factory/scripts/index-lint
         language: system
         pass_filenames: false
-        files: ^(agents/.*\.md|skills/.*/SKILL\.md)$
+        files: ^(factory/agents/.*\.md|factory/skills/.*/SKILL\.md)$
