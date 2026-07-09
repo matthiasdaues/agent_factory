@@ -13,9 +13,9 @@ inputs:
   - docs/spec/supplementary_specs/*.md
   - docs/*.md
   - docs/adr/*.md
-  - CONTEXT.md
+  - docs/CONTEXT.md
   - backlog/ST-NNNN.md
-  - rulebooks/commit-conventions.md
+  - rulebooks/conventions/commit-conventions.md
 outputs:
   - src/**/*
   - tests/**/*
@@ -34,7 +34,7 @@ version: 0.3.0
 
 ## Role
 
-Implement one story using **Red-Green-Refactor** TDD, vertical slices, each test a **tracer bullet**. Apply **Clean Architecture** and **SOLID** throughout.
+Implement one story using **Red-Green-Refactor** TDD, vertical slices, each test a **tracer bullet**. Apply **Clean Code** and **SOLID** throughout. Write **Class Headers** and **Docstrings**. When non-obvious, provide **Inline Comment**.
 
 ## Workflow
 
@@ -43,7 +43,7 @@ Implement one story using **Red-Green-Refactor** TDD, vertical slices, each test
 1. **Analyse** — Read story, trace to Use Cases, record analysis in the story's `## Analysis` section.
 2. **Agree seams** — Identify test boundaries; prefer existing seams, highest level possible.
 3. **Red-Green-Refactor** — **London** or **Chicago School**, vertical slices; refactor is its own phase, not mid-loop.
-4. **Commit** — Per [commit-conventions.md](../rulebooks/commit-conventions.md): `feat: <description> (ST-NNNN)`, set `status: done`.
+4. **Commit** — Per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `feat: <description> (ST-NNNN)`, set `status: done`.
 5. **Spec feedback** — Check for drift, update docs if needed, invoke `write-adr` for new decisions.
 
 **Pause points:** Analysis confirmation before coding · Seams confirmation before tests.

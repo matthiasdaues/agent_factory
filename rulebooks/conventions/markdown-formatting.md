@@ -9,13 +9,13 @@ version: 1.0.0
 
 ## Rule
 
-**MUST**: Any skill whose output is a markdown file runs `scripts/mdformat --number <path>` immediately after writing it — before the step is considered complete. Not deferred to `validate` or the pre-commit hook.
+Canonical statement: [rules.md § Markdown formatting](../rules.md#markdown-formatting).
 
 **Why not just rely on the hook**: pre-commit only fires at commit time. A file can sit unformatted through several editing/review passes first, so a mid-session read of it — by a reviewer, by the author themselves, by the user — never shows a raggedly-formatted draft.
 
 ## Scope
 
-Applies whenever a skill's own instructions include a "Save as ..." / "Write ..." step producing a `.md` file — reports, findings, specs, ADRs, backlog stories, CONTEXT.md, arc42 chapters. Does not apply to skills that only *read* markdown (a review skill's input-reading steps, `spec-lint`/`arch-lint` invocations) — write side only.
+Applies whenever a skill's own instructions include a "Save as ..." / "Write ..." step producing a `.md` file — reports, findings, specs, ADRs, backlog stories, docs/CONTEXT.md, arc42 chapters. Does not apply to skills that only *read* markdown (a review skill's input-reading steps, `spec-lint`/`arch-lint` invocations) — write side only.
 
 ## References
 

@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 Document a single architecture decision following **ADR according to Nygard**. Apply **Clean Architecture** and **SOLID** as evaluation criteria where relevant.
 
-Read `CONTEXT.md` if it exists — use the project's domain vocabulary.
+Read `docs/CONTEXT.md` if it exists — use the project's domain vocabulary.
 
 **Offer an ADR only when all three hold** (cite this rule when offering): hard to reverse, surprising without context, the result of a real trade-off. Skip otherwise.
 
@@ -54,7 +54,7 @@ evaluation: pugh-matrix | none
 
 If this decision supersedes an earlier ADR, update that ADR's `status` to `superseded by ADR-NNNN`. If `docs/09_architecture_decisions.md` exists (arc42 chapter-9 index), update it to link the new ADR; if it doesn't exist, skip — not every project using this skill has arc42 documentation.
 
-Format the new ADR (and the chapter-9 index, if updated) via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
+Format the new ADR (and the chapter-9 index, if updated) via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 
 **Completion**: ADR has `status` and `evaluation` in frontmatter, full Nygard body, matrix embedded iff `evaluation: pugh-matrix`, no unresolved conflicts, index updated where one exists.
 

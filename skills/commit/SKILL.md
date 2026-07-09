@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # Commit
 
-Compose a correctly-formatted commit per [commit-conventions.md](../../rulebooks/commit-conventions.md) and commit — invoked only when explicitly asked to commit, never proactively. Invoking this skill *is* the explicit ask; it does not itself decide whether to commit.
+Compose a correctly-formatted commit per [commit-conventions.md](../../rulebooks/conventions/commit-conventions.md) and commit — invoked only when explicitly asked to commit, never proactively. Invoking this skill *is* the explicit ask; it does not itself decide whether to commit.
 
 ## Step 1 — Gate first
 

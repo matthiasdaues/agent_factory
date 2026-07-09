@@ -9,7 +9,7 @@ description: >-
 skills:
   - retrospective
 inputs:
-  - CONTEXT.md
+  - docs/CONTEXT.md
   - docs/reviews/retro-*.md
   - docs/spec/todos.md
 outputs:
@@ -35,7 +35,7 @@ Facilitate structured retrospectives, extract actionable improvements, track whe
 
 1. **Check prior retros** — Read `docs/reviews/retro-*.md`. Identify open action items and recurring patterns. Summarize adoption status.
 2. **Run retrospective** — Five categories: Went Well, Caused Friction, Stop Doing, Continue Doing, Start Doing. Mine session history for evidence. Save `docs/reviews/retro-YYYY-MM-DD.md`.
-3. **Track action items** — Present confirmed items; ask the user where each is tracked (`docs/spec/todos.md` as a new T-NNN, issue tracker, agent/skill update, or `CONTEXT.md` if it's vocabulary/process).
+3. **Track action items** — Present confirmed items; ask the user where each is tracked (`docs/spec/todos.md` as a new T-NNN, issue tracker, agent/skill update, or `docs/CONTEXT.md` if it's vocabulary/process).
 
 ## Completion Criteria
 

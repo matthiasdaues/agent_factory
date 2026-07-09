@@ -13,7 +13,7 @@ Follow **Semantic Versioning 2.0.0** (semver.org): `MAJOR.MINOR.PATCH`
 
 ### Git Tag Must Match Version File
 
-**MUST**: Git tag and version file are identical. No mismatches.
+Canonical statement: [rules.md § Versioning](../rules.md#versioning).
 
 **Version file location:**
 
@@ -31,11 +31,7 @@ Follow **Semantic Versioning 2.0.0** (semver.org): `MAJOR.MINOR.PATCH`
 |             | `vX.Y.Z-rc.N`   | `v1.3.0-rc.1`   |
 | feature/\*  | **No tags**     | version: `-dev` |
 
-**MUST NOT:**
-
-- ❌ Tag feature branches
-- ❌ Release tags (`vX.Y.Z`) on non-main branches
-- ❌ Pre-release tags (`-beta`, `-rc`) on main
+Canonical statement: [rules.md § Versioning](../rules.md#versioning) — feature branches never get tags; release (`vX.Y.Z`) and pre-release (`-beta`, `-rc`) formats are each confined to their own branch type per the table above.
 
 ### Version Bump Triggers
 

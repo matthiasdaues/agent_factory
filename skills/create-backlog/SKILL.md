@@ -11,7 +11,7 @@ Break the specification and architecture into a prioritised backlog of EPICs and
 
 Stories are project artifacts, not entries in an external tracker: one file per story, `backlog/ST-NNNN.md`, with strict frontmatter validated by `scripts/backlog-lint`.
 
-Read `CONTEXT.md` if it exists — use the project's domain vocabulary in story titles and descriptions.
+Read `docs/CONTEXT.md` if it exists — use the project's domain vocabulary in story titles and descriptions.
 
 ## Story file format
 
@@ -56,7 +56,7 @@ Each story records in `traces`: Use Case ID(s) it implements (e.g. `UC-01`, `UC-
 
 Judge each story's `classification` (`trivial | standard | hard`) — the difficulty band the model matrix maps to a tier.
 
-Format each story file via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
+Format each story file via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 
 **Completion**: every User Goal covered by at least one story, all stories meet INVEST, `traces` and `classification` present.
 

@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 A structured code review following the **Fagan Inspection** method. The review checks correctness against the specification, architectural compliance, and maintainability. Every finding is categorised and actionable.
 
-Read `CONTEXT.md` if it exists — flag terminology drift between code and domain vocabulary.
+Read `docs/CONTEXT.md` if it exists — flag terminology drift between code and domain vocabulary.
 
 ## Step 1 — Identify the review scope
 
@@ -31,9 +31,9 @@ For every changed file, check:
 
 ## Step 3 — Write the review report
 
-Save as `docs/reviews/fagan-review-YYYY-MM-DD.md` per [report-format.md](../../rulebooks/report-format.md). File findings per [finding-format.md](../../rulebooks/finding-format.md) with tag `FAGAN`.
+Save as `docs/reviews/fagan-review-YYYY-MM-DD.md` per [report-format.md](../../rulebooks/conventions/report-format.md). File findings per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `FAGAN`.
 
-Format both the report and any finding files via `scripts/mdformat --number` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
+Format both the report and any finding files via `scripts/mdformat --number` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 
 ## Step 4 — Done-check
 

@@ -11,7 +11,9 @@ Shared rules for filing review findings as local markdown files. Findings are pr
 
 ## When to file
 
-File every **Defect** and every finding at or above the review's blocking severity — for most reviews that is **Critical** or **Major** (see [report-format.md](report-format.md)); the security and ATAM reviews file at **Medium or higher**. Minor findings and Suggestions stay in the review report only, unless the user asks to track them.
+Canonical statement: [rules.md § Findings](../rules.md#findings).
+
+For most reviews the blocking severity is **Critical** or **Major** (see [report-format.md](report-format.md)); the security and ATAM reviews file at **Medium or higher**. Minor findings and Suggestions stay in the review report only, unless the user asks to track them.
 
 ## File location and name
 
@@ -52,7 +54,7 @@ traces: [NFR-01]             # requirement / use-case / ADR IDs the finding rela
 **Fix:** <the concrete remediation>
 ```
 
-Every finding must state **what is wrong** and **what to do** — no "this looks off" without a fix direction.
+Canonical statement: [rules.md § Findings](../rules.md#findings) — no "this looks off" without a fix direction.
 
 ## Status lifecycle
 

@@ -23,7 +23,7 @@ This is the **default** communication style across the agent chain — not a mod
 It does **not** govern — these stay in **Plain English after Strunk & White**:
 
 - **Specifications**: everything under `docs/spec/**` (PRD, use cases, supplementary specs).
-- **Documentation**: arc42 chapters (`docs/*.md`), ADRs (`docs/adr/**`), review reports (`docs/reviews/**`), READMEs, `CONTEXT.md`.
+- **Documentation**: arc42 chapters (`docs/*.md`), ADRs (`docs/adr/**`), review reports (`docs/reviews/**`), READMEs, `docs/CONTEXT.md`.
 
 Rule of thumb: **the deliverable prose an agent authors is Strunk & White; the talk around it is caveman.**
 
@@ -35,7 +35,7 @@ Active every response. No revert after many turns. No filler drift. Still active
 
 Drop: articles (a/an/the), filler (just/really/basically/actually/simply), pleasantries (sure/certainly/of course/happy to), hedging. Fragments OK. Short synonyms (big not extensive, fix not "implement a solution for"). Abbreviate common terms (DB/auth/config/req/res/fn/impl). Strip conjunctions. Use arrows for causality (X -> Y). One word when one word enough.
 
-Technical terms stay exact. Code blocks unchanged. Errors quoted exact. Domain vocabulary from `CONTEXT.md` stays exact.
+Technical terms stay exact. Code blocks unchanged. Errors quoted exact. Domain vocabulary from `docs/CONTEXT.md` stays exact.
 
 Pattern: `[thing] [action] [reason]. [next step].`
 
@@ -71,6 +71,6 @@ Example -- destructive op:
 When writing spec or doc prose, do the opposite of caveman — but not verbose. Strunk & White still means *tight*:
 
 - Omit needless words. Prefer the active voice. Put statements in positive form.
-- Use definite, specific, concrete language. One term per concept (match `CONTEXT.md`).
+- Use definite, specific, concrete language. One term per concept (match `docs/CONTEXT.md`).
 - Full grammatical sentences; no fragments, no arrow shorthand, no dropped articles.
 - Clarity over cleverness. A reader unfamiliar with the reasoning must still follow it.

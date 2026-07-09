@@ -9,15 +9,15 @@ description: >-
 skills:
   - inspect-spec
 inputs:
-  - CONTEXT.md
+  - docs/CONTEXT.md
   - docs/spec/prd.md
   - docs/spec/actor-goal-list.md
   - docs/spec/use_cases/*.md
   - docs/spec/supplementary_specs/*.md
   - docs/spec/todos.md
-  - rulebooks/report-format.md
-  - rulebooks/finding-format.md
-  - rulebooks/review-loop-discipline.md
+  - rulebooks/conventions/report-format.md
+  - rulebooks/conventions/finding-format.md
+  - rulebooks/conventions/review-loop-discipline.md
 outputs:
   - docs/reviews/spec-review-*.md
   - docs/spec/traceability.json
@@ -47,8 +47,8 @@ Evaluate a specification you did not write, without assumptions. Find inconsiste
 
 1. **Read** — Understand the system before evaluating how well the spec says it.
 2. **Inspect** — Deterministic: `scripts/spec-lint --spec-dir docs/spec --graph docs/spec/traceability.json`. Semantic: the seven requirements-quality characteristics (consistent, unambiguous, verifiable, complete, feasible, necessary, terminology).
-3. **Report** — Save `docs/reviews/spec-review-YYYY-MM-DD.md` per [report-format.md](../rulebooks/report-format.md), file Major+ findings per [finding-format.md](../rulebooks/finding-format.md).
-4. **Verify prior findings** (repeat passes) — Per [review-loop-discipline.md](../rulebooks/review-loop-discipline.md): resolve/annotate each open `SPEC` finding, **and** re-run the full inspection fresh.
+3. **Report** — Save `docs/reviews/spec-review-YYYY-MM-DD.md` per [report-format.md](../rulebooks/conventions/report-format.md), file Major+ findings per [finding-format.md](../rulebooks/conventions/finding-format.md).
+4. **Verify prior findings** (repeat passes) — Per [review-loop-discipline.md](../rulebooks/conventions/review-loop-discipline.md): resolve/annotate each open `SPEC` finding, **and** re-run the full inspection fresh.
 
 **Pause point:** Present findings before filing.
 

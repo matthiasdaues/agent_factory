@@ -1,23 +1,23 @@
 ---
 name: domain-modeling
-description: Build and sharpen a project's domain model — challenge terminology, record architecture decisions, update CONTEXT.md and docs/adr/ inline as decisions crystallise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
+description: Build and sharpen a project's domain model — challenge terminology, record architecture decisions, update docs/CONTEXT.md and docs/adr/ inline as decisions crystallise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
 category: utility
 source: https://github.com/mattpocock/skills/
 ---
 
 # Domain Modeling
 
-Actively build and sharpen the project's domain model as you design — challenging terms, inventing edge-case scenarios, and writing the glossary and decisions down the moment they crystallise. Merely *reading* `CONTEXT.md` for vocabulary is not this skill; that's a one-line habit any skill can do. This skill is for *changing* the model, not just consuming it.
+Actively build and sharpen the project's domain model as you design — challenging terms, inventing edge-case scenarios, and writing the glossary and decisions down the moment they crystallise. Merely *reading* `docs/CONTEXT.md` for vocabulary is not this skill; that's a one-line habit any skill can do. This skill is for *changing* the model, not just consuming it.
 
 ## Domain awareness
 
-During codebase exploration, also look for existing documentation. See [context-format.md](../../rulebooks/context-format.md) for the single-context vs multi-context file layout. Create `CONTEXT.md` and `docs/adr/` lazily — only when the first term or ADR is actually needed.
+During codebase exploration, also look for existing documentation. See [context-format.md](../../rulebooks/conventions/context-format.md) for the single-context vs multi-context file layout. Create `docs/CONTEXT.md` and `docs/adr/` lazily — only when the first term or ADR is actually needed.
 
 ## During the session
 
 ### Challenge against the glossary
 
-When a term conflicts with `CONTEXT.md`, call it out immediately. "Your glossary defines 'cancellation' as X, but you seem to mean Y — which is it?"
+When a term conflicts with `docs/CONTEXT.md`, call it out immediately. "Your glossary defines 'cancellation' as X, but you seem to mean Y — which is it?"
 
 ### Sharpen fuzzy language
 
@@ -31,11 +31,11 @@ When domain relationships are being discussed, stress-test them with specific sc
 
 When someone states how something works, check whether the code agrees. If you find a contradiction, surface it: "The code cancels entire Orders, but partial cancellation was just described — which is right?"
 
-### Update CONTEXT.md inline
+### Update docs/CONTEXT.md inline
 
-When a term is resolved, update `CONTEXT.md` right there — don't batch. Use the format in [context-format.md](../../rulebooks/context-format.md). Format via `scripts/mdformat --number CONTEXT.md` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
+When a term is resolved, update `docs/CONTEXT.md` right there — don't batch. Use the format in [context-format.md](../../rulebooks/conventions/context-format.md). Format via `scripts/mdformat --number docs/CONTEXT.md` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 
-`CONTEXT.md` is a glossary only — no implementation details, no spec content, no scratch notes.
+`docs/CONTEXT.md` is a glossary only — no implementation details, no spec content, no scratch notes.
 
 ### Offer ADRs sparingly
 

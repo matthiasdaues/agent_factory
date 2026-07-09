@@ -19,8 +19,8 @@ inputs:
   - docs/spec/supplementary_specs/*.md
   - docs/*.md
   - docs/adr/*.md
-  - CONTEXT.md
-  - rulebooks/branching-policy.md
+  - docs/CONTEXT.md
+  - rulebooks/conventions/branching-policy.md
 outputs:
   - src/**/*
   - tests/**/*
@@ -43,7 +43,7 @@ Resolve dependency graph and dispatch stories to **parallel developer-agent suba
 
 ## Branching model
 
-Per [branching-policy.md](../rulebooks/branching-policy.md): one feature branch per **story**, never per EPIC — EPIC is a reporting label only, it does not predict which stories touch the same file. Cut the invocation branch from `main` first (record **branch root**); cut every feature branch from there. Merge order is decided by output-file overlap (Step 2), not by EPIC or dependency-readiness alone. Record **branch head** (last merge commit) once all stories are done, and hand off with `--base <branch-root> --head <branch-head>`.
+Per [branching-policy.md](../rulebooks/conventions/branching-policy.md): one feature branch per **story**, never per EPIC — EPIC is a reporting label only, it does not predict which stories touch the same file. Cut the invocation branch from `main` first (record **branch root**); cut every feature branch from there. Merge order is decided by output-file overlap (Step 2), not by EPIC or dependency-readiness alone. Record **branch head** (last merge commit) once all stories are done, and hand off with `--base <branch-root> --head <branch-head>`.
 
 ## Workflow
 

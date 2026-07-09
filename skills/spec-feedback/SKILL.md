@@ -31,7 +31,7 @@ For each discrepancy:
 - If an architecture decision changed, invoke the `write-adr` skill.
 - Check the update itself against **Clean Architecture** and **SOLID** — don't introduce a violation while fixing drift.
 
-Format every updated file via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
+Format every updated file via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 
 **Completion**: spec matches implemented behaviour, no undocumented behaviour exists in the code, architecture documentation reflects the current system structure.
 

@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 Pick a single story from the backlog (`backlog/ST-NNNN.md`) and implement it using **TDD**. Apply **Clean Architecture** and **SOLID** throughout.
 
-Read `CONTEXT.md` if it exists — match test names and interface vocabulary to the project's domain language. Respect ADRs in the area you're touching.
+Read `docs/CONTEXT.md` if it exists — match test names and interface vocabulary to the project's domain language. Respect ADRs in the area you're touching.
 
 ## Step 1 — Analyse
 
@@ -55,7 +55,7 @@ Do not refactor during the loop — that belongs to review.
 
 ## Step 4 — Commit
 
-Use **Conventional Commits** (see [commit-conventions.md](../../rulebooks/commit-conventions.md)):
+Use **Conventional Commits** (see [commit-conventions.md](../../rulebooks/conventions/commit-conventions.md)):
 
 ```bash
 git commit -m "feat: <description> (ST-NNNN)"

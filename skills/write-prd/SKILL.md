@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 Formalise the clarified requirements into a PRD. Do not interview the user — synthesise what the conversation has already established. Reference `docs/spec/todos.md` for pending decisions.
 
-Read `CONTEXT.md` if it exists — use the project's domain vocabulary throughout.
+Read `docs/CONTEXT.md` if it exists — use the project's domain vocabulary throughout.
 
 ## Step 1 — Draft the PRD
 
@@ -23,7 +23,7 @@ Write `docs/spec/prd.md` covering:
 6. **Constraints and Assumptions** — technology, timeline, organisational, regulatory
 7. **Open Questions** — each referencing an entry in `docs/spec/todos.md`
 
-Format via `scripts/mdformat --number docs/spec/prd.md` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
+Format via `scripts/mdformat --number docs/spec/prd.md` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 
 **Completion**: `docs/spec/prd.md` exists with all seven sections filled — no placeholder text, no silently assumed decisions.
 

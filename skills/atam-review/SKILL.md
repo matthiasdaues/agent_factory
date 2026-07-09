@@ -12,7 +12,7 @@ Review the Phase-2 architecture for structural defects and quality-attribute ris
 - **Pass 1 — `arch-lint` (deterministic).** A parser catches the boring, provable defects — arc42 chapters missing, Structurizr DSL referencing undefined containers, ADR index out of sync, diagram files not matching view keys. Cheap, reproducible, zero false-positive by design.
 - **Pass 2 — ATAM evaluation (this LLM).** Spend judgement only on what a parser *cannot* decide: sensitivity points, tradeoff points, risks versus non-risks for each quality scenario.
 
-Never re-check by hand what Pass 1 already proved. Read `CONTEXT.md` first — the architecture's vocabulary is the yardstick for the terminology checks.
+Never re-check by hand what Pass 1 already proved. Read `docs/CONTEXT.md` first — the architecture's vocabulary is the yardstick for the terminology checks.
 
 ## Step 1 — Run the deterministic linter
 
@@ -40,7 +40,7 @@ For each quality scenario, read the relevant arc42 chapters and identify the **a
 
 ## Step 4 — Write the review report
 
-Save as `docs/reviews/atam-review.md` per [report-format.md](../../rulebooks/report-format.md), adding:
+Save as `docs/reviews/atam-review.md` per [report-format.md](../../rulebooks/conventions/report-format.md), adding:
 
 1. **Reviewed architecture** — chapters and DSL examined; `arch-lint` summary (error/warning/info counts + exit code).
 2. **Deterministic findings** — Pass-1 table, each row Confirmed or Dismissed.
@@ -49,10 +49,10 @@ Save as `docs/reviews/atam-review.md` per [report-format.md](../../rulebooks/rep
 5. **Risk summary** — table of risks with severity and proposed mitigation.
 6. **Tradeoff summary** — table of identified tradeoffs.
 
-File findings per [finding-format.md](../../rulebooks/finding-format.md) with tag `ATAM` for risks rated Medium or higher.
+File findings per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `ATAM` for risks rated Medium or higher.
 
-Format both the report and any finding files via `scripts/mdformat --number` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
+Format both the report and any finding files via `scripts/mdformat --number` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 
 ## Step 5 — Verify prior findings (repeat passes only)
 
-Per [review-loop-discipline.md](../../rulebooks/review-loop-discipline.md): resolve or annotate each open `ATAM` finding, **and** re-run Steps 1-3 fresh against the full architecture — not just the prior findings list — to catch new defects.
+Per [review-loop-discipline.md](../../rulebooks/conventions/review-loop-discipline.md): resolve or annotate each open `ATAM` finding, **and** re-run Steps 1-3 fresh against the full architecture — not just the prior findings list — to catch new defects.

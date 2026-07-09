@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 A four-step pipeline that takes a PRD and produces a complete, cross-referenced specification. Each step feeds the next — do not skip ahead or work multiple steps simultaneously.
 
-Read `CONTEXT.md` if it exists — match the project's domain vocabulary in every artifact.
+Read `docs/CONTEXT.md` if it exists — match the project's domain vocabulary in every artifact.
 
 ## Step 1 — Actor-Goal List
 
@@ -77,4 +77,4 @@ docs/spec/
 
 All files cross-reference each other with relative Markdown links and Use Case IDs.
 
-Format each file via `scripts/mdformat --number <path>` as it's written, per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
+Format each file via `scripts/mdformat --number <path>` as it's written, per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).

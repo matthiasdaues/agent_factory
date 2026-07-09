@@ -13,7 +13,7 @@ Follow **Conventional Commits 1.0.0** (conventionalcommits.org): `<type>: <descr
 
 ### Story/Bug ID Required
 
-**MUST**: Include story or bug ID in parentheses for implementation commits.
+Canonical statement: [rules.md § Commits](../rules.md#commits).
 
 **Format:** `<type>: <description> (<ID>)`
 

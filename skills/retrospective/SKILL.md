@@ -40,7 +40,7 @@ docs/reviews/retro-YYYY-MM-DD.md
 
 Use today's date. If a retro already exists for today, append a sequence number: `retro-YYYY-MM-DD-2.md`.
 
-Format via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
+Format via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 
 **Completion**: report written, all five sections populated with evidence.
 
@@ -49,7 +49,7 @@ Format via `scripts/mdformat --number <path>` per [markdown-formatting.md](../..
 From the Stop/Continue/Start sections, extract concrete action items. Present them to the user for confirmation. Confirmed items should be:
 
 - Filed as todos in `docs/spec/todos.md` or the project's issue tracker
-- Or captured as updates to agent definitions, skills, or `CONTEXT.md`
+- Or captured as updates to agent definitions, skills, or `docs/CONTEXT.md`
 
 Do not file action items without user confirmation.
 

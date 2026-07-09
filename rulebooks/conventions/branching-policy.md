@@ -11,35 +11,26 @@ Governs how feature branches are created and merged during implementation dispat
 
 ## Project-Specific Rules
 
-### Branch Per Unit Of Work
+Canonical statements: [rules.md § Branching](../rules.md#branching). This section carries the rationale and detail behind each one.
 
-**MUST**: One feature branch per story (or bug), never per a coarser grouping label (EPIC, sprint, wave).
+### Branch Per Unit Of Work
 
 Shared integration files (a composition root, a domain-entities module, a ports file) are typically touched by stories across many different epics. A branch scoped to a coarser label collects several stories' edits to the same shared file independently — every grouping's branch then collides with every other grouping's branch, all at once, at merge-back. A branch scoped to one story collides with at most the other stories that genuinely touch the same file, one at a time, in a determinable order.
 
-**MUST NOT**:
-
-- ❌ Branch by EPIC, sprint, or any grouping label broader than one unit of work
-- ❌ Merge multiple unrelated stories' work into one shared feature branch
-
 ### Invocation Branch
 
-**MUST**: Before creating any feature branch, create one invocation branch from `main` (or the project's trunk) and record its origin commit as the **branch root**. Every feature branch for that invocation is cut from the invocation branch, not from `main` directly.
+Every feature branch for an invocation is cut from that invocation's own branch, not from `main` directly — the invocation branch is what makes the branch-root/branch-head SHA pair (below) well-defined.
 
 ### Merge Order Is Overlap-Aware
 
-**MUST**: Before merging concurrently-branched work back into the invocation branch, determine which branches touch overlapping files (via declared or inferred output paths).
+Overlap is determined via declared or inferred output paths:
 
 - File-disjoint branches: merge in parallel, any order.
 - File-overlapping branches: merge one at a time, in dependency order.
 
-**MUST NOT**: Use a grouping label (EPIC, wave, sprint) as a substitute for real file-overlap analysis when deciding merge order.
-
-**MUST**: Run the full test suite after every single merge, before starting the next. A conflict or regression here means the overlap analysis missed a real collision — resolve before continuing.
+A conflict or regression after a merge means the overlap analysis missed a real collision — resolve before continuing to the next merge.
 
 ### Two SHAs Tracked Per Invocation
-
-**MUST**: Track exactly two commit IDs per invocation:
 
 - **branch root** — the SHA on `main`/trunk the invocation branch was cut from.
 - **branch head** — the SHA of the last merge commit on the invocation branch, once every feature branch for the invocation has merged.

@@ -20,7 +20,9 @@ from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 CANONICAL_CATEGORY_ORDER = [
@@ -45,54 +47,74 @@ def parse_frontmatter(text: str) -> dict[str, str]:
     """
     if not text.startswith("---"):
         return {}
+
     end = text.find("\n---", 3)
     if end == -1:
         return {}
+
     lines = text[3:end].split("\n")
     result: dict[str, str] = {}
     i = 0
+
     while i < len(lines):
         m = _KEY_LINE.match(lines[i])
         if not m:
             i += 1
             continue
+
         key, rest = m.group(1), m.group(2).strip()
+
         if key not in _FM_KEYS:
             i += 1
             continue
+
         if rest in (">-", ">", "|-", "|"):
             parts = []
             i += 1
-            while i < len(lines) and (lines[i].startswith("  ") or lines[i].strip() == ""):
+
+            while i < len(lines) and (
+                lines[i].startswith("  ") or lines[i].strip() == ""
+            ):
                 if lines[i].strip():
                     parts.append(lines[i].strip())
                 i += 1
+
             result[key] = " ".join(parts)
             continue
+
         result[key] = rest.strip('"').strip("'")
         i += 1
+
     return result
 
 
 def load_agents(agents_dir: Path) -> list[dict[str, str]]:
     agents = []
+
     for path in sorted(agents_dir.glob("*.md")):
-        fm = parse_frontmatter(path.read_text())
+        fm = parse_frontmatter(path.read_text(encoding="utf-8"))
+
         if not fm.get("name"):
             continue
+
         fm["_path"] = str(path)
         agents.append(fm)
+
     return agents
 
 
 def load_skills(skills_dir: Path) -> list[dict[str, str]]:
     skills = []
+
     for path in sorted(skills_dir.glob("*/SKILL.md")):
-        fm = parse_frontmatter(path.read_text())
+        fm = parse_frontmatter(path.read_text(encoding="utf-8"))
+
         if not fm.get("name"):
             continue
+
         fm["_path"] = str(path)
         skills.append(fm)
+
     return skills
 
 
@@ -111,19 +133,24 @@ def render_agents_section(agents: list[dict[str, str]]) -> tuple[str, list[str]]
 
     lines = ["## Agents", ""]
     seen_phase = None
+
     for a in phased:
         phase, phase_name = a.get("phase"), a.get("phase-name")
+
         if phase_name is None:
             warnings.append(f"{a['_path']}: has 'phase' but no 'phase-name'")
             phase_name = f"Phase {phase}"
+
         if phase != seen_phase:
             if seen_phase is not None:
                 lines.append("")
+
             lines.append(f"### Phase {phase} — {phase_name}")
             lines.append("")
             lines.append("| Agent | Description |")
             lines.append("| --- | --- |")
             seen_phase = phase
+
         title = a.get("title", a["name"])
         desc = a.get("description", "")
         lines.append(f"| [`{a['name']}`]({a['_path']}) — {title} | {desc} |")
@@ -131,10 +158,12 @@ def render_agents_section(agents: list[dict[str, str]]) -> tuple[str, list[str]]
     if unphased:
         if seen_phase is not None:
             lines.append("")
+
         lines.append("### Unphased (dispatcher-spawned sub-agents)")
         lines.append("")
         lines.append("| Agent | Description |")
         lines.append("| --- | --- |")
+
         for a in sorted(unphased, key=lambda a: a["name"]):
             title = a.get("title", a["name"])
             desc = a.get("description", "")
@@ -153,36 +182,44 @@ def render_skills_section(skills: list[dict[str, str]]) -> tuple[str, list[str]]
 
     def order_key(s: dict[str, str]) -> tuple[int, str]:
         cat = s["category"]
+
         try:
             idx = CANONICAL_CATEGORY_ORDER.index(cat)
         except ValueError:
             idx = len(CANONICAL_CATEGORY_ORDER)
-        return (idx, s["name"])
+
+        return idx, s["name"]
 
     categorized.sort(key=order_key)
 
     lines = ["## Skills", ""]
     seen_cat = None
+
     for s in categorized:
         cat = s["category"]
+
         if cat != seen_cat:
             if seen_cat is not None:
                 lines.append("")
+
             lines.append(f"### {cat.capitalize()}")
             lines.append("")
             lines.append("| Skill | Description |")
             lines.append("| --- | --- |")
             seen_cat = cat
+
         desc = s.get("description", "")
         lines.append(f"| [`{s['name']}`]({s['_path']}) | {desc} |")
 
     if uncategorized:
         if seen_cat is not None:
             lines.append("")
+
         lines.append("### Uncategorised")
         lines.append("")
         lines.append("| Skill | Description |")
         lines.append("| --- | --- |")
+
         for s in sorted(uncategorized, key=lambda s: s["name"]):
             desc = s.get("description", "")
             lines.append(f"| [`{s['name']}`]({s['_path']}) | {desc} |")
@@ -193,16 +230,47 @@ def render_skills_section(skills: list[dict[str, str]]) -> tuple[str, list[str]]
 def render_index(agents_dir: Path, skills_dir: Path) -> tuple[str, list[str]]:
     agents = load_agents(agents_dir)
     skills = load_skills(skills_dir)
+
     agents_section, aw = render_agents_section(agents)
     skills_section, sw = render_skills_section(skills)
+
     header = (
         "# Index\n\n"
         "Generated by `scripts/index-lint` from `agents/*.md` and "
         "`skills/*/SKILL.md` frontmatter — do not edit by hand, "
         "regenerate with `scripts/index-lint`.\n\n"
     )
+
     body = header + agents_section + "\n\n" + skills_section + "\n"
     return body, aw + sw
+
+
+def format_markdown(text: str) -> str:
+    """Run the repository-local mdformat wrapper over `text`, return the result.
+
+    Formats via a temp file (mdformat operates on paths, not stdin) so both
+    --check and write mode compare/produce the *same* post-format content —
+    formatting must happen before the comparison, not after the write, or
+    --check and the write path disagree forever (each write becomes "stale"
+    the moment mdformat reformats it).
+    """
+    script_dir = Path(__file__).resolve().parent
+    mdformat = script_dir / "mdformat"
+
+    if not mdformat.exists():
+        raise FileNotFoundError(f"mdformat script not found: {mdformat}")
+
+    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as tmp:
+        tmp.write(text)
+        tmp_path = Path(tmp.name)
+
+    try:
+        subprocess.run(
+            [str(mdformat), "--number", str(tmp_path)], check=True, capture_output=True
+        )
+        return tmp_path.read_text(encoding="utf-8")
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -211,21 +279,26 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--skills-dir", default="skills", type=Path)
     ap.add_argument("--out", default="INDEX.md", type=Path)
     ap.add_argument(
-        "--check", action="store_true", help="verify only, don't write; exit 1 if stale"
+        "--check",
+        action="store_true",
+        help="verify only, don't write; exit 1 if stale",
     )
+
     args = ap.parse_args(argv)
 
     content, warnings = render_index(args.agents_dir, args.skills_dir)
+    content = format_markdown(content)
 
     for w in warnings:
         print(f"[WARNING] {w}", file=sys.stderr)
 
-    current = args.out.read_text() if args.out.exists() else None
+    current = args.out.read_text(encoding="utf-8") if args.out.exists() else None
 
     if args.check:
         if current != content:
             print(f"index-lint: {args.out} is stale — run `scripts/index-lint` to regenerate")
             return 1
+
         print(f"index-lint: {args.out} is up to date")
         return 0
 
@@ -233,8 +306,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"index-lint: {args.out} already up to date, no changes")
         return 0
 
-    args.out.write_text(content)
+    args.out.write_text(content, encoding="utf-8")
     print(f"index-lint: wrote {args.out}")
+
     return 0
 
 

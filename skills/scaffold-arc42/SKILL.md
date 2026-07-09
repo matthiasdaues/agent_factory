@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 Create architecture documentation from the specification using the **arc42** template and **Structurizr DSL** for **C4** models. Apply **Clean Architecture** for layer and component boundaries.
 
-Read `CONTEXT.md` if it exists — use the project's domain vocabulary throughout.
+Read `docs/CONTEXT.md` if it exists — use the project's domain vocabulary throughout.
 
 ## Step 1 — Create the arc42 file structure
 
@@ -43,7 +43,7 @@ Rules:
 
 Template reference: [`matthiasdaues/arc42-markdown-template`](https://github.com/matthiasdaues/arc42-markdown-template).
 
-Format every chapter file and `docs/README.md` via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
+Format every chapter file and `docs/README.md` via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 
 **Completion**: all 12 chapter files exist with substantive content, every chapter starts with the back-link, `docs/README.md` links to all chapters and all links resolve.
 

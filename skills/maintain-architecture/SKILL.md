@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 Update architecture documentation with `architecture.dsl` as the **single source of truth** for all structural and runtime views. Prose chapters narrate and extend the model; they never contradict it.
 
-Read `CONTEXT.md` if it exists — use the project's domain vocabulary throughout.
+Read `docs/CONTEXT.md` if it exists — use the project's domain vocabulary throughout.
 
 ## Principle: DSL first, prose second
 
@@ -67,7 +67,7 @@ Update the relevant arc42 chapters to match the model. The mapping:
 
 For chapters 5 (tables) and 9 (ADR index): element names and port lists must match the DSL. `arch-lint` enforces this for components and ports.
 
-Format every updated chapter via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/markdown-formatting.md).
+Format every updated chapter via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 
 **Completion**: `arch-lint --docs-dir docs` reports 0 errors. Do not commit yet.
 
@@ -93,7 +93,7 @@ Rules:
 
 ## Step 5 — Maintain state machine pseudocode
 
-Canonical pseudocode format, reserved actions, and the pseudocode→Mermaid derivation rules: [state-machine-notation.md](../../rulebooks/state-machine-notation.md).
+Canonical pseudocode format, reserved actions, and the pseudocode→Mermaid derivation rules: [state-machine-notation.md](../../rulebooks/conventions/state-machine-notation.md).
 
 ```bash
 scripts/statemachine-lint --spec-dir docs/spec

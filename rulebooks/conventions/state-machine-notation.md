@@ -9,7 +9,7 @@ version: 1.0.0
 
 ## Canonical Format
 
-State machines **MUST** use event-driven pseudocode as the single source of truth. Mermaid diagrams **MUST** be derived from the pseudocode.
+Canonical statement: [rules.md § State machine notation](../rules.md#state-machine-notation).
 
 ### Required Structure
 
@@ -28,20 +28,11 @@ RejectCommand("reason")    — refuse the event with a diagnostic
 
 ## Rules
 
-### **MUST** Requirements
+Detail behind the two canonical statements above:
 
-1. **Every `ChangeState(X)` becomes one edge in the Mermaid diagram**
-2. **Pseudocode is authoritative** — Mermaid is derived, not hand-drawn
-3. **One `State:` declaration per state** — all transitions for that state follow
-4. **One `On EventName:` per event** — guards use `if/else`
-5. **Mermaid `stateDiagram-v2` syntax** — for consistency with tooling
-
-### **MUST NOT** Violations
-
-1. ❌ **DON'T** write Mermaid first, then reverse-engineer pseudocode
-2. ❌ **DON'T** use freeform state transition prose
-3. ❌ **DON'T** have mismatches between pseudocode transitions and Mermaid edges
-4. ❌ **DON'T** omit guards/conditions from pseudocode when they exist in Mermaid
+- Every `ChangeState(X)` becomes one edge in the Mermaid diagram, and vice versa — no mismatches, no omitted guards/conditions.
+- Pseudocode is authoritative — write it first; never draft Mermaid first and reverse-engineer pseudocode from it, and never use freeform state-transition prose in place of either.
+- One `State:` declaration per state, one `On EventName:` per event (guards use `if/else`), Mermaid rendered as `stateDiagram-v2` throughout.
 
 ## Enforcement
 

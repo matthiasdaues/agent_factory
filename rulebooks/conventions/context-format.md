@@ -38,9 +38,9 @@ _Avoid_: Client, buyer, account
 
 ## Single vs multi-context repos
 
-**Single context (most repos):** one `CONTEXT.md` at the repo root.
+**Single context (most repos):** one `docs/CONTEXT.md`.
 
-**Multiple contexts:** a `CONTEXT-MAP.md` at the repo root lists the contexts, where they live, and how they relate:
+**Multiple contexts:** a `docs/CONTEXT-MAP.md` lists the contexts, where they live, and how they relate:
 
 ```md
 # Context Map
@@ -58,6 +58,6 @@ _Avoid_: Client, buyer, account
 - **Ordering ↔ Billing**: Shared types for `CustomerId` and `Money`
 ```
 
-Infer the structure: `CONTEXT-MAP.md` exists → read it for contexts; only a root `CONTEXT.md` exists → single context; neither exists → create a root `CONTEXT.md` lazily when the first term is resolved.
+Infer the structure: `docs/CONTEXT-MAP.md` exists → read it for contexts; only `docs/CONTEXT.md` exists → single context; neither exists → create `docs/CONTEXT.md` lazily when the first term is resolved.
 
 When multiple contexts exist, infer which one the current topic relates to; ask if unclear.
