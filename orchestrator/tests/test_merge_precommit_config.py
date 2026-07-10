@@ -17,6 +17,8 @@ import textwrap
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 
+import pytest
+
 _SCRIPT = (
     Path(__file__).resolve().parents[2]
     / "factory"
@@ -136,3 +138,19 @@ class TestExtractMarkerId:
         lines = ORCHESTRATOR_TEMPLATE.splitlines()
 
         assert extract_marker_id(lines) == "id: arch-lint-orchestrator"
+
+    def test_raises_rather_than_crossing_into_a_later_repo_block(self):
+        """FAGAN-0001: a `repo: local` block with no hook id of its own must
+        not fall through into the next top-level `- repo:` entry's id."""
+        template = textwrap.dedent("""\
+            repos:
+              - repo: local
+                hooks: []
+              - repo: https://github.com/foo/bar
+                rev: v1.0
+                hooks:
+                  - id: some-external-hook
+            """)
+
+        with pytest.raises(ValueError, match="can't derive an already-merged marker"):
+            extract_marker_id(template.splitlines())

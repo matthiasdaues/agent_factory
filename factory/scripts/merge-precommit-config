@@ -52,6 +52,7 @@ TOP_LEVEL_KEY = re.compile(r"^\S")
 REPOS_KEY = re.compile(r"^repos:\s*$")
 LIST_ITEM_INDENT = re.compile(r"^( *)- ")
 HOOK_ID_LINE = re.compile(r"^\s*- id:\s*(\S+)\s*$")
+REPO_ITEM_START = re.compile(r"^  - repo:\s*\S")
 
 
 def find_template_block(template_text: str) -> list[str]:
@@ -84,6 +85,9 @@ def extract_marker_id(template_lines: list[str]) -> str:
             continue
 
         if in_block:
+            if REPO_ITEM_START.match(line):
+                break
+
             m = HOOK_ID_LINE.match(line)
 
             if m:

@@ -4,7 +4,7 @@ source: fagan-review
 severity: minor
 category: defect
 artifact: factory/scripts/merge-precommit-config#extract_marker_id
-status: open
+status: resolved
 traces: []
 ---
 
