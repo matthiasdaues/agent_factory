@@ -189,3 +189,11 @@ agent_factory/
 ├── .gitignore
 └── README.md
 ```
+
+______________________________________________________________________
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+Authored by Matthias Daues — see [AUTHORS.md](AUTHORS.md).
