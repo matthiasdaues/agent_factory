@@ -185,19 +185,22 @@ agent_factory/
 ├── orchestrator/                     # Python CLI that drives agent sessions (run-step, run-phase, etc.) — nested sub-project, not distributed by init-factory
 │   ├── src/                          # CLI source code
 │   ├── tests/                        # CLI tests
-│   ├── docs/                         # CLI documentation
+│   ├── docs/                         # CLI documentation (own arc42 set, own docs/adr/, own docs/spec/)
 │   ├── backlog/                      # CLI backlog and stories
 │   └── pyproject.toml                # CLI package configuration
-├── docs/                             # This project's own specification and architecture, not Agent Factory's
-│   ├── spec/                         # PRD, use cases, supplementary specs, todo.md — created lazily, as needed
-│   ├── adr/                          # Architecture Decision Records — created lazily, as needed
-│   ├── findings/                     # Review findings, one file per finding
+├── backlog/                          # Whole-repo backlog — cross-cutting stories, distinct from orchestrator/backlog/
+├── docs/                             # This repo's own whole-repo, cross-cutting docs — distinct from orchestrator/docs/
+│   ├── CONTEXT-MAP.md                # Bounded-context map for this multi-context repo (orchestrator, factory, factory_api)
+│   ├── adr/                          # Whole-repo Architecture Decision Records — own sequence, separate from orchestrator/docs/adr/
+│   ├── reviews/                      # Retrospective and reconciliation reports
 │   └── assets/                       # Diagrams and exported images
 ├── config/                           # This project's own copy of model-matrix.conf — diverges from factory/
 │   └── model-matrix.conf
 ├── .claude/                          # Local only, gitignored. Symlinks into factory/, for Claude Code.
 ├── .github/                          # Local only, gitignored. Symlinks into factory/, for GitHub Copilot CLI.
-├── .pre-commit-config.yaml           # Symlink to factory/config/pre-commit-config.yaml
+├── .pre-commit-config.yaml           # Real, merged file — factory's generic hooks plus orchestrator-scoped ones (see docs/adr/0001-precommit-monorepo-scoping.md)
 ├── .gitignore
 └── README.md
 ```
+
+`docs/spec/` and `docs/findings/` don't exist at root yet — created lazily, as needed, once `factory/` grows its own spec (see `docs/CONTEXT-MAP.md`).

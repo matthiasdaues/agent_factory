@@ -14,7 +14,9 @@
 #      toolchain for mdformat/ruff, and factory/scripts/<name> (not the
 #      stale bare scripts/<name>) for the *-lint gates.
 #
-# See ADR-0003.
+# See docs/adr/0001-precommit-monorepo-scoping.md (not orchestrator's own
+# ADR-0003, a different decision — see that ADR's own note on the numbering
+# collision).
 repos:
   - repo: local
     hooks:
