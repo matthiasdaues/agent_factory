@@ -44,9 +44,9 @@ def git_dir(tmp_path, monkeypatch):
 class TestToolingRoot:
     def test_resolves_to_repo_with_agents_and_skills(self):
         root = _tooling_root()
-        assert (root / "agents").is_dir()
-        assert (root / "skills").is_dir()
-        assert (root / "scripts").is_dir()
+        assert (root / "factory" / "agents").is_dir()
+        assert (root / "factory" / "skills").is_dir()
+        assert (root / "factory" / "scripts").is_dir()
 
 
 class TestInitScaffolds:
