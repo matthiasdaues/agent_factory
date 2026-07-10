@@ -1,0 +1,63 @@
+# Pre-commit hooks for Agent HQ projects.
+# Copied by `orchestrate init` — paths are project-root-relative.
+# The deterministic gate scripts live in scripts/ (also copied by init).
+# See: docs/spec/supplementary_specs/interface-contracts.md
+
+repos:
+  - repo: local
+    hooks:
+      # formats all markdown files
+      - id: mdformat
+        name: mdformat
+        entry: uv run mdformat
+        language: system
+        types: [markdown]
+
+      # lints all python files
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check --fix
+        language: system
+        types_or: [python, pyi, jupyter]
+
+      # lints python code blocks in markdown
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format
+        language: system
+        types_or: [python, pyi, jupyter]
+        
+      - id: spec-lint
+        name: spec-lint (specification consistency & traceability)
+        entry: python3 scripts/spec-lint
+        language: system
+        pass_filenames: false
+        files: ^docs/spec/
+
+      - id: arch-lint
+        name: arch-lint (arc42 <-> Structurizr consistency)
+        entry: python3 scripts/arch-lint --docs-dir docs --no-validate
+        language: system
+        pass_filenames: false
+        files: ^docs/(architecture\.dsl|05_building_block_view\.md|assets/images/.*)$
+
+      - id: backlog-lint
+        name: backlog-lint (story schema & traceability gate)
+        entry: python3 scripts/backlog-lint --backlog-dir backlog
+        language: system
+        pass_filenames: false
+        files: ^backlog/ST-.*\.md$
+
+      - id: matrix-lint
+        name: matrix-lint (model matrix consistency gate)
+        entry: python3 scripts/matrix-lint --matrix model-matrix.conf
+        language: system
+        pass_filenames: false
+        files: ^model-matrix\.conf$
+
+      - id: statemachine-lint
+        name: statemachine-lint (pseudocode ↔ Mermaid consistency)
+        entry: python3 scripts/statemachine-lint --spec-dir docs/spec
+        language: system
+        pass_filenames: false
+        files: ^docs/spec/.*\.md$
