@@ -7,6 +7,11 @@
 # that file uses project-root-relative paths and is copied by `orchestrate init`.
 # Both configs MUST define the same hooks. Keep them in sync.
 #
+# Root .pre-commit-config.yaml also defines these hooks with an -orchestrator
+# suffix. This file exists separately so a contributor can run orchestrator-only
+# gates in isolation, without the rest of the monorepo's hooks executing or
+# needing their tools installed.
+#
 # Usage from repo root:
 #   pre-commit run -c orchestrator/.pre-commit-config.yaml --all-files
 repos:
@@ -35,28 +40,28 @@ repos:
 
       - id: arch-lint
         name: arch-lint (arc42 <-> Structurizr consistency)
-        entry: scripts/arch-lint --docs-dir orchestrator/docs --no-validate
+        entry: python3 factory/scripts/arch-lint --docs-dir orchestrator/docs --no-validate
         language: system
         pass_filenames: false
         files: ^orchestrator/docs/(architecture\.dsl|05_building_block_view\.md|assets/images/.*)$
 
       - id: backlog-lint
         name: backlog-lint (story schema & traceability gate)
-        entry: scripts/backlog-lint --backlog-dir orchestrator/backlog
+        entry: python3 factory/scripts/backlog-lint --backlog-dir orchestrator/backlog
         language: system
         pass_filenames: false
         files: ^orchestrator/backlog/ST-.*\.md$
 
       - id: matrix-lint
         name: matrix-lint (model matrix consistency gate)
-        entry: scripts/matrix-lint --matrix orchestrator/model-matrix.conf
+        entry: python3 factory/scripts/matrix-lint --matrix orchestrator/model-matrix.conf
         language: system
         pass_filenames: false
         files: ^orchestrator/model-matrix\.conf$
 
       - id: statemachine-lint
         name: statemachine-lint (pseudocode ↔ Mermaid consistency)
-        entry: scripts/statemachine-lint --spec-dir orchestrator/docs/spec
+        entry: python3 factory/scripts/statemachine-lint --spec-dir orchestrator/docs/spec
         language: system
         pass_filenames: false
         files: ^orchestrator/docs/spec/.*\.md$
