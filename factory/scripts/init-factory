@@ -72,6 +72,7 @@ REQUIRED_GITIGNORE_LINES = [
     "# Python specific folders and files",
     "__pycache__/",
     "*.pyc",
+    ".ruff_cache/",
 ]
 
 # name -> path relative to factory/, symlinked into each dot-dir under the same name
@@ -81,7 +82,7 @@ DOT_DIRS = [".claude", ".github"]
 
 # dot-dir -> this CLI's root orientation-file path, relative to --target
 ORIENTATION_FILE = {
-    ".claude": "CLAUDE.md",
+    ".claude": ".claude/CLAUDE.md",
     ".github": ".github/copilot-instructions.md",
 }
 
