@@ -147,6 +147,47 @@ class TestInitPreCommitConfig:
         assert (git_dir / ".pre-commit-config.yaml").read_text() == existing
 
 
+class TestInitPreCommitConfigPathsResolve:
+    """BUG-0002: the copied .pre-commit-config.yaml's gate hooks must reference
+    paths that `orchestrate init` actually creates (flat scripts/, flat
+    model-matrix.conf), not agent_factory's own factory/scripts + config/
+    layout, which `orchestrate init` never produces for the target project."""
+
+    def test_gate_hook_entries_point_at_files_that_exist(self, git_dir):
+        main(["init", "--cli", "codex"])
+        cfg = git_dir / ".pre-commit-config.yaml"
+        content = cfg.read_text()
+
+        for line in content.splitlines():
+            line = line.strip()
+            if not line.startswith("entry:"):
+                continue
+            tokens = line[len("entry:") :].strip().split()
+            if tokens[0] != "python3":
+                continue
+            script_path = git_dir / tokens[1]
+            assert script_path.exists(), (
+                f"gate hook entry references {tokens[1]!r}, which does not "
+                "exist anywhere in the project `orchestrate init` just created"
+            )
+
+    def test_matrix_lint_files_pattern_matches_copied_matrix_location(self, git_dir):
+        import re
+
+        main(["init", "--cli", "codex"])
+        assert (git_dir / "model-matrix.conf").exists()
+        content = (git_dir / ".pre-commit-config.yaml").read_text()
+
+        m = re.search(r"id: matrix-lint\b.*?files:\s*(\S+)", content, re.S)
+        assert m is not None, "no matrix-lint hook with a files: pattern found"
+        pattern = m.group(1)
+        assert re.match(pattern, "model-matrix.conf"), (
+            f"matrix-lint's files: pattern {pattern!r} does not match "
+            "model-matrix.conf, the real location `orchestrate init` copies "
+            "the matrix template to"
+        )
+
+
 class TestInitInstructionFile:
     @pytest.mark.parametrize(
         "cli_name,expected_path", list(_CLI_INSTRUCTION_FILES.items())
