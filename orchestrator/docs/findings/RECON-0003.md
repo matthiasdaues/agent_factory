@@ -4,7 +4,7 @@ source: reconcile-spec
 severity: major
 category: defect
 artifact: orchestrator/.pre-commit-config.yaml#L36-L62
-status: open
+status: resolved
 traces: [ADR-0001]
 ---
 
