@@ -204,3 +204,11 @@ agent_factory/
 ```
 
 `docs/spec/` and `docs/findings/` don't exist at root yet — created lazily, as needed, once `factory/` grows its own spec (see `docs/CONTEXT-MAP.md`).
+
+______________________________________________________________________
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+Authored by Matthias Daues — see [AUTHORS.md](AUTHORS.md).
