@@ -4,7 +4,7 @@ source: reconcile-spec
 severity: major
 category: defect
 artifact: orchestrator/src/orchestrator/cli.py#L2304,L2653
-status: open
+status: resolved
 traces: []
 ---
 

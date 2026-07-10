@@ -2301,7 +2301,7 @@ Two exceptions are always written in **Plain English after Strunk & White**:
 
 ## Handoff — Orchestrator Managed
 
-You are running inside the Agent HQ orchestrator. **Do not** tell the user to
+You are running inside the agent_factory orchestrator. **Do not** tell the user to
 start a new session or manually run another agent. When your work is complete,
 tell the user to **exit this session** (Ctrl+C or `/exit`) so the orchestrator
 can gate your artifacts and proceed to the next phase automatically.
@@ -2650,7 +2650,7 @@ def _resolve_agents_dir(repo_root: Path) -> Path:
         return cwd_agents
     raise ValueError(
         "Cannot find agents directory.\n"
-        "Run 'orchestrate init' to set up the project, or check your Agent HQ installation."
+        "Run 'orchestrate init' to set up the project, or check your agent_factory installation."
     )
 
 
