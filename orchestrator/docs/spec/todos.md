@@ -233,3 +233,21 @@ The most interesting first question when starting the orchestrator (bare `orches
 - Does this replace or sit alongside the existing bare-invocation menu (`init`/`configure`/`run-step`/`run-phase`/`status`/`manage-run`/`backlog`)? Likely a new root-level item or the default landing screen on first-ever run (no `.orchestrator/` yet) rather than a full replacement.
 - How does a selected playbook's procedure actually get "loaded" into the session — passed as context to the first agent invocation, or does it drive `run-phase` selection directly?
 - `greenfield-development.fsm.yml` already exists as a formal state-machine representation for one playbook — should playbook selection require that formalization for all playbooks before this is buildable, or can prose-only playbooks (the other 6) work too?
+
+## T-41 — ADR-0010 distribution model requires supersession
+
+**Status**: stub
+**Origin**: architecture milestone 2026-07-10 — factory structure stabilization (ST-0062, ST-0064).
+
+### Problem
+
+`orchestrator/docs/adr/0010-separate-tooling-from-project-directory.md` documents the pre-pivot agent_hq distribution model: a global clone of the factory, installed via `uv tool install`, with symlinks into each project directory. This model no longer matches agent_factory's current architecture, where the entire `factory/` directory is copied wholesale into a project by `init-factory` — the factory is distributed as part of the project, not as a global tool.
+
+### Trigger for resolution
+
+Once orchestrator's real shipping/distribution mechanism is designed and documented, supersede ADR-0010 with a new ADR reflecting the actual distribution model used to ship orchestrator and its factory.
+
+### Open questions
+
+- What is orchestrator's long-term distribution model (global tool, per-project copy, package-manager-published CLI, or other)? This is out of scope for the current factory-stabilization round.
+- Should the new ADR address the factory's distribution separately from orchestrator's own distribution, or as a single unified mechanism?
