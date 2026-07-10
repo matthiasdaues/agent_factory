@@ -47,9 +47,9 @@ Review code for correctness, security, robustness. Hunt bugs through exploratory
 
 ## Workflow
 
-1. **Fagan Inspection** — Invoke `fagan-review`: five focus areas (Correctness, **Clean Architecture**, **SOLID**, Maintainability, Consistency). Save per [report-format.md](../factory/rulebooks/conventions/report-format.md), file `FAGAN` defects per [finding-format.md](../factory/rulebooks/conventions/finding-format.md).
+1. **Fagan Inspection** — Invoke `fagan-review`: five focus areas (Correctness, **Clean Architecture**, **SOLID**, Maintainability, Consistency). Save per [report-format.md](../rulebooks/conventions/report-format.md), file `FAGAN` defects per [finding-format.md](../rulebooks/conventions/finding-format.md).
 2. **Security Review** — Invoke `security-review`: **OWASP Top 10**, realistic attack vectors only. File `SEC` findings for Medium+.
-3. **Bug Hunt** — Invoke `bug-hunt`: Hunt (break the system, verify **Gherkin** criteria, file `BUG` findings) → Fix (Red → Green → commit per [commit-conventions.md](../factory/rulebooks/conventions/commit-conventions.md) `fix: ... (BUG-NNNN)` → `status: resolved`) → Retest until a full cycle finds zero bugs.
+3. **Bug Hunt** — Invoke `bug-hunt`: Hunt (break the system, verify **Gherkin** criteria, file `BUG` findings) → Fix (Red → Green → commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md) `fix: ... (BUG-NNNN)` → `status: resolved`) → Retest until a full cycle finds zero bugs.
 
 ## Completion Criteria
 

@@ -4,7 +4,7 @@ source: reconcile-spec
 severity: minor
 category: defect
 artifact: factory/agents/*.md (8 files; in-range additions at implementation-agent.md#L50,L55)
-status: open
+status: resolved
 traces: []
 ---
 

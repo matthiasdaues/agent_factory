@@ -47,8 +47,8 @@ Evaluate an architecture you did not create, without assumptions. Find sensitivi
 
 1. **Read** — arc42 docs, ADRs, spec. Understand what was built and why.
 2. **ATAM Review** — Deterministic: `factory/scripts/arch-lint --docs-dir docs/`. Semantic: evaluate each quality scenario from `docs/10_quality_requirements.md` (sensitivity points, tradeoff points, risks, non-risks). YAGNI pass: flag artificial complexity.
-3. **Report** — Save `docs/reviews/atam-review.md` per [report-format.md](../factory/rulebooks/conventions/report-format.md), file Medium+ risks per [finding-format.md](../factory/rulebooks/conventions/finding-format.md).
-4. **Verify prior findings** (repeat passes) — Per [review-loop-discipline.md](../factory/rulebooks/conventions/review-loop-discipline.md): resolve/annotate each open `ATAM` finding, **and** re-run the full evaluation fresh.
+3. **Report** — Save `docs/reviews/atam-review.md` per [report-format.md](../rulebooks/conventions/report-format.md), file Medium+ risks per [finding-format.md](../rulebooks/conventions/finding-format.md).
+4. **Verify prior findings** (repeat passes) — Per [review-loop-discipline.md](../rulebooks/conventions/review-loop-discipline.md): resolve/annotate each open `ATAM` finding, **and** re-run the full evaluation fresh.
 
 **Pause point:** Present findings before filing.
 
