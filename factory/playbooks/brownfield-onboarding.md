@@ -93,7 +93,7 @@ For stateful components found in code:
 
 ```bash
 # Manual session
-"Extract state machines from [file/module] and document per rulebooks/state-machine-notation.md"
+"Extract state machines from [file/module] and document per factory/rulebooks/conventions/state-machine-notation.md"
 ```
 
 Output: `docs/spec/supplementary_specs/state-machines.md`
@@ -101,7 +101,7 @@ Output: `docs/spec/supplementary_specs/state-machines.md`
 ### Step 2.3 — Validate Architecture
 
 ```bash
-scripts/arch-lint --docs-dir docs/
+factory/scripts/arch-lint --docs-dir docs/
 ```
 
 **If errors** → Fix and loop to Step 2.1

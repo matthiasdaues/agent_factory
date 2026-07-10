@@ -17,7 +17,7 @@ Never re-check what Pass 1 already proved. Read `docs/CONTEXT.md` first.
 ## Step 1 — Run the deterministic linter
 
 ```bash
-scripts/spec-lint --spec-dir docs/spec --graph docs/spec/traceability.json
+factory/scripts/spec-lint --spec-dir docs/spec --graph docs/spec/traceability.json
 ```
 
 `error` findings → Defect without debate. `warning`/`info` → confirm or dismiss during Pass 2.
@@ -36,17 +36,17 @@ Read the full spec (`docs/spec/`), then evaluate against the Wiegers/INCOSE requ
 
 ## Step 3 — Write the review report
 
-Save as `docs/reviews/spec-review-YYYY-MM-DD.md` per [report-format.md](../../rulebooks/conventions/report-format.md), adding:
+Save as `docs/reviews/spec-review-YYYY-MM-DD.md` per [report-format.md](../../factory/rulebooks/conventions/report-format.md), adding:
 
 1. **Reviewed specification** — artifacts read, `spec-lint` summary line.
 2. **Deterministic findings** — Pass-1 table, each row Confirmed or Dismissed.
 3. **Semantic findings** — finding table with Characteristic column added.
 4. **Traceability summary** — orphans and gaps from `traceability.json`.
 
-File findings per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `SPEC`.
+File findings per [finding-format.md](../../factory/rulebooks/conventions/finding-format.md) with tag `SPEC`.
 
-Format both the report and any finding files via `scripts/mdformat --number` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
+Format both the report and any finding files via `factory/scripts/mdformat --number` per [markdown-formatting.md](../../factory/rulebooks/conventions/markdown-formatting.md).
 
 ## Step 4 — Verify prior findings (repeat passes only)
 
-Per [review-loop-discipline.md](../../rulebooks/conventions/review-loop-discipline.md): resolve or annotate each open `SPEC` finding, **and** re-run Steps 1-2 fresh against the full spec — not just the prior findings list — to catch new defects.
+Per [review-loop-discipline.md](../../factory/rulebooks/conventions/review-loop-discipline.md): resolve or annotate each open `SPEC` finding, **and** re-run Steps 1-2 fresh against the full spec — not just the prior findings list — to catch new defects.

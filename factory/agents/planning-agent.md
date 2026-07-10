@@ -42,7 +42,7 @@ Break specification and architecture into **tracer bullet** **vertical slices**.
 1. **Group into EPICs** — Related User Goals share `epic:` frontmatter value.
 2. **Write User Stories** — **INVEST**-compliant, respecting **Clean Architecture** layers. Trace: Use Case ID(s), arc42 component(s), ADR(s).
 3. **Prioritize** — **MoSCoW** on every story.
-4. **Mark dependencies** — `deps:` frontmatter. Validate: `scripts/backlog-lint --backlog-dir backlog`.
+4. **Mark dependencies** — `deps:` frontmatter. Validate: `factory/scripts/backlog-lint --backlog-dir backlog`.
 
 **Pause point:** Present backlog — coverage (every goal has a story), priority correctness, dependency order.
 

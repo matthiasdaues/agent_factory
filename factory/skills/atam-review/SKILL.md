@@ -19,7 +19,7 @@ Never re-check by hand what Pass 1 already proved. Read `docs/CONTEXT.md` first 
 Run the linter and capture its report:
 
 ```bash
-scripts/arch-lint --docs-dir docs/
+factory/scripts/arch-lint --docs-dir docs/
 ```
 
 Read every finding. `error`-severity findings are hard defects — they go into the report as **Defect** without further debate. `warning`/`info` findings are candidates: confirm or dismiss each during Pass 2 (a heuristic finding may be a false positive; say so explicitly).
@@ -40,7 +40,7 @@ For each quality scenario, read the relevant arc42 chapters and identify the **a
 
 ## Step 4 — Write the review report
 
-Save as `docs/reviews/atam-review.md` per [report-format.md](../../rulebooks/conventions/report-format.md), adding:
+Save as `docs/reviews/atam-review.md` per [report-format.md](../../factory/rulebooks/conventions/report-format.md), adding:
 
 1. **Reviewed architecture** — chapters and DSL examined; `arch-lint` summary (error/warning/info counts + exit code).
 2. **Deterministic findings** — Pass-1 table, each row Confirmed or Dismissed.
@@ -49,10 +49,10 @@ Save as `docs/reviews/atam-review.md` per [report-format.md](../../rulebooks/con
 5. **Risk summary** — table of risks with severity and proposed mitigation.
 6. **Tradeoff summary** — table of identified tradeoffs.
 
-File findings per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `ATAM` for risks rated Medium or higher.
+File findings per [finding-format.md](../../factory/rulebooks/conventions/finding-format.md) with tag `ATAM` for risks rated Medium or higher.
 
-Format both the report and any finding files via `scripts/mdformat --number` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
+Format both the report and any finding files via `factory/scripts/mdformat --number` per [markdown-formatting.md](../../factory/rulebooks/conventions/markdown-formatting.md).
 
 ## Step 5 — Verify prior findings (repeat passes only)
 
-Per [review-loop-discipline.md](../../rulebooks/conventions/review-loop-discipline.md): resolve or annotate each open `ATAM` finding, **and** re-run Steps 1-3 fresh against the full architecture — not just the prior findings list — to catch new defects.
+Per [review-loop-discipline.md](../../factory/rulebooks/conventions/review-loop-discipline.md): resolve or annotate each open `ATAM` finding, **and** re-run Steps 1-3 fresh against the full architecture — not just the prior findings list — to catch new defects.

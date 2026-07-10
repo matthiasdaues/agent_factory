@@ -36,7 +36,7 @@ Before touching any prose chapter, update `docs/architecture.dsl`:
 Validate after every change:
 
 ```bash
-scripts/structurizr validate
+factory/scripts/structurizr validate
 ```
 
 **Completion**: DSL validates without errors. All new elements/relationships appear in the model.
@@ -46,7 +46,7 @@ scripts/structurizr validate
 Export all views as PNG and SVG:
 
 ```bash
-scripts/structurizr export-all
+factory/scripts/structurizr export-all
 ```
 
 This overwrites `docs/assets/images/` with the current model.
@@ -67,7 +67,7 @@ Update the relevant arc42 chapters to match the model. The mapping:
 
 For chapters 5 (tables) and 9 (ADR index): element names and port lists must match the DSL. `arch-lint` enforces this for components and ports.
 
-Format every updated chapter via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
+Format every updated chapter via `factory/scripts/mdformat --number <path>` per [markdown-formatting.md](../../factory/rulebooks/conventions/markdown-formatting.md).
 
 **Completion**: `arch-lint --docs-dir docs` reports 0 errors. Do not commit yet.
 
@@ -93,10 +93,10 @@ Rules:
 
 ## Step 5 — Maintain state machine pseudocode
 
-Canonical pseudocode format, reserved actions, and the pseudocode→Mermaid derivation rules: [state-machine-notation.md](../../rulebooks/conventions/state-machine-notation.md).
+Canonical pseudocode format, reserved actions, and the pseudocode→Mermaid derivation rules: [state-machine-notation.md](../../factory/rulebooks/conventions/state-machine-notation.md).
 
 ```bash
-scripts/statemachine-lint --spec-dir docs/spec
+factory/scripts/statemachine-lint --spec-dir docs/spec
 ```
 
 **Completion**: `statemachine-lint` reports 0 errors.

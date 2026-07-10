@@ -17,8 +17,8 @@ inputs:
   - docs/spec/use_cases/*.md
   - docs/spec/supplementary_specs/*.md
   - docs/reviews/atam-review.md
-  - rulebooks/conventions/state-machine-notation.md
-  - rulebooks/conventions/commit-conventions.md
+  - factory/rulebooks/conventions/state-machine-notation.md
+  - factory/rulebooks/conventions/commit-conventions.md
 outputs:
   - docs/README.md
   - docs/01_introduction_and_goals.md
@@ -59,11 +59,11 @@ Produce **arc42** documentation, **C4** models in **Structurizr DSL**, and **ADR
 
 1. **Scaffold arc42 and C4** — Invoke `scaffold-arc42`: all 12 chapters filled, `docs/architecture.dsl` created.
    ```bash
-   scripts/structurizr validate
-   scripts/structurizr export-all
+   factory/scripts/structurizr validate
+   factory/scripts/structurizr export-all
    ```
 2. **Write ADRs** — Per decision: if genuine alternatives exist, invoke `pugh-matrix` against ch.10 quality goals (**Clean Architecture** + **SOLID** as criteria when boundaries/contracts are affected) before invoking `write-adr`; if there's no real alternative to weigh, invoke `write-adr` directly. Update `docs/09_architecture_decisions.md` index.
-3. **Address findings** (repeat passes) — Invoke `maintain-architecture`: DSL first → validate → export → prose → Mermaid → state machines per [state-machine-notation.md](../rulebooks/conventions/state-machine-notation.md) → annotate findings (don't resolve). One atomic commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `refactor: <description> (ATAM-NNNN)`.
+3. **Address findings** (repeat passes) — Invoke `maintain-architecture`: DSL first → validate → export → prose → Mermaid → state machines per [state-machine-notation.md](../factory/rulebooks/conventions/state-machine-notation.md) → annotate findings (don't resolve). One atomic commit per [commit-conventions.md](../factory/rulebooks/conventions/commit-conventions.md): `refactor: <description> (ATAM-NNNN)`.
 
 **Pause points:** Arc42 chapters before ADRs · Each ADR for approval.
 

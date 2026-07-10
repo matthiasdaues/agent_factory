@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 Break the specification and architecture into a prioritised backlog of EPICs and User Stories, written as local markdown files under `backlog/`. Every story is a **tracer bullet** — a **vertical slice** that is independently implementable, traceable to its Use Case, and respects architectural boundaries.
 
-Stories are project artifacts, not entries in an external tracker: one file per story, `backlog/ST-NNNN.md`, with strict frontmatter validated by `scripts/backlog-lint`.
+Stories are project artifacts, not entries in an external tracker: one file per story, `backlog/ST-NNNN.md`, with strict frontmatter validated by `factory/scripts/backlog-lint`.
 
 Read `docs/CONTEXT.md` if it exists — use the project's domain vocabulary in story titles and descriptions.
 
@@ -56,7 +56,7 @@ Each story records in `traces`: Use Case ID(s) it implements (e.g. `UC-01`, `UC-
 
 Judge each story's `classification` (`trivial | standard | hard`) — the difficulty band the model matrix maps to a tier.
 
-Format each story file via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
+Format each story file via `factory/scripts/mdformat --number <path>` per [markdown-formatting.md](../../factory/rulebooks/conventions/markdown-formatting.md).
 
 **Completion**: every User Goal covered by at least one story, all stories meet INVEST, `traces` and `classification` present.
 
@@ -68,7 +68,7 @@ Record each story's **MoSCoW** priority in its body: `**Priority:** must-have | 
 
 ## Step 4 — Mark dependencies
 
-List blocking stories in `deps` (by `ST-NNNN` id). Run `scripts/backlog-lint --backlog-dir backlog` — it checks acyclicity — and fix any errors.
+List blocking stories in `deps` (by `ST-NNNN` id). Run `factory/scripts/backlog-lint --backlog-dir backlog` — it checks acyclicity — and fix any errors.
 
 Present the complete backlog to the user. Ask:
 
@@ -85,4 +85,4 @@ Present the complete backlog to the user. Ask:
 - [ ] Dependencies are explicit in `deps` — no hidden ordering assumptions
 - [ ] Stories reference Use Case IDs in `traces` for traceability
 - [ ] Stories respect architectural layer boundaries
-- [ ] `scripts/backlog-lint` reports zero errors
+- [ ] `factory/scripts/backlog-lint` reports zero errors

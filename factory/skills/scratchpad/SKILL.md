@@ -23,9 +23,9 @@ Take the note text as-is — no rewriting, no summarizing, no correcting. This i
 ## Step 2 — Pipe to the script
 
 ```bash
-echo "{note text}" | scripts/scratchpad
+echo "{note text}" | factory/scripts/scratchpad
 ```
 
-The script handles everything: creates the file if it doesn't exist, starts a new date section if the most recent one isn't today, appends the note as a bullet, and formats the file via `scripts/mdformat` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md). Never construct the file/heading structure by hand, and never edit `session-scratchpad.md` directly — always go through the script, so the date-sectioning and formatting stay consistent.
+The script handles everything: creates the file if it doesn't exist, starts a new date section if the most recent one isn't today, appends the note as a bullet, and formats the file via `factory/scripts/mdformat` per [markdown-formatting.md](../../factory/rulebooks/conventions/markdown-formatting.md). Never construct the file/heading structure by hand, and never edit `session-scratchpad.md` directly — always go through the script, so the date-sectioning and formatting stay consistent.
 
 **Completion**: script exits 0, note appended.

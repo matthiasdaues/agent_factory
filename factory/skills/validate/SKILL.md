@@ -15,21 +15,21 @@ Run in this order — cheap and universal first, project-specific last:
 
 | #   | Gate              | Condition to run                              | Command                                                                      |
 | --- | ----------------- | --------------------------------------------- | ---------------------------------------------------------------------------- |
-| 1   | Markdown format   | Always (every project has *some* Markdown)    | `scripts/mdformat --number .`                                                |
+| 1   | Markdown format   | Always (every project has *some* Markdown)    | `factory/scripts/mdformat --number .`                                                |
 | 2   | Ruff check        | `pyproject.toml` or any `*.py` exists         | `ruff check --fix .`                                                         |
 | 3   | Ruff format       | Same as above                                 | `ruff format .`                                                              |
-| 4   | spec-lint         | `docs/spec/` exists                           | `scripts/spec-lint --spec-dir docs/spec --graph docs/spec/traceability.json` |
-| 5   | arch-lint         | `docs/architecture.dsl` or `docs/adr/` exists | `scripts/arch-lint --docs-dir docs --no-validate`                            |
-| 6   | backlog-lint      | `backlog/` exists                             | `scripts/backlog-lint --backlog-dir backlog`                                 |
-| 7   | matrix-lint       | `config/model-matrix.conf` exists             | `scripts/matrix-lint --matrix config/model-matrix.conf`                      |
-| 8   | statemachine-lint | `docs/spec/` exists                           | `scripts/statemachine-lint --spec-dir docs/spec`                             |
-| 9   | index-lint        | `agents/` or `skills/` exists                 | `scripts/index-lint --check`                                                 |
+| 4   | spec-lint         | `docs/spec/` exists                           | `factory/scripts/spec-lint --spec-dir docs/spec --graph docs/spec/traceability.json` |
+| 5   | arch-lint         | `docs/architecture.dsl` or `docs/adr/` exists | `factory/scripts/arch-lint --docs-dir docs --no-validate`                            |
+| 6   | backlog-lint      | `backlog/` exists                             | `factory/scripts/backlog-lint --backlog-dir backlog`                                 |
+| 7   | matrix-lint       | `config/model-matrix.conf` exists             | `factory/scripts/matrix-lint --matrix config/model-matrix.conf`                      |
+| 8   | statemachine-lint | `docs/spec/` exists                           | `factory/scripts/statemachine-lint --spec-dir docs/spec`                             |
+| 9   | index-lint        | `factory/agents/` or `factory/skills/` exists | `factory/scripts/index-lint --check`                                                 |
 
 **Ruff is Python-specific, not universal.** Gates 2-3 are the one pair genuinely conditional on implementation language — the factory itself (agents/skills/playbooks/rulebooks, gates 1 and 4-9) is language-agnostic; only a Python target project pulls in ruff. A non-Python project should see gates 2-3 reported as skipped, not failed.
 
-**index-lint uses `--check` here, not the default write mode.** `validate` reports pass/fail, it doesn't rewrite project files as a side effect of checking — if `INDEX.md` is stale, report `FAIL` and let the user (or `commit`, which already runs `validate` first) decide to regenerate via a plain `scripts/index-lint`.
+**index-lint uses `--check` here, not the default write mode.** `validate` reports pass/fail, it doesn't rewrite project files as a side effect of checking — if `INDEX.md` is stale, report `FAIL` and let the user (or `commit`, which already runs `validate` first) decide to regenerate via a plain `factory/scripts/index-lint`.
 
-**Path convention.** Every script and gate above is project-root-relative, matching the portable `config/pre-commit-config.yaml` template — run `validate` from the project root.
+**Path convention.** Every script above lives in `factory/scripts/`; `config/model-matrix.conf` is the one exception, copied out to the project root at init time rather than staying inside `factory/` — see the portable `factory/config/pre-commit-config.yaml` template. Run `validate` from the project root.
 
 ## Step 1 — Detect applicable gates
 

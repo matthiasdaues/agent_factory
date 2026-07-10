@@ -117,7 +117,7 @@ orchestrator run-phase planning
 ### Step 3.2 — Validate
 
 ```bash
-scripts/backlog-lint --backlog-dir backlog
+factory/scripts/backlog-lint --backlog-dir backlog
 ```
 
 **If errors** → Fix and return to Step 3.1

@@ -19,10 +19,10 @@ inputs:
   - docs/adr/*.md
   - src/**/*
   - tests/**/*
-  - rulebooks/conventions/finding-format.md
-  - rulebooks/conventions/report-format.md
-  - rulebooks/conventions/commit-conventions.md
-  - rulebooks/conventions/review-loop-discipline.md
+  - factory/rulebooks/conventions/finding-format.md
+  - factory/rulebooks/conventions/report-format.md
+  - factory/rulebooks/conventions/commit-conventions.md
+  - factory/rulebooks/conventions/review-loop-discipline.md
 outputs:
   - docs/reviews/reconciliation-*.md
   - docs/spec/supplementary_specs/*.md (updated)
@@ -56,8 +56,8 @@ Ask the inverse of spec-review: **"Does the spec still match the code?"** Make t
 **Invoke skill:** `reconcile-spec`
 
 1. **Read everything** — `src/`, `tests/` (actual behavior); `docs/spec/supplementary_specs/`, `system-use-cases.md`; `docs/05_building_block_view.md`, `docs/adr/`; `docs/CONTEXT.md`.
-2. **Reconcile** — Build truth maps from code and spec, diff them, classify discrepancies, update stale docs, file code defects per [finding-format.md](../rulebooks/conventions/finding-format.md). Commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `docs: <description> (RECON-NNNN)`. Report per [report-format.md](../rulebooks/conventions/report-format.md).
-3. **Verify prior findings** (repeat passes) — Per [review-loop-discipline.md](../rulebooks/conventions/review-loop-discipline.md): resolve/annotate each open `RECON` finding, **and** re-reconcile fresh to catch new drift.
+2. **Reconcile** — Build truth maps from code and spec, diff them, classify discrepancies, update stale docs, file code defects per [finding-format.md](../factory/rulebooks/conventions/finding-format.md). Commit per [commit-conventions.md](../factory/rulebooks/conventions/commit-conventions.md): `docs: <description> (RECON-NNNN)`. Report per [report-format.md](../factory/rulebooks/conventions/report-format.md).
+3. **Verify prior findings** (repeat passes) — Per [review-loop-discipline.md](../factory/rulebooks/conventions/review-loop-discipline.md): resolve/annotate each open `RECON` finding, **and** re-reconcile fresh to catch new drift.
 
 **Pause point:** Present the discrepancy table before committing updates. Human decides: update spec or change code?
 

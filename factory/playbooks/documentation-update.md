@@ -88,7 +88,7 @@ Return to Step 1.1 (re-run reconciliation)
 ### Step 2.1 — Lint Spec
 
 ```bash
-scripts/spec-lint --spec-dir docs/spec --graph docs/spec/traceability.json
+factory/scripts/spec-lint --spec-dir docs/spec --graph docs/spec/traceability.json
 ```
 
 **If errors** → Fix manually or re-run reconciliation-agent
@@ -97,7 +97,7 @@ scripts/spec-lint --spec-dir docs/spec --graph docs/spec/traceability.json
 ### Step 2.2 — Lint Architecture
 
 ```bash
-scripts/arch-lint --docs-dir docs/
+factory/scripts/arch-lint --docs-dir docs/
 ```
 
 **If errors** → Fix manually or run architecture-agent

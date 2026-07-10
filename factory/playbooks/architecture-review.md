@@ -55,7 +55,7 @@ ls docs/01_introduction_and_goals.md \
 ### Step 1.2 — Lint Architecture
 
 ```bash
-scripts/arch-lint --docs-dir docs/
+factory/scripts/arch-lint --docs-dir docs/
 ```
 
 **If errors** → Document in `docs/spec/todos.md`, may need architecture-agent to fix

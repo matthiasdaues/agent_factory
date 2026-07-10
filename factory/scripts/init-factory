@@ -1,0 +1,320 @@
+#!/usr/bin/env python3
+"""init-factory — idempotent setup: wire Agent Factory into a target project.
+
+Works identically whether `--target` is a brand-new empty directory or an
+existing repo with its own history, docs, and hooks — every step below
+states its own fresh-vs-existing behavior. Safe to re-run: a clean re-run
+against an already-initialized target reports "nothing to do" everywhere
+except the one thing this script never diffs (see step 3).
+
+Deliberately NOT bundled into a skill by default — this can be run directly,
+standalone, with no AI in the loop at all (`init-factory` is a normal
+executable). A thin skill wrapper exists for CLIs that want to invoke it
+conversationally, but nothing about using Agent Factory requires it.
+
+Does not scaffold docs/spec/, docs/adr/, docs/CONTEXT.md, or any other docs/
+subtree — those are created lazily by the skill that first needs them
+(domain-modeling, todo-format), not eagerly by init.
+
+Steps
+  1. Create --target if missing.
+  2. `git init` if --target isn't already a repo.
+  3. Copy factory/ from --source into --target, UNLESS --target/factory
+     already exists — in that case this step is skipped (not diffed, not
+     refreshed; that's the still-unbuilt update script's job), and every
+     later step runs against whatever's already there.
+  4. Merge required lines into --target/.gitignore — append only what's
+     missing, never overwrite, never duplicate on re-run.
+  5. Create --target/.claude and --target/.github unconditionally, no
+     CLI-choice prompt. Already present → continue.
+  6. Symlink factory/{agents,skills,playbooks,rulebooks,scripts,INDEX.md}
+     and factory/config/AGENTS.md into both dot-dirs (the latter as each
+     CLI's root orientation file: CLAUDE.md, .github/copilot-instructions.md).
+     Per path: missing → link it; already the correct symlink → skip;
+     anything else → STOP THE WHOLE RUN, name the exact colliding path.
+  7. Copy (never symlink) factory/config/model-matrix.conf to
+     --target/config/model-matrix.conf, only if that path doesn't exist yet
+     — this file is meant to diverge per project, so an existing copy is
+     assumed already customized and is never touched again.
+  8. --target/.pre-commit-config.yaml: missing → symlink to
+     factory/config/pre-commit-config.yaml. Exists as a real file already →
+     hand off to merge-precommit-config, which splices Agent Factory's
+     hooks in without disturbing whatever hooks were already there.
+  9. `uvx pre-commit install` — pre-commit's own install is already
+     idempotent, no extra check needed.
+
+Usage
+  init-factory                                    # target = cwd, source = this checkout
+  init-factory --target /path/to/project
+  init-factory --target /path/to/project --source /path/to/agent_factory
+
+Exit code: 0 on success (including a clean no-op re-run). 1 on any collision
+or unsupported existing state — nothing is left partially applied; the first
+step that can't proceed stops the whole run before touching anything later.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+REQUIRED_GITIGNORE_LINES = [
+    "# Local AI folders",
+    ".claude",
+    ".github",
+    "",
+    "# Local ephemeral notes",
+    "session-scratchpad.md",
+    "",
+    "# Python specific folders and files",
+    "__pycache__/",
+    "*.pyc",
+]
+
+# name -> path relative to factory/, symlinked into each dot-dir under the same name
+FACTORY_CONTENT = ["agents", "skills", "playbooks", "rulebooks", "scripts", "INDEX.md"]
+
+DOT_DIRS = [".claude", ".github"]
+
+# dot-dir -> this CLI's root orientation-file path, relative to --target
+ORIENTATION_FILE = {
+    ".claude": "CLAUDE.md",
+    ".github": ".github/copilot-instructions.md",
+}
+
+
+class Collision(Exception):
+    """Raised when a step finds something at a destination path that isn't
+    ours to skip past — stops the whole run, names the exact path."""
+
+
+def log(report: list[str], line: str) -> None:
+    report.append(line)
+    print(f"init-factory: {line}")
+
+
+def ensure_target_dir(target: Path, report: list[str]) -> None:
+    if target.exists():
+        log(report, f"target directory exists: {target}")
+        return
+
+    target.mkdir(parents=True)
+    log(report, f"created target directory: {target}")
+
+
+def ensure_git(target: Path, report: list[str]) -> None:
+    if (target / ".git").exists():
+        log(report, "git: already a repo, left untouched")
+        return
+
+    subprocess.run(["git", "init", str(target)], check=True, capture_output=True)
+    log(report, "git: initialized new repo")
+
+
+def copy_factory(source_factory: Path, target: Path, report: list[str]) -> None:
+    dest = target / "factory"
+
+    if dest.exists():
+        log(
+            report,
+            "factory/: already present, skipped — refreshing an existing "
+            "factory/ is the (not yet built) update script's job, not init's",
+        )
+        return
+
+    import shutil
+
+    shutil.copytree(source_factory, dest, symlinks=False)
+    log(report, f"factory/: copied in from {source_factory}")
+
+
+def merge_gitignore(target: Path, report: list[str]) -> None:
+    path = target / ".gitignore"
+
+    if not path.exists():
+        path.write_text("\n".join(REQUIRED_GITIGNORE_LINES) + "\n", encoding="utf-8")
+        log(report, ".gitignore: created")
+        return
+
+    existing = path.read_text(encoding="utf-8")
+    existing_lines = set(existing.splitlines())
+    missing = [
+        line for line in REQUIRED_GITIGNORE_LINES if line and line not in existing_lines
+    ]
+
+    if not missing:
+        log(report, ".gitignore: already has everything required, no change")
+        return
+
+    addition = "\n# Agent Factory\n" + "\n".join(missing) + "\n"
+    path.write_text(existing.rstrip("\n") + "\n" + addition, encoding="utf-8")
+    log(report, f".gitignore: appended {len(missing)} missing line(s)")
+
+
+def ensure_dot_dirs(target: Path, report: list[str]) -> None:
+    for name in DOT_DIRS:
+        path = target / name
+
+        if path.exists():
+            log(report, f"{name}/: already present, continuing")
+            continue
+
+        path.mkdir()
+        log(report, f"{name}/: created")
+
+
+def ensure_symlink(link: Path, dest: Path, report: list[str]) -> None:
+    """dest is the real path the symlink should resolve to. Relative link,
+    computed from link's own directory, so the whole tree stays portable."""
+    rel = os.path.relpath(dest, start=link.parent)
+
+    if link.is_symlink():
+        current = (link.parent / os.readlink(link)).resolve()
+
+        if current == dest.resolve():
+            log(report, f"skip (already linked): {link}")
+            return
+
+        raise Collision(f"{link} is already a symlink to {current}, not to {dest}")
+
+    if link.exists():
+        raise Collision(f"{link} already exists and is not a symlink to {dest}")
+
+    link.symlink_to(rel)
+    log(report, f"linked: {link} -> {rel}")
+
+
+def symlink_factory_content(target: Path, report: list[str]) -> None:
+    factory = target / "factory"
+
+    for dot_dir in DOT_DIRS:
+        base = target / dot_dir
+
+        for name in FACTORY_CONTENT:
+            ensure_symlink(base / name, factory / name, report)
+
+        ensure_symlink(
+            target / ORIENTATION_FILE[dot_dir], factory / "config" / "AGENTS.md", report
+        )
+
+
+def copy_model_matrix(target: Path, report: list[str]) -> None:
+    dest = target / "config" / "model-matrix.conf"
+
+    if dest.exists():
+        log(
+            report,
+            "config/model-matrix.conf: already present, left untouched (meant to diverge per project)",
+        )
+        return
+
+    import shutil
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(target / "factory" / "config" / "model-matrix.conf", dest)
+    log(report, "config/model-matrix.conf: copied in as a starter")
+
+
+def handle_precommit(target: Path, report: list[str]) -> None:
+    dest = target / ".pre-commit-config.yaml"
+    template = target / "factory" / "config" / "pre-commit-config.yaml"
+
+    if dest.is_symlink():
+        current = (dest.parent / os.readlink(dest)).resolve()
+
+        if current == template.resolve():
+            log(report, "skip (already linked): .pre-commit-config.yaml")
+            return
+
+        raise Collision(f"{dest} is already a symlink to {current}, not to {template}")
+
+    if not dest.exists():
+        ensure_symlink(dest, template, report)
+        return
+
+    merge_script = target / "factory" / "scripts" / "merge-precommit-config"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(merge_script),
+            "--target",
+            str(dest),
+            "--template",
+            str(template),
+        ],
+    )
+
+    if result.returncode != 0:
+        raise Collision(
+            f"{dest} exists with a structure merge-precommit-config couldn't "
+            "handle automatically — see its error above, merge by hand"
+        )
+
+    log(report, ".pre-commit-config.yaml: merged Agent Factory's hooks in")
+
+
+def pre_commit_install(target: Path, report: list[str]) -> None:
+    result = subprocess.run(
+        ["uvx", "pre-commit", "install"], cwd=target, capture_output=True, text=True
+    )
+
+    if result.returncode != 0:
+        log(report, f"uvx pre-commit install: FAILED — {result.stderr.strip()}")
+        return
+
+    log(report, "uvx pre-commit install: done")
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument(
+        "--source",
+        type=Path,
+        default=None,
+        help="agent_factory checkout to copy factory/ from (default: the checkout this script itself lives in)",
+    )
+    ap.add_argument(
+        "--target",
+        type=Path,
+        default=Path("."),
+        help="project directory to initialize (default: cwd)",
+    )
+    args = ap.parse_args(argv)
+
+    source_root = (args.source or Path(__file__).resolve().parents[2]).resolve()
+    source_factory = source_root / "factory"
+
+    if not source_factory.is_dir():
+        print(
+            f"init-factory: no factory/ found at {source_factory} — pass --source explicitly",
+            file=sys.stderr,
+        )
+        return 1
+
+    target = args.target.resolve()
+    report: list[str] = []
+
+    try:
+        ensure_target_dir(target, report)
+        ensure_git(target, report)
+        copy_factory(source_factory, target, report)
+        merge_gitignore(target, report)
+        ensure_dot_dirs(target, report)
+        symlink_factory_content(target, report)
+        copy_model_matrix(target, report)
+        handle_precommit(target, report)
+        pre_commit_install(target, report)
+    except Collision as e:
+        print(f"init-factory: STOPPED — {e}", file=sys.stderr)
+        return 1
+
+    print(f"init-factory: done, {target} is set up")
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

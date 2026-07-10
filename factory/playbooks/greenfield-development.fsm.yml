@@ -55,7 +55,7 @@ gate_conditions:
   
   backlog_valid:
     type: script_exit_zero
-    script: scripts/backlog-lint --backlog-dir backlog
+    script: factory/scripts/backlog-lint --backlog-dir backlog
   
   code_exists:
     type: files_exist

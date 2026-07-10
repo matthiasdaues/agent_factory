@@ -31,12 +31,12 @@ requirements ↔ spec-review → architecture ↔ architecture-review → planni
 
 In manual mode, the review agents invoke the linters directly as their first step.
 
-| Gate                   | Fires at                        | What it checks                                                                                                                      |
-| ---------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `factory/scripts/spec-lint`    | Phase 1 → 2 boundary            | Use-case coverage, traceability links between PRD → actor-goals → use cases → supplementary specs, ID uniqueness, required sections |
-| `factory/scripts/arch-lint`    | Phase 2 → 3 boundary            | arc42 chapters exist and cross-reference the Structurizr DSL, ADR index consistency, diagram file references                        |
-| `factory/scripts/backlog-lint` | Phase 3 → 4 boundary            | YAML frontmatter schema, dependency graph acyclicity, priority and status values                                                    |
-| `factory/scripts/matrix-lint`  | `factory/config/model-matrix.conf` edit | `factory/config/model-matrix.conf` syntax, required fields, valid tier/model mappings                                                       |
+| Gate                           | Fires at                                | What it checks                                                                                                                      |
+| ------------------------------ | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `factory/scripts/spec-lint`    | Phase 1 → 2 boundary                    | Use-case coverage, traceability links between PRD → actor-goals → use cases → supplementary specs, ID uniqueness, required sections |
+| `factory/scripts/arch-lint`    | Phase 2 → 3 boundary                    | arc42 chapters exist and cross-reference the Structurizr DSL, ADR index consistency, diagram file references                        |
+| `factory/scripts/backlog-lint` | Phase 3 → 4 boundary                    | YAML frontmatter schema, dependency graph acyclicity, priority and status values                                                    |
+| `factory/scripts/matrix-lint`  | `factory/config/model-matrix.conf` edit | `factory/config/model-matrix.conf` syntax, required fields, valid tier/model mappings                                               |
 
 The scripts live in `factory/scripts/`, are stdlib-only Python, and can be run standalone:
 
@@ -84,3 +84,16 @@ python3 --version      # ≥ 3.10
 uvx --version           # bundled with uv
 docker info            # daemon running
 ```
+
+### Step 1 — Wire the factory into a project
+
+`factory/scripts/init-factory` does the rest: `git init` if needed, symlinks `factory/{agents,skills,playbooks,rulebooks,scripts,INDEX.md}` and `factory/config/AGENTS.md` into `.claude/` and `.github/` (both, always — no CLI-choice prompt), copies `factory/config/model-matrix.conf` in as an editable starter, and wires up `.pre-commit-config.yaml` (symlinked if none exists yet, merged in alongside whatever hooks a project already has otherwise). It's a normal, standalone, idempotent Python script — **no AI required to run it**:
+
+```bash
+git clone <agent-factory-repo-url> /path/to/agent_factory
+/path/to/agent_factory/factory/scripts/init-factory --target /path/to/your/project
+```
+
+Works the same whether `--target` is empty or an existing repo with its own history, `.gitignore`, and pre-commit hooks — every step states its own fresh-vs-existing behavior in `init-factory --help`. Safe to re-run: nothing already correctly in place gets touched twice. If it finds something it can't safely work around (a real, non-Agent-Factory file already sitting where a symlink needs to go; a `.pre-commit-config.yaml` structure it doesn't recognize), it stops immediately and names the exact path — it never partially applies a run or silently overwrites existing content.
+
+If you'd rather trigger it conversationally, the `init-factory` skill (`factory/skills/init-factory/SKILL.md`) is a thin wrapper that confirms the target with you, runs the same script, and relays its output — same mechanism, same idempotency, just invoked through the AI CLI instead of a shell. On the very first run in a project, there's no installed skill yet to invoke by name — point the CLI at the file directly (e.g. "read `factory/skills/init-factory/SKILL.md` in the agent_factory checkout and follow it").
