@@ -4,7 +4,7 @@ source: reconcile-spec
 severity: minor
 category: defect
 artifact: factory/rulebooks/conventions/branching-policy.md#L26
-status: open
+status: resolved
 traces: []
 ---
 
