@@ -4,7 +4,7 @@ source: reconcile-spec
 severity: major
 category: defect
 artifact: factory/scripts/merge-precommit-config#L45
-status: open
+status: resolved
 traces: [ADR-0001]
 ---
 
