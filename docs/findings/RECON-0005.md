@@ -4,7 +4,7 @@ source: reconcile-spec
 severity: minor
 category: defect
 artifact: factory/playbooks/technical-poc.md#L60,L63
-status: open
+status: resolved
 traces: []
 ---
 

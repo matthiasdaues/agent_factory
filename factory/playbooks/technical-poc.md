@@ -57,10 +57,10 @@ Run it. Compare against the checklist, not a feeling. Write the comparison note 
 
 Read every comparison note side by side.
 
-**Multiple genuine candidates were compared** → this is exactly a Pugh Matrix moment: invoke the [Pugh Matrix skill § Build the matrix](../skills/pugh-matrix/SKILL.md#step-1-build-the-matrix) to formally score them against weighted criteria drawn from the comparison notes.
+**Multiple genuine candidates were compared** → this is exactly a Pugh Matrix moment: invoke the [Pugh Matrix skill § Build the matrix](../skills/pugh-matrix/SKILL.md#step-1--build-the-matrix) to formally score them against weighted criteria drawn from the comparison notes.
 **One research question, one recommendation** → state the recommendation directly, citing the comparison note as evidence.
 
-Then decide whether the decision itself is ADR-worthy, using this repo's usual bar (see [grill-with-docs](../skills/grill-with-docs/SKILL.md) / [Domain Modeling § Offer ADRs sparingly](../skills/domain-modeling/SKILL.md#offer-adrs-sparingly)): hard to reverse, surprising without context, and the result of a real trade-off. If all three hold, invoke [write-adr § Check for conflicts](../skills/write-adr/SKILL.md#step-1-check-for-conflicts) — the ADR cites the PoC's comparison notes (and Pugh Matrix, if one was built) as its evidence, not a restatement of the code.
+Then decide whether the decision itself is ADR-worthy, using this repo's usual bar (see [grill-with-docs](../skills/grill-with-docs/SKILL.md) / [Domain Modeling § Offer ADRs sparingly](../skills/domain-modeling/SKILL.md#offer-adrs-sparingly)): hard to reverse, surprising without context, and the result of a real trade-off. If all three hold, invoke [write-adr § Check for conflicts](../skills/write-adr/SKILL.md#step-1--check-for-conflicts) — the ADR cites the PoC's comparison notes (and Pugh Matrix, if one was built) as its evidence, not a restatement of the code.
 
 ## DONE
 
