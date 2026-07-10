@@ -8,4 +8,5 @@ session-scratchpad.md
 # Python specific folders and files
 __pycache__/
 *.pyc
+.ruff_cache/
 
