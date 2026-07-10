@@ -166,6 +166,8 @@ ______________________________________________________________________
 
 ## Project Directory Tree
 
+**Orchestrator** is a permanent, nested sub-project that provides the Python CLI driving agent sessions. It has its own `src/`, `tests/`, `docs/`, `backlog/`, and `pyproject.toml`. Unlike `factory/` (which is copied wholesale into consumer projects by `init-factory`), `orchestrator/` is not distributed — `init-factory` does not touch it.
+
 ```
 agent_factory/
 ├── factory/                          # Canonical content. Copied wholesale into any project; never hand-edited there.
@@ -176,6 +178,12 @@ agent_factory/
 │   ├── scripts/                      # Deterministic gates (*-lint) plus setup tooling (init-factory, mdformat, ...)
 │   ├── config/                       # Templates: AGENTS.md, pre-commit-config.yaml, model-matrix.conf
 │   └── INDEX.md                      # Generated catalog of every agent and skill — regenerate with index-lint
+├── orchestrator/                     # Python CLI that drives agent sessions (run-step, run-phase, etc.) — nested sub-project, not distributed by init-factory
+│   ├── src/                          # CLI source code
+│   ├── tests/                        # CLI tests
+│   ├── docs/                         # CLI documentation
+│   ├── backlog/                      # CLI backlog and stories
+│   └── pyproject.toml                # CLI package configuration
 ├── docs/                             # This project's own specification and architecture, not Agent Factory's
 │   ├── spec/                         # PRD, use cases, supplementary specs, todo.md — created lazily, as needed
 │   ├── adr/                          # Architecture Decision Records — created lazily, as needed
