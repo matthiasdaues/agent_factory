@@ -70,19 +70,25 @@ _PHASE_ORDER = ["requirements", "architecture", "planning", "implementation"]
 
 
 def _tooling_root() -> Path:
-    """Resolve the Agent HQ repo root from the package location.
+    """Resolve the agent_factory repo root from the package location.
 
     Works with editable installs (uv tool install --editable .) where
     __file__ points into the source tree:
-      .../agent_hq/orchestrator/src/orchestrator/cli.py → parents[3] = agent_hq/
+      .../agent_factory/orchestrator/src/orchestrator/cli.py → parents[3] = agent_factory/
+
+    Post-pivot (ADR-0010 superseded by the current factory/-layout — see
+    ST-0064), the tooling ingredients live under factory/agents and
+    factory/skills, not bare agents/skills at the root.
     """
     root = Path(__file__).resolve().parents[3]
-    if (root / "agents").is_dir() and (root / "skills").is_dir():
+    if (root / "factory" / "agents").is_dir() and (
+        root / "factory" / "skills"
+    ).is_dir():
         return root
     raise RuntimeError(
-        "Cannot locate Agent HQ tooling root.\n"
-        "Expected agents/ and skills/ at: " + str(root) + "\n"
-        "Install with: cd agent_hq/orchestrator && uv tool install --editable ."
+        "Cannot locate agent_factory tooling root.\n"
+        "Expected factory/agents and factory/skills at: " + str(root) + "\n"
+        "Install with: cd agent_factory/orchestrator && uv tool install --editable ."
     )
 
 
@@ -2125,7 +2131,7 @@ def _run_menu_mode() -> int:
     try:
         agents_dir = _resolve_agents_dir(repo_root)
     except ValueError:
-        agents_dir = repo_root / "agents"
+        agents_dir = repo_root / "factory" / "agents"
 
     # ADR-0017 point 5 / ADR-0018 point 3, ST-0050 acceptance criteria: the
     # matrix facts populate every registered adapter's dictionary at
@@ -2411,8 +2417,11 @@ def _handle_init(args) -> int:
         )
 
     # 3. Copy tooling dirs (idempotent — overwrite on re-init)
+    # Source lives under factory/ in the tooling root (ST-0065); the
+    # destination in the target project stays bare (project_dir / name) —
+    # that target-side convention is unchanged by this story.
     for name in _COPY_DIRS:
-        src = root / name
+        src = root / "factory" / name
         dst = project_dir / name
         if src.is_dir():
             if dst.exists():
@@ -2631,12 +2640,12 @@ def _build_runtime(args, classification: str | None = None) -> _Runtime:
 def _resolve_agents_dir(repo_root: Path) -> Path:
     """Resolve agents directory: package-relative first, then symlink in cwd."""
     try:
-        pkg_agents = _tooling_root() / "agents"
+        pkg_agents = _tooling_root() / "factory" / "agents"
         if pkg_agents.is_dir():
             return pkg_agents
     except RuntimeError:
         pass
-    cwd_agents = repo_root / "agents"
+    cwd_agents = repo_root / "factory" / "agents"
     if cwd_agents.is_dir():
         return cwd_agents
     raise ValueError(
