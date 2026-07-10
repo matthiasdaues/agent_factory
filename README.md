@@ -111,6 +111,10 @@ The first commit may modify a few files (`mdformat`/`ruff` auto-fixing formattin
 
 Open your AI coding CLI in `my-project` and greet it. It should read `.claude/CLAUDE.md` (or `.github/copilot-instructions.md`) and confirm it understands the local-first rule.
 
+### Next steps — run the workflow
+
+Once the CLI greets you, pick the runbook in `factory/playbooks/` that matches your situation (`greenfield-development.md` for a new project, `brownfield-onboarding.md` for an existing one, `feature-addition.md`, `bug-fix.md`, and so on). Each playbook walks the phase chain — requirements → spec-review → architecture → architecture-review → planning → implementation → reconciliation → qa — step by step, both for the `orchestrate` CLI (see `orchestrator/docs/spec/cli_specification.md`) and for manual, one-agent-per-session use.
+
 ______________________________________________________________________
 
 ## Use in an Already Existing Repo
