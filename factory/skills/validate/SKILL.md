@@ -2,7 +2,7 @@
 name: validate
 description: Run every applicable deterministic gate on demand, mid-session — the custom lint scripts plus ruff and mdformat — without needing a git commit.
 category: utility
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Validate
@@ -13,11 +13,11 @@ Run the same deterministic gates pre-commit runs, callable any time during a ses
 
 Run in this order — cheap and universal first, project-specific last:
 
-| #   | Gate              | Condition to run                              | Command                                                                      |
-| --- | ----------------- | --------------------------------------------- | ---------------------------------------------------------------------------- |
+| #   | Gate              | Condition to run                              | Command                                                                              |
+| --- | ----------------- | --------------------------------------------- | ------------------------------------------------------------------------------------ |
 | 1   | Markdown format   | Always (every project has *some* Markdown)    | `factory/scripts/mdformat --number .`                                                |
-| 2   | Ruff check        | `pyproject.toml` or any `*.py` exists         | `ruff check --fix .`                                                         |
-| 3   | Ruff format       | Same as above                                 | `ruff format .`                                                              |
+| 2   | Ruff check        | `pyproject.toml` or any `*.py` exists         | `ruff check --fix .`                                                                 |
+| 3   | Ruff format       | Same as above                                 | `ruff format .`                                                                      |
 | 4   | spec-lint         | `docs/spec/` exists                           | `factory/scripts/spec-lint --spec-dir docs/spec --graph docs/spec/traceability.json` |
 | 5   | arch-lint         | `docs/architecture.dsl` or `docs/adr/` exists | `factory/scripts/arch-lint --docs-dir docs --no-validate`                            |
 | 6   | backlog-lint      | `backlog/` exists                             | `factory/scripts/backlog-lint --backlog-dir backlog`                                 |

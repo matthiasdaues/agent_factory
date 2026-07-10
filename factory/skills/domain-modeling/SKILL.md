@@ -13,6 +13,8 @@ Actively build and sharpen the project's domain model as you design — challeng
 
 During codebase exploration, also look for existing documentation. See [context-format.md](../../rulebooks/conventions/context-format.md) for the single-context vs multi-context file layout. Create `docs/CONTEXT.md` and `docs/adr/` lazily — only when the first term or ADR is actually needed.
 
+Once you identify the repository as multi-context, prompt the user immediately with a single checklist covering all artifact classes the split affects: docs/, backlog/, `CONTEXT.md`, README, and `docs/adr/`. Do this in one pass rather than surfacing each artifact class as a separate follow-up round. Refer to [context-format.md](../../rulebooks/conventions/context-format.md) for the file layout structure.
+
 ## During the session
 
 ### Challenge against the glossary

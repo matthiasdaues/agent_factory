@@ -111,6 +111,10 @@ The first commit may modify a few files (`mdformat`/`ruff` auto-fixing formattin
 
 Open your AI coding CLI in `my-project` and greet it. It should read `.claude/CLAUDE.md` (or `.github/copilot-instructions.md`) and confirm it understands the local-first rule.
 
+### Next steps — run the workflow
+
+Once the CLI greets you, pick the runbook in `factory/playbooks/` that matches your situation (`greenfield-development.md` for a new project, `brownfield-onboarding.md` for an existing one, `feature-addition.md`, `bug-fix.md`, and so on). Each playbook walks the phase chain — requirements → spec-review → architecture → architecture-review → planning → implementation → reconciliation → qa — step by step, both for the `orchestrate` CLI (see `orchestrator/docs/spec/cli_specification.md`) and for manual, one-agent-per-session use.
+
 ______________________________________________________________________
 
 ## Use in an Already Existing Repo
@@ -166,6 +170,8 @@ ______________________________________________________________________
 
 ## Project Directory Tree
 
+**Orchestrator** is a permanent, nested sub-project that provides the Python CLI driving agent sessions. It has its own `src/`, `tests/`, `docs/`, `backlog/`, and `pyproject.toml`. Unlike `factory/` (which is copied wholesale into consumer projects by `init-factory`), `orchestrator/` is not distributed — `init-factory` does not touch it.
+
 ```
 agent_factory/
 ├── factory/                          # Canonical content. Copied wholesale into any project; never hand-edited there.
@@ -176,19 +182,28 @@ agent_factory/
 │   ├── scripts/                      # Deterministic gates (*-lint) plus setup tooling (init-factory, mdformat, ...)
 │   ├── config/                       # Templates: AGENTS.md, pre-commit-config.yaml, model-matrix.conf
 │   └── INDEX.md                      # Generated catalog of every agent and skill — regenerate with index-lint
-├── docs/                             # This project's own specification and architecture, not Agent Factory's
-│   ├── spec/                         # PRD, use cases, supplementary specs, todo.md — created lazily, as needed
-│   ├── adr/                          # Architecture Decision Records — created lazily, as needed
-│   ├── findings/                     # Review findings, one file per finding
+├── orchestrator/                     # Python CLI that drives agent sessions (run-step, run-phase, etc.) — nested sub-project, not distributed by init-factory
+│   ├── src/                          # CLI source code
+│   ├── tests/                        # CLI tests
+│   ├── docs/                         # CLI documentation (own arc42 set, own docs/adr/, own docs/spec/)
+│   ├── backlog/                      # CLI backlog and stories
+│   └── pyproject.toml                # CLI package configuration
+├── backlog/                          # Whole-repo backlog — cross-cutting stories, distinct from orchestrator/backlog/
+├── docs/                             # This repo's own whole-repo, cross-cutting docs — distinct from orchestrator/docs/
+│   ├── CONTEXT-MAP.md                # Bounded-context map for this multi-context repo (orchestrator, factory, factory_api)
+│   ├── adr/                          # Whole-repo Architecture Decision Records — own sequence, separate from orchestrator/docs/adr/
+│   ├── reviews/                      # Retrospective and reconciliation reports
 │   └── assets/                       # Diagrams and exported images
 ├── config/                           # This project's own copy of model-matrix.conf — diverges from factory/
 │   └── model-matrix.conf
 ├── .claude/                          # Local only, gitignored. Symlinks into factory/, for Claude Code.
 ├── .github/                          # Local only, gitignored. Symlinks into factory/, for GitHub Copilot CLI.
-├── .pre-commit-config.yaml           # Symlink to factory/config/pre-commit-config.yaml
+├── .pre-commit-config.yaml           # Real, merged file — factory's generic hooks plus orchestrator-scoped ones (see docs/adr/0001-precommit-monorepo-scoping.md)
 ├── .gitignore
 └── README.md
 ```
+
+`docs/spec/` and `docs/findings/` don't exist at root yet — created lazily, as needed, once `factory/` grows its own spec (see `docs/CONTEXT-MAP.md`).
 
 ______________________________________________________________________
 

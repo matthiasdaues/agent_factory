@@ -21,6 +21,10 @@ Shared integration files (a composition root, a domain-entities module, a ports 
 
 Every feature branch for an invocation is cut from that invocation's own branch, not from `main` directly — the invocation branch is what makes the branch-root/branch-head SHA pair (below) well-defined.
 
+### Worktree Isolation
+
+A feature branch name is not a working directory: cutting the branch does not, by itself, guarantee any subagent's commands run against it rather than against the shared/main checkout. Before dispatching a developer-agent subagent, the dispatcher must materialize its feature branch into a dedicated git worktree (e.g. via the Agent tool's `isolation: "worktree"` parameter) and confirm — via `git worktree list`, not the subagent's own report — that the worktree exists and is checked out to the correct branch before considering that subagent dispatched. See [implementation-agent.md § Workflow, Step 3 ("Dispatch: one feature branch per story")](../../agents/implementation-agent.md#workflow) for the enforcing workflow step. Motivating example: the 2026-07-10 `implementation-agent` dispatch, where a subagent's first git command ran against the shared main checkout instead of its own worktree, chain-renaming the main branch through four story names before being caught.
+
 ### Merge Order Is Overlap-Aware
 
 Overlap is determined via declared or inferred output paths:

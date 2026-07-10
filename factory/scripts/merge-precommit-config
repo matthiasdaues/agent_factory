@@ -15,8 +15,13 @@ list. Anything else about `--target`'s structure is left untouched — this
 script only ever appends one new list item to that one list.
 
 Algorithm
-  1. If a hook id from `--template` (`index-lint`, chosen as a distinctive
-     marker) already appears in `--target`, treat it as already merged: no-op.
+  1. Derive the no-op marker from `--template` itself: its own first
+     top-level hook id (the first `- id: <name>` line inside its
+     `- repo: local` block). If that exact `id: <name>` string already
+     appears in `--target`, treat it as already merged: no-op. Deriving the
+     marker from the template (rather than a hardcoded id) is what makes the
+     splice direction-agnostic — the same script works factory-into-project
+     and subproject-into-root, each with its own template and its own marker.
   2. Otherwise find the line that is exactly `repos:` at column 0. Missing,
      or `repos:` written with inline content (flow style, e.g. `repos: []`)
      → abort; this shape isn't understood, merge by hand.
@@ -42,11 +47,12 @@ import re
 import sys
 from pathlib import Path
 
-MARKER_HOOK_ID = "id: index-lint"
 TEMPLATE_BLOCK_START = re.compile(r"^  - repo: local\s*$")
 TOP_LEVEL_KEY = re.compile(r"^\S")
 REPOS_KEY = re.compile(r"^repos:\s*$")
 LIST_ITEM_INDENT = re.compile(r"^( *)- ")
+HOOK_ID_LINE = re.compile(r"^\s*- id:\s*(\S+)\s*$")
+REPO_ITEM_START = re.compile(r"^  - repo:\s*\S")
 
 
 def find_template_block(template_text: str) -> list[str]:
@@ -58,6 +64,38 @@ def find_template_block(template_text: str) -> list[str]:
 
     raise ValueError(
         "--template has no top-level `- repo: local` entry — can't extract a block to splice"
+    )
+
+
+def extract_marker_id(template_lines: list[str]) -> str:
+    """Return the `"id: <name>"` string for `--template`'s own first
+    top-level hook id, found inside its `- repo: local` block (the same
+    block `find_template_block()` extracts).
+
+    Used as the already-merged marker instead of a hardcoded hook id, so
+    the no-op check is derived from whichever template is actually passed —
+    the same script serves factory-into-project and subproject-into-root
+    without either direction stepping on the other's marker.
+    """
+    in_block = False
+
+    for line in template_lines:
+        if TEMPLATE_BLOCK_START.match(line):
+            in_block = True
+            continue
+
+        if in_block:
+            if REPO_ITEM_START.match(line):
+                break
+
+            m = HOOK_ID_LINE.match(line)
+
+            if m:
+                return f"id: {m.group(1)}"
+
+    raise ValueError(
+        "--template has no `- id: <name>` hook inside its `- repo: local` "
+        "block — can't derive an already-merged marker from it"
     )
 
 
@@ -101,7 +139,9 @@ def existing_item_indent(target_lines: list[str], start: int, end: int) -> int |
 
 def merge(target_text: str, template_text: str) -> str | None:
     """Return the merged text, or None if already merged (no-op)."""
-    if MARKER_HOOK_ID in target_text:
+    marker = extract_marker_id(template_text.splitlines())
+
+    if marker in target_text:
         return None
 
     target_lines = target_text.splitlines()

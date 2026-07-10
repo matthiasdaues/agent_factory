@@ -1,1 +1,148 @@
-factory/config/pre-commit-config.yaml
+# Pre-commit hooks for the agent_factory monorepo.
+#
+# This is a real, merged file — not a symlink. It combines two halves:
+#   1. Agent Factory's generic hooks (originally
+#      factory/config/pre-commit-config.yaml) — mdformat/ruff via `uvx`, plus
+#      spec-lint/arch-lint/backlog-lint/matrix-lint/statemachine-lint/
+#      index-lint pointed at root-level docs/backlog paths. These stay inert
+#      until factory grows its own docs/backlog, and now exclude
+#      orchestrator/ so they don't double-touch its files with unpinned
+#      tool versions.
+#   2. orchestrator's own dev hooks (originally orchestrator/.pre-commit-
+#      config.yaml), namespaced with an `-orchestrator` suffix and scoped to
+#      `orchestrator/`, invoking the pinned `uv run --project orchestrator`
+#      toolchain for mdformat/ruff, and factory/scripts/<name> (not the
+#      stale bare scripts/<name>) for the *-lint gates.
+#
+# See docs/adr/0001-precommit-monorepo-scoping.md (not orchestrator's own
+# ADR-0003, a different decision — see that ADR's own note on the numbering
+# collision).
+repos:
+  - repo: local
+    hooks:
+      # formats all markdown files — zero local install, see factory/scripts/mdformat
+      - id: mdformat
+        name: mdformat
+        entry: factory/scripts/mdformat --number
+        language: system
+        types: [markdown]
+        exclude: ^orchestrator/
+
+      # lints all python files (skip if the project isn't Python) — zero local install, via uvx
+      - id: ruff-check
+        name: ruff check
+        entry: uvx ruff check --fix
+        language: system
+        types_or: [python, pyi, jupyter]
+        exclude: ^orchestrator/
+
+      # lints python code blocks in markdown — zero local install, via uvx
+      - id: ruff-format
+        name: ruff format
+        entry: uvx ruff format
+        language: system
+        types_or: [python, pyi, jupyter]
+        exclude: ^orchestrator/
+
+      - id: spec-lint
+        name: spec-lint (specification consistency & traceability)
+        entry: python3 factory/scripts/spec-lint
+        language: system
+        pass_filenames: false
+        files: ^docs/spec/
+
+      - id: arch-lint
+        name: arch-lint (arc42 <-> Structurizr consistency, ADR frontmatter)
+        entry: python3 factory/scripts/arch-lint --docs-dir docs --no-validate
+        language: system
+        pass_filenames: false
+        files: ^docs/(architecture\.dsl|05_building_block_view\.md|assets/images/.*|adr/.*\.md)$
+
+      - id: backlog-lint
+        name: backlog-lint (story schema & traceability gate)
+        entry: python3 factory/scripts/backlog-lint --backlog-dir backlog
+        language: system
+        pass_filenames: false
+        files: ^backlog/ST-.*\.md$
+
+      - id: matrix-lint
+        name: matrix-lint (model matrix consistency gate)
+        entry: python3 factory/scripts/matrix-lint --matrix config/model-matrix.conf
+        language: system
+        pass_filenames: false
+        files: ^config/model-matrix\.conf$
+
+      - id: statemachine-lint
+        name: statemachine-lint (pseudocode ↔ Mermaid consistency)
+        entry: python3 factory/scripts/statemachine-lint --spec-dir docs/spec
+        language: system
+        pass_filenames: false
+        files: ^docs/spec/.*\.md$
+
+      - id: index-lint
+        name: index-lint (regenerate INDEX.md from agent/skill frontmatter)
+        entry: python3 factory/scripts/index-lint
+        language: system
+        pass_filenames: false
+        files: ^(factory/agents/.*\.md|factory/skills/.*/SKILL\.md)$
+
+      # --- orchestrator-scoped hooks below (dev config for this monorepo) ---
+
+      - id: mdformat-orchestrator
+        name: mdformat (orchestrator)
+        # --project pins uv to the orchestrator project explicitly. Without it,
+        # uv walks up from the repo root (which has no pyproject.toml) looking
+        # for a project/venv and can pick up an unrelated sibling .venv.
+        entry: uv run --project orchestrator mdformat --number
+        language: system
+        types: [markdown]
+        files: ^orchestrator/
+
+      - id: ruff-check-orchestrator
+        name: ruff check (orchestrator)
+        entry: uv run --project orchestrator ruff check --fix
+        language: system
+        types_or: [python, pyi, jupyter]
+        files: ^orchestrator/
+
+      - id: ruff-format-orchestrator
+        name: ruff format (orchestrator)
+        entry: uv run --project orchestrator ruff format
+        language: system
+        types_or: [python, pyi, jupyter]
+        files: ^orchestrator/
+
+      - id: spec-lint-orchestrator
+        name: spec-lint (specification consistency & traceability, orchestrator)
+        entry: python3 factory/scripts/spec-lint --spec-dir orchestrator/docs/spec
+        language: system
+        pass_filenames: false
+        files: ^orchestrator/docs/spec/
+
+      - id: arch-lint-orchestrator
+        name: arch-lint (arc42 <-> Structurizr consistency, orchestrator)
+        entry: python3 factory/scripts/arch-lint --docs-dir orchestrator/docs --no-validate
+        language: system
+        pass_filenames: false
+        files: ^orchestrator/docs/(architecture\.dsl|05_building_block_view\.md|assets/images/.*)$
+
+      - id: backlog-lint-orchestrator
+        name: backlog-lint (story schema & traceability gate, orchestrator)
+        entry: python3 factory/scripts/backlog-lint --backlog-dir orchestrator/backlog
+        language: system
+        pass_filenames: false
+        files: ^orchestrator/backlog/ST-.*\.md$
+
+      - id: matrix-lint-orchestrator
+        name: matrix-lint (model matrix consistency gate, orchestrator)
+        entry: python3 factory/scripts/matrix-lint --matrix orchestrator/model-matrix.conf
+        language: system
+        pass_filenames: false
+        files: ^orchestrator/model-matrix\.conf$
+
+      - id: statemachine-lint-orchestrator
+        name: statemachine-lint (pseudocode ↔ Mermaid consistency, orchestrator)
+        entry: python3 factory/scripts/statemachine-lint --spec-dir orchestrator/docs/spec
+        language: system
+        pass_filenames: false
+        files: ^orchestrator/docs/spec/.*\.md$

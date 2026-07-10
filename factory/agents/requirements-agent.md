@@ -48,7 +48,7 @@ Transform a rough project idea into a complete, cross-referenced specification �
 2. **Clarify Requirements** — Invoke `clarify-requirements` to select and run the branch (Socratic / `grill-me` / `grill-with-docs`).
 3. **Write PRD** — Invoke `write-prd`: synthesize into `docs/spec/prd.md`.
 4. **Derive Specification** — Invoke `derive-spec`: Actor-Goal List → Persona Use Cases (**Gherkin** + **Mermaid**) → System Use Cases (**EARS**) → Supplementary Specs (**Mermaid** ERD, state machines, contracts, validation).
-5. **Address review findings** (repeat passes) — Re-run steps 1–4 as needed for open `SPEC-*` findings. Commit per [commit-conventions.md](../factory/rulebooks/conventions/commit-conventions.md): `docs: <description> (SPEC-NNNN)`.
+5. **Address review findings** (repeat passes) — Re-run steps 1–4 as needed for open `SPEC-*` findings. Commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `docs: <description> (SPEC-NNNN)`.
 
 **Pause points:** Vision confirmation · Todos review before PRD · PRD approval.
 
