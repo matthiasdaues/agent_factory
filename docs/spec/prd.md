@@ -105,3 +105,4 @@ ______________________________________________________________________
 ## Referenced from
 
 - [actor-goal-list.md](actor-goal-list.md)
+- [../README.md § Table of Contents](../README.md#table-of-contents) — the arc42 architecture documentation and Structurizr C4 model built from this specification.

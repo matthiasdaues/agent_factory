@@ -20,7 +20,7 @@ requirements ↔ spec-review → architecture ↔ architecture-review → planni
 
 Not every task needs the full chain. See [factory/docs/factory-guide.md § Playbooks](../factory/docs/factory-guide.md#playbooks) for the shorter paths.
 
-`factory/` itself — the state-machine harness, dispatch mechanism, and generated catalog that enforce phase order and cap review loops — has its own specification. See [docs/spec/prd.md](spec/prd.md).
+`factory/` itself — the state-machine harness, dispatch mechanism, and generated catalog that enforce phase order and cap review loops — has its own specification and its own arc42 architecture documentation. See [docs/spec/prd.md](spec/prd.md) and [docs/README.md](README.md).
 
 ## Key ideas
 
@@ -51,14 +51,19 @@ agent_factory/
 ├── docs/                             # This repo's own whole-repo, cross-cutting docs — distinct from orchestrator/docs/
 │   ├── concepts.md                   # This file
 │   ├── CONTEXT-MAP.md                # Bounded-context map for this multi-context repo (orchestrator, factory, factory_api)
+│   ├── README.md                     # arc42 architecture documentation for Factory Flow Control — table of contents
+│   ├── 01_introduction_and_goals.md  # ...through 12_glossary.md — the 12 arc42 chapters
+│   ├── architecture.dsl              # Structurizr C4 model — versioned source of truth for the diagrams
+│   ├── spec/                         # Factory Flow Control's specification (PRD, use cases, supplementary specs)
 │   ├── adr/                          # Whole-repo Architecture Decision Records — own sequence, separate from orchestrator/docs/adr/
+│   ├── findings/                     # Filed findings (e.g. RECON-*.md, FAGAN-*.md), created lazily as needed
 │   ├── reviews/                      # Retrospective and reconciliation reports
 │   └── assets/                       # Diagrams and exported images
 ├── config/                           # This project's own copy of model.conf — diverges from factory/
 └── README.md
 ```
 
-`docs/findings/` doesn't exist at root yet — created lazily, as needed. See [docs/CONTEXT-MAP.md](CONTEXT-MAP.md).
+See [docs/CONTEXT-MAP.md](CONTEXT-MAP.md) for the bounded-context map.
 
 ## Referenced from
 
