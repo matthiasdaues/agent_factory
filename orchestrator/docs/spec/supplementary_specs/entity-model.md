@@ -2,6 +2,8 @@
 
 The domain entities the orchestrator tracks and their relationships. Applying **SOLID** (Single Responsibility): each entity owns one concern of the run's state.
 
+> **Scope note (amended 2026-07-12, PhaseRunner collapse):** these entities are still the schema of `.orchestrator/run.json` and the findings store — that has not changed. What changed is who writes them: factory's scripts now drive `AGENT_INVOCATION`, `GATE_RESULT`, and `FINDING` records during execution; the orchestrator writes only the subset touched by `approve`/`reject`/`release`/`abort`, and reads the rest for `status`. See the repo-root `docs/spec/prd.md` and `docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md`.
+
 ```mermaid
 erDiagram
     RUN ||--o{ PHASE : sequences
@@ -90,7 +92,8 @@ erDiagram
 - **AGENT_INVOCATION** `role` ∈ {author, reviewer}; `auth_error` (BR-018) and `config_error` (BR-020) each drive a halt, distinct from a generic non-zero exit that loops the author.
 - **APPROVAL** exists once per phase and only for an approved or rejected gate. Currently represented implicitly by `PhaseRecord.status` transitions (`awaiting-approval → complete` or `halted`) rather than a materialised `Approval` object — the `Approval`, `Artifact`, and `Iteration` dataclasses are defined in `entities.py` for model completeness but are not yet used by application services.
 - **STORY** is the planning phase's output unit (one `backlog/ST-NNNN.md` file); its `tier` (`economy | standard | strong`, BR-021) is the model tier for the implementation invocation that builds it — the same field and vocabulary as agent frontmatter's `tier`. Full frontmatter schema in [interface-contracts](interface-contracts.md).
-- **AGENT_INVOCATION.model** records the concrete model the invocation ran. At runtime this resolves directly against `model.conf`'s `[facts]` for the declared tier (ADR-0020, ADR-0021), not a run-tracked entity (FR-K). The per-adapter **model dictionary** (`AdapterRegistry.ModelDictionary`) is a local, discoverable cache for menu-mode display, populated from `model.conf` on a gap-fill basis — it is not read at resolution time (ADR-0021 sec 3, T-32).
+- **AGENT_INVOCATION.model** records the concrete model the invocation ran. At runtime this resolves directly against `model.conf`'s `[facts]` for the declared tier (ADR-0020, ADR-0021) — resolution now happens in factory, not a run-tracked entity in the orchestrator (FR-K). The per-adapter **model dictionary** (`AdapterRegistry.ModelDictionary`) is a local, discoverable cache for menu-mode display, populated from `model.conf` on a gap-fill basis — it is not read at resolution time (ADR-0021 sec 3, T-32).
+- **AGENT_INVOCATION records today:** no orchestrator component writes `.orchestrator/log.jsonl` any longer (the invocation-log writer moved to factory along with everything else that populated this entity). `status > log` reads through the `InvocationLogReader` port, which has no concrete adapter — the view always renders empty.
 
 ## TUI Addendum Entities
 

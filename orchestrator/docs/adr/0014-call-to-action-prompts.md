@@ -2,6 +2,8 @@
 
 **Status**: Accepted
 
+> **Superseded for the orchestrator, 2026-07-12 (PhaseRunner collapse):** `PromptComposer` and the call-to-action templates moved to `factory/`; the orchestrator no longer composes prompts. See the repo-root `docs/spec/prd.md` and `docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md`.
+
 The composed prompt (agent definition + context + findings) contains everything the agent needs to know but no imperative signal to act. Without a closing directive, CLI agents remain inert — they have a role description but no "go". The prompt composer gains an `InvocationContext(phase, role, iteration)` parameter and appends a role-specific call-to-action as the final `# Call to Action` section.
 
 Five templates cover every invocation path: author-first, author-loopback (re-addressing findings), reviewer-first, reviewer-loopback (re-reviewing after remediation), and standalone (`run-step`, no phase context). Templates are hardcoded f-strings in the composer — no external config, no user-facing knobs.

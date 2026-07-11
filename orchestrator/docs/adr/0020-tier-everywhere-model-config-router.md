@@ -2,6 +2,8 @@
 
 **Status**: Accepted — revises [ADR-0018](0018-two-axis-tier-model-resolution.md) (story-side vocabulary only; architecture stands); supersedes the tier-pivot mechanism of [ADR-0009](0009-task-classification-and-tier-pivot-model-matrix.md); resolves [SPEC-0009](../findings/SPEC-0009.md). [ADR-0021](0021-adapter-registry-discovery-and-precedence.md) confirms `model.conf` is read directly at resolution time — its `[policy]` removal here stands unchanged.
 
+> **Amended 2026-07-12 (PhaseRunner collapse):** `model.conf` still exists and `FileModelMatrix` still reads it for menu display and management; the tier→model resolution at invocation time this ADR describes moved to `factory/`. See the repo-root `docs/spec/prd.md` and `docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md`.
+
 ## Context
 
 ADR-0009 introduced a **tier pivot**: a story declares a difficulty `classification` (`trivial | standard | hard`), which a `[policy]` table in `model-matrix.conf` maps to an abstract `tier` (`economy | standard | strong`), which per-CLI `[facts]` resolve to a concrete model. ADR-0018 added a second axis — an agent declares its own `tier` directly — and split governance: agent tier resolves every agent the orchestrator invokes directly; story classification resolves only the implementation dispatcher's tier-less developer sub-agents. The two axes never combine.

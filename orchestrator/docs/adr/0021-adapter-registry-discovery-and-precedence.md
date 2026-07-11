@@ -2,6 +2,8 @@
 
 **Status**: Accepted — revises [ADR-0017](0017-config-and-adapter-registry-persistence.md) (point 5's "runtime reads the dictionary" claim) and [ADR-0020](0020-tier-everywhere-model-config-router.md) (states explicitly what "the router" means at resolution time); resolves [SPEC-0010](../findings/SPEC-0010.md) and T-31.
 
+> **Amended 2026-07-12 (PhaseRunner collapse):** The adapter registry and its model dictionaries remain in the orchestrator for menu display and management; the model-resolution path this ADR settles — `ModelResolver` reading `model.conf` — moved to `factory/`. See the repo-root `docs/spec/prd.md` and `docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md`.
+
 ## Context
 
 [SPEC-0010](../findings/SPEC-0010.md): three artifacts disagree on where the adapter registry persists. ADR-0017 already resolved this once — one `.orchestrator/config.toml`, behind `ConfigStore` and `AdapterRegistry` — but `interface-contracts.md`'s `Config` schema never gained the registry's fields, and `entity-model.md`'s "persisted alongside the configuration store" reads as a second file.

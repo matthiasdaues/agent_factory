@@ -2,6 +2,8 @@
 
 **Status**: Accepted (supersedes the ingest mechanism of [ADR-0011](0011-reviewer-findings-ingest-contract.md))
 
+> **Superseded for the orchestrator, 2026-07-12 (PhaseRunner collapse):** Findings ingestion moved to `factory/`; the orchestrator no longer reads `docs/findings/*.md` or writes findings. The `FindingsStore` JSON store itself remains in the orchestrator, now read-only. See the repo-root `docs/spec/prd.md` and `docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md`.
+
 ## Context
 
 [ADR-0011](0011-reviewer-findings-ingest-contract.md) chose option A — the reviewer ends its output with a fenced `json` findings block and the orchestrator ingests that block from stdout — as the interim contract, recording option C (read the filed `docs/findings/*.md` files) as the intended evolution once the two finding stores were reconciled.

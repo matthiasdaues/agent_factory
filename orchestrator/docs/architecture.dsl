@@ -1,46 +1,41 @@
-workspace "Agent Session Orchestrator" "Thin Python CLI that drives the Agent HQ agent chain with deterministic gates and human approval at phase gates." {
+workspace "Agent Session Orchestrator" "Manages run state and provides a TUI for the Agent HQ agent chain: approval gates, status, backlog browsing, and adapter/model configuration. Execution (author-reviewer loop, gating, model resolution) is driven by factory/, not this system — see docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md." {
 
     model {
         operator  = person "Operator" "Human driving a project through the Agent HQ chain, one phase at a time."
 
-        aicli      = softwareSystem "AI CLI" "GitHub Copilot / Claude / Gemini CLI, invoked non-interactively as a fresh subprocess per agent. Agents commit their own work; pre-commit hooks fire inside the agent subprocess." "External"
-        gitpc      = softwareSystem "Git + pre-commit" "The host git repository and its pre-commit hook set. Hooks fire inside agent subprocesses on each git commit; the orchestrator verifies working-tree cleanliness after the agent exits (ADR-0013)." "External"
-        aitooling  = softwareSystem "Tooling assets" "The agent definitions, skills, and lint scripts the orchestrator drives — resolved from the package-relative path and exposed via symlinks (ADR-0010)." "External"
+        gitpc      = softwareSystem "Git + pre-commit" "The host git repository and its pre-commit hook set. Agents (invoked by factory) commit their own work and hooks fire inside those subprocesses; the orchestrator only re-checks working-tree cleanliness at approve time (VR-012)." "External"
+        aitooling  = softwareSystem "Tooling assets" "The agent definitions, skills, and lint scripts factory drives — resolved from the package-relative path and exposed via symlinks (ADR-0010)." "External"
+        factory    = softwareSystem "factory/ (flow control)" "Owns phase sequencing, gating, iteration caps, CLI dispatch, prompt composition, model resolution, and findings ingestion (factory/scripts/{phase,trigger,transition-lint}, factory/skills/run-step). Writes the same .orchestrator/run.json and findings/ the orchestrator reads. See docs/adr/0002." "External"
 
-        orchestrator = softwareSystem "Agent Session Orchestrator" "Runs a single step, one phase's author-reviewer loop, or the full chain, with gates enforced and humans reserved for phase gates." {
+        orchestrator = softwareSystem "Agent Session Orchestrator" "Observes and manages run state: status, phase-gate approval, halted-run recovery, project init, and a TUI for backlog browsing and adapter/model configuration." {
 
-            cli = container "CLI Entry Point" "Parses commands (run-step, run-phase, status, resume, approve, reject, release, abort) and dispatches to application services." "Python / argparse" {
+            cli = container "CLI Entry Point" "Parses commands (status, approve, reject, release, abort, init) and dispatches to application services." "Python / argparse" {
                 dispatcher = component "Command Dispatcher" "Maps argv to an application service; validates arguments; owns process exit codes." "argparse"
             }
 
-            core = container "Orchestration Core" "CLI-agnostic domain and application logic: the phase state machine, loop policy, and chain sequencing. Depends only on ports." "Python (stdlib)" {
-                phaseRunner   = component "PhaseRunner" "Drives one phase's author -> gate -> review -> loop-or-approve state machine (UC-02). The Operator drives the chain by running one phase at a time in order (UC-03)." "Python"
-                loopPolicy    = component "LoopPolicy" "Caps iterations, supersedes prior findings, evaluates the loop-exit condition (SF-04, BR-001/003/014)." "Python"
-                statusService = component "StatusService" "Read-only projections for the status views: overview, per-phase details, open findings, and the invocation log (UC-05, UC-08, FR-T)." "Python"
-                approvalSvc   = component "ApprovalService" "Records approve/reject at a phase gate and advances or halts (UC-04)." "Python"
-                modelResolver = component "ModelResolver" "Two resolution paths that never combine: agent tier -> model (for every orchestrator-invoked agent) and story classification -> model (for the dispatcher's tier-less developer sub-agents during implementation), both via the active adapter's dictionary; --model overrides on run-step; null tier resolves as standard for orchestrator-invoked agents (FR-R10..R12, VR-041, ADR-0018)." "Python"
-                menuController = component "MenuController" "Traverses the menu tree, tracks navigation state, and dispatches each function leaf to the same application service as its direct-mode equivalent; hands long-running operations back to the streaming path (UC-08, FR-P, FR-V, ADR-0016)." "Python"
+            core = container "Orchestration Core" "CLI-agnostic domain and application logic: read-only status projections, phase-gate approval, menu navigation, and settings resolution. Depends only on ports." "Python (stdlib)" {
+                statusService = component "StatusService" "Read-only projections for the status views: overview, per-phase details, and open findings (UC-05, UC-08, FR-T). status > log always renders empty (no invocation-log writer remains in the orchestrator)." "Python"
+                approvalSvc   = component "ApprovalService" "Records approve/reject at a phase gate and advances or halts (UC-04); re-verifies the working tree if artifacts changed since the gate (VR-012)." "Python"
+                menuController = component "MenuController" "Traverses the menu tree, tracks navigation state, and dispatches each function leaf to the same application service as its direct-mode equivalent; hands long-running operations back to the streaming path (UC-08, FR-P, FR-V, ADR-0016). run-step and run-phase are inert, childless menu entries; manage-run > resume reports that execution moved to factory." "Python"
                 settingsResolver = component "SettingsResolver" "Resolves each invocation setting through the four-layer precedence menu selection > CLI flag > config.toml > built-in default (UC-09, FR-Q3, SF-07)." "Python"
-                domain        = component "Domain Entities" "Run, Phase, Iteration, Finding, GateResult, AgentInvocation, Approval, Story, InvocationContext, Config, AdapterEntry, ModelDictionary, MenuNode — pure state, no I/O." "Python dataclasses"
-                ports         = component "Ports" "Abstract interfaces the core depends on: CLIAdapter, FindingsStore, FindingIngestor, GateRunner, RunStateStore, RunLock, AgentRegistry, PromptComposer, Logger, BacklogStore, ModelMatrix, MenuRenderer, ConfigStore, AdapterRegistry, Clock" "Python Protocol/ABC"
+                domain        = component "Domain Entities" "Run, PhaseRecord, Finding, GateResult, AgentInvocation, Story, Config, AdapterEntry, ModelDictionary, MenuNode — pure state, no I/O." "Python dataclasses"
+                ports         = component "Ports" "Abstract interfaces the core depends on: MenuRenderer, GateRunner, FindingsStore, RunStateStore, RunLock, AgentRegistry, InvocationLogReader, BacklogStore, ModelMatrix, ConfigStore, AdapterRegistry" "Python Protocol"
             }
 
-            copilotAdapter = container "CLI Adapters" "Concrete CLIAdapter implementations — Copilot (MVP), Claude, Gemini. Own all CLI-specific non-interactive flags; return only InvocationResult." "Python / subprocess"
-            gateRunner     = container "Working-Tree Gate" "Verifies working-tree cleanliness after agent exits; maps (exit_code, tree_state) to a GateResult. Cleans tree before retry (ADR-0013). Replaces the old stage-commit-parse GateRunner." "Python / subprocess + git"
-            findingsStore  = container "Findings Store Adapter" "File-per-finding JSON store with a monotonic ID allocator; validates every finding against the schema on write." "Python / jsonschema"
-            runStateStore  = container "Run State Store" "Atomic (write-then-rename) reader/writer of .orchestrator/run.json and the run lock; also the git run-branch manager." "Python / json + git"
-            agentRegistry  = container "Agent Registry" "Reads agents/*.md front-matter to resolve each phase's author/reviewer, their declared outputs (FR-H), and the agent's tier, interactive policy, and skills (FR-R10, FR-S5)." "Python"
-            menuRenderer   = container "Terminal Menu Renderer" "Concrete MenuRenderer: paints one menu or display node at a time with the -> cursor and star default, and normalizes keypresses to KeyEvents. Terminal framework deferred (T-29, ADR-0016)." "Python / terminal"
+            gateRunner     = container "Working-Tree Gate" "Verifies working-tree cleanliness; maps (exit_code, tree_state) to a GateResult. Called once per approval, not per phase iteration (ADR-0013)." "Python / subprocess + git"
+            findingsStore  = container "Findings Store Adapter" "File-per-finding JSON store with a monotonic ID allocator; validates every finding against the schema on write. Read today by status views; ingestion is factory's job." "Python / jsonschema"
+            runStateStore  = container "Run State Store" "Atomic (write-then-rename) reader/writer of .orchestrator/run.json and the run lock. Does not manage git branches — factory creates and selects the run branch during execution." "Python / json"
+            agentRegistry  = container "Agent Registry" "Reads agents/*.md front-matter to resolve a phase's author outputs (for approval's staleness check) and each agent's tier, interactive policy, and skills (for menu display)." "Python"
+            menuRenderer   = container "Terminal Menu Renderer" "Concrete MenuRenderer: paints one menu or display node at a time with the -> cursor and star default, and normalizes keypresses to KeyEvents." "Python / terminal"
             configAdapter  = container "Config & Registry Store" "Implements ConfigStore and AdapterRegistry over .orchestrator/config.toml: operator defaults, registered adapters with binary paths, and per-adapter tier->model dictionaries; atomic write-then-rename (UC-09, UC-10, ADR-0017)." "Python / tomllib"
-            backlogStore   = container "Backlog Store" "Reads/writes backlog/ST-NNNN.md; parses story frontmatter for routing, leaves the prose body for the agent (ADR-0008)." "Python"
-            modelMatrix    = container "Model Matrix Reader" "Reads the operator-curated matrix (facts + policy); ModelResolver queries it (ADR-0009)." "Python"
-            logger         = container "Invocation Log" "Appends one JSON line per invocation to .orchestrator/log.jsonl for observability (FR-J)." "Python"
-            findingIngestor = container "Finding Ingestor" "Reads the review agent's filed docs/findings/*.md and parses deterministic gate/spec-lint output; maps each finding to the Finding DTO; depends on FindingsStore for ID allocation and persistence (ADR-0012)." "Python"
+            backlogStore   = container "Backlog Store" "Reads backlog/ST-NNNN.md; parses story frontmatter for routing, leaves the prose body for display (ADR-0008)." "Python"
+            modelMatrix    = container "Model Matrix Reader" "Reads model.conf ([facts] only) for configure > model-matrix > show/edit/validate. Read-only display; tier->model resolution at invocation time happens in factory (ADR-0020, ADR-0021)." "Python"
+            adapterDetect  = container "Adapter Auto-Detect" "Scans $PATH for known CLI adapter binaries for configure > cli-list > auto-detect." "Python / subprocess"
 
-            findingsData = container "findings/" "One JSON file per finding — the source of truth for review findings and loop state." "Filesystem (JSON)" "Data"
-            runData      = container ".orchestrator/" "run.json + run.lock + log.jsonl — the resumable run record, single-run lock, and invocation log." "Filesystem (JSON)" "Data"
+            findingsData = container "findings/" "One JSON file per finding — read by status views; populated by factory during execution." "Filesystem (JSON)" "Data"
+            runData      = container ".orchestrator/" "run.json + run.lock — the resumable run record and single-run lock, written by both the orchestrator (approve/reject/release/abort) and factory (execution)." "Filesystem (JSON)" "Data"
             backlogData  = container "backlog/" "One markdown file per story — strict frontmatter + prose body (ADR-0008)." "Filesystem (Markdown)" "Data"
-            matrixData   = container "model matrix" "Operator-curated facts + policy — tier<->model per CLI, class/phase->tier (ADR-0009)." "Config (TOML)" "Data"
+            matrixData   = container "model.conf" "Operator-curated per-CLI tier router: [facts] only, no policy layer (ADR-0020)." "Config (TOML)" "Data"
             configData   = container ".orchestrator/config.toml" "Persisted operator defaults + adapter registry + per-adapter model dictionaries (ADR-0017)." "Filesystem (TOML)" "Data"
         }
 
@@ -48,70 +43,51 @@ workspace "Agent Session Orchestrator" "Thin Python CLI that drives the Agent HQ
         operator  -> cli "Runs commands" "shell"
 
         # Inside the orchestrator: dispatch into the core
-        dispatcher -> phaseRunner "run-phase / run-step"
         dispatcher -> statusService "status"
         dispatcher -> approvalSvc "approve / reject"
+        dispatcher -> runStateStore "release / abort"
         dispatcher -> menuController "bare orchestrate (menu mode)"
-        dispatcher -> settingsResolver "Resolves effective settings"
 
         # Menu mode: the controller dispatches leaves to the same core services as direct mode
         menuController -> menuRenderer "Renders nodes, reads keys" "MenuRenderer port"
         menuController -> settingsResolver "Resolves effective settings"
-        menuController -> agentRegistry "Lists agents + tiers (run-step)" "AgentRegistry port"
-        menuController -> modelResolver "Resolves default model to mark star"
-        menuController -> phaseRunner "run-step / run-phase leaf"
         menuController -> statusService "status views"
-        menuController -> approvalSvc "manage-run leaves"
+        menuController -> approvalSvc "manage-run > approve / reject"
+        menuController -> runStateStore "manage-run > release / abort"
         menuController -> backlogStore "backlog views" "BacklogStore port"
         menuController -> configAdapter "configure leaves (defaults, adapters, models)" "ConfigStore / AdapterRegistry port"
+        menuController -> adapterDetect "configure > cli-list > auto-detect"
+        menuController -> modelMatrix "configure > model-matrix > show / edit"
 
-        # Settings + model resolution read persisted config and the adapter dictionary
+        # Settings resolution reads persisted config
         settingsResolver -> configAdapter "Reads persisted defaults" "ConfigStore port"
-        modelResolver -> configAdapter "Resolves tier -> model via the adapter dictionary" "AdapterRegistry port"
 
         # Core internal
-        phaseRunner -> loopPolicy "Applies cap + loop-exit"
-        phaseRunner -> domain "Reads/updates run state"
-        phaseRunner -> ports "Uses"
-        loopPolicy  -> ports "Uses"
         statusService -> ports "Uses"
         approvalSvc -> ports "Uses"
-        phaseRunner -> modelResolver "Selects the model per story/phase"
-        modelResolver -> ports "Uses"
 
         # Core -> adapters via ports (dependency inversion: adapters implement ports)
-        phaseRunner -> copilotAdapter "Invokes agent (isolated subprocess)" "CLIAdapter port"
-        phaseRunner -> gateRunner "Verifies working-tree cleanliness after agent" "GateRunner port"
-        phaseRunner -> findingsStore "Queries open findings + supersedes" "FindingsStore port"
-        phaseRunner -> findingIngestor "Ingests deterministic + reviewer findings" "FindingIngestor port"
-        phaseRunner -> runStateStore "Persists run state" "RunStateStore port"
-        phaseRunner -> agentRegistry "Resolves agent + outputs" "AgentRegistry port"
         statusService -> runStateStore "Reads run state" "RunStateStore port"
         statusService -> findingsStore "Counts open findings" "FindingsStore port"
         approvalSvc -> runStateStore "Records approval" "RunStateStore port"
         approvalSvc -> findingsStore "Checks open findings" "FindingsStore port"
         approvalSvc -> gateRunner "Re-verifies tree on staleness (VR-012)" "GateRunner port"
         approvalSvc -> agentRegistry "Resolves artifact paths" "AgentRegistry port"
-        phaseRunner -> backlogStore "Reads stories (implementation)" "BacklogStore port"
-        phaseRunner -> logger "Logs each invocation" "Logger port"
-        modelResolver -> modelMatrix "Resolves tier -> model" "ModelMatrix port"
 
         # Adapters -> externals & data
-        copilotAdapter -> aicli "Runs agent non-interactively" "subprocess"
-        copilotAdapter -> aitooling "Reads agent/skill definitions"
-        gateRunner -> gitpc "Checks working-tree state; cleans tree on retry" "git status / checkout / clean"
+        gateRunner -> gitpc "Checks working-tree state" "git status / diff"
         agentRegistry -> aitooling "Reads agents/*.md outputs"
-        findingsStore -> findingsData "Reads/writes finding files"
-        findingIngestor -> findingsStore "Allocates IDs + writes findings" "FindingsStore port"
+        findingsStore -> findingsData "Reads finding files"
         runStateStore -> runData "Reads/writes run.json + lock"
-        backlogStore -> backlogData "Reads/writes story files"
-        modelMatrix -> matrixData "Reads facts + policy"
+        backlogStore -> backlogData "Reads story files"
+        modelMatrix -> matrixData "Reads facts"
         modelMatrix -> configAdapter "Populates adapter dictionaries from matrix facts (startup / edit)" "AdapterRegistry port"
         configAdapter -> configData "Reads/writes config.toml (atomic)"
-        logger -> runData "Appends log.jsonl"
 
-        # The driven CLI writes the artifacts
-        aicli -> gitpc "Commits phase artifacts on the run branch; pre-commit hooks fire on each commit"
+        # The orchestrator observes what factory and agents produce
+        factory -> runData "Drives phase execution; writes run.json during authoring/gating/reviewing"
+        factory -> findingsData "Ingests reviewer/gate findings"
+        gitpc -> runData "Agents (invoked by factory) commit phase artifacts on the run branch"
 
         # --- Deployment (§7.1) ---------------------------------------------------
         deploymentEnvironment "Developer-Machine" {
@@ -124,14 +100,10 @@ workspace "Agent Session Orchestrator" "Thin Python CLI that drives the Agent HQ
                     containerInstance agentRegistry
                     containerInstance backlogStore
                     containerInstance modelMatrix
-                    containerInstance logger
-                    containerInstance findingIngestor
+                    containerInstance adapterDetect
                     containerInstance gateRunner
                     containerInstance menuRenderer
                     containerInstance configAdapter
-                }
-                deploymentNode "Agent subprocess" "" "Fresh per invocation (ADR-0002)" {
-                    containerInstance copilotAdapter
                 }
                 deploymentNode "Project directory" "" "Git repository" {
                     containerInstance findingsData
@@ -141,16 +113,16 @@ workspace "Agent Session Orchestrator" "Thin Python CLI that drives the Agent HQ
                     containerInstance configData
                 }
                 deploymentNode "Host tooling" "" "Installed on PATH" {
-                    softwareSystemInstance aicli
                     softwareSystemInstance gitpc
                     softwareSystemInstance aitooling
+                    softwareSystemInstance factory
                 }
             }
         }
     }
 
     views {
-        systemContext orchestrator "SystemContext" "Who uses the orchestrator and which external systems it drives." {
+        systemContext orchestrator "SystemContext" "Who uses the orchestrator and which external systems it observes." {
             include *
             autoLayout lr
         }
@@ -165,44 +137,24 @@ workspace "Agent Session Orchestrator" "Thin Python CLI that drives the Agent HQ
             autoLayout lr
         }
 
-        dynamic core "RunPhaseClean" "A phase completes cleanly on the first iteration (UC-02 main success, §6.1)." {
-            phaseRunner -> agentRegistry "Resolve author + declared outputs"
-            phaseRunner -> modelResolver "Select model for invocation"
-            phaseRunner -> copilotAdapter "Invoke author (fresh subprocess)"
-            copilotAdapter -> aicli "Agent runs, commits work, hooks fire"
-            phaseRunner -> gateRunner "Verify working-tree cleanliness"
-            gateRunner -> gitpc "git status --porcelain (clean)"
-            phaseRunner -> agentRegistry "Resolve reviewer"
-            phaseRunner -> copilotAdapter "Invoke reviewer (fresh subprocess)"
-            copilotAdapter -> aicli "Reviewer runs, files findings"
-            phaseRunner -> findingIngestor "Ingest reviewer findings"
-            findingIngestor -> findingsStore "Allocate IDs, write findings (0 open)"
-            phaseRunner -> runStateStore "Write run.json (awaiting-approval)"
+        dynamic core "RunPhaseClean" "An operator approves a clean phase gate factory already produced (UC-04 main success)." {
+            approvalSvc -> agentRegistry "Resolve author's declared outputs"
+            approvalSvc -> gateRunner "Re-verify working-tree cleanliness if artifacts changed"
+            approvalSvc -> findingsStore "Check open findings for the reviewed cycle"
+            approvalSvc -> runStateStore "Write run.json (advance to next phase or complete)"
             autoLayout lr
         }
 
-        dynamic core "RunPhaseLoop" "Author-reviewer loop: findings on iteration 1, clean on iteration 2 (UC-02 ext. 8a, §6.2)." {
-            phaseRunner -> copilotAdapter "Invoke author (iteration 1)"
-            phaseRunner -> gateRunner "Verify tree (passed)"
-            phaseRunner -> copilotAdapter "Invoke reviewer (iteration 1)"
-            phaseRunner -> findingIngestor "Ingest findings (2 open)"
-            phaseRunner -> loopPolicy "Evaluate: retry (1 < cap)"
-            phaseRunner -> findingsStore "Supersede iteration-1 findings"
-            phaseRunner -> copilotAdapter "Invoke author (iteration 2, with findings)"
-            phaseRunner -> gateRunner "Verify tree (passed)"
-            phaseRunner -> copilotAdapter "Invoke reviewer (iteration 2)"
-            phaseRunner -> findingIngestor "Ingest findings (0 open)"
-            phaseRunner -> runStateStore "Write run.json (awaiting-approval)"
+        dynamic core "RunPhaseLoop" "An operator checks status mid-loop while factory drives the author-reviewer cycle (UC-05)." {
+            statusService -> runStateStore "Read current phase, iteration, mode"
+            statusService -> findingsStore "Count open findings for the last-reviewed cycle"
             autoLayout lr
         }
 
-        dynamic core "NavigateMenuToRunStep" "Operator reaches a run-step leaf through menu navigation; the leaf dispatches to the same service as direct mode (UC-08, §6.7)." {
+        dynamic core "NavigateMenuToRunStep" "Operator opens the run-step menu entry; it is inert (childless) because execution moved to factory (UC-08, §6.7)." {
             dispatcher -> menuController "Bare orchestrate enters menu mode"
             menuController -> menuRenderer "Render root menu, read arrow/Enter keys"
-            menuController -> agentRegistry "List agents + tiers (run-step)"
-            menuController -> settingsResolver "Resolve default adapter"
-            menuController -> modelResolver "Resolve agent tier -> model, mark star default"
-            menuController -> phaseRunner "Dispatch run-step, exit TUI, stream output"
+            menuController -> menuRenderer "run-step has no children; selecting it reports the change"
             autoLayout lr
         }
 

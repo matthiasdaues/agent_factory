@@ -2,6 +2,8 @@
 
 **Status**: Accepted
 
+> **Superseded for the orchestrator, 2026-07-12 (PhaseRunner collapse):** Invoking agents as isolated subprocesses moved entirely to `factory/`; the orchestrator no longer invokes agents, so the `CLIAdapter` subprocess seam described below no longer lives here. See the repo-root `docs/spec/prd.md` and `docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md`.
+
 ## Context
 
 Isolation (Q2, NFR-2, BR-004) is a top quality goal: a reviewer's judgement must be independent of the author's reasoning, exactly as a developer must not review their own pull request. The design proposal ([orchestrator-design-proposal.md](../../../scripts/orchestrator-design-proposal.md)) records the trigger — the existing `task` tool launches sub-agents *within the same session*, so it cannot provide the required blindness. Isolation must be a structural guarantee, not a matter of prompt discipline.

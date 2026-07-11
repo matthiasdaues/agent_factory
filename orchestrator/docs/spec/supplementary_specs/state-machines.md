@@ -1,6 +1,8 @@
 # State Machines — Agent Session Orchestrator
 
-The lifecycle of a single **phase** within a run — the heart of the orchestrator: the author → gate → review → loop-or-approve control flow from UC-02, including the failure edges (UC-02 extensions) and the reviewer-optional path (BR-006).
+The lifecycle of a single **phase** within a run: the author → gate → review → loop-or-approve control flow from UC-02, including the failure edges (UC-02 extensions) and the reviewer-optional path (BR-006).
+
+> **Scope note (amended 2026-07-12, PhaseRunner collapse):** this state machine is no longer driven by the orchestrator. `PhaseRunner`, which executed exactly this pseudocode, is deleted; `factory/scripts/{phase,trigger}` and `factory/scripts/transition-lint` now drive these transitions. The state vocabulary itself (`AUTHORING`, `GATING`, `REVIEWING`, `RETRY_OR_HALT`, `HALTED`, `AWAITING_APPROVAL`, `COMPLETE`) is unchanged — it is still what `PhaseStatus` persists in `.orchestrator/run.json`, still what `status` reports, and still what the pseudocode and Mermaid diagram below describe (kept in sync per `statemachine-lint`; not edited by this reconciliation pass). The orchestrator's own remaining role in this machine is narrow: `approve`/`reject` transition out of `AWAITING_APPROVAL` and `release` transitions out of `HALTED` — everything else (`RunPhase`, `AuthorResult`, `WorkingTreeCheck`, `ReviewResult`, `Evaluate`) is factory's. See the repo-root `docs/spec/prd.md` and `docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md`.
 
 ## Notation
 

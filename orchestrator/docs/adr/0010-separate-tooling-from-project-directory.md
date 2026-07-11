@@ -2,6 +2,8 @@
 
 **Status**: Accepted
 
+> **Amended 2026-07-12 (PhaseRunner collapse):** `orchestrate init` and the tooling-copy layout remain in the orchestrator; the `run-phase` execution the examples below invoke moved to `factory/`. See the repo-root `docs/spec/prd.md` and `docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md`.
+
 **Context**:
 
 The current bootstrap clones Agent HQ into `.ai_tooling/` inside the project directory and gitignores it. This works but has a significant drawback: AI coding CLIs scan the working directory tree for context, so every agent session reads 19 skills, 8 agent definitions, the orchestrator source code, and its 190+ tests as part of "understanding the codebase." This is noise that wastes tokens and occasionally leads agents off-script — they explore the tooling instead of the project.

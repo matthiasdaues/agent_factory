@@ -8,22 +8,24 @@ date: 2026-07-07
 
 ## Overview
 
+> **Scope note (amended 2026-07-12, PhaseRunner collapse):** `run-step` and `run-phase` no longer execute anything in the orchestrator — that flow moved to `factory/` (`factory/skills/run-step`, `factory/scripts/{phase,trigger}`). See the repo-root `docs/spec/prd.md` and `docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md`. Both remain as inert, childless root menu entries (the TUI lists them; selecting one does nothing) and their direct-mode subcommands are gone from `build_parser()`. `resume` is gone too; `manage-run > resume` reports that execution moved to factory. Everything else in this specification — `status`, `approve`, `reject`, `release`, `abort`, `init`, `backlog`, and `configure` (defaults, cli-list, cli, model-matrix) — is unaffected and accurate.
+
 The orchestrate CLI offers two interaction modes:
 
 1. **Direct mode** — flat subcommands with flags (scripting-friendly)
 2. **Menu mode** — interactive TUI with nested navigation (this specification)
 
 When invoked without arguments (`orchestrate`), the CLI enters menu mode.
-When invoked with a subcommand (`orchestrate run-phase architecture`), it runs in direct mode.
+Direct mode's remaining subcommands are `status`, `approve`, `reject`, `release`, `abort`, and `init`.
 
 ## Design rules
 
 1. **Menus contain only menus.** Every non-leaf node is a menu of submenus.
 2. **Functions are leaves.** Only leaf nodes execute something.
-3. **Model sits below adapter.** You pick an adapter, then a model within it.
-4. **Two-axis model resolution, at two levels.** The two axes never combine on one invocation; each governs a different level. **Agent tier** governs every invocation the orchestrator makes directly: agents declare a `tier` in frontmatter (economy / standard / strong) — the minimum model capability the agent requires — and each agent the orchestrator invokes (`run-step`'s named agent, and every phase author/reviewer in `run-phase`) resolves its own tier through the active adapter's dictionary. **Story classification** governs the developer sub-agents the implementation dispatcher commissions: during the implementation phase the `implementation-agent` acts as a dispatcher and assigns each ready story's developer sub-agent a model from the story's `classification` (trivial / standard / hard) alone. Developer agents declare no tier by design — the model for a unit of work is the dispatcher's decision, and the classification is its single source of truth. That selection happens below the adapter boundary (FR-M); the orchestrator sees one `implementation-agent` invocation.
-5. **Configurable defaults.** Adapter, timeout, cap, and auto-approve are persisted in `.orchestrator/config.toml`. CLI flags override persisted defaults. Menu selections override both.
-6. **Interactive by default.** Whenever a TTY is attached, invocations are interactive so the Operator watches what the agent does; a non-interactive terminal (no TTY) degrades to headless automatically. The built-in default is interactive. For phases, interactivity is **preconfigured** by each agent's `interactive` frontmatter (e.g. an agent that must run headless declares `interactive: false`). For a direct `run-step`, `--no-interactive` forces headless for that one invocation. There is no global unattended `--yes` mode — that returns with unattended execution (NG6).
+3. **Model sits below adapter.** You pick an adapter, then a model within it — for display and management (`configure > cli`); model *resolution* for an invocation is factory's (see scope note above).
+4. **Two-axis model resolution, at two levels.** _(Superseded — moved to factory.)_ The two axes never combine on one invocation; each governs a different level. **Agent tier** governs every invocation the orchestrator makes directly: agents declare a `tier` in frontmatter (economy / standard / strong) — the minimum model capability the agent requires — and each agent the orchestrator invokes (`run-step`'s named agent, and every phase author/reviewer in `run-phase`) resolves its own tier through the active adapter's dictionary. **Story classification** governs the developer sub-agents the implementation dispatcher commissions: during the implementation phase the `implementation-agent` acts as a dispatcher and assigns each ready story's developer sub-agent a model from the story's `classification` (trivial / standard / hard) alone. Developer agents declare no tier by design — the model for a unit of work is the dispatcher's decision, and the classification is its single source of truth. That selection happens below the adapter boundary (FR-M); the orchestrator sees one `implementation-agent` invocation.
+5. **Configurable defaults.** Adapter, timeout, cap, and auto-approve are persisted in `.orchestrator/config.toml`. CLI flags override persisted defaults. Menu selections override both. Still accurate — persistence is the orchestrator's; `timeout`/`cap` are now consumed by factory at execution time.
+6. **Interactive by default.** _(Superseded — moved to factory.)_ Whenever a TTY is attached, invocations are interactive so the Operator watches what the agent does; a non-interactive terminal (no TTY) degrades to headless automatically. The built-in default is interactive. For phases, interactivity is **preconfigured** by each agent's `interactive` frontmatter (e.g. an agent that must run headless declares `interactive: false`). For a direct `run-step`, `--no-interactive` forces headless for that one invocation. There is no global unattended `--yes` mode — that returns with unattended execution (NG6).
 
 ## Settings resolution precedence
 
@@ -42,6 +44,8 @@ menu selection > CLI flag > config.toml > built-in default
 | tier         | —                            | _(per-agent, in agent frontmatter)_ | —                                      |
 
 ## Model resolution chain
+
+_(Superseded — moved to factory. This chain executed inside the deleted `run-step`/`run-phase`/`ModelResolver`; factory now performs it. The orchestrator's `AdapterRegistry`/model dictionaries remain, populated from `model.conf` for `configure > cli` display only.)_
 
 ```
 run-step:  agent.tier ──→ adapter.dictionary[tier] ──→ concrete model
@@ -181,6 +185,8 @@ orchestrate + configure + model-matrix + validate => function
 
 ### Run-step
 
+**Superseded — moved to factory.** The menu tree below was the design target while `run-step` execution lived in the orchestrator. `PhaseRunner`, the CLI adapter dispatch, and prompt composition it depended on are deleted; the `run-step` root entry is now an inert, childless menu node. Running a single agent is `factory/skills/run-step`'s job — see the repo-root `docs/spec/prd.md` and `docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md`. Retained below for history.
+
 ```
 orchestrate + run-step => menu
   [list of agents from agents/ registry, showing name + tier]
@@ -201,11 +207,11 @@ orchestrate + run-step + {agent} + {skill-or-all} + {adapter} + {model} => funct
   workflow step. Exits TUI, switches to streaming terminal output.
 ```
 
-The happy path is four selections deep: agent → skill scope (pick all) → adapter (pick default) → model (pick default). Three Enter presses on ★ defaults.
-
-Direct-mode equivalent: `orchestrate --adapter copilot run-step qa-agent --skill fagan-review`
+The happy path was four selections deep: agent → skill scope (pick all) → adapter (pick default) → model (pick default). Three Enter presses on ★ defaults. This path no longer executes.
 
 ### Run-phase
+
+**Superseded — moved to factory.** Same disposition as Run-step above: `PhaseRunner` and the author↔reviewer loop it drove are deleted. The `run-phase` root entry is now an inert, childless menu node; driving a phase is `factory/scripts/phase`'s job. Retained below for history.
 
 ```
 orchestrate + run-phase => menu
@@ -254,7 +260,8 @@ orchestrate + manage-run => menu
   abort    = terminate active run
 
 orchestrate + manage-run + resume => function
-  Continues the run from its last checkpoint.
+  Superseded — moved to factory. Reports that execution moved to the
+  factory scripts rather than continuing a run (PhaseRunner deleted).
 
 orchestrate + manage-run + approve => function
   Approves the current phase gate and advances.
@@ -327,15 +334,17 @@ orchestrate > run-step
 
 ## Direct-mode equivalents
 
-| Menu path                                             | Direct-mode command                                                      |
-| ----------------------------------------------------- | ------------------------------------------------------------------------ |
-| init > {cli}                                          | `orchestrate init [<project>] --cli {cli}`                               |
-| run-step > {agent} > all skills > {adapter} > {model} | `orchestrate --adapter {a} --model {m} run-step {agent}`                 |
-| run-step > {agent} > {skill} > {adapter} > {model}    | `orchestrate --adapter {a} --model {m} run-step {agent} --skill {skill}` |
-| run-phase > {phase} > {adapter}                       | `orchestrate --adapter {a} run-phase {phase}`                            |
-| status > overview                                     | `orchestrate status`                                                     |
-| manage-run > resume                                   | `orchestrate resume`                                                     |
-| manage-run > approve                                  | `orchestrate approve`                                                    |
-| manage-run > reject                                   | `orchestrate reject [--note "..."]`                                      |
-| manage-run > release                                  | `orchestrate release`                                                    |
-| manage-run > abort                                    | `orchestrate abort`                                                      |
+_Rows marked Superseded name a direct-mode command that no longer exists in `build_parser()`; execution moved to factory._
+
+| Menu path                                             | Direct-mode command                                                                    |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| init > {cli}                                          | `orchestrate init [<project>] --cli {cli}`                                             |
+| run-step > {agent} > all skills > {adapter} > {model} | _Superseded._ `orchestrate --adapter {a} --model {m} run-step {agent}`                 |
+| run-step > {agent} > {skill} > {adapter} > {model}    | _Superseded._ `orchestrate --adapter {a} --model {m} run-step {agent} --skill {skill}` |
+| run-phase > {phase} > {adapter}                       | _Superseded._ `orchestrate --adapter {a} run-phase {phase}`                            |
+| status > overview                                     | `orchestrate status`                                                                   |
+| manage-run > resume                                   | _Superseded._ `orchestrate resume`                                                     |
+| manage-run > approve                                  | `orchestrate approve`                                                                  |
+| manage-run > reject                                   | `orchestrate reject [--note "..."]`                                                    |
+| manage-run > release                                  | `orchestrate release`                                                                  |
+| manage-run > abort                                    | `orchestrate abort`                                                                    |

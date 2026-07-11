@@ -37,7 +37,7 @@ Operator
 
 ## Postconditions
 
-**Success Guarantee**: The registry reflects each confirmed adapter addition, discovery, edit, and removal exactly once. Each registered adapter has an explicit model-dictionary state, including whether tier coverage is complete. Removed adapters leave no orphaned model-dictionary entries. Subsequent `run-step` and `run-phase` invocations can resolve agent `tier` metadata through the selected adapter's dictionary, subject to the configured fallback policy.
+**Success Guarantee**: The registry reflects each confirmed adapter addition, discovery, edit, and removal exactly once. Each registered adapter has an explicit model-dictionary state, including whether tier coverage is complete. Removed adapters leave no orphaned model-dictionary entries. The registry and dictionaries are persisted by the orchestrator for menu display and management; agent `tier` metadata is resolved through the selected adapter's dictionary at execution time by `factory/`, subject to the configured fallback policy.
 
 **Minimal Guarantee**: If validation, discovery, or persistence fails, the prior registry and model-dictionary state remains intact. The system reports the failed action and the reason with enough precision for the Operator to correct it.
 
@@ -122,7 +122,7 @@ The Operator decides to manage runtime CLI adapters or their model dictionaries.
 - Model discovery may be supported or unsupported, depending on the selected adapter.
 - A model dictionary may be complete or incomplete; completeness affects later runtime eligibility, not the ability to save configuration.
 - The tier vocabulary is fixed to `economy`, `standard`, and `strong`.
-- Agent `tier` metadata is resolved against the selected adapter's dictionary for `run-step` and `run-phase`, unless an allowed override or fallback rule applies.
+- Agent `tier` metadata is resolved against the selected adapter's dictionary by `factory/` at execution time, unless an allowed override or fallback rule applies.
 
 ## Frequency of Occurrence
 
@@ -220,7 +220,7 @@ Feature: Manage CLI adapters and their model dictionaries
   Scenario: Use the selected adapter dictionary for later runtime resolution
     Given an agent declares tier "standard" in its frontmatter
     And the selected adapter maps tier "standard" to a concrete model id
-    When the Operator later runs run-step or run-phase with that adapter
-    Then the system resolves the agent's default model through that adapter dictionary
+    When factory/ later executes that agent through the selected adapter
+    Then it resolves the agent's default model through that adapter dictionary
     And it halts on a missing required tier unless configured fallback permits adapter default
 ```

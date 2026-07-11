@@ -2,6 +2,8 @@
 
 **Status**: Superseded by [ADR-0012](0012-ingest-findings-from-filed-markdown.md) — the stdout-block mechanism below is replaced by reading the filed `docs/findings/*.md` (the option-C evolution this ADR anticipated). The alternatives analysis remains valid.
 
+> **Superseded for the orchestrator, 2026-07-12 (PhaseRunner collapse):** Reviewer findings ingestion — the whole subject of this ADR — moved to `factory/`; the orchestrator no longer ingests findings. See the repo-root `docs/spec/prd.md` and `docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md`.
+
 ## Context
 
 The review loop terminates on the findings store: after a reviewer runs, the orchestrator ingests its findings, tags them with the iteration, and counts the open findings of the latest iteration to decide loop-back or approval (FR-E, SF-04, UC-02 §7). Deterministic findings arrive as `spec-lint --format json`; the semantic reviewer's findings must arrive in some parseable form so the orchestrator can map them to the finding DTO.

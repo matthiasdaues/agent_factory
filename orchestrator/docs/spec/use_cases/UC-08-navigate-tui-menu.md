@@ -26,7 +26,7 @@ The Operator invokes `orchestrate` at the shell prompt.
 
 01. The Operator runs `orchestrate` with no subcommand.
 02. The system detects an interactive, supported terminal and enters menu mode.
-03. The system renders the root menu with these items: `init`, `configure`, `run-step`, `run-phase`, `status`, `manage-run`, and `backlog`.
+03. The system renders the root menu with these items: `init`, `configure`, `run-step`, `run-phase`, `status`, `manage-run`, and `backlog`. Since the PhaseRunner collapse (2026-07-12, `docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md`), `run-step` and `run-phase` are inert entries — they open empty menus and dispatch no execution — and the `resume` leaf under `manage-run` only reports that execution moved to `factory/`.
 04. The system renders exactly one node at a time, marks the active item with the `-> ` cursor, and places the initial selection on the menu's pre-selected item when one is marked `★`.
 05. The Operator presses `↑` or `↓` to move to the desired item in the current menu.
 06. The system moves the selection within the current menu and invokes nothing.
