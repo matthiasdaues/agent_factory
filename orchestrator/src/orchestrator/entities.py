@@ -55,11 +55,6 @@ class StoryStatus(str, Enum):
     BLOCKED = "blocked"
 
 
-class ApprovalDecision(str, Enum):
-    APPROVED = "approved"
-    REJECTED = "rejected"
-
-
 class AgentRole(str, Enum):
     AUTHOR = "author"
     REVIEWER = "reviewer"
@@ -84,15 +79,6 @@ class Tier(str, Enum):
 
 
 # --- Entities ----------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class InvocationContext:
-    """Invocation metadata passed to prompt composition."""
-
-    phase: str
-    role: AgentRole
-    iteration: int
 
 
 @dataclass
@@ -137,31 +123,6 @@ class AgentInvocation:
     timed_out: bool
     auth_error: bool
     config_error: bool
-
-
-@dataclass
-class Artifact:
-    """A declared output artifact."""
-
-    path: str
-    kind: str = "file"
-
-
-@dataclass
-class Iteration:
-    """One author→gate→review cycle."""
-
-    number: int
-    outcome: Optional[str] = None
-
-
-@dataclass
-class Approval:
-    """Human sign-off at a phase gate."""
-
-    decision: ApprovalDecision
-    note: str = ""
-    approved_by: str = ""
 
 
 @dataclass
