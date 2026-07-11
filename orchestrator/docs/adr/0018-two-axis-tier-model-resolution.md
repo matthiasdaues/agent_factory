@@ -1,6 +1,6 @@
 # 0018. Two-axis tier model resolution — agent tier and story classification at two levels
 
-**Status**: Accepted — revises ADR-0009 (resolution mechanism); resolves T-34; corrected by SPEC-0008
+**Status**: Accepted — revises ADR-0009 (resolution mechanism); resolves T-34; corrected by SPEC-0008. Story-side vocabulary (point 2 below) revised by [ADR-0020](0020-tier-everywhere-model-config-router.md) — the two-axis, two-level architecture decided here still stands.
 
 ## Context
 

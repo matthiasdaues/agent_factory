@@ -2,12 +2,12 @@
 name: write-adr
 description: Document an architecture decision as an ADR (Nygard format). The sole owner of ADR format in this project — every ADR, from any caller, is written by this skill.
 category: architecture
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Write ADR
 
-Document a single architecture decision following **ADR according to Nygard**. Apply **Clean Architecture** and **SOLID** as evaluation criteria where relevant.
+Document a single architecture decision following **ADR according to Nygard**. Apply **Clean Architecture** and **SOLID** as evaluation criteria where relevant. You MUST apply the **YAGNI** principlt. You MUST write short and precise prose, follow "Strunk & White".
 
 Read `docs/CONTEXT.md` if it exists — use the project's domain vocabulary.
 
