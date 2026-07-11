@@ -24,7 +24,7 @@ def test_get_story_exposes_frontmatter_and_prose_body(tmp_path: Path):
         id: ST-0100
         epic: Status & Backlog Views
         title: Detail story
-        classification: standard
+        tier: standard
         status: pending
         outputs: [src/detail.py]
         ---
@@ -53,7 +53,7 @@ def test_stories_by_epic_groups_stories_and_retains_status(tmp_path: Path):
         id: ST-0101
         epic: Alpha
         title: Alpha story
-        classification: standard
+        tier: standard
         status: pending
         outputs: [src/a.py]
         ---
@@ -69,7 +69,7 @@ def test_stories_by_epic_groups_stories_and_retains_status(tmp_path: Path):
         id: ST-0102
         epic: Beta
         title: Beta story
-        classification: standard
+        tier: standard
         status: done
         outputs: [src/b.py]
         ---
@@ -85,7 +85,7 @@ def test_stories_by_epic_groups_stories_and_retains_status(tmp_path: Path):
         id: ST-0103
         epic: Alpha
         title: Second alpha story
-        classification: standard
+        tier: standard
         status: blocked
         outputs: [src/c.py]
         ---
@@ -126,7 +126,7 @@ def test_ready_stories_includes_pending_with_done_deps_excludes_unmet_dep(
         id: ST-0110
         epic: Deps
         title: Dependency done
-        classification: standard
+        tier: standard
         status: done
         outputs: [src/dep-done.py]
         ---
@@ -142,7 +142,7 @@ def test_ready_stories_includes_pending_with_done_deps_excludes_unmet_dep(
         id: ST-0111
         epic: Deps
         title: Dependency pending
-        classification: standard
+        tier: standard
         status: pending
         outputs: [src/dep-pending.py]
         ---
@@ -158,7 +158,7 @@ def test_ready_stories_includes_pending_with_done_deps_excludes_unmet_dep(
         id: ST-0112
         epic: Deps
         title: Ready story
-        classification: standard
+        tier: standard
         status: pending
         deps: [ST-0110]
         outputs: [src/ready.py]
@@ -175,7 +175,7 @@ def test_ready_stories_includes_pending_with_done_deps_excludes_unmet_dep(
         id: ST-0113
         epic: Deps
         title: Not-ready story
-        classification: standard
+        tier: standard
         status: pending
         deps: [ST-0111]
         outputs: [src/not-ready.py]
@@ -205,7 +205,7 @@ def test_ready_stories_empty_deps_list_satisfied_trivially(tmp_path: Path):
         id: ST-0120
         epic: Deps
         title: No deps
-        classification: standard
+        tier: standard
         status: pending
         deps: []
         outputs: [src/no-deps.py]
@@ -231,7 +231,7 @@ def test_ready_stories_excludes_dependency_not_present_in_snapshot(tmp_path: Pat
         id: ST-0130
         epic: Deps
         title: Unresolvable dependency
-        classification: standard
+        tier: standard
         status: pending
         deps: [ST-9999]
         outputs: [src/unresolvable.py]
@@ -268,7 +268,7 @@ def test_stories_by_epic_and_ready_stories_do_not_mutate_backlog_files(
         id: ST-0140
         epic: Deps
         title: Read-only check
-        classification: standard
+        tier: standard
         status: pending
         deps: []
         outputs: [src/read-only.py]

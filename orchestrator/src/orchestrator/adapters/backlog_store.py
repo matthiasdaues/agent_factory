@@ -8,7 +8,7 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-from orchestrator.entities import Story, Classification, StoryStatus
+from orchestrator.entities import Story, Tier, StoryStatus
 
 _STORY_ID_RE = re.compile(r"^ST-\d{4,}$")
 
@@ -174,7 +174,7 @@ class MarkdownBacklogStore:
         return fm, body
 
     def _to_story(self, fm: Dict[str, Any], body: str = "") -> Story:
-        required = {"id", "epic", "title", "classification", "status"}
+        required = {"id", "epic", "title", "tier", "status"}
         missing = sorted(
             field for field in required if field not in fm or fm[field] is None
         )
@@ -184,7 +184,7 @@ class MarkdownBacklogStore:
             id=str(fm["id"]),
             epic=str(fm["epic"]),
             title=str(fm["title"]),
-            classification=Classification(str(fm["classification"])),
+            tier=Tier(str(fm["tier"])),
             status=StoryStatus(str(fm["status"])),
             deps=list(fm.get("deps") or []),
             traces=list(fm.get("traces") or []),

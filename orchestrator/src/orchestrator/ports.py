@@ -353,11 +353,7 @@ class BacklogStore(Protocol):
 
 @runtime_checkable
 class ModelMatrix(Protocol):
-    """Reads the model matrix (ADR-0009, FR-K5)."""
-
-    def get_tier(self, key: str) -> Optional[str]:
-        """Get the tier for a classification (class.<name>) or phase (phase.<name>)."""
-        ...
+    """Reads model.conf, the per-CLI tier router (ADR-0020, ADR-0021, FR-K5)."""
 
     def get_model(self, cli: str, tier: str) -> Optional[str]:
         """Get the concrete model for a CLI and tier."""

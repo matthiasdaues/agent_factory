@@ -9,11 +9,11 @@ description: >-
   concurrency within dependency AND file-overlap constraints. Each subagent
   implements one story using TDD on its own feature branch. The dispatcher
   owns wave scheduling, overlap-aware branch/merge ordering, model selection
-  per story classification, and completion tracking.
+  per story tier, and completion tracking.
 skills: []
 inputs:
   - backlog/ST-*.md
-  - config/model-matrix.conf
+  - config/model.conf
   - docs/spec/prd.md
   - docs/spec/use_cases/*.md
   - docs/spec/supplementary_specs/*.md
@@ -47,11 +47,11 @@ Per [branching-policy.md](../rulebooks/conventions/branching-policy.md): one fea
 
 ## Workflow
 
-1. **Load backlog + cut invocation branch** — Parse all `backlog/ST-*.md`: `id`, `status`, `deps`, `classification`, `outputs`. Build dependency graph. Identify **ready stories** (`status: pending`, all `deps` done). **Before cutting the invocation branch**: for every distinct directory implied by ready stories' declared `outputs:` globs, determine and state whether it is already git-tracked (at least one commit reachable from `main`) or untracked — per [branching-policy.md](../rulebooks/conventions/branching-policy.md)'s "Invocation Branch" section, a feature branch only has a clean, known starting point if the directory it writes to is actually tracked at that point. If any target directory is untracked, plan and make an explicit baseline commit for it now, before the invocation branch or any per-story branch/worktree is cut — never as an improvised mid-dispatch fix. Report each directory's tracked/untracked finding to the user alongside the branch-root SHA. Only then branch the invocation branch from `main` and record branch root.
+1. **Load backlog + cut invocation branch** — Parse all `backlog/ST-*.md`: `id`, `status`, `deps`, `tier`, `outputs`. Build dependency graph. Identify **ready stories** (`status: pending`, all `deps` done). **Before cutting the invocation branch**: for every distinct directory implied by ready stories' declared `outputs:` globs, determine and state whether it is already git-tracked (at least one commit reachable from `main`) or untracked — per [branching-policy.md](../rulebooks/conventions/branching-policy.md)'s "Invocation Branch" section, a feature branch only has a clean, known starting point if the directory it writes to is actually tracked at that point. If any target directory is untracked, plan and make an explicit baseline commit for it now, before the invocation branch or any per-story branch/worktree is cut — never as an improvised mid-dispatch fix. Report each directory's tracked/untracked finding to the user alongside the branch-root SHA. Only then branch the invocation branch from `main` and record branch root.
 2. **Plan wave** — Group ready stories by declared `outputs:` file overlap (in addition to dependency-readiness, not instead of it):
    - **Parallel-safe set**: file-disjoint stories → dispatch and merge in parallel.
    - **Serial chain(s)**: stories sharing an output file → dispatch and merge one at a time, in dependency order.
-     Never substitute EPIC for this grouping. Assign each story a model by `classification`, resolved through the active adapter's **model dictionary** (ADR-0018): `trivial` → `economy`, `standard` → `standard`, `hard` → `strong`. Developer sub-agents declare no tier of their own — classification is their sole axis.
+     Never substitute EPIC for this grouping. Assign each story a model from its own `tier` field, looked up directly in `model.conf` (ADR-0020, ADR-0021) — `economy | standard | strong`, no translation step. Developer sub-agents declare no tier of their own — the story's `tier` is their sole axis.
 3. **Dispatch: one feature branch per story** — Parallel-safe set: branch each story off the invocation branch, spawn all subagents **simultaneously**. Serial chain(s): branch the first story off the invocation branch; branch each subsequent story off the previous one's *already-merged* state, dispatching one at a time. Each subagent gets: story file path, resolved model, full project context, its feature branch name. Per [branching-policy.md](../rulebooks/conventions/branching-policy.md)'s "Worktree Isolation" section: spawn every developer-agent subagent into its own dedicated git worktree (e.g. via the Agent tool's `isolation: "worktree"` parameter) — never into the shared/main checkout — so its first command cannot execute against another subagent's or the dispatcher's own working directory. Before considering a subagent dispatched, confirm — do not just trust the subagent's own report — that its worktree actually exists and is checked out to the correct feature branch, e.g. by running `git worktree list` and matching each entry's path and branch against what was requested.
 4. **Verify and merge** — Per story: confirm `status: done`, commits reference story ID, tests pass in isolation. Merge in the Step 2 order — parallel-safe branches one at a time with a full test run after each; serial-chain branches in their built order. A conflict or red suite means the overlap analysis missed a real collision — resolve before continuing. Failed stories: report, don't merge, stay `pending`; don't block other branches. Compute next wave.
 5. **Repeat or finish** — Continue until all done (record branch head) or blocked state reported.

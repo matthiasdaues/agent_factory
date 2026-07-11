@@ -53,7 +53,7 @@ class PhaseRunner:
         timeout_s: int = 1800,
         interactive: bool = False,
         on_agent_start=None,
-        classification: Optional[str] = None,
+        story_tier: Optional[str] = None,
     ) -> None:
         self._adapter = adapter
         self._gate = gate_runner
@@ -70,7 +70,7 @@ class PhaseRunner:
         self._timeout_s = timeout_s
         self._interactive = interactive
         self._on_agent_start = on_agent_start
-        self._classification = classification
+        self._story_tier = story_tier
 
     # ------------------------------------------------------------------
     # helpers
@@ -125,13 +125,14 @@ class PhaseRunner:
         _resume_reviewing = phase_record.status == PhaseStatus.REVIEWING
 
         while True:
-            # Resolve model early — needed for both author and reviewer
+            # Each invoked agent resolves its own model, independently (ADR-0018
+            # point 1, ADR-0020). `story_tier` stands in for a tier-less
+            # developer agent's absent frontmatter tier (ADR-0018 point 2).
             author_info = self._registry.resolve(phase_record.name, AgentRole.AUTHOR)
 
             try:
-                model = self._model_resolver.resolve(
-                    phase_record.name,
-                    classification=self._classification,
+                model = self._model_resolver.resolve_tier(
+                    self._story_tier or author_info.tier
                 )
             except ConfigError:
                 return self._halt(run, phase_record)
@@ -254,6 +255,11 @@ class PhaseRunner:
                 reviewer_info = self._registry.resolve(
                     phase_record.name, AgentRole.REVIEWER
                 )
+
+                try:
+                    model = self._model_resolver.resolve_tier(reviewer_info.tier)
+                except ConfigError:
+                    return self._halt(run, phase_record)
 
                 reviewer_ctx = InvocationContext(
                     phase=phase_record.name,

@@ -63,21 +63,15 @@ copilot.strong   = claude-opus-4-6
 claude.economy   = claude-haiku-4-5
 claude.standard  = claude-sonnet-4-5
 claude.strong    = claude-opus-4-6
-
-[policy]
-class.trivial  = economy
-class.standard = standard
-class.hard     = strong
-phase.planning = strong
 on_missing = auto
 """
 
-# --- show: facts+policy rendering, missing/malformed degrade gracefully -----
+# --- show: facts rendering, missing/malformed degrade gracefully -----------
 
 
 class TestShow:
-    def test_show_renders_facts_and_policy(self, tmp_path: Path) -> None:
-        matrix_path = _write_matrix(tmp_path / "model-matrix.conf", VALID_MATRIX)
+    def test_show_renders_facts(self, tmp_path: Path) -> None:
+        matrix_path = _write_matrix(tmp_path / "model.conf", VALID_MATRIX)
         adapter_registry = TomlAdapterRegistry(_orch_dir(tmp_path))
         dispatch = build_configure_model_matrix_dispatch(matrix_path, adapter_registry)
 
@@ -88,14 +82,12 @@ class TestShow:
         assert "economy" in outcome.content
         assert "claude" in outcome.content
         assert "claude-sonnet-4-5" in outcome.content
-        assert "class.trivial = economy" in outcome.content
-        assert "phase.planning = strong" in outcome.content
         assert "on_missing = auto" in outcome.content
 
     def test_show_missing_file_reports_readable_message_not_a_crash(
         self, tmp_path: Path
     ) -> None:
-        matrix_path = tmp_path / "model-matrix.conf"
+        matrix_path = tmp_path / "model.conf"
         adapter_registry = TomlAdapterRegistry(_orch_dir(tmp_path))
         dispatch = build_configure_model_matrix_dispatch(matrix_path, adapter_registry)
 
@@ -107,7 +99,7 @@ class TestShow:
         self, tmp_path: Path
     ) -> None:
         matrix_path = _write_matrix(
-            tmp_path / "model-matrix.conf",
+            tmp_path / "model.conf",
             "[facts]\ncopilot.economy = gpt-5.4-mini\n\n[bogus]\nx = 1\n",
         )
         adapter_registry = TomlAdapterRegistry(_orch_dir(tmp_path))
@@ -123,7 +115,7 @@ class TestShow:
 
 class TestValidate:
     def test_valid_matrix_reports_valid(self, tmp_path: Path, capsys) -> None:
-        matrix_path = _write_matrix(tmp_path / "model-matrix.conf", VALID_MATRIX)
+        matrix_path = _write_matrix(tmp_path / "model.conf", VALID_MATRIX)
         adapter_registry = TomlAdapterRegistry(_orch_dir(tmp_path))
         dispatch = build_configure_model_matrix_dispatch(
             matrix_path, adapter_registry, lint_fn=lambda path: (0, "")
@@ -135,7 +127,7 @@ class TestValidate:
         assert capsys.readouterr().out.strip() == "valid"
 
     def test_invalid_matrix_reports_errors(self, tmp_path: Path, capsys) -> None:
-        matrix_path = _write_matrix(tmp_path / "model-matrix.conf", VALID_MATRIX)
+        matrix_path = _write_matrix(tmp_path / "model.conf", VALID_MATRIX)
         adapter_registry = TomlAdapterRegistry(_orch_dir(tmp_path))
         dispatch = build_configure_model_matrix_dispatch(
             matrix_path,
@@ -160,7 +152,7 @@ class TestValidate:
         scripts_dir = tmp_path / "scripts"
         scripts_dir.mkdir()
         shutil.copy2(_REPO_SCRIPTS / "matrix-lint", scripts_dir / "matrix-lint")
-        matrix_path = _write_matrix(tmp_path / "model-matrix.conf", VALID_MATRIX)
+        matrix_path = _write_matrix(tmp_path / "model.conf", VALID_MATRIX)
         adapter_registry = TomlAdapterRegistry(_orch_dir(tmp_path))
         dispatch = build_configure_model_matrix_dispatch(matrix_path, adapter_registry)
 
@@ -173,15 +165,12 @@ class TestValidate:
         scripts_dir = tmp_path / "scripts"
         scripts_dir.mkdir()
         shutil.copy2(_REPO_SCRIPTS / "matrix-lint", scripts_dir / "matrix-lint")
-        # 'strong' is referenced by policy but has no fact for copilot.
+        # 'mega' is not a valid tier.
         matrix_path = _write_matrix(
-            tmp_path / "model-matrix.conf",
+            tmp_path / "model.conf",
             """\
             [facts]
-            copilot.economy = gpt-5.4-mini
-
-            [policy]
-            class.hard = strong
+            copilot.mega = gpt-5.4-mini
             on_missing = halt
             """,
         )
@@ -192,7 +181,7 @@ class TestValidate:
 
         assert outcome.long_running is False
         err = capsys.readouterr().err
-        assert "MX-RESOLVE" in err
+        assert "MX-TIER" in err
 
 
 # --- edit: $EDITOR seam, unset-editor error, repopulation on success --------
@@ -202,7 +191,7 @@ class TestEdit:
     def test_unset_editor_reports_clear_error_and_does_not_crash(
         self, tmp_path: Path, capsys
     ) -> None:
-        matrix_path = _write_matrix(tmp_path / "model-matrix.conf", VALID_MATRIX)
+        matrix_path = _write_matrix(tmp_path / "model.conf", VALID_MATRIX)
         adapter_registry = TomlAdapterRegistry(_orch_dir(tmp_path))
         dispatch = build_configure_model_matrix_dispatch(
             matrix_path,
@@ -223,13 +212,10 @@ class TestEdit:
         self, tmp_path: Path, capsys
     ) -> None:
         matrix_path = _write_matrix(
-            tmp_path / "model-matrix.conf",
+            tmp_path / "model.conf",
             """\
             [facts]
             copilot.economy = gpt-5.4-mini
-
-            [policy]
-            class.trivial = economy
             on_missing = auto
             """,
         )
@@ -244,9 +230,6 @@ class TestEdit:
                 [facts]
                 copilot.economy = gpt-5.4-mini
                 copilot.standard = gpt-5.4
-
-                [policy]
-                class.trivial = economy
                 on_missing = auto
                 """,
             )
@@ -269,7 +252,7 @@ class TestEdit:
     def test_editor_nonzero_exit_leaves_dictionary_unchanged(
         self, tmp_path: Path, capsys
     ) -> None:
-        matrix_path = _write_matrix(tmp_path / "model-matrix.conf", VALID_MATRIX)
+        matrix_path = _write_matrix(tmp_path / "model.conf", VALID_MATRIX)
         adapter_registry = TomlAdapterRegistry(_orch_dir(tmp_path))
         adapter_registry.register("copilot", sys.executable)
 
@@ -290,7 +273,7 @@ class TestEdit:
     def test_edit_leaves_matrix_invalid_after_edit_does_not_crash_or_populate(
         self, tmp_path: Path, capsys
     ) -> None:
-        matrix_path = _write_matrix(tmp_path / "model-matrix.conf", VALID_MATRIX)
+        matrix_path = _write_matrix(tmp_path / "model.conf", VALID_MATRIX)
         adapter_registry = TomlAdapterRegistry(_orch_dir(tmp_path))
         adapter_registry.register("copilot", sys.executable)
 
@@ -312,7 +295,7 @@ class TestEdit:
         assert "invalid" in capsys.readouterr().err.lower()
 
     def test_editor_command_passes_the_matrix_path(self, tmp_path: Path) -> None:
-        matrix_path = _write_matrix(tmp_path / "model-matrix.conf", VALID_MATRIX)
+        matrix_path = _write_matrix(tmp_path / "model.conf", VALID_MATRIX)
         adapter_registry = TomlAdapterRegistry(_orch_dir(tmp_path))
         seen = []
 
@@ -336,7 +319,7 @@ class TestPopulateAdapterDictionariesFromMatrix:
     def test_populates_only_registered_clis_present_in_facts(
         self, tmp_path: Path
     ) -> None:
-        matrix_path = _write_matrix(tmp_path / "model-matrix.conf", VALID_MATRIX)
+        matrix_path = _write_matrix(tmp_path / "model.conf", VALID_MATRIX)
         matrix = FileModelMatrix(matrix_path)
         adapter_registry = TomlAdapterRegistry(_orch_dir(tmp_path))
         adapter_registry.register("copilot", sys.executable)
@@ -354,7 +337,7 @@ class TestPopulateAdapterDictionariesFromMatrix:
         """Story's explicit acceptance criterion: running the population
         step twice produces the same dictionary state, with no duplicate
         errors either time."""
-        matrix_path = _write_matrix(tmp_path / "model-matrix.conf", VALID_MATRIX)
+        matrix_path = _write_matrix(tmp_path / "model.conf", VALID_MATRIX)
         matrix = FileModelMatrix(matrix_path)
         adapter_registry = TomlAdapterRegistry(_orch_dir(tmp_path))
         adapter_registry.register("copilot", sys.executable)
@@ -392,7 +375,7 @@ class TestPopulateAdapterDictionariesFromMatrix:
     def test_no_registered_adapters_matches_facts_is_a_no_op(
         self, tmp_path: Path
     ) -> None:
-        matrix_path = _write_matrix(tmp_path / "model-matrix.conf", VALID_MATRIX)
+        matrix_path = _write_matrix(tmp_path / "model.conf", VALID_MATRIX)
         matrix = FileModelMatrix(matrix_path)
         adapter_registry = TomlAdapterRegistry(_orch_dir(tmp_path))
 

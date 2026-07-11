@@ -48,12 +48,6 @@ class FindingSource(str, Enum):
     SEMANTIC = "semantic"
 
 
-class Classification(str, Enum):
-    TRIVIAL = "trivial"
-    STANDARD = "standard"
-    HARD = "hard"
-
-
 class StoryStatus(str, Enum):
     PENDING = "pending"
     IN_PROGRESS = "in-progress"
@@ -211,7 +205,7 @@ class Story:
     id: str
     epic: str
     title: str
-    classification: Classification
+    tier: Tier
     status: StoryStatus = StoryStatus.PENDING
     deps: List[str] = field(default_factory=list)
     traces: List[str] = field(default_factory=list)

@@ -20,7 +20,7 @@ Read `docs/CONTEXT.md` if it exists — use the project's domain vocabulary in s
 id: ST-0001                       # ST-NNNN, zero-padded, unique; matches the filename
 epic: Domain Entities             # the EPIC this story belongs to (a grouping label, not a separate file)
 title: Define domain entity dataclasses
-classification: trivial           # trivial | standard | hard — difficulty band, drives the model tier
+tier: economy                     # economy | standard | strong — the model tier this story's work needs
 status: pending                   # pending | in-progress | done | blocked
 deps: [ST-0002]                   # story ids that block this one (optional)
 traces: [UC-02, ADR-0003]         # Use Case / ADR / component ids this story implements (optional)
@@ -54,11 +54,11 @@ Respect **Clean Architecture** layer boundaries — each story touches one layer
 
 Each story records in `traces`: Use Case ID(s) it implements (e.g. `UC-01`, `UC-A2`), the arc42 component(s) it touches, and any constraining ADR(s).
 
-Judge each story's `classification` (`trivial | standard | hard`) — the difficulty band the model matrix maps to a tier.
+Judge each story's `tier` (`economy | standard | strong`) — the model strength its work needs, same vocabulary as agent frontmatter's `tier`.
 
 Format each story file via `factory/scripts/mdformat --number <path>` per [markdown-formatting.md](../../factory/rulebooks/conventions/markdown-formatting.md).
 
-**Completion**: every User Goal covered by at least one story, all stories meet INVEST, `traces` and `classification` present.
+**Completion**: every User Goal covered by at least one story, all stories meet INVEST, `traces` and `tier` present.
 
 ## Step 3 — Prioritise with MoSCoW
 

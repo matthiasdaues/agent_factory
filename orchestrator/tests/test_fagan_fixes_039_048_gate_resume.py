@@ -156,10 +156,9 @@ class StubClock:
 
 
 class StubModelResolver:
-    def resolve(
+    def resolve_tier(
         self,
-        phase: str,
-        classification: Optional[str] = None,
+        tier: Optional[str],
         explicit_model: Optional[str] = None,
     ) -> str:
         return "gpt-4o"

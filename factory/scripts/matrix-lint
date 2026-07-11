@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""matrix-lint — deterministic consistency gate for the model matrix.
+"""matrix-lint — deterministic consistency gate for model.conf.
 
-Validates the tier-pivot model matrix (ADR-0009, VR-024): every tier that the
-policy section references must resolve to a concrete model for each CLI
-configured in the facts section.  Catches dangling tiers, unknown
-classifications, malformed entries, and unreferenced facts.
+Validates the per-CLI tier router (ADR-0020, ADR-0021, VR-024): every
+`[facts]` entry is a well-formed `<cli>.<tier> = <model-id>` mapping, and
+`on_missing` (if set) is `halt` or `auto`. No policy layer to cross-check —
+a tier is either configured for a CLI or it isn't.
 
 No third-party dependencies (Python 3.8+ stdlib only, ADR-0006).
 
 Usage
-  matrix-lint --matrix config/model-matrix.conf
-  matrix-lint --matrix config/model-matrix.conf --format json --report-only
+  matrix-lint --matrix config/model.conf
+  matrix-lint --matrix config/model.conf --format json --report-only
 
 Exit code: number of ERROR-severity findings (0 = clean), unless --report-only.
 """
@@ -23,12 +23,11 @@ import re
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Tuple
 
 SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
 
 VALID_TIERS = {"economy", "standard", "strong"}
-VALID_CLASSIFICATIONS = {"trivial", "standard", "hard"}
 VALID_ON_MISSING = {"halt", "auto"}
 
 
@@ -48,17 +47,14 @@ class Finding:
 # --- Parser -------------------------------------------------------------------
 
 
-def parse_matrix(text: str) -> Tuple[Optional[str], Dict[str, str], Dict[str, str]]:
-    """Parse the INI-like model matrix.
+def parse_matrix(text: str) -> Tuple[Optional[str], Dict[str, str]]:
+    """Parse the INI-like model.conf.
 
-    Returns (error_message | None, facts_dict, policy_dict).
-    facts_dict keys: ``cli.tier`` → model-id
-    policy_dict keys: ``class.classification`` | ``phase.name`` | ``on_missing`` → tier | ``by-class``
+    Returns (error_message | None, facts_dict). Keys: ``cli.tier`` ->
+    model-id, plus the bare ``on_missing`` key.
     """
     facts: Dict[str, str] = {}
-    policy: Dict[str, str] = {}
     current: Optional[Dict[str, str]] = None
-    section_name: Optional[str] = None
 
     for lineno, raw in enumerate(text.splitlines(), start=1):
         ln = raw.strip()
@@ -71,25 +67,23 @@ def parse_matrix(text: str) -> Tuple[Optional[str], Dict[str, str], Dict[str, st
             section_name = m.group(1).lower()
             if section_name == "facts":
                 current = facts
-            elif section_name == "policy":
-                current = policy
             else:
-                return f"line {lineno}: unknown section [{m.group(1)}]", facts, policy
+                return f"line {lineno}: unknown section [{m.group(1)}]", facts
             continue
 
         if current is None:
-            return f"line {lineno}: content outside a section", facts, policy
+            return f"line {lineno}: content outside a section", facts
 
         # Key = value
         kv = re.match(r"^([\w._-]+)\s*=\s*(.+)$", ln)
         if not kv:
-            return f"line {lineno}: malformed entry: {ln!r}", facts, policy
+            return f"line {lineno}: malformed entry: {ln!r}", facts
         current[kv.group(1).strip()] = kv.group(2).strip()
 
-    if not facts and not policy:
-        return "file contains no [facts] or [policy] section", facts, policy
+    if not facts:
+        return "file contains no [facts] section", facts
 
-    return None, facts, policy
+    return None, facts
 
 
 # --- Checks -------------------------------------------------------------------
@@ -105,26 +99,43 @@ def check_matrix(matrix_path: Path) -> List[Finding]:
                 "MX-MISSING",
                 "error",
                 str(matrix_path),
-                "model matrix file does not exist",
+                "model.conf does not exist",
             )
         )
         return findings
 
     text = matrix_path.read_text(encoding="utf-8")
-    err, facts, policy = parse_matrix(text)
+    err, facts = parse_matrix(text)
 
     if err:
         findings.append(Finding("MX-PARSE", "error", rel, f"parse error: {err}"))
         return findings
 
-    if not facts:
-        findings.append(Finding("MX-EMPTY", "error", rel, "no [facts] entries"))
-    if not policy:
-        findings.append(Finding("MX-EMPTY", "error", rel, "no [policy] entries"))
+    on_missing = facts.get("on_missing")
+    if on_missing is not None and on_missing not in VALID_ON_MISSING:
+        findings.append(
+            Finding(
+                "MX-ENUM",
+                "error",
+                rel,
+                f"on_missing '{on_missing}' not in {{halt, auto}}",
+            )
+        )
+    elif on_missing is None:
+        findings.append(
+            Finding(
+                "MX-DEFAULT",
+                "info",
+                rel,
+                "on_missing not set; defaults to 'halt' (FR-K4)",
+            )
+        )
 
     # --- Extract CLIs and their tier mappings from facts ---
     cli_tiers: Dict[str, Dict[str, str]] = {}  # cli -> {tier -> model}
     for key, val in facts.items():
+        if key == "on_missing":
+            continue
         parts = key.split(".", 1)
         if len(parts) != 2:
             findings.append(
@@ -149,153 +160,24 @@ def check_matrix(matrix_path: Path) -> List[Finding]:
             continue
         cli_tiers.setdefault(cli, {})[tier] = val
 
-    configured_clis = set(cli_tiers.keys())
-    if not configured_clis:
+    if not cli_tiers:
         findings.append(
             Finding("MX-EMPTY", "error", rel, "no CLIs configured in [facts]")
         )
 
-    # --- Validate policy entries ---
-    tiers_referenced: Set[str] = set()
-
-    for key, val in policy.items():
-        if key == "on_missing":
-            if val not in VALID_ON_MISSING:
-                findings.append(
-                    Finding(
-                        "MX-ENUM",
-                        "error",
-                        rel,
-                        f"on_missing '{val}' not in {{halt, auto}}",
-                    )
-                )
-            continue
-
-        parts = key.split(".", 1)
-        if len(parts) != 2:
-            findings.append(
-                Finding(
-                    "MX-KEY",
-                    "error",
-                    rel,
-                    f"policy key '{key}' not in class.<name> or phase.<name> format",
-                )
-            )
-            continue
-
-        kind, name = parts
-
-        if kind == "class":
-            if name not in VALID_CLASSIFICATIONS:
-                findings.append(
-                    Finding(
-                        "MX-ENUM",
-                        "error",
-                        rel,
-                        f"policy key '{key}': classification '{name}' "
-                        f"not in {{trivial, standard, hard}}",
-                    )
-                )
-            if val not in VALID_TIERS:
-                findings.append(
-                    Finding(
-                        "MX-TIER",
-                        "error",
-                        rel,
-                        f"policy '{key} = {val}': tier '{val}' "
-                        f"not in {{economy, standard, strong}}",
-                    )
-                )
-            else:
-                tiers_referenced.add(val)
-
-        elif kind == "phase":
-            if val == "by-class":
-                # by-class means the phase uses the story's classification tier;
-                # all class tiers must resolve (checked via tiers_referenced from class.* entries).
-                pass
-            elif val not in VALID_TIERS:
-                findings.append(
-                    Finding(
-                        "MX-TIER",
-                        "error",
-                        rel,
-                        f"policy '{key} = {val}': tier '{val}' "
-                        f"not in {{economy, standard, strong}}",
-                    )
-                )
-            else:
-                tiers_referenced.add(val)
-        else:
-            findings.append(
-                Finding(
-                    "MX-KEY",
-                    "warning",
-                    rel,
-                    f"policy key '{key}': unknown prefix '{kind}' "
-                    f"(expected 'class' or 'phase')",
-                )
-            )
-
-    # --- VR-024 core: every referenced tier must resolve for every CLI ---
-    for tier in sorted(tiers_referenced):
-        for cli in sorted(configured_clis):
-            if tier not in cli_tiers.get(cli, {}):
-                findings.append(
-                    Finding(
-                        "MX-RESOLVE",
-                        "error",
-                        rel,
-                        f"tier '{tier}' is referenced by policy but has no "
-                        f"model for CLI '{cli}' in [facts]",
-                    )
-                )
-
-    # --- Unreferenced facts (info) ---
-    # Collect all tiers that by-class could trigger.
-    by_class_used = any(v == "by-class" for v in policy.values())
-    effective_tiers = set(tiers_referenced)
-    if by_class_used:
-        for key, val in policy.items():
-            if key.startswith("class.") and val in VALID_TIERS:
-                effective_tiers.add(val)
-
-    all_fact_tiers = set()
-    for cli_map in cli_tiers.values():
-        all_fact_tiers.update(cli_map.keys())
-    unreferenced = all_fact_tiers - effective_tiers
-    for tier in sorted(unreferenced):
-        findings.append(
-            Finding(
-                "MX-UNUSED",
-                "info",
-                rel,
-                f"tier '{tier}' is defined in [facts] but never referenced by [policy]",
-            )
-        )
-
-    # --- Missing required policy keys ---
-    for cls in sorted(VALID_CLASSIFICATIONS):
-        if f"class.{cls}" not in policy:
+    # --- Coverage: a CLI missing a tier halts any resolution needing it ---
+    for cli in sorted(cli_tiers):
+        missing = VALID_TIERS - set(cli_tiers[cli])
+        for tier in sorted(missing):
             findings.append(
                 Finding(
                     "MX-COVERAGE",
                     "warning",
                     rel,
-                    f"no policy for class.{cls} — "
-                    f"stories with classification '{cls}' will use on_missing",
+                    f"CLI '{cli}' has no model for tier '{tier}' — "
+                    f"resolving it will use on_missing",
                 )
             )
-
-    if "on_missing" not in policy:
-        findings.append(
-            Finding(
-                "MX-DEFAULT",
-                "info",
-                rel,
-                "on_missing not set; defaults to 'halt' (FR-K4)",
-            )
-        )
 
     findings.sort(key=lambda f: (-SEVERITY_ORDER[f.severity], f.code, f.artifact))
     return findings
@@ -306,13 +188,13 @@ def check_matrix(matrix_path: Path) -> List[Finding]:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
-        description="Deterministic consistency gate for the model matrix."
+        description="Deterministic consistency gate for model.conf."
     )
     p.add_argument(
         "--matrix",
-        default="model-matrix.conf",
+        default="model.conf",
         type=Path,
-        help="path to the model matrix file",
+        help="path to model.conf",
     )
     p.add_argument("--format", choices=["text", "json"], default="text", dest="fmt")
     p.add_argument(

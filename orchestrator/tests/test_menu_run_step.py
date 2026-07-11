@@ -298,7 +298,7 @@ class TestRunStepDispatch:
     def _capture(self, monkeypatch):
         calls: dict = {}
 
-        def _fake_build_runtime(args, classification=None):
+        def _fake_build_runtime(args, story_tier=None):
             calls["build_runtime_args"] = SimpleNamespace(
                 adapter=args.adapter,
                 model=args.model,
@@ -443,7 +443,7 @@ class TestRunStepDispatch:
             ]
         )
         cli._resolve_interactive(args)
-        runtime = cli._build_runtime(args, classification=None)
+        runtime = cli._build_runtime(args, story_tier=None)
         cli._handle_run_step(runtime, args.agent, args.timeout, args.skill)
         from_direct = direct_calls["build_runtime_args"]
 

@@ -170,13 +170,14 @@ class StubModelResolver:
     ) -> None:
         self._model = model
         self._raise = raise_config
+        self.calls: list[tuple[Optional[str], Optional[str]]] = []
 
-    def resolve(
+    def resolve_tier(
         self,
-        phase: str,
-        classification: Optional[str] = None,
+        tier: Optional[str],
         explicit_model: Optional[str] = None,
     ) -> Optional[str]:
+        self.calls.append((tier, explicit_model))
         if self._raise:
             raise ConfigError("bad model")
         return self._model
@@ -265,7 +266,7 @@ def _build_runner(
     model_resolver: StubModelResolver | None = None,
     clock: StubClock | None = None,
     interactive: bool = False,
-    classification: str | None = None,
+    story_tier: str | None = None,
 ) -> PhaseRunner:
     return PhaseRunner(
         adapter=adapter or StubCLIAdapter([_ok_result()]),
@@ -281,7 +282,7 @@ def _build_runner(
         clock=clock or StubClock(),
         cwd=Path("/work"),
         interactive=interactive,
-        classification=classification,
+        story_tier=story_tier,
     )
 
 
@@ -692,27 +693,29 @@ class TestInvocationContextThreading:
         assert reviewer_findings is None
 
 
-class TestClassificationThreading:
-    """FAGAN-0007: story classification must reach the model resolver."""
+class TestStoryTierThreading:
+    """FAGAN-0007/ADR-0020: a story's own tier, standing in for a tier-less
+    developer agent's absent frontmatter tier, must reach the model resolver."""
 
-    def test_classification_passed_to_resolver(self) -> None:
+    def test_story_tier_passed_to_resolver(self) -> None:
         resolved_args: list[tuple] = []
 
         class TrackingResolver:
-            def resolve(self, phase, classification=None, explicit_model=None):
-                resolved_args.append((phase, classification, explicit_model))
+            def resolve_tier(self, tier, explicit_model=None):
+                resolved_args.append((tier, explicit_model))
                 return "gpt-4o"
 
         adapter = StubCLIAdapter([_ok_result()])
-        runner = _build_runner(adapter=adapter, model_resolver=TrackingResolver())
-        runner._classification = "hard"
+        runner = _build_runner(
+            adapter=adapter, model_resolver=TrackingResolver(), story_tier="strong"
+        )
         phase = _make_phase()
         run = _make_run()
 
         runner.run_phase(run, phase)
 
         assert len(resolved_args) == 1
-        assert resolved_args[0][1] == "hard"
+        assert resolved_args[0][0] == "strong"
 
 
 class TestResumeSubState:

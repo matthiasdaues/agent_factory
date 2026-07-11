@@ -30,15 +30,15 @@ SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
 
 # --- Schema constants ---------------------------------------------------------
 
-VALID_CLASSIFICATIONS = {"trivial", "standard", "hard"}
+VALID_TIERS = {"economy", "standard", "strong"}
 VALID_STATUSES = {"pending", "in-progress", "done", "blocked"}
 RE_STORY_ID = re.compile(r"^ST-\d{4,}$")
-REQUIRED_FIELDS = {"id", "epic", "title", "classification", "status", "outputs"}
+REQUIRED_FIELDS = {"id", "epic", "title", "tier", "status", "outputs"}
 OPTIONAL_FIELDS = {"deps", "traces"}
 ALL_FIELDS = REQUIRED_FIELDS | OPTIONAL_FIELDS
 
 # Machine fields whose names must not appear as standalone terms in the prose body.
-MACHINE_FIELD_NAMES = {"classification", "deps", "traces", "outputs"}
+MACHINE_FIELD_NAMES = {"tier", "deps", "traces", "outputs"}
 
 
 @dataclass
@@ -208,14 +208,14 @@ def check_story(
         )
 
     # --- enum fields ---
-    cls = fm.get("classification")
-    if cls is not None and cls not in VALID_CLASSIFICATIONS:
+    tier = fm.get("tier")
+    if tier is not None and tier not in VALID_TIERS:
         out.append(
             Finding(
                 "BL-ENUM",
                 "error",
                 rel,
-                f"classification '{cls}' not in {{trivial, standard, hard}}",
+                f"tier '{tier}' not in {{economy, standard, strong}}",
             )
         )
 
@@ -293,7 +293,7 @@ def check_story(
 
     # --- machine field names must not appear as headings/terms in body ---
     for fld in MACHINE_FIELD_NAMES:
-        # Match as a heading (## classification) or a bold term (**classification**)
+        # Match as a heading (## tier) or a bold term (**tier**)
         if re.search(rf"(?im)^#+\s+{re.escape(fld)}\b", body) or re.search(
             rf"\*\*{re.escape(fld)}\*\*", body, re.I
         ):
