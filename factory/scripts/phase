@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """phase — advance a structured-playbook run's state marker.
 
-Subcommand-style tool (like ``structurizr validate``). For this proof-of-concept
-only the ``advance`` subcommand is implemented:
+Subcommand-style tool (like ``structurizr validate``). Two subcommands:
 
   factory/scripts/phase advance [--by NAME]
+  factory/scripts/phase retry [--default-max-iterations N]
 
 ``advance`` reads the git-ignored marker (``.agent-factory/playbook-state.yml``),
 finds the current state's forward transition in the playbook FSM, checks the
@@ -12,8 +12,21 @@ finds the current state's forward transition in the playbook FSM, checks the
 and refuses (non-zero exit) if any is unmet. This is the loophole the harness
 proposal closes: a failing gate must not be waveable-through by hand-editing the
 marker. On success it writes the extended marker (state, gate, result,
-open_findings, next, recorded_by, recorded_at) — ``recorded_at`` from this
-process's own clock, never agent-supplied.
+open_findings, next, recorded_by, recorded_at, iteration — reset to 1 for the
+new state) — ``recorded_at`` from this process's own clock, never agent-supplied.
+
+``retry`` is the iteration-cap check: called before re-dispatching the SAME
+state's agent (a gate failed with findings to address, not a hard error — see
+factory/skills/run-step/SKILL.md § Step 3). It increments the marker's
+``iteration`` count for the current state and refuses once that state's cap is
+hit. The cap is configurable two ways, checked in order: (1) the playbook's own
+``.fsm.yml`` — a ``halt_conditions`` entry of ``type: max_iterations`` naming
+this ``state``, with its own ``limit`` and human ``message`` (already declared
+in greenfield-development.fsm.yml for the three review-loop states; this
+command is what makes that declared-but-previously-dead config do anything);
+(2) ``--default-max-iterations`` (default 5) for any state that declares none.
+Endless-loop prevention must have a hard stop even where nobody thought to
+author a per-state limit — that's the whole point of a cap.
 
 Conditional gates (an ``if/else`` transition such as PHASE_1_GATE's) resolve
 deterministically: the ``if`` branch is the forward/progress target, and the
@@ -274,6 +287,7 @@ def render_marker(fields: Dict[str, Any]) -> str:
         "result",
         "open_findings",
         "next",
+        "iteration",
         "recorded_by",
         "recorded_at",
     ]
@@ -338,12 +352,100 @@ def advance(
         "result": "pass",
         "open_findings": open_findings,
         "next": next_target,
+        "iteration": 1,
         "recorded_by": recorded_by,
         "recorded_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
     marker_path.parent.mkdir(parents=True, exist_ok=True)
     marker_path.write_text(render_marker(fields), encoding="utf-8")
     return 0, f"advanced {current} -> {target}"
+
+
+# --- Iteration cap (retry) -----------------------------------------------------
+
+
+def _iteration_limit(
+    fsm: Dict[str, Any], state: str, default_limit: int
+) -> Tuple[int, str]:
+    """(limit, message) for *state* — from the FSM's own halt_conditions
+    (type: max_iterations) if one names this state, else *default_limit*
+    with no message."""
+    for cond in fsm.get("halt_conditions") or []:
+        if not isinstance(cond, dict):
+            continue
+        if cond.get("type") != "max_iterations" or cond.get("state") != state:
+            continue
+        try:
+            limit = int(cond.get("limit"))
+        except (TypeError, ValueError):
+            limit = default_limit
+        return limit, str(cond.get("message") or "")
+    return default_limit, ""
+
+
+def _loop_back_target(fsm: Dict[str, Any], state: str) -> Optional[str]:
+    """The ``else`` transition's target for *state*, if it has one — e.g.
+    PHASE_1_GATE's else loops back to PHASE_1_REQUIREMENTS. halt_conditions
+    are declared against the loop-back target's name (the author state
+    being retried), not the gate's own name, so this is what a retry's
+    iteration-cap lookup must resolve against."""
+    spec = (fsm.get("states") or {}).get(state)
+    if not isinstance(spec, dict):
+        return None
+    for event in (spec.get("on") or {}).values():
+        if not isinstance(event, dict):
+            continue
+        for edge in _iter_edges(event.get("transitions")):
+            if "else" in edge and isinstance(edge.get("to"), str):
+                return edge["to"]
+    return None
+
+
+def retry(
+    repo_root: Path,
+    marker_path: Path,
+    playbooks_dir: Path,
+    default_limit: int = 5,
+) -> Tuple[int, str]:
+    """Record one more attempt at the marker's CURRENT state (the caller is
+    about to re-dispatch the same state's agent — a gate failed with
+    findings to address, not advanced past). Refuses once that state's
+    iteration cap is hit. Returns (exit_code, message); the marker is only
+    written when the retry is allowed."""
+    if not marker_path.exists():
+        return 1, f"no marker at {marker_path} — run `phase advance` first"
+
+    marker = parse_marker(marker_path.read_text(encoding="utf-8"))
+    playbook = marker.get("playbook")
+    current = marker.get("state")
+    if not playbook or not current:
+        return 1, "marker has no playbook/state — run `phase advance` first"
+
+    fsm_path = playbooks_dir / f"{playbook}.fsm.yml"
+    if not fsm_path.exists():
+        return 1, f"playbook '{playbook}' has no .fsm.yml at {fsm_path}"
+    fsm = parse_fsm(fsm_path.read_text(encoding="utf-8"))
+
+    lookup_state = _loop_back_target(fsm, current) or current
+    limit, message = _iteration_limit(fsm, lookup_state, default_limit)
+
+    try:
+        iteration = int(marker.get("iteration") or 1)
+    except ValueError:
+        iteration = 1
+    iteration += 1
+
+    if iteration > limit:
+        reason = f" {message}" if message else ""
+        return 2, (
+            f"{lookup_state} has reached its cap of {limit} attempt(s) — "
+            f"refusing another retry.{reason}"
+        )
+
+    marker["iteration"] = iteration
+    marker["recorded_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    marker_path.write_text(render_marker(marker), encoding="utf-8")
+    return 0, f"{lookup_state}: retry {iteration}/{limit} recorded"
 
 
 # --- Driver -------------------------------------------------------------------
@@ -360,12 +462,34 @@ def main(argv: Optional[List[str]] = None) -> int:
     adv.add_argument("--playbooks-dir", default=None, type=Path)
     adv.add_argument("--playbook", default=DEFAULT_PLAYBOOK, help="bootstrap playbook")
 
+    rty = sub.add_parser(
+        "retry", help="record and cap another attempt at the marker's current state"
+    )
+    rty.add_argument("--repo-root", default=Path("."), type=Path)
+    rty.add_argument("--marker", default=None, type=Path)
+    rty.add_argument("--playbooks-dir", default=None, type=Path)
+    rty.add_argument(
+        "--default-max-iterations",
+        default=5,
+        type=int,
+        help="cap for any state with no halt_conditions max_iterations entry of its own",
+    )
+
     args = p.parse_args(argv)
 
     if args.command == "advance":
         marker = args.marker or (args.repo_root / DEFAULT_MARKER)
         playbooks = args.playbooks_dir or (args.repo_root / DEFAULT_PLAYBOOKS_DIR)
         code, msg = advance(args.repo_root, marker, playbooks, args.by, args.playbook)
+        print(msg, file=sys.stderr if code else sys.stdout)
+        return code
+
+    if args.command == "retry":
+        marker = args.marker or (args.repo_root / DEFAULT_MARKER)
+        playbooks = args.playbooks_dir or (args.repo_root / DEFAULT_PLAYBOOKS_DIR)
+        code, msg = retry(
+            args.repo_root, marker, playbooks, args.default_max_iterations
+        )
         print(msg, file=sys.stderr if code else sys.stdout)
         return code
 

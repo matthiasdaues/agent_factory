@@ -25,14 +25,14 @@ If the playbook has a companion `.fsm.yml` (check `factory/INDEX.yaml`'s `fsm:` 
 
 Check the current state's `outputs:` glob (from the `.fsm.yml`, when one exists) against what's actually on disk, then run that phase's own gate (`spec-lint`, `arch-lint`, `backlog-lint` — whichever applies):
 
-| Observed state                                                    | Action                                                                                                                                                                          |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Outputs don't exist yet                                           | Fresh start — run the author agent from Step 1 of its workflow.                                                                                                                 |
-| Outputs exist, gate passes clean, no open findings for this phase | Step is done — advance: `factory/scripts/phase advance`, then go to Step 2 for the new state.                                                                                   |
-| Outputs exist, gate reports open findings                         | Resume — run the SAME agent again; its own workflow reads open findings and addresses them (every author agent already does this on repeat invocation, per its own definition). |
-| Outputs exist but the gate errors (not just fails)                | Stop. Something is broken beyond "findings to address" — escalate to the user rather than guessing.                                                                             |
+| Observed state                                                    | Action                                                                                                                                                                                                                                                              |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Outputs don't exist yet                                           | Fresh start — run the author agent from Step 1 of its workflow.                                                                                                                                                                                                     |
+| Outputs exist, gate passes clean, no open findings for this phase | Step is done — advance: `factory/scripts/phase advance`, then go to Step 2 for the new state.                                                                                                                                                                       |
+| Outputs exist, gate reports open findings                         | Resume, but check the cap first: `factory/scripts/phase retry`. Refuses (non-zero exit) once this loop's iteration cap is hit — stop and escalate, do not re-dispatch. Otherwise run the SAME agent again; its own workflow reads open findings and addresses them. |
+| Outputs exist but the gate errors (not just fails)                | Stop. Something is broken beyond "findings to address" — escalate to the user rather than guessing.                                                                                                                                                                 |
 
-No playbook with a `.fsm.yml` → skip the outputs/gate check; ask the user whether the current step is done.
+No playbook with a `.fsm.yml` → skip the outputs/gate check; ask the user whether the current step is done. `phase retry` also has nothing to check against (no FSM, no halt_conditions) — track loop count yourself and escalate if it doesn't feel like it's converging.
 
 ## Step 4 — Dispatch
 
@@ -45,12 +45,20 @@ factory/scripts/trigger playbook <playbook-name> --step <agent-name> --backgroun
 
 Use `--interactive` instead of `--background` when a human should drive the session directly rather than let it run unattended.
 
+## Iteration cap
+
+`factory/scripts/phase retry` is the loop killer: call it before every re-dispatch of a state whose gate found open findings (Step 3's "Resume" row), never after the fact. It increments a per-loop counter on the marker and refuses once a limit is hit — checked in order:
+
+1. The playbook's own `.fsm.yml` — a `halt_conditions` entry of `type: max_iterations` naming the loop's target state, with its own `limit` and human `message` (already declared in `greenfield-development.fsm.yml` for all three review loops; this command is what makes that config do anything — it was previously declared but never enforced).
+2. `--default-max-iterations` (default 5) for any state that declares none.
+
+A refusal means: stop, tell the user, do not loop again — the exact scenario this exists to prevent.
+
 ## What this deliberately does not do (yet)
 
-- **No CLI-failure classification.** `factory/scripts/trigger` returns the invoked CLI's raw exit code; it does not distinguish an auth failure from a config error from a genuine task failure the way `orchestrator`'s `CopilotAdapter` does (regex-matched stderr, ADR-0002). A non-zero exit means: read the output, don't auto-retry.
-- **No iteration cap.** Nothing here stops an infinite author↔gate loop the way `loop_policy.py`'s halt-after-N-iterations does. Re-running this skill repeatedly without progress is a signal to stop and look, not a bug this skill catches for you.
+**No CLI-failure classification.** `factory/scripts/trigger` returns the invoked CLI's raw exit code; it does not distinguish an auth failure from a config error from a genuine task failure the way `orchestrator`'s `CopilotAdapter` does (regex-matched stderr, ADR-0002). A non-zero exit means: read the output, don't auto-retry.
 
-Both are known, named gaps — not a silent regression from what `orchestrator` did. Fold them in here if they turn out to matter in practice; don't build them ahead of a real case (YAGNI).
+Known, named gap — not a silent regression from what `orchestrator` did. Fold it in here if it turns out to matter in practice; don't build it ahead of a real case (YAGNI).
 
 ## Referenced from
 
