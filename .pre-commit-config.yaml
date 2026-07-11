@@ -86,6 +86,15 @@ repos:
         pass_filenames: false
         files: ^(factory/agents/.*\.md|factory/skills/.*/SKILL\.md)$
 
+      # governs phase ORDERING between playbook states (not artifact validity);
+      # inspects everything staged, so it always runs — no-op without a marker
+      - id: transition-lint
+        name: transition-lint (playbook phase-ordering gate)
+        entry: python3 factory/scripts/transition-lint
+        language: system
+        pass_filenames: false
+        always_run: true
+
       # --- orchestrator-scoped hooks below (dev config for this monorepo) ---
 
       - id: mdformat-orchestrator
