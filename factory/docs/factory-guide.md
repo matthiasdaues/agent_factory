@@ -43,6 +43,26 @@ Once you're comfortable, these drive some or all of the five-phase chain (requir
 | [`technical-poc.md`](../playbooks/technical-poc.md)                   | A real technical risk question, usually comparing 2+ candidate approaches, feeding an actual decision. Heavier than `poc-spike.md`, lighter than the full chain. |
 | [`architecture-review.md`](../playbooks/architecture-review.md)       | Reviewing existing architecture documentation against quality attributes.                                                                                        |
 
+## Playbook phase gates
+
+Playbooks above are prose: nothing stops staging an architecture file before the spec gate clears except the human remembering the playbook's own instructions. An optional structured harness, layered on top, catches phase-boundary mistakes mechanically instead.
+
+A playbook can ship a `.fsm.yml` alongside its `.md` in `factory/playbooks/` — a state machine describing each phase's `outputs:` file globs and the `entry_conditions` required to advance into it. Only [`greenfield-development.fsm.yml`](../playbooks/greenfield-development.fsm.yml) exists today. This is opt-in, not a default every playbook must adopt.
+
+| Component                           | What it does                                                                                                         |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `.agent-factory/playbook-state.yml` | Local, git-ignored marker recording which state the project is currently in.                                         |
+| `factory/scripts/transition-lint`   | Pre-commit gate. Blocks staging a file whose `outputs:` glob belongs to a state other than the marker's current one. |
+| `factory/scripts/phase advance`     | Subcommand that checks the next state's `entry_conditions` and, if satisfied, advances the marker.                   |
+
+`transition-lint` deliberately does not evaluate `entry_conditions` — by its own docstring, it "governs ordering *between* phases," not within one, and "does not evaluate a state's `entry_conditions`" because "that is `phase advance`'s job." It only checks whether a staged file belongs to the current state, naming the offending path and pointing at `phase advance` when a file belongs to a later one. This is a deliberate design choice, not a gap: condition-checking lives in one place only.
+
+`phase advance` reads the next state's `entry_conditions`, evaluates each against a small `gate_conditions` library, and refuses — non-zero exit, marker unchanged — if any is unmet. Implemented condition types: `file_exists`, `files_exist`, `no_open_findings`, and `script_exit_zero` (stubbed to always pass in this proof of concept). On success it writes the marker with `recorded_at` taken from `phase advance`'s own process clock, never agent-supplied.
+
+If the marker file is absent, both tools are no-ops — a project not using the harness sees no behavior change.
+
+See [Structured Playbooks as a Deterministic Harness](proposals/playbook-structured-harness-strategy.md) for the full design rationale and the proof of concept's scope.
+
 ## Rulebooks
 
 A rulebook is a cross-cutting convention that applies across agents and skills — commit message format, how to cross-reference other documents, ADR style, branch scoping. [`factory/rulebooks/rules.md`](../rulebooks/rules.md) states each rule in one line; the matching file in `factory/rulebooks/conventions/` carries the reasoning, examples, and edge cases. Agents and skills cite these rules rather than restating them.
