@@ -1,6 +1,6 @@
 # 0017. Persisted defaults and adapter registry in .orchestrator/config.toml
 
-**Status**: Accepted — resolves T-32
+**Status**: Accepted — resolves T-32. Point 5's populate direction revised by [ADR-0021](0021-adapter-registry-discovery-and-precedence.md) — matrix import fills gaps, it no longer overwrites.
 
 ## Context
 
