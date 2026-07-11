@@ -15,7 +15,6 @@ from orchestrator.entities import (
 @pytest.mark.parametrize(
     ("argv", "command"),
     [
-        (["run-step", "requirements-agent"], "run-step"),
         (["run-phase", "requirements"], "run-phase"),
         (["status"], "status"),
         (["resume"], "resume"),

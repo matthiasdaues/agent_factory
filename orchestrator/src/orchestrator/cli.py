@@ -13,7 +13,6 @@ from typing import Callable
 from uuid import uuid4
 
 from orchestrator.entities import (
-    AgentInvocation,
     AgentRole,
     Config,
     InvocationContext,
@@ -27,7 +26,6 @@ from orchestrator.entities import (
 )
 from orchestrator.ports import (
     AdapterRegistry,
-    AgentInfo,
     ConfigStore,
     Logger,
     ModelMatrix,
@@ -55,10 +53,7 @@ from orchestrator.adapters.findings_store import FilesystemFindingsStore
 from orchestrator.adapters.run_state_store import JsonRunStateStore, FileRunLock
 from orchestrator.adapters.gate_runner import WorkingTreeGate
 from orchestrator.adapters.agent_registry import MarkdownAgentRegistry
-from orchestrator.adapters.prompt_composer import (
-    FilePromptComposer,
-    skill_scoped_call_to_action,
-)
+from orchestrator.adapters.prompt_composer import FilePromptComposer
 from orchestrator.adapters.invocation_log import FileInvocationLog
 from orchestrator.adapters.model_matrix import FileModelMatrix
 from orchestrator.adapters.backlog_store import MarkdownBacklogStore
@@ -197,17 +192,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    run_step = subparsers.add_parser("run-step")
-    run_step.add_argument("agent")
-    run_step.add_argument(
-        "--skill",
-        default=None,
-        help=(
-            "Run only this declared skill's workflow step (UC-11). "
-            "Omit, or pass 'all skills', for the full-workflow run-step (BR-052)."
-        ),
-    )
-
     run_phase = subparsers.add_parser("run-phase")
     run_phase.add_argument("phase", choices=_PHASE_ORDER)
     run_phase.add_argument(
@@ -291,12 +275,6 @@ def main(argv=None) -> int:
 
         _resolve_interactive(args)
         runtime = _build_runtime(args, story_tier=story_tier)
-
-        if args.command == "run-step":
-            # BR-040/QS-20: `runtime.timeout_s` is the *resolved* effective
-            # timeout (SettingsResolver), not the raw `args.timeout` flag,
-            # which is `None` whenever `--timeout` was omitted.
-            return _handle_run_step(runtime, args.agent, runtime.timeout_s, args.skill)
 
         if args.command == "run-phase":
             run = _load_or_create_phase_run(
@@ -1654,286 +1632,6 @@ def build_configure_model_matrix_dispatch(
     return _dispatch
 
 
-# --- Run-step leaves (menu mode; ST-0053, UC-11, FR-S4, BR-055) -------------
-#
-# `run-step`'s four runtime-populated levels — agent (with tier shown) ->
-# skill scope (`all skills` default plus declared skills, FR-S4) -> adapter
-# (default marked ★) -> model (tier-resolved default marked ★, BR-055) —
-# follow the same eager nested-construction shape `build_configure_cli_menu`
-# already established for `configure > cli` (adapter -> action -> tier), one
-# level deeper. `node.id`s are dot-segmented:
-# `run-step.{agent}.{skill-or-all-skills}.{adapter}.{tier}` — the leaf
-# encodes the *tier*, not the model id, because real model ids contain
-# literal dots (e.g. "gpt-5.4", see tests/test_model_dictionary_menu.py) and
-# would corrupt a dot-delimited id; the tier is closed vocabulary
-# (economy/standard/strong) and never collides. The concrete model id is
-# re-resolved from `adapter_registry.get_model(adapter, tier)` at dispatch
-# time, the same re-validate-at-dispatch discipline
-# `_dispatch_configure_adapter` already documents. The leaf dispatches to the
-# exact same `build_parser()` -> `_resolve_interactive()` -> `_build_runtime()`
-# -> `_handle_run_step()` chain direct mode's own `run-step` branch in
-# `main()` uses — no reimplementation, no new validation (FR-S2/BR-050 skill
-# validation still happens exactly once, inside `_handle_run_step`).
-
-_RUN_STEP_ALL_SKILLS_ID_SEGMENT = "all-skills"
-
-
-def _list_step_agents(agents_dir: Path) -> list[AgentInfo]:
-    """List every agent definition in *agents_dir* (UC-11, "list of agents
-    from agents/ registry, showing name + tier").
-
-    Unlike `MarkdownAgentRegistry.resolve`, which resolves exactly one agent
-    for a given phase+role, `run-step` lists *every* declared agent — the
-    spec's own example rendering includes `coaching-agent`, which is never a
-    phase author/reviewer. Reuses the same private frontmatter parsers
-    `_load_step_agent` already imports; no new parsing logic. Returns `[]`
-    for a missing directory rather than raising — an empty `run-step` menu
-    is a valid (if unhelpful) state, not a crash (ADR-0016).
-    """
-    from orchestrator.adapters.agent_registry import _parse_skills, _parse_tier
-
-    if not agents_dir.is_dir():
-        return []
-
-    agents = []
-    for definition_path in sorted(agents_dir.glob("*.md")):
-        agents.append(
-            AgentInfo(
-                name=definition_path.stem,
-                outputs=_parse_outputs(definition_path),
-                definition_path=definition_path,
-                skills=_parse_skills(definition_path),
-                tier=_parse_tier(definition_path),
-            )
-        )
-    return agents
-
-
-def _run_step_tier_label(agent_info: AgentInfo) -> str:
-    """VR-041: a null declared tier resolves as `standard` — reflected in the
-    display label, not only in `ModelResolver.resolve_agent_tier`."""
-    return agent_info.tier if agent_info.tier is not None else Tier.STANDARD.value
-
-
-def build_run_step_model_menu(
-    agent_info: AgentInfo,
-    skill_segment: str,
-    adapter_name: str,
-    adapter_registry: AdapterRegistry,
-) -> MenuNode:
-    """Build the populated `run-step > {agent} > {skill-or-all} > {adapter}`
-    submenu: one function leaf per tier this adapter's dictionary maps
-    (cli_specification.md "[list of models for this adapter, tier-resolved
-    default marked ★]"), the tier-resolved default marked ★ (BR-055).
-
-    Reads `adapter_registry` directly (VR-041's null-tier-as-standard
-    fallback applied inline) rather than through `ModelResolver` — the
-    adapter dictionaries here are already populated from `model.conf` at
-    menu-mode startup (`populate_adapter_dictionaries_from_matrix`,
-    `_run_menu_mode`); `ModelResolver.resolve_tier` reads `model.conf`
-    directly and has no reason to depend on the registry (ADR-0020,
-    ADR-0021). A missing entry degrades to "no ★ marked" rather than
-    raising out of menu-tree construction (ADR-0016) —
-    `MenuController._opening_index` already falls back to index 0 when no
-    child carries `is_default` (BR-032).
-    """
-    try:
-        pairs = adapter_registry.list_models(adapter_name)
-    except KeyError:
-        pairs = []
-
-    effective_tier = (
-        agent_info.tier if agent_info.tier is not None else Tier.STANDARD.value
-    )
-    try:
-        default_model = adapter_registry.get_model(adapter_name, effective_tier)
-    except KeyError:
-        default_model = None
-
-    children = []
-    marked = False
-    for tier, model_id in sorted(pairs):
-        is_default = not marked and model_id == default_model
-        if is_default:
-            marked = True
-        children.append(
-            MenuNode(
-                id=(
-                    f"run-step.{agent_info.name}.{skill_segment}.{adapter_name}.{tier}"
-                ),
-                label=f"{model_id} [{tier}]",
-                type=MenuNodeType.FUNCTION,
-                is_default=is_default,
-            )
-        )
-
-    return MenuNode(
-        id=f"run-step.{agent_info.name}.{skill_segment}.{adapter_name}",
-        label=adapter_name,
-        type=MenuNodeType.MENU,
-        children=children,
-    )
-
-
-def build_run_step_skill_menu(
-    agent_info: AgentInfo,
-    skill_segment: str,
-    skill_label: str,
-    adapter_registry: AdapterRegistry,
-    config_store: ConfigStore,
-) -> MenuNode:
-    """Build the populated `run-step > {agent} > {skill-or-all}` submenu: one
-    menu node per registered adapter (cli_specification.md "[list of
-    registered adapters, default adapter marked ★]"), mirroring
-    `build_configure_defaults_adapter_menu`'s read-with-fallback for the
-    currently effective default adapter. A malformed `config.toml` degrades
-    to "no adapter marked" (same precedent as
-    `build_configure_defaults_adapter_menu`) — the mutating leaf (the model
-    selection at the bottom of this chain) re-reads and reports a malformed
-    file when it actually runs (`_build_runtime` -> `TomlConfigStore`, via
-    whatever leaf ultimately touches it).
-    """
-    try:
-        current_adapter = SettingsResolver(config_store).resolve("adapter")
-    except ConfigStoreError:
-        current_adapter = None
-
-    children = [
-        replace(
-            build_run_step_model_menu(
-                agent_info, skill_segment, entry.name, adapter_registry
-            ),
-            is_default=(entry.name == current_adapter),
-        )
-        for entry in adapter_registry.list_adapters()
-    ]
-
-    return MenuNode(
-        id=f"run-step.{agent_info.name}.{skill_segment}",
-        label=skill_label,
-        type=MenuNodeType.MENU,
-        children=children,
-    )
-
-
-def build_run_step_agent_menu(
-    agent_info: AgentInfo,
-    adapter_registry: AdapterRegistry,
-    config_store: ConfigStore,
-) -> MenuNode:
-    """Build the populated `run-step > {agent}` submenu: `all skills`
-    (default ★, always first, unconditionally — BR-052) plus each of the
-    agent's declared skills (FR-S4)."""
-    skill_children = [
-        replace(
-            build_run_step_skill_menu(
-                agent_info,
-                _RUN_STEP_ALL_SKILLS_ID_SEGMENT,
-                _ALL_SKILLS_SENTINEL,
-                adapter_registry,
-                config_store,
-            ),
-            is_default=True,
-        )
-    ]
-    skill_children.extend(
-        build_run_step_skill_menu(
-            agent_info, skill, skill, adapter_registry, config_store
-        )
-        for skill in agent_info.skills
-    )
-
-    return MenuNode(
-        id=f"run-step.{agent_info.name}",
-        label=f"{agent_info.name} [{_run_step_tier_label(agent_info)}]",
-        type=MenuNodeType.MENU,
-        children=skill_children,
-    )
-
-
-def build_run_step_menu(
-    agents_dir: Path,
-    adapter_registry: AdapterRegistry,
-    config_store: ConfigStore,
-) -> MenuNode:
-    """Build the populated `run-step` submenu (UC-11, cli_specification.md
-    §Run-step): one menu node per agent, no `★` at this depth (the operator
-    must actively choose an agent — the one non-default selection of the
-    "four selections deep... three Enter presses on ★ defaults" happy path).
-    """
-    children = [
-        build_run_step_agent_menu(agent_info, adapter_registry, config_store)
-        for agent_info in _list_step_agents(agents_dir)
-    ]
-    return MenuNode(
-        id="run-step", label="run-step", type=MenuNodeType.MENU, children=children
-    )
-
-
-def build_run_step_dispatch() -> DispatchHook:
-    """Build the `DispatchHook` for the `run-step` submenu's leaves (UC-11,
-    FR-V3, ST-0053).
-
-    Composes the identical argv direct mode would parse — `["--adapter", a,
-    "--model", m, "run-step", agent]`, plus `["--skill", skill]` only for a
-    specific skill, omitted entirely for `all skills` (matching
-    cli_specification.md's direct-mode-equivalents table row for row) — and
-    feeds it through the same `build_parser()` -> `_resolve_interactive()` ->
-    `_build_runtime()` -> `_handle_run_step()` chain `main()`'s own
-    `run-step` branch uses, so behaviour (validation, prompt composition,
-    gate handling, exit semantics) is identical by construction, not by
-    reimplementation. Takes no injected dependencies — every call it makes
-    is to an existing module-level function tests already monkeypatch
-    (`cli._build_runtime`, `cli._handle_run_step`), the same seam
-    `build_manage_run_dispatch`'s `resume` leaf uses.
-
-    Long-running like `manage-run.resume`: there is no async execution seam
-    in this codebase, so the invocation runs synchronously inside the hook;
-    `DispatchOutcome(long_running=True)` tells `MenuController` to transition
-    to `EXITED` once it returns, instead of re-entering the menu
-    (cli_specification.md: "Exits TUI, switches to streaming terminal
-    output"). Raises (rather than catching) `ValueError` from
-    `_handle_run_step`'s pre-launch validation (unknown agent, undeclared
-    skill) — `build_root_dispatch`'s single outer `try/except Exception`
-    (ADR-0016) already reports it without exiting the TUI, the same
-    convention every other dispatch hook in this module follows.
-    """
-
-    def _dispatch(node: MenuNode) -> DispatchOutcome:
-        parts = node.id.split(".", 4)
-        if len(parts) != 5 or parts[0] != "run-step":
-            raise ValueError(f"no run-step action registered for menu node '{node.id}'")
-        _, agent_name, skill_segment, adapter_name, tier = parts
-
-        repo_root = Path.cwd()
-        adapter_registry = TomlAdapterRegistry(repo_root / ".orchestrator")
-        model_id = adapter_registry.get_model(adapter_name, tier)
-        if model_id is None:
-            raise ValueError(
-                f"no model configured for adapter {adapter_name!r} and tier {tier!r}"
-            )
-
-        skill = (
-            None if skill_segment == _RUN_STEP_ALL_SKILLS_ID_SEGMENT else skill_segment
-        )
-
-        argv = ["--adapter", adapter_name, "--model", model_id, "run-step", agent_name]
-        if skill is not None:
-            argv += ["--skill", skill]
-
-        args = build_parser().parse_args(argv)
-        _resolve_interactive(args)
-        runtime = _build_runtime(args, story_tier=None)
-        # BR-040/QS-20: resolved effective timeout, not the raw (omitted,
-        # so `None`) `--timeout` flag — see the `main()` run-step branch's
-        # matching comment.
-        _handle_run_step(runtime, args.agent, runtime.timeout_s, args.skill)
-
-        return DispatchOutcome(long_running=True)
-
-    return _dispatch
-
-
 # --- Master dispatch hook (menu mode composition root; ST-0040, ADR-0016) ---
 #
 # `build_root_dispatch` is the single `DispatchHook` `MenuController`
@@ -1972,7 +1670,6 @@ def build_root_dispatch(
     configure_model_matrix_dispatch = build_configure_model_matrix_dispatch(
         matrix_path, adapter_registry
     )
-    run_step_dispatch = build_run_step_dispatch()
 
     def _dispatch(node: MenuNode) -> DispatchOutcome:
         try:
@@ -1982,8 +1679,6 @@ def build_root_dispatch(
                 return backlog_dispatch(node)
             if node.id.startswith("manage-run."):
                 return manage_run_dispatch(node)
-            if node.id.startswith("run-step."):
-                return run_step_dispatch(node)
             if node.id.startswith("configure.cli-list."):
                 return cli_list_dispatch(node)
             if node.id.startswith("configure.cli."):
@@ -2066,7 +1761,6 @@ def _build_menu_tree(
     )
     populated_remove_adapter = build_cli_list_remove_adapter_menu(adapter_registry)
     populated_configure_cli = build_configure_cli_menu(adapter_registry)
-    populated_run_step = build_run_step_menu(agents_dir, adapter_registry, config_store)
 
     def _merge(node: MenuNode) -> MenuNode:
         if node.id == "backlog.view-story":
@@ -2077,8 +1771,6 @@ def _build_menu_tree(
             return populated_remove_adapter
         if node.id == "configure.cli":
             return populated_configure_cli
-        if node.id == "run-step":
-            return populated_run_step
         if node.children:
             return replace(node, children=[_merge(child) for child in node.children])
         return node
@@ -2647,107 +2339,6 @@ def _build_adapter(
     return CopilotAdapter(model=model, interactive=interactive)
 
 
-_ALL_SKILLS_SENTINEL = "all skills"
-
-
-def _validate_skill(agent_info: AgentInfo, skill: str | None) -> str | None:
-    """Validate `--skill` against the agent's declared skills (BR-050, VR-038).
-
-    Returns the normalized skill name for a skill-scoped run, or ``None`` for
-    the full-workflow sentinel (omitted `--skill`, or the literal
-    ``"all skills"`` — BR-052, unconditional regardless of the agent's
-    declared skills).
-
-    Raises ``ValueError`` — listing the agent's actually declared skills —
-    when *skill* is neither the sentinel nor one of ``agent_info.skills``.
-    Callers must invoke this before launching any adapter subprocess
-    (FR-S2).
-    """
-    if skill is None or skill == _ALL_SKILLS_SENTINEL:
-        return None
-
-    if skill in agent_info.skills:
-        return skill
-
-    declared = ", ".join(agent_info.skills) if agent_info.skills else "(none declared)"
-    raise ValueError(
-        f"unknown skill '{skill}' for agent '{agent_info.name}'; "
-        f"declared skills: {declared}"
-    )
-
-
-def _handle_run_step(
-    runtime: _Runtime, agent_name: str, timeout_s: int, skill: str | None = None
-) -> int:
-    agent_info = _load_step_agent(runtime.agents_dir, agent_name)
-    # FR-S2/VR-038: validate before composing a prompt or touching the
-    # adapter — no subprocess may start for an undeclared skill.
-    scoped_skill = _validate_skill(agent_info, skill)
-
-    standalone_ctx = InvocationContext(
-        phase="standalone", role=AgentRole.AUTHOR, iteration=0
-    )
-    prompt = runtime.prompt_composer.compose(
-        agent_info,
-        [runtime.repo_root / "CONTEXT.md"],
-        standalone_ctx,
-        skill=scoped_skill,
-    )
-
-    # Interactive mode: write CTA into instruction file so copilot reads it on
-    # session start (no -p flag → agent enters live chat).
-    if runtime.adapter.interactive:
-        cta = (
-            skill_scoped_call_to_action(scoped_skill)
-            if scoped_skill
-            else "Execute the workflow defined in your Agent Definition above."
-        )
-        _update_instruction_file(
-            runtime.repo_root, agent_name, agent_info.skills, call_to_action=cta
-        )
-
-    clock = _SystemClock()
-    start_ms = clock.now_ms()
-    result = runtime.adapter.invoke(prompt, runtime.repo_root, timeout_s)
-    end_ms = clock.now_ms()
-
-    invocation = AgentInvocation(
-        agent=agent_name,
-        role=AgentRole.AUTHOR,
-        adapter="cli",
-        model=None,
-        exit_code=result.exit_code,
-        duration_ms=end_ms - start_ms,
-        timed_out=result.timed_out,
-        auth_error=result.auth_error,
-        config_error=result.config_error,
-    )
-    runtime.logger.log(invocation, None)
-
-    # Working-tree gate (ADR-0013): agents commit, orchestrator verifies
-    gate = WorkingTreeGate(runtime.repo_root)
-    gate_result = gate.verify(runtime.repo_root, result.exit_code)
-
-    if gate_result.passed:
-        for output_path in agent_info.outputs:
-            print(output_path)
-        return 0
-
-    if gate_result.hook == "confabulation":
-        print(
-            "confabulation: agent exited 0 but left uncommitted changes",
-            file=sys.stderr,
-        )
-        if gate_result.output:
-            print(gate_result.output, file=sys.stderr)
-        return 2  # VR-025
-
-    # Agent failure
-    output = result.stderr or result.stdout or f"agent failed: {agent_name}"
-    print(output, file=sys.stderr)
-    return 1
-
-
 def _exit_code_for_mode(mode: RunMode) -> int:
     """FAGAN-0047: derive the process exit code from a run's terminal mode.
 
@@ -2893,43 +2484,6 @@ def _current_phase(run: Run) -> PhaseRecord:
     if record is None:
         raise ValueError(f"unknown current phase: {run.current_phase}")
     return record
-
-
-def _load_step_agent(agents_dir: Path, agent_name: str) -> AgentInfo:
-    from orchestrator.adapters.agent_registry import _parse_skills
-
-    definition_path = agents_dir / f"{agent_name}.md"
-    if not definition_path.is_file():
-        raise ValueError(f"unknown agent: {agent_name}")
-    return AgentInfo(
-        name=agent_name,
-        outputs=_parse_outputs(definition_path),
-        definition_path=definition_path,
-        skills=_parse_skills(definition_path),
-    )
-
-
-def _parse_outputs(definition_path: Path) -> list[str]:
-    lines = definition_path.read_text(encoding="utf-8").splitlines()
-    if not lines or lines[0].strip() != "---":
-        return []
-
-    outputs: list[str] = []
-    in_frontmatter = True
-    collecting = False
-    for line in lines[1:]:
-        stripped = line.strip()
-        if in_frontmatter and stripped == "---":
-            break
-        if stripped == "outputs:":
-            collecting = True
-            continue
-        if collecting and line.startswith("  - "):
-            outputs.append(line[4:].strip())
-            continue
-        if collecting and stripped:
-            break
-    return outputs
 
 
 def main_entry() -> None:
