@@ -91,6 +91,19 @@ These scripts are stdlib-only Python — no install needed to run them.
 
 Separately, `pre-commit` runs `mdformat` and `ruff` on every commit, formatting markdown and Python automatically. Both run through `uvx`, so nothing needs installing locally beyond `uv` itself — the same zero-local-install pattern `factory/scripts/structurizr` uses for its Docker dependency.
 
+## CLI safety guardrails
+
+`init-factory` also installs a Claude Code `PreToolUse` hook, `factory/config/hooks/block-dangerous-git.sh`, that blocks a fixed list of dangerous git invocations before they run. Two groups:
+
+- **Commands that discard or overwrite work or history**: `git push`, `git reset --hard`, `git clean -f`/`-fd`, `git branch -D`, `git checkout .`, `git restore .`, and bare `push --force` / `reset --hard` fragments anywhere in a longer command line.
+- **Commands that bypass this repo's own commit gates**: `--no-verify`, `git commit -n`, reassigning `core.hooksPath`, `pre-commit uninstall`, and `SKIP=...` environment overrides on `git commit` or `pre-commit`.
+
+This is Claude-Code-specific: `PreToolUse` hooks aren't a Copilot CLI concept today, so `init-factory` installs nothing equivalent under `.github/`.
+
+The hook is installed automatically for every project — not opt-in, not a skill you invoke by hand. `init-factory` symlinks the script into `.claude/hooks/` and wires it into `.claude/settings.json` as a `PreToolUse`/`Bash` hook. Since `.claude/` stays gitignored, this is pure local machine state, re-created fresh by `init-factory` in every clone.
+
+Treat it as a backstop, not a security boundary. It catches an accidental or under-pressure bypass — a background agent routing around a failing gate, for instance — not a determined one. A user with shell access outside the CLI, or anyone who edits the CLI's own configuration, can always route around it.
+
 ## Session logging
 
 Session logging is an opt-in, append-only audit trail of gate-script runs. It exists to reconcile what an agent claims it did in a session against what actually happened on disk — not to replace or gate anything by default.

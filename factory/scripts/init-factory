@@ -32,16 +32,24 @@ Steps
      CLI's root orientation file: CLAUDE.md, .github/copilot-instructions.md).
      Per path: missing → link it; already the correct symlink → skip;
      anything else → STOP THE WHOLE RUN, name the exact colliding path.
-  7. Copy (never symlink) factory/config/model-matrix.conf to
-     --target/config/model-matrix.conf, only if that path doesn't exist yet
-     — this file is meant to diverge per project, so an existing copy is
-     assumed already customized and is never touched again.
-  8. --target/.pre-commit-config.yaml: missing → symlink to
+  7. Symlink factory/config/hooks/block-dangerous-git.sh into
+     --target/.claude/hooks/ and wire it into --target/.claude/settings.json
+     as a PreToolUse/Bash hook. Claude-Code-only, deliberately: PreToolUse
+     hooks are a Claude Code mechanism with no Copilot CLI equivalent today,
+     so --target/.github is not touched by this step. settings.json missing
+     → created. Already wired in → no-op. Exists but doesn't parse as JSON,
+     or its hooks.PreToolUse isn't a list → STOP THE WHOLE RUN, name the
+     exact path, ask the user to wire it in by hand.
+  8. Copy (never symlink) factory/config/model.conf to
+     --target/config/model.conf, only if that path doesn't exist yet — this
+     file is meant to diverge per project, so an existing copy is assumed
+     already customized and is never touched again.
+  9. --target/.pre-commit-config.yaml: missing → symlink to
      factory/config/pre-commit-config.yaml. Exists as a real file already →
      hand off to merge-precommit-config, which splices Agent Factory's
      hooks in without disturbing whatever hooks were already there.
-  9. `uvx pre-commit install` — pre-commit's own install is already
-     idempotent, no extra check needed.
+  10. `uvx pre-commit install` — pre-commit's own install is already
+      idempotent, no extra check needed.
 
 Usage
   init-factory                                    # target = cwd, source = this checkout
@@ -56,6 +64,7 @@ step that can't proceed stops the whole run before touching anything later.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -85,6 +94,10 @@ ORIENTATION_FILE = {
     ".claude": ".claude/CLAUDE.md",
     ".github": ".github/copilot-instructions.md",
 }
+
+# The exact PreToolUse/Bash hook command string that wires the git-safety
+# guardrail into a project's .claude/settings.json.
+GUARDRAIL_HOOK_COMMAND = '"$CLAUDE_PROJECT_DIR"/.claude/hooks/block-dangerous-git.sh'
 
 
 class Collision(Exception):
@@ -202,21 +215,108 @@ def symlink_factory_content(target: Path, report: list[str]) -> None:
         )
 
 
+def install_git_guardrail(target: Path, report: list[str]) -> None:
+    """Wire the git-safety PreToolUse hook into --target/.claude only.
+
+    Claude Code's PreToolUse hook mechanism is what makes this possible;
+    Copilot CLI has no equivalent hook point today, so --target/.github is
+    deliberately left untouched here — this is a scope decision, not an
+    oversight.
+    """
+    hooks_dir = target / ".claude" / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+
+    link = hooks_dir / "block-dangerous-git.sh"
+    dest = target / "factory" / "config" / "hooks" / "block-dangerous-git.sh"
+    ensure_symlink(link, dest, report)
+
+    _ensure_guardrail_settings(target, report)
+
+
+def _ensure_guardrail_settings(target: Path, report: list[str]) -> None:
+    path = target / ".claude" / "settings.json"
+
+    if not path.exists():
+        settings = {
+            "hooks": {
+                "PreToolUse": [
+                    {
+                        "matcher": "Bash",
+                        "hooks": [
+                            {"type": "command", "command": GUARDRAIL_HOOK_COMMAND}
+                        ],
+                    }
+                ]
+            }
+        }
+        path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+        log(report, ".claude/settings.json: created with git-safety guardrail hook")
+        return
+
+    try:
+        settings = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise Collision(
+            f"{path} exists but isn't valid JSON ({e}) — wire the git-safety "
+            "guardrail hook in by hand: a PreToolUse/Bash hook running "
+            f"{GUARDRAIL_HOOK_COMMAND}"
+        )
+
+    if not isinstance(settings, dict):
+        raise Collision(
+            f"{path} exists but its top-level JSON isn't an object — wire the "
+            f"git-safety guardrail hook in by hand: a PreToolUse/Bash hook running "
+            f"{GUARDRAIL_HOOK_COMMAND}"
+        )
+
+    hooks = settings.setdefault("hooks", {})
+    if not isinstance(hooks, dict):
+        raise Collision(
+            f"{path}: 'hooks' key exists but isn't an object — wire it in by hand"
+        )
+
+    pre_tool_use = hooks.setdefault("PreToolUse", [])
+    if not isinstance(pre_tool_use, list):
+        raise Collision(
+            f"{path}: 'hooks.PreToolUse' exists but isn't a list — wire the "
+            "git-safety guardrail hook in by hand"
+        )
+
+    for entry in pre_tool_use:
+        entry_hooks = entry.get("hooks", []) if isinstance(entry, dict) else []
+        for hook in entry_hooks:
+            if isinstance(hook, dict) and hook.get("command") == GUARDRAIL_HOOK_COMMAND:
+                log(
+                    report,
+                    ".claude/settings.json: git-safety guardrail hook already wired in",
+                )
+                return
+
+    pre_tool_use.append(
+        {
+            "matcher": "Bash",
+            "hooks": [{"type": "command", "command": GUARDRAIL_HOOK_COMMAND}],
+        }
+    )
+    path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+    log(report, ".claude/settings.json: added git-safety guardrail hook")
+
+
 def copy_model_matrix(target: Path, report: list[str]) -> None:
-    dest = target / "config" / "model-matrix.conf"
+    dest = target / "config" / "model.conf"
 
     if dest.exists():
         log(
             report,
-            "config/model-matrix.conf: already present, left untouched (meant to diverge per project)",
+            "config/model.conf: already present, left untouched (meant to diverge per project)",
         )
         return
 
     import shutil
 
     dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(target / "factory" / "config" / "model-matrix.conf", dest)
-    log(report, "config/model-matrix.conf: copied in as a starter")
+    shutil.copyfile(target / "factory" / "config" / "model.conf", dest)
+    log(report, "config/model.conf: copied in as a starter")
 
 
 def handle_precommit(target: Path, report: list[str]) -> None:
@@ -305,6 +405,7 @@ def main(argv: list[str] | None = None) -> int:
         merge_gitignore(target, report)
         ensure_dot_dirs(target, report)
         symlink_factory_content(target, report)
+        install_git_guardrail(target, report)
         copy_model_matrix(target, report)
         handle_precommit(target, report)
         pre_commit_install(target, report)
