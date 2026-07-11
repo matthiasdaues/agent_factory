@@ -71,6 +71,22 @@ These scripts are stdlib-only Python — no install needed to run them.
 
 Separately, `pre-commit` runs `mdformat` and `ruff` on every commit, formatting markdown and Python automatically. Both run through `uvx`, so nothing needs installing locally beyond `uv` itself — the same zero-local-install pattern `factory/scripts/structurizr` uses for its Docker dependency.
 
+## Session logging
+
+Session logging is an opt-in, append-only audit trail of gate-script runs. It exists to reconcile what an agent claims it did in a session against what actually happened on disk — not to replace or gate anything by default.
+
+**Enable it.** Set the `AF_SESSION_LOG` environment variable to a log-file path before running gates. `factory/scripts/_session_log.py` reads it fresh on each run: unset, logging is a no-op and nothing is written; set, it appends one line per wrapped run to that path, creating the parent directory if needed.
+
+**What gets recorded.** Each JSON Lines entry has: `ts` (UTC timestamp from the script's own process clock, not agent-supplied), `script` (the gate's name), `argv` (its invocation arguments), `exit_code`, and `files_changed` (a `git status --porcelain` diff taken before and after the run — the ground truth for what moved on disk). A `summary` field is added when the wrapped gate supplies one (`spec-lint` folds in its `--format json` error/warning/info counts).
+
+**Current scope.** Only `spec-lint` is instrumented today. No other gate writes to the log yet.
+
+**Reconcile.** `factory/scripts/session-reconcile` compares the log against real git state: `--log` points at the log file (default `.agent-factory/session-log.jsonl`), `--base`/`--head` bound the commit range to diff (omit `--base` to check the working tree alone). It reports three finding codes: `RECON-UNEXPLAINED` (error) — a working-tree change no logged run or commit accounts for; `RECON-DRIFT` (warning) — a run logged a change that is now neither committed nor present in the working tree; `RECON-STALE` (warning) — `docs/spec/` changed but `spec-lint` never ran this session. Exit code is the error-finding count, unless `--report-only`.
+
+The log file lives under `.agent-factory/`, which is gitignored — local machine state, not portable, not meant to be reviewed.
+
+See [factory/docs/proposals/session-log-addendum.md](proposals/session-log-addendum.md) for the full design rationale.
+
 ## Using this in an existing repo
 
 `init-factory` works the same way against a repo that already has its own history, `.gitignore`, and `.pre-commit-config.yaml`. Run it from inside that repo:

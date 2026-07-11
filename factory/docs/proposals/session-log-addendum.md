@@ -134,3 +134,4 @@ Deferred, as §5 intends: the other Python gates and the bash-script CLI shim; a
 
 - [playbook-structured-harness-strategy.md § 1. State-transition control via pre-commit](playbook-structured-harness-strategy.md#1-state-transition-control-via-pre-commit)
 - [playbook-structured-harness-strategy.md § 2. Parseable handover artifacts](playbook-structured-harness-strategy.md#2-parseable-handover-artifacts)
+- [factory-guide.md § Session logging](../factory-guide.md#session-logging)
