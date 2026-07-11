@@ -13,8 +13,8 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 ## Foundational principles
 
-- **MUST** keep each skill/agent transmission short and independently verifiable — an LLM is a noisy channel; short, checked transmissions (compiler → tests → review) beat one long, unchecked one (Eichhorst's Principle).
-- **MUST** build only what the specification requires, in the smallest verified step it allows (YAGNI).
+- **MUST** keep each skill/agent transmission short and independently verifiable (Eichhorst's Principle). → [foundational-principles.md](conventions/foundational-principles.md)
+- **MUST** build only what the specification requires, in the smallest verified step it allows (YAGNI). → [foundational-principles.md](conventions/foundational-principles.md)
 
 ## Coding
 
@@ -34,7 +34,8 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 ## Cross-references
 
-- **MUST** write every reference to another artifact in this repo (ADR, finding, todo entry, rulebook, skill, agent, spec document) as a full markdown link, anchored to the specific section where the target has one — never a bare ID, code span, or parenthetical. → [cross-reference-format.md](conventions/cross-reference-format.md)
+- **MUST** write every reference to another artifact in this repo (ADR, finding, todo entry, rulebook, skill, agent, spec document) as a full markdown link — never a bare ID, code span, or parenthetical. → [cross-reference-format.md](conventions/cross-reference-format.md)
+- **MUST** anchor every cross-reference to the specific section where the target has one. → [cross-reference-format.md](conventions/cross-reference-format.md)
 
 ## Findings
 
@@ -47,7 +48,9 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 ## Review loop discipline
 
-- **MUST** on a repeat pass: re-run the deterministic check, verify each prior finding individually, and re-run the full inspection fresh — not just the old findings list. → [review-loop-discipline.md](conventions/review-loop-discipline.md)
+- **MUST** re-run the deterministic check on every repeat review pass. → [review-loop-discipline.md](conventions/review-loop-discipline.md)
+- **MUST** verify each prior finding individually on a repeat review pass. → [review-loop-discipline.md](conventions/review-loop-discipline.md)
+- **MUST** re-run the full inspection fresh on a repeat review pass — not just the prior findings list. → [review-loop-discipline.md](conventions/review-loop-discipline.md)
 
 ## State machine notation
 
@@ -62,3 +65,15 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 - **MUST** keep the git tag and version file identical — no mismatches. → [versioning-policy.md](conventions/versioning-policy.md)
 - **MUST NOT** tag feature branches, or apply release/pre-release tag formats on a non-main branch. → [versioning-policy.md](conventions/versioning-policy.md)
+
+## Referenced from
+
+- [foundational-principles.md](conventions/foundational-principles.md)
+- [branching-policy.md § Project-Specific Rules](conventions/branching-policy.md#project-specific-rules)
+- [commit-conventions.md § Story/Bug ID Required](conventions/commit-conventions.md#storybug-id-required)
+- [cross-reference-format.md § Rule](conventions/cross-reference-format.md#rule)
+- [finding-format.md § When to file](conventions/finding-format.md#when-to-file)
+- [markdown-formatting.md § Rule](conventions/markdown-formatting.md#rule)
+- [review-loop-discipline.md § Rule](conventions/review-loop-discipline.md#rule)
+- [state-machine-notation.md § Canonical Format](conventions/state-machine-notation.md#canonical-format)
+- [versioning-policy.md § Git Tag Must Match Version File](conventions/versioning-policy.md#git-tag-must-match-version-file)

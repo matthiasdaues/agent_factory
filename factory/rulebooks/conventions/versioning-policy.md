@@ -45,13 +45,7 @@ From **Conventional Commits** (see [commit-conventions.md](commit-conventions.md
 
 ### Breaking Changes
 
-Declare in commit footer:
-
-```
-feat: redesign auth API (ST-0089)
-
-BREAKING CHANGE: Session cookies removed. Migrate to JWT tokens.
-```
+Declare in commit footer. Skeleton: [commit-message.md template](../templates/commit-message.md).
 
 ## Enforcement
 
@@ -94,3 +88,9 @@ git tag v1.3.0
 
 - [Semantic Versioning 2.0.0](https://semver.org/)
 - [commit-conventions.md](commit-conventions.md)
+
+## Referenced from
+
+- [rules.md § Versioning](../rules.md#versioning)
+- [commit-conventions.md § Commit Types](commit-conventions.md#commit-types)
+- [branching-policy.md](branching-policy.md)

@@ -19,15 +19,7 @@ Single file: `docs/spec/todo.md`. Create lazily — only when the first item is 
 
 ## Entry format
 
-```markdown
-## T-0001 — <short title>
-
-- status: open
-- source: <skill, session, or review that raised it> (optional)
-- traces: <related ID(s) — story, finding, ADR> (optional)
-
-<body: what is deferred, why, what resolving it requires>
-```
+Skeleton: [todo-entry.md template](../templates/todo-entry.md).
 
 - ID: `T-<NNNN>`, zero-padded, sequential. Allocate the next number by scanning existing entries.
 - One entry per open item, appended — do not rewrite prior entries.
@@ -40,3 +32,8 @@ Single file: `docs/spec/todo.md`. Create lazily — only when the first item is 
 ## Format
 
 Run `scripts/mdformat --number docs/spec/todo.md` after every edit, per [markdown-formatting.md](markdown-formatting.md).
+
+## Referenced from
+
+- [rules.md § Todos](../rules.md#todos)
+- [report-format.md § Category rules](report-format.md#category-rules)

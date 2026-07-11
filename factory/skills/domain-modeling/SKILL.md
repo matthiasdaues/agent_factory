@@ -35,7 +35,7 @@ When someone states how something works, check whether the code agrees. If you f
 
 ### Update docs/CONTEXT.md inline
 
-When a term is resolved, update `docs/CONTEXT.md` right there — don't batch. Use the format in [context-format.md](../../rulebooks/conventions/context-format.md). Format via `scripts/mdformat --number docs/CONTEXT.md` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
+When a term is resolved, update `docs/CONTEXT.md` right there — don't batch. Use the [CONTEXT.md template](../../rulebooks/templates/context.md). Format via `scripts/mdformat --number docs/CONTEXT.md` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 
 `docs/CONTEXT.md` is a glossary only — no implementation details, no spec content, no scratch notes.
 
