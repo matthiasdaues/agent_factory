@@ -1,6 +1,6 @@
 # Rules
 
-One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOULD). Each links to the rulebook that expands on it — rationale, examples, and edge cases live there, not here. This file states *what*; the rulebook states *why* and *how*.
+One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOULD). Each section links to the rulebook that expands on its rules — rationale, examples, and edge cases live there, not here. This file states *what*; the rulebook states *why* and *how*.
 
 ## Wisdom of the world
 
@@ -13,9 +13,11 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 ## Foundational principles
 
-- **MUST** write short, precise prose following plain English by Strunk & White, or "Gutes Deutsch" by Wolf Schneider, depending on language. → [foundational-principles.md](conventions/foundational-principles.md)
-- **MUST** keep each skill/agent transmission short and independently verifiable (Eichhorst's Principle). → [foundational-principles.md](conventions/foundational-principles.md)
-- **MUST** build only what the specification requires, in the smallest verified step it allows (YAGNI). → [foundational-principles.md](conventions/foundational-principles.md)
+→ [foundational-principles.md](conventions/foundational-principles.md)
+
+- **MUST** write short, precise prose following plain English by Strunk & White, or "Gutes Deutsch" by Wolf Schneider, depending on language.
+- **MUST** keep each skill/agent transmission short and independently verifiable (Eichhorst's Principle).
+- **MUST** build only what the specification requires, in the smallest verified step it allows (YAGNI).
 
 ## Coding
 
@@ -23,49 +25,67 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 ## Branching
 
-- **MUST** create exactly one feature branch per story or bug — never per EPIC, sprint, or wave. → [branching-policy.md](conventions/branching-policy.md)
-- **MUST** cut every feature branch from a dedicated invocation branch (itself cut from `main`), recording its origin commit as the branch root. → [branching-policy.md](conventions/branching-policy.md)
-- **MUST** determine merge order from real file-overlap analysis, not a grouping label — file-disjoint branches merge in parallel, overlapping branches merge serially in dependency order. → [branching-policy.md](conventions/branching-policy.md)
-- **MUST** run the full test suite after every merge, before the next. → [branching-policy.md](conventions/branching-policy.md)
-- **MUST** track exactly two commit IDs per invocation — branch root and branch head. → [branching-policy.md](conventions/branching-policy.md)
+→ [branching-policy.md](conventions/branching-policy.md)
+
+- **MUST** create exactly one feature branch per story or bug — never per EPIC, sprint, or wave.
+- **MUST** cut every feature branch from a dedicated invocation branch (itself cut from `main`), recording its origin commit as the branch root.
+- **MUST** determine merge order from real file-overlap analysis, not a grouping label — file-disjoint branches merge in parallel, overlapping branches merge serially in dependency order.
+- **MUST** run the full test suite after every merge, before the next.
+- **MUST** track exactly two commit IDs per invocation — branch root and branch head.
 
 ## Commits
 
-- **MUST** include the story or bug ID in parentheses on every implementation commit — `<type>: <description> (<ID>)`. → [commit-conventions.md](conventions/commit-conventions.md)
+→ [commit-conventions.md](conventions/commit-conventions.md)
+
+- **MUST** include the story or bug ID in parentheses on every implementation commit — `<type>: <description> (<ID>)`.
 
 ## Cross-references
 
-- **MUST** write every reference to another artifact in this repo (ADR, finding, todo entry, rulebook, skill, agent, spec document) as a full markdown link — never a bare ID, code span, or parenthetical. → [cross-reference-format.md](conventions/cross-reference-format.md)
-- **MUST** anchor every cross-reference to the specific section where the target has one. → [cross-reference-format.md](conventions/cross-reference-format.md)
+→ [cross-reference-format.md](conventions/cross-reference-format.md)
+
+- **MUST** write every reference to another artifact in this repo (ADR, finding, todo entry, rulebook, skill, agent, spec document) as a full markdown link — never a bare ID, code span, or parenthetical.
+- **MUST** anchor every cross-reference to the specific section where the target has one.
 
 ## Findings
 
-- **MUST** file every Defect, and every finding at or above the review's blocking severity, as its own `docs/findings/<TAG>-NNNN.md`. → [finding-format.md](conventions/finding-format.md)
-- **MUST** state both what is wrong and what to do in every finding. → [finding-format.md](conventions/finding-format.md)
+→ [finding-format.md](conventions/finding-format.md)
+
+- **MUST** file every Defect, and every finding at or above the review's blocking severity, as its own `docs/findings/<TAG>-NNNN.md`.
+- **MUST** state both what is wrong and what to do in every finding.
 
 ## Markdown formatting
 
-- **MUST** run `scripts/mdformat --number <path>` immediately after writing any markdown file — not deferred to `validate` or the pre-commit hook. → [markdown-formatting.md](conventions/markdown-formatting.md)
+→ [markdown-formatting.md](conventions/markdown-formatting.md)
+
+- **MUST** run `scripts/mdformat --number <path>` immediately after writing any markdown file — not deferred to `validate` or the pre-commit hook.
 
 ## Review loop discipline
 
-- **MUST** re-run the deterministic check on every repeat review pass. → [review-loop-discipline.md](conventions/review-loop-discipline.md)
-- **MUST** verify each prior finding individually on a repeat review pass. → [review-loop-discipline.md](conventions/review-loop-discipline.md)
-- **MUST** re-run the full inspection fresh on a repeat review pass — not just the prior findings list. → [review-loop-discipline.md](conventions/review-loop-discipline.md)
+→ [review-loop-discipline.md](conventions/review-loop-discipline.md)
+
+- **MUST** re-run the deterministic check on every repeat review pass.
+- **MUST** verify each prior finding individually on a repeat review pass.
+- **MUST** re-run the full inspection fresh on a repeat review pass — not just the prior findings list.
 
 ## State machine notation
 
-- **MUST** treat event-driven pseudocode as the single source of truth for state machines — Mermaid is derived, never authored first. → [state-machine-notation.md](conventions/state-machine-notation.md)
-- **MUST** keep every `ChangeState(X)` in pseudocode and its Mermaid edge in exact correspondence — no mismatches. → [state-machine-notation.md](conventions/state-machine-notation.md)
+→ [state-machine-notation.md](conventions/state-machine-notation.md)
+
+- **MUST** treat event-driven pseudocode as the single source of truth for state machines — Mermaid is derived, never authored first.
+- **MUST** keep every `ChangeState(X)` in pseudocode and its Mermaid edge in exact correspondence — no mismatches.
 
 ## Todos
 
-- **MUST** file every deferred decision or unresolved question as an entry in `docs/spec/todo.md` — not left implicit in conversation. → [todo-format.md](conventions/todo-format.md)
+→ [todo-format.md](conventions/todo-format.md)
+
+- **MUST** file every deferred decision or unresolved question as an entry in `docs/spec/todo.md` — not left implicit in conversation.
 
 ## Versioning
 
-- **MUST** keep the git tag and version file identical — no mismatches. → [versioning-policy.md](conventions/versioning-policy.md)
-- **MUST NOT** tag feature branches, or apply release/pre-release tag formats on a non-main branch. → [versioning-policy.md](conventions/versioning-policy.md)
+→ [versioning-policy.md](conventions/versioning-policy.md)
+
+- **MUST** keep the git tag and version file identical — no mismatches.
+- **MUST NOT** tag feature branches, or apply release/pre-release tag formats on a non-main branch.
 
 ## Referenced from
 
