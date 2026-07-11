@@ -8,13 +8,13 @@ An agent is one job — "write requirements," "review the architecture," "implem
 
 Most phases have two agents: an **author** and a **reviewer**. The author produces an artifact (a spec, an architecture doc, code). The reviewer checks it in a separate session, without seeing the author's reasoning — only the artifact itself. This catches mistakes a self-review would miss, the same way a second pair of eyes catches things you can't see in your own pull request.
 
-The full list, grouped by phase, is in [`factory/INDEX.md`](../INDEX.md).
+The full list, grouped by phase, is in [`factory/INDEX.yaml`](../INDEX.yaml).
 
 ## Skills
 
 A skill is a how-to — a reusable procedure an agent (or you, directly) invokes to do one well-defined thing: run a structured interview, write an ADR, run a security review. Each skill is a folder in `factory/skills/` holding a `SKILL.md`. Agents call skills; skills don't call agents.
 
-The full list is also in [`factory/INDEX.md`](../INDEX.md).
+The full list is also in [`factory/INDEX.yaml`](../INDEX.yaml).
 
 ## Playbooks
 

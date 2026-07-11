@@ -80,11 +80,11 @@ repos:
         files: ^docs/spec/.*\.md$
 
       - id: index-lint
-        name: index-lint (regenerate INDEX.md from agent/skill frontmatter)
+        name: index-lint (regenerate INDEX.yaml from agent/skill/playbook frontmatter)
         entry: python3 factory/scripts/index-lint
         language: system
         pass_filenames: false
-        files: ^(factory/agents/.*\.md|factory/skills/.*/SKILL\.md)$
+        files: ^(factory/agents/.*\.md|factory/skills/.*/SKILL\.md|factory/playbooks/.*\.md)$
 
       # governs phase ORDERING between playbook states (not artifact validity);
       # inspects everything staged, so it always runs — no-op without a marker

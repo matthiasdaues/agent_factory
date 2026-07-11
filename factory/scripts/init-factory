@@ -27,7 +27,7 @@ Steps
      missing, never overwrite, never duplicate on re-run.
   5. Create --target/.claude and --target/.github unconditionally, no
      CLI-choice prompt. Already present → continue.
-  6. Symlink factory/{agents,skills,playbooks,rulebooks,scripts,INDEX.md}
+  6. Symlink factory/{agents,skills,playbooks,rulebooks,scripts,INDEX.yaml}
      and factory/config/AGENTS.md into both dot-dirs (the latter as each
      CLI's root orientation file: CLAUDE.md, .github/copilot-instructions.md).
      Per path: missing → link it; already the correct symlink → skip;
@@ -91,7 +91,14 @@ REQUIRED_GITIGNORE_LINES = [
 ]
 
 # name -> path relative to factory/, symlinked into each dot-dir under the same name
-FACTORY_CONTENT = ["agents", "skills", "playbooks", "rulebooks", "scripts", "INDEX.md"]
+FACTORY_CONTENT = [
+    "agents",
+    "skills",
+    "playbooks",
+    "rulebooks",
+    "scripts",
+    "INDEX.yaml",
+]
 
 DOT_DIRS = [".claude", ".github"]
 

@@ -1,31 +1,43 @@
 #!/usr/bin/env python3
-"""index-lint - Generate/verify factory/INDEX.md from factory/agents/ and factory/skills/ frontmatter.
+"""index-lint - Generate/verify factory/INDEX.yaml from factory/agents/,
+factory/skills/, and factory/playbooks/ frontmatter.
 
-INDEX.md is a generated artifact, never hand-edited: agents grouped by their
-`phase`/`phase-name` frontmatter, skills grouped by their `category`
-frontmatter. Same spirit as the other *-lint scripts: deterministic, stdlib
-only (Python 3.8+), a minimal targeted frontmatter parser (not full YAML) —
-matching spec-lint/backlog-lint's own zero-dependency approach.
+INDEX.yaml is a generated artifact, never hand-edited: agents grouped by
+their `phase`/`phase-name` frontmatter, skills grouped by their `category`
+frontmatter, playbooks listed with the ordered agent sequence derived from
+their own `**Agent**: `x`` prose lines — derived, never hand-duplicated,
+the same principle this repo already applies to Mermaid diagrams (see
+factory/rulebooks/conventions/state-machine-notation.md). Same spirit as
+the other *-lint scripts: deterministic, stdlib only (Python 3.8+), a
+minimal targeted frontmatter parser and YAML emitter (not a general YAML
+library) — matching spec-lint/backlog-lint's own zero-dependency approach.
 
-Usage (run from the repo root; generated links are computed relative to
---out's own directory, not the repo root, so --out and the two --*-dir
-flags must point at directories that are actually siblings on disk)
-  index-lint                          # regenerate factory/INDEX.md in place
+YAML over JSON: this file's primary reader is an LLM agent session (the
+project's own orientation rule requires reading it first), where token
+count matters; YAML's lack of field-name/brace punctuation is measurably
+cheaper than JSON for the same data. Writing YAML by hand is tractable
+because this script only ever emits it, never parses arbitrary YAML back
+in — the --check comparison is a plain text diff against the last write,
+not a structural parse.
+
+Usage (run from the repo root; generated paths are computed relative to
+--out's own directory, not the repo root, so --out and the --*-dir flags
+must point at directories that are actually siblings on disk)
+  index-lint                          # regenerate factory/INDEX.yaml in place
   index-lint --check                  # gate mode: exit 1 if stale, write nothing
-  index-lint --agents-dir factory/agents --skills-dir factory/skills --out factory/INDEX.md
+  index-lint --agents-dir factory/agents --skills-dir factory/skills \
+             --playbooks-dir factory/playbooks --out factory/INDEX.yaml
 
-Exit code: 0 if INDEX.md is (now, or already) up to date; 1 in --check mode
-if it was stale.
+Exit code: 0 if INDEX.yaml is (now, or already) up to date; 1 in --check
+mode if it was stale.
 """
 
 from __future__ import annotations
 
-import argparse
 import os
 import re
-import subprocess
 import sys
-import tempfile
+import argparse
 from pathlib import Path
 
 CANONICAL_CATEGORY_ORDER = [
@@ -39,6 +51,8 @@ CANONICAL_CATEGORY_ORDER = [
 
 _FM_KEYS = {"name", "title", "phase", "phase-name", "category", "description"}
 _KEY_LINE = re.compile(r"^([A-Za-z0-9_-]+):\s*(.*)$")
+_H1_LINE = re.compile(r"^#\s+.+$")
+_AGENT_REF = re.compile(r"\*\*Agent\*\*:\s*`([a-z][a-z0-9-]*)`")
 
 
 def parse_frontmatter(text: str) -> dict[str, str]:
@@ -91,6 +105,45 @@ def parse_frontmatter(text: str) -> dict[str, str]:
     return result
 
 
+def _first_body_paragraph(text: str) -> str:
+    """First prose paragraph after the frontmatter block and the `# Title`
+    H1 line, with `**bold**` markers stripped for a clean plain-text field.
+    """
+    body = text
+
+    if text.startswith("---"):
+        end = text.find("\n---", 3)
+        if end != -1:
+            body = text[end + 4 :]
+
+    lines = body.split("\n")
+    i = 0
+
+    while i < len(lines):
+        line = lines[i].strip()
+
+        if line == "" or _H1_LINE.match(line):
+            i += 1
+            continue
+
+        break
+
+    para = []
+    while i < len(lines) and lines[i].strip() != "":
+        para.append(lines[i].strip())
+        i += 1
+
+    return re.sub(r"\*\*(.+?)\*\*", r"\1", " ".join(para))
+
+
+def _extract_agent_sequence(text: str) -> list[str]:
+    """Ordered (file-order, duplicates kept) list of agents this playbook
+    invokes, derived from its own `**Agent**: `x`` prose lines. A playbook
+    with none (poc-spike, technical-poc) deliberately has no fixed chain.
+    """
+    return _AGENT_REF.findall(text)
+
+
 def load_agents(agents_dir: Path) -> list[dict[str, str]]:
     agents = []
 
@@ -121,10 +174,96 @@ def load_skills(skills_dir: Path) -> list[dict[str, str]]:
     return skills
 
 
-def render_agents_section(agents: list[dict[str, str]]) -> tuple[str, list[str]]:
+def load_playbooks(playbooks_dir: Path) -> list[dict[str, object]]:
+    playbooks = []
+
+    for path in sorted(playbooks_dir.glob("*.md")):
+        text = path.read_text(encoding="utf-8")
+        fm = parse_frontmatter(text)
+        fsm_path = path.parent / f"{path.stem}.fsm.yml"
+
+        entry: dict[str, object] = {
+            "name": path.stem,
+            "title": fm.get("title", path.stem),
+            "category": fm.get("category", ""),
+            "description": _first_body_paragraph(text),
+            "_path": str(path),
+        }
+
+        if fsm_path.exists():
+            entry["_fsm_path"] = str(fsm_path)
+
+        agents = _extract_agent_sequence(text)
+        if agents:
+            entry["agents"] = agents
+
+        playbooks.append(entry)
+
+    return playbooks
+
+
+def _yaml_needs_quoting(text: str) -> bool:
+    if text == "" or text.strip() != text:
+        return True
+
+    if text[0] in "!&*-?|>%@`\"'#,[]{}: \t":
+        return True
+
+    return ": " in text or " #" in text or text.endswith(":") or "\n" in text
+
+
+def _yaml_scalar(value: object) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+
+    if isinstance(value, int):
+        return str(value)
+
+    if value is None:
+        return "null"
+
+    text = str(value)
+
+    if _yaml_needs_quoting(text):
+        escaped = text.replace("\\", "\\\\").replace('"', '\\"')
+        return f'"{escaped}"'
+
+    return text
+
+
+def _render_list_of_dicts(items: list[dict], key_order: list[str]) -> list[str]:
+    lines = []
+
+    for item in items:
+        first = True
+
+        for key in key_order:
+            if key not in item or item[key] in (None, ""):
+                continue
+
+            value = item[key]
+            prefix = "  - " if first else "    "
+            first = False
+
+            if isinstance(value, list):
+                lines.append(f"{prefix}{key}:")
+                for v in value:
+                    lines.append(f"      - {_yaml_scalar(v)}")
+            else:
+                lines.append(f"{prefix}{key}: {_yaml_scalar(value)}")
+
+    return lines
+
+
+def _render_section(key: str, items: list[dict], key_order: list[str]) -> list[str]:
+    if not items:
+        return [f"{key}: []"]
+
+    return [f"{key}:"] + _render_list_of_dicts(items, key_order)
+
+
+def build_agents_data(agents: list[dict[str, str]]) -> tuple[list[dict], list[str]]:
     warnings = []
-    phased = [a for a in agents if a.get("phase") not in (None, "")]
-    unphased = [a for a in agents if a.get("phase") in (None, "")]
 
     def phase_key(a: dict[str, str]) -> int:
         try:
@@ -132,59 +271,40 @@ def render_agents_section(agents: list[dict[str, str]]) -> tuple[str, list[str]]
         except (KeyError, ValueError):
             return 999
 
-    phased.sort(key=lambda a: (phase_key(a), a["name"]))
+    entries = []
+    for a in sorted(agents, key=lambda a: (phase_key(a), a["name"])):
+        entry: dict[str, object] = {
+            "name": a["name"],
+            "title": a.get("title", a["name"]),
+        }
+        phase = a.get("phase")
 
-    lines = ["## Agents", ""]
-    seen_phase = None
+        if phase not in (None, ""):
+            phase_name = a.get("phase-name")
 
-    for a in phased:
-        phase, phase_name = a.get("phase"), a.get("phase-name")
+            if phase_name is None:
+                warnings.append(f"{a['_path']}: has 'phase' but no 'phase-name'")
+                phase_name = f"Phase {phase}"
 
-        if phase_name is None:
-            warnings.append(f"{a['_path']}: has 'phase' but no 'phase-name'")
-            phase_name = f"Phase {phase}"
+            entry["phase"] = int(phase)
+            entry["phase_name"] = phase_name
 
-        if phase != seen_phase:
-            if seen_phase is not None:
-                lines.append("")
+        entry["description"] = a.get("description", "")
+        entry["path"] = a["_path"]
+        entries.append(entry)
 
-            lines.append(f"### Phase {phase} — {phase_name}")
-            lines.append("")
-            lines.append("| Agent | Description |")
-            lines.append("| --- | --- |")
-            seen_phase = phase
-
-        title = a.get("title", a["name"])
-        desc = a.get("description", "")
-        lines.append(f"| [`{a['name']}`]({a['_path']}) — {title} | {desc} |")
-
-    if unphased:
-        if seen_phase is not None:
-            lines.append("")
-
-        lines.append("### Unphased (dispatcher-spawned sub-agents)")
-        lines.append("")
-        lines.append("| Agent | Description |")
-        lines.append("| --- | --- |")
-
-        for a in sorted(unphased, key=lambda a: a["name"]):
-            title = a.get("title", a["name"])
-            desc = a.get("description", "")
-            lines.append(f"| [`{a['name']}`]({a['_path']}) — {title} | {desc} |")
-
-    return "\n".join(lines), warnings
+    return entries, warnings
 
 
-def render_skills_section(skills: list[dict[str, str]]) -> tuple[str, list[str]]:
+def build_skills_data(skills: list[dict[str, str]]) -> tuple[list[dict], list[str]]:
     warnings = []
-    uncategorized = [s for s in skills if not s.get("category")]
-    categorized = [s for s in skills if s.get("category")]
 
-    for s in uncategorized:
-        warnings.append(f"{s['_path']}: has no 'category'")
+    for s in skills:
+        if not s.get("category"):
+            warnings.append(f"{s['_path']}: has no 'category'")
 
     def order_key(s: dict[str, str]) -> tuple[int, str]:
-        cat = s["category"]
+        cat = s.get("category", "")
 
         try:
             idx = CANONICAL_CATEGORY_ORDER.index(cat)
@@ -193,46 +313,54 @@ def render_skills_section(skills: list[dict[str, str]]) -> tuple[str, list[str]]
 
         return idx, s["name"]
 
-    categorized.sort(key=order_key)
+    entries = []
+    for s in sorted(skills, key=order_key):
+        entry: dict[str, object] = {"name": s["name"]}
 
-    lines = ["## Skills", ""]
-    seen_cat = None
+        if s.get("category"):
+            entry["category"] = s["category"]
 
-    for s in categorized:
-        cat = s["category"]
+        entry["description"] = s.get("description", "")
+        entry["path"] = s["_path"]
+        entries.append(entry)
 
-        if cat != seen_cat:
-            if seen_cat is not None:
-                lines.append("")
-
-            lines.append(f"### {cat.capitalize()}")
-            lines.append("")
-            lines.append("| Skill | Description |")
-            lines.append("| --- | --- |")
-            seen_cat = cat
-
-        desc = s.get("description", "")
-        lines.append(f"| [`{s['name']}`]({s['_path']}) | {desc} |")
-
-    if uncategorized:
-        if seen_cat is not None:
-            lines.append("")
-
-        lines.append("### Uncategorised")
-        lines.append("")
-        lines.append("| Skill | Description |")
-        lines.append("| --- | --- |")
-
-        for s in sorted(uncategorized, key=lambda s: s["name"]):
-            desc = s.get("description", "")
-            lines.append(f"| [`{s['name']}`]({s['_path']}) | {desc} |")
-
-    return "\n".join(lines), warnings
+    return entries, warnings
 
 
-def render_index(agents_dir: Path, skills_dir: Path, out: Path) -> tuple[str, list[str]]:
+def build_playbooks_data(
+    playbooks: list[dict[str, object]],
+) -> tuple[list[dict], list[str]]:
+    entries = []
+
+    for p in sorted(playbooks, key=lambda p: p["name"]):
+        entry: dict[str, object] = {
+            "name": p["name"],
+            "title": p.get("title", p["name"]),
+        }
+
+        if p.get("category"):
+            entry["category"] = p["category"]
+
+        entry["description"] = p.get("description", "")
+        entry["path"] = p["_path"]
+
+        if p.get("_fsm_path"):
+            entry["fsm"] = p["_fsm_path"]
+
+        if p.get("agents"):
+            entry["agents"] = p["agents"]
+
+        entries.append(entry)
+
+    return entries, []
+
+
+def render_index(
+    agents_dir: Path, skills_dir: Path, playbooks_dir: Path, out: Path
+) -> tuple[str, list[str]]:
     agents = load_agents(agents_dir)
     skills = load_skills(skills_dir)
+    playbooks = load_playbooks(playbooks_dir)
 
     out_dir = out.parent
 
@@ -242,53 +370,50 @@ def render_index(agents_dir: Path, skills_dir: Path, out: Path) -> tuple[str, li
     for s in skills:
         s["_path"] = os.path.relpath(s["_path"], start=out_dir)
 
-    agents_section, aw = render_agents_section(agents)
-    skills_section, sw = render_skills_section(skills)
+    for p in playbooks:
+        p["_path"] = os.path.relpath(p["_path"], start=out_dir)
+        if p.get("_fsm_path"):
+            p["_fsm_path"] = os.path.relpath(str(p["_fsm_path"]), start=out_dir)
+
+    agent_entries, aw = build_agents_data(agents)
+    skill_entries, sw = build_skills_data(skills)
+    playbook_entries, pw = build_playbooks_data(playbooks)
 
     header = (
-        "# Index\n\n"
-        "Generated by `scripts/index-lint` from `agents/*.md` and "
-        "`skills/*/SKILL.md` frontmatter — do not edit by hand, "
-        "regenerate with `scripts/index-lint`.\n\n"
+        "# Generated by scripts/index-lint from agents/*.md, skills/*/SKILL.md,\n"
+        "# and playbooks/*.md frontmatter — do not edit by hand, regenerate with\n"
+        "# scripts/index-lint.\n\n"
     )
 
-    body = header + agents_section + "\n\n" + skills_section + "\n"
-    return body, aw + sw
+    lines = []
+    lines += _render_section(
+        "agents",
+        agent_entries,
+        ["name", "title", "phase", "phase_name", "description", "path"],
+    )
+    lines.append("")
+    lines += _render_section(
+        "skills", skill_entries, ["name", "category", "description", "path"]
+    )
+    lines.append("")
+    lines += _render_section(
+        "playbooks",
+        playbook_entries,
+        ["name", "title", "category", "description", "path", "fsm", "agents"],
+    )
 
-
-def format_markdown(text: str) -> str:
-    """Run the repository-local mdformat wrapper over `text`, return the result.
-
-    Formats via a temp file (mdformat operates on paths, not stdin) so both
-    --check and write mode compare/produce the *same* post-format content —
-    formatting must happen before the comparison, not after the write, or
-    --check and the write path disagree forever (each write becomes "stale"
-    the moment mdformat reformats it).
-    """
-    script_dir = Path(__file__).resolve().parent
-    mdformat = script_dir / "mdformat"
-
-    if not mdformat.exists():
-        raise FileNotFoundError(f"mdformat script not found: {mdformat}")
-
-    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as tmp:
-        tmp.write(text)
-        tmp_path = Path(tmp.name)
-
-    try:
-        subprocess.run(
-            [str(mdformat), "--number", str(tmp_path)], check=True, capture_output=True
-        )
-        return tmp_path.read_text(encoding="utf-8")
-    finally:
-        tmp_path.unlink(missing_ok=True)
+    body = header + "\n".join(lines) + "\n"
+    return body, aw + sw + pw
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Generate/verify INDEX.md from frontmatter.")
+    ap = argparse.ArgumentParser(
+        description="Generate/verify INDEX.yaml from frontmatter."
+    )
     ap.add_argument("--agents-dir", default="factory/agents", type=Path)
     ap.add_argument("--skills-dir", default="factory/skills", type=Path)
-    ap.add_argument("--out", default="factory/INDEX.md", type=Path)
+    ap.add_argument("--playbooks-dir", default="factory/playbooks", type=Path)
+    ap.add_argument("--out", default="factory/INDEX.yaml", type=Path)
     ap.add_argument(
         "--check",
         action="store_true",
@@ -297,8 +422,9 @@ def main(argv: list[str] | None = None) -> int:
 
     args = ap.parse_args(argv)
 
-    content, warnings = render_index(args.agents_dir, args.skills_dir, args.out)
-    content = format_markdown(content)
+    content, warnings = render_index(
+        args.agents_dir, args.skills_dir, args.playbooks_dir, args.out
+    )
 
     for w in warnings:
         print(f"[WARNING] {w}", file=sys.stderr)
@@ -307,7 +433,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.check:
         if current != content:
-            print(f"index-lint: {args.out} is stale — run `scripts/index-lint` to regenerate")
+            print(
+                f"index-lint: {args.out} is stale — run `scripts/index-lint` to regenerate"
+            )
             return 1
 
         print(f"index-lint: {args.out} is up to date")

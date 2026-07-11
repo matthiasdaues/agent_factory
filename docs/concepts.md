@@ -38,7 +38,7 @@ agent_factory/
 │   ├── rulebooks/                    # Cross-cutting conventions: commit format, cross-references, ADR style, ...
 │   ├── scripts/                      # Deterministic gates (*-lint) plus setup tooling (init-factory, mdformat, ...)
 │   ├── config/                       # Templates: AGENTS.md, pre-commit-config.yaml, model.conf
-│   └── INDEX.md                      # Generated catalog of every agent and skill — regenerate with index-lint
+│   └── INDEX.yaml                     # Generated catalog of every agent, skill, and playbook — regenerate with index-lint
 ├── orchestrator/                     # Python CLI that drives agent sessions — nested sub-project, not distributed by init-factory
 │   ├── src/                          # CLI source code
 │   ├── tests/                        # CLI tests
