@@ -1,65 +1,60 @@
-# 0021. Adapter registry becomes the local, discovery-populated tier→model lookup
+# 0021. model.conf is read directly at resolution time; the adapter registry stays a separate local cache
 
-**Status**: Accepted — revises [ADR-0017](0017-config-and-adapter-registry-persistence.md) (point 5's populate direction) and [ADR-0020](0020-tier-everywhere-model-config-router.md) (`model.conf`'s role, not its `[policy]` removal); resolves [SPEC-0010](../findings/SPEC-0010.md) and T-31.
+**Status**: Accepted — revises [ADR-0017](0017-config-and-adapter-registry-persistence.md) (point 5's "runtime reads the dictionary" claim) and [ADR-0020](0020-tier-everywhere-model-config-router.md) (states explicitly what "the router" means at resolution time); resolves [SPEC-0010](../findings/SPEC-0010.md) and T-31.
 
 ## Context
 
-[SPEC-0010](../findings/SPEC-0010.md): three artifacts disagree on where the adapter registry persists. ADR-0017 already resolved this once — one `.orchestrator/config.toml`, behind `ConfigStore` and `AdapterRegistry` — but `interface-contracts.md`'s `Config` schema never gained the registry's fields, and `entity-model.md`'s "persisted alongside the configuration store" reads as a second file. That gap alone would close SPEC-0010. The project owner asked for more: a routine that starts a CLI, asks it for its model inventory, and writes the names into the registry — and, if the CLI's answer also signals a tier, folds `model.conf` and the registry into one lookup.
+[SPEC-0010](../findings/SPEC-0010.md): three artifacts disagree on where the adapter registry persists. ADR-0017 already resolved this once — one `.orchestrator/config.toml`, behind `ConfigStore` and `AdapterRegistry` — but `interface-contracts.md`'s `Config` schema never gained the registry's fields, and `entity-model.md`'s "persisted alongside the configuration store" reads as a second file.
 
-T-31 is still open: "mandatory or optional discovery capability?" FR-R8 already answers this in passing — auto-detect queries the adapter "if that adapter supports discovery; otherwise... report... and leave configuration unchanged." Optional, degrading gracefully. `CLIAdapter` (`ports.py`) has exactly one method, `invoke()`; no discovery method exists — the actual port-shape question T-31 named.
+The project owner asked for more, floating a further simplification: make `model.conf` the sole persistent store of available models, so only models with a configured tier are ever assignable. Reading the code against that question surfaced two things worth acting on:
 
-A full merge — delete `model.conf`, registry becomes the only file — is not available. `model.conf` (`factory/config/`, ADR-0020) is read directly by a human running `factory/` playbooks with no orchestrator process at all; no `.orchestrator/config.toml`, no `AdapterRegistry` object exists in that mode. Deleting it stops that workflow from working.
-
-A second hazard, found reading ADR-0017 point 5 against FR-R7: FR-R7 ("add model"/"remove model") already writes straight into a `ModelDictionary`. Point 5 also writes into the same dictionary, from `model.conf`, "at startup." Nothing says which wins if both touch the same tier — a hand-added or discovered model can be silently overwritten by the next matrix import.
+- `ModelResolver` had two live paths. The deprecated `resolve()` — still wired into `phase_runner.py` — read `model.conf` directly. The ADR-0018-compliant `resolve_agent_tier()` read `AdapterRegistry`'s `ModelDictionary` instead, itself populated from `model.conf` at startup (`populate_adapter_dictionaries_from_matrix`). Two resolution paths, reading two different things that were supposed to agree.
+- `AdapterRegistry`'s per-adapter `ModelDictionary` is real, tested, wired functionality — `configure > cli > {adapter} > add model` / `remove model` (FR-R7) write into it directly, independent of `model.conf`. A full merge that deletes the registry's model-dictionary role would touch that working subsystem; a full merge that deletes `model.conf` breaks the `factory/` playbook workflow, which reads it with no orchestrator process running at all.
 
 ### Alternatives (Pugh Matrix)
 
-**A**: status quo — no discovery, matrix import unconditionally overwrites. **B**: full merge — delete `model.conf`, the registry is the only file. **C**: precedence layering — `model.conf` stays the portable seed; the registry is the local override; import fills gaps only, never overwrites.
+**A**: status quo — two resolution paths, registry as intended source of truth. **B**: full merge — delete `model.conf`, registry is the only file. **C**: precedence layering — registry becomes the local override, `model.conf` a seed, import fills gaps only. **D**: `model.conf` is what `ModelResolver` reads, full stop; the registry keeps its existing, separate role (menu-mode display, `add model`/`auto-detect` management) untouched.
 
-| Criterion                          | Weight | A: status quo | B: full merge | C: precedence layering |
-| ---------------------------------- | ------ | ------------- | ------------- | ---------------------- |
-| Closes SPEC-0010                   | 2      | 0             | +1            | +1                     |
-| Works with no orchestrator running | 3      | +1            | -1            | +1                     |
-| No clobber hazard                  | 2      | -1            | +1            | +1                     |
-| Discovery-driven upkeep            | 2      | -1            | +1            | +1                     |
-| Implementation cost (simplicity)   | 1      | +1            | +1            | 0                      |
-| **Weighted total**                 |        | **0**         | **+4**        | **+9**                 |
+| Criterion                            | Weight | A: status quo | B: full merge | C: precedence layering | D: read model.conf directly |
+| ------------------------------------ | ------ | ------------- | ------------- | ---------------------- | --------------------------- |
+| Closes SPEC-0010                     | 2      | 0             | +1            | +1                     | +1                          |
+| Works with no orchestrator running   | 3      | +1            | -1            | +1                     | +1                          |
+| One resolution path, not two         | 2      | -1            | +1            | +1                     | +1                          |
+| Discovery wired to affect resolution | 2      | -1            | +1            | +1                     | 0                           |
+| Implementation cost (simplicity)     | 1      | +1            | +1            | 0                      | +1                          |
+| **Weighted total**                   |        | **0**         | **+4**        | **+9**                 | **+11**                     |
 
-C wins. B scores well everywhere except the one criterion that matters most here — it breaks a workflow this project explicitly supports. C gets everything B gets except a single merged file, in exchange for never breaking standalone use.
+D wins. It closes the same gap C does, at less cost, because it does not try to keep two stores in sync at all — resolution reads one file. It scores lower than C on exactly one thing: a future discovery routine writing into the registry would not, by itself, change what gets resolved. That is an honest, accepted gap, not an oversight — see Follow-up.
 
 ## Decision
 
 1. **One persisted store, stated explicitly.** `AdapterRegistry`/`ModelDictionary` persist in `.orchestrator/config.toml`, alongside `Config`, as ADR-0017 already intended. `interface-contracts.md` gains the persistence line it was missing; `entity-model.md`'s "alongside" becomes "in the same store." Closes SPEC-0010.
 
-2. **`CLIAdapter` gains one optional port method:** `discover_models() -> list[ModelCandidate] | None`. `None` means the adapter cannot self-report — the operator's `add model` (FR-R7) is the only path, exactly as FR-R8 already specifies. This resolves T-31: discovery is optional per-adapter by construction of the return type, not a feature flag.
+2. **`ModelResolver` reads `model.conf` directly.** One method, `resolve_tier(tier, explicit_model=None)`, replaces the deprecated `resolve()` and `resolve_agent_tier()`/`resolve_story_classification()`. It takes an already-known tier — an agent's own frontmatter, or (ADR-0020) a story's own `tier` — and looks it up in `model.conf`'s `[facts]` for the active CLI. No `AdapterRegistry` dependency anywhere in the resolution path. `phase_runner.py`, previously wired to the deprecated path, now resolves the phase's author and reviewer independently, each from its own declared tier — closing the ADR-0018 migration gap this decision surfaced.
 
-3. **`ModelCandidate` carries `model_id` and an optional `tier_hint`.** No CLI is assumed to return a usable `tier_hint`. Where it's absent, the candidate is written with tier unset and the operator confirms one via the existing `add model` flow. Where present, it's written as a proposal the operator can accept as-is.
+3. **The registry keeps its existing, separate role, unchanged.** `AdapterRegistry`'s `ModelDictionary` still backs `configure > cli > {adapter}`'s `list models` / `add model` / `remove model` / `auto-detect`, and still gets populated from `model.conf` at menu-mode startup (`populate_adapter_dictionaries_from_matrix`, unconditional overwrite, as before) — purely for the TUI's pick-list and its `★` default marker. It is not read at resolution time, so nothing in this subsystem needed to change to implement points 1–2.
 
-4. **`configure > cli > {adapter} > auto-detect` (FR-R8, already named)** calls `discover_models()`, writes each candidate into that adapter's `ModelDictionary`, and reports what it found.
-
-5. **Precedence, not deletion.** `model.conf` stays the portable, git-tracked seed every project ships — the only tier→model source that works without an orchestrator process. `.orchestrator/config.toml`'s `ModelDictionary` is the local override layer. ADR-0017 point 5 is revised: matrix import fills a tier only where the dictionary doesn't already have one; it never overwrites an entry discovery or a manual `add model` already set.
-
-6. **The practical merge.** At runtime the dictionary — not `model.conf` — is already what's read (ADR-0018 §3). After this decision it is also what stays current, with `model.conf` demoted to a first-run seed. Two files remain; one effective lookup.
+4. **T-31 stays open, narrowed.** "Mandatory or optional discovery capability?" is unaffected by this decision — `CLIAdapter` still has only `invoke()`; no `discover_models()` method exists yet. Deferred to Follow-up, along with the open question it now carries: when discovery lands, does it write into `model.conf` (making it live for resolution immediately) or into the registry (matching today's `add model`, but inert for resolution until also copied to `model.conf`)? This ADR does not decide that — a future one should, once discovery is real enough to make the tradeoff concrete.
 
 ## Consequences
 
 **Positive**
 
-- Closes SPEC-0010 outright and the silent-clobber hazard between matrix import and manual edits.
-- Formalizes T-31 as a port-shape answer, not a policy statement.
-- The standalone, no-orchestrator `factory/` workflow is untouched.
+- Closes SPEC-0010 outright.
+- One resolution path instead of two silently-competing ones — the actual bug behind SPEC-0009 (`phase_runner.py` never having migrated to agent-tier resolution) is fixed as a side effect.
+- Zero risk to the registry's existing, tested `add model`/`auto-detect` functionality — untouched.
+- Matches the "least fuss" direction explicitly given: no precedence engineering, no gap-fill logic, no second store to keep in sync.
 
 **Negative / risks**
 
-- `discover_models()` is unimplemented for the one adapter that exists (Copilot); whether it can self-report models, let alone a tier signal, is unverified — this decision removes the port-shape ambiguity, it does not yet produce output.
-- Two files instead of one is a real cost against a literal single-lookup merge — accepted, because the alternative breaks standalone use.
+- A model added via `configure > cli > {adapter} > add model` has no effect on resolution until the same tier/model is also added to `model.conf` by hand. This is a real, visible seam — the TUI's model-management commands and the thing that actually picks a model are, for now, two different surfaces. Acceptable because `model.conf` editing already has its own `configure > model-matrix > edit` path; not acceptable indefinitely if the registry's commands are kept around only to mislead.
+- Discovery (T-31/FR-R8), once built, still needs to decide where it writes — deferred, not solved, by this decision.
 
 ## Follow-up (not done in this pass)
 
-- Implement `discover_models()` on `CLIAdapter` and the Copilot adapter; spike first — confirm Copilot can list models at all before assuming a `tier_hint` is possible.
-- Wire `configure > cli > {adapter} > auto-detect` to call it.
-- Add the persistence line to `interface-contracts.md`; fix `entity-model.md`'s "alongside" wording.
-- Revise ADR-0017 point 5's prose to match the gap-fill precedence.
+- Add the persistence line to `interface-contracts.md`; fix `entity-model.md`'s "alongside" wording. *(Done as part of this same pass — see interface-contracts.md § Adapter Registry and entity-model.md.)*
+- Decide `discover_models()`'s target (`model.conf` vs. the registry) before implementing it — a follow-up ADR, not assumed here.
+- Consider whether `configure > cli > {adapter} > add model` should be repointed at `model.conf` directly, closing the two-surface seam named above, once discovery's target is decided.
 
 ## Referenced from
 

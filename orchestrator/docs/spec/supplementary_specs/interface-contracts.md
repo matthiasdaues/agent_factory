@@ -137,13 +137,13 @@ One markdown file per story under `backlog/`, named by id (`ST-NNNN.md`). The fi
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "StoryFrontmatter",
   "type": "object",
-  "required": ["id", "epic", "title", "classification", "status", "outputs"],
+  "required": ["id", "epic", "title", "tier", "status", "outputs"],
   "additionalProperties": false,
   "properties": {
     "id":             { "type": "string", "pattern": "^ST-[0-9]{4,}$" },
     "epic":           { "type": "string" },
     "title":          { "type": "string" },
-    "classification": { "enum": ["trivial", "standard", "hard"] },
+    "tier":           { "enum": ["economy", "standard", "strong"] },
     "status":         { "enum": ["pending", "in-progress", "done", "blocked"] },
     "deps":           { "type": "array", "items": { "type": "string", "pattern": "^ST-[0-9]{4,}$" } },
     "traces":         { "type": "array", "items": { "type": "string" } },
@@ -152,29 +152,23 @@ One markdown file per story under `backlog/`, named by id (`ST-NNNN.md`). The fi
 }
 ```
 
-- `classification` drives model selection (FR-K1). `traces` carries the use-case/requirement ids the story realizes, so `backlog-lint` can check traceability. `outputs` are the story's declared artifact paths, giving the implementation phase its BR-016 staging and FR-H1 completion, exactly as an agent's `outputs` do for the earlier phases.
+- `tier` drives model selection (FR-K1) — the same field name and enum as agent frontmatter's `tier`, looked up directly in `model.conf`. `traces` carries the use-case/requirement ids the story realizes, so `backlog-lint` can check traceability. `outputs` are the story's declared artifact paths, giving the implementation phase its BR-016 staging and FR-H1 completion, exactly as an agent's `outputs` do for the earlier phases.
 
-## Model Matrix
+## model.conf
 
-The operator-curated artifact that carries the model policy (FR-K2, FR-K5). Two parts: CLI-agnostic **policy** (classification/phase → tier) and per-CLI **facts** (tier → concrete model). Validated by `matrix-lint`: every tier a policy references must resolve to a model for each configured CLI.
+The operator-curated tier router (FR-K2, FR-K5, ADR-0020, ADR-0021): `[facts]` maps each tier to a concrete model, per configured CLI. No policy layer — a tier is either configured for a CLI or it isn't. Validated by `matrix-lint`: well-formed `<cli>.<tier>` keys, a valid `on_missing`, and a coverage warning for any CLI missing a tier.
 
-> **Authority note (T-32, SPEC-0004):** The per-adapter model dictionary (`AdapterRegistry.ModelDictionary`) is the runtime single source of truth for tier-to-model resolution. The model-matrix `[facts]` section is the operator-authored configuration artifact that _populates_ those dictionaries. At startup and on explicit `configure > model-matrix > edit`, the orchestrator reads the matrix facts and writes the corresponding entries into each adapter's `ModelDictionary`. At runtime, model resolution reads only from the adapter dictionary, never directly from the matrix file.
+> **Authority note (T-32, SPEC-0010, ADR-0021):** `model.conf` is read directly by `ModelResolver` at resolution time — no separate runtime dictionary sits between the file and a resolved model. `AdapterRegistry`'s per-adapter `ModelDictionary` (`.orchestrator/config.toml`) remains a local, discoverable cache used for menu-mode display and `configure > cli > {adapter}` management, populated from `model.conf` on a gap-fill basis (an existing local entry is never overwritten by import) — but it is not in the resolution path.
 
 ```
 [facts]
   <cli>.economy  = <model id>       # e.g. copilot.economy = ...
   <cli>.standard = <model id>
   <cli>.strong   = <model id>       # e.g. claude.strong = claude-opus-4-8
-
-[policy]                             # CLI-agnostic; project-overridable later
-  class.trivial  = economy
-  class.standard = standard
-  class.hard     = strong
-  phase.<name>   = <tier> | by-class # e.g. phase.planning = strong, phase.implementation = by-class
-  on_missing     = halt | auto       # default halt (FR-K4, BR-020)
+  on_missing     = halt | auto      # default halt (FR-K4, BR-020)
 ```
 
-- The tier pivot keeps the backlog CLI-agnostic (a story stores only its class). Facts and policy are separate sections so a project can later override policy (its budget stance) without touching facts (ADR-0009).
+- `model.conf` keeps the backlog CLI-agnostic (a story stores only its tier, never a concrete model id) and is the only tier→model source that works without an orchestrator process running (the `factory/` playbook workflow reads it directly).
 
 ## Run State (`.orchestrator/run.json`)
 
@@ -278,8 +272,8 @@ ModelDictionary:
   list_models() -> list[tuple[str, str]]  # (tier, model_id)
 ```
 
-- The registry is the persisted catalog of locally available adapters and their binary paths.
-- Each adapter owns one model dictionary keyed by the fixed tier vocabulary. This dictionary is the runtime source of truth for tier-to-model resolution (see Model Matrix authority note above).
+- The registry and its model dictionaries persist in `.orchestrator/config.toml`, the same store as `Config` (ADR-0017, resolves SPEC-0010) — local, machine-specific, git-ignored.
+- Each adapter owns one model dictionary keyed by the fixed tier vocabulary, used for menu-mode display and `configure > cli > {adapter}` management — not the resolution path (see `model.conf`'s Authority note above, ADR-0021).
 - `unregister()` removes the adapter record and its dictionary entries as one logical operation.
 
 ## Settings Resolver

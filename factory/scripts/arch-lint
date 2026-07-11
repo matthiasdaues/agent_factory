@@ -156,6 +156,34 @@ def _parse_adr_frontmatter(text: str) -> dict[str, str] | None:
 
 _VALID_STATUS = re.compile(r"^(proposed|accepted|deprecated|superseded by ADR-\d+)$")
 _MATRIX_MARKER = re.compile(r"\*\*Weighted total\*\*", re.IGNORECASE)
+_BOLD_STATUS_LINE = re.compile(r"^\*\*Status\*\*:\s*(.+)$", re.MULTILINE)
+_STATUS_PREFIX = re.compile(
+    r"^(accepted|proposed|deprecated|superseded by ADR-\d+)\b", re.IGNORECASE
+)
+
+
+def _parse_adr_status_line(text: str) -> str | None:
+    """Fall back for ADRs that state status as a bold prose line (this
+    project's established local convention, predating the frontmatter
+    template) rather than YAML frontmatter: `**Status**: Accepted — ...`.
+
+    The status value is whichever valid word/phrase leads the line — the
+    rest (an em-dash clause, a parenthetical, trailing prose) is exactly
+    the *why*, which this rulebook's own convention says belongs after
+    the *what*, not folded into it.
+    """
+    m = _BOLD_STATUS_LINE.search(text)
+    if not m:
+        return None
+    value = re.sub(r"\[(ADR-\d+)\]\([^)]*\)", r"\1", m.group(1))
+    prefix = _STATUS_PREFIX.match(value)
+    if not prefix:
+        return None
+    matched = prefix.group(1)
+    if matched.lower().startswith("superseded by"):
+        adr_ref = re.search(r"ADR-\d+", matched, re.IGNORECASE)
+        return f"superseded by {adr_ref.group(0).upper()}"
+    return matched.lower()
 
 
 # --- Checks ----------------------------------------------------------------
@@ -226,30 +254,47 @@ def check_adr_evaluation(rep: Report, adr_dir: Path) -> None:
     for path in sorted(adr_dir.glob("*.md")):
         text = path.read_text()
         fm = _parse_adr_frontmatter(text)
-        if fm is None:
-            rep.error("ARCH-ADR-FM", f"{path.name}: missing or malformed YAML frontmatter")
-            continue
+        has_matrix = bool(_MATRIX_MARKER.search(text))
 
-        status = fm.get("status")
-        if not status:
-            rep.error("ARCH-ADR-STATUS", f"{path.name}: frontmatter has no 'status'")
-        elif not _VALID_STATUS.match(status):
+        if fm is not None:
+            status = fm.get("status")
+            if not status:
+                rep.error(
+                    "ARCH-ADR-STATUS", f"{path.name}: frontmatter has no 'status'"
+                )
+                status = None
+
+            evaluation = fm.get("evaluation")
+            if evaluation not in ("pugh-matrix", "none"):
+                rep.error(
+                    "ARCH-ADR-EVAL",
+                    f"{path.name}: frontmatter 'evaluation' must be 'pugh-matrix' or "
+                    f"'none', got {evaluation!r}",
+                )
+                continue
+        else:
+            # Fall back to this project's bold-prose-line ADR convention
+            # (`**Status**: Accepted — ...`, no YAML frontmatter). Evaluation
+            # isn't declared under this convention — infer it from whether a
+            # matrix table is actually present, so there is nothing to
+            # cross-check for a mismatch.
+            status = _parse_adr_status_line(text)
+            if status is None:
+                rep.error(
+                    "ARCH-ADR-FM",
+                    f"{path.name}: missing or malformed YAML frontmatter, and no "
+                    f"bold **Status** line found either",
+                )
+                continue
+            evaluation = "pugh-matrix" if has_matrix else "none"
+
+        if status is not None and not _VALID_STATUS.match(status):
             rep.error(
                 "ARCH-ADR-STATUS",
                 f"{path.name}: status '{status}' is not one of "
                 f"proposed|accepted|deprecated|superseded by ADR-NNNN",
             )
 
-        evaluation = fm.get("evaluation")
-        if evaluation not in ("pugh-matrix", "none"):
-            rep.error(
-                "ARCH-ADR-EVAL",
-                f"{path.name}: frontmatter 'evaluation' must be 'pugh-matrix' or "
-                f"'none', got {evaluation!r}",
-            )
-            continue
-
-        has_matrix = bool(_MATRIX_MARKER.search(text))
         if evaluation == "pugh-matrix" and not has_matrix:
             rep.error(
                 "ARCH-ADR-EVAL",

@@ -37,7 +37,7 @@ agent_factory/
 │   ├── playbooks/                    # End-to-end flows for common scenarios (bug fix, feature addition, ...)
 │   ├── rulebooks/                    # Cross-cutting conventions: commit format, cross-references, ADR style, ...
 │   ├── scripts/                      # Deterministic gates (*-lint) plus setup tooling (init-factory, mdformat, ...)
-│   ├── config/                       # Templates: AGENTS.md, pre-commit-config.yaml, model-matrix.conf
+│   ├── config/                       # Templates: AGENTS.md, pre-commit-config.yaml, model.conf
 │   └── INDEX.md                      # Generated catalog of every agent and skill — regenerate with index-lint
 ├── orchestrator/                     # Python CLI that drives agent sessions — nested sub-project, not distributed by init-factory
 │   ├── src/                          # CLI source code
@@ -52,7 +52,7 @@ agent_factory/
 │   ├── adr/                          # Whole-repo Architecture Decision Records — own sequence, separate from orchestrator/docs/adr/
 │   ├── reviews/                      # Retrospective and reconciliation reports
 │   └── assets/                       # Diagrams and exported images
-├── config/                           # This project's own copy of model-matrix.conf — diverges from factory/
+├── config/                           # This project's own copy of model.conf — diverges from factory/
 └── README.md
 ```
 

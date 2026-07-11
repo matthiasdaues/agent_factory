@@ -1,6 +1,6 @@
 # 0020. Tier everywhere — story tier replaces classification, model matrix becomes a tier router
 
-**Status**: Accepted — revises [ADR-0018](0018-two-axis-tier-model-resolution.md) (story-side vocabulary only; architecture stands); supersedes the tier-pivot mechanism of [ADR-0009](0009-task-classification-and-tier-pivot-model-matrix.md); resolves [SPEC-0009](../findings/SPEC-0009.md). `model.conf`'s role (seed, not sole source) revised by [ADR-0021](0021-adapter-registry-discovery-and-precedence.md) — its `[policy]` removal here stands.
+**Status**: Accepted — revises [ADR-0018](0018-two-axis-tier-model-resolution.md) (story-side vocabulary only; architecture stands); supersedes the tier-pivot mechanism of [ADR-0009](0009-task-classification-and-tier-pivot-model-matrix.md); resolves [SPEC-0009](../findings/SPEC-0009.md). [ADR-0021](0021-adapter-registry-discovery-and-precedence.md) confirms `model.conf` is read directly at resolution time — its `[policy]` removal here stands unchanged.
 
 ## Context
 

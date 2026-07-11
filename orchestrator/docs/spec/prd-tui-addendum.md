@@ -89,8 +89,8 @@ The following requirements extend the original PRD and formalize the menu-mode c
 - **FR-R8** — When the operator selects `configure > cli > {adapter} > auto-detect`, the system shall query the adapter for available models if that adapter supports discovery; otherwise, the system shall report that the adapter does not support model discovery and shall leave configuration unchanged.
 - **FR-R9** — The system shall expose the model-matrix artifact through `configure > model-matrix > show`, `edit`, and `validate`, reusing the existing `matrix-lint` validation workflow defined by FR-K5.
 - **FR-R10** — The agent registry shall parse an agent's `tier` frontmatter and expose it as first-class metadata to model resolution.
-- **FR-R11** — For `run-step`, the system shall resolve the default model from the selected agent's declared tier and the selected adapter's model dictionary unless `--model` overrides that resolution. If the agent does not declare a tier (`tier` is absent or null), the system shall treat the agent as `standard` tier.
-- **FR-R12** — For `run-phase`, the system shall resolve each orchestrator-invoked agent independently from that agent's declared tier and the selected adapter's model dictionary, preserving FR-K4's halt-on-missing-model behaviour unless configuration explicitly permits adapter-default fallback. During the implementation phase, the `implementation-agent` dispatcher shall select each developer sub-agent's model from the story's `classification` alone, below the adapter boundary (FR-M); developer agents declare no tier, and the classification is the single source of truth for the developer model. The agent-tier axis and the classification axis never combine on one invocation.
+- **FR-R11** — For `run-step`, the system shall resolve the default model from the selected agent's declared tier against `model.conf` for the selected adapter unless `--model` overrides that resolution. If the agent does not declare a tier (`tier` is absent or null), the system shall treat the agent as `standard` tier.
+- **FR-R12** — For `run-phase`, the system shall resolve each orchestrator-invoked agent independently from that agent's declared tier against `model.conf`, preserving FR-K4's halt-on-missing-model behaviour unless configuration explicitly permits adapter-default fallback. During the implementation phase, the `implementation-agent` dispatcher shall select each developer sub-agent's model from the story's own `tier` alone, below the adapter boundary (FR-M); developer agents declare no tier of their own, and the story's `tier` is the single source of truth for the developer model. The agent-tier axis and the story-tier axis never combine on one invocation.
 
 ### FR-S — Skill-scoped execution
 
@@ -113,7 +113,7 @@ The following requirements extend the original PRD and formalize the menu-mode c
 ### FR-U — Backlog views
 
 - **FR-U1** — Menu mode shall expose `backlog > list`, `by-epic`, `ready`, and `view story` as read-only backlog views.
-- **FR-U2** — `backlog > list` shall render every story returned by `MarkdownBacklogStore.list_stories()` with id, title, epic, classification, status, and dependencies.
+- **FR-U2** — `backlog > list` shall render every story returned by `MarkdownBacklogStore.list_stories()` with id, title, epic, tier, status, and dependencies.
 - **FR-U3** — `backlog > by-epic` shall group stories under epic headings while retaining each story's status indicator.
 - **FR-U4** — `backlog > ready` shall render stories whose `status` is `pending` and whose dependencies all refer to stories with `status: done`.
 - **FR-U5** — `backlog > view story` shall present a selectable list of stories and shall display the selected story's full frontmatter and prose body.

@@ -51,7 +51,7 @@ erDiagram
     STORY {
         string id
         string epic
-        string classification
+        string tier
         string status
     }
     GATE_RESULT {
@@ -89,8 +89,8 @@ erDiagram
 - **GATE_RESULT** represents the working-tree verification after an agent exits. `passed` = working tree clean (all artifacts committed, all pre-commit hooks passed inside the agent). `passed=false` with exit code 0 = confabulation (agent claimed success but left uncommitted work) → halt. `passed=false` with non-zero exit = normal failure → RetryOrHalt. `output` carries the list of dirty files for the failure banner (transient — not persisted to `run.json`).
 - **AGENT_INVOCATION** `role` ∈ {author, reviewer}; `auth_error` (BR-018) and `config_error` (BR-020) each drive a halt, distinct from a generic non-zero exit that loops the author.
 - **APPROVAL** exists once per phase and only for an approved or rejected gate. Currently represented implicitly by `PhaseRecord.status` transitions (`awaiting-approval → complete` or `halted`) rather than a materialised `Approval` object — the `Approval`, `Artifact`, and `Iteration` dataclasses are defined in `entities.py` for model completeness but are not yet used by application services.
-- **STORY** is the planning phase's output unit (one `backlog/ST-NNNN.md` file); its `classification` (`trivial | standard | hard`, BR-021) selects the model tier for the implementation invocation that builds it. Full frontmatter schema in [interface-contracts](interface-contracts.md).
-- **AGENT_INVOCATION.model** records the concrete model the invocation ran. At runtime this resolves via the per-adapter **model dictionary** (`AdapterRegistry.ModelDictionary`, ADR-0018), not a run-tracked entity (FR-K). The **model matrix** is the external, operator-curated artifact that maps classification/phase → tier and tier + CLI → model; it populates each adapter's dictionary but is never read directly at resolution time (ADR-0018 sec 3, T-32).
+- **STORY** is the planning phase's output unit (one `backlog/ST-NNNN.md` file); its `tier` (`economy | standard | strong`, BR-021) is the model tier for the implementation invocation that builds it — the same field and vocabulary as agent frontmatter's `tier`. Full frontmatter schema in [interface-contracts](interface-contracts.md).
+- **AGENT_INVOCATION.model** records the concrete model the invocation ran. At runtime this resolves directly against `model.conf`'s `[facts]` for the declared tier (ADR-0020, ADR-0021), not a run-tracked entity (FR-K). The per-adapter **model dictionary** (`AdapterRegistry.ModelDictionary`) is a local, discoverable cache for menu-mode display, populated from `model.conf` on a gap-fill basis — it is not read at resolution time (ADR-0021 sec 3, T-32).
 
 ## TUI Addendum Entities
 
