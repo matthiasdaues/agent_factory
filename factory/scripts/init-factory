@@ -32,14 +32,20 @@ Steps
      CLI's root orientation file: CLAUDE.md, .github/copilot-instructions.md).
      Per path: missing → link it; already the correct symlink → skip;
      anything else → STOP THE WHOLE RUN, name the exact colliding path.
-  7. Symlink factory/config/hooks/block-dangerous-git.sh into
-     --target/.claude/hooks/ and wire it into --target/.claude/settings.json
-     as a PreToolUse/Bash hook. Claude-Code-only, deliberately: PreToolUse
-     hooks are a Claude Code mechanism with no Copilot CLI equivalent today,
-     so --target/.github is not touched by this step. settings.json missing
-     → created. Already wired in → no-op. Exists but doesn't parse as JSON,
-     or its hooks.PreToolUse isn't a list → STOP THE WHOLE RUN, name the
-     exact path, ask the user to wire it in by hand.
+  7. Symlink factory/config/hooks/block-dangerous-git.sh into both
+     --target/.claude/hooks/ and --target/.github/hooks/ — one script,
+     since Claude Code and Copilot CLI's PreToolUse hooks share the same
+     "exit code 2 denies" convention, and the script itself reads
+     whichever CLI's JSON shape arrives on stdin.
+       - Claude Code: wired into --target/.claude/settings.json as a
+         PreToolUse/Bash hook. settings.json missing → created. Already
+         wired in → no-op. Exists but doesn't parse as JSON, or its
+         hooks.PreToolUse isn't a list → STOP THE WHOLE RUN, name the
+         exact path, ask the user to wire it in by hand.
+       - Copilot CLI: factory/config/hooks/block-dangerous-git.json is
+         symlinked to --target/.github/hooks/block-dangerous-git.json.
+         Copilot loads one hook per file under .github/hooks/, so no
+         merge step is needed — same collision-safe symlink as step 6.
   8. Copy (never symlink) factory/config/model.conf to
      --target/config/model.conf, only if that path doesn't exist yet — this
      file is meant to diverge per project, so an existing copy is assumed
@@ -97,7 +103,9 @@ ORIENTATION_FILE = {
 
 # The exact PreToolUse/Bash hook command string that wires the git-safety
 # guardrail into a project's .claude/settings.json.
-GUARDRAIL_HOOK_COMMAND = '"$CLAUDE_PROJECT_DIR"/.claude/hooks/block-dangerous-git.sh'
+CLAUDE_GUARDRAIL_HOOK_COMMAND = (
+    '"$CLAUDE_PROJECT_DIR"/.claude/hooks/block-dangerous-git.sh'
+)
 
 
 class Collision(Exception):
@@ -216,13 +224,16 @@ def symlink_factory_content(target: Path, report: list[str]) -> None:
 
 
 def install_git_guardrail(target: Path, report: list[str]) -> None:
-    """Wire the git-safety PreToolUse hook into --target/.claude only.
-
-    Claude Code's PreToolUse hook mechanism is what makes this possible;
-    Copilot CLI has no equivalent hook point today, so --target/.github is
-    deliberately left untouched here — this is a scope decision, not an
-    oversight.
+    """Wire the shared git-safety PreToolUse hook into both --target/.claude
+    and --target/.github. One script serves both CLIs (see
+    factory/config/hooks/block-dangerous-git.sh); only the wiring differs,
+    since each CLI has its own hook-config shape.
     """
+    _install_claude_guardrail(target, report)
+    _install_copilot_guardrail(target, report)
+
+
+def _install_claude_guardrail(target: Path, report: list[str]) -> None:
     hooks_dir = target / ".claude" / "hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
 
@@ -230,10 +241,23 @@ def install_git_guardrail(target: Path, report: list[str]) -> None:
     dest = target / "factory" / "config" / "hooks" / "block-dangerous-git.sh"
     ensure_symlink(link, dest, report)
 
-    _ensure_guardrail_settings(target, report)
+    _ensure_claude_guardrail_settings(target, report)
 
 
-def _ensure_guardrail_settings(target: Path, report: list[str]) -> None:
+def _install_copilot_guardrail(target: Path, report: list[str]) -> None:
+    hooks_dir = target / ".github" / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+
+    script_link = hooks_dir / "block-dangerous-git.sh"
+    script_dest = target / "factory" / "config" / "hooks" / "block-dangerous-git.sh"
+    ensure_symlink(script_link, script_dest, report)
+
+    config_link = hooks_dir / "block-dangerous-git.json"
+    config_dest = target / "factory" / "config" / "hooks" / "block-dangerous-git.json"
+    ensure_symlink(config_link, config_dest, report)
+
+
+def _ensure_claude_guardrail_settings(target: Path, report: list[str]) -> None:
     path = target / ".claude" / "settings.json"
 
     if not path.exists():
@@ -243,7 +267,10 @@ def _ensure_guardrail_settings(target: Path, report: list[str]) -> None:
                     {
                         "matcher": "Bash",
                         "hooks": [
-                            {"type": "command", "command": GUARDRAIL_HOOK_COMMAND}
+                            {
+                                "type": "command",
+                                "command": CLAUDE_GUARDRAIL_HOOK_COMMAND,
+                            }
                         ],
                     }
                 ]
@@ -259,14 +286,14 @@ def _ensure_guardrail_settings(target: Path, report: list[str]) -> None:
         raise Collision(
             f"{path} exists but isn't valid JSON ({e}) — wire the git-safety "
             "guardrail hook in by hand: a PreToolUse/Bash hook running "
-            f"{GUARDRAIL_HOOK_COMMAND}"
+            f"{CLAUDE_GUARDRAIL_HOOK_COMMAND}"
         )
 
     if not isinstance(settings, dict):
         raise Collision(
             f"{path} exists but its top-level JSON isn't an object — wire the "
             f"git-safety guardrail hook in by hand: a PreToolUse/Bash hook running "
-            f"{GUARDRAIL_HOOK_COMMAND}"
+            f"{CLAUDE_GUARDRAIL_HOOK_COMMAND}"
         )
 
     hooks = settings.setdefault("hooks", {})
@@ -285,7 +312,10 @@ def _ensure_guardrail_settings(target: Path, report: list[str]) -> None:
     for entry in pre_tool_use:
         entry_hooks = entry.get("hooks", []) if isinstance(entry, dict) else []
         for hook in entry_hooks:
-            if isinstance(hook, dict) and hook.get("command") == GUARDRAIL_HOOK_COMMAND:
+            if (
+                isinstance(hook, dict)
+                and hook.get("command") == CLAUDE_GUARDRAIL_HOOK_COMMAND
+            ):
                 log(
                     report,
                     ".claude/settings.json: git-safety guardrail hook already wired in",
@@ -295,7 +325,7 @@ def _ensure_guardrail_settings(target: Path, report: list[str]) -> None:
     pre_tool_use.append(
         {
             "matcher": "Bash",
-            "hooks": [{"type": "command", "command": GUARDRAIL_HOOK_COMMAND}],
+            "hooks": [{"type": "command", "command": CLAUDE_GUARDRAIL_HOOK_COMMAND}],
         }
     )
     path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")

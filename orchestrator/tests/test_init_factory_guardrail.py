@@ -5,13 +5,14 @@ CLI subcommand covered by test_init.py) is an extensionless script, loaded
 here the same way test_transition_lint.py loads transition-lint: via
 importlib against the real file. Each test drives `init_factory.main()`
 against a fresh `tmp_path` target with `--source` pointed at this checkout,
-then inspects the resulting `.claude/hooks/` symlink and `.claude/settings.json`.
+then inspects the resulting `.claude/hooks/`, `.claude/settings.json`,
+`.github/hooks/*.sh`, and `.github/hooks/*.json`.
 
 The hook script's own full pattern coverage (8 block cases, 7 allow cases)
 was already proven manually elsewhere this session — these tests only prove
-the wiring: that init-factory installs the hook and wires it into
-settings.json correctly, idempotently, and without disturbing unrelated
-hook entries already present.
+the wiring: that init-factory installs the same script for both CLIs, wires
+each CLI's own hook-config shape correctly, idempotently, and without
+disturbing unrelated hook entries already present.
 """
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ init_factory = importlib.util.module_from_spec(_spec)
 sys.modules["init_factory"] = init_factory
 _loader.exec_module(init_factory)
 
-GUARDRAIL_COMMAND = init_factory.GUARDRAIL_HOOK_COMMAND
+GUARDRAIL_COMMAND = init_factory.CLAUDE_GUARDRAIL_HOOK_COMMAND
 
 
 def _run_init(target: Path) -> int:
@@ -44,6 +45,14 @@ def _hook_link(target: Path) -> Path:
 
 def _settings(target: Path) -> Path:
     return target / ".claude" / "settings.json"
+
+
+def _copilot_hook_link(target: Path) -> Path:
+    return target / ".github" / "hooks" / "block-dangerous-git.sh"
+
+
+def _copilot_config_link(target: Path) -> Path:
+    return target / ".github" / "hooks" / "block-dangerous-git.json"
 
 
 def _has_guardrail_entry(settings: dict) -> bool:
@@ -79,6 +88,32 @@ class TestFreshTarget:
         settings = json.loads(settings_path.read_text(encoding="utf-8"))
         assert _has_guardrail_entry(settings)
 
+    def test_copilot_hook_and_config_symlinked(self, tmp_path):
+        rc = _run_init(tmp_path)
+        assert rc == 0
+
+        script_link = _copilot_hook_link(tmp_path)
+        assert script_link.is_symlink()
+        assert (
+            script_link.resolve()
+            == (
+                tmp_path / "factory" / "config" / "hooks" / "block-dangerous-git.sh"
+            ).resolve()
+        )
+
+        config_link = _copilot_config_link(tmp_path)
+        assert config_link.is_symlink()
+        resolved_config = config_link.resolve()
+        assert (
+            resolved_config
+            == (
+                tmp_path / "factory" / "config" / "hooks" / "block-dangerous-git.json"
+            ).resolve()
+        )
+
+        config = json.loads(resolved_config.read_text(encoding="utf-8"))
+        assert config["hooks"]["preToolUse"][0]["matcher"] == "bash"
+
 
 class TestHookWiringWorks:
     def test_blocks_dangerous_command(self, tmp_path):
@@ -106,6 +141,34 @@ class TestHookWiringWorks:
         )
         assert result.returncode == 0
 
+    def test_blocks_dangerous_command_via_copilot_json_shape(self, tmp_path):
+        _run_init(tmp_path)
+        link = _copilot_hook_link(tmp_path)
+
+        result = subprocess.run(
+            [str(link)],
+            input='{"toolName":"bash","toolArgs":{"command":"git push origin main"}}',
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 2
+        assert "BLOCKED" in result.stderr
+
+        decision = json.loads(result.stdout)
+        assert decision["permissionDecision"] == "deny"
+
+    def test_allows_harmless_command_via_copilot_json_shape(self, tmp_path):
+        _run_init(tmp_path)
+        link = _copilot_hook_link(tmp_path)
+
+        result = subprocess.run(
+            [str(link)],
+            input='{"toolName":"bash","toolArgs":{"command":"git status"}}',
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+
 
 class TestReRunIsNoop:
     def test_second_run_leaves_symlink_and_settings_unchanged(self, tmp_path):
@@ -113,14 +176,20 @@ class TestReRunIsNoop:
 
         link = _hook_link(tmp_path)
         settings_path = _settings(tmp_path)
+        copilot_link = _copilot_hook_link(tmp_path)
+        copilot_config = _copilot_config_link(tmp_path)
         link_target_before = link.resolve()
         settings_before = settings_path.read_text(encoding="utf-8")
+        copilot_link_target_before = copilot_link.resolve()
+        copilot_config_target_before = copilot_config.resolve()
 
         assert _run_init(tmp_path) == 0
 
         assert link.is_symlink()
         assert link.resolve() == link_target_before
         assert settings_path.read_text(encoding="utf-8") == settings_before
+        assert copilot_link.resolve() == copilot_link_target_before
+        assert copilot_config.resolve() == copilot_config_target_before
 
 
 class TestPreExistingSettingsPreserved:

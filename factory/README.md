@@ -39,7 +39,7 @@ mkdir my-project && cd my-project
 ../agent_factory/factory/scripts/init-factory
 ```
 
-`init-factory` does the rest: it runs `git init` if needed, copies `factory/` into your project, wires it up for your AI CLI, installs a git-safety guardrail hook for Claude Code, and installs the checks as a pre-commit hook. It's a plain script — **it needs no AI to run it**, a shell is enough.
+`init-factory` does the rest: it runs `git init` if needed, copies `factory/` into your project, wires it up for your AI CLI, installs a git-safety guardrail hook for both Claude Code and Copilot CLI, and installs the checks as a pre-commit hook. It's a plain script — **it needs no AI to run it**, a shell is enough.
 
 Check it worked, then commit:
 

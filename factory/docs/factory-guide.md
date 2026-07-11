@@ -93,14 +93,14 @@ Separately, `pre-commit` runs `mdformat` and `ruff` on every commit, formatting 
 
 ## CLI safety guardrails
 
-`init-factory` also installs a Claude Code `PreToolUse` hook, `factory/config/hooks/block-dangerous-git.sh`, that blocks a fixed list of dangerous git invocations before they run. Two groups:
+`init-factory` also installs a `PreToolUse` hook, `factory/config/hooks/block-dangerous-git.sh`, that blocks a fixed list of dangerous git invocations before they run — for both Claude Code and Copilot CLI. Two groups:
 
 - **Commands that discard or overwrite work or history**: `git push`, `git reset --hard`, `git clean -f`/`-fd`, `git branch -D`, `git checkout .`, `git restore .`, and bare `push --force` / `reset --hard` fragments anywhere in a longer command line.
 - **Commands that bypass this repo's own commit gates**: `--no-verify`, `git commit -n`, reassigning `core.hooksPath`, `pre-commit uninstall`, and `SKIP=...` environment overrides on `git commit` or `pre-commit`.
 
-This is Claude-Code-specific: `PreToolUse` hooks aren't a Copilot CLI concept today, so `init-factory` installs nothing equivalent under `.github/`.
+One script serves both CLIs: it reads the shell command from either CLI's `PreToolUse` JSON shape, and both CLIs treat the hook's exit code 2 as "deny."
 
-The hook is installed automatically for every project — not opt-in, not a skill you invoke by hand. `init-factory` symlinks the script into `.claude/hooks/` and wires it into `.claude/settings.json` as a `PreToolUse`/`Bash` hook. Since `.claude/` stays gitignored, this is pure local machine state, re-created fresh by `init-factory` in every clone.
+The hook is installed automatically for every project — not opt-in, not a skill you invoke by hand. `init-factory` symlinks the script into both `.claude/hooks/` and `.github/hooks/`, and wires each CLI's own hook-config shape to it: `.claude/settings.json` as a `PreToolUse`/`Bash` hook for Claude Code, `.github/hooks/block-dangerous-git.json` (`matcher: "bash"`) for Copilot CLI. Since `.claude/` and `.github/` both stay gitignored, this is pure local machine state, re-created fresh by `init-factory` in every clone.
 
 Treat it as a backstop, not a security boundary. It catches an accidental or under-pressure bypass — a background agent routing around a failing gate, for instance — not a determined one. A user with shell access outside the CLI, or anyone who edits the CLI's own configuration, can always route around it.
 
