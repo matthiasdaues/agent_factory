@@ -7,54 +7,63 @@ agents:
     title: Coaching Agent
     phase: 0
     phase_name: Utility
+    tier: standard
     description: Run retrospectives, extract action items, and track process improvements across sessions.
     path: agents/coaching-agent.md
   - name: requirements-agent
     title: Requirements Agent
     phase: 1
     phase_name: Requirements
+    tier: strong
     description: Capture a project vision, clarify requirements through adversarial interview, and produce a complete specification.
     path: agents/requirements-agent.md
   - name: spec-review-agent
     title: Specification Review Agent
     phase: 1
     phase_name: Requirements
+    tier: strong
     description: Review the specification for consistency, completeness, and traceability using spec-lint plus semantic inspection, in a separate session from the author.
     path: agents/spec-review-agent.md
   - name: architecture-agent
     title: Architecture Agent
     phase: 2
     phase_name: Architecture
+    tier: strong
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
   - name: architecture-review-agent
     title: Architecture Review Agent
     phase: 2
     phase_name: Architecture
+    tier: strong
     description: Review architecture against quality attributes using ATAM in a separate session from the architecture author.
     path: agents/architecture-review-agent.md
   - name: planning-agent
     title: Planning Agent
     phase: 3
     phase_name: Planning
+    tier: strong
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
   - name: implementation-agent
     title: Implementation Agent (Dispatcher)
     phase: 4
     phase_name: Implementation
+    tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints. Each subagent implements one story using TDD on its own feature branch. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
   - name: reconciliation-agent
     title: Reconciliation Agent
     phase: 4
     phase_name: Implementation
+    tier: strong
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
   - name: qa-agent
     title: QA Agent
     phase: 5
     phase_name: Quality
+    tier: strong
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
   - name: developer-agent
@@ -163,6 +172,10 @@ skills:
     category: utility
     description: Run a structured session retrospective across five categories. Produces a timestamped report in docs/reviews/.
     path: skills/retrospective/SKILL.md
+  - name: run-step
+    category: utility
+    description: Resolve and run the next agent or playbook step, deciding what "resume" means from observable state (the phase-gate marker, gate results, open findings) rather than a separately persisted execution status.
+    path: skills/run-step/SKILL.md
   - name: scratchpad
     category: utility
     description: Append a quick note to session-scratchpad.md, sectioned by date. Use when the user says "note this down:", "make a note of this:", or invokes "/scratchpad" or "/scratch".
