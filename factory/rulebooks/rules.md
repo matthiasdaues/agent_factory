@@ -13,6 +13,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 ## Foundational principles
 
+- **MUST** write short, precise prose following plain English by Strunk & White, or "Gutes Deutsch" by Wolf Schneider, depending on language. → [foundational-principles.md](conventions/foundational-principles.md)
 - **MUST** keep each skill/agent transmission short and independently verifiable (Eichhorst's Principle). → [foundational-principles.md](conventions/foundational-principles.md)
 - **MUST** build only what the specification requires, in the smallest verified step it allows (YAGNI). → [foundational-principles.md](conventions/foundational-principles.md)
 
