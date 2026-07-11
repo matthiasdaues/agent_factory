@@ -1,0 +1,122 @@
+# UC-08 — Initialize Agent Factory into a Project
+
+Realizes: AG-08
+
+## Primary Actor
+
+Human Operator
+
+## Stakeholders & Interests
+
+- **Human Operator** — wants `factory/`, the guardrail hook, and the gate config wired into a project — new or with its own history — in one idempotent run, and wants to be told exactly what stopped it if something cannot proceed safely.
+- **Existing project files** — want to be left alone; `init-factory` must never overwrite a `.gitignore`, `.pre-commit-config.yaml`, or `config/model.conf` that the project has already customized.
+- **Every other use case in this spec** — depends on `init-factory` having run at least once (see [PRD § Assumptions](../prd.md#7-assumptions)); none of `transition-lint`, `phase advance`/`retry`, `trigger`, or the guardrail hook works without `factory/` and the wiring this use case produces.
+
+## Trigger
+
+The actor runs `factory/scripts/init-factory`, optionally with `--target` and `--source`.
+
+## Preconditions
+
+- None for a brand-new target — `init-factory` creates the directory and initializes git itself if needed.
+- For an existing project, the actor accepts that any collision stops the whole run before touching anything later.
+
+## Main Success Scenario
+
+01. Actor runs `init-factory --target <project-dir>`.
+02. `init-factory` creates the target directory if missing, and runs `git init` if it is not already a repo.
+03. `init-factory` copies `factory/` from the source checkout into the target, since `--target/factory` does not yet exist.
+04. `init-factory` merges the required lines into `--target/.gitignore`, appending only what is missing.
+05. `init-factory` creates `--target/.claude` and `--target/.github` unconditionally.
+06. `init-factory` symlinks `factory/{agents,skills,playbooks,rulebooks,scripts,INDEX.yaml}` and `factory/config/AGENTS.md` into both dot-dirs, and stops at the first path that is not one of "missing" or "already the correct symlink" (BR-021).
+07. `init-factory` symlinks `block-dangerous-git.sh` into both `.claude/hooks/` and `.github/hooks/`, and wires each CLI's own hook-config shape to it — creating `.claude/settings.json` if absent, appending a `PreToolUse`/`Bash` entry if it is absent from an existing one.
+08. `init-factory` copies `config/model.conf` from `factory/config/model.conf`, since `--target/config/model.conf` does not yet exist.
+09. `init-factory` symlinks `.pre-commit-config.yaml` to `factory/config/pre-commit-config.yaml`, since the target has none yet.
+10. `init-factory` runs `uvx pre-commit install`.
+11. `init-factory` exits `0` and reports the target is set up.
+
+## Extensions
+
+- **6a. A destination path exists and is not a symlink to the expected source**
+  - 6a1. `init-factory` raises a `Collision`, prints `STOPPED — <path>` naming the exact path, and exits `1` without touching anything later in the run (BR-021).
+- **8a. `--target/config/model.conf` already exists**
+  - 8a1. `init-factory` leaves it untouched and reports so — the file is meant to diverge per project (BR-022).
+- **9a. `--target/.pre-commit-config.yaml` already exists as a real file (not a symlink)**
+  - 9a1. `init-factory` hands off to `factory/scripts/merge-precommit-config`, which splices Agent Factory's hooks into the existing `repos:` list without disturbing what was already there.
+  - 9a2. If the merge script cannot handle the existing file's structure, `init-factory` raises a `Collision` and exits `1`, naming the path.
+- **3a. `--target/factory` already exists**
+  - 3a1. `init-factory` skips the copy entirely and reports so — refreshing an existing `factory/` is a separate, not-yet-built update script's job, not `init-factory`'s.
+- **7a. `--target/.claude/settings.json` exists but is not valid JSON, or its top-level value is not an object, or `hooks`/`hooks.PreToolUse` is not the expected shape**
+  - 7a1. `init-factory` raises a `Collision`, names the exact path, and asks the actor to wire the guardrail hook in by hand.
+
+## Postconditions
+
+- **Success Guarantee**: on a clean run, `factory/` is present, both dot-dirs are symlinked to it (including the guardrail hook, wired into each CLI's own config shape), `config/model.conf` exists, `.pre-commit-config.yaml` is in place, and `pre-commit` is installed.
+- **Minimal Guarantee**: on any collision, the run stops immediately — nothing later in the step order is left partially applied, and the actor is told the exact colliding path.
+
+## Business Rules
+
+- **BR-021**: `init-factory` stops the entire run at the first step that finds an unexpected file at a destination path — it never partially applies a run past a collision.
+- **BR-022**: `init-factory` never touches `config/model.conf` once it exists — the file is meant to diverge per project.
+- `init-factory` is idempotent: re-running it against an already-initialized target reports "nothing to do" everywhere except the one thing it never diffs (an existing `factory/` directory, per Extension 3a).
+
+## Activity Diagram
+
+```mermaid
+flowchart TD
+    A[init-factory invoked] --> B[Ensure target dir + git repo]
+    B --> C{factory/ already present?}
+    C -->|yes| D[Skip copy, report skipped]
+    C -->|no| E[Copy factory/ from source]
+    D --> F[Merge .gitignore]
+    E --> F
+    F --> G[Create .claude/, .github/]
+    G --> H{every symlink target OK?}
+    H -->|collision| I[STOPPED — name exact path, exit 1 — BR-021]
+    H -->|ok| J[Wire guardrail hook into both CLIs]
+    J --> K{config/model.conf exists?}
+    K -->|yes| L[Leave untouched — BR-022]
+    K -->|no| M[Copy model.conf as starter]
+    L --> N[Handle .pre-commit-config.yaml]
+    M --> N
+    N --> O[uvx pre-commit install]
+    O --> P[Report done, exit 0]
+```
+
+## Acceptance Criteria
+
+```gherkin
+Feature: Initialize Agent Factory into a project
+
+  Scenario: Fresh project is fully wired
+    Given an empty target directory
+    When the actor runs init-factory --target that directory
+    Then factory/ is copied in
+    And .claude/ and .github/ are symlinked to it
+    And the guardrail hook is wired into both CLIs
+    And init-factory exits 0
+
+  Scenario: Existing model.conf is left untouched
+    Given the target already has a customized config/model.conf
+    When the actor runs init-factory
+    Then that file is not modified
+    And init-factory reports it as already present
+
+  Scenario: A real symlink collision stops the run
+    Given .claude/agents already exists as a real directory, not a symlink
+    When the actor runs init-factory
+    Then init-factory reports STOPPED naming .claude/agents
+    And it exits 1
+    And no later step runs
+
+  Scenario: Re-running against an already-initialized target is a clean no-op
+    Given init-factory has already run successfully once
+    When the actor runs init-factory again
+    Then every step reports "already present" or "already linked"
+    And init-factory exits 0
+```
+
+## Referenced from
+
+- [actor-goal-list.md](../actor-goal-list.md)
+- [factory/scripts/init-factory](../../../factory/scripts/init-factory)
