@@ -1,0 +1,245 @@
+#!/usr/bin/env python3
+"""session-reconcile — compare the session log against real git state.
+
+Reads two machine facts and reports where they disagree, with no LLM and no
+prose-parsing (see factory/docs/proposals/session-log-addendum.md § 4):
+
+  1. the session log — every gate run and the tree delta recorded around it
+     (JSON Lines, one file, ``--log``);
+  2. real git state — committed changes over ``--base..--head`` plus the current
+     working tree (``git status --porcelain``).
+
+It flags:
+
+  RECON-UNEXPLAINED  a working-tree change that no logged run's files_changed
+                     and no commit accounts for;
+  RECON-DRIFT        a path a logged run recorded as changed that is now neither
+                     committed nor present in the working tree — the change
+                     silently vanished;
+  RECON-STALE        docs/spec/ changed but spec-lint never ran this session.
+
+Scope (PoC). Full branch-root -> branch-head wiring per
+factory/rulebooks/conventions/branching-policy.md § "Two SHAs Tracked Per
+Invocation" is deferred: this script proves the comparison logic, not the
+orchestrator integration. Pass ``--base <ref>`` to compare committed changes
+over ``<base>..<head>``; omit it to reconcile the working tree alone. Only the
+spec-lint stale check is wired (the one gate this PoC instruments); the
+"ran before the last edit" half of the stale check is also deferred — this
+checks only whether spec-lint ran at all when docs/spec/ changed.
+
+Git commands run in the current working directory. No third-party dependencies
+(Python 3.10+ stdlib only).
+
+Usage
+  session-reconcile [--log .agent-factory/session-log.jsonl]
+                    [--base <ref>] [--head <ref>]
+                    [--format text|json] [--report-only]
+
+Exit code: number of ERROR-severity findings (0 = clean), unless --report-only.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Dict, List, Set, Tuple
+
+SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
+
+DEFAULT_LOG = ".agent-factory/session-log.jsonl"
+SPEC_PREFIX = "docs/spec/"
+
+
+@dataclass
+class Finding:
+    code: str
+    severity: str
+    artifact: str
+    message: str
+
+    def line(self) -> str:
+        return (
+            f"[{self.severity.upper():7}] {self.code}  {self.artifact}: {self.message}"
+        )
+
+
+# --- Fact gathering -----------------------------------------------------------
+
+
+def _git(args: List[str]) -> str:
+    """Run a git command in the cwd; return stdout, or '' on any failure."""
+    try:
+        proc = subprocess.run(
+            ["git", *args], capture_output=True, text=True, check=False
+        )
+    except OSError:
+        return ""
+    return proc.stdout if proc.returncode == 0 else ""
+
+
+def read_log(path: Path) -> Tuple[List[dict], List[Finding]]:
+    """Parse the JSON Lines session log. Returns (runs, parse_findings)."""
+    findings: List[Finding] = []
+    if not path.exists():
+        findings.append(
+            Finding(
+                "RECON-NOLOG",
+                "info",
+                str(path),
+                "session log not found — no logged runs to reconcile against",
+            )
+        )
+        return [], findings
+    runs: List[dict] = []
+    for lineno, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if not raw.strip():
+            continue
+        try:
+            runs.append(json.loads(raw))
+        except json.JSONDecodeError as exc:
+            findings.append(
+                Finding(
+                    "RECON-LOG",
+                    "warning",
+                    str(path),
+                    f"line {lineno}: malformed JSON ({exc.msg})",
+                )
+            )
+    return runs, findings
+
+
+def committed_paths(base: str | None, head: str) -> Set[str]:
+    """Paths changed by commits over base..head (empty when no base given)."""
+    if not base:
+        return set()
+    out = _git(["diff", "--name-only", f"{base}..{head}"])
+    return {ln.strip() for ln in out.splitlines() if ln.strip()}
+
+
+def worktree_status() -> Dict[str, str]:
+    """Return ``{path: XY}`` from ``git status --porcelain``."""
+    out = _git(["status", "--porcelain"])
+    status: Dict[str, str] = {}
+    for line in out.splitlines():
+        if not line.strip():
+            continue
+        code, path = line[:2], line[3:]
+        if " -> " in path:
+            path = path.split(" -> ", 1)[1]
+        status[path.strip('"')] = code
+    return status
+
+
+def logged_paths(runs: List[dict]) -> Set[str]:
+    return {
+        fc["path"]
+        for run in runs
+        for fc in run.get("files_changed", [])
+        if isinstance(fc, dict) and "path" in fc
+    }
+
+
+# --- Reconciliation -----------------------------------------------------------
+
+
+def check_session(log_path: Path, base: str | None, head: str) -> List[Finding]:
+    runs, findings = read_log(log_path)
+
+    logged = logged_paths(runs)
+    committed = committed_paths(base, head)
+    worktree = worktree_status()
+    dirty = set(worktree)
+
+    # Unexplained: a working-tree change no logged run and no commit accounts for.
+    for path in sorted(dirty - logged - committed):
+        findings.append(
+            Finding(
+                "RECON-UNEXPLAINED",
+                "error",
+                path,
+                "working-tree change not accounted for by any logged run or commit",
+            )
+        )
+
+    # Silent drift: a run recorded a change that is now neither committed nor
+    # present in the working tree — the change vanished.
+    for run in runs:
+        script = run.get("script", "?")
+        for fc in run.get("files_changed", []):
+            if not isinstance(fc, dict):
+                continue
+            path = fc.get("path")
+            if path and path not in committed and path not in dirty:
+                findings.append(
+                    Finding(
+                        "RECON-DRIFT",
+                        "warning",
+                        path,
+                        f"{script} logged a change here, but it is neither "
+                        "committed nor present in the working tree now",
+                    )
+                )
+
+    # Stale gate: docs/spec/ changed but spec-lint never ran this session.
+    spec_changed = any(p.startswith(SPEC_PREFIX) for p in (committed | dirty))
+    if spec_changed and not any(run.get("script") == "spec-lint" for run in runs):
+        findings.append(
+            Finding(
+                "RECON-STALE",
+                "warning",
+                "docs/spec",
+                "docs/spec/ changed but spec-lint has no run in the session log",
+            )
+        )
+
+    findings.sort(key=lambda f: (-SEVERITY_ORDER[f.severity], f.code, f.artifact))
+    return findings
+
+
+# --- Driver -------------------------------------------------------------------
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(
+        description="Reconcile the session log against real git state."
+    )
+    p.add_argument("--log", default=DEFAULT_LOG, type=Path, help="session log path")
+    p.add_argument(
+        "--base", default=None, help="branch-root ref (omit for worktree-only)"
+    )
+    p.add_argument("--head", default="HEAD", help="branch-head ref")
+    p.add_argument("--format", choices=["text", "json"], default="text", dest="fmt")
+    p.add_argument(
+        "--report-only",
+        action="store_true",
+        help="always exit 0 (report without gating)",
+    )
+    args = p.parse_args(argv)
+
+    findings = check_session(args.log, args.base, args.head)
+    counts = {s: sum(1 for f in findings if f.severity == s) for s in SEVERITY_ORDER}
+
+    if args.fmt == "json":
+        print(
+            json.dumps(
+                {"findings": [asdict(f) for f in findings], "summary": counts},
+                indent=2,
+            )
+        )
+    else:
+        for f in findings:
+            print(f.line())
+        print(
+            f"\nsession-reconcile: {counts['error']} error(s), "
+            f"{counts['warning']} warning(s), {counts['info']} info."
+        )
+
+    return 0 if args.report_only else counts["error"]
+
+
+if __name__ == "__main__":
+    sys.exit(main())

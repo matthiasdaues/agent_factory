@@ -1,6 +1,6 @@
 # Session Log Addendum
 
-**Status: proposal, not adopted.** Proposes a mechanism; nothing here is built or decided.
+**Status: proposal, not adopted — a proof-of-concept now exists.** The §5 first slice (instrument `spec-lint` only) is built and tested; see [§6 Proof-of-concept](#6-proof-of-concept). The mechanism is still not adopted as a default-on gate: it stays inert unless a session exports `AF_SESSION_LOG`, and no gate other than `spec-lint` is instrumented.
 
 ## Problem
 
@@ -109,6 +109,26 @@ Instrument one gate end to end before touching the rest: **`spec-lint` first.** 
 3. Prove it: run `spec-lint --graph` in a session, confirm one correct JSONL line lands; then run `session-reconcile` against a deliberately false claim and confirm it flags.
 
 Only then roll the same two-line wrap out to the other Python gates (`arch-lint`, `backlog-lint`, `matrix-lint`, `statemachine-lint`, `index-lint`), then the bash scripts via the CLI shim. `init-factory` is one-shot setup, outside any phase loop — instrument it last, or not at all.
+
+## 6. Proof-of-concept
+
+The §5 first slice is built:
+
+- [`factory/scripts/_session_log.py`](../../scripts/_session_log.py) — the `record` context manager and the `AF_SESSION_LOG` gate.
+- [`factory/scripts/spec-lint`](../../scripts/spec-lint) — its `main()` is wrapped (import, call-site wrap, one `set_summary` line).
+- [`factory/scripts/session-reconcile`](../../scripts/session-reconcile) — the reconciliation script.
+- Tests: [`orchestrator/tests/test_session_log.py`](../../../orchestrator/tests/test_session_log.py) and [`orchestrator/tests/test_session_reconcile.py`](../../../orchestrator/tests/test_session_reconcile.py) prove both acceptance scenarios.
+
+One design gap in this addendum had to be closed. The sketch in [§2](#2-where-the-log-lives-and-how-scripts-write-to-it) —
+
+```python
+with session_log.record("spec-lint", argv):
+    return real_main(argv)
+```
+
+cannot capture the exit code: a `return` inside a bare `with` block never passes its value through the context manager, so the record could never learn whether the run was clean. The PoC closes this by having `record()` yield a small `Recorder` whose `.exit_code` the caller assigns through the call itself (`rec.exit_code = main()`), which captures every return path including early error returns. The `summary` block is folded in out-of-band via `set_summary`, a no-op when logging is inactive.
+
+Deferred, as §5 intends: the other Python gates and the bash-script CLI shim; and in `session-reconcile`, the full branch-root -> branch-head range (the PoC takes `--base`/`--head` and falls back to the working tree) and the "gate ran before the last edit" half of the stale check.
 
 ## Referenced from
 
