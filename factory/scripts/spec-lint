@@ -23,11 +23,20 @@
 
 import argparse
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Dict, List, Set
+
+# Session-log helper lives beside this script; ensure it is importable whether
+# spec-lint is run directly or loaded from elsewhere. See
+# factory/docs/proposals/session-log-addendum.md.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+import _session_log  # noqa: E402
 
 SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
 
@@ -572,6 +581,7 @@ def main() -> int:
 
     findings, graph = run(spec, Path(args.context), args.gate_todos)
     counts = {s: sum(1 for f in findings if f.severity == s) for s in SEVERITY_ORDER}
+    _session_log.set_summary(counts)  # folded into the session-log record when active
 
     if args.graph:
         Path(args.graph).write_text(
@@ -603,4 +613,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    with _session_log.record("spec-lint", sys.argv[1:]) as _rec:
+        _rec.exit_code = main()
+    sys.exit(_rec.exit_code if _rec.exit_code is not None else 0)
