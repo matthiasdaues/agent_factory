@@ -61,7 +61,7 @@ A playbook can ship a `.fsm.yml` alongside its `.md` in `factory/playbooks/` —
 
 If the marker file is absent, both tools are no-ops — a project not using the harness sees no behavior change.
 
-See [Structured Playbooks as a Deterministic Harness](proposals/playbook-structured-harness-strategy.md) for the full design rationale and the proof of concept's scope.
+See [Structured Playbooks as a Deterministic Harness](proposals/playbook-structured-harness-strategy.md) for the full design rationale and the proof of concept's scope. The harness now has its own full specification — actors, use cases, entity model, and business rules — at [docs/spec/prd.md](../../docs/spec/prd.md).
 
 ## Rulebooks
 
@@ -170,3 +170,4 @@ Agent Factory targets macOS and Linux only. Both rely on native, git-tracked sym
 ## Referenced from
 
 - [factory/README.md](../README.md)
+- [docs/spec/prd.md § Problem Statement](../../docs/spec/prd.md#1-problem-statement)

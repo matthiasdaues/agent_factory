@@ -20,6 +20,8 @@ requirements ↔ spec-review → architecture ↔ architecture-review → planni
 
 Not every task needs the full chain. See [factory/docs/factory-guide.md § Playbooks](../factory/docs/factory-guide.md#playbooks) for the shorter paths.
 
+`factory/` itself — the state-machine harness, dispatch mechanism, and generated catalog that enforce phase order and cap review loops — has its own specification. See [docs/spec/prd.md](spec/prd.md).
+
 ## Key ideas
 
 - **Semantic anchors** steer the AI toward well-known engineering methods — Cockburn, EARS, ATAM, Fagan, TDD — instead of ad-hoc prompts. Agent Factory is built on [Semantic Anchors — Spec Driven Development](https://llm-coding.github.io/Semantic-Anchors/spec-driven-development) by Ralf D. Müller, adapted for [arc42](https://arc42.org/) architecture documentation and [Structurizr](https://structurizr.com/) DSL.
@@ -56,8 +58,9 @@ agent_factory/
 └── README.md
 ```
 
-`docs/spec/` and `docs/findings/` don't exist at root yet — created lazily, as needed, once `factory/` grows its own spec. See [docs/CONTEXT-MAP.md](CONTEXT-MAP.md).
+`docs/findings/` doesn't exist at root yet — created lazily, as needed. See [docs/CONTEXT-MAP.md](CONTEXT-MAP.md).
 
 ## Referenced from
 
 - [README.md § How it works](../README.md#how-it-works)
+- [docs/spec/prd.md § Problem Statement](spec/prd.md#1-problem-statement)
