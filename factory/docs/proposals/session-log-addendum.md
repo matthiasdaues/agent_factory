@@ -61,7 +61,7 @@ The exit code and args say what ran; they do not say what changed on disk. Two w
 
 ## 4. The reconciliation step
 
-A new deterministic script, `factory/scripts/session-reconcile`, callable exactly the way [`spec-lint`](../factory-guide.md#linting-and-gating) is. It reads two machine facts and compares them: the session log (every run, its exit code, and the tree delta around it), and the phase's real git state (`git diff --name-only` across the phase's commits, plus the current working tree).
+A new deterministic script, `factory/scripts/session-reconcile`, callable exactly the way [`spec-lint`](../factory-guide.md#linting-and-gating) is. It reads two machine facts and compares them: the session log (every run, its exit code, and the tree delta around it), and the phase's real git state — `git diff --name-only` over the invocation's branch-root→branch-head range, per [branching-policy.md § Two SHAs Tracked Per Invocation](../../rulebooks/conventions/branching-policy.md#two-shas-tracked-per-invocation), plus the current working tree.
 
 It flags, with no LLM and no prose-parsing:
 
@@ -72,6 +72,33 @@ It flags, with no LLM and no prose-parsing:
 Its output is a discrepancy report (text, plus `--format json`); blocking discrepancies become findings, filed per [finding-format.md § When to file](../../rulebooks/conventions/finding-format.md#when-to-file).
 
 The agent's *prose* claims — from the phase review report and the commit messages — are the harder half. A deterministic script cannot judge whether "I updated the traceability graph" is true prose. So reconciliation splits: `session-reconcile` establishes the machine facts and their internal contradictions; the **phase reviewer agent** reads that report as evidence and judges the narration against it — the same way it already runs `spec-lint` first at a phase boundary.
+
+## Sequence: one gate run, then reconciliation
+
+```mermaid
+sequenceDiagram
+    participant Ag as Agent
+    participant S as spec-lint (wrapped)
+    participant L as _session_log.py
+    participant Git as git status
+    participant J as session-log.jsonl
+    participant Rv as Reviewer Agent
+    participant R as session-reconcile
+
+    Ag->>S: spec-lint docs/spec --graph
+    S->>L: enter record(script, argv)
+    L->>Git: snapshot before
+    L->>S: run real_main(argv)
+    S-->>L: exit_code, summary
+    L->>Git: snapshot after, diff
+    L->>J: append one JSONL record<br/>(ts, script, argv, exit_code,<br/>files_changed, summary)
+
+    Note over Ag,Rv: phase boundary reached
+    Rv->>R: session-reconcile
+    R->>J: read all runs
+    R->>Git: diff branch-root..branch-head + working tree
+    R-->>Rv: discrepancy report<br/>(unexplained change / stale gate / silent drift)
+```
 
 ## 5. Migration path
 

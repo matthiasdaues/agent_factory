@@ -23,7 +23,7 @@ A new pre-commit hook, `transition-lint`:
 2. Maps each staged file to the state that declares it, via the `outputs:` globs already in the `.fsm.yml`.
 3. Blocks the commit if a staged file belongs to a state that is neither current nor a legal, entry-condition-satisfied successor — naming the offending path.
 
-A human advances the marker with one command, `factory/scripts/phase advance` (subcommand style, like `structurizr validate`) — or the phase's reviewer agent triggers it as its last workflow step. The hook fires on every `git commit`; no daemon, no running process.
+A human advances the marker with one command, `factory/scripts/phase advance` (subcommand style, like `structurizr validate`) — or the phase's reviewer agent triggers it as its last workflow step. `phase advance` checks the target state's `entry_conditions` in `.fsm.yml` before writing — the same check `transition-lint` runs against staged files — and refuses if they are unmet. Without this, hand-editing the marker past a failing gate would defeat the whole scheme. The hook fires on every `git commit`; no daemon, no running process.
 
 The existing gates are untouched: `transition-lint` governs ordering *between* phases, `spec-lint` and friends govern validity *within* one.
 
@@ -53,6 +53,38 @@ recorded_at: 2026-07-11T14:32:07Z   # from `phase advance`'s own process clock �
 The prose `## Handoff` sentence stays; it is for the human. The marker is a small machine-readable byproduct, not a replacement.
 
 Because the marker is git-ignored, it carries no audit trail in git history. That is a deliberate YAGNI trade-off, not an oversight — track it explicitly later if a history of transitions turns out to matter.
+
+## Sequence: one phase transition
+
+```mermaid
+sequenceDiagram
+    participant A as Agent/Human
+    participant G as git commit
+    participant T as transition-lint
+    participant M as playbook-state.yml
+    participant P as phase advance
+    participant F as docs/findings/*.md
+
+    A->>G: stage files, commit
+    G->>T: pre-commit hook fires
+    T->>M: read current state
+    T->>T: map staged files to states via .fsm.yml outputs
+    alt illegal transition
+        T-->>G: block, name path + state
+    else legal
+        T-->>G: allow commit
+    end
+
+    Note over A,P: phase boundary reached
+    A->>P: phase advance
+    P->>F: count status: open
+    P->>P: check next state's entry_conditions
+    alt entry conditions unmet
+        P-->>A: refuse — gate not satisfied
+    else satisfied
+        P->>M: write state, gate, result,<br/>open_findings, next, recorded_at (own clock)
+    end
+```
 
 ## 3. What changes, and the smallest first step
 
