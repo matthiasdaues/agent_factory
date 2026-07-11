@@ -13,18 +13,7 @@ Canonical statement: [rules.md § State machine notation](../rules.md#state-mach
 
 ### Required Structure
 
-```
-State: STATE_NAME          — declare a state; all following actions belong to it
-On EventName:              — event trigger
-  if condition             — guard (plain English or domain predicate)
-    ChangeState(TARGET)    — explicit transition to TARGET
-  else
-    ChangeState(OTHER)
-
-SetHaltedFrom(X)           — record X as a possible RestoreState target
-RestoreState(var)          — dynamic transition to any state recorded by SetHaltedFrom
-RejectCommand("reason")    — refuse the event with a diagnostic
-```
+Skeleton: [state-machine.md template](../templates/state-machine.md).
 
 ## Rules
 
@@ -99,3 +88,10 @@ stateDiagram-v2
 
 - Enforcement: `factory/scripts/statemachine-lint`
 - Hook: `.git/hooks/pre-commit` (if configured)
+
+## Referenced from
+
+- [rules.md § State machine notation](../rules.md#state-machine-notation)
+- [architecture-agent.md § Workflow](../../agents/architecture-agent.md#workflow)
+- [maintain-architecture § Step 5 — Maintain state machine pseudocode](../../skills/maintain-architecture/SKILL.md#step-5-maintain-state-machine-pseudocode)
+- [brownfield-onboarding § Step 2.2 — Document State Machines](../../playbooks/brownfield-onboarding.md#step-22-document-state-machines)
