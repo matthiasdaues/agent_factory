@@ -1,104 +1,67 @@
 # Factory
 
-`factory/` is Agent Factory's canonical content — agents, skills, playbooks, rulebooks, and deterministic gate scripts — used as a pluggable, agent-driven tool in a project folder. It is copied wholesale into a project by `init-factory` and never hand-edited there; the copy in your project and the source here stay in sync by re-running `init-factory`, not by editing the copy.
+`factory/` is the Agent Factory toolset itself — agents, skills, playbooks, and checks. `init-factory` copies it wholesale into your own project. You never hand-edit the copy; you re-run `init-factory` to update it.
 
-See the [root README](../README.md) for what Agent Factory is and its prerequisites. This file covers installing and using `factory/` itself.
+This page gets you from zero to a running first playbook. For what agents, skills, playbooks, and rulebooks actually are, and how the checks work, see the [factory guide](docs/factory-guide.md).
 
-## Deterministic Gates
+## Prerequisites
 
-In manual mode, the review agents invoke these linters directly, as their first step.
+You need five tools. Skip any line you already have.
 
-| Gate                           | Fires at                        | What it checks                                                                                                                      |
-| ------------------------------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `factory/scripts/spec-lint`    | Phase 1 → 2 boundary            | Use-case coverage, traceability links between PRD → actor-goals → use cases → supplementary specs, ID uniqueness, required sections |
-| `factory/scripts/arch-lint`    | Phase 2 → 3 boundary            | arc42 chapters exist and cross-reference the Structurizr DSL, ADR index consistency, diagram file references                        |
-| `factory/scripts/backlog-lint` | Phase 3 → 4 boundary            | YAML frontmatter schema, dependency graph acyclicity, priority and status values                                                    |
-| `factory/scripts/matrix-lint`  | `config/model-matrix.conf` edit | `config/model-matrix.conf` syntax, required fields, valid tier/model mappings                                                       |
+| Tool                 | What it does                                        | Install                                                                                                                                                                     |
+| -------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Git**              | Version control                                     | macOS: `xcode-select --install`. Linux: `sudo apt install git` (Debian/Ubuntu) or `sudo dnf install git` (Fedora).                                                          |
+| **Python ≥ 3.10**    | Runs the check scripts and the init script          | macOS: `brew install python@3.12`. Linux: `sudo apt install python3.12` or equivalent.                                                                                      |
+| **uv**               | Runs `mdformat`, `ruff`, and `pre-commit` on demand | `curl -LsSf https://astral.sh/uv/install.sh \| sh` ([docs](https://docs.astral.sh/uv/))                                                                                     |
+| **Docker**           | Renders architecture diagrams (optional)            | [Install Docker](https://docs.docker.com/get-docker/)                                                                                                                       |
+| **An AI coding CLI** | Runs the agents and skills                          | e.g. [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`npm install -g @anthropic-ai/claude-code`) or [GitHub Copilot CLI](https://docs.github.com/en/copilot) |
 
-These scripts live in `factory/scripts/`. They are stdlib-only Python and run standalone:
+You do not need to separately install `ruff`, `mdformat`, or `pre-commit` — every check and hook runs them through `uvx`.
+
+Verify you're ready:
 
 ```bash
-factory/scripts/spec-lint docs/spec/
-factory/scripts/arch-lint --docs-dir docs/
-factory/scripts/backlog-lint backlog/
-factory/scripts/matrix-lint config/model-matrix.conf
+git --version      # ≥ 2.x
+python3 --version  # ≥ 3.10
+uvx --version       # bundled with uv
 ```
 
-## Quick Start
-
-This sets up a brand-new project from scratch.
+## Quick start
 
 ```bash
 # 1. Clone Agent Factory somewhere on disk. You only do this once per machine.
 git clone <agent-factory-repo-url> agent_factory
 
-# 2. Create your project directory (or use one you already made).
+# 2. Create your project directory (or use one you already have).
 mkdir my-project && cd my-project
 
 # 3. Run the init script against it.
 ../agent_factory/factory/scripts/init-factory
 ```
 
-`init-factory` does the rest of the work: it runs `git init` if needed, copies `factory/` into your project, symlinks its content into `.claude/` and `.github/`, copies `config/model-matrix.conf` in as an editable starter, wires up `.pre-commit-config.yaml`, and runs `pre-commit install`. It is a plain, standalone Python script. **It needs no AI to run it** — a shell is enough.
+`init-factory` does the rest: it runs `git init` if needed, copies `factory/` into your project, wires it up for your AI CLI, and installs the checks as a pre-commit hook. It's a plain script — **it needs no AI to run it**, a shell is enough.
 
-Check it worked:
+Check it worked, then commit:
 
 ```bash
 git status                        # .pre-commit-config.yaml and config/ are now untracked, ready to commit
 git add -A && git commit -m "init: wire up Agent Factory"
 ```
 
-The first commit may modify a few files (`mdformat`/`ruff` auto-fixing formatting). If it does, re-stage and commit again — see [Troubleshooting](#troubleshooting).
+If the first commit modifies a few files, that's `mdformat`/`ruff` auto-fixing formatting — re-stage and commit again.
 
-Open your AI coding CLI in `my-project` and greet it. It should read `.claude/CLAUDE.md` (or `.github/copilot-instructions.md`) and confirm it understands the local-first rule.
+Now open your AI coding CLI in `my-project` and greet it. It should read `.claude/CLAUDE.md` (or `.github/copilot-instructions.md`) and confirm it understands the local-first rule.
 
-### Next steps — run the workflow
+## Your first playbook
 
-Once the CLI greets you, pick the runbook in `factory/playbooks/` that matches your situation (`greenfield-development.md` for a new project, `brownfield-onboarding.md` for an existing one, `feature-addition.md`, `bug-fix.md`, and so on). Each playbook walks the phase chain — requirements → spec-review → architecture → architecture-review → planning → implementation → reconciliation → qa — step by step, for manual, one-agent-per-session use. An automated CLI wrapper for this same chain exists too, still a work in progress — see [orchestrator/README.md](../orchestrator/README.md).
+Once the CLI greets you, pick a playbook from `factory/playbooks/` — a step-by-step recipe for your situation. If this is your first time, try [`poc-spike.md`](playbooks/poc-spike.md): no spec, no architecture, no checks, just one idea turned into something you can run in minutes. It's the fastest way to see an agent and the CLI work together before committing to a real project.
 
-## Use in an Already Existing Repo
+For every other situation — a new project, an existing codebase, a bug, a feature — see the [factory guide § Playbooks](docs/factory-guide.md#playbooks) for which one fits.
 
-`init-factory` works the same way against a repo that already has its own history, its own `.gitignore`, and its own `.pre-commit-config.yaml`. Run it from inside that repo:
+## Using this in an existing repo
 
-```bash
-cd /path/to/existing-project
-/path/to/agent_factory/factory/scripts/init-factory
-```
-
-What it does differently here, compared to a fresh project:
-
-- **`.gitignore`** — appends only the lines Agent Factory needs (`.claude`, `.github`, and so on). It never rewrites or duplicates what is already there.
-- **`.pre-commit-config.yaml`** — if the file does not exist, it is symlinked in, exactly as in a fresh project. If it already exists as a real file, `init-factory` hands off to `factory/scripts/merge-precommit-config`, which splices Agent Factory's hooks into your existing `repos:` list. Your existing hooks are left untouched.
-- **Everything else** — `docs/`, your own scripts, your own configuration — is left alone. `init-factory` never touches a file or directory it did not create.
-
-The script is idempotent. Run it again at any time; anything already correctly in place is skipped, not redone. If it finds something it cannot safely work around — a real file already sitting where a symlink needs to go, or a `.pre-commit-config.yaml` shape it does not recognize — it stops immediately and names the exact path. It never partially applies a run.
-
-To trigger the same script conversationally instead of from a shell, use the `init-factory` skill (`factory/skills/init-factory/SKILL.md`). It confirms the target with you, runs the script, and relays its output. On the very first run in a project, there is no installed skill yet to call by name — point the CLI at the file directly: "read `factory/skills/init-factory/SKILL.md` in the agent_factory checkout and follow it."
+`init-factory` works the same way against a repo that already has its own history and its own `.pre-commit-config.yaml` — run it from inside that repo. It only adds what Agent Factory needs; it never rewrites or removes anything already there. Details, including what to do if it can't merge your existing `.pre-commit-config.yaml`, are in the [factory guide § Using this in an existing repo](docs/factory-guide.md#using-this-in-an-existing-repo).
 
 ## Troubleshooting
 
-**`init-factory: STOPPED — <path> already exists and is not a symlink to <dest>`**
-Something real is already at that path — not one of Agent Factory's own symlinks. Move, rename, or remove it, then re-run `init-factory`. The script never overwrites a file it does not recognize as its own.
-
-**`merge-precommit-config` reports it cannot merge your `.pre-commit-config.yaml`**
-This happens when the file has no top-level `repos:` list in block style, or when its existing hooks are indented differently than 2 spaces. Merge Agent Factory's hooks in by hand: copy the `- repo: local` block from `factory/config/pre-commit-config.yaml` into your own file's `repos:` list.
-
-**`uvx: command not found`**
-Install `uv` — see the [root README's Prerequisites](../README.md#prerequisites). Every gate, and `pre-commit` itself, runs through `uvx`.
-
-**`docker info` fails, or Structurizr export fails**
-Start Docker Desktop (macOS) or the Docker daemon (Linux). This only blocks diagram export (`factory/scripts/structurizr`) — nothing else in Agent Factory needs Docker.
-
-**Your first commit fails, or modifies files you did not touch**
-Expected. The `mdformat` and `ruff` hooks auto-fix formatting on commit. Re-stage the files they changed and commit again:
-
-```bash
-git add -u
-git commit -m "<same message>"
-```
-
-**`factory/` looks out of date after you update the agent_factory checkout**
-`init-factory` only copies `factory/` in once — if it already exists in your project, it is left alone. There is no update script yet. For now, delete your project's `factory/` directory and re-run `init-factory` to refresh it.
-
-**Symlinks do not work on Windows**
-Agent Factory targets macOS and Linux only. Both rely on native, git-tracked symlinks (`git` stores a symlink as a blob of mode `120000`), which Windows does not support the same way.
+See the [factory guide § Troubleshooting](docs/factory-guide.md#troubleshooting) for fixes to the errors you're most likely to hit during setup.
