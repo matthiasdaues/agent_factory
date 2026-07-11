@@ -15,9 +15,7 @@ from orchestrator.entities import (
 @pytest.mark.parametrize(
     ("argv", "command"),
     [
-        (["run-phase", "requirements"], "run-phase"),
         (["status"], "status"),
-        (["resume"], "resume"),
         (["abort"], "abort"),
         (["release"], "release"),
         (["approve"], "approve"),
@@ -30,37 +28,11 @@ def test_parser_recognizes_all_subcommands(argv: list[str], command: str) -> Non
     assert args.command == command
 
 
-def test_model_flag_is_captured() -> None:
-    args = build_parser().parse_args(
-        ["--model", "gpt-5.4", "run-phase", "requirements"]
-    )
-
-    assert args.model == "gpt-5.4"
-
-
-def test_cap_flag_is_captured() -> None:
-    args = build_parser().parse_args(["--cap", "5", "run-phase", "requirements"])
-
-    assert args.cap == 5
-
-
 def test_unknown_subcommand_fails() -> None:
     with pytest.raises(SystemExit) as excinfo:
         build_parser().parse_args(["unknown-command"])
 
     assert excinfo.value.code != 0
-
-
-def test_no_interactive_flag_is_captured() -> None:
-    args = build_parser().parse_args(["--no-interactive", "run-phase", "requirements"])
-
-    assert args.no_interactive is True
-
-
-def test_no_interactive_flag_defaults_to_false() -> None:
-    args = build_parser().parse_args(["run-phase", "requirements"])
-
-    assert args.no_interactive is False
 
 
 def test_init_subcommand_accepted() -> None:
@@ -316,9 +288,9 @@ class TestReleaseHandler:
 
         assert rc == 0
         captured = capsys.readouterr()
-        assert (
-            captured.out.strip()
-            == "Released phase 'requirements' back to gating. Run `resume` to continue."
+        assert captured.out.strip() == (
+            "Released phase 'requirements' back to gating. "
+            "Continue the phase with the factory scripts."
         )
         stored = JsonRunStateStore(orch_dir).load()
         assert stored is not None

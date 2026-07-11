@@ -23,16 +23,12 @@ interactive terminal, no `sleep`, no flakiness.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 from orchestrator import cli
-from orchestrator.adapters.adapter_registry import TomlAdapterRegistry
-from orchestrator.adapters.config_store import TomlConfigStore
 from orchestrator.adapters.menu_renderer import ScriptedByteReader, TerminalMenuRenderer
 from orchestrator.adapters.run_state_store import FileRunLock, JsonRunStateStore
 from orchestrator.entities import (
-    Config,
     GateResult,
     PhaseRecord,
     PhaseStatus,
@@ -307,76 +303,3 @@ class TestNavigationPurity:
         assert not (tmp_path / ".orchestrator" / "run.json").exists()
         assert not (tmp_path / ".orchestrator" / "log.jsonl").exists()
         assert not (tmp_path / ".orchestrator" / "run.lock").exists()
-
-
-# ---------------------------------------------------------------------------
-# QS-20: settings precedence across modes.
-#
-# tests/test_settings_resolver.py already unit-tests SettingsResolver's
-# four-layer precedence in complete isolation (a fake ConfigStore, direct
-# resolve() calls). What it explicitly does NOT cover — and what this story
-# exists to catch — is whether cli.py's real code paths ever actually CALL
-# SettingsResolver with the right ConfigStore/cli_flag values. They did not:
-# see backlog/ST-0058.md's Analysis for the cross-cutting bug found and
-# fixed while writing this suite (SettingsResolver was dead code; direct
-# mode's --adapter/--cap/--timeout argparse defaults silently shadowed
-# every persisted config.toml default, and menu-mode's run-step leaf
-# inherited the same gap for cap/timeout). These tests pin the fix.
-# ---------------------------------------------------------------------------
-
-
-class TestSettingsPrecedenceAcrossModes:
-    def test_persisted_defaults_flow_into_direct_mode_without_cli_flags(
-        self, monkeypatch, tmp_path
-    ) -> None:
-        """Regression test for the bug this story found: a persisted
-        cap/timeout/adapter must be the effective value for a direct-mode
-        invocation that supplies none of `--cap`/`--timeout`/`--adapter`."""
-        monkeypatch.chdir(tmp_path)
-        _write_model_matrix(tmp_path)
-        orch_dir = tmp_path / ".orchestrator"
-        TomlConfigStore(orch_dir).save(Config(cap=7, timeout=555, adapter="copilot"))
-        TomlAdapterRegistry(orch_dir).register("copilot", sys.executable)
-
-        args = cli.build_parser().parse_args(["run-phase", "requirements"])
-        cli._resolve_interactive(args)
-        runtime = cli._build_runtime(args, story_tier=None)
-
-        assert runtime.cap == 7
-        assert runtime.timeout_s == 555
-        assert runtime.adapter_name == "copilot"
-
-    def test_cli_flag_overrides_persisted_default_in_direct_mode(
-        self, monkeypatch, tmp_path
-    ) -> None:
-        monkeypatch.chdir(tmp_path)
-        _write_model_matrix(tmp_path)
-        orch_dir = tmp_path / ".orchestrator"
-        TomlConfigStore(orch_dir).save(Config(cap=7, timeout=555, adapter="copilot"))
-        TomlAdapterRegistry(orch_dir).register("copilot", sys.executable)
-
-        args = cli.build_parser().parse_args(
-            ["--cap", "2", "--timeout", "60", "run-phase", "requirements"]
-        )
-        cli._resolve_interactive(args)
-        runtime = cli._build_runtime(args, story_tier=None)
-
-        assert runtime.cap == 2
-        assert runtime.timeout_s == 60
-
-    def test_builtin_default_used_when_neither_persisted_nor_flag_present(
-        self, monkeypatch, tmp_path
-    ) -> None:
-        monkeypatch.chdir(tmp_path)
-        _write_model_matrix(tmp_path)
-        TomlAdapterRegistry(tmp_path / ".orchestrator").register(
-            "copilot", sys.executable
-        )
-
-        args = cli.build_parser().parse_args(["run-phase", "requirements"])
-        cli._resolve_interactive(args)
-        runtime = cli._build_runtime(args, story_tier=None)
-
-        assert runtime.cap == 3
-        assert runtime.timeout_s == 1800
-        assert runtime.adapter_name == "copilot"

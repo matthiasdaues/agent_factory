@@ -10,7 +10,6 @@ from orchestrator.cli import (
     main,
     _tooling_root,
     _CLI_INSTRUCTION_FILES,
-    _update_instruction_file,
 )
 
 
@@ -241,28 +240,3 @@ class TestToolingVersion:
         # We're running inside agent_hq which is a git repo
         assert ver is not None
         assert len(ver) > 0
-
-
-class TestUpdateInstructionFile:
-    def test_updates_existing_copilot_instruction_file(self, git_dir):
-        path = git_dir / ".github" / "copilot-instructions.md"
-        path.parent.mkdir(parents=True)
-        path.write_text("# old content\n")
-        _update_instruction_file(git_dir, "architecture-agent", ["arc42", "grill-me"])
-        content = path.read_text()
-        assert "architecture-agent" in content
-        assert "skills/arc42/" in content
-        assert "skills/grill-me/" in content
-        assert "## Do Not Read" in content
-
-    def test_updates_codex_instruction_file(self, git_dir):
-        path = git_dir / "AGENTS.md"
-        path.write_text("# old\n")
-        _update_instruction_file(git_dir, "planning-agent", [])
-        content = path.read_text()
-        assert "planning-agent" in content
-        assert "(none declared)" in content
-
-    def test_noop_when_no_instruction_file_exists(self, git_dir):
-        # Should not crash, just no-op
-        _update_instruction_file(git_dir, "requirements-agent", ["capture-vision"])

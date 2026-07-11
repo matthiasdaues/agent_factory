@@ -149,7 +149,6 @@ class TestBuildRootDispatch:
         defaults = dict(
             status_service=object(),
             backlog_store=object(),
-            build_runtime=lambda: (_ for _ in ()).throw(AssertionError("unused")),
             config_store=object(),
             adapter_registry=object(),
             matrix_path=Path("unused-model-matrix.conf"),
@@ -170,7 +169,7 @@ class TestBuildRootDispatch:
         monkeypatch.setattr(
             cli,
             "build_manage_run_dispatch",
-            lambda build_runtime: lambda node: DispatchOutcome(),
+            lambda: lambda node: DispatchOutcome(),
         )
         hook = cli.build_root_dispatch(**self._hook())
         node = MenuNode(
@@ -199,7 +198,7 @@ class TestBuildRootDispatch:
         monkeypatch.setattr(
             cli,
             "build_manage_run_dispatch",
-            lambda build_runtime: lambda node: DispatchOutcome(),
+            lambda: lambda node: DispatchOutcome(),
         )
         hook = cli.build_root_dispatch(**self._hook())
         node = MenuNode(id="backlog.list", label="list", type=MenuNodeType.DISPLAY)
@@ -222,7 +221,7 @@ class TestBuildRootDispatch:
         monkeypatch.setattr(
             cli,
             "build_manage_run_dispatch",
-            lambda build_runtime: (
+            lambda: (
                 lambda node: seen.append(node) or DispatchOutcome(long_running=True)
             ),
         )
@@ -249,7 +248,7 @@ class TestBuildRootDispatch:
         monkeypatch.setattr(
             cli,
             "build_manage_run_dispatch",
-            lambda build_runtime: lambda node: DispatchOutcome(),
+            lambda: lambda node: DispatchOutcome(),
         )
         monkeypatch.setattr(
             cli,
@@ -288,7 +287,7 @@ class TestBuildRootDispatch:
         monkeypatch.setattr(
             cli,
             "build_manage_run_dispatch",
-            lambda build_runtime: lambda node: DispatchOutcome(),
+            lambda: lambda node: DispatchOutcome(),
         )
         monkeypatch.setattr(
             cli,
@@ -332,7 +331,7 @@ class TestBuildRootDispatch:
         monkeypatch.setattr(
             cli,
             "build_manage_run_dispatch",
-            lambda build_runtime: lambda node: DispatchOutcome(),
+            lambda: lambda node: DispatchOutcome(),
         )
         hook = cli.build_root_dispatch(**self._hook())
         node = MenuNode(
@@ -355,7 +354,7 @@ class TestBuildRootDispatch:
             cli, "build_backlog_dispatch", lambda store: lambda node: DispatchOutcome()
         )
 
-        def _raising(build_runtime):
+        def _raising():
             def _dispatch(node):
                 raise RuntimeError("boom")
 
@@ -438,10 +437,6 @@ def _make_halted_run(*, halted_from: PhaseStatus | None = PhaseStatus.GATING) ->
     )
 
 
-def _unused_runtime_factory():
-    raise AssertionError("resume-only factory must not be called for other leaves")
-
-
 class TestManageRunDispatchAbort:
     def test_abort_matches_direct_mode(self, monkeypatch, tmp_path, capsys) -> None:
         from orchestrator.adapters.run_state_store import FileRunLock, JsonRunStateStore
@@ -452,7 +447,7 @@ class TestManageRunDispatchAbort:
         JsonRunStateStore(orch_dir).save(run)
         FileRunLock(orch_dir).acquire(run.run_id)
 
-        dispatch = cli.build_manage_run_dispatch(_unused_runtime_factory)
+        dispatch = cli.build_manage_run_dispatch()
         node = MenuNode(
             id="manage-run.abort", label="abort", type=MenuNodeType.FUNCTION
         )
@@ -477,7 +472,7 @@ class TestManageRunDispatchRelease:
         JsonRunStateStore(orch_dir).save(run)
         FileRunLock(orch_dir).acquire(run.run_id)
 
-        dispatch = cli.build_manage_run_dispatch(_unused_runtime_factory)
+        dispatch = cli.build_manage_run_dispatch()
         node = MenuNode(
             id="manage-run.release", label="release", type=MenuNodeType.FUNCTION
         )
@@ -508,7 +503,7 @@ class TestManageRunDispatchApproveReject:
         )
         _write_run_json(orch_dir, run)
 
-        dispatch = cli.build_manage_run_dispatch(_unused_runtime_factory)
+        dispatch = cli.build_manage_run_dispatch()
         node = MenuNode(
             id="manage-run.approve", label="approve", type=MenuNodeType.FUNCTION
         )
@@ -529,7 +524,7 @@ class TestManageRunDispatchApproveReject:
         (tmp_path / "agents").mkdir()
         _write_run_json(orch_dir, _make_paused_run())
 
-        dispatch = cli.build_manage_run_dispatch(_unused_runtime_factory)
+        dispatch = cli.build_manage_run_dispatch()
         node = MenuNode(
             id="manage-run.reject", label="reject", type=MenuNodeType.FUNCTION
         )
@@ -546,7 +541,7 @@ class TestManageRunDispatchApproveReject:
 
     def test_no_active_run_does_not_crash(self, monkeypatch, tmp_path) -> None:
         monkeypatch.chdir(tmp_path)
-        dispatch = cli.build_manage_run_dispatch(_unused_runtime_factory)
+        dispatch = cli.build_manage_run_dispatch()
         node = MenuNode(
             id="manage-run.approve", label="approve", type=MenuNodeType.FUNCTION
         )
@@ -554,136 +549,3 @@ class TestManageRunDispatchApproveReject:
         outcome = dispatch(node)  # must not raise
 
         assert outcome.long_running is False
-
-
-class TestManageRunDispatchResume:
-    def test_resume_is_long_running_and_calls_handle_resume(
-        self, monkeypatch, tmp_path
-    ) -> None:
-        """FR-V3/FR-P7: resume is a long-running leaf — it must exit the TUI
-        (long_running=True) and reach `_handle_resume`, the exact function
-        direct-mode `orchestrate resume` calls."""
-        from orchestrator.adapters.run_state_store import JsonRunStateStore
-
-        monkeypatch.chdir(tmp_path)
-        orch_dir = tmp_path / ".orchestrator"
-        run_store = JsonRunStateStore(orch_dir)
-        run = _make_paused_run()
-        run_store.save(run)
-
-        calls = []
-
-        def _fake_handle_resume(runtime, run, args):
-            calls.append((runtime, run))
-            return 0
-
-        monkeypatch.setattr(cli, "_handle_resume", _fake_handle_resume)
-        monkeypatch.setattr(cli, "_ensure_run_branch", lambda repo_root, branch: None)
-
-        fake_runtime = cli._Runtime(
-            repo_root=tmp_path,
-            orch_dir=orch_dir,
-            agents_dir=tmp_path / "agents",
-            run_store=run_store,
-            run_lock=type(
-                "L",
-                (),
-                {"acquire": lambda self, rid: None, "release": lambda self: None},
-            )(),
-            approval_service=None,
-            status_service=None,
-            phase_runner=None,
-            prompt_composer=None,
-            adapter=None,
-            agent_registry=None,
-            logger=None,
-        )
-
-        dispatch = cli.build_manage_run_dispatch(lambda: fake_runtime)
-        node = MenuNode(
-            id="manage-run.resume", label="resume", type=MenuNodeType.FUNCTION
-        )
-
-        outcome = dispatch(node)
-
-        assert outcome.long_running is True
-        assert len(calls) == 1
-        assert calls[0][0] is fake_runtime
-        assert calls[0][1].run_id == run.run_id
-
-    def test_resume_no_active_run_does_not_build_runtime_further(
-        self, monkeypatch, tmp_path
-    ) -> None:
-        monkeypatch.chdir(tmp_path)
-
-        called = []
-
-        def _factory():
-            called.append(True)
-            from orchestrator.adapters.run_state_store import JsonRunStateStore
-
-            return cli._Runtime(
-                repo_root=tmp_path,
-                orch_dir=tmp_path / ".orchestrator",
-                agents_dir=tmp_path / "agents",
-                run_store=JsonRunStateStore(tmp_path / ".orchestrator"),
-                run_lock=None,
-                approval_service=None,
-                status_service=None,
-                phase_runner=None,
-                prompt_composer=None,
-                adapter=None,
-                agent_registry=None,
-                logger=None,
-            )
-
-        dispatch = cli.build_manage_run_dispatch(_factory)
-        node = MenuNode(
-            id="manage-run.resume", label="resume", type=MenuNodeType.FUNCTION
-        )
-
-        outcome = dispatch(node)  # must not raise even with no active run
-
-        assert outcome.long_running is True
-        assert called == [True]
-
-
-# ---------------------------------------------------------------------------
-# Incidental bugfix: args.interactive must exist before _build_runtime reads
-# it (found while wiring manage-run.resume; see ST-0040.md Analysis).
-# ---------------------------------------------------------------------------
-
-
-class TestInteractiveFlagResolution:
-    def test_args_interactive_is_set_before_build_runtime(self, monkeypatch) -> None:
-        parser = cli.build_parser()
-        args = parser.parse_args(["run-phase", "requirements"])
-        assert not hasattr(args, "interactive")
-
-        monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
-        monkeypatch.setattr(cli.sys.stdout, "isatty", lambda: True)
-        cli._resolve_interactive(args)
-
-        assert args.interactive is True
-
-    def test_no_interactive_flag_forces_headless_even_on_a_tty(
-        self, monkeypatch
-    ) -> None:
-        parser = cli.build_parser()
-        args = parser.parse_args(["--no-interactive", "run-phase", "requirements"])
-
-        monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
-        monkeypatch.setattr(cli.sys.stdout, "isatty", lambda: True)
-        cli._resolve_interactive(args)
-
-        assert args.interactive is False
-
-    def test_non_tty_resolves_to_headless_by_default(self, monkeypatch) -> None:
-        parser = cli.build_parser()
-        args = parser.parse_args(["run-phase", "requirements"])
-
-        monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: False)
-        monkeypatch.setattr(cli.sys.stdout, "isatty", lambda: True)
-        cli._resolve_interactive(args)
-
-        assert args.interactive is False

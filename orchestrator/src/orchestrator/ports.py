@@ -18,7 +18,6 @@ from .entities import (
     Config,
     Finding,
     GateResult,
-    InvocationContext,
     Run,
     Story,
 )
@@ -106,48 +105,6 @@ class MenuRenderer(Protocol):
         ...
 
 
-# --- CLI Adapter & Invocation --------------------------------------------------
-
-
-@dataclass(frozen=True)
-class InvocationResult:
-    """Result of one CLI invocation. The only type an adapter returns.
-
-    Two flags let the core route a failure correctly instead of blindly
-    looping the author:
-
-    - `auth_error` — an authentication/availability failure (halt, BR-018).
-    - `config_error` — an operator-fixable, deterministically-repeating
-      failure such as a bad `--model` id (halt, ATAM-R01/T-11). Looping the
-      author on such an error only burns the iteration cap and CLI credits,
-      because it fails identically every pass.
-
-    Everything else non-zero is treated as an author failure (loop).
-    """
-
-    exit_code: int
-    stdout: str
-    stderr: str
-    timed_out: bool
-    auth_error: bool
-    config_error: bool = False
-
-
-@runtime_checkable
-class CLIAdapter(Protocol):
-    """Drives one AI CLI non-interactively in a fresh subprocess (ADR-0002)."""
-
-    def invoke(
-        self, prompt: str, cwd: Path, timeout_s: int, model: Optional[str] = None
-    ) -> InvocationResult:
-        """Run the CLI with a composed prompt in `cwd`, bounded by `timeout_s`.
-
-        *model* overrides the adapter-default model for this single call,
-        implementing per-invocation model selection (FR-K2/K3, VR-023).
-        """
-        ...
-
-
 @runtime_checkable
 class GateRunner(Protocol):
     """Working-tree cleanliness gate — agents commit, orchestrator verifies (ADR-0013)."""
@@ -195,26 +152,6 @@ class FindingsStore(Protocol):
 
     def next_id(self) -> str:
         """Return the next available finding ID."""
-        ...
-
-
-@runtime_checkable
-class FindingIngestor(Protocol):
-    """Reads the review agent's filed findings and writes them to the store.
-
-    The orchestrator owns finding-ID allocation and the raw→DTO mapping (BR-019,
-    interface-contracts.md "Ingest mapping"). The core depends on this seam so it
-    never imports the concrete file-reading/storage adapter.
-    """
-
-    def ingest_open_findings(self, phase: str, iteration: int) -> int:
-        """Read the review agent's open findings (docs/findings/*.md), store them
-        tagged with `phase`/`iteration`, and return the count ingested (UC-02 §7)."""
-        ...
-
-    def ingest_gate_output(self, gate_output: str, phase: str, iteration: int) -> int:
-        """Parse deterministic gate/spec-lint findings from pre-commit output,
-        store them tagged with `phase`/`iteration`, return count ingested."""
         ...
 
 
@@ -273,37 +210,6 @@ class AgentRegistry(Protocol):
         ...
 
 
-@runtime_checkable
-class PromptComposer(Protocol):
-    """Composes the prompt for an agent invocation (FR-B2)."""
-
-    def compose(
-        self,
-        agent_info: AgentInfo,
-        context_paths: List[Path],
-        invocation: InvocationContext,
-        findings: Optional[List[Finding]] = None,
-        skill: Optional[str] = None,
-    ) -> str:
-        """Return the composed prompt string.
-
-        *skill*, when set, scopes the invocation to that one declared skill's
-        workflow step instead of the agent's full workflow (BR-051). ``None``
-        (the default) or the ``"all skills"`` sentinel composes the standard
-        full-workflow prompt (BR-052).
-        """
-        ...
-
-
-@runtime_checkable
-class Logger(Protocol):
-    """Append-only invocation log (.orchestrator/log.jsonl, FR-J)."""
-
-    def log(self, record: AgentInvocation, gate: Optional[GateResult] = None) -> None:
-        """Append one invocation record."""
-        ...
-
-
 @dataclass(frozen=True)
 class LogRecord:
     """One parsed line of the invocation log (FR-T5)."""
@@ -316,9 +222,11 @@ class LogRecord:
 class InvocationLogReader(Protocol):
     """Read-only access to the invocation log (.orchestrator/log.jsonl, FR-T5).
 
-    Kept separate from the write-only ``Logger`` port (ISP): the phase-runner
-    writes invocations, the status service reads them back — different seams,
-    different lifecycles. Reads never drive control flow (FR-T6).
+    No concrete adapter writes this log today (agent execution is driven by
+    factory's trigger/phase scripts, outside the orchestrator); StatusService
+    accepts this port as an optional dependency and degrades to an empty
+    ``status > log`` view when none is supplied. Reads never drive control
+    flow (FR-T6).
     """
 
     def read_entries(self) -> List[LogRecord]:
@@ -365,15 +273,6 @@ class ModelMatrix(Protocol):
 
     def configured_clis(self) -> List[str]:
         """Return the CLIs with facts entries."""
-        ...
-
-
-@runtime_checkable
-class Clock(Protocol):
-    """Wall clock for timestamps (testable via injection)."""
-
-    def now_ms(self) -> int:
-        """Current time in milliseconds since epoch."""
         ...
 
 

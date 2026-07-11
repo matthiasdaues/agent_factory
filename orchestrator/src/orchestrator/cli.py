@@ -5,21 +5,15 @@ import os
 import shutil
 import subprocess
 import sys
-import time
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Callable
-from uuid import uuid4
 
 from orchestrator.entities import (
-    AgentRole,
     Config,
-    InvocationContext,
     MenuNode,
     MenuNodeType,
-    Run,
-    PhaseRecord,
     PhaseStatus,
     RunMode,
     Tier,
@@ -27,15 +21,12 @@ from orchestrator.entities import (
 from orchestrator.ports import (
     AdapterRegistry,
     ConfigStore,
-    Logger,
     ModelMatrix,
-    RunStateStore,
     RunLock,
 )
 from orchestrator.menu_controller import DispatchHook, DispatchOutcome, MenuController
 from orchestrator.menu_tree import build_root_menu
 from orchestrator.adapters.menu_renderer import TerminalMenuRenderer
-from orchestrator.phase_runner import PhaseRunner
 from orchestrator.status_service import (
     FindingSummary,
     LogEntry,
@@ -44,17 +35,11 @@ from orchestrator.status_service import (
     StatusService,
 )
 from orchestrator.approval_service import ApprovalService
-from orchestrator.loop_policy import LoopPolicy
-from orchestrator.model_resolver import ModelResolver
-from orchestrator.settings_resolver import BUILTIN_DEFAULTS, SettingsResolver
-from orchestrator.adapters.copilot import CopilotAdapter
-from orchestrator.adapters.finding_ingest import DefaultFindingIngestor
+from orchestrator.settings_resolver import SettingsResolver
 from orchestrator.adapters.findings_store import FilesystemFindingsStore
 from orchestrator.adapters.run_state_store import JsonRunStateStore, FileRunLock
 from orchestrator.adapters.gate_runner import WorkingTreeGate
 from orchestrator.adapters.agent_registry import MarkdownAgentRegistry
-from orchestrator.adapters.prompt_composer import FilePromptComposer
-from orchestrator.adapters.invocation_log import FileInvocationLog
 from orchestrator.adapters.model_matrix import FileModelMatrix
 from orchestrator.adapters.backlog_store import MarkdownBacklogStore
 from orchestrator.adapters.config_store import ConfigStoreError, TomlConfigStore
@@ -108,100 +93,12 @@ def _tooling_version() -> str | None:
     return None
 
 
-class _SystemClock:
-    def now_ms(self) -> int:
-        return int(time.time() * 1000)
-
-
-class _ExplicitModelResolver:
-    def __init__(self, resolver: ModelResolver, explicit_model: str | None) -> None:
-        self._resolver = resolver
-        self._explicit_model = explicit_model
-
-    def resolve_tier(
-        self,
-        tier: str | None,
-        explicit_model: str | None = None,
-    ) -> str | None:
-        return self._resolver.resolve_tier(
-            tier,
-            explicit_model=explicit_model or self._explicit_model,
-        )
-
-
-@dataclass(frozen=True)
-class _Runtime:
-    repo_root: Path
-    orch_dir: Path
-    agents_dir: Path
-    run_store: RunStateStore
-    run_lock: RunLock
-    approval_service: ApprovalService
-    status_service: StatusService
-    phase_runner: PhaseRunner
-    prompt_composer: FilePromptComposer
-    adapter: CopilotAdapter
-    agent_registry: MarkdownAgentRegistry
-    logger: Logger
-    # BR-040/FR-Q3/QS-20: the *resolved* effective settings (SettingsResolver
-    # output, not the raw `--timeout`/`--cap`/`--adapter` flags, which may be
-    # `None` when the flag was omitted). `_handle_run_step` reads
-    # `timeout_s` from here instead of `args.timeout`; `cap`/`adapter_name`
-    # are exposed for callers (and tests — see
-    # tests/test_integration_menu_mode.py's settings-precedence coverage)
-    # that need to observe what was actually resolved, since
-    # `phase_runner`/`adapter` only hold that value inside their own private
-    # state. Defaulted to the built-in values so the handful of tests that
-    # construct a `_Runtime` fake directly, without exercising settings
-    # resolution, keep working unchanged.
-    timeout_s: int = BUILTIN_DEFAULTS["timeout"]
-    cap: int = BUILTIN_DEFAULTS["cap"]
-    adapter_name: str = BUILTIN_DEFAULTS["adapter"]
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="orchestrate")
-    parser.add_argument("--model")
-    parser.add_argument(
-        "--no-interactive",
-        dest="no_interactive",
-        action="store_true",
-        help="Force headless invocation, overriding the interactive default",
-    )
-    # BR-040/FR-Q3/QS-20: `default=None` (not the built-in value) is
-    # deliberate — it is what lets `_build_runtime` tell "operator typed
-    # this flag" apart from "operator typed nothing" and resolve the
-    # effective value through `SettingsResolver`'s
-    # `menu selection > CLI flag > config.toml > built-in default` chain
-    # instead of a CLI-flag value that always wins by construction (see
-    # ST-0058's Analysis for the bug this replaced: these three flags used
-    # to default to the built-in values directly, which meant a persisted
-    # `configure > defaults` value was *always* shadowed by argparse's own
-    # default, never actually read for a real run).
-    parser.add_argument("--adapter", default=None)
-    parser.add_argument("--cap", type=int, default=None)
-    parser.add_argument(
-        "--timeout",
-        type=int,
-        default=None,
-        help=(
-            "Per-invocation timeout in seconds "
-            "(resolved via config.toml/built-in default of 1800 when omitted)"
-        ),
-    )
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    run_phase = subparsers.add_parser("run-phase")
-    run_phase.add_argument("phase", choices=_PHASE_ORDER)
-    run_phase.add_argument(
-        "--story",
-        default=None,
-        help="Story ID (ST-NNNN) for tier-based model selection",
-    )
-
     subparsers.add_parser("status")
-    subparsers.add_parser("resume")
     subparsers.add_parser("abort")
     subparsers.add_parser("release")
     subparsers.add_parser("approve")
@@ -252,71 +149,21 @@ def main(argv=None) -> int:
         if args.command == "init":
             return _handle_init(args)
 
-        # FAGAN-0024: light commands don't need the full runtime
-        # (model matrix, adapter, phase runner). Build only what's needed.
+        # Direct-mode commands are the read/view/approval surface — status,
+        # approve, reject, abort, release — none of which drive agent
+        # execution (that is factory's job now). Each builds only what it
+        # needs (FAGAN-0024, VR-008).
         if args.command in ("status", "approve", "reject"):
             return _handle_light_command(args)
         if args.command == "abort":
             return _handle_abort(args)
         if args.command == "release":
             return _handle_release(args)
-
-        # FAGAN-0037: resolve story tier for model selection (ADR-0020)
-        story_tier: str | None = None
-        story_id = getattr(args, "story", None)
-        if story_id:
-            backlog = MarkdownBacklogStore(Path.cwd() / "backlog")
-            try:
-                story = backlog.get_story(story_id)
-                story_tier = story.tier.value
-            except KeyError:
-                print(f"unknown story: {story_id}", file=sys.stderr)
-                return 1
-
-        _resolve_interactive(args)
-        runtime = _build_runtime(args, story_tier=story_tier)
-
-        if args.command == "run-phase":
-            run = _load_or_create_phase_run(
-                runtime.run_store, runtime.agent_registry, args.phase
-            )
-            return _with_lock(
-                runtime.run_lock,
-                run.run_id,
-                lambda: _handle_run_phase(runtime, run, args),
-            )
-
-        if args.command == "resume":
-            run = runtime.run_store.load()
-            if run is None:
-                print("no active run", file=sys.stderr)
-                return 1
-            return _with_lock(
-                runtime.run_lock, run.run_id, lambda: _handle_resume(runtime, run, args)
-            )
     except Exception as exc:
         print(str(exc), file=sys.stderr)
         return 1
 
     return 1
-
-
-def _resolve_interactive(args) -> None:
-    """Set `args.interactive` per cli_specification.md §Settings resolution.
-
-    `_build_runtime`/`_handle_run_step` read `args.interactive`, but
-    `build_parser()` only ever defines `--no-interactive` (`no_interactive`)
-    — commit 322d9cc replaced `--interactive` with `--no-interactive` and
-    left these two reads unconverted, so any direct-mode `run-step`,
-    `run-phase`, or `resume` invocation that got this far raised
-    `AttributeError` (found while wiring `manage-run.resume` for ST-0040;
-    see ST-0040.md's Analysis for the repro). Built-in default: interactive
-    whenever a TTY is attached; `--no-interactive` forces headless
-    regardless of the terminal.
-    """
-    args.interactive = (
-        not args.no_interactive and sys.stdin.isatty() and sys.stdout.isatty()
-    )
 
 
 def _handle_light_command(args) -> int:
@@ -674,13 +521,25 @@ def build_backlog_dispatch(backlog_store) -> DispatchHook:
 # (BR-033).
 
 
-def build_manage_run_dispatch(build_runtime: Callable[[], "_Runtime"]) -> DispatchHook:
-    """Build the `DispatchHook` for the `manage-run` submenu's five leaves."""
+def build_manage_run_dispatch() -> DispatchHook:
+    """Build the `DispatchHook` for the `manage-run` submenu's leaves.
+
+    `approve`, `reject`, `release`, and `abort` are the run-state
+    read/approval surface and route to the same light-command handlers
+    direct mode uses. `resume` drove the author→gate→review execution loop,
+    which the orchestrator no longer owns (that is factory's job now); its
+    leaf reports the change rather than crashing (degrade-not-crash,
+    ADR-0016).
+    """
 
     def _dispatch(node: MenuNode) -> DispatchOutcome:
         if node.id == "manage-run.resume":
-            _dispatch_resume(build_runtime)
-            return DispatchOutcome(long_running=True)
+            print(
+                "resume is no longer available in the orchestrator — phase "
+                "execution is driven by the factory scripts.",
+                file=sys.stderr,
+            )
+            return DispatchOutcome(long_running=False)
         if node.id == "manage-run.approve":
             _handle_light_command(SimpleNamespace(command="approve"))
             return DispatchOutcome(long_running=False)
@@ -697,24 +556,6 @@ def build_manage_run_dispatch(build_runtime: Callable[[], "_Runtime"]) -> Dispat
         raise ValueError(f"no manage-run action registered for menu node '{node.id}'")
 
     return _dispatch
-
-
-def _dispatch_resume(build_runtime: Callable[[], "_Runtime"]) -> None:
-    """Menu-mode equivalent of `main()`'s `resume` branch (FR-V3, FR-P7).
-
-    Builds the runtime only now (not at menu-mode entry), loads the run, and
-    calls `_handle_resume` under the same lock direct mode uses — the exact
-    same code path `orchestrate resume` runs, so exit-code/gate/run-state
-    behaviour matches by construction. `_handle_resume` ignores its `args`
-    parameter (verified: no `args.*` reference in its body), so no synthetic
-    argparse Namespace is needed here.
-    """
-    runtime = build_runtime()
-    run = runtime.run_store.load()
-    if run is None:
-        print("no active run", file=sys.stderr)
-        return
-    _with_lock(runtime.run_lock, run.run_id, lambda: _handle_resume(runtime, run, None))
 
 
 # --- Configure > defaults leaves (menu mode; ST-0044, UC-09, FR-Q4, ---------
@@ -1654,14 +1495,13 @@ def build_configure_model_matrix_dispatch(
 def build_root_dispatch(
     status_service: StatusService,
     backlog_store,
-    build_runtime: Callable[[], "_Runtime"],
     config_store: ConfigStore,
     adapter_registry: AdapterRegistry,
     matrix_path: Path = Path("model.conf"),
 ) -> DispatchHook:
     status_dispatch = build_status_dispatch(status_service)
     backlog_dispatch = build_backlog_dispatch(backlog_store)
-    manage_run_dispatch = build_manage_run_dispatch(build_runtime)
+    manage_run_dispatch = build_manage_run_dispatch()
     configure_defaults_dispatch = build_configure_defaults_dispatch(
         config_store, adapter_registry
     )
@@ -1732,8 +1572,7 @@ def _print_menu_unavailable() -> None:
         "orchestrate: no interactive terminal detected — menu mode is unavailable.\n"
         "Use a direct-mode command instead, for example:\n"
         "  orchestrate status\n"
-        "  orchestrate run-phase <phase>\n"
-        "  orchestrate resume | approve | reject | release | abort\n"
+        "  orchestrate approve | reject | release | abort\n"
         "  orchestrate --help              # full command reference"
     )
 
@@ -1742,13 +1581,11 @@ def _build_menu_tree(
     backlog_store,
     adapter_registry: AdapterRegistry,
     config_store: ConfigStore,
-    agents_dir: Path,
 ) -> MenuNode:
     """Merge the pure static tree (`menu_tree.build_root_menu`) with the
     `backlog > view story` (ST-0057), `configure > defaults > adapter`
-    (ST-0044), `configure > cli-list > remove adapter` (ST-0047),
-    `configure > cli` (ST-0048), and `run-step` (ST-0053) submenus' live,
-    runtime-populated children.
+    (ST-0044), `configure > cli-list > remove adapter` (ST-0047), and
+    `configure > cli` (ST-0048) submenus' live, runtime-populated children.
 
     `menu_tree.py` deliberately never touches a store (module docstring:
     "no node embeds a service call"), so the composition root is where the
@@ -1799,16 +1636,6 @@ def _run_menu_mode() -> int:
     config_store = TomlConfigStore(orch_dir)
     adapter_registry = TomlAdapterRegistry(orch_dir)
     matrix_path = repo_root / "model.conf"
-    # ADR-0016: entering menu mode must never crash. An unresolvable agents
-    # directory (VR-011-adjacent — see `_resolve_agents_dir`) degrades to an
-    # empty `run-step` menu (`_list_step_agents` already returns `[]` for a
-    # non-existent directory) rather than blocking entry; the operator
-    # discovers the real problem the first time they actually try to run
-    # something, same as every other degrade-not-crash precedent here.
-    try:
-        agents_dir = _resolve_agents_dir(repo_root)
-    except ValueError:
-        agents_dir = repo_root / "factory" / "agents"
 
     # ADR-0017 point 5 / ADR-0018 point 3, ST-0050 acceptance criteria: the
     # matrix facts populate every registered adapter's dictionary at
@@ -1824,20 +1651,10 @@ def _run_menu_mode() -> int:
         except ValueError:
             pass
 
-    def _menu_runtime_factory() -> "_Runtime":
-        # Mirrors direct-mode `resume`'s defaults exactly (same parser,
-        # same flag defaults) — the only difference is `interactive=True`,
-        # which is already an established fact by the time an operator is
-        # driving a live menu session (that's how they got here).
-        ns = build_parser().parse_args(["resume"])
-        ns.interactive = True
-        return _build_runtime(ns, story_tier=None)
-
-    root = _build_menu_tree(backlog_store, adapter_registry, config_store, agents_dir)
+    root = _build_menu_tree(backlog_store, adapter_registry, config_store)
     dispatch = build_root_dispatch(
         status_service,
         backlog_store,
-        _menu_runtime_factory,
         config_store,
         adapter_registry,
         matrix_path,
@@ -1918,7 +1735,7 @@ def _handle_release(args) -> int:
 
     print(
         f"Released phase '{halted_phase.name}' back to {restored_status.value}. "
-        "Run `resume` to continue."
+        "Continue the phase with the factory scripts."
     )
     return 0
 
@@ -1997,44 +1814,6 @@ Invoke them when the user asks:
 """
 
 
-def _compose_cta(ctx: InvocationContext, has_findings: bool) -> str:
-    """Derive a call-to-action string from invocation context.
-
-    Mirrors ``FilePromptComposer._call_to_action`` but used when embedding the
-    CTA into the instruction file for interactive sessions (no ``-p`` flag).
-    """
-    if ctx.phase == "standalone":
-        return "Execute the workflow defined in your Agent Definition above."
-    if ctx.role == AgentRole.AUTHOR:
-        if ctx.iteration == 0:
-            return (
-                f"Begin the {ctx.phase} phase. Execute the workflow "
-                "defined in your Agent Definition above, starting at Step 1."
-            )
-        if has_findings:
-            return (
-                f"This is iteration {ctx.iteration} of the "
-                f"{ctx.phase} phase. Address the findings listed above, "
-                "then re-execute your workflow."
-            )
-        return (
-            f"This is iteration {ctx.iteration} of the "
-            f"{ctx.phase} phase. Your prior attempt failed the gate. "
-            "Re-execute your workflow and ensure all changes are committed."
-        )
-    if ctx.iteration == 0:
-        return (
-            f"Review the {ctx.phase} artifacts. Follow the review "
-            "workflow in your Agent Definition. File findings per the "
-            "specified format."
-        )
-    return (
-        f"This is iteration {ctx.iteration} of the "
-        f"{ctx.phase} review. The author has addressed prior findings. "
-        "Re-review the artifacts and file any remaining issues."
-    )
-
-
 def _render_instruction_file(
     agent_name: str, skills: list[str], call_to_action: str | None = None
 ) -> str:
@@ -2054,23 +1833,6 @@ def _render_instruction_file(
     if call_to_action:
         content += f"\n## Call to Action\n\n{call_to_action}\n"
     return content
-
-
-def _update_instruction_file(
-    cwd: Path, agent_name: str, skills: list[str], call_to_action: str | None = None
-) -> None:
-    """Rewrite the CLI instruction file to scope the active agent.
-
-    Scans for the first existing instruction file (Copilot, Claude, etc.)
-    and overwrites it with the scoped template.
-    """
-    for _cli_name, rel_path in _CLI_INSTRUCTION_FILES.items():
-        path = cwd / rel_path
-        if path.exists():
-            path.write_text(
-                _render_instruction_file(agent_name, skills, call_to_action)
-            )
-            return
 
 
 def _handle_init(args) -> int:
@@ -2161,9 +1923,7 @@ def _handle_init(args) -> int:
     print()
     print("Next steps:")
     print("  1. Edit model.conf to set your preferred models")
-    print("  2. Run the requirements agent:")
-    print()
-    print("     orchestrate --interactive run-phase requirements")
+    print("  2. Drive the requirements phase with the factory scripts.")
     return 0
 
 
@@ -2184,136 +1944,6 @@ def _pick_cli() -> str:
         print(f"Enter a number 1-{len(options)}")
 
 
-def _ensure_run_branch(repo_root: Path, branch: str) -> None:
-    """Create or check out the dedicated run branch (BR-016, BR-017, VR-016).
-
-    If the branch doesn't exist, create it from the current HEAD. If it
-    exists, check it out. The orchestrator always works on the run branch
-    so gate commits land on the correct ref.
-    """
-    # Check current branch
-    result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        cwd=str(repo_root),
-        capture_output=True,
-        text=True,
-    )
-    current = result.stdout.strip()
-    if current == branch:
-        return  # already on the run branch
-
-    # Check if the branch exists
-    check = subprocess.run(
-        ["git", "rev-parse", "--verify", branch],
-        cwd=str(repo_root),
-        capture_output=True,
-        text=True,
-    )
-    if check.returncode == 0:
-        # Branch exists — check it out
-        subprocess.run(
-            ["git", "checkout", branch],
-            cwd=str(repo_root),
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-    else:
-        # Create the branch from HEAD
-        subprocess.run(
-            ["git", "checkout", "-b", branch],
-            cwd=str(repo_root),
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-
-
-def _build_runtime(args, story_tier: str | None = None) -> _Runtime:
-    repo_root = Path.cwd()
-    orch_dir = repo_root / ".orchestrator"
-    agents_dir = _resolve_agents_dir(repo_root)
-
-    run_store = JsonRunStateStore(orch_dir)
-    run_lock = FileRunLock(orch_dir)
-    findings_store = FilesystemFindingsStore(orch_dir / "findings")
-    _backlog_store = MarkdownBacklogStore(repo_root / "backlog")
-    model_matrix = FileModelMatrix(repo_root / "model.conf")
-
-    # BR-040/FR-Q3/QS-20: this is the ONE place direct mode and menu mode
-    # both funnel through to resolve `adapter`/`timeout`/`cap` — the same
-    # `SettingsResolver` `tests/test_settings_resolver.py` already unit-tests
-    # in isolation, now actually wired to a live `TomlConfigStore` instead
-    # of being dead code. `cli_flag=args.X` is `None` whenever the flag was
-    # omitted (see `build_parser()`'s `default=None` on all three) — that
-    # `None` is what lets a persisted `configure > defaults` value be seen
-    # at all; menu mode's `run-step` leaf already resolves its own
-    # menu-selected adapter into an equivalent `--adapter` argv token before
-    # this function ever runs (`build_run_step_dispatch`), so from here both
-    # entry paths are indistinguishable — one resolver, one code path,
-    # exactly what QS-20 requires.
-    config_store = TomlConfigStore(orch_dir)
-    settings = SettingsResolver(config_store)
-    adapter_name = settings.resolve("adapter", cli_flag=args.adapter)
-    timeout_s = settings.resolve("timeout", cli_flag=args.timeout)
-    cap = settings.resolve("cap", cli_flag=args.cap)
-
-    model_resolver = _ExplicitModelResolver(
-        ModelResolver(model_matrix, adapter_name), args.model
-    )
-    adapter = _build_adapter(adapter_name, args.model, interactive=args.interactive)
-    gate_runner = WorkingTreeGate(repo_root)
-    agent_registry = MarkdownAgentRegistry(agents_dir)
-    logger = FileInvocationLog(orch_dir)
-    phase_runner = PhaseRunner(
-        adapter=adapter,
-        gate_runner=gate_runner,
-        findings_store=findings_store,
-        finding_ingestor=DefaultFindingIngestor(
-            findings_store, repo_root / "docs" / "findings"
-        ),
-        run_store=run_store,
-        agent_registry=agent_registry,
-        prompt_composer=FilePromptComposer(),
-        logger=logger,
-        loop_policy=LoopPolicy(cap=cap),
-        model_resolver=model_resolver,
-        clock=_SystemClock(),
-        cwd=repo_root,
-        timeout_s=timeout_s,
-        interactive=args.interactive,
-        story_tier=story_tier,
-        on_agent_start=lambda info, ctx, has_findings: _update_instruction_file(
-            repo_root,
-            info.name,
-            info.skills,
-            call_to_action=_compose_cta(ctx, has_findings)
-            if not args.no_interactive
-            else None,
-        ),
-    )
-
-    return _Runtime(
-        repo_root=repo_root,
-        orch_dir=orch_dir,
-        agents_dir=agents_dir,
-        run_store=run_store,
-        run_lock=run_lock,
-        approval_service=ApprovalService(
-            run_store, findings_store, gate_runner, agent_registry
-        ),
-        status_service=StatusService(run_store, findings_store),
-        phase_runner=phase_runner,
-        prompt_composer=FilePromptComposer(),
-        adapter=adapter,
-        agent_registry=agent_registry,
-        logger=logger,
-        timeout_s=timeout_s,
-        cap=cap,
-        adapter_name=adapter_name,
-    )
-
-
 def _resolve_agents_dir(repo_root: Path) -> Path:
     """Resolve agents directory: package-relative first, then symlink in cwd."""
     try:
@@ -2331,159 +1961,12 @@ def _resolve_agents_dir(repo_root: Path) -> Path:
     )
 
 
-def _build_adapter(
-    name: str, model: str | None, interactive: bool = False
-) -> CopilotAdapter:
-    if name != "copilot":
-        raise ValueError(f"unsupported adapter: {name}")
-    return CopilotAdapter(model=model, interactive=interactive)
-
-
-def _exit_code_for_mode(mode: RunMode) -> int:
-    """FAGAN-0047: derive the process exit code from a run's terminal mode.
-
-    HALTED means the run needs human intervention and must be reported as
-    a failure (exit 2) so CI/shell callers don't treat it as success.
-    Every other terminal/paused mode (RUNNING, PAUSED-awaiting-approval,
-    COMPLETE) is an expected-good state and exits 0.
-    """
-    return 2 if mode == RunMode.HALTED else 0
-
-
-def _handle_run_phase(runtime: _Runtime, run: Run, args) -> int:
-    _ensure_run_branch(runtime.repo_root, run.branch)
-    run.mode = RunMode.RUNNING
-    phase_record = _phase_record(run, args.phase)
-    runtime.phase_runner.run_phase(run, phase_record)
-    # FAGAN-0047 hole 1: run_phase() early-returns as a no-op when
-    # phase_record.status is already terminal (AWAITING_APPROVAL/HALTED/
-    # COMPLETE) — e.g. re-invoking run-phase on a phase that's already
-    # HALTED — without touching run.mode or saving. The RUNNING value
-    # assigned above would then be stale. run_store is the only
-    # authoritative source of the run's persisted mode; always derive the
-    # exit code from a fresh reload rather than the in-memory `run`.
-    persisted = runtime.run_store.load()
-    return _exit_code_for_mode(persisted.mode if persisted is not None else run.mode)
-
-
-def _handle_resume(runtime: _Runtime, run: Run, args) -> int:
-    _ensure_run_branch(runtime.repo_root, run.branch)
-    # Warn if tooling version changed since the run was created
-    current_ver = _tooling_version()
-    if run.tooling_version and current_ver and run.tooling_version != current_ver:
-        print(
-            f"warning: tooling version changed since run started "
-            f"({run.tooling_version} → {current_ver})",
-            file=sys.stderr,
-        )
-    # With run-all deferred (NG6), resume continues the current phase only;
-    # the Operator advances to the next phase manually after approval (UC-03).
-    run.mode = RunMode.RUNNING
-    phase_record = _current_phase(run)
-    runtime.phase_runner.run_phase(run, phase_record)
-    # A no-op run_phase (terminal status) leaves the persisted mode as the
-    # source of truth; always derive the exit code from a fresh reload.
-    persisted = runtime.run_store.load()
-    return _exit_code_for_mode(persisted.mode if persisted is not None else run.mode)
-
-
-def _handle_approval(
-    runtime: _Runtime, *, approve: bool, note: str | None = None
-) -> int:
-    if approve:
-        runtime.approval_service.approve()
-    else:
-        runtime.approval_service.reject(note=note)
-    return 0
-
-
 def _with_lock(lock: RunLock, run_id: str, action) -> int:
     lock.acquire(run_id)
     try:
         return action()
     finally:
         lock.release()
-
-
-def _load_or_create_phase_run(
-    run_store: RunStateStore,
-    agent_registry: MarkdownAgentRegistry,
-    phase: str,
-) -> Run:
-    run = run_store.load()
-    if run is None:
-        run = _new_run([phase], agent_registry, current_phase=phase)
-    elif run.mode == RunMode.RUNNING:
-        # VR-017: refuse to start while a run is running
-        raise ValueError(
-            "a run is already in progress (mode=running); "
-            "use 'resume' to continue or wait for it to finish"
-        )
-
-    if phase not in run.chain:
-        run.chain.append(phase)
-
-    phase_record = _existing_phase_record(run, phase)
-    if phase_record is None:
-        run.phases.append(_new_phase_record(agent_registry, phase))
-        phase_record = run.phases[-1]
-
-    run.current_phase = phase
-    run.iteration = phase_record.iteration
-    return run
-
-
-def _new_run(
-    chain: list[str],
-    agent_registry: MarkdownAgentRegistry,
-    *,
-    current_phase: str,
-) -> Run:
-    run_id = f"RUN-{uuid4().hex[:8].upper()}"
-    return Run(
-        run_id=run_id,
-        branch=f"orchestrator/{run_id.lower()}",
-        chain=list(chain),
-        current_phase=current_phase,
-        mode=RunMode.RUNNING,
-        phases=[_new_phase_record(agent_registry, phase) for phase in chain],
-        tooling_version=_tooling_version(),
-    )
-
-
-def _new_phase_record(agent_registry: MarkdownAgentRegistry, phase: str) -> PhaseRecord:
-    author = agent_registry.resolve(phase, "author").name
-    try:
-        reviewer = agent_registry.resolve(phase, "reviewer").name
-    except ValueError as exc:
-        # Only suppress for phases that legitimately have no reviewer
-        # (e.g. planning). Missing agent definitions must fail-fast (VR-011).
-        if "Unknown role" in str(exc):
-            reviewer = None
-        else:
-            raise
-    return PhaseRecord(name=phase, author=author, reviewer=reviewer)
-
-
-def _phase_record(run: Run, phase: str) -> PhaseRecord:
-    record = _existing_phase_record(run, phase)
-    if record is None:
-        raise ValueError(f"unknown phase: {phase}")
-    return record
-
-
-def _existing_phase_record(run: Run, phase: str) -> PhaseRecord | None:
-    for record in run.phases:
-        if record.name == phase:
-            return record
-    return None
-
-
-def _current_phase(run: Run) -> PhaseRecord:
-    record = _existing_phase_record(run, run.current_phase)
-    if record is None:
-        raise ValueError(f"unknown current phase: {run.current_phase}")
-    return record
 
 
 def main_entry() -> None:
