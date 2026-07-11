@@ -107,13 +107,13 @@ The walking skeleton is the **requirements phase only** (author `requirements-ag
 
 - **FR-J1** — Each subprocess invocation is logged with agent, CLI, duration, exit status, and gate outcome.
 
-### FR-K — Task classification and model selection
+### FR-K — Model selection
 
-- **FR-K1** — The planning phase classifies each story by difficulty as `trivial`, `standard`, or `hard`. The classification is a required field on the story and is assigned by the planning agent, which runs on a strong model so its judgement rests on a full view of the dependency tree.
-- **FR-K2** — A **model matrix** carries the model policy in two parts: a CLI-agnostic *policy* that maps each classification and each phase to an abstract **tier** (`economy`, `standard`, `strong`), and per-CLI *facts* that map each tier to a concrete model for that CLI. Model selection resolves a classification (or a phase) to a tier, then the tier and the active CLI to a model.
-- **FR-K3** — Model selection follows a fixed precedence: an explicit `--model` flag on the invocation overrides the matrix, and the matrix overrides the adapter's own default (`auto`). There is no per-story model field; an operator who disagrees with a story's model re-classifies the story, which keeps the backlog CLI-agnostic.
-- **FR-K4** — When the matrix has no entry for the active CLI and a required tier, the run halts by default, treating the gap as a configuration error (BR-020). The behaviour is configurable to fall back to the adapter default where a project accepts unmanaged model choice.
-- **FR-K5** — The model matrix is a first-class, operator-curated artifact maintained by its own workstep, independent of the phase chain. A `matrix-lint` check validates it (every referenced tier resolves to a model for each configured CLI); a `backlog-lint` check validates each story and serves as the planning phase's gate.
+- **FR-K1** — The planning phase assigns each story a `tier` (`economy`, `standard`, or `strong`) — the model strength its work needs. `tier` is a required field on the story, assigned by the planning agent, which runs on a strong model so its judgement rests on a full view of the dependency tree.
+- **FR-K2** — `model.conf` is a per-CLI **tier router**: `[facts]` maps each tier to a concrete model for each configured CLI. Model selection resolves a declared tier — an agent's own frontmatter, or a story's own `tier` — directly against `[facts]` for the active CLI. No policy layer sits between a tier and its model (ADR-0020, ADR-0021).
+- **FR-K3** — Model selection follows a fixed precedence: an explicit `--model` flag on the invocation overrides `model.conf`, which overrides the adapter's own default (`auto`). There is no per-story model field beyond `tier` itself; an operator who disagrees with a story's model edits its `tier`, which keeps the backlog CLI-agnostic.
+- **FR-K4** — When `model.conf` has no entry for the active CLI and a required tier, the run halts by default, treating the gap as a configuration error (BR-020). The behaviour is configurable to fall back to the adapter default where a project accepts unmanaged model choice.
+- **FR-K5** — `model.conf` is a first-class, operator-curated artifact maintained by its own workstep, independent of the phase chain. A `matrix-lint` check validates it (tier coverage per configured CLI, well-formed `on_missing`); a `backlog-lint` check validates each story's `tier` and serves as the planning phase's gate.
 
 ### FR-L — Call-to-action in composed prompts
 

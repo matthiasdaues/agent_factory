@@ -22,11 +22,11 @@ from orchestrator.cli import (
     build_backlog_view_story_menu,
 )
 from orchestrator.entities import (
-    Classification,
     MenuNode,
     MenuNodeType,
     Story,
     StoryStatus,
+    Tier,
 )
 from orchestrator.menu_controller import DispatchOutcome
 from orchestrator.menu_tree import build_root_menu
@@ -42,7 +42,7 @@ def _story(
     id="ST-0200",
     epic="Epic A",
     title="A story",
-    classification=Classification.STANDARD,
+    tier=Tier.STANDARD,
     status=StoryStatus.PENDING,
     deps=None,
     traces=None,
@@ -53,7 +53,7 @@ def _story(
         id=id,
         epic=epic,
         title=title,
-        classification=classification,
+        tier=tier,
         status=status,
         deps=deps or [],
         traces=traces or [],

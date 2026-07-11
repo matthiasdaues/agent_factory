@@ -42,7 +42,7 @@ The Operator enters `backlog` from the root TUI and selects one of its display n
 3. The system presents four read-only display paths: `list`, `by-epic`, `ready`, and `view story` (FR-U1).
 4. The Operator selects a backlog view.
 5. The system renders the selected view from the loaded backlog snapshot:
-   - `list` shows every story with `id`, `title`, `epic`, `classification`, `status`, and `deps` (FR-U2).
+   - `list` shows every story with `id`, `title`, `epic`, `tier`, `status`, and `deps` (FR-U2).
    - `by-epic` groups stories under epic headings and retains each story's status indicator (FR-U3).
    - `ready` shows only stories whose `status` is `pending` and whose dependencies all resolve to stories with `status: done` (FR-U4).
    - `view story` presents a selectable story list; after selection, the system loads that story through `get_story()` and displays its full frontmatter and prose body (FR-U5).
@@ -67,7 +67,7 @@ The Operator enters `backlog` from the root TUI and selects one of its display n
   - 5c1. The system presents a selectable list of story identifiers with titles.
   - 5c2. The Operator selects a story.
   - 5c3. The system loads the selected story through `MarkdownBacklogStore.get_story()`.
-  - 5c4. The system displays the story's full frontmatter and prose body, including `classification`, `status`, `deps`, `traces`, and `outputs` when present (BR-060).
+  - 5c4. The system displays the story's full frontmatter and prose body, including `tier`, `status`, `deps`, `traces`, and `outputs` when present (BR-060).
 - **5d. A selected story is no longer retrievable**
   - 5d1. The system reports that the story could not be loaded.
   - 5d2. The system returns to the story selector or parent menu; it modifies nothing (BR-056).
@@ -76,8 +76,8 @@ The Operator enters `backlog` from the root TUI and selects one of its display n
 
 - All backlog views are observational display nodes; none may provide an edit, delete, create, reorder, or status-change action (FR-U6, BR-056).
 - The TUI shall use the display semantics defined for read-only screens: render the requested information and return to the parent on keypress.
-- The rendered story metadata shall use the canonical story fields: `id`, `title`, `epic`, `classification`, `status`, `deps`, `traces`, and `outputs`.
-- Supported `classification` values are `trivial`, `standard`, and `hard`.
+- The rendered story metadata shall use the canonical story fields: `id`, `title`, `epic`, `tier`, `status`, `deps`, `traces`, and `outputs`.
+- Supported `tier` values are `economy`, `standard`, and `strong`.
 - Supported `status` values are `pending`, `in-progress`, `done`, and `blocked`.
 
 ## Technology and Data Variations List
@@ -96,7 +96,7 @@ Likely frequent during planning, triage, and before execution phases that depend
 - **BR-056**: Backlog TUI views are strictly read-only. They never write, reorder, edit, or delete backlog files or derived story state.
 - **BR-057**: The `ready` view includes only stories with `status: pending` whose every dependency identifier resolves, within the same loaded backlog snapshot, to a story with `status: done`. Any unresolved or non-done dependency excludes the story from `ready`.
 - **BR-058**: Empty backlog conditions shall be explicit. When no stories are available for a requested display, the system shall show an empty-state message; `view story` shall not fabricate a selectable item.
-- **BR-059**: Backlog summary projections shall preserve story identity and planning metadata. `list` shows `id`, `title`, `epic`, `classification`, `status`, and `deps` for every loaded story; `by-epic` groups the same stories under epic headings while retaining status indicators.
+- **BR-059**: Backlog summary projections shall preserve story identity and planning metadata. `list` shows `id`, `title`, `epic`, `tier`, `status`, and `deps` for every loaded story; `by-epic` groups the same stories under epic headings while retaining status indicators.
 - **BR-060**: Story detail is authoritative only when loaded through `MarkdownBacklogStore.get_story()`, and it shall display the story's full frontmatter and prose body.
 
 ## Activity Diagram
@@ -110,7 +110,7 @@ flowchart TD
     E -->|no| F[Show explicit empty state<br/>BR-058]
     E -->|yes| G[Show read-only options:<br/>list / by-epic / ready / view story]
     G --> H{Selected view}
-    H -->|list| I[Render table:<br/>id, title, epic, classification, status, deps]
+    H -->|list| I[Render table:<br/>id, title, epic, tier, status, deps]
     H -->|by-epic| J[Group stories under epic headings<br/>retain status]
     H -->|ready| K[Filter pending stories<br/>with all deps done — BR-057]
     H -->|view story| L[Show selectable story list]
@@ -138,7 +138,7 @@ Feature: Browse story backlog through the TUI
     Given the backlog contains multiple stories
     When the Operator selects backlog > list
     Then the system displays every story returned by list_stories()
-    And each row shows id, title, epic, classification, status, and dependencies
+    And each row shows id, title, epic, tier, status, and dependencies
     And the view does not modify backlog data
 
   Scenario: By-epic view groups stories under epic headings

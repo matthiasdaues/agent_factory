@@ -51,12 +51,12 @@ A rulebook is a cross-cutting convention that applies across agents and skills �
 
 A gate is a deterministic script — no LLM judgement involved — that catches a provable defect before a reviewer agent spends time on it: a broken cross-reference, a missing required section, an inconsistent ID. Cheap, reproducible, no false positives.
 
-| Gate                           | Fires at                        | What it checks                                                                                                                      |
-| ------------------------------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `factory/scripts/spec-lint`    | Phase 1 → 2 boundary            | Use-case coverage, traceability links between PRD → actor-goals → use cases → supplementary specs, ID uniqueness, required sections |
-| `factory/scripts/arch-lint`    | Phase 2 → 3 boundary            | arc42 chapters exist and cross-reference the Structurizr DSL, ADR index consistency, diagram file references                        |
-| `factory/scripts/backlog-lint` | Phase 3 → 4 boundary            | YAML frontmatter schema, dependency graph acyclicity, priority and status values                                                    |
-| `factory/scripts/matrix-lint`  | `config/model-matrix.conf` edit | Syntax, required fields, valid tier/model mappings                                                                                  |
+| Gate                           | Fires at                 | What it checks                                                                                                                      |
+| ------------------------------ | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `factory/scripts/spec-lint`    | Phase 1 → 2 boundary     | Use-case coverage, traceability links between PRD → actor-goals → use cases → supplementary specs, ID uniqueness, required sections |
+| `factory/scripts/arch-lint`    | Phase 2 → 3 boundary     | arc42 chapters exist and cross-reference the Structurizr DSL, ADR index consistency, diagram file references                        |
+| `factory/scripts/backlog-lint` | Phase 3 → 4 boundary     | YAML frontmatter schema, dependency graph acyclicity, priority and status values                                                    |
+| `factory/scripts/matrix-lint`  | `config/model.conf` edit | Syntax, required fields, valid tier/model mappings                                                                                  |
 
 In manual mode (driving each agent by hand, one session at a time), the reviewer agent for that phase runs its gate as its first step. Run any gate yourself the same way:
 
@@ -64,7 +64,7 @@ In manual mode (driving each agent by hand, one session at a time), the reviewer
 factory/scripts/spec-lint docs/spec/
 factory/scripts/arch-lint --docs-dir docs/
 factory/scripts/backlog-lint backlog/
-factory/scripts/matrix-lint config/model-matrix.conf
+factory/scripts/matrix-lint config/model.conf
 ```
 
 These scripts are stdlib-only Python — no install needed to run them.

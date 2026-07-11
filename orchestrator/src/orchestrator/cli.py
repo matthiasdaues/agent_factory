@@ -47,7 +47,7 @@ from orchestrator.status_service import (
 )
 from orchestrator.approval_service import ApprovalService
 from orchestrator.loop_policy import LoopPolicy
-from orchestrator.model_resolver import ConfigError, ModelResolver
+from orchestrator.model_resolver import ModelResolver
 from orchestrator.settings_resolver import BUILTIN_DEFAULTS, SettingsResolver
 from orchestrator.adapters.copilot import CopilotAdapter
 from orchestrator.adapters.finding_ingest import DefaultFindingIngestor
@@ -123,15 +123,13 @@ class _ExplicitModelResolver:
         self._resolver = resolver
         self._explicit_model = explicit_model
 
-    def resolve(
+    def resolve_tier(
         self,
-        phase: str,
-        classification: str | None = None,
+        tier: str | None,
         explicit_model: str | None = None,
     ) -> str | None:
-        return self._resolver.resolve(
-            phase,
-            classification=classification,
+        return self._resolver.resolve_tier(
+            tier,
             explicit_model=explicit_model or self._explicit_model,
         )
 
@@ -215,7 +213,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_phase.add_argument(
         "--story",
         default=None,
-        help="Story ID (ST-NNNN) for classification-based model selection",
+        help="Story ID (ST-NNNN) for tier-based model selection",
     )
 
     subparsers.add_parser("status")
@@ -279,20 +277,20 @@ def main(argv=None) -> int:
         if args.command == "release":
             return _handle_release(args)
 
-        # FAGAN-0037: resolve story classification for model selection
-        classification: str | None = None
+        # FAGAN-0037: resolve story tier for model selection (ADR-0020)
+        story_tier: str | None = None
         story_id = getattr(args, "story", None)
         if story_id:
             backlog = MarkdownBacklogStore(Path.cwd() / "backlog")
             try:
                 story = backlog.get_story(story_id)
-                classification = story.classification.value
+                story_tier = story.tier.value
             except KeyError:
                 print(f"unknown story: {story_id}", file=sys.stderr)
                 return 1
 
         _resolve_interactive(args)
-        runtime = _build_runtime(args, classification=classification)
+        runtime = _build_runtime(args, story_tier=story_tier)
 
         if args.command == "run-step":
             # BR-040/QS-20: `runtime.timeout_s` is the *resolved* effective
@@ -348,7 +346,7 @@ def _handle_light_command(args) -> int:
 
     These commands only need run_store, findings_store, and (for
     approve/reject) gate_runner + agent_registry. They must not fail
-    when model-matrix.conf is absent (FAGAN-0024, VR-008).
+    when model.conf is absent (FAGAN-0024, VR-008).
     """
     repo_root = Path.cwd()
     orch_dir = repo_root / ".orchestrator"
@@ -554,13 +552,13 @@ def build_status_dispatch(status_service: StatusService) -> DispatchHook:
 
 def _format_backlog_list(stories: list) -> str:
     """Render `BacklogStore.list_stories()` as a table (FR-U2, BR-059)."""
-    headers = ["id", "title", "epic", "classification", "status", "deps"]
+    headers = ["id", "title", "epic", "tier", "status", "deps"]
     rows = [
         [
             story.id,
             story.title,
             story.epic,
-            story.classification.value,
+            story.tier.value,
             story.status.value,
             ", ".join(story.deps) if story.deps else "-",
         ]
@@ -578,7 +576,7 @@ def _format_backlog_by_epic(grouped: dict) -> str:
     for epic, stories in grouped.items():
         lines = [f"## {epic}"]
         lines.extend(
-            f"  [{story.status.value}] {story.id}  {story.title}  ({story.classification.value})"
+            f"  [{story.status.value}] {story.id}  {story.title}  ({story.tier.value})"
             for story in stories
         )
         sections.append("\n".join(lines))
@@ -600,7 +598,7 @@ def _format_story_detail(story) -> str:
         f"id: {story.id}",
         f"title: {story.title}",
         f"epic: {story.epic}",
-        f"classification: {story.classification.value}",
+        f"tier: {story.tier.value}",
         f"status: {story.status.value}",
         f"deps: {', '.join(story.deps) if story.deps else '(none)'}",
         f"traces: {', '.join(story.traces) if story.traces else '(none)'}",
@@ -1519,44 +1517,31 @@ def populate_adapter_dictionaries_from_matrix(
 
 
 def _format_model_matrix_facts(matrix: FileModelMatrix) -> str:
-    """Render `[facts]` as adapter -> tier -> model (FR-R9)."""
+    """Render `[facts]` as adapter -> tier -> model, plus on_missing
+    (FR-R9, ADR-0020, ADR-0021)."""
     clis = matrix.configured_clis()
-    if not clis:
-        return "(no facts configured)"
-    lines = []
+    lines = [] if clis else ["(no facts configured)"]
     for cli_name in clis:
         lines.append(f"[{cli_name}]")
         for tier in ("economy", "standard", "strong"):
             model_id = matrix.get_model(cli_name, tier)
             if model_id is not None:
                 lines.append(f"  {tier:8} = {model_id}")
+    lines.append(f"on_missing = {matrix.get_on_missing()}")
     return "\n".join(lines)
 
 
-def _format_model_matrix_policy(matrix: FileModelMatrix) -> str:
-    """Render `[policy]` — classification -> tier, phase -> tier,
-    on_missing (FR-R9)."""
-    if not matrix.policy:
-        return "(no policy configured)"
-    return "\n".join(f"{key} = {value}" for key, value in sorted(matrix.policy.items()))
-
-
 def _format_model_matrix_show(matrix: FileModelMatrix) -> str:
-    return (
-        "facts (adapter -> tier -> model):\n"
-        f"{_format_model_matrix_facts(matrix)}\n\n"
-        "policy (classification -> tier, phase -> tier, on_missing):\n"
-        f"{_format_model_matrix_policy(matrix)}"
-    )
+    return f"facts (adapter -> tier -> model):\n{_format_model_matrix_facts(matrix)}"
 
 
 def _dispatch_model_matrix_show(matrix_path: Path) -> DispatchOutcome:
     try:
         matrix = FileModelMatrix(matrix_path)
     except FileNotFoundError:
-        return DispatchOutcome(content=f"model-matrix.conf not found at {matrix_path}")
+        return DispatchOutcome(content=f"model.conf not found at {matrix_path}")
     except ValueError as exc:
-        return DispatchOutcome(content=f"model-matrix.conf is invalid: {exc}")
+        return DispatchOutcome(content=f"model.conf is invalid: {exc}")
     return DispatchOutcome(content=_format_model_matrix_show(matrix))
 
 
@@ -1569,8 +1554,7 @@ def _dispatch_model_matrix_edit(
     editor = get_editor()
     if not editor:
         print(
-            "$EDITOR is not set — cannot open model-matrix.conf. "
-            "Set $EDITOR and try again.",
+            "$EDITOR is not set — cannot open model.conf. Set $EDITOR and try again.",
             file=sys.stderr,
         )
         return DispatchOutcome(long_running=False)
@@ -1578,8 +1562,7 @@ def _dispatch_model_matrix_edit(
     returncode = run_fn([editor, str(matrix_path)])
     if returncode != 0:
         print(
-            f"editor {editor!r} exited with status {returncode}; "
-            "model-matrix.conf left as-is",
+            f"editor {editor!r} exited with status {returncode}; model.conf left as-is",
             file=sys.stderr,
         )
         return DispatchOutcome(long_running=False)
@@ -1588,14 +1571,14 @@ def _dispatch_model_matrix_edit(
         matrix = FileModelMatrix(matrix_path)
     except (FileNotFoundError, ValueError) as exc:
         print(
-            f"model-matrix.conf is invalid after edit: {exc}. "
+            f"model.conf is invalid after edit: {exc}. "
             "Adapter dictionaries were not repopulated.",
             file=sys.stderr,
         )
         return DispatchOutcome(long_running=False)
 
     populate_adapter_dictionaries_from_matrix(matrix, adapter_registry)
-    print("model-matrix.conf saved; adapter dictionaries repopulated")
+    print("model.conf saved; adapter dictionaries repopulated")
     return DispatchOutcome(long_running=False)
 
 
@@ -1610,7 +1593,7 @@ def _default_get_editor() -> str | None:
 def _default_run_matrix_lint(matrix_path: Path) -> tuple[int, str]:
     """Run the existing `scripts/matrix-lint` gate against `matrix_path`
     (FR-K5) — reused, not reimplemented. `scripts/` is copied alongside
-    `model-matrix.conf` into every project directory by `orchestrate init`
+    `model.conf` into every project directory by `orchestrate init`
     (see `_handle_init`), so it is always `matrix_path.parent / "scripts" /
     "matrix-lint"`.
     """
@@ -1743,14 +1726,14 @@ def build_run_step_model_menu(
     (cli_specification.md "[list of models for this adapter, tier-resolved
     default marked ★]"), the tier-resolved default marked ★ (BR-055).
 
-    `ModelResolver(None, ...)`: `resolve_agent_tier` (ST-0049) only ever
-    reads `self._adapter_registry`, never `self._matrix` (verified in
-    `model_resolver.py`) — the adapter dictionaries it reads are already
-    populated from `model-matrix.conf` at menu-mode startup
-    (`populate_adapter_dictionaries_from_matrix`, `_run_menu_mode`), so no
-    real `ModelMatrix` is needed here. A `ConfigError` (e.g. an incomplete
-    dictionary under `on_missing_tier="halt"`) degrades to "no ★ marked"
-    rather than raising out of menu-tree construction (ADR-0016) —
+    Reads `adapter_registry` directly (VR-041's null-tier-as-standard
+    fallback applied inline) rather than through `ModelResolver` — the
+    adapter dictionaries here are already populated from `model.conf` at
+    menu-mode startup (`populate_adapter_dictionaries_from_matrix`,
+    `_run_menu_mode`); `ModelResolver.resolve_tier` reads `model.conf`
+    directly and has no reason to depend on the registry (ADR-0020,
+    ADR-0021). A missing entry degrades to "no ★ marked" rather than
+    raising out of menu-tree construction (ADR-0016) —
     `MenuController._opening_index` already falls back to index 0 when no
     child carries `is_default` (BR-032).
     """
@@ -1759,10 +1742,12 @@ def build_run_step_model_menu(
     except KeyError:
         pairs = []
 
-    resolver = ModelResolver(None, adapter_name, adapter_registry)
+    effective_tier = (
+        agent_info.tier if agent_info.tier is not None else Tier.STANDARD.value
+    )
     try:
-        default_model = resolver.resolve_agent_tier(agent_info.tier)
-    except ConfigError:
+        default_model = adapter_registry.get_model(adapter_name, effective_tier)
+    except KeyError:
         default_model = None
 
     children = []
@@ -1938,7 +1923,7 @@ def build_run_step_dispatch() -> DispatchHook:
 
         args = build_parser().parse_args(argv)
         _resolve_interactive(args)
-        runtime = _build_runtime(args, classification=None)
+        runtime = _build_runtime(args, story_tier=None)
         # BR-040/QS-20: resolved effective timeout, not the raw (omitted,
         # so `None`) `--timeout` flag — see the `main()` run-step branch's
         # matching comment.
@@ -1974,7 +1959,7 @@ def build_root_dispatch(
     build_runtime: Callable[[], "_Runtime"],
     config_store: ConfigStore,
     adapter_registry: AdapterRegistry,
-    matrix_path: Path = Path("model-matrix.conf"),
+    matrix_path: Path = Path("model.conf"),
 ) -> DispatchHook:
     status_dispatch = build_status_dispatch(status_service)
     backlog_dispatch = build_backlog_dispatch(backlog_store)
@@ -2121,7 +2106,7 @@ def _run_menu_mode() -> int:
     status_service = StatusService(run_store, findings_store)
     config_store = TomlConfigStore(orch_dir)
     adapter_registry = TomlAdapterRegistry(orch_dir)
-    matrix_path = repo_root / "model-matrix.conf"
+    matrix_path = repo_root / "model.conf"
     # ADR-0016: entering menu mode must never crash. An unresolvable agents
     # directory (VR-011-adjacent — see `_resolve_agents_dir`) degrades to an
     # empty `run-step` menu (`_list_step_agents` already returns `[]` for a
@@ -2154,7 +2139,7 @@ def _run_menu_mode() -> int:
         # driving a live menu session (that's how they got here).
         ns = build_parser().parse_args(["resume"])
         ns.interactive = True
-        return _build_runtime(ns, classification=None)
+        return _build_runtime(ns, story_tier=None)
 
     root = _build_menu_tree(backlog_store, adapter_registry, config_store, agents_dir)
     dispatch = build_root_dispatch(
@@ -2287,7 +2272,7 @@ These are orchestrator internals — not agent concerns:
 - Other `.md` files in `agents/` — they belong to other workflow phases.
 - `scripts/` — gate scripts executed by the orchestrator, not by agents.
 - `.orchestrator/` — run state managed by the orchestrator.
-- `model-matrix.conf` — orchestrator model configuration.
+- `model.conf` — orchestrator model configuration.
 
 ## Communication Style
 
@@ -2441,9 +2426,9 @@ def _handle_init(args) -> int:
     for d in _SCAFFOLD_DIRS:
         (project_dir / d).mkdir(parents=True, exist_ok=True)
 
-    # 6. Copy model-matrix.conf template
-    src_matrix = root / "orchestrator" / "model-matrix.conf"
-    dst_matrix = project_dir / "model-matrix.conf"
+    # 6. Copy model.conf template
+    src_matrix = root / "orchestrator" / "model.conf"
+    dst_matrix = project_dir / "model.conf"
     if src_matrix.exists() and not dst_matrix.exists():
         shutil.copy2(src_matrix, dst_matrix)
 
@@ -2483,7 +2468,7 @@ def _handle_init(args) -> int:
     print(f"Update tooling: cd {project_dir} && orchestrate init --cli {cli_name}")
     print()
     print("Next steps:")
-    print("  1. Edit model-matrix.conf to set your preferred models")
+    print("  1. Edit model.conf to set your preferred models")
     print("  2. Run the requirements agent:")
     print()
     print("     orchestrate --interactive run-phase requirements")
@@ -2552,7 +2537,7 @@ def _ensure_run_branch(repo_root: Path, branch: str) -> None:
         )
 
 
-def _build_runtime(args, classification: str | None = None) -> _Runtime:
+def _build_runtime(args, story_tier: str | None = None) -> _Runtime:
     repo_root = Path.cwd()
     orch_dir = repo_root / ".orchestrator"
     agents_dir = _resolve_agents_dir(repo_root)
@@ -2561,7 +2546,7 @@ def _build_runtime(args, classification: str | None = None) -> _Runtime:
     run_lock = FileRunLock(orch_dir)
     findings_store = FilesystemFindingsStore(orch_dir / "findings")
     _backlog_store = MarkdownBacklogStore(repo_root / "backlog")
-    model_matrix = FileModelMatrix(repo_root / "model-matrix.conf")
+    model_matrix = FileModelMatrix(repo_root / "model.conf")
 
     # BR-040/FR-Q3/QS-20: this is the ONE place direct mode and menu mode
     # both funnel through to resolve `adapter`/`timeout`/`cap` — the same
@@ -2605,7 +2590,7 @@ def _build_runtime(args, classification: str | None = None) -> _Runtime:
         cwd=repo_root,
         timeout_s=timeout_s,
         interactive=args.interactive,
-        classification=classification,
+        story_tier=story_tier,
         on_agent_start=lambda info, ctx, has_findings: _update_instruction_file(
             repo_root,
             info.name,

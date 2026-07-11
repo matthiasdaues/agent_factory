@@ -1,7 +1,8 @@
-"""Tests for matrix-lint — the model matrix consistency gate.
+"""Tests for matrix-lint — the model.conf consistency gate.
 
-Each test writes a model-matrix.conf in tmp_path and runs check_matrix() or
-main() directly. Covers the happy path and every defect class (VR-024, ADR-0009).
+Each test writes a model.conf in tmp_path and runs check_matrix() or
+main() directly. Covers the happy path and every defect class
+(VR-024, ADR-0020, ADR-0021) for the flat, policy-less [facts] router.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ import importlib.util
 import sys
 from importlib.machinery import SourceFileLoader
 
-_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "matrix-lint"
+_SCRIPT = Path(__file__).resolve().parents[2] / "factory" / "scripts" / "matrix-lint"
 _loader = SourceFileLoader("matrix_lint", str(_SCRIPT))
 _spec = importlib.util.spec_from_loader("matrix_lint", _loader)
 matrix_lint = importlib.util.module_from_spec(_spec)
@@ -26,19 +27,12 @@ parse_matrix = matrix_lint.parse_matrix
 
 
 VALID_MATRIX = """\
-# Model matrix — operator-curated artifact (ADR-0009)
+# Model config — operator-curated artifact (ADR-0020, ADR-0021)
 
 [facts]
 copilot.economy  = gpt-5.4-mini
 copilot.standard = gpt-5.4
 copilot.strong   = claude-opus-4-6
-
-[policy]
-class.trivial  = economy
-class.standard = standard
-class.hard     = strong
-phase.planning       = strong
-phase.implementation = by-class
 on_missing = halt
 """
 
@@ -48,20 +42,20 @@ on_missing = halt
 
 class TestHappyPath:
     def test_valid_matrix_zero_errors(self, tmp_path: Path):
-        f = tmp_path / "model-matrix.conf"
+        f = tmp_path / "model.conf"
         f.write_text(VALID_MATRIX, encoding="utf-8")
         findings = check_matrix(f)
         errors = [r for r in findings if r.severity == "error"]
         assert errors == [], [r.line() for r in errors]
 
     def test_main_exit_zero(self, tmp_path: Path):
-        f = tmp_path / "model-matrix.conf"
+        f = tmp_path / "model.conf"
         f.write_text(VALID_MATRIX, encoding="utf-8")
         rc = matrix_lint.main(["--matrix", str(f)])
         assert rc == 0
 
     def test_json_format(self, tmp_path: Path):
-        f = tmp_path / "model-matrix.conf"
+        f = tmp_path / "model.conf"
         f.write_text(VALID_MATRIX, encoding="utf-8")
         rc = matrix_lint.main(["--matrix", str(f), "--format", "json"])
         assert rc == 0
@@ -109,8 +103,6 @@ class TestFactsValidation:
             textwrap.dedent("""\
         [facts]
         notierhere = gpt-5
-        [policy]
-        class.trivial = economy
         on_missing = halt
         """),
             encoding="utf-8",
@@ -124,8 +116,6 @@ class TestFactsValidation:
             textwrap.dedent("""\
         [facts]
         copilot.mega = gpt-99
-        [policy]
-        class.trivial = economy
         on_missing = halt
         """),
             encoding="utf-8",
@@ -133,51 +123,12 @@ class TestFactsValidation:
         findings = check_matrix(f)
         assert any(r.code == "MX-TIER" for r in findings)
 
-
-# --- Policy validation --------------------------------------------------------
-
-
-class TestPolicyValidation:
-    def test_bad_classification_name(self, tmp_path: Path):
-        f = tmp_path / "m.conf"
-        f.write_text(
-            textwrap.dedent("""\
-        [facts]
-        copilot.economy = gpt-5-mini
-        [policy]
-        class.extreme = economy
-        on_missing = halt
-        """),
-            encoding="utf-8",
-        )
-        findings = check_matrix(f)
-        assert any(
-            r.code == "MX-ENUM" and "classification" in r.message for r in findings
-        )
-
-    def test_bad_tier_in_policy(self, tmp_path: Path):
-        f = tmp_path / "m.conf"
-        f.write_text(
-            textwrap.dedent("""\
-        [facts]
-        copilot.economy = gpt-5-mini
-        [policy]
-        class.trivial = mega
-        on_missing = halt
-        """),
-            encoding="utf-8",
-        )
-        findings = check_matrix(f)
-        assert any(r.code == "MX-TIER" and "policy" in r.message for r in findings)
-
     def test_bad_on_missing(self, tmp_path: Path):
         f = tmp_path / "m.conf"
         f.write_text(
             textwrap.dedent("""\
         [facts]
         copilot.economy = gpt-5-mini
-        [policy]
-        class.trivial = economy
         on_missing = crash
         """),
             encoding="utf-8",
@@ -185,29 +136,24 @@ class TestPolicyValidation:
         findings = check_matrix(f)
         assert any(r.code == "MX-ENUM" and "on_missing" in r.message for r in findings)
 
-    def test_unknown_policy_prefix(self, tmp_path: Path):
+    def test_no_clis_configured(self, tmp_path: Path):
         f = tmp_path / "m.conf"
         f.write_text(
             textwrap.dedent("""\
         [facts]
-        copilot.economy = gpt-5-mini
-        [policy]
-        class.trivial = economy
-        widget.foo = economy
         on_missing = halt
         """),
             encoding="utf-8",
         )
         findings = check_matrix(f)
-        assert any(r.code == "MX-KEY" and "widget" in r.message for r in findings)
+        assert any(r.code == "MX-EMPTY" for r in findings)
 
 
-# --- VR-024: dangling tier (core check) ----------------------------------------
+# --- Coverage: a CLI missing a tier -------------------------------------------
 
 
-class TestDanglingTier:
-    def test_tier_unreachable_for_cli(self, tmp_path: Path):
-        """Policy references 'strong' but copilot has no strong fact."""
+class TestCoverage:
+    def test_cli_missing_a_tier_warns(self, tmp_path: Path):
         f = tmp_path / "m.conf"
         f.write_text(
             textwrap.dedent("""\
@@ -215,22 +161,17 @@ class TestDanglingTier:
         copilot.economy  = gpt-5-mini
         copilot.standard = gpt-5.4
 
-        [policy]
-        class.trivial  = economy
-        class.standard = standard
-        class.hard     = strong
         on_missing = halt
         """),
             encoding="utf-8",
         )
         findings = check_matrix(f)
-        resolve_errors = [r for r in findings if r.code == "MX-RESOLVE"]
-        assert len(resolve_errors) == 1
-        assert "strong" in resolve_errors[0].message
-        assert "copilot" in resolve_errors[0].message
+        coverage = [r for r in findings if r.code == "MX-COVERAGE"]
+        assert len(coverage) == 1
+        assert "strong" in coverage[0].message
+        assert "copilot" in coverage[0].message
 
-    def test_dangling_tier_multiple_clis(self, tmp_path: Path):
-        """Two CLIs, one missing a tier."""
+    def test_multiple_clis_each_report_their_own_gaps(self, tmp_path: Path):
         f = tmp_path / "m.conf"
         f.write_text(
             textwrap.dedent("""\
@@ -241,71 +182,15 @@ class TestDanglingTier:
         claude.economy   = haiku
         claude.standard  = sonnet
 
-        [policy]
-        class.trivial  = economy
-        class.standard = standard
-        class.hard     = strong
-        on_missing = halt
-        """),
-            encoding="utf-8",
-        )
-        findings = check_matrix(f)
-        resolve_errors = [r for r in findings if r.code == "MX-RESOLVE"]
-        assert len(resolve_errors) == 1
-        assert "claude" in resolve_errors[0].message
-        assert "strong" in resolve_errors[0].message
-
-
-# --- Unreferenced facts -------------------------------------------------------
-
-
-class TestUnreferencedFacts:
-    def test_unused_tier_info(self, tmp_path: Path):
-        f = tmp_path / "m.conf"
-        f.write_text(
-            textwrap.dedent("""\
-        [facts]
-        copilot.economy  = gpt-5-mini
-        copilot.standard = gpt-5.4
-        copilot.strong   = claude-opus-4-6
-
-        [policy]
-        class.trivial  = economy
-        class.standard = economy
-        class.hard     = economy
-        on_missing = halt
-        """),
-            encoding="utf-8",
-        )
-        findings = check_matrix(f)
-        unused = [r for r in findings if r.code == "MX-UNUSED"]
-        tier_names = {r.message.split("'")[1] for r in unused}
-        assert "standard" in tier_names
-        assert "strong" in tier_names
-
-
-# --- Missing classification coverage ------------------------------------------
-
-
-class TestCoverage:
-    def test_missing_class_policy(self, tmp_path: Path):
-        f = tmp_path / "m.conf"
-        f.write_text(
-            textwrap.dedent("""\
-        [facts]
-        copilot.economy = gpt-5-mini
-
-        [policy]
-        class.trivial = economy
         on_missing = halt
         """),
             encoding="utf-8",
         )
         findings = check_matrix(f)
         coverage = [r for r in findings if r.code == "MX-COVERAGE"]
-        missing_classes = {r.message.split("'")[1] for r in coverage}
-        assert "standard" in missing_classes
-        assert "hard" in missing_classes
+        assert len(coverage) == 1
+        assert "claude" in coverage[0].message
+        assert "strong" in coverage[0].message
 
 
 # --- on_missing default info --------------------------------------------------
@@ -318,9 +203,6 @@ class TestOnMissingDefault:
             textwrap.dedent("""\
         [facts]
         copilot.economy = gpt-5-mini
-
-        [policy]
-        class.trivial = economy
         """),
             encoding="utf-8",
         )
@@ -334,6 +216,6 @@ class TestOnMissingDefault:
 class TestReportOnly:
     def test_report_only_exits_zero(self, tmp_path: Path):
         f = tmp_path / "m.conf"
-        f.write_text("[facts]\n[policy]\n", encoding="utf-8")
+        f.write_text("[facts]\n", encoding="utf-8")
         rc = matrix_lint.main(["--matrix", str(f), "--report-only"])
         assert rc == 0

@@ -23,6 +23,5 @@ Domain glossary for the orchestrator project. This is a glossary only — no imp
 - **Halt** — a safe stop (cap exhausted, gate error, adapter-auth failure, adapter-config failure, rejection) that summons the human rather than proceeding.
 - **Backlog** — the set of planned stories the planning phase produces, held locally as human-readable artifacts rather than in an external tracker.
 - **Story** — one planned unit of implementation work, sized to INVEST; the item the planning phase emits and the implementation phase consumes.
-- **Classification** — a story's difficulty band, `trivial | standard | hard`, judged during planning and used to choose a model tier.
-- **Tier** — an abstract model-strength band, `economy | standard | strong`, that a classification or a phase maps to; a tier resolves to a concrete model for the CLI in use.
-- **Model matrix** — the artifact that carries the model policy: which tier each classification and phase wants, and which concrete model each tier means for each CLI.
+- **Tier** — an abstract model-strength band, `economy | standard | strong`, judged directly by whoever declares it (an agent's own frontmatter, or a story's own frontmatter during planning); a tier resolves to a concrete model for the CLI in use.
+- **model.conf** — the operator-curated tier router: per-CLI `[facts]` mapping each tier to a concrete model, plus `on_missing`. No policy layer — a tier is either configured for the active CLI or it isn't.

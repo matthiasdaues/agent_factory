@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from orchestrator.adapters.backlog_store import MarkdownBacklogStore
-from orchestrator.entities import Classification, StoryStatus
+from orchestrator.entities import Tier, StoryStatus
 
 
 def _write_story(backlog_dir: Path, story_id: str, content: str) -> Path:
@@ -27,7 +27,7 @@ def test_list_stories_returns_all_stories_sorted(tmp_path: Path):
         id: ST-0002
         epic: Delivery
         title: Second story
-        classification: hard
+        tier: strong
         status: done
         outputs: [src/two.py]
         ---
@@ -43,7 +43,7 @@ def test_list_stories_returns_all_stories_sorted(tmp_path: Path):
         id: ST-0001
         epic: Delivery
         title: First story
-        classification: trivial
+        tier: economy
         status: pending
         outputs: [src/one.py]
         ---
@@ -68,7 +68,7 @@ def test_get_story_returns_correct_story(tmp_path: Path):
         id: ST-0003
         epic: Routing
         title: Read one story
-        classification: standard
+        tier: standard
         status: in-progress
         deps: [ST-0001, ST-0002]
         traces: [UC-01]
@@ -115,7 +115,7 @@ def test_update_status_changes_frontmatter_without_altering_body(tmp_path: Path)
         id: ST-0004
         epic: Routing
         title: Update status
-        classification: standard
+        tier: standard
         status: pending
         outputs: [src/status.py]
         ---
@@ -155,7 +155,7 @@ def test_update_status_uses_atomic_replace(
         id: ST-0008
         epic: Delivery
         title: Atomic update
-        classification: standard
+        tier: standard
         status: pending
         outputs: [src/atomic.py]
         ---
@@ -227,7 +227,7 @@ def test_parse_frontmatter_handles_inline_and_block_sequences(tmp_path: Path):
     assert "Block body." in block_body
 
 
-def test_to_story_maps_classification_and_status_enums(tmp_path: Path):
+def test_to_story_maps_tier_and_status_enums(tmp_path: Path):
     backlog_dir = tmp_path / "backlog"
     backlog_dir.mkdir()
     store = MarkdownBacklogStore(backlog_dir)
@@ -237,7 +237,7 @@ def test_to_story_maps_classification_and_status_enums(tmp_path: Path):
             "id": "ST-0007",
             "epic": "Enums",
             "title": "Map enums",
-            "classification": "hard",
+            "tier": "strong",
             "status": "blocked",
             "deps": [],
             "traces": [],
@@ -245,7 +245,7 @@ def test_to_story_maps_classification_and_status_enums(tmp_path: Path):
         }
     )
 
-    assert story.classification is Classification.HARD
+    assert story.tier is Tier.STRONG
     assert story.status is StoryStatus.BLOCKED
 
 
@@ -259,7 +259,7 @@ def test_to_story_requires_frontmatter_fields(tmp_path: Path):
             {
                 "id": "ST-0009",
                 "epic": "Enums",
-                "classification": "hard",
+                "tier": "strong",
                 "status": "blocked",
             }
         )

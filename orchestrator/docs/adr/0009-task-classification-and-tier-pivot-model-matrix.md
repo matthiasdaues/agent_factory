@@ -1,6 +1,6 @@
 # 0009. Task classification and a tier-pivot model matrix
 
-**Status**: Accepted
+**Status**: Superseded by [ADR-0020](0020-tier-everywhere-model-config-router.md) — the classification/tier-pivot mechanism below is replaced by a story-declared tier; the underlying need (difficulty-aware model selection) still stands.
 
 ## Context
 

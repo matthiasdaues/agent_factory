@@ -162,10 +162,10 @@ def _build_configure_model_matrix_menu() -> MenuNode:
     `configure.defaults.adapter`, `configure.cli-list.remove-adapter`, and
     `configure.cli`, this submenu needs no runtime-populated children, so it
     (unlike those three) is fully built here with no composition-root merge
-    step. `show` is a `display` leaf (read-only projection of the matrix's
-    `[facts]`/`[policy]`); `edit` opens `model-matrix.conf` in `$EDITOR` and
-    then repopulates every registered adapter's model dictionary from the
-    edited facts (ADR-0017 point 5, ADR-0018 point 3); `validate` reruns the
+    step. `show` is a `display` leaf (read-only projection of `model.conf`'s
+    `[facts]`); `edit` opens `model.conf` in `$EDITOR` and then repopulates
+    every registered adapter's model dictionary from the edited facts
+    (ADR-0017 point 5 as revised by ADR-0021); `validate` reruns the
     existing `scripts/matrix-lint` gate rather than reimplementing its
     checks (FR-K5). All three dispatch handlers live in
     `cli.py:build_configure_model_matrix_dispatch`.

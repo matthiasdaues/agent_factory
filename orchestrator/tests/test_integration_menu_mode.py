@@ -55,22 +55,16 @@ MODEL_MATRIX_CONTENT = """\
 copilot.economy  = gpt-5.4-mini
 copilot.standard = gpt-5.4
 copilot.strong   = gpt-5.4-strong
-
-[policy]
-class.trivial  = economy
-class.standard = standard
-class.hard     = strong
-phase.requirements = strong
 on_missing = halt
 """
 
 
 def _write_model_matrix(repo_root: Path) -> None:
     """`_build_runtime`/`_run_menu_mode` both construct a `FileModelMatrix`
-    unconditionally from `<cwd>/model-matrix.conf`; every scenario that
-    reaches either needs this present, even when the scenario itself never
+    unconditionally from `<cwd>/model.conf`; every scenario that reaches
+    either needs this present, even when the scenario itself never
     resolves a model."""
-    (repo_root / "model-matrix.conf").write_text(MODEL_MATRIX_CONTENT, encoding="utf-8")
+    (repo_root / "model.conf").write_text(MODEL_MATRIX_CONTENT, encoding="utf-8")
 
 
 def _write_agent(agents_dir: Path, name: str, *, tier: str = "strong") -> None:
@@ -255,7 +249,7 @@ class TestRunStepMenuControllerReachesSameHandlerAsDirectMode:
     def _capture_build_runtime_and_handle_run_step(self, monkeypatch):
         calls: dict = {}
 
-        def _fake_build_runtime(args, classification=None):
+        def _fake_build_runtime(args, story_tier=None):
             calls.setdefault("build_runtime_args", []).append(
                 dict(
                     adapter=args.adapter,
@@ -445,7 +439,7 @@ class TestSettingsPrecedenceAcrossModes:
 
         args = cli.build_parser().parse_args(["run-phase", "requirements"])
         cli._resolve_interactive(args)
-        runtime = cli._build_runtime(args, classification=None)
+        runtime = cli._build_runtime(args, story_tier=None)
 
         assert runtime.cap == 7
         assert runtime.timeout_s == 555
@@ -464,7 +458,7 @@ class TestSettingsPrecedenceAcrossModes:
             ["--cap", "2", "--timeout", "60", "run-phase", "requirements"]
         )
         cli._resolve_interactive(args)
-        runtime = cli._build_runtime(args, classification=None)
+        runtime = cli._build_runtime(args, story_tier=None)
 
         assert runtime.cap == 2
         assert runtime.timeout_s == 60
@@ -480,7 +474,7 @@ class TestSettingsPrecedenceAcrossModes:
 
         args = cli.build_parser().parse_args(["run-phase", "requirements"])
         cli._resolve_interactive(args)
-        runtime = cli._build_runtime(args, classification=None)
+        runtime = cli._build_runtime(args, story_tier=None)
 
         assert runtime.cap == 3
         assert runtime.timeout_s == 1800
@@ -587,7 +581,7 @@ class TestSettingsPrecedenceAcrossModes:
 
         args = cli.build_parser().parse_args(["run-phase", "requirements"])
         cli._resolve_interactive(args)
-        cli._build_runtime(args, classification=None)
+        cli._build_runtime(args, story_tier=None)
 
         assert len(constructed_with) == 1
         assert isinstance(constructed_with[0], TomlConfigStore)

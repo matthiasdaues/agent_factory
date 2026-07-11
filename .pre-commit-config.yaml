@@ -67,10 +67,10 @@ repos:
 
       - id: matrix-lint
         name: matrix-lint (model matrix consistency gate)
-        entry: python3 factory/scripts/matrix-lint --matrix config/model-matrix.conf
+        entry: python3 factory/scripts/matrix-lint --matrix config/model.conf
         language: system
         pass_filenames: false
-        files: ^config/model-matrix\.conf$
+        files: ^config/model\.conf$
 
       - id: statemachine-lint
         name: statemachine-lint (pseudocode ↔ Mermaid consistency)
@@ -135,10 +135,10 @@ repos:
 
       - id: matrix-lint-orchestrator
         name: matrix-lint (model matrix consistency gate, orchestrator)
-        entry: python3 factory/scripts/matrix-lint --matrix orchestrator/model-matrix.conf
+        entry: python3 factory/scripts/matrix-lint --matrix orchestrator/model.conf
         language: system
         pass_filenames: false
-        files: ^orchestrator/model-matrix\.conf$
+        files: ^orchestrator/model\.conf$
 
       - id: statemachine-lint-orchestrator
         name: statemachine-lint (pseudocode ↔ Mermaid consistency, orchestrator)

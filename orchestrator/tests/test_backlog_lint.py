@@ -17,7 +17,7 @@ import importlib.util
 import sys
 from importlib.machinery import SourceFileLoader
 
-_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "backlog-lint"
+_SCRIPT = Path(__file__).resolve().parents[2] / "factory" / "scripts" / "backlog-lint"
 _loader = SourceFileLoader("backlog_lint", str(_SCRIPT))
 _spec = importlib.util.spec_from_loader("backlog_lint", _loader)
 backlog_lint = importlib.util.module_from_spec(_spec)
@@ -40,7 +40,7 @@ VALID_STORY = """\
 id: ST-0001
 epic: Core wiring
 title: Implement PhaseRunner state machine
-classification: standard
+tier: standard
 status: pending
 deps: [ST-0002]
 traces: [UC-02, BR-020]
@@ -62,7 +62,7 @@ VALID_STORY_2 = """\
 id: ST-0002
 epic: Core wiring
 title: Wire ModelResolver
-classification: trivial
+tier: economy
 status: pending
 outputs: [src/orchestrator/model_resolver.py]
 ---
@@ -104,7 +104,7 @@ class TestHappyPath:
 id: ST-0001
 epic: Test
 title: Test story
-classification: trivial
+tier: economy
 status: pending
 outputs: [foo.py]
 ---
@@ -126,7 +126,7 @@ Body.
 id: ST-0001
 epic: Test
 title: Test story
-classification: trivial
+tier: economy
 status: pending
 outputs: [foo.py]
 ---
@@ -182,7 +182,7 @@ class TestRequiredFields:
 id: ST-0001
 epic: Test
 title: Test
-classification: trivial
+tier: economy
 status: pending
 ---
 
@@ -209,7 +209,7 @@ class TestIdFilename:
 id: ST-9999
 epic: Test
 title: Test
-classification: trivial
+tier: economy
 status: pending
 outputs: [x.py]
 ---
@@ -230,7 +230,7 @@ Body.
 
 
 class TestEnums:
-    def test_bad_classification(self, tmp_path: Path):
+    def test_bad_tier(self, tmp_path: Path):
         bd = tmp_path / "backlog"
         bd.mkdir()
         _write_story(
@@ -241,7 +241,7 @@ class TestEnums:
 id: ST-0001
 epic: Test
 title: Test
-classification: extreme
+tier: extreme
 status: pending
 outputs: [x.py]
 ---
@@ -250,9 +250,7 @@ Body.
 """,
         )
         findings, _ = check_backlog(bd)
-        assert any(
-            f.code == "BL-ENUM" and "classification" in f.message for f in findings
-        )
+        assert any(f.code == "BL-ENUM" and "tier" in f.message for f in findings)
 
     def test_bad_status(self, tmp_path: Path):
         bd = tmp_path / "backlog"
@@ -265,7 +263,7 @@ Body.
 id: ST-0001
 epic: Test
 title: Test
-classification: trivial
+tier: economy
 status: cancelled
 outputs: [x.py]
 ---
@@ -292,7 +290,7 @@ class TestOutputs:
 id: ST-0001
 epic: Test
 title: Test
-classification: trivial
+tier: economy
 status: done
 outputs: [src/missing.py]
 ---
@@ -314,7 +312,7 @@ Body.
 id: ST-0001
 epic: Test
 title: Test
-classification: trivial
+tier: economy
 status: done
 outputs: []
 ---
@@ -338,7 +336,7 @@ Body.
 id: ST-0001
 epic: Test
 title: Test
-classification: trivial
+tier: economy
 status: pending
 outputs: [src/existing.py]
 ---
@@ -360,7 +358,7 @@ Body.
 id: ST-0001
 epic: Test
 title: Test
-classification: trivial
+tier: economy
 status: pending
 outputs: [src/missing.py]
 ---
@@ -387,7 +385,7 @@ class TestDeps:
 id: ST-0001
 epic: Test
 title: Test
-classification: trivial
+tier: economy
 status: pending
 deps: [ST-9999]
 outputs: [x.py]
@@ -410,7 +408,7 @@ Body.
 id: ST-0001
 epic: Test
 title: Test
-classification: trivial
+tier: economy
 status: pending
 deps: [FOO-01]
 outputs: [x.py]
@@ -438,7 +436,7 @@ class TestDuplicateIds:
 id: ST-0001
 epic: Test
 title: Test
-classification: trivial
+tier: economy
 status: pending
 outputs: [x.py]
 ---
@@ -454,7 +452,7 @@ Body.
 id: ST-0001
 epic: Test
 title: Test duplicate
-classification: trivial
+tier: economy
 status: pending
 outputs: [y.py]
 ---
@@ -481,7 +479,7 @@ class TestCycles:
 id: ST-0001
 epic: Test
 title: A
-classification: trivial
+tier: economy
 status: pending
 deps: [ST-0002]
 outputs: [x.py]
@@ -498,7 +496,7 @@ Body.
 id: ST-0002
 epic: Test
 title: B
-classification: trivial
+tier: economy
 status: pending
 deps: [ST-0001]
 outputs: [y.py]
@@ -526,7 +524,7 @@ class TestMachineFieldInBody:
 id: ST-0001
 epic: Test
 title: Test
-classification: trivial
+tier: economy
 status: pending
 outputs: [x.py]
 ---
@@ -555,7 +553,7 @@ class TestExtraFields:
 id: ST-0001
 epic: Test
 title: Test
-classification: trivial
+tier: economy
 status: pending
 outputs: [x.py]
 priority: high
@@ -612,7 +610,7 @@ class TestTraces:
 id: ST-0001
 epic: Test
 title: Test
-classification: trivial
+tier: economy
 status: pending
 traces: not-an-array
 outputs: [x.py]
@@ -636,7 +634,7 @@ Body.
 id: ST-0001
 epic: Test
 title: Test
-classification: trivial
+tier: economy
 status: pending
 traces: []
 outputs: [x.py]
@@ -660,7 +658,7 @@ Body.
 id: ST-0001
 epic: Test
 title: Test
-classification: trivial
+tier: economy
 status: pending
 traces: [UC-02, BR-020]
 outputs: [x.py]

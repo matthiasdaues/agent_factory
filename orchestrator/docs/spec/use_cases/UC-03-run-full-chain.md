@@ -50,7 +50,7 @@ The Operator runs `orchestrate run-phase <phase>` for each phase, in dependency 
 
 - **BR-006**: the chain has four phases in fixed dependency order — **requirements** (author `requirements-agent`, reviewer `spec-review-agent`), **architecture** (author `architecture-agent`, reviewer `architecture-review-agent`), **planning** (author `planning-agent`, no reviewer), **implementation** (author `implementation-agent`, reviewer `qa-agent`). A phase starts only after the previous phase is complete.
 - **BR-003** (halt on cap exhaustion) and **BR-012** (a rejection never silently proceeds) apply.
-- **BR-021**: The planning phase classifies each story as `trivial`, `standard`, or `hard`. Model selection maps a classification (or, for a non-task phase, the phase) to an abstract tier, then the tier and the active CLI to a concrete model, via the operator-curated model matrix. Precedence is fixed: an explicit `--model` overrides the matrix, which overrides the adapter default. There is no per-story model field — an operator tunes by re-classifying, keeping the backlog CLI-agnostic.
+- **BR-021**: The planning phase assigns each story a `tier` — `economy`, `standard`, or `strong` — the model strength its work needs. Model selection resolves that declared tier directly against `model.conf` for the active CLI. Precedence is fixed: an explicit `--model` overrides `model.conf`, which overrides the adapter default. There is no per-story model field beyond `tier` itself — an operator tunes by editing it, keeping the backlog CLI-agnostic.
 
 ## Activity Diagram
 

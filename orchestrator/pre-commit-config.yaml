@@ -1,7 +1,7 @@
 # Pre-commit hooks for Agent Factory projects.
 # Copied verbatim by `orchestrate init` — paths are relative to what `orchestrate
 # init` itself creates in the target project: a flat scripts/ directory and a
-# flat model-matrix.conf (see cli.py's `_COPY_DIRS`/`_handle_init`), NOT
+# flat model.conf (see cli.py's `_COPY_DIRS`/`_handle_init`), NOT
 # agent_factory's own nested factory/scripts + config/ layout, which is a
 # different bootstrap mechanism (`init-factory`) with its own conventions.
 # See: docs/spec/supplementary_specs/interface-contracts.md
@@ -53,10 +53,10 @@ repos:
 
       - id: matrix-lint
         name: matrix-lint (model matrix consistency gate)
-        entry: python3 scripts/matrix-lint --matrix model-matrix.conf
+        entry: python3 scripts/matrix-lint --matrix model.conf
         language: system
         pass_filenames: false
-        files: ^model-matrix\.conf$
+        files: ^model\.conf$
 
       - id: statemachine-lint
         name: statemachine-lint (pseudocode ↔ Mermaid consistency)

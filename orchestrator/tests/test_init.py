@@ -118,15 +118,15 @@ class TestInitGitignore:
 class TestInitModelMatrix:
     def test_copies_template(self, git_dir):
         main(["init", "--cli", "codex"])
-        matrix = git_dir / "model-matrix.conf"
+        matrix = git_dir / "model.conf"
         assert matrix.exists()
         assert "economy" in matrix.read_text()
 
     def test_does_not_overwrite_existing(self, git_dir):
         existing = "# my config\n"
-        (git_dir / "model-matrix.conf").write_text(existing)
+        (git_dir / "model.conf").write_text(existing)
         main(["init", "--cli", "codex"])
-        assert (git_dir / "model-matrix.conf").read_text() == existing
+        assert (git_dir / "model.conf").read_text() == existing
 
 
 class TestInitPreCommitConfig:
@@ -150,7 +150,7 @@ class TestInitPreCommitConfig:
 class TestInitPreCommitConfigPathsResolve:
     """BUG-0002: the copied .pre-commit-config.yaml's gate hooks must reference
     paths that `orchestrate init` actually creates (flat scripts/, flat
-    model-matrix.conf), not agent_factory's own factory/scripts + config/
+    model.conf), not agent_factory's own factory/scripts + config/
     layout, which `orchestrate init` never produces for the target project."""
 
     def test_gate_hook_entries_point_at_files_that_exist(self, git_dir):
@@ -175,15 +175,15 @@ class TestInitPreCommitConfigPathsResolve:
         import re
 
         main(["init", "--cli", "codex"])
-        assert (git_dir / "model-matrix.conf").exists()
+        assert (git_dir / "model.conf").exists()
         content = (git_dir / ".pre-commit-config.yaml").read_text()
 
         m = re.search(r"id: matrix-lint\b.*?files:\s*(\S+)", content, re.S)
         assert m is not None, "no matrix-lint hook with a files: pattern found"
         pattern = m.group(1)
-        assert re.match(pattern, "model-matrix.conf"), (
+        assert re.match(pattern, "model.conf"), (
             f"matrix-lint's files: pattern {pattern!r} does not match "
-            "model-matrix.conf, the real location `orchestrate init` copies "
+            "model.conf, the real location `orchestrate init` copies "
             "the matrix template to"
         )
 

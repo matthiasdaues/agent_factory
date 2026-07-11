@@ -180,10 +180,9 @@ class StubPromptComposer:
 class StubModelResolver:
     """Returns None — let the adapter use its default model."""
 
-    def resolve(
+    def resolve_tier(
         self,
-        phase: str,
-        classification: Optional[str] = None,
+        tier: Optional[str],
         explicit_model: Optional[str] = None,
     ) -> Optional[str]:
         return None

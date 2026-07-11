@@ -1,6 +1,6 @@
 # 0017. Persisted defaults and adapter registry in .orchestrator/config.toml
 
-**Status**: Accepted — resolves T-32
+**Status**: Accepted — resolves T-32. Persistence location confirmed and made explicit by [ADR-0021](0021-adapter-registry-discovery-and-precedence.md), which also clarifies that point 5's dictionary is no longer in the model-resolution path — only `model.conf` is.
 
 ## Context
 

@@ -10,7 +10,7 @@ Applying **Clean Architecture**: the orchestrator core depends on the CLI-adapte
 - The orchestrator shall map the requirements phase to author `requirements-agent` and reviewer `spec-review-agent` (UC-03, BR-006).
 - The orchestrator shall map the architecture phase to author `architecture-agent` and reviewer `architecture-review-agent` (UC-03, BR-006).
 - The orchestrator shall map the planning phase to author `planning-agent` and no reviewer (UC-03, BR-006).
-- The orchestrator shall map the implementation phase to author `implementation-agent` and reviewer `qa-agent` (UC-03, BR-006). The `implementation-agent` is a **dispatcher**: it reads the backlog dependency graph, groups ready stories into parallel waves, and spawns one `developer-agent` subagent per story with a model selected by the story's classification. The orchestrator sees a single invocation; parallelism is below the adapter boundary (FR-M).
+- The orchestrator shall map the implementation phase to author `implementation-agent` and reviewer `qa-agent` (UC-03, BR-006). The `implementation-agent` is a **dispatcher**: it reads the backlog dependency graph, groups ready stories into parallel waves, and spawns one `developer-agent` subagent per story with a model selected by the story's own `tier`. The orchestrator sees a single invocation; parallelism is below the adapter boundary (FR-M).
 - Where a phase has no reviewer, the orchestrator shall treat a passing gate as sufficient to reach awaiting-approval (UC-02, BR-006).
 
 ## Phase artifacts
@@ -35,14 +35,14 @@ Applying **Clean Architecture**: the orchestrator core depends on the CLI-adapte
 - When the Operator runs `resume`, the orchestrator shall continue the run from its last checkpoint (UC-06).
 - When the Operator runs `approve`, the orchestrator shall record the approval, advance `current_phase`, and set mode to `paused` — the operator runs `resume` to continue (UC-04, FAGAN-0035). For `empty-commit` phases, the gate-passed check is skipped (FAGAN-0038).
 - When the Operator runs `reject`, the orchestrator shall record the rejection and halt the run (UC-04, BR-012).
-- When the Operator runs `init`, the orchestrator shall scaffold the project directory with the required tooling structure (agents, skills, scripts, docs directories, model matrix, pre-commit config, and CLI instruction file).
+- When the Operator runs `init`, the orchestrator shall scaffold the project directory with the required tooling structure (agents, skills, scripts, docs directories, `model.conf`, pre-commit config, and CLI instruction file).
 - When the Operator runs `release`, the orchestrator shall restore a halted phase to its pre-halt status (`halted_from`), reset the iteration counter to zero, and set run mode to `paused` (ADR-0015, VR-029). It shall refuse if the run is not halted or `halted_from` is absent.
 - When the Operator runs `abort`, the orchestrator shall terminate the active run, set run mode to `complete`, release the run lock, and exit. It shall refuse if no active run exists.
 
 ### CLI flags
 
-- `--model <id>` — explicit model override; takes precedence over the model matrix (FR-K3).
-- `--story <ST-NNNN>` — story ID for classification-based model selection; resolves the story's classification from the backlog store and passes it to `ModelResolver` (FAGAN-0037).
+- `--model <id>` — explicit model override; takes precedence over `model.conf` (FR-K3).
+- `--story <ST-NNNN>` — story ID for tier-based model selection; resolves the story's `tier` from the backlog store and passes it to `ModelResolver` (FAGAN-0037).
 - `--no-interactive` — force headless invocation for this run, overriding the interactive default (ADR-0010).
 - `--adapter <name>` — select the CLI adapter (default `copilot`).
 - `--cap <n>` — iteration cap (default 3, VR-002).
@@ -59,13 +59,13 @@ Applying **Clean Architecture**: the orchestrator core depends on the CLI-adapte
 
 ## Model selection
 
-- The planning agent shall assign each story a classification of `trivial`, `standard`, or `hard` (FR-K1, BR-021).
-- For `run-step`, the orchestrator shall resolve the model by looking up the agent's declared tier in the active adapter's model dictionary. An explicit `--model` flag overrides this resolution entirely (FR-K3, FR-R11).
-- For `run-phase`, the orchestrator shall resolve each orchestrator-invoked agent independently from that agent's declared tier and the active adapter's model dictionary (FR-R12).
-- During the implementation phase, the `implementation-agent` dispatcher shall select each developer sub-agent's model from the story's `classification` alone, below the adapter boundary; developer agents declare no tier, and the two axes never combine on one invocation (FR-K2, FR-M, FR-R12).
-- When an explicit `--model` is given on `run-step`, the orchestrator shall not consult the adapter dictionary (FR-K3).
-- If the adapter's model dictionary has no model for the agent's effective tier, the orchestrator shall halt as a configuration error, unless the matrix's fallback is set to the adapter default (FR-K4, BR-020).
-- The orchestrator shall treat the model matrix as an operator-authored configuration artifact that populates the per-adapter model dictionaries; at runtime, model resolution reads only from the adapter dictionary (FR-K5, T-32).
+- The planning agent shall assign each story a `tier` of `economy`, `standard`, or `strong` (FR-K1, BR-021) — the model strength its work needs.
+- For `run-step`, the orchestrator shall resolve the model by looking up the agent's declared tier directly against `model.conf` for the active CLI. An explicit `--model` flag overrides this resolution entirely (FR-K3, FR-R11).
+- For `run-phase`, the orchestrator shall resolve each orchestrator-invoked agent independently from that agent's declared tier against `model.conf` (FR-R12).
+- During the implementation phase, the `implementation-agent` dispatcher shall select each developer sub-agent's model from the story's own `tier` alone, below the adapter boundary; developer agents declare no tier of their own, and the two axes never combine on one invocation (FR-K2, FR-M, FR-R12).
+- When an explicit `--model` is given on `run-step`, the orchestrator shall not consult `model.conf` (FR-K3).
+- If `model.conf` has no model for the agent's effective tier and active CLI, the orchestrator shall halt as a configuration error, unless `on_missing` is set to the adapter default (FR-K4, BR-020).
+- `model.conf` is the operator-authored artifact model resolution reads directly (FR-K5, ADR-0020, ADR-0021). The per-adapter model dictionary (`.orchestrator/config.toml`) is a separate, local cache used for menu-mode display, populated from `model.conf` on a gap-fill basis — not read at resolution time.
 
 ## Gate (pre-commit)
 
@@ -134,8 +134,8 @@ Applying **Clean Architecture**: the orchestrator core depends on the CLI-adapte
 - When the Operator adds or removes a model mapping for an adapter, the orchestrator shall persist the change atomically in that adapter's model dictionary (UC-10, FR-R7, BR-045, BR-048).
 - When the selected adapter supports model discovery, the orchestrator shall query the adapter for available models and shall leave configuration unchanged if discovery is unsupported or fails validation (UC-10, FR-R8, BR-047, BR-048).
 - The agent registry shall parse each agent's `tier` frontmatter and expose it to model resolution as first-class metadata (UC-10, FR-R10, BR-049).
-- When the Operator runs `run-step` without an explicit `--model`, the orchestrator shall resolve the default model from the selected agent's declared tier and the selected adapter's model dictionary (UC-10, UC-11, FR-R11, BR-046, BR-049).
-- When the Operator runs `run-phase` without an explicit `--model`, the orchestrator shall resolve each invoked agent independently from that agent's declared tier and the selected adapter's model dictionary (UC-10, UC-02, FR-R12, BR-046, BR-049).
+- When the Operator runs `run-step` without an explicit `--model`, the orchestrator shall resolve the default model from the selected agent's declared tier against `model.conf` for the selected adapter (UC-10, UC-11, FR-R11, BR-046, BR-049).
+- When the Operator runs `run-phase` without an explicit `--model`, the orchestrator shall resolve each invoked agent independently from that agent's declared tier against `model.conf` (UC-10, UC-02, FR-R12, BR-046, BR-049).
 - When the Operator opens `configure > model-matrix`, the orchestrator shall provide show, edit, and validate actions for the matrix and shall reuse the existing validation workflow (UC-10, FR-R9, BR-048).
 
 ## Skill-scoped execution
@@ -159,7 +159,7 @@ Applying **Clean Architecture**: the orchestrator core depends on the CLI-adapte
 ## Backlog views
 
 - In menu mode, the orchestrator shall expose `list`, `by-epic`, `ready`, and `view story` as read-only backlog views (UC-12, FR-U1, BR-056).
-- When the Operator opens `backlog > list`, the orchestrator shall render every story with `id`, `title`, `epic`, `classification`, `status`, and `deps` (UC-12, FR-U2, BR-059).
+- When the Operator opens `backlog > list`, the orchestrator shall render every story with `id`, `title`, `epic`, `tier`, `status`, and `deps` (UC-12, FR-U2, BR-059).
 - When the Operator opens `backlog > by-epic`, the orchestrator shall group stories under epic headings and retain each story's status indicator (UC-12, FR-U3, BR-059).
 - When the Operator opens `backlog > ready`, the orchestrator shall render only stories whose `status` is `pending` and whose dependencies all resolve to stories with `status: done` in the same loaded snapshot (UC-12, FR-U4, BR-057).
 - When the Operator opens `backlog > view story`, the orchestrator shall present a selectable story list and, after selection, display the story's full frontmatter and prose body (UC-12, FR-U5, BR-060).
