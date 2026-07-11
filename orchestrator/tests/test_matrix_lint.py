@@ -14,7 +14,7 @@ import importlib.util
 import sys
 from importlib.machinery import SourceFileLoader
 
-_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "matrix-lint"
+_SCRIPT = Path(__file__).resolve().parents[2] / "factory" / "scripts" / "matrix-lint"
 _loader = SourceFileLoader("matrix_lint", str(_SCRIPT))
 _spec = importlib.util.spec_from_loader("matrix_lint", _loader)
 matrix_lint = importlib.util.module_from_spec(_spec)

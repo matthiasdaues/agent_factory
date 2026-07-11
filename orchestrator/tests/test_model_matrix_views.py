@@ -39,7 +39,7 @@ from orchestrator.cli import (
 )
 from orchestrator.entities import MenuNode, MenuNodeType
 
-_REPO_SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
+_REPO_SCRIPTS = Path(__file__).resolve().parents[2] / "factory" / "scripts"
 
 
 def _node(node_id: str, node_type: MenuNodeType = MenuNodeType.FUNCTION) -> MenuNode:

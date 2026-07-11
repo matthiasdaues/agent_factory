@@ -19,7 +19,7 @@ from orchestrator.model_resolver import ModelResolver
 
 # orchestrator/tests/test_classification_resolution.py -> repo root
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEVELOPER_AGENT_PATH = REPO_ROOT / "agents" / "developer-agent.md"
+DEVELOPER_AGENT_PATH = REPO_ROOT / "factory" / "agents" / "developer-agent.md"
 
 
 class PoisonedModelMatrix:
