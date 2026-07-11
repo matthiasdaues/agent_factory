@@ -15,7 +15,7 @@ Follow **Conventional Commits 1.0.0** (conventionalcommits.org): `<type>: <descr
 
 Canonical statement: [rules.md § Commits](../rules.md#commits).
 
-**Format:** `<type>: <description> (<ID>)`
+Skeleton: [commit-message.md template](../templates/commit-message.md).
 
 ### ID Formats
 
@@ -72,3 +72,17 @@ fix: bug fix
 
 - [Conventional Commits 1.0.0](https://www.conventionalcommits.org/)
 - [versioning-policy.md](versioning-policy.md)
+
+## Referenced from
+
+- [rules.md § Commits](../rules.md#commits)
+- [architecture-agent.md § Workflow](../../agents/architecture-agent.md#workflow)
+- [developer-agent.md § Workflow](../../agents/developer-agent.md#workflow)
+- [requirements-agent.md § Workflow](../../agents/requirements-agent.md#workflow)
+- [reconciliation-agent.md § Workflow](../../agents/reconciliation-agent.md#workflow)
+- [qa-agent.md § Workflow](../../agents/qa-agent.md#workflow)
+- [bug-hunt § Phase: Fix](../../skills/bug-hunt/SKILL.md#phase-fix)
+- [implement-issue § Step 4 — Commit](../../skills/implement-issue/SKILL.md#step-4-commit)
+- [commit](../../skills/commit/SKILL.md)
+- [branching-policy.md § Commits On Feature Branches](branching-policy.md#commits-on-feature-branches)
+- [versioning-policy.md § Version Bump Triggers](versioning-policy.md#version-bump-triggers)

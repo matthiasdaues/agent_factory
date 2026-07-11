@@ -11,9 +11,7 @@ Shared format for all review and inspection skills.
 
 ## Finding table
 
-| Finding                      | Artifact                | Category                       | Severity                 |
-| ---------------------------- | ----------------------- | ------------------------------ | ------------------------ |
-| [what is wrong + what to do] | [file:line or doc path] | Defect / Suggestion / Question | Critical / Major / Minor |
+Row format: [review-report.md template](../templates/review-report.md).
 
 ## Category rules
 
@@ -32,3 +30,17 @@ Every finding must state **what is wrong** and **what to do** — no "this looks
 ## Findings drive the loop
 
 File each Defect and blocking-severity finding as its own `docs/findings/*.md` per [finding-format.md](finding-format.md). Under the orchestrator, the review loop reads those files directly — an `open` finding loops back to the author, a `resolved` one drops out — so the report table is for the reader and the finding files are what the tool acts on.
+
+## Referenced from
+
+- [finding-format.md § When to file](finding-format.md#when-to-file)
+- [todo-format.md § When to file](todo-format.md#when-to-file)
+- [architecture-review-agent.md § Workflow](../../agents/architecture-review-agent.md#workflow)
+- [reconciliation-agent.md § Workflow](../../agents/reconciliation-agent.md#workflow)
+- [qa-agent.md § Workflow](../../agents/qa-agent.md#workflow)
+- [spec-review-agent.md § Workflow](../../agents/spec-review-agent.md#workflow)
+- [security-review § Step 3 — Write the review report](../../skills/security-review/SKILL.md#step-3-write-the-review-report)
+- [reconcile-spec § Step 3 — Write the reconciliation report](../../skills/reconcile-spec/SKILL.md#step-3-write-the-reconciliation-report)
+- [inspect-spec § Step 3 — Write the review report](../../skills/inspect-spec/SKILL.md#step-3-write-the-review-report)
+- [atam-review § Step 4 — Write the review report](../../skills/atam-review/SKILL.md#step-4-write-the-review-report)
+- [fagan-review § Step 3 — Write the review report](../../skills/fagan-review/SKILL.md#step-3-write-the-review-report)
