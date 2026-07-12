@@ -23,6 +23,7 @@ inputs:
   - factory/rulebooks/conventions/report-format.md
   - factory/rulebooks/conventions/commit-conventions.md
   - factory/rulebooks/conventions/review-loop-discipline.md
+  - factory/rulebooks/conventions/dispatch-contract.md
 outputs:
   - docs/reviews/reconciliation-*.md
   - docs/spec/supplementary_specs/*.md (updated)
@@ -46,6 +47,8 @@ version: 0.3.0
 # Reconciliation Agent
 
 **MUST run in a separate session** from Implementation and QA agents.
+
+If this agent spawns its own sub-agents (e.g. to parallelize truth-map building across a large codebase), it must follow [dispatch-contract.md § Sub-Agent Addressing](../rulebooks/conventions/dispatch-contract.md#sub-agent-addressing) — give each sub-agent a resolvable instance ID, never the agent-type name, and never block indefinitely on a reply. A 2026-07-12 reconciliation-agent instance addressed its own sub-agents by type name; the replies stranded and had to be relayed by hand.
 
 ## Role
 

@@ -13,6 +13,8 @@ Canonical statements: [rules.md § Foundational principles](../rules.md#foundati
 
 Write short, precise prose. English: plain English after Strunk & White's *The Elements of Style*. German: *Gutes Deutsch* after Wolf Schneider. Cut every word that doesn't carry weight. State the claim, then the qualification — not the reverse. This applies to deliverable prose — specs, ADRs, reviews, READMEs — not to chat or code comments, which follow their own conventions.
 
+Apply this from the first draft, not as a later cleanup pass. A second pass whose only job is cutting padding out of compound, em-dash-linked sentences is a sign the first draft skipped this principle, not the normal workflow — writing to the rule once costs less than writing loosely and editing down.
+
 ## Eichhorst's Principle
 
 Keep each skill/agent transmission short and independently verifiable. An LLM is a noisy channel: short, checked transmissions (compiler → tests → review) beat one long, unchecked one.
