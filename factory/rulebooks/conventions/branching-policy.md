@@ -60,6 +60,8 @@ factory/scripts/premerge-check <target> <branch> [--scope <declared-output-path>
 
 Exit `0` means clean to merge. Exit non-zero means **block the merge** and investigate — a stale base or unrequested out-of-scope work, not a real overlap collision. Both contaminated diffs in the 2026-07-12 session were real; both were caught only because someone remembered to run `git diff --stat` by hand, after the branch's full run had already finished. This check makes that habit a required, scripted step instead of something the dispatcher must remember, and runs it on the finished branch as a second, independent gate on top of the Verify-Base Preamble the subagent ran on its own first tool call.
 
+`premerge-check`'s pass marker is one slot per checkout, keyed to the branch just checked — so each `premerge-check <branch>` call must be immediately followed by that branch's own `git merge`, one pair at a time, before checking the next branch. Batching checks ahead of merges overwrites the marker and the earlier merges get denied. This isn't a new constraint: a single working tree can only merge one branch at a time anyway (git's own index lock serializes it); the marker just now enforces the ordering mechanically instead of assuming the dispatcher follows it.
+
 ### Two SHAs Tracked Per Invocation
 
 - **branch root** — the SHA on `main`/trunk the invocation branch was cut from.
