@@ -1,0 +1,195 @@
+# Bug Fix Workflow State Machine
+# Executable gate-enforced workflow derived from bug-fix.md
+
+version: 1.0.0
+type: workflow-state-machine
+playbook: bug-fix
+
+# Gate condition library
+gate_conditions:
+  bug_filed:
+    type: files_exist
+    paths:
+      - docs/findings/BUG-*.md
+  
+  bug_open:
+    type: no_open_findings
+    pattern: BUG-*.md
+    inverted: true  # At least one BUG-*.md must be open
+  
+  tests_exist:
+    type: files_exist
+    paths:
+      - tests/**/*
+      - test/**/*
+      - "*_test.*"
+  
+  code_exists:
+    type: files_exist
+    paths:
+      - src/**/*
+      - lib/**/*
+      - "*.go"
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+  
+  tests_pass:
+    type: script_exit_zero
+    script: factory/scripts/run-tests
+    # Hook-triggered test execution, not agent-run
+  
+  no_new_qa_findings:
+    type: no_open_findings
+    patterns:
+      - FAGAN-*.md
+      - SEC-*.md
+  
+  bug_resolved:
+    type: no_open_findings
+    pattern: BUG-*.md
+
+# State machine
+states:
+  INIT:
+    description: Bug reported, ready to fix
+    entry_conditions:
+      - bug_filed
+      - code_exists
+      - tests_exist
+    
+    on:
+      StartFix:
+        transitions:
+          to: FILE_BUG
+
+  # Step 1: File Bug (if not already filed)
+  FILE_BUG:
+    description: Create bug finding if not present
+    entry_conditions:
+      - code_exists
+    
+    agent: null  # Manual or via QA agent
+    session: stateless
+    
+    outputs:
+      - docs/findings/BUG-*.md
+    
+    on:
+      BugFiled:
+        exit_conditions:
+          - bug_filed
+        transitions:
+          - if: bug_filed
+            to: IMPLEMENT_FIX
+          - else:
+            to: FILE_BUG
+
+  # Step 2: Implement Fix
+  IMPLEMENT_FIX:
+    description: TDD bug fix implementation
+    entry_conditions:
+      - bug_filed
+      - bug_open
+    
+    agent: developer-agent
+    session: stateful
+    
+    outputs:
+      - src/**/*
+      - lib/**/*
+      - tests/**/*
+      - test/**/*
+      - "*_test.*"
+      - git commits  # fix: <description> (BUG-NNNN)
+    
+    on:
+      FixImplemented:
+        exit_conditions:
+          - tests_pass  # Hook-triggered test execution gate
+        transitions:
+          - if: tests_pass
+            to: QA_VALIDATION
+          - else:
+            to: IMPLEMENT_FIX  # Loop back if tests fail
+
+  # Step 3: QA Validation
+  QA_VALIDATION:
+    description: Regression testing and validation
+    entry_conditions:
+      - bug_filed
+      - code_exists
+      - tests_exist
+    
+    agent: qa-agent
+    session: stateless
+    
+    outputs:
+      - docs/reviews/qa-review-*.md
+      - docs/findings/FAGAN-*.md
+      - docs/findings/SEC-*.md
+      - docs/findings/BUG-*.md  # New bugs found during QA
+    
+    on:
+      QAComplete:
+        exit_conditions:
+          - no_new_qa_findings
+        transitions:
+          - if: no_new_qa_findings
+            to: MARK_RESOLVED
+          - else:
+            to: IMPLEMENT_FIX  # Loop back to fix new defects
+
+  # Step 4: Mark Bug Resolved
+  MARK_RESOLVED:
+    description: Update bug finding status to resolved
+    entry_conditions:
+      - bug_filed
+      - no_new_qa_findings
+    
+    agent: null  # Manual status update
+    session: stateless
+    
+    outputs:
+      - docs/findings/BUG-*.md  # status: resolved
+    
+    on:
+      BugResolved:
+        exit_conditions:
+          - bug_resolved
+        transitions:
+          - if: bug_resolved
+            to: DONE
+          - else:
+            to: MARK_RESOLVED
+
+  DONE:
+    description: Bug fixed and validated
+    entry_conditions:
+      - bug_filed
+      - bug_resolved
+      - no_new_qa_findings
+    
+    final: true
+
+# Halt conditions (circuit breakers)
+halt_conditions:
+  - type: max_iterations
+    state: IMPLEMENT_FIX
+    event: FixImplemented
+    limit: 3
+    message: "Fix implementation looped 3 times. Review approach or escalate."
+  
+  - type: max_iterations
+    state: QA_VALIDATION
+    event: QAComplete
+    limit: 3
+    message: "QA validation looped 3 times. New bugs keep appearing. Escalate."
+
+# Audit trail
+audit:
+  log_state_entry: true
+  log_gate_checks: true
+  log_transitions: true
+  log_halt_conditions: true
+  output_file: .agent-factory/audit.log
