@@ -33,6 +33,17 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST** determine merge order from real file-overlap analysis, not a grouping label — file-disjoint branches merge in parallel, overlapping branches merge serially in dependency order.
 - **MUST** run the full test suite after every merge, before the next.
 - **MUST** track exactly two commit IDs per invocation — branch root and branch head.
+- **MUST** run `factory/scripts/verify-base` as a worktree-isolated subagent's first tool call, against its target branch and its declared base SHA; halt on any non-zero exit before reading, editing, or committing anything.
+- **MUST** run `factory/scripts/premerge-check` on a finished branch before merging it; a non-zero exit blocks the merge until investigated.
+
+## Dispatch
+
+→ [dispatch-contract.md](conventions/dispatch-contract.md)
+
+- **MUST** give any sub-agent a resolvable instance ID to report back to, never the parent's agent-type name.
+- **MUST NOT** block indefinitely on a sub-agent's reply — do the work yourself if it declines or doesn't respond.
+- **MUST** split a whole-codebase dispatch into smaller, independently mergeable dispatches rather than run it as one.
+- **MUST** checkpoint a long-running dispatch with commits between rounds.
 
 ## Commits
 
@@ -92,6 +103,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 - [foundational-principles.md](conventions/foundational-principles.md)
 - [branching-policy.md § Project-Specific Rules](conventions/branching-policy.md#project-specific-rules)
+- [dispatch-contract.md § Project-Specific Rules](conventions/dispatch-contract.md#project-specific-rules)
 - [commit-conventions.md § Story/Bug ID Required](conventions/commit-conventions.md#storybug-id-required)
 - [cross-reference-format.md § Rule](conventions/cross-reference-format.md#rule)
 - [finding-format.md § When to file](conventions/finding-format.md#when-to-file)
