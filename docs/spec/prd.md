@@ -24,6 +24,7 @@ ______________________________________________________________________
 - **G6** — Keep the machine-readable catalog of every agent, skill, and playbook (`factory/INDEX.yaml`) generated from source frontmatter, never hand-edited (`index-lint`).
 - **G7** — Block a fixed list of destructive or gate-bypassing git commands before they run, for both supported CLIs (`block-dangerous-git.sh`).
 - **G8** — Wire all of the above into a new or existing project, idempotently, without disturbing what is already there (`init-factory`).
+- **G9** — Run project tests deterministically via unavoidable hooks (pre-commit, pre-push, phase advance), never via agent-commanded shell execution (`run-tests`).
 
 ### Non-Goals
 
@@ -84,6 +85,18 @@ ______________________________________________________________________
 
 - **FR-H1** — Idempotent: copies `factory/`, merges `.gitignore`, symlinks factory content and the guardrail hook into both `.claude/` and `.github/`, copies `config/model.conf` once, merges or symlinks `.pre-commit-config.yaml`.
 - **FR-H2** — Collision-safe: any step that finds something unexpected at a destination path stops the whole run before touching anything later.
+
+### FR-I — Test Execution (`run-tests`)
+
+- **FR-I1** — Auto-detects the project's test framework from structure markers (pytest via `pyproject.toml`, jest via `package.json`, go test via `go.mod`, cargo test via `Cargo.toml`); exits `2` if none found.
+- **FR-I2** — `--changed-only` mode runs tests for modified files only (fast subset, for pre-commit); `--full` mode runs the complete suite (for pre-push and phase advance gates).
+- **FR-I3** — Exits `0` on pass, `1` on test failures, `2` on framework detection failure or inability to run.
+- **FR-I4** — Emits a JSON summary (`{"passed": N, "failed": M, "skipped": K, "duration_ms": T}`) on stdout and human-readable progress/errors on stderr.
+- **FR-I5** — Invoked by three unavoidable hooks:
+  - Pre-commit hook (`--changed-only`) for fast feedback
+  - Pre-push hook (`--full`) as the "ready to share" gate
+  - Phase advance via FSM `script_exit_zero: factory/scripts/run-tests --full` condition
+- **FR-I6** — Agents are blocked from running test commands directly (`pytest`, `npm test`, `go test`, `cargo test`) by `block-dangerous-git.sh`; test execution is hook-triggered only.
 
 ## 5. Constraints
 

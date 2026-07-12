@@ -95,6 +95,14 @@ repos:
         pass_filenames: false
         always_run: true
 
+      # UC-09, BR-029: Run tests only when src/ or test/ code changes
+      - id: run-tests
+        name: run-tests (changed-only mode)
+        entry: python3 factory/scripts/run-tests --changed-only
+        language: system
+        pass_filenames: false
+        files: ^(src/|tests?/)
+
       # --- orchestrator-scoped hooks below (dev config for this monorepo) ---
 
       - id: mdformat-orchestrator

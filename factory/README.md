@@ -58,6 +58,43 @@ Once the CLI greets you, pick a playbook from `factory/playbooks/` — a step-by
 
 For every other situation — a new project, an existing codebase, a bug, a feature — see the [factory guide § Playbooks](docs/factory-guide.md#playbooks) for which one fits.
 
+## Test execution hooks
+
+Agent Factory runs tests through unavoidable hooks, not by asking agents to run them. This enforces the core principle: **creation is agentic, validation is deterministic**. Tests run automatically at three points:
+
+1. **Pre-commit hook** (bypassable with `--no-verify`) — runs tests on changed files only, fast feedback during development
+2. **Pre-push hook** (no bypass) — runs full test suite before sharing your work, blocks push if tests fail
+3. **Phase advance gates** — FSM entry conditions check `tests_pass` before advancing to QA or DONE states
+
+### Framework detection
+
+`factory/scripts/run-tests` auto-detects your test framework from project structure:
+
+- **pytest**: detected from `pyproject.toml`, runs via `uv run pytest`
+- **jest**: detected from `package.json`, runs via `npm test`
+- **go test**: detected from `go.mod`, runs via `go test ./...`
+- **cargo test**: detected from `Cargo.toml`, runs via `cargo test`
+
+No configuration needed for single-framework projects. Multi-framework monorepos are detected and fail loudly (not yet supported).
+
+### Agent test iteration
+
+Agents cannot run bare test commands (`pytest`, `npm test`) — these are blocked by the git safety hooks. But agents writing tests need a tight feedback loop. Use staged mode:
+
+```bash
+# Agent stages test file
+git add tests/test_foo.py
+
+# Agent runs tests on staged files
+factory/scripts/run-tests --staged
+
+# Agent sees results, fixes test, stages again, repeats
+```
+
+This preserves the "tests via factory mechanisms" principle while enabling TDD workflows.
+
+See [ADR-0003](../docs/adr/0003-test-execution-via-hooks.md) for the architecture rationale and [UC-09](../docs/spec/use_cases/UC-09-run-tests-via-hook.md) for detailed behavior.
+
 ## Using this in an existing repo
 
 `init-factory` works the same way against a repo that already has its own history and its own `.pre-commit-config.yaml` — run it from inside that repo. It only adds what Agent Factory needs; it never rewrites or removes anything already there. Details, including what to do if it can't merge your existing `.pre-commit-config.yaml`, are in the [factory guide § Using this in an existing repo](docs/factory-guide.md#using-this-in-an-existing-repo).

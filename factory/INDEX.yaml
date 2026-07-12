@@ -210,6 +210,7 @@ playbooks:
     category: orchestration
     description: Operational procedure for fixing defects in production or development.
     path: playbooks/bug-fix.md
+    fsm: playbooks/bug-fix.fsm.yml
     agents:
       - developer-agent
       - qa-agent

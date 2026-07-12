@@ -7,7 +7,8 @@ tie them together. Same spirit as `spec-lint`: a deterministic gate, blocking
 only on error-severity findings, runnable as a pre-commit hook.
 
 Checks
-  1. Staleness   — architecture.dsl newer than an exported image => re-export needed.
+  1. Staleness   — architecture.dsl newer than an exported image => auto-export via
+                   factory/scripts/structurizr export-all (deterministic validation).
   2. Coupling    — the core components and the ports named in chapter 5
                    (05_building_block_view.md) must match the model, both ways.
   3. Validate    — run `structurizr validate` when Docker is available; skip otherwise.
@@ -190,18 +191,56 @@ def _parse_adr_status_line(text: str) -> str | None:
 
 
 def check_staleness(rep: Report, dsl_path: Path, images: list[Path]) -> None:
+    """Check if diagrams are stale and auto-export if needed (UC-09, deterministic validation)."""
+    needs_export = False
+
     if not images:
-        rep.warn("ARCH-STALE", "no exported images found; run `structurizr export-all`")
-        return
-    dsl_mtime = dsl_path.stat().st_mtime
-    stale = [p for p in images if p.stat().st_mtime < dsl_mtime]
-    if stale:
-        names = ", ".join(sorted(p.name for p in stale))
-        rep.error(
-            "ARCH-STALE",
-            f"architecture.dsl is newer than exported image(s): {names}. "
-            f"Re-run `structurizr export-all`.",
-        )
+        rep.info("ARCH-STALE", "no exported images found; will export now")
+        needs_export = True
+    else:
+        dsl_mtime = dsl_path.stat().st_mtime
+        stale = [p for p in images if p.stat().st_mtime < dsl_mtime]
+        if stale:
+            names = ", ".join(sorted(p.name for p in stale))
+            rep.info(
+                "ARCH-STALE",
+                f"architecture.dsl is newer than exported image(s): {names}. Will re-export.",
+            )
+            needs_export = True
+
+    if needs_export:
+        # Auto-export via structurizr script (deterministic validation principle)
+        docs_dir = dsl_path.parent
+        structurizr_script = Path("factory/scripts/structurizr")
+
+        if not structurizr_script.exists():
+            rep.error(
+                "ARCH-EXPORT",
+                "Cannot auto-export: factory/scripts/structurizr not found",
+            )
+            return
+
+        try:
+            # Run export-all to regenerate diagrams
+            result = subprocess.run(
+                [str(structurizr_script), "export-all"],
+                cwd=docs_dir.parent,  # repo root
+                capture_output=True,
+                text=True,
+                timeout=300,  # 5 minute timeout
+            )
+
+            if result.returncode == 0:
+                rep.info("ARCH-EXPORT", "Diagrams exported successfully")
+            else:
+                rep.error(
+                    "ARCH-EXPORT",
+                    f"Export failed (exit {result.returncode}): {result.stderr[:200]}",
+                )
+        except subprocess.TimeoutExpired:
+            rep.error("ARCH-EXPORT", "Export timed out after 300s")
+        except Exception as e:
+            rep.error("ARCH-EXPORT", f"Export error: {e}")
 
 
 def check_coupling(rep: Report, dsl: str, ch5: str) -> None:

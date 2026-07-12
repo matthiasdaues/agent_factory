@@ -31,7 +31,7 @@ SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
 # --- Schema constants ---------------------------------------------------------
 
 VALID_TIERS = {"economy", "standard", "strong"}
-VALID_STATUSES = {"pending", "in-progress", "done", "blocked"}
+VALID_STATUSES = {"pending", "in-progress", "review", "blocked", "done"}
 RE_STORY_ID = re.compile(r"^ST-\d{4,}$")
 REQUIRED_FIELDS = {"id", "epic", "title", "tier", "status", "outputs"}
 OPTIONAL_FIELDS = {"deps", "traces"}

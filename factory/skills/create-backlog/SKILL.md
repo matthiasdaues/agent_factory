@@ -15,28 +15,18 @@ Read `docs/CONTEXT.md` if it exists — use the project's domain vocabulary in s
 
 ## Story file format
 
-```markdown
----
-id: ST-0001                       # ST-NNNN, zero-padded, unique; matches the filename
-epic: Domain Entities             # the EPIC this story belongs to (a grouping label, not a separate file)
-title: Define domain entity dataclasses
-tier: economy                     # economy | standard | strong — the model tier this story's work needs
-status: pending                   # pending | in-progress | done | blocked
-deps: [ST-0002]                   # story ids that block this one (optional)
-traces: [UC-02, ADR-0003]         # Use Case / ADR / component ids this story implements (optional)
-outputs: [src/orchestrator/entities.py]   # files the story is expected to produce
----
+See [story.md template](../../rulebooks/templates/story.md) for the complete frontmatter schema and body structure.
 
-# <title>
+**Key frontmatter fields:**
 
-<what the story delivers, in the domain's language>
-
-**Priority:** must-have          # MoSCoW — must-have | should-have | could-have | wont-have
-
-## Acceptance Criteria
-
-- <criterion derived from the Gherkin scenarios / postconditions>
-```
+- `id`: ST-NNNN, zero-padded, unique; matches the filename
+- `epic`: The EPIC this story belongs to (grouping label, not a separate file)
+- `title`: What the story delivers
+- `tier`: economy | standard | strong (model tier needed)
+- `status`: pending | in_progress | review | blocked | done
+- `deps`: Story IDs that block this one (optional)
+- `traces`: Use Case / ADR / component IDs implemented (optional)
+- `outputs`: Files the story produces
 
 EPICs are **not** separate files — an EPIC is the `epic:` frontmatter value shared by its stories. MoSCoW priority lives in the prose body (the frontmatter schema is closed; `backlog-lint` rejects unknown fields).
 
