@@ -1,0 +1,170 @@
+#!/usr/bin/env python3
+"""premerge-check — required, scripted gate on a finished branch before it
+merges into its target. Replaces "the orchestrating session remembers to
+diff the branch against its target" with a deterministic check
+(docs/reviews/retro-2026-07-12.md action item #3, proposal §4).
+
+Catches the two contaminated diffs the 2026-07-12 session hit by hand
+(`git diff --stat` run manually, after the fact) and turns that habit into
+a required step run before every merge, not after a full agent run is
+already finished.
+
+Checks
+  1. Stale-base signature: `<branch>` must contain every commit reachable
+     from `<target>` (`git merge-base --is-ancestor <target> <branch>`). If
+     not, the diff `<target>...<branch>` necessarily reverts lines
+     `<target>` already has — the same underlying condition verify-base
+     checks pre-dispatch, checked here again post-dispatch as a second,
+     independent gate.
+  2. File-count blowout: `git diff --name-only <target>...<branch>` must
+     not exceed `--max-files` (default 20) — a large, unscoped diff is the
+     signature of a stale-base run that touched far more than intended.
+  3. Out-of-scope paths (only if `--scope` given): every changed file must
+     fall under at least one declared `--scope` prefix.
+
+Usage
+  premerge-check <target> <branch> [--scope PATH ...] [--max-files N]
+
+Exit codes
+  0: PASS — no blocking finding
+  1: BLOCK — at least one blocking finding; do not merge without an
+     explicit override
+  2: usage or git-invocation error
+"""
+
+from __future__ import annotations
+
+import argparse
+import subprocess
+import sys
+
+
+def run_git(args: list[str]) -> tuple[int, str, str]:
+    result = subprocess.run(["git", *args], capture_output=True, text=True)
+    return result.returncode, result.stdout.strip(), result.stderr.strip()
+
+
+def check_stale_base(target: str, branch: str) -> tuple[bool, str]:
+    code, _, err = run_git(["merge-base", "--is-ancestor", target, branch])
+
+    if code == 128:
+        return False, f"ERROR: {err or 'unknown ref while checking ancestry'}"
+
+    if code != 0:
+        _, out, _ = run_git(
+            ["rev-list", "--left-right", "--count", f"{target}...{branch}"]
+        )
+        left, _, _ = out.partition("\t")
+        return False, (
+            f"BLOCK stale-base-signature: {branch!r} is missing "
+            f"{left.strip() or '?'} commit(s) present on {target!r} — the diff "
+            f"necessarily reverts already-merged work"
+        )
+
+    return True, f"PASS stale-base-signature: {branch!r} contains all of {target!r}"
+
+
+def changed_files(target: str, branch: str) -> tuple[int, list[str], str]:
+    code, out, err = run_git(["diff", "--name-only", f"{target}...{branch}"])
+
+    if code != 0:
+        return 2, [], err
+
+    files = [line for line in out.splitlines() if line]
+    return 0, files, ""
+
+
+def check_blowout(files: list[str], max_files: int) -> tuple[bool, str]:
+    if len(files) > max_files:
+        return False, (
+            f"BLOCK file-count-blowout: {len(files)} files changed, "
+            f"exceeds --max-files {max_files}"
+        )
+
+    return (
+        True,
+        f"PASS file-count-blowout: {len(files)} files changed (limit {max_files})",
+    )
+
+
+def check_out_of_scope(files: list[str], scopes: list[str]) -> tuple[bool, str]:
+    if not scopes:
+        return True, "SKIP out-of-scope-paths: no --scope declared"
+
+    out_of_scope = [
+        f
+        for f in files
+        if not any(f == s or f.startswith(s.rstrip("/") + "/") for s in scopes)
+    ]
+
+    if out_of_scope:
+        listed = ", ".join(out_of_scope[:10])
+        more = f" (+{len(out_of_scope) - 10} more)" if len(out_of_scope) > 10 else ""
+        return False, f"BLOCK out-of-scope-paths: {listed}{more}"
+
+    return (
+        True,
+        f"PASS out-of-scope-paths: all {len(files)} file(s) under declared scope",
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("target", help="merge target branch, e.g. dev")
+    ap.add_argument("branch", help="finished branch being considered for merge")
+    ap.add_argument(
+        "--scope",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help="declared path prefix the dispatch said it would touch; repeatable",
+    )
+    ap.add_argument(
+        "--max-files",
+        type=int,
+        default=20,
+        metavar="N",
+        help="file-count blowout threshold (default 20)",
+    )
+    args = ap.parse_args(argv)
+
+    code, _, err = run_git(["rev-parse", "--is-inside-work-tree"])
+
+    if code != 0:
+        print(f"premerge-check: not a git repository: {err}", file=sys.stderr)
+        return 2
+
+    findings: list[bool] = []
+
+    ok, line = check_stale_base(args.target, args.branch)
+    print(line)
+    findings.append(ok)
+
+    status, files, err = changed_files(args.target, args.branch)
+
+    if status == 2:
+        print(f"premerge-check: {err}", file=sys.stderr)
+        return 2
+
+    ok, line = check_blowout(files, args.max_files)
+    print(line)
+    findings.append(ok)
+
+    ok, line = check_out_of_scope(files, args.scope)
+    print(line)
+    findings.append(ok)
+
+    if all(findings):
+        print(
+            f"premerge-check: PASS — {args.branch!r} clean to merge into {args.target!r}"
+        )
+        return 0
+
+    print(
+        f"premerge-check: BLOCK — do not merge {args.branch!r} without an explicit override"
+    )
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
