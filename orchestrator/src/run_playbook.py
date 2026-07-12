@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -29,6 +30,20 @@ AUDIT_LOG = Path(".agent-factory/audit.log")
 PLAYBOOKS_DIR = Path("factory/playbooks")
 PHASE_SCRIPT = Path("factory/scripts/phase")
 TRIGGER_SCRIPT = Path("factory/scripts/trigger")
+
+
+def _provision_session_log() -> None:
+    """Export AF_SESSION_LOG so every subprocess writes to the same audit log.
+
+    This is the single provisioning point for the session log env var.
+    factory/scripts/_session_log.py reads it on each gate run: set → log,
+    unset → no-op. By exporting it here, the orchestrator ensures that
+    phase advance, phase retry, trigger, and any gate script they invoke
+    all write to .agent-factory/audit.log alongside the orchestrator's own
+    entries — one file, one timeline, no configuration drift.
+    """
+    AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
+    os.environ["AF_SESSION_LOG"] = str(AUDIT_LOG.resolve())
 
 
 def read_marker(marker_path: Path) -> dict[str, str]:
@@ -168,6 +183,8 @@ def main(argv: list[str] | None = None) -> int:
         help="Bootstrap marker at this state (first run only)",
     )
     args = ap.parse_args(argv)
+
+    _provision_session_log()
 
     # Bootstrap if needed
     marker = read_marker(MARKER_PATH)

@@ -45,10 +45,26 @@ RESET='\033[0m'
 
 session_session_log_init() {
     mkdir -p "$DEMO_DIR/.agent-factory"
+    # AF_SESSION_LOG is the single env var that activates session logging.
+    #
+    # Who provisions it:
+    #   - Human workflow:   the human exports it at session start (Part 1 below)
+    #   - Orchestrator:     run_playbook.py exports it in _provision_session_log()
+    #   - This demo:        we export it here so Part 1 (manual) also logs
+    #
+    # Where it is read:
+    #   - factory/scripts/_session_log.py — gate scripts (spec-lint, etc.)
+    #   - orchestrator/src/run_playbook.py — the orchestrator's own entries
+    #
+    # Where it is documented:
+    #   - factory/docs/factory-guide.md § Session logging
+    #   - factory/docs/proposals/session-log-addendum.md
+    #
+    # If unset, all logging is a no-op. No silent failures, no missing files.
     export AF_SESSION_LOG="$DEMO_DIR/.agent-factory/audit.log"
     : > "$AF_SESSION_LOG"
     session_log "system" "init" "demo-start" "Demo session started"
-    session_log "system" "init" "demo-dir" "dir=$DEMO_DIR"
+    session_log "system" "init" "af-session-log" "AF_SESSION_LOG=$AF_SESSION_LOG"
 }
 
 session_log() {
@@ -536,8 +552,11 @@ echo "  Part 1: You drive it by hand (human in the loop)"
 echo "  Part 2: The orchestrator drives it (unattended)"
 echo ""
 echo "Both use the exact same FSM, gates, and scripts."
-echo "All events are logged to .agent-factory/audit.log — the same"
-echo "file the real orchestrator uses, activated via AF_SESSION_LOG."
+echo ""
+echo "Session logging is activated by the AF_SESSION_LOG env var:"
+echo "  - In Part 1 (manual), you export it yourself at session start."
+echo "  - In Part 2 (orchestrated), run-playbook provisions it automatically."
+echo "All events land in .agent-factory/audit.log — one file, one timeline."
 echo ""
 
 session_log_init
