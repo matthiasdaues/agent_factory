@@ -25,12 +25,12 @@ The orchestrator has persisted phase status `awaiting-approval` and exited (UC-0
 2. Operator runs `orchestrate approve`.
 3. Orchestrator re-verifies the gate passed and open findings == 0 (BR-007). For `empty-commit` phases, the gate-passed check is skipped — the operator is acknowledging the empty commit is acceptable (FAGAN-0038).
 4. Orchestrator records the approval in `.orchestrator/run.json`, marking the phase `complete`.
-5. If more phases remain, the orchestrator advances `current_phase` and sets `mode: paused` — the operator runs `resume` to continue the chain (FAGAN-0035). If this was the last phase, the run is marked `complete`.
+5. If more phases remain, the orchestrator advances `current_phase` and sets `mode: paused` (FAGAN-0035). Continuation is now driven by the `factory/` scripts (`factory/scripts/{transition-lint,phase,trigger}`), not by an orchestrator `resume` command. If this was the last phase, the run is marked `complete`.
 
 ## Extensions
 
 - **2a. The Operator runs `reject` (optionally with a note)**
-  - 2a1. Orchestrator records the rejection and halts; re-running the phase is a fresh Operator action (`run-phase` / `resume`), not an automatic loop-back (BR-012).
+  - 2a1. Orchestrator records the rejection and halts; re-running the phase is a fresh Operator action driven through `factory/` (see `docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md`), not an automatic loop-back (BR-012).
 - **2b. The Operator does neither**
   - 2b1. The run stays paused with `awaiting-approval` persisted; no progression occurs.
 - **3a. Re-verification finds the phase is no longer clean** (artifacts changed since the gate)
@@ -38,7 +38,7 @@ The orchestrator has persisted phase status `awaiting-approval` and exited (UC-0
 
 ## Postconditions
 
-- **Success Guarantee**: the approval is recorded, the phase is `complete`, and `current_phase` is advanced (or the run is complete). Mode is `paused` (not `running`) until the operator runs `resume`.
+- **Success Guarantee**: the approval is recorded, the phase is `complete`, and `current_phase` is advanced (or the run is complete). Mode is `paused` (not `running`) until the factory scripts drive the next phase forward.
 - **Minimal Guarantee**: the decision (approve, reject, or none) is recorded in `.orchestrator/run.json`; progression happens only on an explicit approval of a still-clean phase.
 
 ## Business Rules
@@ -73,7 +73,7 @@ Feature: Approve or reject at a phase gate
     When the Operator runs approve
     Then the orchestrator marks the phase complete
     And it sets mode to paused with current_phase advanced
-    And the Operator runs resume to continue the chain
+    And the factory scripts drive the next phase forward from that state
 
   Scenario: Approval of empty-commit phase
     Given a phase awaiting approval with last_gate.hook = empty-commit

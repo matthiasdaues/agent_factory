@@ -6,13 +6,13 @@ Concerns that span multiple building blocks. Each is realized once and reused, k
 
 ## 8.1 Session isolation
 
-Every agent invocation is a fresh OS subprocess with no inherited conversation context (NFR-2, BR-004, VR-004). Isolation is a **structural** guarantee (a process boundary), not a behavioural one (prompt discipline). The `CLIAdapter` port is the only place a subprocess is spawned; the core never shares state between an author and a reviewer invocation. See [ADR-0002](adr/0002-subprocess-session-isolation.md).
+Every agent invocation is a fresh OS subprocess with no inherited conversation context (NFR-2, BR-004, VR-004). Isolation is a **structural** guarantee (a process boundary), not a behavioural one (prompt discipline). This subprocess spawning moved to `factory/`; the orchestrator no longer invokes agents. See [ADR-0002](adr/0002-subprocess-session-isolation.md) and the repo-root [ADR-0002](../../docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md).
 
 ## 8.2 Determinism and the gate
 
 The LLM's non-deterministic output is bracketed by deterministic checks (NFR-1). Agents commit their own work inside the CLI subprocess; the host's `.pre-commit-config.yaml` hooks fire on each `git commit`, providing deterministic gating at the point of commit — the same mechanism as ADR-0003, but the *commit responsibility* shifts from orchestrator to agent (ADR-0013).
 
-The orchestrator's gate is a **working-tree cleanliness check** (`git status --porcelain`) after the agent process exits. The `(exit_code, tree_state)` pair determines the outcome:
+The gate is a **working-tree cleanliness check** (`git status --porcelain`) after the agent process exits. `factory/` runs it inside the phase loop; the orchestrator runs the same gate (via `WorkingTreeGate`) only to check artifact staleness at approval. The `(exit_code, tree_state)` pair determines the outcome:
 
 - `exit 0 + clean` → passed (agent committed all work, hooks accepted it).
 - `exit 0 + dirty` → **confabulation** — agent claimed success but left uncommitted changes; halt immediately (VR-025).
@@ -23,9 +23,9 @@ See [ADR-0003](adr/0003-pre-commit-as-gate-bus.md) (hook config) and [ADR-0013](
 
 ## 8.3 Finding lifecycle and identity
 
-- **Identity**: the orchestrator owns a monotonic allocator; every ingested finding gets a unique `FND-NNNN` id on ingest. Sources (`spec-lint`, reviewer) never mint ids (BR-019, VR-007).
+- **Identity**: every finding gets a unique `FND-NNNN` id when written to the store; sources (`spec-lint`, reviewer) never mint ids (BR-019, VR-007). Allocation and ingestion run in `factory/`; the orchestrator reads the result.
 - **Shape**: one schema for both sources (deterministic + semantic); every finding is validated on write (VR-006). Schema in [interface-contracts](spec/supplementary_specs/interface-contracts.md).
-- **Ingest**: deterministic findings come from `spec-lint --format json`; the semantic reviewer's findings are read from its filed `docs/findings/*.md` (status `open`). A `FindingIngestor` port (concrete `DefaultFindingIngestor`) maps both onto the finding DTO and writes them to the store, so the core never imports the reader ([ADR-0012](adr/0012-ingest-findings-from-filed-markdown.md), superseding the stdout-block mechanism of ADR-0011). The reviewer reports on its own severity scale (`critical/major/minor`, or `high/medium/low` for security and ATAM); the ingestor maps every scale onto the store's `error/warning/info` so no finding is dropped. Reading the files, not stdout, means the loop works in interactive mode too (ST-0022).
+- **Ingest**: ingestion moved to `factory/`. It maps `spec-lint --format json` and the reviewer's filed `docs/findings/*.md` (status `open`) onto the finding DTO and writes them to the store; the orchestrator reads that store for its status views. See the repo-root [ADR-0002](../../docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md) and [ADR-0012](adr/0012-ingest-findings-from-filed-markdown.md) for the ingest mechanism.
 - **Single source of truth**: the JSON store, not `docs/findings/*.md`, is authoritative for loop state — identity, lifecycle, and phase/iteration scoping. The filed markdown is the ingestion input the store is projected from, one-directionally; no finding's content is authored independently in both places ([ADR-0019](adr/0019-findings-store-remains-the-loop-source-of-truth.md), closing ST-0021).
 - **Cycle tagging**: a finding is tagged with the 1-based cycle that must address it — `run-iteration + 1` (the run counter is 0-based). The reviewer's findings are counted as the just-produced cycle for the exit predicate, and read by the next author after the loop-back increment.
 - **Lifecycle**: `open → superseded` (a newer iteration replaced it — auto, BR-014) or `open → resolved` (a human closed a surviving finding — T-05). The loop-exit predicate counts only `open` findings of the **latest** iteration (SF-04, VR-013). This is what guarantees the loop terminates: each iteration supersedes the prior iteration's open findings, so stale findings cannot keep the loop alive.

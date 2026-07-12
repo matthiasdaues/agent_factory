@@ -2,6 +2,8 @@
 
 **Status**: Accepted
 
+> **Amended 2026-07-12 (PhaseRunner collapse):** `run.json` and the single-run lock remain in the orchestrator; run-branch creation and resume-driven execution moved to `factory/`. See the repo-root `docs/spec/prd.md` and `docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md`.
+
 ## Context
 
 A run must be observable, interruptible, and resumable without corruption (Q4, NFR-4, FR-I). Safety demands a single active run, atomic state writes, and commits that never endanger the operator's working tree (Q3, NFR-3): commits go to a dedicated run branch from a clean tree, never force-pushed (BR-016, BR-017). Resume must skip completed phases (VR-005) and re-gate stale artifacts (VR-012).

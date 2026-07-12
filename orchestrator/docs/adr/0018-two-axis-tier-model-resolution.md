@@ -2,6 +2,8 @@
 
 **Status**: Accepted — revises ADR-0009 (resolution mechanism); resolves T-34; corrected by SPEC-0008. Story-side vocabulary (point 2 below) revised by [ADR-0020](0020-tier-everywhere-model-config-router.md) — the two-axis, two-level architecture decided here still stands.
 
+> **Superseded for the orchestrator, 2026-07-12 (PhaseRunner collapse):** Tier→model resolution moved to `factory/` (this decision was already partly reframed by ADR-0020 and ADR-0021); the orchestrator no longer resolves a model at invocation time. See the repo-root `docs/spec/prd.md` and `docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md`.
+
 ## Context
 
 ADR-0009 resolves a model from a **story's classification** (or a phase default) through the operator-curated model matrix. The TUI addendum adds a second axis: an **agent declares the `tier`** its task needs in front-matter (FR-R10), and `run-step` runs an agent with no story context at all, so classification cannot apply there (FR-R11). It also introduces per-adapter **model dictionaries** (ADR-0017) that map a tier to a concrete model.

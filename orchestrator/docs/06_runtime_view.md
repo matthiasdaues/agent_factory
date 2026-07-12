@@ -4,6 +4,8 @@
 
 The scenarios that exercise the architecture's control flow. The authoritative behaviour is in [`spec/use_cases/`](spec/use_cases/) and the phase state machine in [`spec/supplementary_specs/state-machines.md`](spec/supplementary_specs/state-machines.md).
 
+> **Note.** Scenarios §6.1–§6.5 and the run-step dispatch in §6.7 describe phase execution, which moved out of the orchestrator into `factory/` (see the repo-root [`docs/spec/prd.md`](../../docs/spec/prd.md) and [ADR-0002](../../docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md)). The diagrams are retained as the record of that flow; regenerating them for `factory/` is tracked separately. The orchestrator's own runtime is the read-only status projection (§6.6) and the approval, release, and abort transitions it applies to `run.json`.
+
 ## 6.1 Run a phase — clean on the first pass (UC-02 main success)
 
 Derived from dynamic view `RunPhaseClean` in [`architecture.dsl`](architecture.dsl).
@@ -100,11 +102,11 @@ flowchart TD
     E -->|recoverable| R[RetryOrHalt<br/>count iteration - BR-002]
 ```
 
-The working-tree gate replaces the old pre-commit-output-parsing gate. Agents commit inside their subprocess; `pre-commit` hooks fire on each `git commit` within the agent process. The orchestrator only checks the final tree state — it never stages, commits, or parses hook output (ADR-0013).
+The working-tree gate replaces the old pre-commit-output-parsing gate. Agents commit inside their subprocess; `pre-commit` hooks fire on each `git commit` within the agent process. The gate only checks the final tree state — it never stages, commits, or parses hook output (ADR-0013). In the phase loop this check runs in `factory/`; the orchestrator re-runs the same working-tree gate only to check artifact staleness at approval.
 
 ## 6.4 Drive the chain phase by phase (UC-03)
 
-There is no automated chain sequencer (`run-all` and unattended execution are deferred, NG6). The **Operator** drives the chain manually: run `run-phase` for a phase (§6.1/§6.2), approve its gate, then run `run-phase` for the next. Each phase is one execution of the state machine above; the human is the sequencer between phases.
+There is no automated chain sequencer (`run-all` and unattended execution are deferred, NG6). The **Operator** drives the chain manually: run a phase through `factory/` (§6.1/§6.2), `approve` its gate through the orchestrator, then run the next phase through `factory/`. Each phase is one execution of the state machine above; the human is the sequencer between phases.
 
 ```mermaid
 flowchart TD
@@ -118,9 +120,11 @@ flowchart TD
     E -->|no| F[Run complete]
 ```
 
-Each phase reuses the working-tree gate and loop policy identically; nothing about driving the chain manually changes a phase's internal behaviour. Automated and unattended chain execution return with a messaging channel or Web-UI (NG6, T-36).
+Each phase reuses the same gate and loop policy in `factory/`; nothing about driving the chain manually changes a phase's internal behaviour. Automated and unattended chain execution return with a messaging channel or Web-UI (NG6, T-36).
 
 ## 6.5 Resume an interrupted run (UC-06)
+
+The `resume` command moved to `factory/`; the diagram below records the historical orchestrator flow (repo-root [ADR-0002](../../docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md)). The orchestrator retains the run-state store and lock that a resume reads.
 
 ```mermaid
 sequenceDiagram
@@ -146,7 +150,7 @@ sequenceDiagram
 
 ## 6.7 Navigate the TUI to a run-step leaf (UC-08)
 
-Derived from dynamic view `NavigateMenuToRunStep` in [`architecture.dsl`](architecture.dsl). The navigation state machine (root → submenu → display → executing → exited) is specified in [`spec/supplementary_specs/state-machines.md`](spec/supplementary_specs/state-machines.md#tui-menu-navigation-state-machine); this sequence shows one happy path through it. The key invariant: a function leaf reaches the **same** service a direct-mode command would, so behaviour is identical across modes (FR-V3).
+Derived from dynamic view `NavigateMenuToRunStep` in [`architecture.dsl`](architecture.dsl). The navigation state machine (root → submenu → display → executing → exited) is specified in [`spec/supplementary_specs/state-machines.md`](spec/supplementary_specs/state-machines.md#tui-menu-navigation-state-machine); this sequence shows one happy path through it. The key invariant: a function leaf reaches the **same** service a direct-mode command would, so behaviour is identical across modes (FR-V3). Note: the `run-step` leaf is now inert — phase execution moved to `factory/` — so the final dispatch runs no agent; the navigation mechanics are unchanged and equally illustrate a status or approval leaf.
 
 ```mermaid
 sequenceDiagram

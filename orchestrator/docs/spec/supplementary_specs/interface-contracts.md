@@ -2,7 +2,11 @@
 
 DTOs and schemas at the system's boundaries. Applying **Dependency Inversion** (the core depends on these abstractions, not concretions) and **Interface Segregation** (each contract is minimal).
 
+> **Scope note (amended 2026-07-12, PhaseRunner collapse):** the *CLI Adapter*, *Invocation Log*, and *Invocation Context & Prompt Composer* sections below describe ports and DTOs deleted from the orchestrator — `CLIAdapter`, the invocation-log writer, `InvocationContext`, and `PromptComposer` all moved to `factory/`. Kept for history; the orchestrator no longer implements them. See the repo-root `docs/spec/prd.md` and `docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md`. The *Gate Verification*, *Finding*, *Story*, *model.conf*, *Run State*, *Run Lock*, *Configuration Store*, *Adapter Registry*, *Settings Resolver*, *Menu Renderer*, and *Agent Tier Extension* sections remain accurate.
+
 ## CLI Adapter
+
+_(Superseded — moved to factory.)_
 
 The seam that makes the orchestrator CLI-agnostic. Concrete adapters (Copilot first; Claude, Gemini later) implement this one method.
 
@@ -27,6 +31,8 @@ CLIAdapter.invoke(prompt: str, cwd: Path, timeout_s: int, model: str | None = No
 ## Gate Verification
 
 The orchestrator no longer stages, commits, or runs pre-commit hooks itself. Agents commit their own work; pre-commit hooks fire inside the agent subprocess. The orchestrator's gate is a **working-tree cleanliness check** after the agent exits.
+
+_(Amended)_ The table below described `WorkingTreeGate.verify()` as a per-iteration step inside the deleted phase loop. The method and `GateResult` DTO are unchanged and still real, but the orchestrator now calls `verify()` from exactly one place — `ApprovalService.approve()`'s artifact-staleness re-gate (VR-012) — not from a phase loop. The `→ AwaitingApproval or Reviewing` / `→ Halted` / `→ RetryOrHalt` transitions below are factory's, driven by the same `GateResult` shape.
 
 ```
 WorkingTreeGate.verify(cwd: Path, exit_code: int) -> GateResult
@@ -55,11 +61,15 @@ GateResult:
 
 ## Invocation Log (append-only)
 
+_(Superseded — moved to factory. No orchestrator component writes `.orchestrator/log.jsonl` any longer; the read-only `InvocationLogReader` port remains but has no concrete adapter, so `status > log` always renders empty.)_
+
 Per-invocation observability (FR-J, QS-13, ATAM-R06/T-16). Each agent invocation appends one JSON line to `.orchestrator/log.jsonl` after it completes, matching the `AGENT_INVOCATION` entity: `agent`, `role`, `adapter`, `model`, `exit_code`, `duration_ms`, `timed_out`, `auth_error`, `config_error`, plus the resulting `gate` outcome where one followed (`passed`, `errored`, `hook`, `error_count`, `gate_timed_out`). The core writes it through a `Logger` port so the sink stays swappable; the append-only file is the default adapter. Reads never drive control flow (logs are for the operator, not the loop).
 
 ## Invocation Context & Prompt Composer
 
-The `InvocationContext` carries the workstep identity from the phase runner to the prompt composer (FR-L).
+_(Superseded — moved to factory. `InvocationContext` and `PromptComposer` are deleted from the orchestrator.)_
+
+The `InvocationContext` carried the workstep identity from the phase runner to the prompt composer (FR-L).
 
 ```
 InvocationContext:
@@ -122,7 +132,7 @@ One JSON file per finding under `findings/`. IDs are assigned by the orchestrato
 }
 ```
 
-- **Ingest mapping**: the deterministic pass runs `spec-lint --format json`; the semantic pass's findings are read from the review agent's filed `docs/findings/*.md` — every file whose frontmatter `status` is `open` (decision in [ADR-0012](../../adr/0012-ingest-findings-from-filed-markdown.md), superseding the stdout-block mechanism of [ADR-0011](../../adr/0011-reviewer-findings-ingest-contract.md)). A `FindingIngestor` port exposes two methods: `ingest_open_findings(phase, iteration)` reads filed markdown findings, and `ingest_gate_output(gate_output, phase, iteration)` parses deterministic gate/spec-lint findings from pre-commit stdout (FAGAN-0034). Gate-output parsing tolerates mixed stdout (hook banner text around an embedded JSON findings block) and de-duplicates findings by content — code, severity, artifact, message — so a finding echoed both as a bare object and inside a `findings` array, or repeated across two output blocks, is counted once (FAGAN-0045). The store stamps `id` (monotonic allocator via `FindingsStore.next_id()`), `phase`, and `iteration`. Neither source mints its own ID. `next_id()` returns the next available `FND-NNNN` identifier, monotonically increasing across the store. Reading the filed files rather than the reviewer's stdout makes ingestion work in an interactive session where stdout is not captured (ST-0022).
+- **Ingest mapping** _(superseded — moved to factory; `FindingIngestor` is deleted from the orchestrator)_: the deterministic pass runs `spec-lint --format json`; the semantic pass's findings are read from the review agent's filed `docs/findings/*.md` — every file whose frontmatter `status` is `open` (decision in [ADR-0012](../../adr/0012-ingest-findings-from-filed-markdown.md), superseding the stdout-block mechanism of [ADR-0011](../../adr/0011-reviewer-findings-ingest-contract.md)). A `FindingIngestor` port exposed two methods: `ingest_open_findings(phase, iteration)` read filed markdown findings, and `ingest_gate_output(gate_output, phase, iteration)` parsed deterministic gate/spec-lint findings from pre-commit stdout (FAGAN-0034). Gate-output parsing tolerated mixed stdout (hook banner text around an embedded JSON findings block) and de-duplicated findings by content — code, severity, artifact, message — so a finding echoed both as a bare object and inside a `findings` array, or repeated across two output blocks, was counted once (FAGAN-0045). The store still stamps `id` (monotonic allocator via `FindingsStore.next_id()`), `phase`, and `iteration` on write; the orchestrator's `FilesystemFindingsStore` retains this allocator even though nothing in the orchestrator calls it today. Neither source mints its own ID. `next_id()` returns the next available `FND-NNNN` identifier, monotonically increasing across the store.
 - **Severity mapping**: sources report on their own scale — `spec-lint` already emits `error | warning | info`; the semantic reviewer uses the review scales (`critical | major | minor`, or `high | medium | low` for the security and ATAM reviews). The ingestor maps every scale onto this DTO's `error | warning | info` (`critical`/`major`/`high` → `error`; `medium`/`minor` → `warning`; `low` → `info`) so no reviewer finding is dropped for an unrecognized label. Severity casing is lowercase everywhere (BR-002).
 - **Iteration (cycle) tagging**: a finding's `iteration` is the 1-based cycle that must address it, which is `RunState.iteration + 1` (the run counter is 0-based, minimum 0; a finding's is minimum 1). A reviewer running after the pass at run-iteration *N* tags its findings *N+1*; the loop counts the open findings of that just-produced cycle (SF-04), and after the loop-back increment the author reads them via the store at its new iteration.
 - **Persisted review cycle (FAGAN-0040)**: the reviewer records the cycle it just tagged in `PhaseRecord.last_reviewed_cycle`, and `ApprovalService.approve()` and the `status` projection count open findings on *that* stored cycle rather than re-deriving `iteration + 1`. Re-deriving is wrong on the empty-commit pause path, which returns to `awaiting-approval` without ingesting or advancing the iteration, leaving `iteration + 1` pointing past the still-open findings. `null` means no review has run for the phase (a gate-only phase); approval then has nothing to block on.

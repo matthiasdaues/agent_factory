@@ -2,6 +2,8 @@
 
 **Status**: Accepted
 
+> **Amended 2026-07-12 (PhaseRunner collapse):** The named execution components — `CLIAdapter`, `PhaseRunner`, `ModelResolver`, `LoopPolicy`, `PromptComposer`, `FindingIngestor` — moved to `factory/`; the orchestrator no longer drives the author→gate→review loop. The ports-and-adapters pattern and the retained ports (MenuRenderer, GateRunner, FindingsStore, RunStateStore, ConfigStore, AdapterRegistry, BacklogStore, ModelMatrix, InvocationLogReader) still describe how the orchestrator is built. See the repo-root `docs/spec/prd.md` and `docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md`.
+
 ## Context
 
 The orchestrator must be CLI-agnostic (FR-C, Q5) — Copilot first, Claude and Gemini later — and it must be safe and testable (Q3, Q4). It also drives several concrete externalities: an AI CLI, git/pre-commit, and the filesystem (findings store, run state). The central logic — the phase state machine and loop policy — is the same regardless of which CLI, VCS, or storage sits underneath.

@@ -23,6 +23,8 @@ These are the criteria the ADR Pugh matrices ([chapter 9](09_architecture_decisi
 
 Each scenario is `source → stimulus → artifact → response → measure`, phrased so it can become a test. IDs (QS-##) are referenced by the ATAM review ([reviews/atam-review.md](reviews/atam-review.md)).
 
+> **Scope note (amended 2026-07-12, PhaseRunner collapse):** QS-13 and QS-14 describe execution-time properties (invocation logging, `CLIAdapter` portability) that now hold in `factory/`, not the orchestrator — its own `status > log` view always renders empty (no invocation-log writer remains), and there is no `CLIAdapter` port left to extend. QS-18 partially moved: exit code and gate behaviour parity between TUI and direct mode still holds; findings ingestion and logging no longer happen in either mode. See the repo-root `docs/spec/prd.md` and `docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md`.
+
 | ID        | Quality      | Scenario                                                                                    | Measure (response)                                                                                                                               |
 | --------- | ------------ | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **QS-01** | Determinism  | The same committed artifact set is gated twice.                                             | Identical `GateResult` and identical finding set both times (NFR-1, VR-015).                                                                     |

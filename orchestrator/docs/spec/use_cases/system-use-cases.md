@@ -4,6 +4,8 @@ Technical requirements at the system's interfaces, expressed in **EARS** syntax 
 
 Applying **Clean Architecture**: the orchestrator core depends on the CLI-adapter and store abstractions (see [interface-contracts](../supplementary_specs/interface-contracts.md)), never on a concrete CLI.
 
+> **Scope note (2026-07-12, PhaseRunner collapse):** the orchestrator no longer drives agent execution — no author→gate→review loop, no model resolution, no prompt composition, no findings ingestion. That flow moved to `factory/`; see the repo-root [docs/spec/prd.md](../../../../docs/spec/prd.md) and [docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md](../../../../docs/adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md). The orchestrator now observes run state and manages a subset of the lifecycle — `approve`, `reject`, `abort`, `release`, `init`, and the TUI. Requirement bullets below that describe the deleted execution surface carry an inline `_(Superseded — moved to factory; see docs/adr/0002.)_` marker; their IDs and text are kept intact for traceability.
+
 ## Phase model
 
 - The orchestrator shall define four phases, each with an author agent and an optional reviewer agent: requirements, architecture, planning, implementation (UC-03, BR-006).
@@ -27,19 +29,21 @@ Applying **Clean Architecture**: the orchestrator core depends on the CLI-adapte
 
 ## Command interface (CLI)
 
-- When the Operator runs `run-step <agent>`, the orchestrator shall run that agent exactly once and report the artifacts it produced (UC-01, BR-005).
-- If the agent named to `run-step` is not found in the agent registry (resolved from the package-relative `agents/` path), then the orchestrator shall exit non-zero without launching a subprocess (UC-01, BR-011).
-- When the Operator runs `run-phase <phase>`, the orchestrator shall drive that phase's author-reviewer loop until the loop condition is met or the iteration cap is reached (UC-02).
-- The Operator shall drive the phases in their fixed dependency order by running `run-phase` for each in turn, approving each gate before the next (UC-03, BR-006).
+- When the Operator runs `run-step <agent>`, the orchestrator shall run that agent exactly once and report the artifacts it produced (UC-01, BR-005). _(Superseded — moved to factory; see docs/adr/0002.)_
+- If the agent named to `run-step` is not found in the agent registry (resolved from the package-relative `agents/` path), then the orchestrator shall exit non-zero without launching a subprocess (UC-01, BR-011). _(Superseded — moved to factory; see docs/adr/0002.)_
+- When the Operator runs `run-phase <phase>`, the orchestrator shall drive that phase's author-reviewer loop until the loop condition is met or the iteration cap is reached (UC-02). _(Superseded — moved to factory; see docs/adr/0002.)_
+- The Operator shall drive the phases in their fixed dependency order by running `run-phase` for each in turn, approving each gate before the next (UC-03, BR-006). _(Superseded — moved to factory; see docs/adr/0002.)_
 - When the Operator runs `status`, the orchestrator shall report the current phase, iteration, open-findings count, last gate result, and run mode (UC-05).
-- When the Operator runs `resume`, the orchestrator shall continue the run from its last checkpoint (UC-06).
-- When the Operator runs `approve`, the orchestrator shall record the approval, advance `current_phase`, and set mode to `paused` — the operator runs `resume` to continue (UC-04, FAGAN-0035). For `empty-commit` phases, the gate-passed check is skipped (FAGAN-0038).
+- When the Operator runs `resume`, the orchestrator shall continue the run from its last checkpoint (UC-06). _(Superseded — moved to factory; see docs/adr/0002.)_
+- When the Operator runs `approve`, the orchestrator shall record the approval, advance `current_phase`, and set mode to `paused` — the operator continues via the factory scripts (UC-04, FAGAN-0035). For `empty-commit` phases, the gate-passed check is skipped (FAGAN-0038).
 - When the Operator runs `reject`, the orchestrator shall record the rejection and halt the run (UC-04, BR-012).
 - When the Operator runs `init`, the orchestrator shall scaffold the project directory with the required tooling structure (agents, skills, scripts, docs directories, `model.conf`, pre-commit config, and CLI instruction file).
 - When the Operator runs `release`, the orchestrator shall restore a halted phase to its pre-halt status (`halted_from`), reset the iteration counter to zero, and set run mode to `paused` (ADR-0015, VR-029). It shall refuse if the run is not halted or `halted_from` is absent.
 - When the Operator runs `abort`, the orchestrator shall terminate the active run, set run mode to `complete`, release the run lock, and exit. It shall refuse if no active run exists.
 
 ### CLI flags
+
+_(Superseded — moved to factory; see docs/adr/0002.)_ These flags belonged to the deleted `run-step`/`run-phase` invocation commands.
 
 - `--model <id>` — explicit model override; takes precedence over `model.conf` (FR-K3).
 - `--story <ST-NNNN>` — story ID for tier-based model selection; resolves the story's `tier` from the backlog store and passes it to `ModelResolver` (FAGAN-0037).
@@ -50,30 +54,30 @@ Applying **Clean Architecture**: the orchestrator core depends on the CLI-adapte
 
 ## Session and adapter
 
-- The orchestrator shall run every agent invocation in a fresh CLI subprocess with no inherited session context (UC-02, BR-004).
-- The orchestrator shall obtain agent invocation from a CLI-adapter interface rather than a concrete CLI binary (UC-01).
-- Where the target adapter is Copilot, the orchestrator shall invoke it through the Copilot adapter implementation (UC-02).
-- If an agent subprocess exceeds its configured timeout, then the orchestrator shall terminate it and treat the step as a failed iteration (UC-02).
-- If the adapter reports an authentication or availability failure, then the orchestrator shall halt without counting an author iteration (UC-02, BR-018).
-- By default, and whenever a TTY is attached, the adapter shall inherit the terminal's stdio so the Operator can watch and converse with the agent; in interactive mode, an empty-commit gate result shall pause for approval rather than retry (ADR-0010). Where `--no-interactive` is set, or no TTY is attached, the adapter shall run the agent headlessly.
+- The orchestrator shall run every agent invocation in a fresh CLI subprocess with no inherited session context (UC-02, BR-004). _(Superseded — moved to factory; see docs/adr/0002.)_
+- The orchestrator shall obtain agent invocation from a CLI-adapter interface rather than a concrete CLI binary (UC-01). _(Superseded — moved to factory; see docs/adr/0002.)_
+- Where the target adapter is Copilot, the orchestrator shall invoke it through the Copilot adapter implementation (UC-02). _(Superseded — moved to factory; see docs/adr/0002.)_
+- If an agent subprocess exceeds its configured timeout, then the orchestrator shall terminate it and treat the step as a failed iteration (UC-02). _(Superseded — moved to factory; see docs/adr/0002.)_
+- If the adapter reports an authentication or availability failure, then the orchestrator shall halt without counting an author iteration (UC-02, BR-018). _(Superseded — moved to factory; see docs/adr/0002.)_
+- By default, and whenever a TTY is attached, the adapter shall inherit the terminal's stdio so the Operator can watch and converse with the agent; in interactive mode, an empty-commit gate result shall pause for approval rather than retry (ADR-0010). Where `--no-interactive` is set, or no TTY is attached, the adapter shall run the agent headlessly. _(Superseded — moved to factory; see docs/adr/0002.)_
 
 ## Model selection
 
 - The planning agent shall assign each story a `tier` of `economy`, `standard`, or `strong` (FR-K1, BR-021) — the model strength its work needs.
-- For `run-step`, the orchestrator shall resolve the model by looking up the agent's declared tier directly against `model.conf` for the active CLI. An explicit `--model` flag overrides this resolution entirely (FR-K3, FR-R11).
-- For `run-phase`, the orchestrator shall resolve each orchestrator-invoked agent independently from that agent's declared tier against `model.conf` (FR-R12).
+- For `run-step`, the orchestrator shall resolve the model by looking up the agent's declared tier directly against `model.conf` for the active CLI. An explicit `--model` flag overrides this resolution entirely (FR-K3, FR-R11). _(Superseded — moved to factory; see docs/adr/0002.)_
+- For `run-phase`, the orchestrator shall resolve each orchestrator-invoked agent independently from that agent's declared tier against `model.conf` (FR-R12). _(Superseded — moved to factory; see docs/adr/0002.)_
 - During the implementation phase, the `implementation-agent` dispatcher shall select each developer sub-agent's model from the story's own `tier` alone, below the adapter boundary; developer agents declare no tier of their own, and the two axes never combine on one invocation (FR-K2, FR-M, FR-R12).
-- When an explicit `--model` is given on `run-step`, the orchestrator shall not consult `model.conf` (FR-K3).
-- If `model.conf` has no model for the agent's effective tier and active CLI, the orchestrator shall halt as a configuration error, unless `on_missing` is set to the adapter default (FR-K4, BR-020).
-- `model.conf` is the operator-authored artifact model resolution reads directly (FR-K5, ADR-0020, ADR-0021). The per-adapter model dictionary (`.orchestrator/config.toml`) is a separate, local cache used for menu-mode display, populated from `model.conf` on a gap-fill basis — not read at resolution time.
+- When an explicit `--model` is given on `run-step`, the orchestrator shall not consult `model.conf` (FR-K3). _(Superseded — moved to factory; see docs/adr/0002.)_
+- If `model.conf` has no model for the agent's effective tier and active CLI, the orchestrator shall halt as a configuration error, unless `on_missing` is set to the adapter default (FR-K4, BR-020). _(Superseded — moved to factory; see docs/adr/0002.)_
+- `model.conf` is the operator-authored artifact model resolution reads directly (FR-K5, ADR-0020, ADR-0021). The per-adapter model dictionary (`.orchestrator/config.toml`) is a separate, local cache used for menu-mode display, populated from `model.conf` on a gap-fill basis — not read at resolution time. _(Superseded — moved to factory; see docs/adr/0002.)_
 
 ## Gate (pre-commit)
 
-- When an author agent completes, the orchestrator shall stage the phase's declared artifact paths and commit against the run branch so the pre-commit hooks run as the gate (UC-02, BR-016).
+- When an author agent completes, the orchestrator shall stage the phase's declared artifact paths and commit against the run branch so the pre-commit hooks run as the gate (UC-02, BR-016). _(Superseded — moved to factory; see docs/adr/0002.)_
 - The phase gate hook shall exit non-zero if and only if at least one error-severity finding exists (UC-02, BR-002).
-- If a committed artifact set produces an error-severity finding, then the orchestrator shall ingest the deterministic findings and re-run the author agent (UC-02, BR-002).
-- If the gate hook errors rather than reports findings, then the orchestrator shall halt without counting an author iteration (UC-02, BR-015).
-- If the commit is empty because the artifacts are unchanged, then the orchestrator shall treat the iteration as no-progress (UC-02, BR-016).
+- If a committed artifact set produces an error-severity finding, then the orchestrator shall ingest the deterministic findings and re-run the author agent (UC-02, BR-002). _(Superseded — moved to factory; see docs/adr/0002.)_
+- If the gate hook errors rather than reports findings, then the orchestrator shall halt without counting an author iteration (UC-02, BR-015). _(Superseded — moved to factory; see docs/adr/0002.)_
+- If the commit is empty because the artifacts are unchanged, then the orchestrator shall treat the iteration as no-progress (UC-02, BR-016). _(Superseded — moved to factory; see docs/adr/0002.)_
 
 ## Findings store
 
