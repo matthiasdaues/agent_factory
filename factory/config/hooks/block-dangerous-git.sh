@@ -7,6 +7,12 @@
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // .toolArgs.command // empty')
 
+# BR-024: Allow factory/scripts/run-tests --staged for agent test iteration (ATAM-0001 fix)
+# This is the only permitted test command for agents
+if echo "$COMMAND" | grep -qE "^factory/scripts/run-tests[[:space:]]+--staged([[:space:]]|\$)"; then
+  exit 0
+fi
+
 DANGEROUS_PATTERNS=(
   "git push"
   "git reset --hard"
@@ -23,6 +29,18 @@ DANGEROUS_PATTERNS=(
   "core\.hooksPath"
   "pre-commit uninstall"
   "SKIP=.*(git commit|pre-commit)"
+  # --- test commands (BR-024: tests run via hooks only) ---
+  "^pytest([[:space:]]|\$)"
+  "^python[0-9]* -m pytest"
+  "^uv run pytest"
+  "npm test"
+  "npm run test"
+  "yarn test"
+  "^go test"
+  "^cargo test"
+  "^jest([[:space:]]|\$)"
+  "^vitest([[:space:]]|\$)"
+  "^mocha([[:space:]]|\$)"
 )
 
 for pattern in "${DANGEROUS_PATTERNS[@]}"; do

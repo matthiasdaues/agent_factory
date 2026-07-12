@@ -2,39 +2,125 @@
 
 # 8. Cross-cutting Concepts
 
-## 8.1 Independent scripts over a shared core
+## 8.1 Agentic Creation, Deterministic Validation
 
-`transition-lint`, `phase`, and `index-lint` each carry their own copy of the same minimal indentation-based YAML-subset parser (block mappings, block sequences, inline comments, scalars). This duplication is deliberate, not an oversight: factoring it into a shared library would add an import dependency between scripts that today are each independently invocable with zero setup. See [docs/spec/supplementary_specs/entity-model.md § Notes](spec/supplementary_specs/entity-model.md#notes) and [foundational-principles.md § YAGNI](../factory/rulebooks/conventions/foundational-principles.md#yagni) — the duplication is the smaller cost next to a coupling nobody has asked for yet.
+**Principle**: Creation is agentic, validation is deterministic and must be triggered mechanically through unavoidable hooks.
 
-## 8.2 Observable-state resumability
+Derived from [`factory/rulebooks/conventions/foundational-principles.md`](../factory/rulebooks/conventions/foundational-principles.md).
 
-No mechanism persists "what step are we on" beyond the marker itself, and even the marker is corroborated, not trusted: `run-step` always re-checks a state's declared `outputs:` against what is actually on disk and re-runs that phase's own gate before deciding fresh start, resume, advance, or escalate (see [06_runtime_view.md § 6.4](06_runtime_view.md#64-resume-and-dispatch-uc-05-uc-04)). A crash between two commands leaves nothing to reconcile — the next invocation reads the same files and reaches the same answer.
+### What It Means
 
-## 8.3 Deterministic gates before judgement
+| Concern        | Who/What Owns It                                                  | Enforced How                                                         |
+| -------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------- |
+| **Creation**   | Agents and humans write specs, code, tests, docs, ADRs            | Agentic — LLM-driven or human-authored, inherently non-deterministic |
+| **Validation** | Scripts check artifacts against predefined, state-dependent rules | Deterministic — hooks, exit codes, no judgment calls                 |
+| Tests run      | Hooks (pre-commit, pre-push, FSM gate) invoke `run-tests`         | `script_exit_zero` gate condition, exit 0/1/2                        |
+| Commits gated  | Pre-commit hook runs `transition-lint`                            | Blocks staged files outside current phase's `outputs:` globs         |
+| Git safety     | PreToolUse hook runs `block-dangerous-git.sh`                     | Denies commands before execution, exit 2                             |
+| Phase gates    | `phase advance` evaluates FSM `entry_conditions`                  | Refuses (exit 1) if any condition unmet, lists all failures          |
 
-`transition-lint`'s glob-ownership check and `phase advance`'s `entry_conditions` evaluation are both pure functions of files already on disk — no LLM judgement call sits in the gate path itself. This is the same principle [docs/concepts.md § Key ideas](concepts.md#key-ideas) states for the whole Agent Factory toolset: catch provable defects before an agent spends judgement on them.
+### Why It Matters
 
-## 8.4 Two independent safety layers
+**Trust boundary**: Agents are noisy channels. You cannot trust an agent to validate its own work correctly, report test failures honestly, or obey soft guidelines ("please don't push"). Validation must be external, unavoidable, and mechanical.
 
-`block-dangerous-git.sh`'s dangerous-pattern list and `trigger`'s own background-mode deny list are two independent, deliberately mirrored layers (BR-020) — not one point of failure. A background session denied by `trigger`'s allowlist never sees the verb as available in the first place; a command that somehow bypasses that scoping is still caught by the `PreToolUse` hook before it runs. Neither layer is a security boundary against a determined bypass — both are backstops against an accidental or under-pressure one. See [docs/spec/use_cases/UC-07-block-a-dangerous-git-command.md § Business Rules](spec/use_cases/UC-07-block-a-dangerous-git-command.md#business-rules).
+**Separation of concerns**: Agents are excellent at generation (specs, code, tests). They are poor at discipline (running the right tests, not bypassing gates). Hooks enforce discipline; agents create value. This separation makes AI-assisted output shippable.
 
-## 8.5 Iteration cap and review-loop discipline
+**No self-validation**: An agent reporting "tests passed" is unverified hearsay. `run-tests` exiting 0 from a pre-commit hook is a fact. The architecture treats agent output as untrusted until a deterministic gate validates it.
 
-`phase retry` is the loop killer: called before every re-dispatch of a state whose gate found open findings, never after. The cap resolves against the loop-back target's own `halt_conditions` entry if the FSM declares one, `--default-max-iterations` (default `5`) otherwise — every state gets a hard stop, even one nobody thought to author a per-state limit for. Every retried pass re-runs the deterministic check fresh and re-verifies every prior finding individually, per [review-loop-discipline.md § Rule](../factory/rulebooks/conventions/review-loop-discipline.md#rule) — a retry never just re-reads a stale findings list.
+### Concrete Manifestation: Test Execution
 
-## 8.6 CLI-agnostic dispatch
+Test execution exemplifies this principle end-to-end:
 
-`trigger` is the only mechanism aware that more than one CLI exists. It builds a separate command per `--cli` value — Claude Code's `Bash(<cmd> *)` glob syntax versus Copilot CLI's colon-wildcard `shell(<cmd>:*)` syntax — from the same resolved agent, tier, and prompt. Every other mechanism (`transition-lint`, `phase`, `index-lint`, `run-step`) has no CLI awareness at all; they operate purely on files.
+1. **Agent writes test** — agentic creation. The agent authors a test file (e.g., `test_user_auth.py`).
+2. **Agent commits** — `git commit` fires pre-commit hook.
+3. **Hook runs tests** — `run-tests --changed-only` executes (deterministic validation). Agent does not run tests; hook does.
+4. **Pass/fail mechanical** — exit 0 or 1 determines commit success. No agent judgment involved.
+5. **Agent blocked from running tests directly** — `block-dangerous-git.sh` denies `pytest`, `npm test`, etc. at PreToolUse. Agent cannot bypass or "double-check" — only the hook's result is trustworthy.
 
-## 8.7 Idempotent installation
+**Result**: Tests always run. Test results are always trustworthy. Agents cannot skip them, misinterpret them, or fake them.
 
-`init-factory` treats every destination path the same way: missing → write it; already the expected symlink → skip; anything else → stop the entire run and name the exact colliding path (BR-021). `config/model.conf` is the one path `init-factory` never diffs once it exists (BR-022) — it is meant to diverge per project. Re-running `init-factory` against an already-initialized target reports every step as already satisfied.
+## 8.2 Hook-Triggered Validation Pattern
 
-## 8.8 The marker is the single source of truth, with a known limit
+Factory Flow Control uses **unavoidable hooks** as the enforcement layer. Three hook types:
 
-`.agent-factory/playbook-state.yml` is the one place "where is this run" is answered from. It is git-ignored, local, single-machine state — not a distributed lock. Two operators (a human and `orchestrator/`, or two humans) racing an advance/retry against the same marker can interleave incorrectly; this is a documented, accepted gap for the current single-operator-at-a-time usage pattern, not an oversight. See [T-02](spec/todos.md#t-02-no-concurrent-operator-lock-on-the-marker) and [11_risks_and_technical_debt.md](11_risks_and_technical_debt.md).
+| Hook Type             | Fires When                 | Runs What                      | Cannot Be Bypassed By           | Exit Codes           |
+| --------------------- | -------------------------- | ------------------------------ | ------------------------------- | -------------------- |
+| **Pre-commit**        | `git commit`               | `transition-lint`, `run-tests` | Agent (human can `--no-verify`) | 0 (allow), 1 (block) |
+| **Pre-push**          | `git push`                 | `run-tests --full`             | Anyone (no `--no-verify`)       | 0 (allow), 1 (block) |
+| **PreToolUse**        | Before every shell command | `block-dangerous-git.sh`       | Agent or human (CLI enforces)   | 0 (allow), 2 (deny)  |
+| **FSM gate** (pseudo) | `phase advance` invocation | `script_exit_zero` condition   | Manual invocation required      | 0 (met), 1 (unmet)   |
+
+### Zero-Trust Command Execution
+
+Agents do not have unrestricted shell access. Every command passes through a PreToolUse hook (`block-dangerous-git.sh`) before execution. The hook:
+
+1. Receives the command as JSON on stdin (both CLIs use the same schema).
+2. Matches it against a deny list (destructive git commands, test commands).
+3. Exits 0 (allow) or 2 (deny). Exit 2 surfaces as a denial message to the agent; the command never executes.
+
+This is **preventive validation**, not reactive. The agent never sees test output from a run it initiated, because it cannot initiate one.
+
+## 8.3 Framework Detection and Zero-Install Principle
+
+`run-tests` auto-detects the project's test framework from structure markers (BR-023):
+
+| Marker                    | Framework Detected | Command Invoked                  |
+| ------------------------- | ------------------ | -------------------------------- |
+| `pyproject.toml` + pytest | pytest             | `uv run pytest ...`              |
+| `package.json` + jest     | jest / npm test    | `npm test`                       |
+| `go.mod`                  | go test            | `go test ./...`                  |
+| `Cargo.toml`              | cargo test         | `cargo test`                     |
+| None                      | (error)            | Exit 2, report missing framework |
+
+**Zero-install**: Factory Flow Control does not install test frameworks. It uses what the project already has (`uv run`, `npm`, `go`, `cargo`). If the project has no test framework, `run-tests` exits 2 and reports the gap — the operator/agent must add one before test gates can pass.
+
+**Mode-specific flags**:
+
+- `--changed-only`: Fast subset (pytest `--lf`, jest `--onlyChanged`, go/cargo per-package filter)
+- `--full`: Complete suite, no caching, no filters
+
+Exact framework-specific filters are implementation-defined (BR-025); the intent is sub-second feedback for small changes in `--changed-only` mode, exhaustive coverage in `--full`.
+
+## 8.4 JSON Output Convention
+
+Machine-readable output from validation scripts goes to **stdout**, human-readable progress/errors to **stderr**. This separation allows:
+
+- Hooks to parse structured results (exit code + JSON) without fragile string parsing.
+- Humans/agents to see real-time progress on stderr while the command runs.
+- Logs to capture both streams independently.
+
+Example (`run-tests`):
+
+```bash
+$ factory/scripts/run-tests --full
+# stderr: test framework detection, progress, failures
+Running pytest tests (full)...
+test_user_auth.py::test_login_success PASSED
+test_user_auth.py::test_login_invalid FAILED
+...
+
+# stdout: JSON summary, one line, parseable
+{"passed": 247, "failed": 1, "skipped": 3, "duration_ms": 1234}
+
+# exit code: 0 (pass), 1 (fail), 2 (no framework)
+$ echo $?
+1
+```
+
+Hooks that need to act on results (e.g., `phase advance` evaluating `script_exit_zero`) read the exit code only. The JSON summary is for human/log consumption, not for gate decisions.
+
+## 8.5 Single Source of Truth: Marker and FSM
+
+The playbook state marker (`.agent-factory/playbook-state.yml`) and the FSM (e.g., `greenfield-development.fsm.yml`) are the **only** sources of truth for "what phase are we in" and "what's next."
+
+- **Observable-state resume** (ADR-0002): Every mechanism (`phase advance`, `run-step`, `transition-lint`) derives its answer from these files on disk, not from a separately persisted execution status. If the marker says `state: PHASE_2`, then the run is in PHASE_2 — regardless of what any orchestrator process last remembered.
+- **No process-local state**: `orchestrator/` has its own `RUN`/`RUN_LOCK` bookkeeping (a distinct concern), but it does not hold a competing notion of "current phase." It reads the marker like everyone else.
+
+This makes resumption trivial: start a new agent session, read the marker, derive "what's next." No recovery logic, no stale state reconciliation.
 
 ## Referenced from
 
-- [docs/spec/supplementary_specs/validation-rules.md](spec/supplementary_specs/validation-rules.md)
-- [docs/concepts.md § Key ideas](concepts.md#key-ideas)
+- [foundational-principles.md](../factory/rulebooks/conventions/foundational-principles.md)
+- [05_building_block_view.md § 5.2.1](05_building_block_view.md#521-run-tests--test-execution-component)
+- [06_runtime_view.md § 6.2](06_runtime_view.md#62-test-execution-flow)
+- [09_architecture_decisions.md](09_architecture_decisions.md)

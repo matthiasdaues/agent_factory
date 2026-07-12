@@ -31,8 +31,8 @@ author a per-state limit — that's the whole point of a cap.
 Conditional gates (an ``if/else`` transition such as PHASE_1_GATE's) resolve
 deterministically: the ``if`` branch is the forward/progress target, and the
 target's own ``entry_conditions`` decide pass or fail — no ``--result`` flag to
-trust. ``script_exit_zero`` conditions are treated as passing (stubbed; see
-below), which is out of scope for the one rule this PoC proves.
+trust. ``script_exit_zero`` conditions execute the specified script and check
+for exit code 0 (T-03, UC-09).
 
 No third-party dependencies (Python 3.8+ stdlib only), matching the gate scripts.
 """
@@ -252,9 +252,34 @@ def evaluate_condition(repo_root: Path, cond: Dict[str, Any]) -> Tuple[bool, str
         n = count_open_findings(repo_root, patterns)
         return (n == 0), f"no_open_findings {patterns} (open={n})"
     if ctype == "script_exit_zero":
-        # TODO: run cond['script'] and require exit 0. Stubbed for the PoC —
-        # out of scope for the one spec-gate rule this proves.
-        return True, f"script_exit_zero {cond.get('script')} (stubbed pass)"
+        # T-03: Execute the script and check for exit code 0 (UC-09, BR-026)
+        script = cond.get("script")
+        if not script:
+            return False, "script_exit_zero: no script specified"
+
+        import subprocess
+
+        try:
+            result = subprocess.run(
+                script.split(),
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+                timeout=300,  # 5 minute timeout
+            )
+            if result.returncode == 0:
+                return True, f"script_exit_zero {script} (passed)"
+            else:
+                # Include stderr output in failure reason for debugging
+                stderr_preview = result.stderr[:200] if result.stderr else "(no output)"
+                return (
+                    False,
+                    f"script_exit_zero {script} (exit {result.returncode}): {stderr_preview}",
+                )
+        except subprocess.TimeoutExpired:
+            return False, f"script_exit_zero {script} (timeout after 300s)"
+        except Exception as e:
+            return False, f"script_exit_zero {script} (error: {e})"
     return False, f"unknown condition type {ctype!r}"
 
 

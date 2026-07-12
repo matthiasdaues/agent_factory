@@ -9,7 +9,8 @@
       "AG-05",
       "AG-06",
       "AG-07",
-      "AG-08"
+      "AG-08",
+      "AG-09"
     ],
     "use_cases": [
       "UC-01",
@@ -19,7 +20,8 @@
       "UC-05",
       "UC-06",
       "UC-07",
-      "UC-08"
+      "UC-08",
+      "UC-09"
     ],
     "business_rules": [
       "BR-001",
@@ -43,7 +45,12 @@
       "BR-019",
       "BR-020",
       "BR-021",
-      "BR-022"
+      "BR-022",
+      "BR-023",
+      "BR-024",
+      "BR-025",
+      "BR-026",
+      "BR-027"
     ],
     "entities": [
       "AGENT_ENTRY",
@@ -309,6 +316,46 @@
       "from": "UC-02",
       "rel": "references_br",
       "to": "BR-002"
+    },
+    {
+      "from": "UC-09",
+      "rel": "realizes",
+      "to": "AG-09"
+    },
+    {
+      "from": "UC-09",
+      "rel": "references_br",
+      "to": "BR-023"
+    },
+    {
+      "from": "UC-09",
+      "rel": "references_br",
+      "to": "BR-024"
+    },
+    {
+      "from": "UC-09",
+      "rel": "references_br",
+      "to": "BR-023"
+    },
+    {
+      "from": "UC-09",
+      "rel": "references_br",
+      "to": "BR-024"
+    },
+    {
+      "from": "UC-09",
+      "rel": "references_br",
+      "to": "BR-025"
+    },
+    {
+      "from": "UC-09",
+      "rel": "references_br",
+      "to": "BR-026"
+    },
+    {
+      "from": "UC-09",
+      "rel": "references_br",
+      "to": "BR-027"
     },
     {
       "from": "UC-07",

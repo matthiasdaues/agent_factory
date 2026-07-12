@@ -19,11 +19,13 @@ This is the deliberate opposite of the other playbooks. There is no spec, no arc
 
 ## Step 1 — State the Success Condition
 
-Write one sentence describing exactly what "it runs" means — the thing you will look at, click, or run, and the change you expect to see. If you can't state it in one sentence, the spike is too big; narrow it until you can.
+Write one sentence describing exactly what "it runs" means — the thing you will look at, click, or run, and the change you expect to see. If you can't state it in one sentence, the spike is too big; narrow it until you can. Use [`scratchpad`](../skills/scratchpad/SKILL.md) to capture it. One line. No file.
 
 Example: "A page shows a red button; clicking it turns the page background blue."
 
 ## Step 2 — Build the Smallest Thing That Could Show It
+
+No agent runs this step. [`developer-agent`](../agents/developer-agent.md) comes closest, but it's built for TDD against a backlog story. A spike skips that. Build it yourself.
 
 Pick whatever gets you to the success condition fastest — a single file is normal, a full project is a smell. Don't:
 

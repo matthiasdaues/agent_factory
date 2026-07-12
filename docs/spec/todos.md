@@ -32,7 +32,15 @@ Deferred decisions and named gaps found while reverse-engineering this specifica
 
 - [ ] Verify the three-word form against a real Copilot CLI invocation; adjust the allowlist syntax if it is rejected.
 
+## T-06: Multi-framework test orchestration not yet supported
+
+`run-tests` detects all framework markers but fails loudly (exit 2) when multiple frameworks are present, rather than running all detected frameworks in sequence. This prevents silent partial coverage in monorepo contexts but blocks multi-framework projects entirely. Long-term solution: detect all frameworks, run each, aggregate results, exit 0 only if all pass. See ATAM-0002 resolution.
+
+- [ ] Implement multi-framework orchestration: detect all, run all, aggregate results (passed/failed counts sum across frameworks).
+- [ ] Add optional explicit config (`.agent-factory/test-config.yml`) to override auto-detection for complex monorepo cases.
+
 ## Referenced from
 
 - [validation-rules.md](supplementary_specs/validation-rules.md)
 - [entity-model.md](supplementary_specs/entity-model.md)
+- [docs/findings/ATAM-0002-monorepo-multi-framework-blind-spot.md](../../findings/ATAM-0002-monorepo-multi-framework-blind-spot.md)

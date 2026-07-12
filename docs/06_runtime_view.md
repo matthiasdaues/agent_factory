@@ -2,145 +2,174 @@
 
 # 6. Runtime View
 
-## 6.1 Advance a playbook phase (UC-01)
+## 6.1 Overview
 
-Derived from dynamic view `PhaseAdvance` in [`architecture.dsl`](architecture.dsl).
+This chapter describes key interaction sequences, focusing on **test execution** — the newest flow and the one most central to the "Agentic Creation, Deterministic Validation" principle. Other runtime scenarios (phase advance, agent dispatch, retry loops) are documented here as needed for context but are not exhaustive; see use cases in [`spec/use_cases/`](spec/use_cases/) for full flows.
 
-```mermaid
-sequenceDiagram
-    participant HO as humanOperator
-    participant PC as phaseCli
-    participant MK as marker
-    participant FS as fsmDefinition
-    participant FD as findings
+## 6.2 Test Execution Flow
 
-    HO->>PC: Runs phase advance
-    PC->>MK: Reads current state, or bootstraps at the FSM root
-    PC->>FS: Resolves forward transition + target's entry_conditions
-    PC->>FD: Evaluates no_open_findings conditions
-    alt every entry condition met
-        PC->>MK: Writes state/iteration=1/recorded_at=now
-        PC-->>HO: advanced <from> -> <to>, exit 0
-    else one or more unmet
-        PC-->>HO: every unmet condition named, marker unchanged, exit 1
-    end
-```
+Derived from dynamic view `TestExecutionFlow` in [`architecture.dsl`](architecture.dsl).
 
-Full scenario, extensions, and business rules: [docs/spec/use_cases/UC-01-advance-a-playbook-phase.md](spec/use_cases/UC-01-advance-a-playbook-phase.md).
+Test execution happens via three unavoidable hook integration points, never via agent-commanded shell execution. Agents can write test files; they cannot run them.
 
-## 6.2 Block an out-of-phase commit (UC-02)
-
-Derived from dynamic view `BlockOutOfPhaseCommit` in [`architecture.dsl`](architecture.dsl).
+### 6.2.1 Sequence: Pre-Commit Hook (Changed Files Only)
 
 ```mermaid
 sequenceDiagram
-    participant GP as gitPreCommit
-    participant TL as transitionLint
-    participant MK as marker
-    participant FS as fsmDefinition
+    participant H as Human Operator
+    participant G as git
+    participant RT as run-tests
+    participant P as Project Test Framework
 
-    GP->>TL: Fires at commit time, staged files as input
-    TL->>MK: Reads current playbook + state
-    alt no marker
-        TL-->>GP: TL-NOMARKER (info), exit 0
-    else marker present
-        TL->>FS: Reads outputs: globs per state
-        loop each staged file
-            Note over TL: owner = state whose outputs: glob matches the file
-        end
-        alt every staged file ungoverned or owned by current state
-            TL-->>GP: 0 error findings, exit 0 — commit proceeds
-        else a staged file owned by another state
-            TL-->>GP: TL-ORDER naming the file, exit non-zero — commit blocked
-        end
+    H->>G: git commit
+    G->>RT: Pre-commit hook fires (--changed-only)
+    RT->>P: Detect framework (pyproject.toml → pytest)
+    P-->>RT: Framework: pytest
+    RT->>P: uv run pytest --lf --quiet
+    P-->>RT: Test results (exit 0 or 1)
+    RT->>G: Emit JSON summary on stdout
+    RT->>G: Exit 0 (pass) or 1 (fail)
+    alt Tests pass
+        G->>H: Commit succeeds
+    else Tests fail
+        G-->>H: Commit blocked, stderr shows failures
+        Note over H: Fix tests and retry, or --no-verify to bypass (discouraged)
     end
 ```
 
-Full scenario, extensions, and business rules: [docs/spec/use_cases/UC-02-block-an-out-of-phase-commit.md](spec/use_cases/UC-02-block-an-out-of-phase-commit.md).
+**Key Points**:
 
-## 6.3 Retry a phase within the iteration cap (UC-03)
+- **Fast feedback**: `--changed-only` mode uses framework-specific fast filters (pytest `--lf`, jest `--onlyChanged`)
+- **Bypassable**: Human can use `git commit --no-verify` for WIP commits (not recommended)
+- **Agent path**: If agent commits, same hook fires; agent sees hook output (pass/fail) but cannot bypass
 
-Short sequence — no dedicated DSL dynamic view; `phase retry` uses the same `phaseCli` → `marker`/`fsmDefinition` relationships as §6.1, just a different subcommand.
+### 6.2.2 Sequence: Pre-Push Hook (Full Suite)
 
 ```mermaid
 sequenceDiagram
-    participant Actor as humanOperator or orchestratorAsTrigger
-    participant PC as phaseCli
-    participant MK as marker
-    participant FS as fsmDefinition
+    participant H as Human Operator
+    participant G as git
+    participant RT as run-tests
 
-    Actor->>PC: Runs phase retry
-    PC->>MK: Reads current state
-    PC->>FS: Resolves loop-back target (else transition, or current state)
-    PC->>FS: Resolves iteration limit (halt_conditions, or --default-max-iterations)
-    Note over PC: iteration += 1
-    alt iteration <= limit
-        PC->>MK: Writes iteration + fresh recorded_at
-        PC-->>Actor: "<state>: retry <n>/<limit> recorded", exit 0
-    else iteration > limit
-        PC-->>Actor: cap reached + declared message, exit 2 — marker NOT written
+    H->>G: git push
+    G->>RT: Pre-push hook fires (--full)
+    RT->>RT: Detect framework, run complete test suite
+    RT->>G: Emit JSON summary, exit 0 or 1
+    alt Tests pass
+        G->>H: Push succeeds
+    else Tests fail
+        G-->>H: Push blocked (no bypass available)
+        Note over H: Must fix tests locally before push can proceed
     end
 ```
 
-Full scenario, extensions, and business rules: [docs/spec/use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md](spec/use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md).
+**Key Points**:
 
-## 6.4 Resume and dispatch (UC-05, UC-04)
+- **Complete validation**: `--full` mode runs entire test suite, no filtering
+- **No bypass**: Pre-push is the "ready to share" boundary; `--no-verify` doesn't apply
+- **Unavoidable**: Work cannot leave the local machine with failing tests
 
-Derived from dynamic view `ResumeAndDispatch` in [`architecture.dsl`](architecture.dsl). This is the mechanism that makes a crashed session, a closed terminal, or a fresh session safe to resume: every fact is re-derived from disk, never trusted from a persisted status.
+### 6.2.3 Sequence: Phase Advance Gate Evaluation
 
 ```mermaid
 sequenceDiagram
-    participant HO as humanOperator
-    participant RS as runStep
-    participant MK as marker
-    participant CAT as catalog
-    participant PC as phaseCli
-    participant TR as trigger
-    participant CA as cliInvokedAgent
+    participant H as Human / Orchestrator
+    participant PA as phase advance
+    participant FSM as FSM + Marker
+    participant RT as run-tests
 
-    HO->>RS: Invokes to find out what to do next
-    RS->>MK: Reads to resolve current playbook + state
-    RS->>CAT: Reads fsm: field, and agents: as the fallback ordering
-    Note over RS: Checks the state's outputs: glob against disk, runs its gate
-    alt outputs missing
-        RS->>TR: Dispatches the resolved agent (fresh start)
-    else outputs exist, gate clean, no open findings
-        RS->>PC: Calls advance
-        Note over RS: Repeats from resolving the new state's agent
-    else outputs exist, gate reports open findings
-        RS->>PC: Calls retry
-        alt cap not hit
-            RS->>TR: Re-dispatches the same agent
-        else cap hit
-            RS-->>HO: Stop, escalate — do not re-dispatch
-        end
-    else outputs exist, gate errors (not findings)
-        RS-->>HO: Stop, escalate — an error is not "findings to address"
+    H->>PA: factory/scripts/phase advance
+    PA->>FSM: Read current state, resolve target state entry_conditions
+    FSM-->>PA: Entry condition: script_exit_zero (run-tests --full)
+    PA->>RT: Invoke run-tests --full
+    RT->>RT: Detect framework, run complete suite
+    RT-->>PA: Exit 0 (pass) or 1 (fail), JSON summary on stdout
+    alt Tests pass (exit 0)
+        PA->>FSM: Write marker: state=<next>, iteration=1
+        PA->>H: Phase advanced
+    else Tests fail (exit 1)
+        PA-->>H: Refuse advancement: tests_pass unmet (stderr shows failures)
+        Note over H: Fix tests, retry phase advance
     end
-    TR->>CA: Dispatches: background subprocess or interactive session
-    CA-->>TR: Exit code (background) — no failure classification
 ```
 
-Full scenario, extensions, and business rules: [docs/spec/use_cases/UC-05-resume-an-interrupted-playbook-run.md](spec/use_cases/UC-05-resume-an-interrupted-playbook-run.md), [docs/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md](spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md).
+**Key Points**:
 
-## 6.5 Gate outcome decision (flowchart)
+- **FSM-driven**: Test execution is an entry condition (`script_exit_zero: factory/scripts/run-tests --full`)
+- **Blocks phase transition**: Phase cannot advance while tests are red
+- **Exhaustive reporting**: All unmet conditions listed (not short-circuited)
 
-Not a DSL view — a decision table rendered as a flowchart, matching [`run-step` § Step 3](../factory/skills/run-step/SKILL.md#step-3-decide-fresh-start-resume-mid-step-or-already-done).
+### 6.2.4 Sequence: Agent Iteration with Staged Mode
 
 ```mermaid
-flowchart TD
-    A[Check state's outputs: glob against disk] --> B{Outputs exist?}
-    B -->|No| C[Fresh start: run author agent's Step 1]
-    B -->|Yes| D[Run the phase's own gate]
-    D --> E{Gate result?}
-    E -->|Clean, no open findings| F[phase advance, then resolve next state]
-    E -->|Open findings| G[phase retry]
-    G --> H{Cap hit?}
-    H -->|No| I[Re-dispatch same agent]
-    H -->|Yes| J[Stop, escalate to actor]
-    E -->|Errors, not findings| J
+sequenceDiagram
+    participant A as CLI-Invoked Agent
+    participant G as git
+    participant RT as run-tests
+    participant P as Project Test Framework
+
+    Note over A: Agent writes test_foo.py
+    A->>G: git add test_foo.py
+    A->>RT: factory/scripts/run-tests --staged
+    RT->>G: Read staged files (git diff --staged --name-only)
+    G-->>RT: test_foo.py
+    RT->>P: Detect framework, run tests on staged files only
+    P-->>RT: Test results (exit 0 or 1), stderr shows failures
+    RT-->>A: JSON summary + stderr output
+    alt Tests pass
+        Note over A: Proceed to commit or continue development
+    else Tests fail
+        Note over A: Fix test, re-stage, run --staged again
+        A->>A: Edit test_foo.py
+        A->>G: git add test_foo.py
+        A->>RT: factory/scripts/run-tests --staged (iterate)
+    end
 ```
+
+**Key Points**:
+
+- **Tight feedback loop**: Agent can iterate on tests without committing
+- **Same validation path**: Uses `run-tests` script, not bare test commands
+- **Staged scope only**: Tests only what's staged, fast iteration
+- **Agent allowlist**: `factory/scripts/run-tests --staged` permitted (BR-024); bare `pytest` still blocked
+- **Pre-commit still runs**: When agent commits, hook runs `--changed-only` authoritatively
+
+### 6.2.5 Sequence: Agent Blocked from Running Tests
+
+```mermaid
+sequenceDiagram
+    participant A as CLI-Invoked Agent
+    participant BDG as block-dangerous-git.sh
+    participant CLI as Claude Code / Copilot CLI
+
+    A->>CLI: Attempt: pytest .
+    CLI->>BDG: PreToolUse hook fires (command JSON on stdin)
+    BDG->>BDG: Match command against deny patterns (BR-024)
+    BDG-->>CLI: Deny (exit 2): "Test execution blocked. Tests run via hooks only."
+    CLI-->>A: Command denied, exit 2 message surfaced
+    Note over A: Agent sees denial, cannot run tests<br/>Must rely on hook output instead
+```
+
+**Key Points**:
+
+- **Preventive**: Command blocked *before* execution (PreToolUse hook, not post-facto)
+- **Both CLIs**: Works identically for Claude Code and Copilot CLI
+- **No workaround**: Agent has no shell access that bypasses PreToolUse; bare test commands are unavailable
+- **Allowed alternative**: `factory/scripts/run-tests --staged` is permitted for agent iteration
+- **Deny patterns (BR-024)**: `pytest`, `npm test`, `go test`, `cargo test`, `python -m pytest`, `uv run pytest`, `yarn test`
+
+## 6.3 Other Runtime Scenarios (Summary)
+
+Full sequences for these flows are in their respective use cases:
+
+- **Phase advance with multiple entry conditions** → [UC-01](spec/use_cases/UC-01-advance-a-playbook-phase.md)
+- **Retry loop with iteration cap** → [UC-03](spec/use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md)
+- **Agent dispatch (interactive vs. background)** → [UC-04](spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md)
+- **Resume after interruption** → [UC-05](spec/use_cases/UC-05-resume-an-interrupted-playbook-run.md)
+- **Transition-lint blocking out-of-phase commit** → [UC-02](spec/use_cases/UC-02-block-an-out-of-phase-commit.md)
 
 ## Referenced from
 
-- [docs/spec/use_cases/system-use-cases.md](spec/use_cases/system-use-cases.md)
+- [05_building_block_view.md § 5.2.1](05_building_block_view.md#521-run-tests--test-execution-component)
+- [08_crosscutting_concepts.md § 8.1](08_crosscutting_concepts.md#81-agentic-creation-deterministic-validation)
+- [09_architecture_decisions.md](09_architecture_decisions.md)

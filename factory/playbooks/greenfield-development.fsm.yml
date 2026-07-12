@@ -62,6 +62,11 @@ gate_conditions:
     paths:
       - src/**/*
       - tests/**/*
+  
+  tests_pass:
+    type: script_exit_zero
+    script: factory/scripts/run-tests --full
+    # Hook-triggered test execution, not agent-run (UC-09, ADR-0003)
 
 # State machine
 states:
@@ -226,6 +231,7 @@ states:
       ImplementationComplete:
         exit_conditions:
           - code_exists
+          - tests_pass  # UC-09: Tests must pass before advancing to QA
         transitions:
           - to: PHASE_4_GATE
 
@@ -259,6 +265,7 @@ states:
     entry_conditions:
       - code_exists
       - no_open_recon_findings
+      - tests_pass  # UC-09: Tests must pass before QA starts
     
     agent: qa-agent
     session: stateless

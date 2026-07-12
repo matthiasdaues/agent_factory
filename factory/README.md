@@ -39,7 +39,24 @@ mkdir my-project && cd my-project
 ../agent_factory/factory/scripts/init-factory
 ```
 
-`init-factory` does the rest: it runs `git init` if needed, copies `factory/` into your project, wires it up for your AI CLI, installs a git-safety guardrail hook for both Claude Code and Copilot CLI, and installs the checks as a pre-commit hook. It's a plain script — **it needs no AI to run it**, a shell is enough.
+`init-factory` is a plain script — **it needs no AI to run it**, a shell is enough. Here's exactly what it creates:
+
+1. **`factory/`** — copied wholesale from agent_factory, containing all agents, skills, playbooks, scripts, and rulebooks
+2. **`.claude/`** and **`.github/`** — created (or left alone if they exist), with symlinks into `factory/`:
+   - `agents/`, `skills/`, `playbooks/`, `rulebooks/`, `scripts/`, `INDEX.yaml`
+   - `.claude/CLAUDE.md` → `factory/config/AGENTS.md` (orientation file)
+   - `.github/copilot-instructions.md` → `factory/config/AGENTS.md`
+   - `.claude/hooks/block-dangerous-git.sh` → `factory/config/hooks/block-dangerous-git.sh`
+   - `.github/hooks/block-dangerous-git.sh` → `factory/config/hooks/block-dangerous-git.sh`
+   - `.github/hooks/block-dangerous-git.json` → `factory/config/hooks/block-dangerous-git.json`
+3. **`.claude/settings.json`** — created or updated with the git-safety guardrail PreToolUse hook
+4. **`config/model.conf`** — copied (not symlinked) as a starter; you customize this per project
+5. **`.pre-commit-config.yaml`** — symlinked to `factory/config/pre-commit-config.yaml` if missing, or merged if you already have one
+6. **`.gitignore`** — appends Agent Factory lines (`.claude`, `.github`, session ephemera, Python cache folders) if not already present
+7. Runs `git init` if your target isn't already a git repo
+8. Runs `uvx pre-commit install` to wire the hooks into git
+
+**Safe to re-run**: every step is idempotent. If `factory/` already exists, it's left untouched (use the update script instead). Existing `.pre-commit-config.yaml` with your own hooks? `init-factory` merges Agent Factory's hooks in without disturbing yours.
 
 Check it worked, then commit:
 
@@ -57,6 +74,43 @@ Now open your AI coding CLI in `my-project` and greet it. It should read `.claud
 Once the CLI greets you, pick a playbook from `factory/playbooks/` — a step-by-step recipe for your situation. If this is your first time, try [`poc-spike.md`](playbooks/poc-spike.md): no spec, no architecture, no checks, just one idea turned into something you can run in minutes. It's the fastest way to see an agent and the CLI work together before committing to a real project.
 
 For every other situation — a new project, an existing codebase, a bug, a feature — see the [factory guide § Playbooks](docs/factory-guide.md#playbooks) for which one fits.
+
+## Test execution hooks
+
+Agent Factory runs tests through unavoidable hooks, not by asking agents to run them. This enforces the core principle: **creation is agentic, validation is deterministic**. Tests run automatically at three points:
+
+1. **Pre-commit hook** (bypassable with `--no-verify`) — runs tests on changed files only, fast feedback during development
+2. **Pre-push hook** (no bypass) — runs full test suite before sharing your work, blocks push if tests fail
+3. **Phase advance gates** — FSM entry conditions check `tests_pass` before advancing to QA or DONE states
+
+### Framework detection
+
+`factory/scripts/run-tests` auto-detects your test framework from project structure:
+
+- **pytest**: detected from `pyproject.toml`, runs via `uv run pytest`
+- **jest**: detected from `package.json`, runs via `npm test`
+- **go test**: detected from `go.mod`, runs via `go test ./...`
+- **cargo test**: detected from `Cargo.toml`, runs via `cargo test`
+
+No configuration needed for single-framework projects. Multi-framework monorepos are detected and fail loudly (not yet supported).
+
+### Agent test iteration
+
+Agents cannot run bare test commands (`pytest`, `npm test`) — these are blocked by the git safety hooks. But agents writing tests need a tight feedback loop. Use staged mode:
+
+```bash
+# Agent stages test file
+git add tests/test_foo.py
+
+# Agent runs tests on staged files
+factory/scripts/run-tests --staged
+
+# Agent sees results, fixes test, stages again, repeats
+```
+
+This preserves the "tests via factory mechanisms" principle while enabling TDD workflows.
+
+See [ADR-0003](../docs/adr/0003-test-execution-via-hooks.md) for the architecture rationale and [UC-09](../docs/spec/use_cases/UC-09-run-tests-via-hook.md) for detailed behavior.
 
 ## Using this in an existing repo
 

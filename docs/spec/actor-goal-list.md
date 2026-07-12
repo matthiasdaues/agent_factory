@@ -21,6 +21,7 @@ Derived from [`prd.md`](prd.md). Goal levels use Cockburn's "does the actor go h
 | AG-06 | Human Operator, Orchestrator-as-Trigger | Keep the machine-readable catalog of every agent, skill, and playbook consistent with their source frontmatter        | User Goal   |
 | AG-07 | Human Operator, CLI-Invoked Agent       | Be stopped from running a destructive or gate-bypassing git command before it executes                                | User Goal   |
 | AG-08 | Human Operator                          | Wire Agent Factory's tooling, guardrail hook, and gate config into a project without disturbing what is already there | User Goal   |
+| AG-09 | Human Operator                          | Run project tests deterministically via unavoidable hooks, never via agent-commanded shell execution                  | User Goal   |
 | SF-01 | (system)                                | Parse the `.fsm.yml` subset (block mappings, block sequences, inline comments) into nested data                       | Subfunction |
 | SF-02 | (system)                                | Evaluate one gate condition (`file_exists`, `files_exist`, `no_open_findings`, `script_exit_zero`)                    | Subfunction |
 | SF-03 | (system)                                | Match a staged file path against an `outputs:` glob                                                                   | Subfunction |
