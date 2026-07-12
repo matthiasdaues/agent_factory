@@ -39,7 +39,24 @@ mkdir my-project && cd my-project
 ../agent_factory/factory/scripts/init-factory
 ```
 
-`init-factory` does the rest: it runs `git init` if needed, copies `factory/` into your project, wires it up for your AI CLI, installs a git-safety guardrail hook for both Claude Code and Copilot CLI, and installs the checks as a pre-commit hook. It's a plain script — **it needs no AI to run it**, a shell is enough.
+`init-factory` is a plain script — **it needs no AI to run it**, a shell is enough. Here's exactly what it creates:
+
+1. **`factory/`** — copied wholesale from agent_factory, containing all agents, skills, playbooks, scripts, and rulebooks
+2. **`.claude/`** and **`.github/`** — created (or left alone if they exist), with symlinks into `factory/`:
+   - `agents/`, `skills/`, `playbooks/`, `rulebooks/`, `scripts/`, `INDEX.yaml`
+   - `.claude/CLAUDE.md` → `factory/config/AGENTS.md` (orientation file)
+   - `.github/copilot-instructions.md` → `factory/config/AGENTS.md`
+   - `.claude/hooks/block-dangerous-git.sh` → `factory/config/hooks/block-dangerous-git.sh`
+   - `.github/hooks/block-dangerous-git.sh` → `factory/config/hooks/block-dangerous-git.sh`
+   - `.github/hooks/block-dangerous-git.json` → `factory/config/hooks/block-dangerous-git.json`
+3. **`.claude/settings.json`** — created or updated with the git-safety guardrail PreToolUse hook
+4. **`config/model.conf`** — copied (not symlinked) as a starter; you customize this per project
+5. **`.pre-commit-config.yaml`** — symlinked to `factory/config/pre-commit-config.yaml` if missing, or merged if you already have one
+6. **`.gitignore`** — appends Agent Factory lines (`.claude`, `.github`, session ephemera, Python cache folders) if not already present
+7. Runs `git init` if your target isn't already a git repo
+8. Runs `uvx pre-commit install` to wire the hooks into git
+
+**Safe to re-run**: every step is idempotent. If `factory/` already exists, it's left untouched (use the update script instead). Existing `.pre-commit-config.yaml` with your own hooks? `init-factory` merges Agent Factory's hooks in without disturbing yours.
 
 Check it worked, then commit:
 
