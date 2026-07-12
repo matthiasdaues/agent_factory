@@ -107,24 +107,21 @@ repos:
 
       - id: mdformat-orchestrator
         name: mdformat (orchestrator)
-        # --project pins uv to the orchestrator project explicitly. Without it,
-        # uv walks up from the repo root (which has no pyproject.toml) looking
-        # for a project/venv and can pick up an unrelated sibling .venv.
-        entry: uv run --project orchestrator mdformat --number
+        entry: factory/scripts/mdformat --number
         language: system
         types: [markdown]
         files: ^orchestrator/
 
       - id: ruff-check-orchestrator
         name: ruff check (orchestrator)
-        entry: uv run --project orchestrator ruff check --fix
+        entry: uvx ruff check --fix
         language: system
         types_or: [python, pyi, jupyter]
         files: ^orchestrator/
 
       - id: ruff-format-orchestrator
         name: ruff format (orchestrator)
-        entry: uv run --project orchestrator ruff format
+        entry: uvx ruff format
         language: system
         types_or: [python, pyi, jupyter]
         files: ^orchestrator/
