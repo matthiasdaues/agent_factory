@@ -39,6 +39,12 @@ Deferred decisions and named gaps found while reverse-engineering this specifica
 - [ ] Implement multi-framework orchestration: detect all, run all, aggregate results (passed/failed counts sum across frameworks).
 - [ ] Add optional explicit config (`.agent-factory/test-config.yml`) to override auto-detection for complex monorepo cases.
 
+## T-07: `verify-base` and `premerge-check` were prompt-required, not hook-enforced
+
+- status: resolved
+
+`factory/scripts/verify-base` and `factory/scripts/premerge-check` now write a marker file on success; `block-dangerous-git.sh` denies `git commit` in a marker-less worktree and `git merge <branch>` without a matching `premerge-check-ok` marker. Mechanical enforcement, not a prompt instruction. Still open: `Edit`/`Write` inside a marker-less worktree aren't gated, only `git commit` — a subagent can still read/edit before verifying, just can't persist a commit.
+
 ## Referenced from
 
 - [validation-rules.md](supplementary_specs/validation-rules.md)

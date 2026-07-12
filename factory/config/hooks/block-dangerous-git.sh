@@ -7,10 +7,43 @@
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // .toolArgs.command // empty')
 
+deny() {
+  echo "BLOCKED: $1" >&2
+  printf '{"permissionDecision":"deny","permissionDecisionReason":%s}\n' "$(printf '%s' "BLOCKED: $1" | jq -Rs .)"
+  exit 2
+}
+
 # BR-024: Allow factory/scripts/run-tests --staged for agent test iteration (ATAM-0001 fix)
 # This is the only permitted test command for agents
 if echo "$COMMAND" | grep -qE "^factory/scripts/run-tests[[:space:]]+--staged([[:space:]]|\$)"; then
   exit 0
+fi
+
+# retro-2026-07-12 T-07: mechanical verify-base / premerge-check enforcement.
+TOP=$(git rev-parse --show-toplevel 2>/dev/null)
+
+if echo "$COMMAND" | grep -qE '^git[[:space:]]+commit([[:space:]]|$)'; then
+  if [ "$(git rev-parse --git-dir 2>/dev/null)" != "$(git rev-parse --git-common-dir 2>/dev/null)" ] \
+     && [ -n "$TOP" ] && [ ! -f "$TOP/.agent-factory/verify-base-ok" ]; then
+    deny "git commit in a worktree with no .agent-factory/verify-base-ok marker. Run factory/scripts/verify-base <target> [--expect-base <SHA>] first."
+  fi
+fi
+
+if echo "$COMMAND" | grep -qE '^git[[:space:]]+merge[[:space:]]'; then
+  MERGE_BRANCH=""
+  for tok in $(echo "$COMMAND" | sed -E 's/^git[[:space:]]+merge[[:space:]]+//'); do
+    case "$tok" in
+      -*) continue ;;
+      *) MERGE_BRANCH="$tok"; break ;;
+    esac
+  done
+  MERGE_HEAD=$(git rev-parse "$MERGE_BRANCH" 2>/dev/null)
+  MARKER="$TOP/.agent-factory/premerge-check-ok"
+  if [ -z "$TOP" ] || [ ! -f "$MARKER" ] \
+     || ! grep -qx "branch=$MERGE_BRANCH" "$MARKER" \
+     || ! grep -qx "head=$MERGE_HEAD" "$MARKER"; then
+    deny "git merge $MERGE_BRANCH with no passing .agent-factory/premerge-check-ok marker for that branch's current head. Run factory/scripts/premerge-check <target> $MERGE_BRANCH first."
+  fi
 fi
 
 DANGEROUS_PATTERNS=(

@@ -30,6 +30,12 @@ Exit codes
   1: BLOCK — at least one blocking finding; do not merge without an
      explicit override
   2: usage or git-invocation error
+
+On PASS, writes `.agent-factory/premerge-check-ok` at the invoking repo's
+top level, keyed to `<branch>`'s current head SHA.
+`factory/config/hooks/block-dangerous-git.sh` denies `git merge <branch>`
+unless that marker matches — mechanical enforcement, not just a prompt
+instruction.
 """
 
 from __future__ import annotations
@@ -37,11 +43,24 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+from pathlib import Path
 
 
 def run_git(args: list[str]) -> tuple[int, str, str]:
     result = subprocess.run(["git", *args], capture_output=True, text=True)
     return result.returncode, result.stdout.strip(), result.stderr.strip()
+
+
+def write_marker(branch: str) -> None:
+    code, top, _ = run_git(["rev-parse", "--show-toplevel"])
+
+    if code != 0:
+        return
+
+    _, head, _ = run_git(["rev-parse", branch])
+    marker_dir = Path(top) / ".agent-factory"
+    marker_dir.mkdir(exist_ok=True)
+    (marker_dir / "premerge-check-ok").write_text(f"branch={branch}\nhead={head}\n")
 
 
 def check_stale_base(target: str, branch: str) -> tuple[bool, str]:
@@ -158,6 +177,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"premerge-check: PASS — {args.branch!r} clean to merge into {args.target!r}"
         )
+        write_marker(args.branch)
         return 0
 
     print(

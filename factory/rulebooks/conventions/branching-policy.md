@@ -75,7 +75,7 @@ Feature-branch commits follow [commit-conventions.md](commit-conventions.md) —
 
 Overlap-safe merge sequencing is enforced by the implementation-agent's own dispatch algorithm, not a git hook — it needs live backlog state (every ready story's declared outputs) that no static hook has access to. This rulebook states the **what** (branch scope, merge-order constraint, SHA tracking); `agents/implementation-agent.md` (Steps 1–5) and T-35 own the **how** — the actual overlap-detection and wave-planning algorithm.
 
-The base-safety checks are enforced mechanically, by scripts a dispatch prompt and a merge step are each required to run: [§ Verify-Base Preamble](#verify-base-preamble)/[§ Declared Base SHA](#declared-base-sha)'s `factory/scripts/verify-base` and [§ Pre-Merge Diff Check](#pre-merge-diff-check)'s `factory/scripts/premerge-check`. Neither is a git hook either — both need dispatch-specific context (the target branch, the declared base, the declared scope) that a static hook has no way to receive — but both are non-optional steps in the dispatch/merge workflow rather than something the dispatcher must remember to run by hand.
+The base-safety checks are mechanically enforced, per [foundational-principles.md § Agentic Creation, Deterministic Validation](foundational-principles.md#agentic-creation-deterministic-validation): `factory/scripts/verify-base` and `factory/scripts/premerge-check` each write a marker file on success, and `factory/config/hooks/block-dangerous-git.sh` denies `git commit` (inside a linked worktree with no `verify-base-ok` marker) and `git merge <branch>` (with no `premerge-check-ok` marker for that branch's current head) — a `PreToolUse` hook, not agent compliance with a prompt instruction.
 
 ## Example
 
