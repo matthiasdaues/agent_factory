@@ -32,6 +32,7 @@ Exit non-zero iff at least one error-severity finding exists (gate contract).
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
@@ -211,20 +212,22 @@ def check_staleness(rep: Report, dsl_path: Path, images: list[Path]) -> None:
     if needs_export:
         # Auto-export via structurizr script (deterministic validation principle)
         docs_dir = dsl_path.parent
-        structurizr_script = Path("factory/scripts/structurizr")
+        structurizr_script = Path("factory/scripts/structurizr").resolve()
 
         if not structurizr_script.exists():
             rep.error(
                 "ARCH-EXPORT",
-                "Cannot auto-export: factory/scripts/structurizr not found",
+                f"Cannot auto-export: {structurizr_script} not found",
             )
             return
 
         try:
-            # Run export-all to regenerate diagrams
+            # Run export-all with STRUCTURIZR_DOCS pointing at the correct docs dir
+            env = dict(os.environ)
+            env["STRUCTURIZR_DOCS"] = str(docs_dir.resolve())
             result = subprocess.run(
                 [str(structurizr_script), "export-all"],
-                cwd=docs_dir.parent,  # repo root
+                env=env,
                 capture_output=True,
                 text=True,
                 timeout=300,  # 5 minute timeout
