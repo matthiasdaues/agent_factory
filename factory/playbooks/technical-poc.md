@@ -37,6 +37,8 @@ For the question itself, or for each candidate approach being compared, write a 
 
 A story can be research-only: the deliverable is a short document, not code, with a working example as an optional bonus if time allows. Say so explicitly in the story so nobody over-builds it.
 
+If a candidate's goal or Definition of Done is still fuzzy once drafted, invoke [`grilling`](../skills/grilling/SKILL.md) to sharpen it before building — cheaper to resolve now than mid-build.
+
 ## Step 2 — Build (or Research) Each Candidate Independently
 
 Real dependencies are allowed here, unlike a spike: Docker containers, external libraries, multiple communicating processes — whatever the question actually requires to be answered honestly. Still skip:
@@ -44,7 +46,7 @@ Real dependencies are allowed here, unlike a spike: Docker containers, external 
 - Backlog stories, spec/architecture docs, QA gates, test coverage beyond what proves the Definition of Done
 - Handling anything the story's Definition of Done doesn't ask for
 
-If candidates are independent (the usual case in a bake-off), build them in parallel — one worktree/session per candidate, same isolation principle the [Implementation Agent § Branching model](../agents/implementation-agent.md#branching-model) uses for backlog stories, just without the backlog machinery.
+If candidates are independent (the usual case in a bake-off), build them in parallel — one worktree/session per candidate, same isolation principle the [Implementation Agent § Branching model](../agents/implementation-agent.md#branching-model) uses for backlog stories, just without the backlog machinery. No dedicated agent runs the build itself — you or your CLI session builds each candidate directly, same as [poc-spike § Step 2](poc-spike.md#step-2--build-the-smallest-thing-that-could-show-it).
 
 ## Step 3 — Check Each Candidate Against Its Own Definition of Done
 
