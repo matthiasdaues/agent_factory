@@ -386,6 +386,46 @@ def advance(
     return 0, f"advanced {current} -> {target}"
 
 
+def advance_dry_run(
+    repo_root: Path,
+    marker_path: Path,
+    playbooks_dir: Path,
+    default_playbook: str = DEFAULT_PLAYBOOK,
+) -> Tuple[int, str]:
+    """Check whether advance would succeed, without writing the marker."""
+    if marker_path.exists():
+        marker = parse_marker(marker_path.read_text(encoding="utf-8"))
+        playbook = marker.get("playbook") or default_playbook
+        current = marker.get("state")
+    else:
+        playbook = default_playbook
+        current = None
+
+    fsm_path = playbooks_dir / f"{playbook}.fsm.yml"
+    if not fsm_path.exists():
+        return 1, f"playbook '{playbook}' has no .fsm.yml at {fsm_path}"
+    fsm = parse_fsm(fsm_path.read_text(encoding="utf-8"))
+
+    if current is None:
+        current = first_state(fsm)
+        if current is None:
+            return 1, "cannot bootstrap: FSM has no root state"
+
+    target, gate = forward_transition(fsm, current)
+    if target is None:
+        return 1, f"state '{current}' has no forward transition (terminal?)"
+
+    unmet = check_entry_conditions(repo_root, fsm, target)
+    if unmet:
+        detail = "\n  - ".join(unmet)
+        return 1, (
+            f"dry-run: would refuse {current} -> {target}: "
+            f"entry conditions unmet:\n  - {detail}"
+        )
+
+    return 0, f"dry-run: would advance {current} -> {target}"
+
+
 # --- Iteration cap (retry) -----------------------------------------------------
 
 
@@ -482,6 +522,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     adv = sub.add_parser("advance", help="advance the marker one forward transition")
     adv.add_argument("--by", default="human", help="value for recorded_by")
+    adv.add_argument(
+        "--dry-run", action="store_true", help="check conditions without writing marker"
+    )
     adv.add_argument("--repo-root", default=Path("."), type=Path)
     adv.add_argument("--marker", default=None, type=Path)
     adv.add_argument("--playbooks-dir", default=None, type=Path)
@@ -505,7 +548,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.command == "advance":
         marker = args.marker or (args.repo_root / DEFAULT_MARKER)
         playbooks = args.playbooks_dir or (args.repo_root / DEFAULT_PLAYBOOKS_DIR)
-        code, msg = advance(args.repo_root, marker, playbooks, args.by, args.playbook)
+        if args.dry_run:
+            code, msg = advance_dry_run(
+                args.repo_root, marker, playbooks, args.playbook
+            )
+        else:
+            code, msg = advance(
+                args.repo_root, marker, playbooks, args.by, args.playbook
+            )
         print(msg, file=sys.stderr if code else sys.stdout)
         return code
 
