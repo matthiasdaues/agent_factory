@@ -6,22 +6,27 @@
 #
 # Both use the same FSM. The only difference is who presses "enter."
 #
-# Every action is logged to a structured demo log. At the end of each part,
-# the log is printed as a summary so you can compare the two workflows
-# side by side.
+# Every action is logged to .agent-factory/audit.log — the same file the
+# real orchestrator and gate scripts use. The AF_SESSION_LOG environment
+# variable (see factory/scripts/_session_log.py) activates this: gate
+# scripts automatically append JSONL records when it is set.
+#
+# The demo adds its own structured entries alongside the gate records,
+# so you get a complete timeline: setup, dispatch, human actions, gate
+# results, advances, and halts — all in one file, all in JSONL.
 #
 # Usage:
 #   cd agent_factory
 #   bash orchestrator/demo.sh
 #
 # Output:
-#   Interactive terminal walk-through + demo log at /tmp/agent-factory-demo.log
+#   Interactive terminal walk-through.
+#   Session log: .agent-factory/audit.log (inside the temporary demo project)
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEMO_DIR="$(mktemp -d)"
-DEMO_LOG="/tmp/agent-factory-demo.log"
 trap 'rm -rf "$DEMO_DIR"' EXIT
 
 # ─── Colors ──────────────────────────────────────────────────────────────
@@ -33,56 +38,69 @@ BOLD='\033[1m'
 DIM='\033[2m'
 RESET='\033[0m'
 
-# ─── Logging ─────────────────────────────────────────────────────────────
-# Every interesting event is logged as a structured line:
-#   TIMESTAMP | PART | CATEGORY | STATE | ACTION | DETAIL
-#
-# CATEGORY is one of:
-#   GATE     — a gate check (pass or fail)
-#   ADVANCE  — marker moved forward
-#   DISPATCH — an agent was dispatched (real or stub)
-#   HUMAN    — a human action (file creation, approval)
-#   HALT     — the workflow stopped (human gate, final, error)
-#   SYSTEM   — setup, teardown, meta events
+# ─── Session log ─────────────────────────────────────────────────────────
+# All logging goes to .agent-factory/audit.log as JSONL.
+# AF_SESSION_LOG is exported so gate scripts (_session_log.py) also write here.
+# The demo's own entries use the same format: one JSON object per line.
 
-log_init() {
-    : > "$DEMO_LOG"
-    log "SYSTEM" "-" "INIT" "Demo log started at $(date -Iseconds)"
-    log "SYSTEM" "-" "INIT" "Demo dir: $DEMO_DIR"
-    log "SYSTEM" "-" "INIT" "Repo root: $REPO_ROOT"
+session_session_log_init() {
+    mkdir -p "$DEMO_DIR/.agent-factory"
+    export AF_SESSION_LOG="$DEMO_DIR/.agent-factory/audit.log"
+    : > "$AF_SESSION_LOG"
+    session_log "system" "init" "demo-start" "Demo session started"
+    session_log "system" "init" "demo-dir" "dir=$DEMO_DIR"
 }
 
-log() {
+session_log() {
+    # session_log <category> <state> <action> <detail>
     local category="$1" state="$2" action="$3" detail="${4:-}"
-    local ts
-    ts="$(date '+%H:%M:%S')"
-    printf '%s | %-7s | %-8s | %-25s | %-12s | %s\n' \
-        "$ts" "$DEMO_PART" "$category" "$state" "$action" "$detail" \
-        >> "$DEMO_LOG"
+    python3 -c "
+import json, sys
+from datetime import datetime, timezone
+entry = {
+    'ts': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+    'source': '${DEMO_PART:-init}',
+    'category': '$category',
+    'state': '$state',
+    'action': '$action',
+    'detail': '''$detail'''
+}
+with open('$AF_SESSION_LOG', 'a') as f:
+    f.write(json.dumps(entry) + '\n')
+"
 }
 
-log_show_summary() {
+session_log_show() {
     local part="$1"
     echo ""
-    echo -e "${BOLD}─── Log summary ($part) ───${RESET}"
+    echo -e "${BOLD}─── Session log ($part) ───${RESET}"
+    echo -e "${DIM}File: $AF_SESSION_LOG${RESET}"
     echo ""
-    printf "${DIM}%-8s | %-7s | %-8s | %-25s | %-12s | %s${RESET}\n" \
-        "TIME" "PART" "CATEGORY" "STATE" "ACTION" "DETAIL"
-    echo -e "${DIM}$(printf '%.0s─' {1..100})${RESET}"
-    grep "| $part " "$DEMO_LOG" | while IFS= read -r line; do
-        # Color by category
-        if echo "$line" | grep -q "| GATE "; then
-            echo -e "${CYAN}$line${RESET}"
-        elif echo "$line" | grep -q "| ADVANCE "; then
-            echo -e "${GREEN}$line${RESET}"
-        elif echo "$line" | grep -q "| HALT "; then
-            echo -e "${YELLOW}$line${RESET}"
-        elif echo "$line" | grep -q "| DISPATCH"; then
-            echo -e "${BOLD}$line${RESET}"
-        else
-            echo "$line"
-        fi
-    done
+    python3 -c "
+import json, sys
+for line in open('$AF_SESSION_LOG'):
+    e = json.loads(line)
+    source = e.get('source', '?')
+    if source != '$part' and 'script' not in e:
+        continue
+    ts = e.get('ts', '?')[:19]
+    if 'script' in e:
+        # Gate script entry (from _session_log.py)
+        script = e['script']
+        exit_code = e.get('exit_code', '?')
+        files = len(e.get('files_changed', []))
+        color = '\033[0;32m' if exit_code == 0 else '\033[0;31m'
+        print(f'  {color}{ts}  GATE      {script:30s} exit={exit_code}  files_changed={files}\033[0m')
+    else:
+        cat = e.get('category', '?').upper()
+        state = e.get('state', '-')
+        action = e.get('action', '-')
+        detail = e.get('detail', '')
+        colors = {'GATE':'\033[0;36m','ADVANCE':'\033[0;32m','HALT':'\033[1;33m',
+                  'DISPATCH':'\033[1m','HUMAN':'\033[0m','SYSTEM':'\033[2m'}
+        c = colors.get(cat, '\033[0m')
+        print(f'  {c}{ts}  {cat:9s} {state:30s} {action:12s} {detail}\033[0m')
+"
     echo ""
 }
 
@@ -96,12 +114,12 @@ show_file() { echo -e "${DIM}── $1 ──${RESET}"; cat "$1"; echo; }
 setup_demo_project() {
     local target="$1"
     info "Creating demo project in $target"
-    log "SYSTEM" "-" "SETUP" "Creating demo project in $target"
+    session_log "system" "-" "SETUP" "Creating demo project in $target"
 
     mkdir -p "$target"
     cd "$target"
     git init --quiet
-    log "SYSTEM" "-" "SETUP" "git init complete"
+    session_log "system" "-" "SETUP" "git init complete"
 
     # Copy factory/ from the real repo
     cp -r "$REPO_ROOT/factory" "$target/factory"
@@ -207,7 +225,7 @@ FSM
     mkdir -p docs/findings
 
     info "Demo project ready: 5-state FSM (INIT → DESIGN → APPROVAL → BUILD → DONE)"
-    log "SYSTEM" "-" "SETUP" "Demo FSM written: INIT → DESIGN → APPROVAL → BUILD → DONE"
+    session_log "system" "-" "SETUP" "Demo FSM written: INIT → DESIGN → APPROVAL → BUILD → DONE"
 }
 
 
@@ -216,7 +234,7 @@ FSM
 # ═══════════════════════════════════════════════════════════════════════════
 demo_human_in_the_loop() {
     DEMO_PART="HUMAN"
-    log "SYSTEM" "-" "START" "Part 1: Human in the Loop"
+    session_log "system" "-" "START" "Part 1: Human in the Loop"
 
     step "PART 1: Human in the Loop"
     echo "You are the operator. You will:"
@@ -232,9 +250,9 @@ demo_human_in_the_loop() {
     info "The marker tracks where we are in the FSM."
     info "Running: phase advance --playbook demo"
 
-    log "GATE" "INIT" "CHECK" "entry_conditions: project_initialized"
+    session_log "gate" "INIT" "CHECK" "entry_conditions: project_initialized"
     python3 factory/scripts/phase advance --playbook demo --by human
-    log "ADVANCE" "INIT→DESIGN" "PASS" "marker moved to DESIGN"
+    session_log "advance" "INIT→DESIGN" "PASS" "marker moved to DESIGN"
     echo ""
     show_file .agent-factory/playbook-state.yml
 
@@ -247,9 +265,9 @@ demo_human_in_the_loop() {
     info "This should FAIL — docs/design.md doesn't exist yet."
     echo ""
 
-    log "GATE" "DESIGN→APPROVAL" "CHECK" "entry_conditions: design_exists"
+    session_log "gate" "DESIGN→APPROVAL" "CHECK" "entry_conditions: design_exists"
     python3 factory/scripts/phase advance --playbook demo --by human 2>&1 || true
-    log "GATE" "DESIGN→APPROVAL" "FAIL" "docs/design.md missing"
+    session_log "gate" "DESIGN→APPROVAL" "FAIL" "docs/design.md missing"
     echo ""
     info "Gate refused. We haven't written the design yet."
     wait_for_enter
@@ -266,7 +284,7 @@ A greeting service. One endpoint, one function.
 Keep it simple. Python. No framework.
 DESIGN
 
-    log "HUMAN" "DESIGN" "CREATE" "docs/design.md (simulating architecture-agent)"
+    session_log "human" "DESIGN" "CREATE" "docs/design.md (simulating architecture-agent)"
     info "Created docs/design.md"
     echo ""
     show_file docs/design.md
@@ -274,9 +292,9 @@ DESIGN
 
     # ── Step 4: Now advance ─────────────────────────────────────────
     step "Step 4: Advance to APPROVAL (now the gate should pass)"
-    log "GATE" "DESIGN→APPROVAL" "CHECK" "entry_conditions: design_exists"
+    session_log "gate" "DESIGN→APPROVAL" "CHECK" "entry_conditions: design_exists"
     python3 factory/scripts/phase advance --playbook demo --by human
-    log "ADVANCE" "DESIGN→APPROVAL" "PASS" "marker moved to APPROVAL"
+    session_log "advance" "DESIGN→APPROVAL" "PASS" "marker moved to APPROVAL"
     echo ""
     show_file .agent-factory/playbook-state.yml
 
@@ -291,11 +309,11 @@ DESIGN
     echo ""
     info "Let's approve. Running: phase advance --playbook demo"
 
-    log "HALT" "APPROVAL" "HUMAN-GATE" "agent: null — waiting for human decision"
-    log "HUMAN" "APPROVAL" "APPROVE" "design reviewed and approved"
-    log "GATE" "APPROVAL→BUILD" "CHECK" "entry_conditions: design_exists"
+    session_log "halt" "APPROVAL" "HUMAN-GATE" "agent: null — waiting for human decision"
+    session_log "human" "APPROVAL" "APPROVE" "design reviewed and approved"
+    session_log "gate" "APPROVAL→BUILD" "CHECK" "entry_conditions: design_exists"
     python3 factory/scripts/phase advance --playbook demo --by human
-    log "ADVANCE" "APPROVAL→BUILD" "PASS" "marker moved to BUILD"
+    session_log "advance" "APPROVAL→BUILD" "PASS" "marker moved to BUILD"
     echo ""
     show_file .agent-factory/playbook-state.yml
 
@@ -313,26 +331,26 @@ if __name__ == "__main__":
     print(greet("world"))
 CODE
 
-    log "HUMAN" "BUILD" "CREATE" "src/app.py (simulating developer-agent)"
+    session_log "human" "BUILD" "CREATE" "src/app.py (simulating developer-agent)"
     info "Created src/app.py"
     show_file src/app.py
     wait_for_enter
 
     # ── Step 7: Advance to DONE ─────────────────────────────────────
     step "Step 7: Advance to DONE"
-    log "GATE" "BUILD→DONE" "CHECK" "entry_conditions: design_exists, code_exists"
+    session_log "gate" "BUILD→DONE" "CHECK" "entry_conditions: design_exists, code_exists"
     python3 factory/scripts/phase advance --playbook demo --by human
-    log "ADVANCE" "BUILD→DONE" "PASS" "marker moved to DONE (final)"
+    session_log "advance" "BUILD→DONE" "PASS" "marker moved to DONE (final)"
     echo ""
     show_file .agent-factory/playbook-state.yml
 
     echo -e "\n${GREEN}${BOLD}✓ Playbook complete!${RESET}"
-    log "HALT" "DONE" "COMPLETE" "playbook finished — all gates passed"
+    session_log "halt" "DONE" "COMPLETE" "playbook finished — all gates passed"
     echo ""
     echo "You pressed Enter 7 times. You checked gates, created files,"
     echo "and advanced the marker — one step at a time."
 
-    log_show_summary "HUMAN"
+    session_log_show "HUMAN"
 
     echo "Now let's see the orchestrator do exactly the same thing."
     wait_for_enter
@@ -344,7 +362,7 @@ CODE
 # ═══════════════════════════════════════════════════════════════════════════
 demo_orchestrated() {
     DEMO_PART="ORCH"
-    log "SYSTEM" "-" "START" "Part 2: Orchestrated (run-playbook)"
+    session_log "system" "-" "START" "Part 2: Orchestrated (run-playbook)"
 
     step "PART 2: Orchestrated (run-playbook)"
     echo "Same FSM, same gates, same work — but the orchestrator drives it."
@@ -357,7 +375,7 @@ demo_orchestrated() {
     step "Reset: clean project, fresh start"
     rm -rf docs src .agent-factory
     mkdir -p docs/findings
-    log "SYSTEM" "-" "RESET" "Cleaned docs/, src/, .agent-factory/"
+    session_log "system" "-" "RESET" "Cleaned docs/, src/, .agent-factory/"
 
     info "Cleaned up. Starting from scratch."
     echo ""
@@ -394,7 +412,7 @@ else:
 
 sys.exit(0)
 STUB
-    log "SYSTEM" "-" "SETUP" "Created trigger stub at /tmp/demo-trigger-stub.py"
+    session_log "system" "-" "SETUP" "Created trigger stub at /tmp/demo-trigger-stub.py"
 
     # ── Patch run_playbook to use the stub trigger ──────────────────
     cat > /tmp/demo-run-orchestrated.py << RUNNER
@@ -425,7 +443,7 @@ sys.exit(run_playbook.main([
     "--cli", "claude"
 ]))
 RUNNER
-    log "SYSTEM" "-" "SETUP" "Created orchestrator runner at /tmp/demo-run-orchestrated.py"
+    session_log "system" "-" "SETUP" "Created orchestrator runner at /tmp/demo-run-orchestrated.py"
 
     # ── Run it ──────────────────────────────────────────────────────
     step "Running: run-playbook --playbook demo --from-state DESIGN"
@@ -433,9 +451,9 @@ RUNNER
     info "Watch it dispatch agents, check gates, and advance — or stop at the human gate."
     echo ""
 
-    log "DISPATCH" "DESIGN" "BEGIN" "run-playbook --playbook demo --from-state DESIGN --cli claude"
+    session_log "dispatch" "DESIGN" "BEGIN" "run-playbook --playbook demo --from-state DESIGN --cli claude"
     python3 /tmp/demo-run-orchestrated.py || true
-    log "HALT" "APPROVAL" "HUMAN-GATE" "orchestrator stopped — agent: null"
+    session_log "halt" "APPROVAL" "HUMAN-GATE" "orchestrator stopped — agent: null"
     echo ""
 
     # ── Show what happened ──────────────────────────────────────────
@@ -445,23 +463,9 @@ RUNNER
     echo ""
     show_file .agent-factory/playbook-state.yml
 
-    # Log what the orchestrator did internally (read from audit.log)
-    if [ -f .agent-factory/audit.log ]; then
-        while IFS= read -r line; do
-            action=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['action'])")
-            state=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['state'])")
-            agent=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('agent') or '-')")
-            log_action=$(echo "$action" | tr '[:lower:]' '[:upper:]')
-            case "$action" in
-                advance)  log "ADVANCE" "$state" "PASS" "agent=$agent — gate passed, marker moved" ;;
-                human-gate) log "HALT" "$state" "HUMAN-GATE" "agent: null — returned control" ;;
-                retry)    log "GATE" "$state" "RETRY" "agent=$agent — gate failed, retrying" ;;
-                halt)     log "HALT" "$state" "CAP-HIT" "iteration cap reached" ;;
-                done)     log "HALT" "$state" "COMPLETE" "final state reached" ;;
-                *)        log "SYSTEM" "$state" "$log_action" "agent=$agent" ;;
-            esac
-        done < .agent-factory/audit.log
-    fi
+    # The orchestrator already wrote its entries to .agent-factory/audit.log.
+    # Since AF_SESSION_LOG points to the same file, demo entries and
+    # orchestrator entries are interleaved in one timeline.
 
     wait_for_enter
 
@@ -472,48 +476,44 @@ RUNNER
     info "will pass, and the orchestrator continues."
     echo ""
 
-    log "HUMAN" "APPROVAL" "APPROVE" "human reviewed and approved the design"
-    log "DISPATCH" "APPROVAL" "RESUME" "run-playbook --playbook demo --cli claude (re-invocation)"
+    session_log "human" "APPROVAL" "APPROVE" "human reviewed and approved the design"
+    session_log "dispatch" "APPROVAL" "RESUME" "run-playbook re-invoked"
     python3 /tmp/demo-run-orchestrated.py || true
     echo ""
-
-    # Log second run's audit entries
-    if [ -f .agent-factory/audit.log ]; then
-        # Read only new entries (skip ones we already logged)
-        tail -n +2 .agent-factory/audit.log | while IFS= read -r line; do
-            action=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['action'])" 2>/dev/null) || continue
-            state=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['state'])" 2>/dev/null) || continue
-            agent=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('agent') or '-'" 2>/dev/null) || continue
-            case "$action" in
-                advance)  log "ADVANCE" "$state" "PASS" "agent=$agent — gate passed, marker moved" ;;
-                done)     log "HALT" "$state" "COMPLETE" "final state reached" ;;
-                *)        : ;;  # already logged
-            esac
-        done
-    fi
 
     # ── Show final state ────────────────────────────────────────────
     step "Result"
     echo -e "${GREEN}${BOLD}✓ Playbook complete — the orchestrator drove the whole thing.${RESET}"
-    log "SYSTEM" "-" "FINISH" "Part 2 complete"
+    session_log "system" "-" "FINISH" "Part 2 complete"
     echo ""
     show_file .agent-factory/playbook-state.yml
 
-    if [ -f .agent-factory/audit.log ]; then
-        echo -e "${BOLD}Orchestrator audit log (.agent-factory/audit.log):${RESET}"
-        echo ""
-        python3 -c "
+    echo -e "${BOLD}Full session log (.agent-factory/audit.log):${RESET}"
+    echo ""
+    python3 -c "
 import json
-for line in open('.agent-factory/audit.log'):
+for line in open('$AF_SESSION_LOG'):
     e = json.loads(line)
-    icon = {'advance':'✓','human-gate':'⏸','done':'★','halt':'✗','retry':'↻'}.get(e['action'],'?')
-    dur = f\" ({e['duration_seconds']}s)\" if e.get('duration_seconds') else ''
-    agent = e.get('agent') or '(you)'
-    print(f\"  {icon} {e['state']:30s} {agent:25s} {e['action']}{dur}\")
+    ts = e.get('ts', '?')[:19]
+    # Orchestrator entries (have 'action' key)
+    if 'action' in e:
+        icon = {'advance':'✓','human-gate':'⏸','done':'★','halt':'✗','retry':'↻'}.get(e['action'],'·')
+        dur = f' ({e[\"duration_seconds\"]}s)' if e.get('duration_seconds') else ''
+        agent = e.get('agent') or '(no agent)'
+        print(f'  {icon} {ts}  {e[\"state\"]:25s} {agent:22s} {e[\"action\"]}{dur}')
+    # Demo entries (have 'category' key)
+    elif 'category' in e:
+        cat = e['category'].upper()
+        print(f'  · {ts}  {e.get(\"state\",\"-\"):25s} {cat:22s} {e.get(\"action\",\"-\")} {e.get(\"detail\",\"\")}')
+    # Gate script entries (have 'script' key, from _session_log.py)
+    elif 'script' in e:
+        ex = e.get('exit_code', '?')
+        icon = '✓' if ex == 0 else '✗'
+        print(f'  {icon} {ts}  {\"(gate)\":25s} {e[\"script\"]:22s} exit={ex}')
 "
-    fi
+    echo ""
 
-    log_show_summary "ORCH"
+    session_log_show "ORCH"
 
     echo ""
     echo "Same FSM. Same gates. Same scripts. The only difference:"
@@ -536,11 +536,11 @@ echo "  Part 1: You drive it by hand (human in the loop)"
 echo "  Part 2: The orchestrator drives it (unattended)"
 echo ""
 echo "Both use the exact same FSM, gates, and scripts."
-echo ""
-echo -e "Full log written to: ${BOLD}$DEMO_LOG${RESET}"
+echo "All events are logged to .agent-factory/audit.log — the same"
+echo "file the real orchestrator uses, activated via AF_SESSION_LOG."
 echo ""
 
-log_init
+session_log_init
 setup_demo_project "$DEMO_DIR"
 wait_for_enter
 
@@ -553,17 +553,13 @@ echo "Both parts used the same FSM and the same gate scripts."
 echo "Here's what each workflow looked like:"
 echo ""
 
-echo -e "${BOLD}HUMAN (Part 1):${RESET}"
-grep "| HUMAN " "$DEMO_LOG" | grep -E "GATE|ADVANCE|HALT|DISPATCH|HUMAN" | \
-    awk -F'|' '{printf "  %s │%s │%s\n", $4, $5, $6}'
-echo ""
+echo -e "${BOLD}HUMAN workflow (Part 1):${RESET}"
+session_log_show "HUMAN"
 
-echo -e "${BOLD}ORCHESTRATOR (Part 2):${RESET}"
-grep "| ORCH " "$DEMO_LOG" | grep -E "GATE|ADVANCE|HALT|DISPATCH|HUMAN" | \
-    awk -F'|' '{printf "  %s │%s │%s\n", $4, $5, $6}'
-echo ""
+echo -e "${BOLD}ORCHESTRATED workflow (Part 2):${RESET}"
+session_log_show "ORCH"
 
-echo -e "Full log: ${BOLD}$DEMO_LOG${RESET}"
+echo -e "Session log: ${BOLD}$AF_SESSION_LOG${RESET}"
 echo ""
 echo -e "${BOLD}Demo complete.${RESET} The demo project has been cleaned up."
 echo ""
