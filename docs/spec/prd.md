@@ -67,8 +67,9 @@ ______________________________________________________________________
 
 ### FR-E — Catalog generation (`index-lint`)
 
-- **FR-E1** — Regenerates `factory/INDEX.yaml` from `agents/*.md`, `skills/*/SKILL.md`, and `playbooks/*.md` frontmatter and prose.
+- **FR-E1** — Regenerates `factory/INDEX.yaml` from `agents/*.md`, `skills/*/SKILL.md`, `playbooks/*.md`, and `rulebooks/**/*.md` (excluding templates) frontmatter and prose. Each entry carries a `tokens` field (tiktoken cl100k_base, chars ÷ 4 fallback). Agents carry `total_tokens` (body + referenced skills + referenced rulebooks). Playbooks carry `total_tokens` (body + unique agent totals).
 - **FR-E2** — `--check` mode verifies without writing; exits `1` if the catalog is stale.
+- **FR-E3** — Warns when an agent's `total_tokens` exceeds 20 000.
 
 ### FR-F — Resume decision (`run-step` skill)
 

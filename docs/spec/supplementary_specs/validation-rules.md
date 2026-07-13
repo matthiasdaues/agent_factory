@@ -46,7 +46,7 @@ This resolution order is why `halt_conditions` must name the **author** state be
 
 ## Catalog generation (`index-lint`, BR-015, BR-016)
 
-- Frontmatter parsing extracts only the scalar/folded-block-scalar keys `index-lint` needs (`name`, `title`, `phase`, `phase-name`, `category`, `description`, `tier`); list-valued keys are silently skipped, not misparsed, because their `- item` lines never match the key-line pattern.
+- Frontmatter parsing extracts scalar/folded-block-scalar keys (`name`, `title`, `phase`, `phase-name`, `category`, `description`, `tier`) and list-valued keys (`skills`, `inputs`) from `- item` lines. Other list-valued keys (`outputs`, `triggers`, `handoff-to`) are silently skipped. The `skills` and `inputs` lists are used to resolve agent dependencies for `total_tokens` computation.
 - An agent with no `name` frontmatter field is excluded from the catalog entirely — not an error, just absent.
 - A playbook's agent sequence is extracted from every `**Agent**: `x\`\` occurrence in file order, duplicates kept — a playbook that invokes the same agent twice (e.g. `implementation-agent` appearing once for the main chain) lists it once per occurrence.
 - `--check` mode performs the identical generation and diffs the result against disk; it is a plain text-content comparison, not a structural/semantic diff.
