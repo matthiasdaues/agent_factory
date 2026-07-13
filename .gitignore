@@ -5,6 +5,11 @@
 # Local ephemeral notes
 session-scratchpad.md
 
+# Agent Factory local run state — playbook-state.yml (harness PoC),
+# session-log.jsonl (session-log PoC). Neither is portable across
+# machines or meant to be reviewed; see factory/docs/proposals/.
+.agent-factory/
+
 # Python specific folders and files
 __pycache__/
 *.pyc

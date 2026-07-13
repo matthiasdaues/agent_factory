@@ -9,6 +9,6 @@ Canonical orientation content for any AI coding CLI working in a project that us
   - Claude Code: `.claude/skills/<name>/SKILL.md`, `.claude/agents/<name>.md`
   - GitHub Copilot CLI: `.github/skills/<name>/SKILL.md`, `.github/agents/<name>.md`
 
-- **MUST**: Read the local `INDEX.md` first, same directory as above (`.claude/INDEX.md` for Claude Code, `.github/INDEX.md` for GitHub Copilot CLI). All locally available skills and agents are referenced there.
+- **MUST**: Read the local `INDEX.yaml` first, same directory as above (`.claude/INDEX.yaml` for Claude Code, `.github/INDEX.yaml` for GitHub Copilot CLI). All locally available agents, skills, and playbooks are referenced there.
 
 - **MUST**: Before you answer the first prompt, greet the user and acknowledge that you have read and understood the local first rule.

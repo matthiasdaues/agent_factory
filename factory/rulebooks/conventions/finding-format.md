@@ -30,29 +30,9 @@ For most reviews the blocking severity is **Critical** or **Major** (see [report
 | Spec reconciliation            | `RECON` |
 | Bug hunt / exploratory testing | `BUG`   |
 
-## Frontmatter schema
+## Format
 
-```markdown
----
-id: SPEC-0001
-source: spec-review          # the review that produced it (spec-review, atam-review, fagan-review, security-review, reconcile, bug-hunt, grilling)
-severity: major              # critical | major | minor  (or the review's own scale, e.g. high|medium|low)
-category: defect             # defect | suggestion | question
-artifact: docs/spec/prd.md#NFR-01   # file#anchor or path:line the finding is about
-status: open                 # open | resolved
-traces: [NFR-01]             # requirement / use-case / ADR IDs the finding relates to (optional)
----
-```
-
-## Body
-
-```markdown
-# <one-line finding title>
-
-**What is wrong:** <the defect, stated concretely>
-
-**Fix:** <the concrete remediation>
-```
+Frontmatter and body skeleton: [finding.md template](../templates/finding.md).
 
 Canonical statement: [rules.md § Findings](../rules.md#findings) — no "this looks off" without a fix direction.
 
@@ -68,3 +48,18 @@ The finding files are the contract. When run under the orchestrator, the review 
 ## Pause point
 
 Present the findings to the user before writing any files. The user decides which findings warrant a filed finding. Then write the files and save the review report.
+
+## Referenced from
+
+- [rules.md § Findings](../rules.md#findings)
+- [report-format.md § Findings drive the loop](report-format.md#findings-drive-the-loop)
+- [reconciliation-agent.md § Workflow](../../agents/reconciliation-agent.md#workflow)
+- [spec-review-agent.md § Workflow](../../agents/spec-review-agent.md#workflow)
+- [architecture-review-agent.md § Workflow](../../agents/architecture-review-agent.md#workflow)
+- [qa-agent.md § Workflow](../../agents/qa-agent.md#workflow)
+- [security-review § Step 3 — Write the review report](../../skills/security-review/SKILL.md#step-3-write-the-review-report)
+- [reconcile-spec § Step 2 — Update](../../skills/reconcile-spec/SKILL.md#step-2-update)
+- [bug-hunt § Phase: Hunt](../../skills/bug-hunt/SKILL.md#phase-hunt)
+- [inspect-spec § Step 3 — Write the review report](../../skills/inspect-spec/SKILL.md#step-3-write-the-review-report)
+- [atam-review § Step 4 — Write the review report](../../skills/atam-review/SKILL.md#step-4-write-the-review-report)
+- [fagan-review § Step 3 — Write the review report](../../skills/fagan-review/SKILL.md#step-3-write-the-review-report)

@@ -7,7 +7,8 @@ tie them together. Same spirit as `spec-lint`: a deterministic gate, blocking
 only on error-severity findings, runnable as a pre-commit hook.
 
 Checks
-  1. Staleness   — architecture.dsl newer than an exported image => re-export needed.
+  1. Staleness   — architecture.dsl newer than an exported image => auto-export via
+                   factory/scripts/structurizr export-all (deterministic validation).
   2. Coupling    — the core components and the ports named in chapter 5
                    (05_building_block_view.md) must match the model, both ways.
   3. Validate    — run `structurizr validate` when Docker is available; skip otherwise.
@@ -31,6 +32,7 @@ Exit non-zero iff at least one error-severity finding exists (gate contract).
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
@@ -156,24 +158,92 @@ def _parse_adr_frontmatter(text: str) -> dict[str, str] | None:
 
 _VALID_STATUS = re.compile(r"^(proposed|accepted|deprecated|superseded by ADR-\d+)$")
 _MATRIX_MARKER = re.compile(r"\*\*Weighted total\*\*", re.IGNORECASE)
+_BOLD_STATUS_LINE = re.compile(r"^\*\*Status\*\*:\s*(.+)$", re.MULTILINE)
+_STATUS_PREFIX = re.compile(
+    r"^(accepted|proposed|deprecated|superseded by ADR-\d+)\b", re.IGNORECASE
+)
+
+
+def _parse_adr_status_line(text: str) -> str | None:
+    """Fall back for ADRs that state status as a bold prose line (this
+    project's established local convention, predating the frontmatter
+    template) rather than YAML frontmatter: `**Status**: Accepted — ...`.
+
+    The status value is whichever valid word/phrase leads the line — the
+    rest (an em-dash clause, a parenthetical, trailing prose) is exactly
+    the *why*, which this rulebook's own convention says belongs after
+    the *what*, not folded into it.
+    """
+    m = _BOLD_STATUS_LINE.search(text)
+    if not m:
+        return None
+    value = re.sub(r"\[(ADR-\d+)\]\([^)]*\)", r"\1", m.group(1))
+    prefix = _STATUS_PREFIX.match(value)
+    if not prefix:
+        return None
+    matched = prefix.group(1)
+    if matched.lower().startswith("superseded by"):
+        adr_ref = re.search(r"ADR-\d+", matched, re.IGNORECASE)
+        return f"superseded by {adr_ref.group(0).upper()}"
+    return matched.lower()
 
 
 # --- Checks ----------------------------------------------------------------
 
 
 def check_staleness(rep: Report, dsl_path: Path, images: list[Path]) -> None:
+    """Check if diagrams are stale and auto-export if needed (UC-09, deterministic validation)."""
+    needs_export = False
+
     if not images:
-        rep.warn("ARCH-STALE", "no exported images found; run `structurizr export-all`")
-        return
-    dsl_mtime = dsl_path.stat().st_mtime
-    stale = [p for p in images if p.stat().st_mtime < dsl_mtime]
-    if stale:
-        names = ", ".join(sorted(p.name for p in stale))
-        rep.error(
-            "ARCH-STALE",
-            f"architecture.dsl is newer than exported image(s): {names}. "
-            f"Re-run `structurizr export-all`.",
-        )
+        rep.info("ARCH-STALE", "no exported images found; will export now")
+        needs_export = True
+    else:
+        dsl_mtime = dsl_path.stat().st_mtime
+        stale = [p for p in images if p.stat().st_mtime < dsl_mtime]
+        if stale:
+            names = ", ".join(sorted(p.name for p in stale))
+            rep.info(
+                "ARCH-STALE",
+                f"architecture.dsl is newer than exported image(s): {names}. Will re-export.",
+            )
+            needs_export = True
+
+    if needs_export:
+        # Auto-export via structurizr script (deterministic validation principle)
+        docs_dir = dsl_path.parent
+        structurizr_script = Path("factory/scripts/structurizr").resolve()
+
+        if not structurizr_script.exists():
+            rep.error(
+                "ARCH-EXPORT",
+                f"Cannot auto-export: {structurizr_script} not found",
+            )
+            return
+
+        try:
+            # Run export-all with STRUCTURIZR_DOCS pointing at the correct docs dir
+            env = dict(os.environ)
+            env["STRUCTURIZR_DOCS"] = str(docs_dir.resolve())
+            result = subprocess.run(
+                [str(structurizr_script), "export-all"],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=300,  # 5 minute timeout
+            )
+
+            if result.returncode == 0:
+                rep.info("ARCH-EXPORT", "Diagrams exported successfully")
+            else:
+                rep.error(
+                    "ARCH-EXPORT",
+                    f"Export failed (exit {result.returncode}): {result.stderr[:200]}",
+                )
+        except subprocess.TimeoutExpired:
+            rep.error("ARCH-EXPORT", "Export timed out after 300s")
+        except Exception as e:
+            rep.error("ARCH-EXPORT", f"Export error: {e}")
 
 
 def check_coupling(rep: Report, dsl: str, ch5: str) -> None:
@@ -226,30 +296,47 @@ def check_adr_evaluation(rep: Report, adr_dir: Path) -> None:
     for path in sorted(adr_dir.glob("*.md")):
         text = path.read_text()
         fm = _parse_adr_frontmatter(text)
-        if fm is None:
-            rep.error("ARCH-ADR-FM", f"{path.name}: missing or malformed YAML frontmatter")
-            continue
+        has_matrix = bool(_MATRIX_MARKER.search(text))
 
-        status = fm.get("status")
-        if not status:
-            rep.error("ARCH-ADR-STATUS", f"{path.name}: frontmatter has no 'status'")
-        elif not _VALID_STATUS.match(status):
+        if fm is not None:
+            status = fm.get("status")
+            if not status:
+                rep.error(
+                    "ARCH-ADR-STATUS", f"{path.name}: frontmatter has no 'status'"
+                )
+                status = None
+
+            evaluation = fm.get("evaluation")
+            if evaluation not in ("pugh-matrix", "none"):
+                rep.error(
+                    "ARCH-ADR-EVAL",
+                    f"{path.name}: frontmatter 'evaluation' must be 'pugh-matrix' or "
+                    f"'none', got {evaluation!r}",
+                )
+                continue
+        else:
+            # Fall back to this project's bold-prose-line ADR convention
+            # (`**Status**: Accepted — ...`, no YAML frontmatter). Evaluation
+            # isn't declared under this convention — infer it from whether a
+            # matrix table is actually present, so there is nothing to
+            # cross-check for a mismatch.
+            status = _parse_adr_status_line(text)
+            if status is None:
+                rep.error(
+                    "ARCH-ADR-FM",
+                    f"{path.name}: missing or malformed YAML frontmatter, and no "
+                    f"bold **Status** line found either",
+                )
+                continue
+            evaluation = "pugh-matrix" if has_matrix else "none"
+
+        if status is not None and not _VALID_STATUS.match(status):
             rep.error(
                 "ARCH-ADR-STATUS",
                 f"{path.name}: status '{status}' is not one of "
                 f"proposed|accepted|deprecated|superseded by ADR-NNNN",
             )
 
-        evaluation = fm.get("evaluation")
-        if evaluation not in ("pugh-matrix", "none"):
-            rep.error(
-                "ARCH-ADR-EVAL",
-                f"{path.name}: frontmatter 'evaluation' must be 'pugh-matrix' or "
-                f"'none', got {evaluation!r}",
-            )
-            continue
-
-        has_matrix = bool(_MATRIX_MARKER.search(text))
         if evaluation == "pugh-matrix" and not has_matrix:
             rep.error(
                 "ARCH-ADR-EVAL",

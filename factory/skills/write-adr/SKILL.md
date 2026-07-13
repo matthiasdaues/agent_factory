@@ -2,12 +2,12 @@
 name: write-adr
 description: Document an architecture decision as an ADR (Nygard format). The sole owner of ADR format in this project — every ADR, from any caller, is written by this skill.
 category: architecture
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Write ADR
 
-Document a single architecture decision following **ADR according to Nygard**. Apply **Clean Architecture** and **SOLID** as evaluation criteria where relevant.
+Document a single architecture decision following **ADR according to Nygard**. Apply **Clean Architecture** and **SOLID** as evaluation criteria where relevant. You MUST apply the **YAGNI** principlt. You MUST write short and precise prose, follow "Strunk & White".
 
 Read `docs/CONTEXT.md` if it exists — use the project's domain vocabulary.
 
@@ -27,7 +27,11 @@ If this decision has multiple real alternatives worth formally comparing, invoke
 
 ## Step 3 — Write the ADR
 
-Save as `docs/adr/NNNN-short-title.md` (next available number — scan `docs/adr/` for the highest existing and increment). Every ADR, matrix or not, carries this frontmatter:
+Save as `docs/adr/NNNN-short-title.md` (next available number — scan `docs/adr/` for the highest existing and increment).
+
+See [adr.md template](../../rulebooks/templates/adr.md) for the complete format.
+
+**Required frontmatter:**
 
 ```yaml
 ---
@@ -37,20 +41,9 @@ evaluation: pugh-matrix | none
 ---
 ```
 
-`evaluation` is never omitted — `none` is a real, valid, common value, not an absence. Body follows full **Nygard format**:
+`evaluation` is never omitted — `none` is a real, valid, common value, not an absence.
 
-```markdown
-# {Short title of the decision}
-
-## Context
-{what prompted this — the situation as it stood before deciding}
-
-## Decision
-{what was decided. If Step 2 produced a matrix, embed it here verbatim.}
-
-## Consequences
-{what this makes easier or harder going forward}
-```
+**Body follows full Nygard format:** Context, Decision, Consequences sections as specified in the template.
 
 If this decision supersedes an earlier ADR, update that ADR's `status` to `superseded by ADR-NNNN`. If `docs/09_architecture_decisions.md` exists (arc42 chapter-9 index), update it to link the new ADR; if it doesn't exist, skip — not every project using this skill has arc42 documentation.
 

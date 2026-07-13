@@ -1,0 +1,361 @@
+#!/usr/bin/env python3
+"""trigger — resolve an agent or playbook step from factory/INDEX.yaml's
+source data and invoke it via a CLI, interactive or background.
+
+This is the whole of the CLI-agnostic dispatch mechanism: resolve what to
+run (agent name, or one step of a playbook's agent sequence) and how
+(tier -> model via model.conf), then hand off to the target CLI. It does
+NOT decide *whether* a step is allowed to run — that is transition-lint's
+job (blocks staged files from a future phase) and phase-advance's job
+(checks entry_conditions before moving the marker). trigger only dispatches
+what it's told to; sequencing and resumability live in those gates plus
+whatever skill drives this script, not here (deliberately no persisted
+run-state of its own — see factory/skills/run-step/SKILL.md).
+
+Reuses, not reimplements: agent/playbook lookup imports index-lint's own
+load_agents()/load_playbooks() (the same data factory/INDEX.yaml is
+generated from); tier resolution imports matrix-lint's own parse_matrix().
+Zero-dependency stdlib Python, same spirit as every other factory/scripts/
+tool.
+
+Usage
+  trigger agent <name> --background [--cli claude|copilot] [--cwd DIR]
+  trigger agent <name> --interactive [--cli claude|copilot] [--cwd DIR]
+  trigger playbook <name> --step <agent-name-or-index> [--background|--interactive] [...]
+  trigger list                        # print every agent/playbook name known to INDEX.yaml
+
+--background runs the CLI non-interactively (`-p`/print mode) under a
+hardcoded, scoped tool allowlist (CLAUDE_ALLOWED_TOOLS / COPILOT_ALLOW_TOOLS
+below) — never --dangerously-skip-permissions or --allow-all-tools —
+captures output, and returns its exit code. --interactive prints the
+first-message prompt to paste in, then launches a live CLI session in
+--cwd so a human can drive it — neither CLI is known to support "seed a
+message but stay interactive" from the command line, so this is a manual
+handoff, not a scripted one.
+
+Exit code: the invoked CLI's own exit code in --background mode; 0 after
+printing launch instructions in --interactive mode; 2 for a resolution
+error (unknown agent/playbook, no model configured and on_missing=halt).
+"""
+
+from __future__ import annotations
+
+import argparse
+import importlib.util
+import subprocess
+import sys
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
+
+_SCRIPTS_DIR = Path(__file__).resolve().parent
+_REPO_ROOT = _SCRIPTS_DIR.parents[1]
+
+
+def _load_sibling(name: str, filename: str):
+    path = _SCRIPTS_DIR / filename
+    loader = SourceFileLoader(name, str(path))
+    spec = importlib.util.spec_from_loader(name, loader)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    loader.exec_module(module)
+    return module
+
+
+index_lint = _load_sibling("index_lint", "index-lint")
+matrix_lint = _load_sibling("matrix_lint", "matrix-lint")
+
+
+class ResolutionError(Exception):
+    """An agent/playbook/tier couldn't be resolved — trigger exits 2."""
+
+
+def resolve_agent(agents_dir: Path, name: str) -> dict:
+    for a in index_lint.load_agents(agents_dir):
+        if a["name"] == name:
+            return a
+    raise ResolutionError(f"no agent named {name!r} in {agents_dir}")
+
+
+def resolve_playbook(playbooks_dir: Path, name: str) -> dict:
+    for p in index_lint.load_playbooks(playbooks_dir):
+        if p["name"] == name:
+            return p
+    raise ResolutionError(f"no playbook named {name!r} in {playbooks_dir}")
+
+
+def resolve_playbook_step(playbook: dict, step: str) -> str:
+    """*step* is either an agent name already in the playbook's sequence, or
+    a 1-based index into it. Returns the agent name to invoke."""
+    agents = playbook.get("agents") or []
+
+    if not agents:
+        raise ResolutionError(f"playbook {playbook['name']!r} has no agent sequence")
+
+    if step.isdigit():
+        idx = int(step) - 1
+        if not (0 <= idx < len(agents)):
+            raise ResolutionError(
+                f"step {step} out of range for playbook {playbook['name']!r} "
+                f"({len(agents)} steps)"
+            )
+        return agents[idx]
+
+    if step not in agents:
+        raise ResolutionError(
+            f"agent {step!r} is not in playbook {playbook['name']!r}'s sequence: {agents}"
+        )
+
+    return step
+
+
+def resolve_tier_model(model_conf: Path, cli: str, tier: str) -> str | None:
+    """Returns a model id, or None if on_missing=auto and none is configured."""
+    if not model_conf.exists():
+        raise ResolutionError(f"model config not found: {model_conf}")
+
+    err, facts = matrix_lint.parse_matrix(model_conf.read_text(encoding="utf-8"))
+    if err:
+        raise ResolutionError(f"{model_conf}: {err}")
+
+    key = f"{cli}.{tier}"
+    model = facts.get(key)
+    if model is not None:
+        return model
+
+    on_missing = facts.get("on_missing", "halt")
+    if on_missing == "halt":
+        raise ResolutionError(f"no model configured for {key!r} (on_missing=halt)")
+
+    return None
+
+
+def compose_prompt(agent_path: Path) -> str:
+    """Minimal composition: full agent definition plus a call to action.
+    Deliberately simpler than orchestrator's FilePromptComposer — no
+    findings-injection or iteration-aware phrasing yet; that's a known gap,
+    not an oversight (see factory/skills/run-step/SKILL.md for the plan)."""
+    definition = agent_path.read_text(encoding="utf-8").rstrip()
+    return (
+        f"# Agent Definition\n{definition}\n\n"
+        "# Call to Action\nExecute the workflow defined in your Agent "
+        "Definition above."
+    )
+
+
+# Hardcoded, scoped permission grants for --background mode — deliberately
+# NOT --dangerously-skip-permissions / --allow-all-tools (blanket bypass),
+# and deliberately NOT a bare interpreter wildcard either (Bash(python3 *)
+# / Bash(uv *) / Bash(uvx *) / Bash(npm *) can each run arbitrary code —
+# scoping the outer command while leaving the interpreter open isn't
+# scoping at all).
+#
+# Every entry below is derived from what this repo actually runs, not
+# guessed:
+#   - git subcommands: grep for `git <word>` across factory/playbooks/,
+#     factory/skills/, factory/agents/, factory/rulebooks/conventions/ —
+#     only add, commit, status, diff, revert, tag, and `worktree list`
+#     (read-only) are ever literally invoked. Worktree *creation* happens
+#     through the Agent tool's own isolation:"worktree" parameter, not a
+#     raw git command (see branching-policy.md § Worktree Isolation) — so
+#     there is no `git worktree add` to allow. `git branch`/`git
+#     checkout`/`git merge`/`git log`/`git mv` are NOT evidenced anywhere
+#     and are deliberately absent; add them if a real workflow needs them.
+#   - gate/format scripts: the literal `entry:` commands in
+#     .pre-commit-config.yaml and orchestrator/pre-commit-config.yaml.
+#   - test runner: `uv run pytest`, per orchestrator/pyproject.toml's
+#     [tool.pytest.ini_options] and this session's own established
+#     invocation. No pytest/npm/go/cargo default beyond that — the factory
+#     itself is test-runner-agnostic (factory-guide.md § Linting and
+#     gating), so a target project's own test command isn't something
+#     this factory-level default can honestly hardcode.
+#
+# The DENY list mirrors factory/config/hooks/block-dangerous-git.sh's own
+# DANGEROUS_PATTERNS exactly — a second, independent layer on top of that
+# hook (both CLIs confirm PreToolUse/preToolUse hooks fire even under
+# permissive modes; this means the agent never sees the verb as available
+# in the first place, not just gets denied after asking).
+CLAUDE_ALLOWED_TOOLS = (
+    "Read,Write,Edit,Grep,Glob,"
+    "Bash(git add *),Bash(git commit *),Bash(git status *),Bash(git diff *),"
+    "Bash(git revert *),Bash(git tag *),Bash(git worktree list),"
+    "Bash(factory/scripts/spec-lint *),Bash(factory/scripts/arch-lint *),"
+    "Bash(factory/scripts/backlog-lint *),Bash(factory/scripts/matrix-lint *),"
+    "Bash(factory/scripts/statemachine-lint *),Bash(factory/scripts/index-lint *),"
+    "Bash(factory/scripts/transition-lint *),Bash(factory/scripts/mdformat *),"
+    "Bash(factory/scripts/phase *),"
+    "Bash(uvx ruff check *),Bash(uvx ruff format *),"
+    "Bash(uv run mdformat *),Bash(uv run ruff check *),Bash(uv run ruff format *),"
+    "Bash(uv run pytest *)"
+)
+CLAUDE_DISALLOWED_TOOLS = (
+    "Bash(git push *),Bash(git reset --hard *),Bash(git clean -fd *),"
+    "Bash(git clean -f *),Bash(git branch -D *),Bash(git checkout . *),"
+    "Bash(git restore . *),Bash(*--no-verify*),Bash(*pre-commit uninstall*)"
+)
+
+# Copilot CLI's shell(cmd:*) colon-wildcard scoping is confirmed for
+# two-word prefixes (shell(git commit), shell(git:*)) by GitHub's own docs
+# example (--allow-tool='shell(git:*)' --deny-tool='shell(git push)'). The
+# three-word entries below (shell(uv run pytest:*) etc.) follow the same
+# pattern but are NOT confirmed against a documented example — best
+# effort, flag if Copilot rejects the flag syntax.
+COPILOT_AVAILABLE_TOOLS = "bash,edit,view,grep,glob"
+COPILOT_ALLOW_TOOLS = (
+    "shell(git add:*),shell(git commit:*),shell(git status:*),shell(git diff:*),"
+    "shell(git revert:*),shell(git tag:*),shell(git worktree list),"
+    "shell(factory/scripts/spec-lint:*),shell(factory/scripts/arch-lint:*),"
+    "shell(factory/scripts/backlog-lint:*),shell(factory/scripts/matrix-lint:*),"
+    "shell(factory/scripts/statemachine-lint:*),shell(factory/scripts/index-lint:*),"
+    "shell(factory/scripts/transition-lint:*),shell(factory/scripts/mdformat:*),"
+    "shell(factory/scripts/phase:*),"
+    "shell(uvx ruff check:*),shell(uvx ruff format:*),"
+    "shell(uv run mdformat:*),shell(uv run ruff check:*),shell(uv run ruff format:*),"
+    "shell(uv run pytest:*)"
+)
+COPILOT_DENY_TOOLS = (
+    "shell(git push:*),shell(git reset --hard:*),shell(git clean -fd:*),"
+    "shell(git clean -f:*),shell(git branch -D),shell(git checkout .),"
+    "shell(git restore .)"
+)
+
+
+def build_background_command(cli: str, prompt: str, model: str | None) -> list[str]:
+    if cli == "copilot":
+        cmd = [
+            "copilot",
+            "-p",
+            prompt,
+            "--available-tools",
+            COPILOT_AVAILABLE_TOOLS,
+            "--allow-tool",
+            COPILOT_ALLOW_TOOLS,
+            "--deny-tool",
+            COPILOT_DENY_TOOLS,
+            "--no-color",
+            "--log-level",
+            "none",
+        ]
+        if model:
+            cmd += ["--model", model]
+        return cmd
+
+    if cli == "claude":
+        # dontAsk + a scoped --allowedTools: fail loud on anything outside
+        # the allowlist instead of approve-everything (--dangerously-skip-
+        # permissions). --disallowedTools is belt-and-suspenders on top of
+        # the allowlist already excluding these verbs.
+        cmd = [
+            "claude",
+            "-p",
+            prompt,
+            "--permission-mode",
+            "dontAsk",
+            "--allowedTools",
+            CLAUDE_ALLOWED_TOOLS,
+            "--disallowedTools",
+            CLAUDE_DISALLOWED_TOOLS,
+        ]
+        if model:
+            cmd += ["--model", model]
+        return cmd
+
+    raise ResolutionError(f"unknown --cli {cli!r} — expected claude or copilot")
+
+
+def build_interactive_command(cli: str, model: str | None) -> list[str]:
+    if cli == "copilot":
+        cmd = ["copilot", "--allow-all-tools"]
+        if model:
+            cmd += ["--model", model]
+        return cmd
+
+    if cli == "claude":
+        cmd = ["claude"]
+        if model:
+            cmd += ["--model", model]
+        return cmd
+
+    raise ResolutionError(f"unknown --cli {cli!r} — expected claude or copilot")
+
+
+def run_background(cmd: list[str], cwd: Path) -> int:
+    proc = subprocess.run(cmd, cwd=str(cwd))
+    return proc.returncode
+
+
+def run_interactive(cmd: list[str], cwd: Path, prompt: str) -> int:
+    print("trigger: paste this as your first message once the session opens:\n")
+    print("-" * 72)
+    print(prompt)
+    print("-" * 72)
+    print(f"\ntrigger: launching `{' '.join(cmd)}` in {cwd}\n")
+    proc = subprocess.run(cmd, cwd=str(cwd))
+    return proc.returncode
+
+
+def cmd_list(agents_dir: Path, playbooks_dir: Path) -> int:
+    for a in index_lint.load_agents(agents_dir):
+        print(f"agent      {a['name']}")
+    for p in index_lint.load_playbooks(playbooks_dir):
+        steps = ", ".join(p.get("agents") or []) or "(no fixed agent sequence)"
+        print(f"playbook   {p['name']}  [{steps}]")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument(
+        "--agents-dir", default=str(_REPO_ROOT / "factory" / "agents"), type=Path
+    )
+    ap.add_argument(
+        "--playbooks-dir", default=str(_REPO_ROOT / "factory" / "playbooks"), type=Path
+    )
+    ap.add_argument(
+        "--model-conf", default=str(_REPO_ROOT / "config" / "model.conf"), type=Path
+    )
+    ap.add_argument("--cli", default="claude", choices=["claude", "copilot"])
+    ap.add_argument("--cwd", default=".", type=Path)
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument("--background", action="store_true")
+    mode.add_argument("--interactive", action="store_true")
+
+    sub = ap.add_subparsers(dest="kind", required=True)
+    p_agent = sub.add_parser("agent")
+    p_agent.add_argument("name")
+    p_playbook = sub.add_parser("playbook")
+    p_playbook.add_argument("name")
+    p_playbook.add_argument("--step", required=True)
+    sub.add_parser("list")
+
+    args = ap.parse_args(argv)
+
+    try:
+        if args.kind == "list":
+            return cmd_list(args.agents_dir, args.playbooks_dir)
+
+        if args.kind == "agent":
+            agent = resolve_agent(args.agents_dir, args.name)
+        else:
+            playbook = resolve_playbook(args.playbooks_dir, args.name)
+            agent_name = resolve_playbook_step(playbook, args.step)
+            agent = resolve_agent(args.agents_dir, agent_name)
+
+        agent_path = Path(agent["_path"])
+        model = resolve_tier_model(
+            args.model_conf, args.cli, agent.get("tier", "standard")
+        )
+        prompt = compose_prompt(agent_path)
+    except ResolutionError as e:
+        print(f"trigger: {e}", file=sys.stderr)
+        return 2
+
+    if args.interactive:
+        cmd = build_interactive_command(args.cli, model)
+        return run_interactive(cmd, args.cwd, prompt)
+
+    cmd = build_background_command(args.cli, prompt, model)
+    return run_background(cmd, args.cwd)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

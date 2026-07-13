@@ -19,5 +19,5 @@ Applies whenever a skill's own instructions include a "Save as ..." / "Write ...
 
 ## References
 
-- Used by: every prose-driven skill listed in `INDEX.md` that writes a markdown artifact — each cites this rule at its own write step rather than restating the instruction.
+- Used by: every prose-driven skill listed in `INDEX.yaml` that writes a markdown artifact — each cites this rule at its own write step rather than restating the instruction.
 - `scratchpad` is the one exception to "cited, not restated": it's an executable script, not agent-followed prose, so the rule is compiled directly into `factory/scripts/scratchpad` (calls `factory/scripts/mdformat` after every append) rather than cited in text.

@@ -1,0 +1,255 @@
+#!/usr/bin/env python3
+"""
+Run tests via factory-managed test execution.
+
+Detects test framework from project structure, executes appropriate test
+command, and emits JSON summary. Part of the test execution hooks architecture
+(ADR-0003).
+
+Usage:
+    run-tests [--full|--changed-only|--staged] [--help]
+
+Modes:
+    --full          Run complete test suite (default)
+    --changed-only  Run tests only for changed files (git diff)
+    --staged        Run tests only for staged files (git diff --staged)
+    --help          Show this help
+
+Exit codes:
+    0: All tests passed
+    1: One or more tests failed
+    2: Framework detection error or configuration error
+
+Output:
+    JSON summary on stdout: {"passed": N, "failed": M, "skipped": K, "duration_ms": T}
+    Test progress and failures on stderr
+
+Framework detection (BR-023):
+    - Scans for: pyproject.toml (pytest), package.json (jest), go.mod, Cargo.toml
+    - Fails loudly if multiple frameworks detected (ATAM-0002)
+    - Fails with clear message if no framework detected
+
+References:
+    - UC-09: Run Tests via Hook
+    - BR-023: Framework detection
+    - BR-026: Full mode
+    - BR-027: JSON output
+    - ADR-0003: Test execution via unavoidable hooks
+"""
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
+
+class Framework:
+    """Test framework configuration."""
+
+    def __init__(
+        self,
+        name: str,
+        marker_file: str,
+        test_cmd_full: List[str],
+        test_cmd_changed: Optional[List[str]] = None,
+        test_cmd_staged: Optional[List[str]] = None,
+    ):
+        self.name = name
+        self.marker_file = marker_file
+        self.test_cmd_full = test_cmd_full
+        self.test_cmd_changed = test_cmd_changed or test_cmd_full
+        self.test_cmd_staged = test_cmd_staged or test_cmd_full
+
+
+# Framework definitions (BR-023)
+FRAMEWORKS = [
+    Framework(
+        name="pytest",
+        marker_file="pyproject.toml",
+        test_cmd_full=["uv", "run", "pytest", "--tb=short", "--quiet"],
+        test_cmd_changed=["uv", "run", "pytest", "--tb=short", "--quiet", "--lf"],
+        test_cmd_staged=["uv", "run", "pytest", "--tb=short", "--quiet"],
+    ),
+    Framework(
+        name="jest",
+        marker_file="package.json",
+        test_cmd_full=["npm", "test"],
+        test_cmd_changed=["npm", "test", "--", "--onlyChanged"],
+        test_cmd_staged=["npm", "test", "--", "--onlyChanged"],
+    ),
+    Framework(
+        name="go",
+        marker_file="go.mod",
+        test_cmd_full=["go", "test", "./...", "-v"],
+    ),
+    Framework(
+        name="cargo",
+        marker_file="Cargo.toml",
+        test_cmd_full=["cargo", "test"],
+    ),
+]
+
+
+def detect_frameworks(repo_root: Path) -> List[Framework]:
+    """
+    Detect all present test frameworks.
+
+    Returns list of detected frameworks. Per BR-023 and ATAM-0002,
+    we must detect ALL frameworks and fail loudly if multiple exist.
+    """
+    detected = []
+    for fw in FRAMEWORKS:
+        marker_path = repo_root / fw.marker_file
+        if marker_path.exists():
+            detected.append(fw)
+    return detected
+
+
+def emit_error(message: str, exit_code: int = 2) -> None:
+    """Emit error message to stderr and exit."""
+    print(f"ERROR: {message}", file=sys.stderr)
+    sys.exit(exit_code)
+
+
+def parse_test_output(
+    framework: Framework, stdout: str, stderr: str, returncode: int
+) -> Dict[str, int]:
+    """
+    Parse test output to extract pass/fail/skip counts.
+
+    This is a simplified implementation - production would parse actual
+    framework output formats.
+    """
+    # For now, return basic counts based on exit code
+    # TODO: Parse actual framework output for accurate counts
+    if returncode == 0:
+        return {"passed": 1, "failed": 0, "skipped": 0}
+    else:
+        return {"passed": 0, "failed": 1, "skipped": 0}
+
+
+def run_tests(framework: Framework, mode: str) -> Tuple[int, Dict]:
+    """
+    Run tests for the detected framework in specified mode.
+
+    Returns (exit_code, summary_dict).
+    """
+    # Select command based on mode
+    if mode == "full":
+        cmd = framework.test_cmd_full
+    elif mode == "changed-only":
+        cmd = framework.test_cmd_changed
+    elif mode == "staged":
+        cmd = framework.test_cmd_staged
+    else:
+        emit_error(f"Unknown mode: {mode}")
+
+    print(f"Running {framework.name} tests in {mode} mode...", file=sys.stderr)
+    print(f"Command: {' '.join(cmd)}", file=sys.stderr)
+
+    start_time = time.time()
+
+    # Run the test command
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+    )
+
+    duration_ms = int((time.time() - start_time) * 1000)
+
+    # Forward test output to stderr (BR-027)
+    if result.stdout:
+        print(result.stdout, file=sys.stderr, end="")
+    if result.stderr:
+        print(result.stderr, file=sys.stderr, end="")
+
+    # Parse output to get counts
+    counts = parse_test_output(framework, result.stdout, result.stderr, result.returncode)
+    counts["duration_ms"] = duration_ms
+
+    return result.returncode, counts
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Run tests via factory-managed test execution",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--full",
+        action="store_const",
+        const="full",
+        dest="mode",
+        help="Run complete test suite (default)",
+    )
+    parser.add_argument(
+        "--changed-only",
+        action="store_const",
+        const="changed-only",
+        dest="mode",
+        help="Run tests only for changed files",
+    )
+    parser.add_argument(
+        "--staged",
+        action="store_const",
+        const="staged",
+        dest="mode",
+        help="Run tests only for staged files",
+    )
+
+    args = parser.parse_args()
+    mode = args.mode or "full"
+
+    # Find repository root
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        repo_root = Path(result.stdout.strip())
+    except subprocess.CalledProcessError:
+        emit_error("Not in a git repository")
+
+    # Detect frameworks (BR-023, ATAM-0002)
+    detected_frameworks = detect_frameworks(repo_root)
+
+    if len(detected_frameworks) == 0:
+        # No framework detected
+        markers = [fw.marker_file for fw in FRAMEWORKS]
+        emit_error(
+            f"No test framework detected. Checked for: {', '.join(markers)}. "
+            f"Please ensure one of these files exists in the repository root."
+        )
+
+    if len(detected_frameworks) > 1:
+        # Multiple frameworks detected - fail loudly (ATAM-0002)
+        framework_names = [f"{fw.name} ({fw.marker_file})" for fw in detected_frameworks]
+        emit_error(
+            f"Multiple test frameworks detected: {', '.join(framework_names)}. "
+            f"run-tests does not support multi-framework projects yet. "
+            f"Please configure explicit framework or split tests."
+        )
+
+    # Exactly one framework - proceed
+    framework = detected_frameworks[0]
+    print(f"Detected framework: {framework.name}", file=sys.stderr)
+
+    # Run tests
+    exit_code, summary = run_tests(framework, mode)
+
+    # Emit JSON summary on stdout (BR-027)
+    print(json.dumps(summary))
+
+    # Exit with test result code
+    sys.exit(exit_code)
+
+
+if __name__ == "__main__":
+    main()

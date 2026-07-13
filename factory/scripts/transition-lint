@@ -1,0 +1,381 @@
+#!/usr/bin/env python3
+"""transition-lint — deterministic phase-ordering gate for structured playbooks.
+
+Reads the git-ignored run-state marker (``.agent-factory/playbook-state.yml``)
+to learn which playbook state a run is in, then maps every staged file to the
+state that declares it via the ``outputs:`` globs in the corresponding
+``factory/playbooks/<playbook>.fsm.yml``. Blocks a commit that stages a file
+belonging to any state other than the current one — the phase-ordering rule the
+playbook harness proposal describes.
+
+Scope: this gate governs ordering *between* phases; it does not evaluate a
+state's ``entry_conditions`` (that is ``phase advance``'s job) and does not
+re-check artifact validity (spec-lint and friends do that). A file must belong
+to the current state to be staged; unlocking the next state is done by advancing
+the marker with ``phase advance``, which is where the entry-condition gate lives.
+
+If the marker is absent the hook is a no-op — not every project or commit uses
+the harness.
+
+No third-party dependencies (Python 3.8+ stdlib only), matching matrix-lint and
+backlog-lint (ADR-0006).
+
+Usage
+  transition-lint
+  transition-lint --format json --report-only
+
+Exit code: number of ERROR-severity findings (0 = clean), unless --report-only.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
+
+DEFAULT_MARKER = Path(".agent-factory/playbook-state.yml")
+DEFAULT_PLAYBOOKS_DIR = Path("factory/playbooks")
+
+
+@dataclass
+class Finding:
+    code: str
+    severity: str
+    artifact: str
+    message: str
+
+    def line(self) -> str:
+        return (
+            f"[{self.severity.upper():7}] {self.code}  {self.artifact}: {self.message}"
+        )
+
+
+# --- Minimal YAML parsers (stdlib only) ---------------------------------------
+
+
+def parse_marker(text: str) -> Dict[str, str]:
+    """Parse the flat ``key: value`` run-state marker."""
+    out: Dict[str, str] = {}
+    for raw in text.splitlines():
+        ln = _strip_comment(raw).strip()
+        if not ln:
+            continue
+        key, sep, val = ln.partition(":")
+        if not sep:
+            continue
+        out[key.strip()] = val.strip()
+    return out
+
+
+def _strip_comment(line: str) -> str:
+    """Drop a trailing ``  # ...`` comment (hash preceded by whitespace)."""
+    m = re.search(r"\s#.*$", line)
+    return line[: m.start()] if m else line
+
+
+def _scalar(val: str) -> Any:
+    if val in ("null", "~", ""):
+        return None
+    if val in ("true", "True"):
+        return True
+    if val in ("false", "False"):
+        return False
+    if len(val) >= 2 and val[0] == val[-1] and val[0] in ("'", '"'):
+        return val[1:-1]
+    return val
+
+
+def parse_fsm(text: str) -> Any:
+    """Parse the indentation-based ``.fsm.yml`` subset into nested dict/list.
+
+    Supports block mappings, block sequences (including sequences of
+    multi-key mappings), inline comments, and scalar values — enough for the
+    workflow-state-machine shape, no more.
+    """
+    tokens: List[tuple] = []
+    for raw in text.splitlines():
+        stripped = raw.lstrip(" ")
+        if not stripped or stripped.startswith("#"):
+            continue
+        indent = len(raw) - len(stripped)
+        content = _strip_comment(stripped).rstrip()
+        if content:
+            tokens.append((indent, content))
+    value, _ = _parse_block(tokens, 0)
+    return value
+
+
+def _parse_block(tokens: List[tuple], pos: int) -> tuple:
+    indent = tokens[pos][0]
+    if tokens[pos][1].startswith("- "):
+        return _parse_seq(tokens, pos, indent)
+    return _parse_map(tokens, pos, indent)
+
+
+def _parse_map(tokens: List[tuple], pos: int, indent: int) -> tuple:
+    result: Dict[str, Any] = {}
+    while pos < len(tokens):
+        ind, content = tokens[pos]
+        if ind != indent or content.startswith("- "):
+            break
+        key, sep, val = content.partition(":")
+        key = key.strip()
+        val = val.strip()
+        if val == "":
+            pos += 1
+            if pos < len(tokens) and tokens[pos][0] > indent:
+                child, pos = _parse_block(tokens, pos)
+                result[key] = child
+            else:
+                result[key] = None
+        else:
+            result[key] = _scalar(val)
+            pos += 1
+    return result, pos
+
+
+def _parse_seq(tokens: List[tuple], pos: int, indent: int) -> tuple:
+    result: List[Any] = []
+    while pos < len(tokens):
+        ind, content = tokens[pos]
+        if ind != indent or not content.startswith("- "):
+            break
+        after = content[2:]
+        # A mapping item ("- key: value" possibly with deeper continuation
+        # lines) vs. a plain scalar item ("- item").
+        if re.match(r"^[\w.-]+\s*:", after):
+            after_col = indent + (len(content) - len(after))
+            sub = [(after_col, after)]
+            pos += 1
+            while pos < len(tokens) and tokens[pos][0] > indent:
+                sub.append(tokens[pos])
+                pos += 1
+            item, _ = _parse_map(sub, 0, after_col)
+            result.append(item)
+        else:
+            result.append(_scalar(after))
+            pos += 1
+    return result, pos
+
+
+# --- Glob matching ------------------------------------------------------------
+
+
+def _glob_regex(pattern: str) -> re.Pattern:
+    """Translate an ``outputs:`` glob to a full-path regex.
+
+    ``*`` matches within a path segment, ``**`` across segments, ``?`` one
+    non-separator char.
+    """
+    i, n, out = 0, len(pattern), []
+    while i < n:
+        c = pattern[i]
+        if c == "*":
+            if pattern[i : i + 2] == "**":
+                i += 2
+                if pattern[i : i + 1] == "/":
+                    i += 1
+                    out.append("(?:.*/)?")
+                else:
+                    out.append(".*")
+                continue
+            out.append("[^/]*")
+        elif c == "?":
+            out.append("[^/]")
+        else:
+            out.append(re.escape(c))
+        i += 1
+    return re.compile("^" + "".join(out) + "$")
+
+
+def states_for_file(path: str, state_outputs: Dict[str, List[str]]) -> List[str]:
+    """Return every state whose ``outputs:`` glob(s) match ``path``."""
+    matched = []
+    for state, globs in state_outputs.items():
+        for g in globs:
+            if _glob_regex(g).match(path):
+                matched.append(state)
+                break
+    return sorted(matched)
+
+
+# --- FSM helpers --------------------------------------------------------------
+
+
+def state_outputs(fsm: Dict[str, Any]) -> Dict[str, List[str]]:
+    out: Dict[str, List[str]] = {}
+    for name, spec in (fsm.get("states") or {}).items():
+        globs = spec.get("outputs") if isinstance(spec, dict) else None
+        if isinstance(globs, list):
+            out[name] = [g for g in globs if isinstance(g, str)]
+    return out
+
+
+def successors(fsm: Dict[str, Any], state: str) -> List[str]:
+    """Return the states reachable from ``state`` via its ``on:`` transitions."""
+    spec = (fsm.get("states") or {}).get(state)
+    if not isinstance(spec, dict):
+        return []
+    targets: List[str] = []
+    for event in (spec.get("on") or {}).values():
+        if not isinstance(event, dict):
+            continue
+        trans = event.get("transitions")
+        for edge in _iter_edges(trans):
+            to = edge.get("to")
+            if isinstance(to, str):
+                targets.append(to)
+    return sorted(set(targets))
+
+
+def _iter_edges(trans: Any) -> List[Dict[str, Any]]:
+    if isinstance(trans, dict):
+        return [trans]
+    if isinstance(trans, list):
+        return [e for e in trans if isinstance(e, dict)]
+    return []
+
+
+# --- Check --------------------------------------------------------------------
+
+
+def check_transitions(
+    staged: List[str],
+    marker_path: Path,
+    playbooks_dir: Path,
+) -> List[Finding]:
+    findings: List[Finding] = []
+
+    if not marker_path.exists():
+        findings.append(
+            Finding(
+                "TL-NOMARKER",
+                "info",
+                str(marker_path),
+                "no run-state marker; transition-lint is a no-op for this commit",
+            )
+        )
+        return findings
+
+    marker = parse_marker(marker_path.read_text(encoding="utf-8"))
+    playbook = marker.get("playbook")
+    current = marker.get("state")
+    if not playbook or not current:
+        findings.append(
+            Finding(
+                "TL-MARKER",
+                "error",
+                str(marker_path),
+                "marker missing 'playbook' or 'state' field",
+            )
+        )
+        return findings
+
+    fsm_path = playbooks_dir / f"{playbook}.fsm.yml"
+    if not fsm_path.exists():
+        findings.append(
+            Finding(
+                "TL-NOFSM",
+                "error",
+                str(fsm_path),
+                f"playbook '{playbook}' has no .fsm.yml",
+            )
+        )
+        return findings
+
+    fsm = parse_fsm(fsm_path.read_text(encoding="utf-8"))
+    outputs = state_outputs(fsm)
+    if current not in (fsm.get("states") or {}):
+        findings.append(
+            Finding(
+                "TL-STATE",
+                "error",
+                str(marker_path),
+                f"state '{current}' is not defined in {playbook}.fsm.yml",
+            )
+        )
+        return findings
+
+    succ = set(successors(fsm, current))
+
+    for path in staged:
+        owners = states_for_file(path, outputs)
+        if not owners or current in owners:
+            continue  # ungoverned, or belongs to the current state
+        owner = owners[0]
+        if owner in succ:
+            hint = (
+                f"belongs to '{owner}', a successor of '{current}' — "
+                f"run `factory/scripts/phase advance` once its gate passes"
+            )
+        else:
+            hint = f"belongs to '{owner}', out of order for current state '{current}'"
+        findings.append(Finding("TL-ORDER", "error", path, hint))
+
+    findings.sort(key=lambda f: (-SEVERITY_ORDER[f.severity], f.code, f.artifact))
+    return findings
+
+
+def _staged_files(repo_root: Path) -> List[str]:
+    res = subprocess.run(
+        ["git", "diff", "--cached", "--name-only"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return [ln for ln in res.stdout.splitlines() if ln.strip()]
+
+
+# --- Driver -------------------------------------------------------------------
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    p = argparse.ArgumentParser(
+        description="Deterministic phase-ordering gate for structured playbooks."
+    )
+    p.add_argument("--repo-root", default=Path("."), type=Path)
+    p.add_argument("--marker", default=None, type=Path)
+    p.add_argument("--playbooks-dir", default=None, type=Path)
+    p.add_argument("--format", choices=["text", "json"], default="text", dest="fmt")
+    p.add_argument(
+        "--report-only",
+        action="store_true",
+        help="always exit 0 (report without gating)",
+    )
+    args = p.parse_args(argv)
+
+    marker = args.marker or (args.repo_root / DEFAULT_MARKER)
+    playbooks = args.playbooks_dir or (args.repo_root / DEFAULT_PLAYBOOKS_DIR)
+    staged = _staged_files(args.repo_root)
+
+    findings = check_transitions(staged, marker, playbooks)
+    counts = {s: sum(1 for f in findings if f.severity == s) for s in SEVERITY_ORDER}
+
+    if args.fmt == "json":
+        print(
+            json.dumps(
+                {"findings": [asdict(f) for f in findings], "summary": counts},
+                indent=2,
+            )
+        )
+    else:
+        for f in findings:
+            print(f.line())
+        print(
+            f"\ntransition-lint: {counts['error']} error(s), "
+            f"{counts['warning']} warning(s), {counts['info']} info."
+        )
+
+    return 0 if args.report_only else counts["error"]
+
+
+if __name__ == "__main__":
+    sys.exit(main())

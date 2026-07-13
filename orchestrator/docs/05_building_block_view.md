@@ -1,74 +1,34 @@
-[back to index](README.md)
+# 5 — Building Block View
 
-# 5. Building Block View
+## Level 1: run-playbook in context
 
-## 5.1 Whitebox — Level 1 (Containers)
+```mermaid
+graph LR
+    Human["Human Operator"] -->|invokes| RP["run-playbook"]
+    RP -->|reads| Marker[".agent-factory/playbook-state.yml"]
+    RP -->|reads| FSM["factory/playbooks/*.fsm.yml"]
+    RP -->|calls| PA["factory/scripts/phase advance"]
+    RP -->|calls| PR["factory/scripts/phase retry"]
+    RP -->|calls| TR["factory/scripts/trigger"]
+    TR -->|launches| CLI["AI CLI (claude / copilot)"]
+    PA -->|writes| Marker
+    PA -->|reads| FSM
+    PR -->|reads/writes| Marker
+    RP -->|appends| Audit[".agent-factory/audit.log"]
+```
 
-The orchestrator is one Python process plus its on-disk stores. Internally it is layered per Clean Architecture: the CLI is the composition root, the Orchestration Core holds all decision logic, and the adapters translate the core's ports to concrete CLIs, the terminal, git, and the filesystem. The same process serves two interaction modes — direct-mode subcommands and an interactive TUI menu — over one shared core (ADR-0016).
+## Level 2: run-playbook internals
 
-![Containers](assets/images/Containers.png)
+The module has no internal decomposition worth diagramming. It is a single function (`run_one_step`) called in a while loop. Its responsibilities:
 
-| Building block              | Responsibility                                                                                                                                                                                                         | Depends on             |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| **CLI Entry Point**         | Parse commands, validate arguments, own exit codes, wire adapters to the core (composition root).                                                                                                                      | Orchestration Core     |
-| **Orchestration Core**      | CLI-agnostic domain + application logic: the phase state machine, loop policy, chain sequencing, approval, status.                                                                                                     | Ports only             |
-| **CLI Adapters**            | Concrete `CLIAdapter` implementations (Copilot MVP; Claude, Gemini later). Own non-interactive flags; return only `InvocationResult`.                                                                                  | AI CLI, tooling assets |
-| **Working-Tree Gate**       | Verify working-tree cleanliness after agent exits; map `(exit_code, tree_state)` to a `GateResult` (passed / confabulation / failed). Clean tree before retry.                                                         | Git                    |
-| **Findings Store Adapter**  | File-per-finding JSON store; monotonic ID allocator; schema-validate every write.                                                                                                                                      | `findings/`            |
-| **Run State Store**         | Atomic read/write of `run.json` + `run.lock`; run-branch management.                                                                                                                                                   | `.orchestrator/`       |
-| **Agent Registry**          | Resolve each phase's author/reviewer, their declared `outputs`, and the agent's `tier`, `interactive`, and `skills` metadata from agent front-matter, using the package-relative `agents/` path.                       | Tooling assets         |
-| **Terminal Menu Renderer**  | Concrete `MenuRenderer`: paint one menu or display node at a time with the `-> ` cursor and `★` default; normalise keypresses to `KeyEvent`s. Terminal framework deferred (T-29).                                      | —                      |
-| **Config & Registry Store** | Implement `ConfigStore` and `AdapterRegistry` over `.orchestrator/config.toml`: operator defaults, registered adapters with binary paths, and per-adapter tier→model dictionaries; atomic write-then-rename.           | `.orchestrator/`       |
-| **`findings/`** (data)      | One JSON file per finding — source of truth for findings + loop state; a projection of `docs/findings/*.md`, not a second independent store ([ADR-0019](adr/0019-findings-store-remains-the-loop-source-of-truth.md)). | —                      |
-| **`.orchestrator/`** (data) | `run.json` (resumable run record) + `run.lock` (single-run lock) + `config.toml` (operator defaults, adapter registry, model dictionaries).                                                                            | —                      |
+| Responsibility                   | Delegated to                                    |
+| -------------------------------- | ----------------------------------------------- |
+| Read current state               | Marker file (direct read)                       |
+| Resolve agent for state          | FSM file (direct read)                          |
+| Check if out-gate already passes | `phase advance --dry-run`                       |
+| Dispatch agent                   | `trigger agent <name> --background --cli <cli>` |
+| Advance marker on gate pass      | `phase advance`                                 |
+| Enforce iteration cap            | `phase retry`                                   |
+| Write audit entry                | Direct append to `.agent-factory/audit.log`     |
 
-The **dependency rule**: arrows from the core to an adapter are dependencies on the adapter's *port*, satisfied at runtime by the concrete adapter injected at the composition root. No core building block imports an adapter.
-
-## 5.2 Whitebox — Orchestration Core (Components)
-
-![Core Components](assets/images/CoreComponents.png)
-
-| Component            | Responsibility                                                                                                                                                                                                                                                                                                                                                                                         | Key rules                                   |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
-| **PhaseRunner**      | Drives one phase's `Authoring → Gating → Reviewing → (RetryOrHalt \| AwaitingApproval)` state machine, including the failure edges. The heart of the system.                                                                                                                                                                                                                                           | UC-02; state-machines.md                    |
-| **LoopPolicy**       | Owns the cap, the supersede-prior-open step, and the loop-exit predicate (latest-iteration open findings == 0). Guarantees termination.                                                                                                                                                                                                                                                                | BR-001/003/014; SF-04                       |
-| **StatusService**    | Read-only projections for the status views — overview, per-phase details, open findings, and the invocation log. Must not mutate state.                                                                                                                                                                                                                                                                | UC-05, UC-08; FR-T; VR-008                  |
-| **ApprovalService**  | Records an `approve`/`reject` at a paused gate; approval re-gates if artifacts changed (VR-012), then pauses with `current_phase` advanced to the next phase (the operator runs `resume` to continue) or sets `COMPLETE` on the last phase. Accepts empty-commit phases without requiring a passing gate (FAGAN-0038). Depends on `RunStateStore`, `FindingsStore`, `GateRunner`, and `AgentRegistry`. | UC-04; BR-007/012/013                       |
-| **MenuController**   | Traverses the menu tree, holds the navigation state (root → submenu → display → executing), and dispatches each function leaf to the same application service its direct-mode command uses; long-running leaves exit the TUI and hand control to the streaming path. Mutates no run state during navigation.                                                                                           | UC-08; FR-P, FR-V; ADR-0016                 |
-| **SettingsResolver** | Resolves each invocation setting through the fixed four-layer precedence `menu selection > CLI flag > config.toml > built-in default`, so direct mode and menu mode produce identical effective settings.                                                                                                                                                                                              | UC-09; FR-Q3; SF-07                         |
-| **Domain Entities**  | `Run`, `Phase`, `Iteration`, `Finding`, `GateResult`, `AgentInvocation`, `Approval`, `Story`, `InvocationContext`, `Config`, `AdapterEntry`, `ModelDictionary`, `MenuNode` — pure state, no I/O (see [entity model](spec/supplementary_specs/entity-model.md)).                                                                                                                                        | SOLID SRP                                   |
-| **ModelResolver**    | Two paths that never combine: agent `tier` → model for every orchestrator-invoked agent (`--model` overrides on `run-step`), and story `classification` → model for the dispatcher's tier-less developer sub-agents during implementation, both through the active adapter's dictionary; a null tier resolves as `standard` for orchestrator-invoked agents.                                           | FR-R10–R12; VR-041; ADR-0018                |
-| **Ports**            | Abstract interfaces the components call: `CLIAdapter`, `FindingsStore`, `FindingIngestor`, `GateRunner`, `RunStateStore`, `RunLock`, `AgentRegistry`, `PromptComposer`, `Logger`, `BacklogStore`, `ModelMatrix`, `MenuRenderer`, `ConfigStore`, `AdapterRegistry`, `Clock`.                                                                                                                            | Dependency Inversion, Interface Segregation |
-
-### PhaseRunner (blackbox → whitebox)
-
-`PhaseRunner` executes the state machine from [`spec/supplementary_specs/state-machines.md`](spec/supplementary_specs/state-machines.md). One iteration is:
-
-1. **Authoring** — resolve the author from `AgentRegistry`; compose the prompt (`PromptComposer`) from the agent definition + project/root context + any open findings + a role-aware call-to-action (ADR-0014), using `InvocationContext(phase, role, iteration)`; invoke via `CLIAdapter` in a fresh subprocess. The agent commits its own work; `pre-commit` hooks fire inside the subprocess on each `git commit`.
-2. **Gating** — verify working-tree cleanliness via `WorkingTreeGate.verify(cwd, exit_code)` (ADR-0013). Map the result: `exit 0 + clean` → pass; `exit 0 + dirty` → confabulation (halt, VR-025); `non-zero + dirty` → clean tree, then RetryOrHalt; `non-zero + clean` → RetryOrHalt per failure classification.
-3. **Reviewing** (only if the phase has a reviewer) — invoke the reviewer via `CLIAdapter` in a fresh subprocess; ingest its filed `docs/findings/*.md` (status `open`) through the `FindingIngestor`, tagged with the cycle (run-iteration + 1, [ADR-0012](adr/0012-ingest-findings-from-filed-markdown.md)).
-4. **Decide** — `LoopPolicy` supersedes prior open findings and evaluates the exit predicate: zero latest-iteration open findings → `AwaitingApproval`; else `RetryOrHalt` (loop if `iteration < cap`, else `Halted`).
-
-`AwaitingApproval` persists `mode: paused` and exits, yielding to `ApprovalService`. The Operator drives the chain by running the next phase once the current one is approved (UC-03); there is no automated chain sequencer (`run-all` and unattended auto-approval are deferred, NG6).
-
-## 5.3 Building blocks outside the core (Adapters)
-
-| Adapter                                            | Implements                                                                 | Notes                                                                                                                                                                                                                                                                                                                                                    |
-| -------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **CopilotAdapter** / ClaudeAdapter / GeminiAdapter | `CLIAdapter.invoke(prompt, cwd, timeout_s, model=None) → InvocationResult` | Owns per-CLI headless flags (T-01, verified: `copilot -p … --allow-all-tools`). Sets `auth_error` (BR-018) and `config_error` (BR-020, e.g. a bad `--model` id) to halt, versus a plain non-zero that loops. Forces a clean session — no resume flag (VR-021). When `model` is provided, uses it for the invocation, overriding the constructor default. |
-| **FileInvocationLog**                              | `Logger`                                                                   | Appends one JSON line per invocation to `.orchestrator/log.jsonl` (agent, role, adapter, duration, exit, flags, gate outcome) for FR-J/QS-13. Never read to drive control flow.                                                                                                                                                                          |
-| **MarkdownBacklogStore**                           | `BacklogStore`                                                             | Reads/writes `backlog/ST-NNNN.md` — parses only the YAML frontmatter for routing (id, deps, classification, status, outputs); the prose body is left for the agent (ADR-0008).                                                                                                                                                                           |
-| **FileModelMatrix**                                | `ModelMatrix`                                                              | Reads the operator-curated matrix (facts + policy). At startup and on `configure > model-matrix > edit`, the matrix facts populate each adapter's model dictionary; runtime resolution reads only from the dictionary (ADR-0009, ADR-0018). Validated by `matrix-lint`.                                                                                  |
-| **TomlConfigStore** / **TomlAdapterRegistry**      | `ConfigStore`, `AdapterRegistry`                                           | One `.orchestrator/config.toml` holds operator defaults, the adapter registry (name → binary path), and each adapter's tier→model dictionary. Atomic write-then-rename; `unregister()` drops an adapter and its dictionary in one change (ADR-0017). TOML parsing follows the Python-baseline decision (T-28).                                           |
-| **TerminalMenuRenderer**                           | `MenuRenderer`                                                             | Renders `render_menu()`/`render_display()` and returns normalised `KeyEvent`s from `get_keypress()`; the concrete terminal framework is deferred (T-29, ADR-0016). Menu mode falls back to a direct-mode diagnostic on a non-interactive terminal (T-30).                                                                                                |
-| **WorkingTreeGate**                                | `GateRunner`                                                               | Runs `git status --porcelain` after agent exits; maps `(exit_code, tree_state)` to `GateResult`. On failure with dirty tree, runs `git checkout . && git clean -fd` before retry (ADR-0013, VR-026). Replaces the staging/commit/hook-parsing logic of the old `PreCommitGateRunner`.                                                                    |
-| **FilesystemFindingsStore**                        | `FindingsStore`                                                            | One JSON file per finding; monotonic ID allocator (`FND-NNNN`); validates against the finding schema on write; supports supersede + open-count queries.                                                                                                                                                                                                  |
-| **JsonRunStateStore**                              | `RunStateStore`, `RunLock`                                                 | Atomic write-then-rename of `run.json`; lockfile for the single-run invariant; creates/selects the run branch.                                                                                                                                                                                                                                           |
-| **MarkdownAgentRegistry**                          | `AgentRegistry`                                                            | Resolves agents from the package-relative `agents/` path; parses front-matter for `author`/`reviewer` and `outputs`. Rejects an unknown agent name before any subprocess (VR-011).                                                                                                                                                                       |
-| **DefaultFindingIngestor**                         | `FindingIngestor`                                                          | Reads the review agent's filed `docs/findings/*.md` (status `open`), maps each to the `Finding` DTO (review severity scales → `error/warning/info`), then writes them to the `FindingsStore` (which stamps `id`, `phase`, `iteration`, BR-019). See [ADR-0012](adr/0012-ingest-findings-from-filed-markdown.md).                                         |
-
-## 5.4 Presentation layer and dual-mode entry
-
-The TUI is a **presentation layer over the existing core, not a second orchestration engine** (NFR-10). A bare `orchestrate` invocation on an interactive terminal enters menu mode; any subcommand runs direct mode unchanged (FR-V). The composition root inspects the terminal and the argument vector, then dispatches either to the `Command Dispatcher` (direct) or the `MenuController` (menu).
-
-Inside menu mode, the `MenuController` walks the menu tree defined by [`cli_specification.md`](spec/cli_specification.md), rendering through the `MenuRenderer` port and resolving effective settings through the `SettingsResolver`. Every **function leaf dispatches to the same application service its direct-mode command uses** (FR-V3), so exit codes, gate behaviour, run-state mutation, findings ingestion, and logging are identical across both modes. Navigation, display viewing, and exit gestures mutate no run state (VR-030); only a dispatched leaf may. Long-running leaves (`run-step`, `run-phase`) exit the TUI before streaming begins (FR-P7). The concrete terminal framework is deferred (T-29); the architecture commits only to the `MenuRenderer` seam (ADR-0016).
+The orchestrator itself contains no condition evaluation, no prompt composition, no agent resolution, and no marker writing logic.

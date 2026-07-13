@@ -1,0 +1,146 @@
+#!/usr/bin/env python3
+"""verify-base — assert a worktree's HEAD is not behind its target branch,
+and optionally that it was cut from a specific declared SHA.
+
+Required as the FIRST tool call in every worktree-isolated dispatch prompt
+(branching-policy.md § Verify-Base Preamble). A worktree whose base has
+gone stale relative to its target branch reasons against code that no
+longer exists there — this catches that before any file is read, edited,
+or committed, instead of after a full agent run (docs/reviews/retro-2026-07-12.md,
+docs/reviews/retro-2026-07-10.md action item #1).
+
+On a full pass, writes `.agent-factory/verify-base-ok` at the worktree
+root. `factory/config/hooks/block-dangerous-git.sh` denies `git commit`
+inside any linked worktree that has no such marker — mechanical
+enforcement, not just a prompt instruction.
+
+Checks
+  1. Not-behind-target: `<target>` must be fully reachable from HEAD
+     (`git merge-base --is-ancestor <target> HEAD`) and `git rev-list
+     --left-right --count <target>...HEAD` must show 0 commits on
+     `<target>`'s side that HEAD is missing.
+  2. Declared-base (only if --expect-base is given): HEAD's merge-base
+     with `--expect-base` must equal `--expect-base` itself — proof the
+     worktree was actually cut from the SHA the dispatcher recorded,
+     independent of how far `<target>` has since moved.
+
+Usage
+  verify-base <target> [--expect-base <SHA>]
+
+Exit codes
+  0: BASE_OK — both checks (or just check 1, if --expect-base omitted) pass
+  1: BASE_STALE or BASE_WRONG — halt, do not read/edit/commit; report the
+     printed diagnosis to the dispatcher and wait for instruction
+  2: usage or git-invocation error (not a git repo, unknown ref, etc.)
+"""
+
+from __future__ import annotations
+
+import argparse
+import subprocess
+import sys
+from pathlib import Path
+
+
+def run_git(args: list[str]) -> tuple[int, str, str]:
+    result = subprocess.run(["git", *args], capture_output=True, text=True)
+    return result.returncode, result.stdout.strip(), result.stderr.strip()
+
+
+def write_marker(target: str, expect_base: str | None) -> None:
+    code, top, _ = run_git(["rev-parse", "--show-toplevel"])
+
+    if code != 0:
+        return
+
+    marker_dir = Path(top) / ".agent-factory"
+    marker_dir.mkdir(exist_ok=True)
+    _, head, _ = run_git(["rev-parse", "HEAD"])
+    (marker_dir / "verify-base-ok").write_text(
+        f"target={target}\nexpect_base={expect_base or ''}\nhead={head}\n"
+    )
+
+
+def check_not_behind_target(target: str) -> tuple[bool, str]:
+    code, _, err = run_git(["merge-base", "--is-ancestor", target, "HEAD"])
+
+    if code == 128:
+        return False, f"BASE_ERROR: {err or f'unknown ref {target!r}'}"
+
+    if code != 0:
+        return (
+            False,
+            f"BASE_STALE: {target!r} is not an ancestor of HEAD (behind or diverged)",
+        )
+
+    code, out, err = run_git(
+        ["rev-list", "--left-right", "--count", f"{target}...HEAD"]
+    )
+
+    if code != 0:
+        return False, f"BASE_ERROR: {err}"
+
+    left, _, right = out.partition("\t")
+
+    if left.strip() != "0":
+        return False, (
+            f"BASE_STALE: HEAD is missing {left.strip()} commit(s) present on "
+            f"{target!r} (git rev-list --left-right --count {target}...HEAD -> {out!r})"
+        )
+
+    return (
+        True,
+        f"BASE_OK: HEAD contains all of {target!r} ({right.strip()} commit(s) ahead)",
+    )
+
+
+def check_declared_base(expect_base: str) -> tuple[bool, str]:
+    code, out, err = run_git(["merge-base", "HEAD", expect_base])
+
+    if code != 0:
+        return False, f"BASE_ERROR: {err or f'unknown ref {expect_base!r}'}"
+
+    if out != expect_base:
+        return False, (
+            f"BASE_WRONG: HEAD was not cut from {expect_base!r} — "
+            f"merge-base(HEAD, {expect_base!r}) = {out!r}"
+        )
+
+    return True, f"BASE_OK: HEAD was cut from the declared base {expect_base!r}"
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("target", help="target branch HEAD must not be behind, e.g. dev")
+    ap.add_argument(
+        "--expect-base",
+        metavar="SHA",
+        help="SHA the dispatcher recorded as this worktree's declared base",
+    )
+    args = ap.parse_args(argv)
+
+    code, _, err = run_git(["rev-parse", "--is-inside-work-tree"])
+
+    if code != 0:
+        print(f"verify-base: not a git repository: {err}", file=sys.stderr)
+        return 2
+
+    ok, diagnosis = check_not_behind_target(args.target)
+    print(diagnosis)
+
+    if not ok:
+        return 1
+
+    if args.expect_base:
+        ok, diagnosis = check_declared_base(args.expect_base)
+        print(diagnosis)
+
+        if not ok:
+            return 1
+
+    write_marker(args.target, args.expect_base)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

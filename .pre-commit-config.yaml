@@ -67,10 +67,10 @@ repos:
 
       - id: matrix-lint
         name: matrix-lint (model matrix consistency gate)
-        entry: python3 factory/scripts/matrix-lint --matrix config/model-matrix.conf
+        entry: python3 factory/scripts/matrix-lint --matrix config/model.conf
         language: system
         pass_filenames: false
-        files: ^config/model-matrix\.conf$
+        files: ^config/model\.conf$
 
       - id: statemachine-lint
         name: statemachine-lint (pseudocode ↔ Mermaid consistency)
@@ -80,34 +80,48 @@ repos:
         files: ^docs/spec/.*\.md$
 
       - id: index-lint
-        name: index-lint (regenerate INDEX.md from agent/skill frontmatter)
+        name: index-lint (regenerate INDEX.yaml from agent/skill/playbook frontmatter)
         entry: python3 factory/scripts/index-lint
         language: system
         pass_filenames: false
-        files: ^(factory/agents/.*\.md|factory/skills/.*/SKILL\.md)$
+        files: ^(factory/agents/.*\.md|factory/skills/.*/SKILL\.md|factory/playbooks/.*\.md)$
+
+      # governs phase ORDERING between playbook states (not artifact validity);
+      # inspects everything staged, so it always runs — no-op without a marker
+      - id: transition-lint
+        name: transition-lint (playbook phase-ordering gate)
+        entry: python3 factory/scripts/transition-lint
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      # UC-09, BR-029: Run tests only when src/ or test/ code changes
+      - id: run-tests
+        name: run-tests (changed-only mode)
+        entry: python3 factory/scripts/run-tests --changed-only
+        language: system
+        pass_filenames: false
+        files: ^(src/|tests?/)
 
       # --- orchestrator-scoped hooks below (dev config for this monorepo) ---
 
       - id: mdformat-orchestrator
         name: mdformat (orchestrator)
-        # --project pins uv to the orchestrator project explicitly. Without it,
-        # uv walks up from the repo root (which has no pyproject.toml) looking
-        # for a project/venv and can pick up an unrelated sibling .venv.
-        entry: uv run --project orchestrator mdformat --number
+        entry: factory/scripts/mdformat --number
         language: system
         types: [markdown]
         files: ^orchestrator/
 
       - id: ruff-check-orchestrator
         name: ruff check (orchestrator)
-        entry: uv run --project orchestrator ruff check --fix
+        entry: uvx ruff check --fix
         language: system
         types_or: [python, pyi, jupyter]
         files: ^orchestrator/
 
       - id: ruff-format-orchestrator
         name: ruff format (orchestrator)
-        entry: uv run --project orchestrator ruff format
+        entry: uvx ruff format
         language: system
         types_or: [python, pyi, jupyter]
         files: ^orchestrator/
@@ -135,10 +149,10 @@ repos:
 
       - id: matrix-lint-orchestrator
         name: matrix-lint (model matrix consistency gate, orchestrator)
-        entry: python3 factory/scripts/matrix-lint --matrix orchestrator/model-matrix.conf
+        entry: python3 factory/scripts/matrix-lint --matrix orchestrator/model.conf
         language: system
         pass_filenames: false
-        files: ^orchestrator/model-matrix\.conf$
+        files: ^orchestrator/model\.conf$
 
       - id: statemachine-lint-orchestrator
         name: statemachine-lint (pseudocode ↔ Mermaid consistency, orchestrator)

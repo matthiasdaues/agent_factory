@@ -25,6 +25,22 @@ Every feature branch for an invocation is cut from that invocation's own branch,
 
 A feature branch name is not a working directory: cutting the branch does not, by itself, guarantee any subagent's commands run against it rather than against the shared/main checkout. Before dispatching a developer-agent subagent, the dispatcher must materialize its feature branch into a dedicated git worktree (e.g. via the Agent tool's `isolation: "worktree"` parameter) and confirm — via `git worktree list`, not the subagent's own report — that the worktree exists and is checked out to the correct branch before considering that subagent dispatched. See [implementation-agent.md § Workflow, Step 3 ("Dispatch: one feature branch per story")](../../agents/implementation-agent.md#workflow) for the enforcing workflow step. Motivating example: the 2026-07-10 `implementation-agent` dispatch, where a subagent's first git command ran against the shared main checkout instead of its own worktree, chain-renaming the main branch through four story names before being caught.
 
+### Verify-Base Preamble
+
+Worktree isolation guarantees a subagent's commands run in the right *directory*; it does not guarantee that directory's HEAD is actually caught up with the branch it was meant to be cut from. A worktree can materialize against a stale base and reason against code that no longer exists on the target branch — a full agent run's worth of tokens spent before anyone notices. This recurred across three phases of the 2026-07-12 session, twice costing a full discarded run.
+
+Every worktree-isolated dispatch prompt therefore carries a fixed preamble, and the subagent must run it as its **first tool call**, before reading a single source file:
+
+```bash
+factory/scripts/verify-base <target-branch> [--expect-base <declared-base-SHA>]
+```
+
+Exit `0` means proceed. Any non-zero exit means: **stop — do not read, edit, or commit.** Report the script's printed diagnosis to the dispatcher and wait for instruction. `<target-branch>` is normally `dev` or the invocation branch; `--expect-base` is the declared base SHA from the Declared Base SHA section below, when the dispatcher recorded one.
+
+### Declared Base SHA
+
+Not-behind-target (checked by the preamble above with no `--expect-base`) proves a worktree isn't missing commits — it does not prove the worktree was cut from the commit the dispatcher actually intended, if the target branch has kept moving. The dispatcher closes that gap by recording the exact SHA each feature branch is meant to be cut from — its **declared base** — in the dispatch record, and passing it to the subagent as `--expect-base`. This is the 2026-07-10 retro's action item #1 (phase branches with a recorded base/head SHA pair), narrowed to the one assertion that catches a wrong-base dispatch on the subagent's first tool call instead of after a full run.
+
 ### Merge Order Is Overlap-Aware
 
 Overlap is determined via declared or inferred output paths:
@@ -33,6 +49,18 @@ Overlap is determined via declared or inferred output paths:
 - File-overlapping branches: merge one at a time, in dependency order.
 
 A conflict or regression after a merge means the overlap analysis missed a real collision — resolve before continuing to the next merge.
+
+### Pre-Merge Diff Check
+
+Before merging any finished branch, run:
+
+```bash
+factory/scripts/premerge-check <target> <branch> [--scope <declared-output-path> ...]
+```
+
+Exit `0` means clean to merge. Exit non-zero means **block the merge** and investigate — a stale base or unrequested out-of-scope work, not a real overlap collision. Both contaminated diffs in the 2026-07-12 session were real; both were caught only because someone remembered to run `git diff --stat` by hand, after the branch's full run had already finished. This check makes that habit a required, scripted step instead of something the dispatcher must remember, and runs it on the finished branch as a second, independent gate on top of the Verify-Base Preamble the subagent ran on its own first tool call.
+
+`premerge-check`'s pass marker is one slot per checkout, keyed to the branch just checked — so each `premerge-check <branch>` call must be immediately followed by that branch's own `git merge`, one pair at a time, before checking the next branch. Batching checks ahead of merges overwrites the marker and the earlier merges get denied. This isn't a new constraint: a single working tree can only merge one branch at a time anyway (git's own index lock serializes it); the marker just now enforces the ordering mechanically instead of assuming the dispatcher follows it.
 
 ### Two SHAs Tracked Per Invocation
 
@@ -47,7 +75,9 @@ Feature-branch commits follow [commit-conventions.md](commit-conventions.md) —
 
 ## Enforcement
 
-Enforced by the implementation-agent's own dispatch algorithm, not a git hook — the check that a merge sequence was genuinely overlap-safe needs live backlog state (every ready story's declared outputs) that no static hook has access to. This rulebook states the **what** (branch scope, merge-order constraint, SHA tracking); `agents/implementation-agent.md` (Steps 1–5) and T-35 own the **how** — the actual overlap-detection and wave-planning algorithm.
+Overlap-safe merge sequencing is enforced by the implementation-agent's own dispatch algorithm, not a git hook — it needs live backlog state (every ready story's declared outputs) that no static hook has access to. This rulebook states the **what** (branch scope, merge-order constraint, SHA tracking); `agents/implementation-agent.md` (Steps 1–5) and T-35 own the **how** — the actual overlap-detection and wave-planning algorithm.
+
+The base-safety checks are mechanically enforced, per [foundational-principles.md § Agentic Creation, Deterministic Validation](foundational-principles.md#agentic-creation-deterministic-validation): `factory/scripts/verify-base` and `factory/scripts/premerge-check` each write a marker file on success, and `factory/config/hooks/block-dangerous-git.sh` denies `git commit` (inside a linked worktree with no `verify-base-ok` marker) and `git merge <branch>` (with no `premerge-check-ok` marker for that branch's current head) — a `PreToolUse` hook, not agent compliance with a prompt instruction.
 
 ## Example
 
@@ -73,4 +103,8 @@ story/ST-0021, story/ST-0051, story/ST-0054, story/ST-0056          # parallel: 
 
 - [commit-conventions.md](commit-conventions.md) — commit format on feature branches
 - [versioning-policy.md](versioning-policy.md) — related but distinct: governs release tags, not in-progress branches
-- `agents/implementation-agent.md` — the enforcing agent's workflow
+- [dispatch-contract.md](dispatch-contract.md) — sub-agent addressing and dispatch scope/checkpointing, the non-branching half of the dispatch contract this rulebook's Verify-Base Preamble and Pre-Merge Diff Check sections belong to
+- [implementation-agent.md § Workflow](../../agents/implementation-agent.md#workflow) — the enforcing agent's workflow
+- [verify-base](../../scripts/verify-base) — Verify-Base Preamble / Declared Base SHA enforcement
+- [premerge-check](../../scripts/premerge-check) — Pre-Merge Diff Check enforcement
+- [docs/reviews/retro-2026-07-12.md](../../../docs/reviews/retro-2026-07-12.md) and [docs/reviews/retro-2026-07-10.md](../../../docs/reviews/retro-2026-07-10.md) — the sessions that motivated these sections

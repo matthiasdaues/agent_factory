@@ -1,0 +1,575 @@
+#!/usr/bin/env python3
+"""phase — advance a structured-playbook run's state marker.
+
+Subcommand-style tool (like ``structurizr validate``). Two subcommands:
+
+  factory/scripts/phase advance [--by NAME]
+  factory/scripts/phase retry [--default-max-iterations N]
+
+``advance`` reads the git-ignored marker (``.agent-factory/playbook-state.yml``),
+finds the current state's forward transition in the playbook FSM, checks the
+*target* state's ``entry_conditions`` against the ``gate_conditions`` library,
+and refuses (non-zero exit) if any is unmet. This is the loophole the harness
+proposal closes: a failing gate must not be waveable-through by hand-editing the
+marker. On success it writes the extended marker (state, gate, result,
+open_findings, next, recorded_by, recorded_at, iteration — reset to 1 for the
+new state) — ``recorded_at`` from this process's own clock, never agent-supplied.
+
+``retry`` is the iteration-cap check: called before re-dispatching the SAME
+state's agent (a gate failed with findings to address, not a hard error — see
+factory/skills/run-step/SKILL.md § Step 3). It increments the marker's
+``iteration`` count for the current state and refuses once that state's cap is
+hit. The cap is configurable two ways, checked in order: (1) the playbook's own
+``.fsm.yml`` — a ``halt_conditions`` entry of ``type: max_iterations`` naming
+this ``state``, with its own ``limit`` and human ``message`` (already declared
+in greenfield-development.fsm.yml for the three review-loop states; this
+command is what makes that declared-but-previously-dead config do anything);
+(2) ``--default-max-iterations`` (default 5) for any state that declares none.
+Endless-loop prevention must have a hard stop even where nobody thought to
+author a per-state limit — that's the whole point of a cap.
+
+Conditional gates (an ``if/else`` transition such as PHASE_1_GATE's) resolve
+deterministically: the ``if`` branch is the forward/progress target, and the
+target's own ``entry_conditions`` decide pass or fail — no ``--result`` flag to
+trust. ``script_exit_zero`` conditions execute the specified script and check
+for exit code 0 (T-03, UC-09).
+
+No third-party dependencies (Python 3.8+ stdlib only), matching the gate scripts.
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+DEFAULT_MARKER = Path(".agent-factory/playbook-state.yml")
+DEFAULT_PLAYBOOKS_DIR = Path("factory/playbooks")
+DEFAULT_PLAYBOOK = "greenfield-development"
+FINDINGS_DIR = Path("docs/findings")
+
+
+# --- Minimal YAML parsing (shared shape with transition-lint) -----------------
+
+
+def _strip_comment(line: str) -> str:
+    m = re.search(r"\s#.*$", line)
+    return line[: m.start()] if m else line
+
+
+def _scalar(val: str) -> Any:
+    if val in ("null", "~", ""):
+        return None
+    if val in ("true", "True"):
+        return True
+    if val in ("false", "False"):
+        return False
+    if len(val) >= 2 and val[0] == val[-1] and val[0] in ("'", '"'):
+        return val[1:-1]
+    return val
+
+
+def parse_marker(text: str) -> Dict[str, str]:
+    out: Dict[str, str] = {}
+    for raw in text.splitlines():
+        ln = _strip_comment(raw).strip()
+        if not ln:
+            continue
+        key, sep, val = ln.partition(":")
+        if sep:
+            out[key.strip()] = val.strip()
+    return out
+
+
+def parse_fsm(text: str) -> Any:
+    tokens: List[tuple] = []
+    for raw in text.splitlines():
+        stripped = raw.lstrip(" ")
+        if not stripped or stripped.startswith("#"):
+            continue
+        indent = len(raw) - len(stripped)
+        content = _strip_comment(stripped).rstrip()
+        if content:
+            tokens.append((indent, content))
+    value, _ = _parse_block(tokens, 0)
+    return value
+
+
+def _parse_block(tokens: List[tuple], pos: int) -> tuple:
+    indent = tokens[pos][0]
+    if tokens[pos][1].startswith("- "):
+        return _parse_seq(tokens, pos, indent)
+    return _parse_map(tokens, pos, indent)
+
+
+def _parse_map(tokens: List[tuple], pos: int, indent: int) -> tuple:
+    result: Dict[str, Any] = {}
+    while pos < len(tokens):
+        ind, content = tokens[pos]
+        if ind != indent or content.startswith("- "):
+            break
+        key, sep, val = content.partition(":")
+        key, val = key.strip(), val.strip()
+        if val == "":
+            pos += 1
+            if pos < len(tokens) and tokens[pos][0] > indent:
+                child, pos = _parse_block(tokens, pos)
+                result[key] = child
+            else:
+                result[key] = None
+        else:
+            result[key] = _scalar(val)
+            pos += 1
+    return result, pos
+
+
+def _parse_seq(tokens: List[tuple], pos: int, indent: int) -> tuple:
+    result: List[Any] = []
+    while pos < len(tokens):
+        ind, content = tokens[pos]
+        if ind != indent or not content.startswith("- "):
+            break
+        after = content[2:]
+        if re.match(r"^[\w.-]+\s*:", after):
+            after_col = indent + (len(content) - len(after))
+            sub = [(after_col, after)]
+            pos += 1
+            while pos < len(tokens) and tokens[pos][0] > indent:
+                sub.append(tokens[pos])
+                pos += 1
+            item, _ = _parse_map(sub, 0, after_col)
+            result.append(item)
+        else:
+            result.append(_scalar(after))
+            pos += 1
+    return result, pos
+
+
+# --- FSM navigation -----------------------------------------------------------
+
+
+def first_state(fsm: Dict[str, Any]) -> Optional[str]:
+    """The state with no incoming transition (INIT for greenfield)."""
+    states = fsm.get("states") or {}
+    incoming = set()
+    for spec in states.values():
+        if not isinstance(spec, dict):
+            continue
+        for event in (spec.get("on") or {}).values():
+            if isinstance(event, dict):
+                for edge in _iter_edges(event.get("transitions")):
+                    to = edge.get("to")
+                    if isinstance(to, str):
+                        incoming.add(to)
+    roots = [s for s in states if s not in incoming]
+    return sorted(roots)[0] if roots else None
+
+
+def _iter_edges(trans: Any) -> List[Dict[str, Any]]:
+    if isinstance(trans, dict):
+        return [trans]
+    if isinstance(trans, list):
+        return [e for e in trans if isinstance(e, dict)]
+    return []
+
+
+def forward_transition(fsm: Dict[str, Any], state: str) -> Tuple[Optional[str], Any]:
+    """Return (target_state, gate_condition_name) for the forward move.
+
+    For an ``if/else`` transition the ``if`` branch is the progress path; its
+    condition name is the gate. For a plain ``to:`` transition the gate is None.
+    """
+    spec = (fsm.get("states") or {}).get(state)
+    if not isinstance(spec, dict):
+        return None, None
+    for event in (spec.get("on") or {}).values():
+        if not isinstance(event, dict):
+            continue
+        edges = _iter_edges(event.get("transitions"))
+        for edge in edges:
+            if "if" in edge and isinstance(edge.get("to"), str):
+                return edge["to"], edge["if"]
+        for edge in edges:
+            if "else" not in edge and isinstance(edge.get("to"), str):
+                return edge["to"], None
+    return None, None
+
+
+# --- Gate condition evaluation ------------------------------------------------
+
+
+def _frontmatter_status(text: str) -> Optional[str]:
+    lines = text.split("\n")
+    if not lines or lines[0].strip() != "---":
+        return None
+    for ln in lines[1:]:
+        if ln.strip() == "---":
+            break
+        m = re.match(r"^status\s*:\s*(.+)$", ln)
+        if m:
+            return _strip_comment(m.group(1)).strip()
+    return None
+
+
+def count_open_findings(repo_root: Path, patterns: List[str]) -> int:
+    n = 0
+    findings_dir = repo_root / FINDINGS_DIR
+    for pat in patterns:
+        for f in sorted(findings_dir.glob(pat)):
+            if f.is_file() and _frontmatter_status(f.read_text(encoding="utf-8")) == (
+                "open"
+            ):
+                n += 1
+    return n
+
+
+def _condition_patterns(cond: Dict[str, Any]) -> List[str]:
+    if "patterns" in cond and isinstance(cond["patterns"], list):
+        return [p for p in cond["patterns"] if isinstance(p, str)]
+    if isinstance(cond.get("pattern"), str):
+        return [cond["pattern"]]
+    return []
+
+
+def evaluate_condition(repo_root: Path, cond: Dict[str, Any]) -> Tuple[bool, str]:
+    """Evaluate one gate condition. Returns (satisfied, human_reason)."""
+    ctype = cond.get("type")
+    if ctype == "file_exists":
+        path = cond.get("path", "")
+        ok = bool(list(repo_root.glob(path))) if path else False
+        return ok, f"file_exists {path}"
+    if ctype == "files_exist":
+        paths = cond.get("paths") or []
+        missing = [
+            p for p in paths if isinstance(p, str) and not list(repo_root.glob(p))
+        ]
+        return (not missing), f"files_exist (missing: {', '.join(missing) or 'none'})"
+    if ctype == "no_open_findings":
+        patterns = _condition_patterns(cond)
+        n = count_open_findings(repo_root, patterns)
+        return (n == 0), f"no_open_findings {patterns} (open={n})"
+    if ctype == "script_exit_zero":
+        # T-03: Execute the script and check for exit code 0 (UC-09, BR-026)
+        script = cond.get("script")
+        if not script:
+            return False, "script_exit_zero: no script specified"
+
+        import subprocess
+
+        try:
+            result = subprocess.run(
+                script.split(),
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+                timeout=300,  # 5 minute timeout
+            )
+            if result.returncode == 0:
+                return True, f"script_exit_zero {script} (passed)"
+            else:
+                # Include stderr output in failure reason for debugging
+                stderr_preview = result.stderr[:200] if result.stderr else "(no output)"
+                return (
+                    False,
+                    f"script_exit_zero {script} (exit {result.returncode}): {stderr_preview}",
+                )
+        except subprocess.TimeoutExpired:
+            return False, f"script_exit_zero {script} (timeout after 300s)"
+        except Exception as e:
+            return False, f"script_exit_zero {script} (error: {e})"
+    return False, f"unknown condition type {ctype!r}"
+
+
+def check_entry_conditions(
+    repo_root: Path, fsm: Dict[str, Any], state: str
+) -> List[str]:
+    """Return the list of unmet-condition reasons for entering ``state``."""
+    spec = (fsm.get("states") or {}).get(state) or {}
+    library = fsm.get("gate_conditions") or {}
+    unmet: List[str] = []
+    for name in spec.get("entry_conditions") or []:
+        cond = library.get(name)
+        if not isinstance(cond, dict):
+            unmet.append(f"{name} (not defined in gate_conditions)")
+            continue
+        ok, reason = evaluate_condition(repo_root, cond)
+        if not ok:
+            unmet.append(f"{name}: {reason}")
+    return unmet
+
+
+# --- Marker writing -----------------------------------------------------------
+
+
+def render_marker(fields: Dict[str, Any]) -> str:
+    order = [
+        "playbook",
+        "state",
+        "gate",
+        "result",
+        "open_findings",
+        "next",
+        "iteration",
+        "recorded_by",
+        "recorded_at",
+    ]
+    lines = []
+    for key in order:
+        val = fields.get(key)
+        lines.append(f"{key}: {'null' if val is None else val}")
+    return "\n".join(lines) + "\n"
+
+
+def advance(
+    repo_root: Path,
+    marker_path: Path,
+    playbooks_dir: Path,
+    recorded_by: str = "human",
+    default_playbook: str = DEFAULT_PLAYBOOK,
+) -> Tuple[int, str]:
+    """Advance the marker one forward transition. Returns (exit_code, message)."""
+    if marker_path.exists():
+        marker = parse_marker(marker_path.read_text(encoding="utf-8"))
+        playbook = marker.get("playbook") or default_playbook
+        current = marker.get("state")
+    else:
+        playbook = default_playbook
+        current = None
+
+    fsm_path = playbooks_dir / f"{playbook}.fsm.yml"
+    if not fsm_path.exists():
+        return 1, f"playbook '{playbook}' has no .fsm.yml at {fsm_path}"
+    fsm = parse_fsm(fsm_path.read_text(encoding="utf-8"))
+
+    if current is None:
+        current = first_state(fsm)
+        if current is None:
+            return 1, "cannot bootstrap: FSM has no root state"
+
+    target, gate = forward_transition(fsm, current)
+    if target is None:
+        return 1, f"state '{current}' has no forward transition (terminal?)"
+
+    unmet = check_entry_conditions(repo_root, fsm, target)
+    if unmet:
+        detail = "\n  - ".join(unmet)
+        return 1, (
+            f"refusing to advance {current} -> {target}: "
+            f"entry conditions unmet:\n  - {detail}"
+        )
+
+    # Derive open_findings from the gate's no_open_findings pattern, if any.
+    open_findings = 0
+    if gate:
+        cond = (fsm.get("gate_conditions") or {}).get(gate, {})
+        if isinstance(cond, dict) and cond.get("type") == "no_open_findings":
+            open_findings = count_open_findings(repo_root, _condition_patterns(cond))
+
+    next_target, _ = forward_transition(fsm, target)
+
+    fields = {
+        "playbook": playbook,
+        "state": target,
+        "gate": gate,
+        "result": "pass",
+        "open_findings": open_findings,
+        "next": next_target,
+        "iteration": 1,
+        "recorded_by": recorded_by,
+        "recorded_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    marker_path.parent.mkdir(parents=True, exist_ok=True)
+    marker_path.write_text(render_marker(fields), encoding="utf-8")
+    return 0, f"advanced {current} -> {target}"
+
+
+def advance_dry_run(
+    repo_root: Path,
+    marker_path: Path,
+    playbooks_dir: Path,
+    default_playbook: str = DEFAULT_PLAYBOOK,
+) -> Tuple[int, str]:
+    """Check whether advance would succeed, without writing the marker."""
+    if marker_path.exists():
+        marker = parse_marker(marker_path.read_text(encoding="utf-8"))
+        playbook = marker.get("playbook") or default_playbook
+        current = marker.get("state")
+    else:
+        playbook = default_playbook
+        current = None
+
+    fsm_path = playbooks_dir / f"{playbook}.fsm.yml"
+    if not fsm_path.exists():
+        return 1, f"playbook '{playbook}' has no .fsm.yml at {fsm_path}"
+    fsm = parse_fsm(fsm_path.read_text(encoding="utf-8"))
+
+    if current is None:
+        current = first_state(fsm)
+        if current is None:
+            return 1, "cannot bootstrap: FSM has no root state"
+
+    target, gate = forward_transition(fsm, current)
+    if target is None:
+        return 1, f"state '{current}' has no forward transition (terminal?)"
+
+    unmet = check_entry_conditions(repo_root, fsm, target)
+    if unmet:
+        detail = "\n  - ".join(unmet)
+        return 1, (
+            f"dry-run: would refuse {current} -> {target}: "
+            f"entry conditions unmet:\n  - {detail}"
+        )
+
+    return 0, f"dry-run: would advance {current} -> {target}"
+
+
+# --- Iteration cap (retry) -----------------------------------------------------
+
+
+def _iteration_limit(
+    fsm: Dict[str, Any], state: str, default_limit: int
+) -> Tuple[int, str]:
+    """(limit, message) for *state* — from the FSM's own halt_conditions
+    (type: max_iterations) if one names this state, else *default_limit*
+    with no message."""
+    for cond in fsm.get("halt_conditions") or []:
+        if not isinstance(cond, dict):
+            continue
+        if cond.get("type") != "max_iterations" or cond.get("state") != state:
+            continue
+        try:
+            limit = int(cond.get("limit"))
+        except (TypeError, ValueError):
+            limit = default_limit
+        return limit, str(cond.get("message") or "")
+    return default_limit, ""
+
+
+def _loop_back_target(fsm: Dict[str, Any], state: str) -> Optional[str]:
+    """The ``else`` transition's target for *state*, if it has one — e.g.
+    PHASE_1_GATE's else loops back to PHASE_1_REQUIREMENTS. halt_conditions
+    are declared against the loop-back target's name (the author state
+    being retried), not the gate's own name, so this is what a retry's
+    iteration-cap lookup must resolve against."""
+    spec = (fsm.get("states") or {}).get(state)
+    if not isinstance(spec, dict):
+        return None
+    for event in (spec.get("on") or {}).values():
+        if not isinstance(event, dict):
+            continue
+        for edge in _iter_edges(event.get("transitions")):
+            if "else" in edge and isinstance(edge.get("to"), str):
+                return edge["to"]
+    return None
+
+
+def retry(
+    repo_root: Path,
+    marker_path: Path,
+    playbooks_dir: Path,
+    default_limit: int = 5,
+) -> Tuple[int, str]:
+    """Record one more attempt at the marker's CURRENT state (the caller is
+    about to re-dispatch the same state's agent — a gate failed with
+    findings to address, not advanced past). Refuses once that state's
+    iteration cap is hit. Returns (exit_code, message); the marker is only
+    written when the retry is allowed."""
+    if not marker_path.exists():
+        return 1, f"no marker at {marker_path} — run `phase advance` first"
+
+    marker = parse_marker(marker_path.read_text(encoding="utf-8"))
+    playbook = marker.get("playbook")
+    current = marker.get("state")
+    if not playbook or not current:
+        return 1, "marker has no playbook/state — run `phase advance` first"
+
+    fsm_path = playbooks_dir / f"{playbook}.fsm.yml"
+    if not fsm_path.exists():
+        return 1, f"playbook '{playbook}' has no .fsm.yml at {fsm_path}"
+    fsm = parse_fsm(fsm_path.read_text(encoding="utf-8"))
+
+    lookup_state = _loop_back_target(fsm, current) or current
+    limit, message = _iteration_limit(fsm, lookup_state, default_limit)
+
+    try:
+        iteration = int(marker.get("iteration") or 1)
+    except ValueError:
+        iteration = 1
+    iteration += 1
+
+    if iteration > limit:
+        reason = f" {message}" if message else ""
+        return 2, (
+            f"{lookup_state} has reached its cap of {limit} attempt(s) — "
+            f"refusing another retry.{reason}"
+        )
+
+    marker["iteration"] = iteration
+    marker["recorded_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    marker_path.write_text(render_marker(marker), encoding="utf-8")
+    return 0, f"{lookup_state}: retry {iteration}/{limit} recorded"
+
+
+# --- Driver -------------------------------------------------------------------
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    p = argparse.ArgumentParser(description="Advance a structured-playbook run.")
+    sub = p.add_subparsers(dest="command", required=True)
+
+    adv = sub.add_parser("advance", help="advance the marker one forward transition")
+    adv.add_argument("--by", default="human", help="value for recorded_by")
+    adv.add_argument(
+        "--dry-run", action="store_true", help="check conditions without writing marker"
+    )
+    adv.add_argument("--repo-root", default=Path("."), type=Path)
+    adv.add_argument("--marker", default=None, type=Path)
+    adv.add_argument("--playbooks-dir", default=None, type=Path)
+    adv.add_argument("--playbook", default=DEFAULT_PLAYBOOK, help="bootstrap playbook")
+
+    rty = sub.add_parser(
+        "retry", help="record and cap another attempt at the marker's current state"
+    )
+    rty.add_argument("--repo-root", default=Path("."), type=Path)
+    rty.add_argument("--marker", default=None, type=Path)
+    rty.add_argument("--playbooks-dir", default=None, type=Path)
+    rty.add_argument(
+        "--default-max-iterations",
+        default=5,
+        type=int,
+        help="cap for any state with no halt_conditions max_iterations entry of its own",
+    )
+
+    args = p.parse_args(argv)
+
+    if args.command == "advance":
+        marker = args.marker or (args.repo_root / DEFAULT_MARKER)
+        playbooks = args.playbooks_dir or (args.repo_root / DEFAULT_PLAYBOOKS_DIR)
+        if args.dry_run:
+            code, msg = advance_dry_run(
+                args.repo_root, marker, playbooks, args.playbook
+            )
+        else:
+            code, msg = advance(
+                args.repo_root, marker, playbooks, args.by, args.playbook
+            )
+        print(msg, file=sys.stderr if code else sys.stdout)
+        return code
+
+    if args.command == "retry":
+        marker = args.marker or (args.repo_root / DEFAULT_MARKER)
+        playbooks = args.playbooks_dir or (args.repo_root / DEFAULT_PLAYBOOKS_DIR)
+        code, msg = retry(
+            args.repo_root, marker, playbooks, args.default_max_iterations
+        )
+        print(msg, file=sys.stderr if code else sys.stdout)
+        return code
+
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

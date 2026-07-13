@@ -1,27 +1,131 @@
 # Orchestrator
 
-Orchestrator is Agent Factory's deterministic external wrapper — a Python CLI that automates the same phase chain the [root README](../README.md) describes (requirements → spec-review → architecture → architecture-review → planning → implementation → reconciliation → qa), instead of driving each agent by hand, one session at a time. It runs a step, a phase, or the whole chain, with deterministic gates enforced automatically via `pre-commit` and human judgement reserved for phase-gate approval.
+The orchestrator replaces you pressing "enter" between agent sessions. Nothing more.
 
-**This is still a work in progress.** The CLI, its test suite, and its own architecture documentation are real and substantial (see below), but the packaging and distribution story — how a project outside this monorepo installs and runs `orchestrate` day to day — is not yet settled. See [`orchestrator/docs/spec/todos.md`](docs/spec/todos.md) for the open questions, and [`docs/adr/0010-separate-tooling-from-project-directory.md`](docs/adr/0010-separate-tooling-from-project-directory.md) for the distribution model currently on record (flagged there as needing supersession once the real design lands).
+Part of [Agent Factory](../README.md). See also: [factory](../factory/README.md), [architecture docs](../docs/README.md).
 
-## What exists today
+When you run a playbook by hand, you do the same thing every time: check the marker, figure out which agent goes next, open a CLI session, wait for it to finish, check whether the gate passes, advance the marker, repeat. You aren't making decisions — you're turning a crank. The orchestrator turns it for you.
 
-- A CLI (`orchestrate`) with direct-mode subcommands and an interactive menu mode — see [`docs/spec/cli_specification.md`](docs/spec/cli_specification.md).
-- Session isolation per agent invocation, CLI-agnostic adapters (Copilot first), a findings store, loop-back with a retry cap, run state and resume — see the arc42 documentation in [`docs/`](docs/README.md) and the domain glossary in [`CONTEXT.md`](CONTEXT.md).
-- A backlog of its own (`backlog/`), tracking orchestrator's own development, independent of the root `backlog/` and `orchestrator/`'s own docs being a separate bounded context from the rest of the repo (see the root [`docs/CONTEXT-MAP.md`](../docs/CONTEXT-MAP.md)).
+## What it does
 
-## Running it here
+One thing: it reads a playbook's state machine and steps through it.
 
-From inside `orchestrator/`:
-
-```bash
-uv sync              # install dependencies into orchestrator/.venv
-uv run pytest        # run the test suite
-uv run orchestrate --help
+```
+read marker → resolve agent → dispatch → wait → check gate → advance → next step
 ```
 
-Orchestrator resolves the agent/skill definitions it drives relative to the repo it's running inside — it expects `factory/agents/` and `factory/skills/` one level up from `orchestrator/`, which is exactly this repo's own layout.
+At every step, it calls the same scripts you would call by hand:
 
-## Troubleshooting
+- `factory/scripts/phase advance` — checks whether the gate passes and moves the marker forward.
+- `factory/scripts/trigger` — launches an AI CLI session with the right agent and model.
+- `factory/scripts/phase retry` — checks whether another attempt is allowed before re-dispatching.
 
-No orchestrator-specific troubleshooting entries yet. File one here as real issues surface running `orchestrate` — this section should only ever hold things that actually happened, not anticipated problems.
+The orchestrator holds no opinions. It does not evaluate gates, compose prompts, pick models, or decide what to retry. It delegates all of that to the scripts above. If a script says no, the orchestrator stops.
+
+## When it stops
+
+Three situations:
+
+1. **Done.** The playbook reached its final state. Exit 0.
+2. **Human gate.** The current state has no agent (`agent: null` in the FSM). You need to do something — approve a backlog, resolve a finding, file a bug. Do it, then re-run. Exit 0.
+3. **Halt.** The iteration cap was hit (an agent keeps failing the gate), or a configuration error made dispatch impossible. Exit 1 or 2. Read the message, fix the problem, re-run.
+
+## How to use it
+
+### Prerequisites
+
+You need a project that already has Agent Factory set up (`factory/` exists, `.pre-commit-config.yaml` is wired). If not, run `factory/scripts/init-factory` first — see the [factory README](../factory/README.md).
+
+### After finishing requirements by hand
+
+The requirements phase is always human-driven — the requirements agent interviews you, and the specs exist because you participated. Once specs are written and reviewed (no open `SPEC-*.md` findings), start the orchestrator from Phase 2:
+
+```bash
+python3 orchestrator/src/run_playbook.py \
+  --playbook greenfield-development \
+  --from-state PHASE_2_ARCHITECTURE \
+  --cli claude
+```
+
+It will dispatch the architecture agent, wait, check the gate, dispatch the architecture review agent, and so on — pausing at `PHASE_3_APPROVAL` for you to review the backlog, then continuing through implementation, reconciliation, and QA.
+
+### Bug fix workflow
+
+File the bug first (`docs/findings/BUG-NNNN.md`), then:
+
+```bash
+python3 orchestrator/src/run_playbook.py \
+  --playbook bug-fix \
+  --from-state IMPLEMENT_FIX \
+  --cli claude
+```
+
+### Resuming after a stop
+
+Just re-run the same command without `--from-state`. The orchestrator reads the marker (`.agent-factory/playbook-state.yml`) and picks up where it left off:
+
+```bash
+python3 orchestrator/src/run_playbook.py --playbook greenfield-development --cli claude
+```
+
+Kill the process at any point — the marker is the only truth, and it was written by `phase advance` before the orchestrator moved on. Nothing is lost.
+
+### Switching between Claude and Copilot
+
+```bash
+--cli claude    # default
+--cli copilot
+```
+
+The agent receives the same prompt either way. The model is resolved from `config/model.conf` based on the agent's tier.
+
+## How to test it
+
+```bash
+uvx pytest orchestrator/tests/test_run_playbook.py -v
+```
+
+18 tests cover all five use cases: normal dispatch, human gates, final states, retry loops, halt on cap, config errors, audit log format, and marker bootstrap. Tests mock the subprocess calls to `phase` and `trigger`, so they run in under a second and don't need a real AI CLI.
+
+## What it does not do
+
+- **Drive requirements.** Phase 1 is human-driven. Always.
+- **Run agents in parallel.** One at a time, sequentially. (The implementation agent parallelizes internally, but the orchestrator doesn't know or care.)
+- **Retry with different models.** If an agent fails and hits the cap, the orchestrator stops. Picking a different model or prompt is your call.
+- **Parse CLI output.** A non-zero exit from trigger means "something went wrong." The gate is the real arbiter of whether the work succeeded, not the exit code.
+
+## Files
+
+```
+orchestrator/
+├── src/
+│   └── run_playbook.py       # the orchestrator (~220 lines)
+├── tests/
+│   └── test_run_playbook.py  # 18 tests
+├── docs/
+│   ├── spec/                 # PRD, use cases, entity model
+│   ├── adr/                  # ADR-0001: pure delegation
+│   ├── 05_building_block_view.md
+│   ├── 06_runtime_view.md
+│   ├── 09_architecture_decisions.md
+│   └── architecture.dsl      # C4 model (Structurizr)
+└── backlog/                  # 6 stories, all done
+```
+
+## Audit log
+
+Every step writes a JSON line to `.agent-factory/audit.log`:
+
+```json
+{"timestamp": "2026-07-13T00:05:00+00:00", "playbook": "greenfield-development", "state": "PHASE_2_ARCHITECTURE", "agent": "architecture-agent", "action": "advance", "trigger_exit": 0, "phase_advance_exit": 0, "phase_retry_exit": null, "iteration": 1, "duration_seconds": 342.5}
+```
+
+Parse it with `jq`:
+
+```bash
+# How long did each agent session take?
+jq -r 'select(.action=="advance") | "\(.state): \(.duration_seconds)s"' .agent-factory/audit.log
+
+# Which states needed retries?
+jq -r 'select(.action=="retry") | .state' .agent-factory/audit.log
+```
