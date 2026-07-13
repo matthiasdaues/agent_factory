@@ -2,6 +2,8 @@
 
 `factory/` is the Agent Factory toolset itself — agents, skills, playbooks, and checks. `init-factory` copies it wholesale into your own project. You never hand-edit the copy; you re-run `init-factory` to update it.
 
+Part of [Agent Factory](../README.md). See also: [orchestrator](../orchestrator/README.md), [architecture docs](../docs/README.md).
+
 This page gets you from zero to a running first playbook. For what agents, skills, playbooks, and rulebooks actually are, and how the checks work, see the [factory guide](docs/factory-guide.md).
 
 ## Prerequisites

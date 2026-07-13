@@ -8,7 +8,7 @@ Agent Factory turns a rough idea into production-quality code. An AI coding assi
 
 - **[`factory/`](factory/README.md)** — the toolset itself: agents, skills, playbooks, checks. This is what you install into your own project. **Start here.**
 - **[`orchestrator/`](orchestrator/README.md)** — an optional CLI that automates running the toolset, instead of you driving each agent by hand. Still a work in progress.
-- **[`docs/`](docs/concepts.md)** — this repo's own documentation, including how Agent Factory works under the hood.
+- **[`docs/`](docs/concepts.md)** — this repo's own documentation, including how Agent Factory works under the hood and the [arc42 architecture documentation](docs/README.md) for factory flow control.
 - **`backlog/`, `config/`** — this repo's own backlog and configuration, built using the factory tooling above.
 
 ## Getting started

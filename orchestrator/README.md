@@ -2,6 +2,8 @@
 
 The orchestrator replaces you pressing "enter" between agent sessions. Nothing more.
 
+Part of [Agent Factory](../README.md). See also: [factory](../factory/README.md), [architecture docs](../docs/README.md).
+
 When you run a playbook by hand, you do the same thing every time: check the marker, figure out which agent goes next, open a CLI session, wait for it to finish, check whether the gate passes, advance the marker, repeat. You aren't making decisions — you're turning a crank. The orchestrator turns it for you.
 
 ## What it does

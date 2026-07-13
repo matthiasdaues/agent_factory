@@ -29,5 +29,11 @@ This documentation derives from the specification in [`spec/`](spec/prd.md). The
 
 ## Referenced from
 
+- [Agent Factory README](../README.md) (repo root)
 - [docs/spec/prd.md § Referenced from](spec/prd.md#referenced-from)
 - [docs/concepts.md § The phase chain](concepts.md#the-phase-chain)
+
+## See also
+
+- [factory/README.md](../factory/README.md) — the toolset (agents, skills, playbooks)
+- [orchestrator/README.md](../orchestrator/README.md) — optional CLI for automated playbook execution

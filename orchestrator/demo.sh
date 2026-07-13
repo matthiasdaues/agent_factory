@@ -43,7 +43,7 @@ RESET='\033[0m'
 # AF_SESSION_LOG is exported so gate scripts (_session_log.py) also write here.
 # The demo's own entries use the same format: one JSON object per line.
 
-session_session_log_init() {
+session_log_init() {
     mkdir -p "$DEMO_DIR/.agent-factory"
     # AF_SESSION_LOG is the single env var that activates session logging.
     #
@@ -389,9 +389,12 @@ demo_orchestrated() {
 
     # ── Reset: clean slate ──────────────────────────────────────────
     step "Reset: clean project, fresh start"
-    rm -rf docs src .agent-factory
+    # Remove project artifacts but preserve the audit log — both parts
+    # share one timeline in .agent-factory/audit.log.
+    rm -rf docs src
+    find .agent-factory -mindepth 1 ! -name audit.log -exec rm -rf {} + 2>/dev/null || true
     mkdir -p docs/findings
-    session_log "system" "-" "RESET" "Cleaned docs/, src/, .agent-factory/"
+    session_log "system" "-" "RESET" "Cleaned docs/, src/, playbook state"
 
     info "Cleaned up. Starting from scratch."
     echo ""
