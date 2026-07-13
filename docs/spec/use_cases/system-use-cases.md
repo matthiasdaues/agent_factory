@@ -43,6 +43,7 @@ Technical requirements at the system's interfaces, expressed in **EARS** syntax 
 ## Catalog generation (`index-lint`)
 
 - `factory/INDEX.yaml` shall be generated exclusively by `index-lint`, never edited by hand (UC-06, BR-015).
+- `index-lint` shall scan `agents/*.md`, `skills/*/SKILL.md`, `playbooks/*.md`, and `rulebooks/**/*.md` (excluding templates), computing `tokens` per entry and `total_tokens` for agents and playbooks (UC-06, FR-E1).
 - When `index-lint` derives a playbook's agent sequence, it shall read the playbook's own `**Agent**: `x\`\` prose lines, not a separately maintained list (UC-06, BR-015).
 - Where `--check` is given and the generated content differs from disk, `index-lint` shall exit `1` without writing (UC-06, BR-016).
 - Where the generated content matches what is already on disk, `index-lint` shall write nothing (UC-06, BR-016).

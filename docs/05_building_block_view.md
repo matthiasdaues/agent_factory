@@ -6,13 +6,13 @@
 
 Factory Flow Control consists of three primary containers:
 
-| Container         | Responsibility                                                               | Technology     |
-| ----------------- | ---------------------------------------------------------------------------- | -------------- |
-| **State Manager** | Reads/writes playbook state marker, resolves FSM transitions, drives phases  | Bash, Python   |
-| **Validator**     | Enforces gates, permissions, test execution via unavoidable hooks            | Bash, Python   |
-| **Dispatcher**    | Resolves agents/models from catalog, spawns CLI sessions with scoped permits | Bash, Python   |
-| State Files       | Local git-ignored marker (`.agent-factory/playbook-state.yml`) and FSM defs  | YAML (storage) |
-| Catalog           | Generated `factory/INDEX.yaml` from agent/skill/playbook frontmatter         | YAML (storage) |
+| Container         | Responsibility                                                                                   | Technology     |
+| ----------------- | ------------------------------------------------------------------------------------------------ | -------------- |
+| **State Manager** | Reads/writes playbook state marker, resolves FSM transitions, drives phases                      | Bash, Python   |
+| **Validator**     | Enforces gates, permissions, test execution via unavoidable hooks                                | Bash, Python   |
+| **Dispatcher**    | Resolves agents/models from catalog, spawns CLI sessions with scoped permits                     | Bash, Python   |
+| State Files       | Local git-ignored marker (`.agent-factory/playbook-state.yml`) and FSM defs                      | YAML (storage) |
+| Catalog           | Generated `factory/INDEX.yaml` from agent/skill/playbook/rulebook frontmatter, with token counts | YAML (storage) |
 
 ![Containers](assets/images/Containers.png)
 
@@ -79,10 +79,10 @@ All three read the same marker (`.agent-factory/playbook-state.yml`) and FSM (e.
 
 ## 5.4 Level 2: Component View — Dispatcher
 
-| Component      | What it does                                                     | Reads      | Writes     |
-| -------------- | ---------------------------------------------------------------- | ---------- | ---------- |
-| **trigger**    | Resolves agent/model, spawns CLI session with scoped permits     | INDEX.yaml | (none)     |
-| **index-lint** | Generates INDEX.yaml from frontmatter; `--check` validates drift | source .md | INDEX.yaml |
+| Component      | What it does                                                                              | Reads      | Writes     |
+| -------------- | ----------------------------------------------------------------------------------------- | ---------- | ---------- |
+| **trigger**    | Resolves agent/model, spawns CLI session with scoped permits                              | INDEX.yaml | (none)     |
+| **index-lint** | Generates INDEX.yaml from frontmatter with token budget counts; `--check` validates drift | source .md | INDEX.yaml |
 
 ## 5.5 Interfaces Summary
 

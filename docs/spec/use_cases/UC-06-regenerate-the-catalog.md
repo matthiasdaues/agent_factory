@@ -8,7 +8,7 @@ Human Operator (or Orchestrator-as-Trigger, or a CI job, acting on its behalf)
 
 ## Stakeholders & Interests
 
-- **Human Operator** — wants `factory/INDEX.yaml` to always describe what actually exists in `factory/agents/`, `factory/skills/`, and `factory/playbooks/`, without maintaining it by hand.
+- **Human Operator** — wants `factory/INDEX.yaml` to always describe what actually exists in `factory/agents/`, `factory/skills/`, `factory/playbooks/`, and `factory/rulebooks/`, without maintaining it by hand.
 - **`trigger`** — depends on `INDEX.yaml`'s data indirectly, by importing `index-lint`'s own `load_agents()`/`load_playbooks()` functions rather than re-parsing frontmatter itself; a stale or hand-edited catalog would desynchronize the two.
 - **`run-step`** — reads `INDEX.yaml`'s `fsm:` field to decide whether a playbook has a state machine, and its `agents:` field as the fallback ordering when it does not.
 
@@ -18,26 +18,28 @@ The actor runs `factory/scripts/index-lint`, either to regenerate the catalog or
 
 ## Preconditions
 
-- None — `index-lint` reads only `factory/agents/*.md`, `factory/skills/*/SKILL.md`, and `factory/playbooks/*.md`, all of which are ordinary tracked files.
+- None — `index-lint` reads `factory/agents/*.md`, `factory/skills/*/SKILL.md`, `factory/playbooks/*.md`, and `factory/rulebooks/**/*.md` (excluding templates), all of which are ordinary tracked files.
 
 ## Main Success Scenario
 
 1. Actor runs `factory/scripts/index-lint`.
-2. `index-lint` parses every agent's frontmatter, grouping by `phase`/`phase-name`.
+2. `index-lint` parses every agent's frontmatter (including `skills:` and `inputs:` lists), grouping by `phase`/`phase-name`.
 3. `index-lint` parses every skill's frontmatter, grouping by `category`.
 4. `index-lint` parses every playbook's frontmatter and derives its ordered agent sequence from its own `**Agent**: `x\`\` prose lines — never from a separately maintained list (BR-015).
-5. `index-lint` renders the three sections as YAML and compares them against the current `factory/INDEX.yaml`.
-6. The rendered content differs from what is on disk.
-7. `index-lint` writes the new content and reports what changed.
+5. `index-lint` scans every rulebook (excluding templates) for its token count.
+6. `index-lint` computes `tokens` for every entry (tiktoken cl100k_base, chars ÷ 4 fallback), `total_tokens` for agents (body + skills + rulebooks) and playbooks (body + unique agent totals).
+7. `index-lint` renders the four sections (agents, skills, playbooks, rulebooks) as YAML and compares them against the current `factory/INDEX.yaml`.
+8. The rendered content differs from what is on disk.
+9. `index-lint` writes the new content and reports what changed.
 
 ## Extensions
 
 - **1a. `--check` is given**
-  - 1a1. `index-lint` performs steps 2–5 but never writes.
+  - 1a1. `index-lint` performs steps 2–7 but never writes.
   - 1a2. If the rendered content differs from disk, it exits `1` and reports the catalog is stale (BR-016).
   - 1a3. If the rendered content matches disk, it exits `0` and reports the catalog is up to date.
-- **6a. The rendered content already matches what is on disk**
-  - 6a1. `index-lint` writes nothing and reports "already up to date, no changes" (BR-016).
+- **8a. The rendered content already matches what is on disk**
+  - 8a1. `index-lint` writes nothing and reports "already up to date, no changes" (BR-016).
 - **2a. An agent declares `phase` but no `phase-name`**
   - 2a1. `index-lint` emits a warning and falls back to `Phase <N>` as the display name; the entry is still written.
 - **3a. A skill declares no `category`**
@@ -45,7 +47,7 @@ The actor runs `factory/scripts/index-lint`, either to regenerate the catalog or
 
 ## Postconditions
 
-- **Success Guarantee**: after a successful run, `factory/INDEX.yaml`'s content is byte-for-byte what `index-lint` would generate from the current frontmatter — running it again immediately makes no further change.
+- **Success Guarantee**: after a successful run, `factory/INDEX.yaml`'s content is byte-for-byte what `index-lint` would generate from the current frontmatter — running it again immediately makes no further change. Every entry carries a `tokens` field; agents and playbooks carry `total_tokens`.
 - **Minimal Guarantee**: `--check` never mutates `factory/INDEX.yaml`, regardless of whether the catalog is stale.
 
 ## Business Rules
@@ -57,13 +59,14 @@ The actor runs `factory/scripts/index-lint`, either to regenerate the catalog or
 
 ```mermaid
 flowchart TD
-    A[index-lint invoked] --> B[Parse agents/*.md, skills/*/SKILL.md,<br/>playbooks/*.md frontmatter + prose]
-    B --> C[Render agents, skills, playbooks<br/>sections as YAML — BR-015]
-    C --> D{content differs from disk?}
-    D -->|no| E[Report up to date, exit 0]
-    D -->|yes| F{--check given?}
-    F -->|yes| G[Report stale, exit 1 — BR-016<br/>nothing written]
-    F -->|no| H[Write factory/INDEX.yaml, exit 0]
+    A[index-lint invoked] --> B[Parse agents/*.md, skills/*/SKILL.md,<br/>playbooks/*.md, rulebooks/**/*.md<br/>frontmatter + prose]
+    B --> C[Compute token counts per entry,<br/>total_tokens for agents and playbooks]
+    C --> D[Render agents, skills, playbooks,<br/>rulebooks sections as YAML — BR-015]
+    D --> E{content differs from disk?}
+    E -->|no| F[Report up to date, exit 0]
+    E -->|yes| G{--check given?}
+    G -->|yes| H[Report stale, exit 1 — BR-016<br/>nothing written]
+    G -->|no| I[Write factory/INDEX.yaml, exit 0]
 ```
 
 ## Acceptance Criteria
