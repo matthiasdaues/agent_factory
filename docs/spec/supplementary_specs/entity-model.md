@@ -1,6 +1,6 @@
 # Entity Model — Factory Flow Control
 
-The entities `factory/scripts/transition-lint`, `factory/scripts/phase`, `factory/scripts/trigger`, and `factory/scripts/index-lint` read, write, or generate, and how they relate. Applying **SOLID** (Single Responsibility): each entity owns one concern of the run's state — the marker owns *where a run is*, the FSM definition owns *what the run's phases are*, the catalog owns *what agents/skills/playbooks exist*.
+The entities `factory/scripts/transition-lint`, `factory/scripts/phase`, `factory/scripts/trigger`, and `factory/scripts/index-lint` read, write, or generate, and how they relate. Applying **SOLID** (Single Responsibility): each entity owns one concern of the run's state — the marker owns *where a run is*, the FSM definition owns *what the run's phases are*, the catalog owns *what agents/skills/playbooks/rulebooks exist*.
 
 ```mermaid
 erDiagram
@@ -15,6 +15,7 @@ erDiagram
     CATALOG ||--o{ AGENT_ENTRY : lists
     CATALOG ||--o{ SKILL_ENTRY : lists
     CATALOG ||--o{ PLAYBOOK_ENTRY : lists
+    CATALOG ||--o{ RULEBOOK_ENTRY : lists
     PLAYBOOK_ENTRY ||--o| FSM_DEFINITION : "fsm field points at"
     PLAYBOOK_ENTRY ||--o{ AGENT_ENTRY : "agents sequence"
     AGENT_ENTRY ||--o| MODEL_MATRIX_ENTRY : "tier resolves via"
@@ -75,12 +76,15 @@ erDiagram
         string tier "nullable — economy | standard | strong"
         string description
         string path
+        int    tokens "tiktoken cl100k_base body count"
+        int    total_tokens "body + skills + rulebooks"
     }
     SKILL_ENTRY {
         string name
         string category "nullable"
         string description
         string path
+        int    tokens "tiktoken cl100k_base body count"
     }
     PLAYBOOK_ENTRY {
         string name
@@ -89,6 +93,14 @@ erDiagram
         string description
         string path
         string fsm "nullable — path to the .fsm.yml"
+        int    tokens "tiktoken cl100k_base body count"
+        int    total_tokens "nullable — body + unique agent totals"
+    }
+    RULEBOOK_ENTRY {
+        string name
+        string category "nullable — e.g. conventions"
+        string path
+        int    tokens "tiktoken cl100k_base body count"
     }
     MODEL_MATRIX_ENTRY {
         string cli "claude | copilot"
@@ -105,7 +117,7 @@ erDiagram
 - **HALT_CONDITION** of type `max_iterations` is the only type `phase retry` currently enforces; `script_failure` and `circular_dependency` are declared in `greenfield-development.fsm.yml` but have no enforcing script yet — see [T-04](../todos.md#t-04-halt_conditions-types-other-than-max_iterations-are-unenforced).
 - **PLAYBOOK_STATE_MARKER** is the single source of truth for "where is this run" — one flat file at `.agent-factory/playbook-state.yml`, git-ignored. Full field-level rules in [validation-rules.md](validation-rules.md).
 - **FINDING.status** is read from the finding file's YAML frontmatter (a `---`-delimited block whose first line is exactly `---`); `no_open_findings` conditions count files matching a glob whose `status` is exactly `open`. Filing conventions: [finding-format.md § When to file](../../../factory/rulebooks/conventions/finding-format.md#when-to-file).
-- **CATALOG** is `factory/INDEX.yaml` — one file holding all three entry types. It is generated wholesale on every `index-lint` run; there is no per-entry incremental update.
+- **CATALOG** is `factory/INDEX.yaml` — one file holding four entry types (agents, skills, playbooks, rulebooks). It is generated wholesale on every `index-lint` run; there is no per-entry incremental update. Every entry carries a `tokens` field; agents and playbooks also carry `total_tokens`.
 - **AGENT_ENTRY.tier** and **MODEL_MATRIX_ENTRY.tier** share the same three-value vocabulary (`economy | standard | strong`); `trigger` resolves an agent's dispatch model by looking up `<cli>.<tier>` in `config/model.conf`.
 
 ## Referenced from

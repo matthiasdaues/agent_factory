@@ -54,13 +54,13 @@ See [UC-04](../use_cases/UC-04-dispatch-an-agent-via-trigger.md).
 
 ## `factory/scripts/index-lint`
 
-|           |                                                                                                    |
-| --------- | -------------------------------------------------------------------------------------------------- |
-| Usage     | `index-lint [--agents-dir DIR] [--skills-dir DIR] [--playbooks-dir DIR] [--out PATH] [--check]`    |
-| Reads     | `factory/agents/*.md`, `factory/skills/*/SKILL.md`, `factory/playbooks/*.md` frontmatter and prose |
-| Writes    | `factory/INDEX.yaml` (or `--out`), unless `--check` or content is unchanged                        |
-| Exit code | `0` if up to date (now or already); `1` in `--check` mode if it was stale                          |
-| stderr    | One `[WARNING]` line per agent missing `phase-name` or skill missing `category`                    |
+|           |                                                                                                                                        |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage     | `index-lint [--agents-dir DIR] [--skills-dir DIR] [--playbooks-dir DIR] [--rulebooks-dir DIR] [--out PATH] [--check]`                  |
+| Reads     | `factory/agents/*.md`, `factory/skills/*/SKILL.md`, `factory/playbooks/*.md`, `factory/rulebooks/**/*.md` (excluding templates)        |
+| Writes    | `factory/INDEX.yaml` (or `--out`), unless `--check` or content is unchanged                                                            |
+| Exit code | `0` if up to date (now or already); `1` in `--check` mode if it was stale                                                              |
+| stderr    | One `[WARNING]` per: agent missing `phase-name`, skill missing `category`, agent `total_tokens` exceeding 20 000, tiktoken unavailable |
 
 See [UC-06](../use_cases/UC-06-regenerate-the-catalog.md).
 

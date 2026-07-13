@@ -1,16 +1,23 @@
 #!/usr/bin/env python3
 """index-lint - Generate/verify factory/INDEX.yaml from factory/agents/,
-factory/skills/, and factory/playbooks/ frontmatter.
+factory/skills/, factory/playbooks/, and factory/rulebooks/ frontmatter.
 
 INDEX.yaml is a generated artifact, never hand-edited: agents grouped by
 their `phase`/`phase-name` frontmatter, skills grouped by their `category`
 frontmatter, playbooks listed with the ordered agent sequence derived from
-their own `**Agent**: `x`` prose lines — derived, never hand-duplicated,
-the same principle this repo already applies to Mermaid diagrams (see
+their own `**Agent**: `x`` prose lines, and rulebooks with their token
+counts — derived, never hand-duplicated, the same principle this repo
+already applies to Mermaid diagrams (see
 factory/rulebooks/conventions/state-machine-notation.md). Same spirit as
-the other *-lint scripts: deterministic, stdlib only (Python 3.8+), a
-minimal targeted frontmatter parser and YAML emitter (not a general YAML
-library) — matching spec-lint/backlog-lint's own zero-dependency approach.
+the other *-lint scripts: deterministic, a minimal targeted frontmatter
+parser and YAML emitter (not a general YAML library) — matching
+spec-lint/backlog-lint's own approach.
+
+Token budget: every entry carries a `tokens` field (tiktoken cl100k_base,
+chars ÷ 4 fallback). Agents also carry `total_tokens` (body + referenced
+skills + referenced rulebooks from their `inputs:` frontmatter). Playbooks
+carry `total_tokens` (body + unique agent totals). A warning fires when an
+agent's `total_tokens` exceeds 20 000.
 
 YAML over JSON: this file's primary reader is an LLM agent session (the
 project's own orientation rule requires reading it first), where token
@@ -26,7 +33,8 @@ must point at directories that are actually siblings on disk)
   index-lint                          # regenerate factory/INDEX.yaml in place
   index-lint --check                  # gate mode: exit 1 if stale, write nothing
   index-lint --agents-dir factory/agents --skills-dir factory/skills \
-             --playbooks-dir factory/playbooks --out factory/INDEX.yaml
+             --playbooks-dir factory/playbooks --rulebooks-dir factory/rulebooks \
+             --out factory/INDEX.yaml
 
 Exit code: 0 if INDEX.yaml is (now, or already) up to date; 1 in --check
 mode if it was stale.
@@ -50,17 +58,39 @@ CANONICAL_CATEGORY_ORDER = [
 ]
 
 _FM_KEYS = {"name", "title", "phase", "phase-name", "category", "description", "tier"}
+_FM_LIST_KEYS = {"skills", "inputs"}
 _KEY_LINE = re.compile(r"^([A-Za-z0-9_-]+):\s*(.*)$")
+_LIST_ITEM = re.compile(r"^\s+-\s+(.+)$")
 _H1_LINE = re.compile(r"^#\s+.+$")
 _AGENT_REF = re.compile(r"\*\*Agent\*\*:\s*`([a-z][a-z0-9-]*)`")
 
+# ── Token counting ───────────────────────────────────────────────────────
+_TOKENIZER = None
+_TOKEN_FALLBACK = False
 
-def parse_frontmatter(text: str) -> dict[str, str]:
-    """Extract only the scalar/folded-block-scalar keys this script needs.
+try:
+    import tiktoken
 
-    Not a general YAML parser: list-valued keys (skills:, inputs:, outputs:,
-    triggers:, handoff-to:) are deliberately skipped, not misparsed — their
-    `- item` lines never match _KEY_LINE, so they're silently passed over.
+    _TOKENIZER = tiktoken.get_encoding("cl100k_base")
+except Exception:
+    _TOKEN_FALLBACK = True
+
+AGENT_TOTAL_TOKENS_WARN = 20_000
+
+
+def count_tokens(text: str) -> int:
+    """Token count via tiktoken cl100k_base, falling back to chars ÷ 4."""
+    if _TOKENIZER is not None:
+        return len(_TOKENIZER.encode(text))
+    return max(1, len(text) // 4)
+
+
+def parse_frontmatter(text: str) -> dict:
+    """Extract scalar and list-valued keys from YAML frontmatter.
+
+    Scalar keys in ``_FM_KEYS`` are returned as strings.  List keys in
+    ``_FM_LIST_KEYS`` (``skills:``, ``inputs:``) are returned as
+    ``list[str]``.  Other keys are silently skipped.
     """
     if not text.startswith("---"):
         return {}
@@ -70,7 +100,7 @@ def parse_frontmatter(text: str) -> dict[str, str]:
         return {}
 
     lines = text[3:end].split("\n")
-    result: dict[str, str] = {}
+    result: dict = {}
     i = 0
 
     while i < len(lines):
@@ -80,6 +110,22 @@ def parse_frontmatter(text: str) -> dict[str, str]:
             continue
 
         key, rest = m.group(1), m.group(2).strip()
+
+        # ── list-valued keys ──
+        if key in _FM_LIST_KEYS:
+            items: list[str] = []
+            i += 1
+            while i < len(lines):
+                lm = _LIST_ITEM.match(lines[i])
+                if lm:
+                    items.append(lm.group(1).strip().strip('"').strip("'"))
+                    i += 1
+                elif lines[i].strip() == "":
+                    i += 1
+                else:
+                    break
+            result[key] = items
+            continue
 
         if key not in _FM_KEYS:
             i += 1
@@ -144,31 +190,35 @@ def _extract_agent_sequence(text: str) -> list[str]:
     return _AGENT_REF.findall(text)
 
 
-def load_agents(agents_dir: Path) -> list[dict[str, str]]:
+def load_agents(agents_dir: Path) -> list[dict]:
     agents = []
 
     for path in sorted(agents_dir.glob("*.md")):
-        fm = parse_frontmatter(path.read_text(encoding="utf-8"))
+        text = path.read_text(encoding="utf-8")
+        fm = parse_frontmatter(text)
 
         if not fm.get("name"):
             continue
 
         fm["_path"] = str(path)
+        fm["_tokens"] = count_tokens(text)
         agents.append(fm)
 
     return agents
 
 
-def load_skills(skills_dir: Path) -> list[dict[str, str]]:
+def load_skills(skills_dir: Path) -> list[dict]:
     skills = []
 
     for path in sorted(skills_dir.glob("*/SKILL.md")):
-        fm = parse_frontmatter(path.read_text(encoding="utf-8"))
+        text = path.read_text(encoding="utf-8")
+        fm = parse_frontmatter(text)
 
         if not fm.get("name"):
             continue
 
         fm["_path"] = str(path)
+        fm["_tokens"] = count_tokens(text)
         skills.append(fm)
 
     return skills
@@ -188,6 +238,7 @@ def load_playbooks(playbooks_dir: Path) -> list[dict[str, object]]:
             "category": fm.get("category", ""),
             "description": _first_body_paragraph(text),
             "_path": str(path),
+            "_tokens": count_tokens(text),
         }
 
         if fsm_path.exists():
@@ -200,6 +251,34 @@ def load_playbooks(playbooks_dir: Path) -> list[dict[str, object]]:
         playbooks.append(entry)
 
     return playbooks
+
+
+def load_rulebooks(rulebooks_dir: Path) -> list[dict]:
+    """Scan rulebooks/**/*.md excluding templates/."""
+    rulebooks = []
+
+    for path in sorted(rulebooks_dir.rglob("*.md")):
+        # Skip templates — their content is replaced at runtime.
+        if "templates" in path.parts:
+            continue
+
+        text = path.read_text(encoding="utf-8")
+        name = path.stem
+
+        # Derive category from parent dir name (e.g. conventions, or root).
+        rel = path.relative_to(rulebooks_dir)
+        category = rel.parts[0] if len(rel.parts) > 1 else ""
+
+        rulebooks.append(
+            {
+                "name": name,
+                "category": category,
+                "_path": str(path),
+                "_tokens": count_tokens(text),
+            }
+        )
+
+    return rulebooks
 
 
 def _yaml_needs_quoting(text: str) -> bool:
@@ -262,10 +341,14 @@ def _render_section(key: str, items: list[dict], key_order: list[str]) -> list[s
     return [f"{key}:"] + _render_list_of_dicts(items, key_order)
 
 
-def build_agents_data(agents: list[dict[str, str]]) -> tuple[list[dict], list[str]]:
+def build_agents_data(
+    agents: list[dict],
+    skill_tokens: dict[str, int],
+    rulebook_tokens: dict[str, int],
+) -> tuple[list[dict], list[str]]:
     warnings = []
 
-    def phase_key(a: dict[str, str]) -> int:
+    def phase_key(a: dict) -> int:
         try:
             return int(a["phase"])
         except (KeyError, ValueError):
@@ -294,19 +377,40 @@ def build_agents_data(agents: list[dict[str, str]]) -> tuple[list[dict], list[st
 
         entry["description"] = a.get("description", "")
         entry["path"] = a["_path"]
+        entry["tokens"] = a["_tokens"]
+
+        # Compute total_tokens: body + referenced skills + referenced rulebooks
+        total = a["_tokens"]
+
+        for skill_name in a.get("skills", []):
+            total += skill_tokens.get(skill_name, 0)
+
+        for input_path in a.get("inputs", []):
+            if "rulebook" in input_path or "convention" in input_path:
+                # Match by stem (filename without extension).
+                stem = Path(input_path).stem
+                total += rulebook_tokens.get(stem, 0)
+
+        entry["total_tokens"] = total
+
+        if total > AGENT_TOTAL_TOKENS_WARN:
+            warnings.append(
+                f"{a['_path']}: total_tokens {total} exceeds {AGENT_TOTAL_TOKENS_WARN}"
+            )
+
         entries.append(entry)
 
     return entries, warnings
 
 
-def build_skills_data(skills: list[dict[str, str]]) -> tuple[list[dict], list[str]]:
+def build_skills_data(skills: list[dict]) -> tuple[list[dict], list[str]]:
     warnings = []
 
     for s in skills:
         if not s.get("category"):
             warnings.append(f"{s['_path']}: has no 'category'")
 
-    def order_key(s: dict[str, str]) -> tuple[int, str]:
+    def order_key(s: dict) -> tuple[int, str]:
         cat = s.get("category", "")
 
         try:
@@ -325,6 +429,7 @@ def build_skills_data(skills: list[dict[str, str]]) -> tuple[list[dict], list[st
 
         entry["description"] = s.get("description", "")
         entry["path"] = s["_path"]
+        entry["tokens"] = s["_tokens"]
         entries.append(entry)
 
     return entries, warnings
@@ -332,6 +437,7 @@ def build_skills_data(skills: list[dict[str, str]]) -> tuple[list[dict], list[st
 
 def build_playbooks_data(
     playbooks: list[dict[str, object]],
+    agent_total_tokens: dict[str, int],
 ) -> tuple[list[dict], list[str]]:
     entries = []
 
@@ -353,17 +459,51 @@ def build_playbooks_data(
         if p.get("agents"):
             entry["agents"] = p["agents"]
 
+        entry["tokens"] = p["_tokens"]
+
+        # Sum agent total_tokens (unique agents, not repeated invocations).
+        agent_names = p.get("agents", [])
+        if agent_names:
+            seen: set[str] = set()
+            total = p["_tokens"]
+            for name in agent_names:
+                if name not in seen:
+                    total += agent_total_tokens.get(name, 0)
+                    seen.add(name)
+            entry["total_tokens"] = total
+
+        entries.append(entry)
+
+    return entries, []
+
+
+def build_rulebooks_data(rulebooks: list[dict]) -> tuple[list[dict], list[str]]:
+    entries = []
+
+    for r in sorted(rulebooks, key=lambda r: (r.get("category", ""), r["name"])):
+        entry: dict[str, object] = {"name": r["name"]}
+
+        if r.get("category"):
+            entry["category"] = r["category"]
+
+        entry["path"] = r["_path"]
+        entry["tokens"] = r["_tokens"]
         entries.append(entry)
 
     return entries, []
 
 
 def render_index(
-    agents_dir: Path, skills_dir: Path, playbooks_dir: Path, out: Path
+    agents_dir: Path,
+    skills_dir: Path,
+    playbooks_dir: Path,
+    rulebooks_dir: Path,
+    out: Path,
 ) -> tuple[str, list[str]]:
     agents = load_agents(agents_dir)
     skills = load_skills(skills_dir)
     playbooks = load_playbooks(playbooks_dir)
+    rulebooks = load_rulebooks(rulebooks_dir)
 
     out_dir = out.parent
 
@@ -378,35 +518,84 @@ def render_index(
         if p.get("_fsm_path"):
             p["_fsm_path"] = os.path.relpath(str(p["_fsm_path"]), start=out_dir)
 
-    agent_entries, aw = build_agents_data(agents)
+    for r in rulebooks:
+        r["_path"] = os.path.relpath(r["_path"], start=out_dir)
+
+    # Build lookup maps for dependency resolution.
+    skill_tokens = {s["name"]: s["_tokens"] for s in skills}
+    rulebook_tokens = {r["name"]: r["_tokens"] for r in rulebooks}
+
+    agent_entries, aw = build_agents_data(agents, skill_tokens, rulebook_tokens)
     skill_entries, sw = build_skills_data(skills)
-    playbook_entries, pw = build_playbooks_data(playbooks)
+
+    # Agent total_tokens lookup for playbook roll-up.
+    agent_total_tokens = {
+        a["name"]: a.get("total_tokens", a.get("tokens", 0)) for a in agent_entries
+    }
+
+    playbook_entries, pw = build_playbooks_data(playbooks, agent_total_tokens)
+    rulebook_entries, rw = build_rulebooks_data(rulebooks)
+
+    all_warnings = aw + sw + pw + rw
+
+    if _TOKEN_FALLBACK:
+        all_warnings.append(
+            "tiktoken not available; token counts are chars ÷ 4 estimates"
+        )
 
     header = (
         "# Generated by scripts/index-lint from agents/*.md, skills/*/SKILL.md,\n"
-        "# and playbooks/*.md frontmatter — do not edit by hand, regenerate with\n"
-        "# scripts/index-lint.\n\n"
+        "# playbooks/*.md, and rulebooks/**/*.md frontmatter — do not edit by\n"
+        "# hand, regenerate with scripts/index-lint.\n\n"
     )
 
     lines = []
     lines += _render_section(
         "agents",
         agent_entries,
-        ["name", "title", "phase", "phase_name", "tier", "description", "path"],
+        [
+            "name",
+            "title",
+            "phase",
+            "phase_name",
+            "tier",
+            "description",
+            "path",
+            "tokens",
+            "total_tokens",
+        ],
     )
     lines.append("")
     lines += _render_section(
-        "skills", skill_entries, ["name", "category", "description", "path"]
+        "skills",
+        skill_entries,
+        ["name", "category", "description", "path", "tokens"],
     )
     lines.append("")
     lines += _render_section(
         "playbooks",
         playbook_entries,
-        ["name", "title", "category", "description", "path", "fsm", "agents"],
+        [
+            "name",
+            "title",
+            "category",
+            "description",
+            "path",
+            "fsm",
+            "agents",
+            "tokens",
+            "total_tokens",
+        ],
+    )
+    lines.append("")
+    lines += _render_section(
+        "rulebooks",
+        rulebook_entries,
+        ["name", "category", "path", "tokens"],
     )
 
     body = header + "\n".join(lines) + "\n"
-    return body, aw + sw + pw
+    return body, all_warnings
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -416,6 +605,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--agents-dir", default="factory/agents", type=Path)
     ap.add_argument("--skills-dir", default="factory/skills", type=Path)
     ap.add_argument("--playbooks-dir", default="factory/playbooks", type=Path)
+    ap.add_argument("--rulebooks-dir", default="factory/rulebooks", type=Path)
     ap.add_argument("--out", default="factory/INDEX.yaml", type=Path)
     ap.add_argument(
         "--check",
@@ -426,7 +616,11 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     content, warnings = render_index(
-        args.agents_dir, args.skills_dir, args.playbooks_dir, args.out
+        args.agents_dir,
+        args.skills_dir,
+        args.playbooks_dir,
+        args.rulebooks_dir,
+        args.out,
     )
 
     for w in warnings:

@@ -15,6 +15,7 @@ You need five tools. Skip any line you already have.
 | **Git**              | Version control                                     | macOS: `xcode-select --install`. Linux: `sudo apt install git` (Debian/Ubuntu) or `sudo dnf install git` (Fedora).                                                          |
 | **Python ≥ 3.10**    | Runs the check scripts and the init script          | macOS: `brew install python@3.12`. Linux: `sudo apt install python3.12` or equivalent.                                                                                      |
 | **uv**               | Runs `mdformat`, `ruff`, and `pre-commit` on demand | `curl -LsSf https://astral.sh/uv/install.sh \| sh` ([docs](https://docs.astral.sh/uv/))                                                                                     |
+| **tiktoken**         | Token counting for INDEX.yaml budget fields         | `pip install tiktoken` (optional — `index-lint` falls back to chars ÷ 4 without it)                                                                                         |
 | **Docker**           | Renders architecture diagrams (optional)            | [Install Docker](https://docs.docker.com/get-docker/)                                                                                                                       |
 | **An AI coding CLI** | Runs the agents and skills                          | e.g. [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`npm install -g @anthropic-ai/claude-code`) or [GitHub Copilot CLI](https://docs.github.com/en/copilot) |
 
