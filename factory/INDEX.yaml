@@ -211,7 +211,7 @@ skills:
     category: utility
     description: Wire Agent Factory into a project — new or existing — by running the deterministic init-factory script and relaying its result. Invoked explicitly, never automatically.
     path: skills/init-factory/SKILL.md
-    tokens: 763
+    tokens: 799
   - name: retrospective
     category: utility
     description: Run a structured session retrospective across five categories. Produces a timestamped report in docs/reviews/.
