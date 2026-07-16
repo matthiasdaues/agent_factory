@@ -1,6 +1,6 @@
 # Factory Guide
 
-What's inside `factory/`, and how its pieces fit together. If you just want to get running, go to [factory/README.md](../README.md) instead — this page is background, read it once you're set up.
+What's inside `factory/`, and how its pieces fit together. If you are brand new, start with the [beginner's introduction](../../docs/beginner-intro.md); if you just want to get running, go to [factory/README.md](../README.md) instead. This page is background — read it once you're set up.
 
 ## Agents
 
