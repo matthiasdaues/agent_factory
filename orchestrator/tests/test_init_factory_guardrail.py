@@ -31,7 +31,7 @@ init_factory = importlib.util.module_from_spec(_spec)
 sys.modules["init_factory"] = init_factory
 _loader.exec_module(init_factory)
 
-GUARDRAIL_COMMAND = init_factory.GUARDRAIL_HOOK_COMMAND
+GUARDRAIL_COMMAND = init_factory.CLAUDE_GUARDRAIL_HOOK_COMMAND
 
 
 def _run_init(target: Path) -> int:

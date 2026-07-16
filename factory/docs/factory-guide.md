@@ -100,7 +100,7 @@ Separately, `pre-commit` runs `mdformat` and `ruff` on every commit, formatting 
 
 One script serves both CLIs: it reads the shell command from either CLI's `PreToolUse` JSON shape, and both CLIs treat the hook's exit code 2 as "deny."
 
-The hook is installed automatically for every project — not opt-in, not a skill you invoke by hand. `init-factory` symlinks the script into both `.claude/hooks/` and `.github/hooks/`, and wires each CLI's own hook-config shape to it: `.claude/settings.json` as a `PreToolUse`/`Bash` hook for Claude Code, `.github/hooks/block-dangerous-git.json` (`matcher: "bash"`) for Copilot CLI. Since `.claude/` and `.github/` both stay gitignored, this is pure local machine state, re-created fresh by `init-factory` in every clone.
+The hook is installed automatically for every project — not opt-in, not a skill you invoke by hand. `init-factory` symlinks the script into both `.claude/hooks/` and `.github/hooks/`, and wires each CLI's own hook-config shape to it: `.claude/settings.json` as a `PreToolUse`/`Bash` hook for Claude Code, `.github/hooks/block-dangerous-git.json` (`matcher: "bash"`) for Copilot CLI. `.claude/` is gitignored wholesale; under `.github/`, only the entries Agent Factory adds — including `.github/hooks/` — are gitignored, never your Actions workflows. Either way this is pure local machine state, re-created fresh by `init-factory` in every clone.
 
 Treat it as a backstop, not a security boundary. It catches an accidental or under-pressure bypass — a background agent routing around a failing gate, for instance — not a determined one. A user with shell access outside the CLI, or anyone who edits the CLI's own configuration, can always route around it.
 
@@ -129,15 +129,18 @@ cd /path/to/existing-project
 /path/to/agent_factory/factory/scripts/init-factory
 ```
 
-What it does differently here, compared to a fresh project:
+Two promises govern the whole install: it never disturbs what the project already owns, and everything it adds can be removed without a trace. Concretely, against an existing repo:
 
-- **`.gitignore`** — appends only the lines Agent Factory needs. It never rewrites or duplicates what's already there.
-- **`.pre-commit-config.yaml`** — if the file doesn't exist, it's added exactly as in a fresh project. If it already exists, `init-factory` hands off to `factory/scripts/merge-precommit-config`, which splices Agent Factory's hooks into your existing `repos:` list, leaving your existing hooks untouched.
+- **`.gitignore`** — adds a single marker-delimited block headed `agent_factory related`, listing exactly the footprint it introduces. It never rewrites or duplicates what's already there, and it preserves your file's exact bytes (down to a missing final newline). Under `.github/` it ignores the specific entries it adds, one by one — never the whole directory, so your `.github/workflows/` stay tracked.
+- **`.pre-commit-config.yaml`** — the one tracked change. If the file doesn't exist, it's created carrying just Agent Factory's block. If it exists, `init-factory` hands off to `factory/scripts/merge-precommit-config`, which splices the `- repo: local` block — every hook id prefixed `agent_factory_hook-` — in at the top of your `repos:` list, leaving your own hooks untouched. An inert `.pre-commit-config.yml` is never touched; pre-commit only auto-reads `.yaml`.
+- **Orientation files** — if you already have a `.github/copilot-instructions.md` (or `.claude/CLAUDE.md`), it is left exactly as it is. Agent Factory's orientation is not forced on top of yours.
 - **Everything else** — your `docs/`, your scripts, your configuration — is left alone. `init-factory` never touches a file or directory it didn't create.
 
-The script is idempotent: run it again any time, and anything already correctly in place is skipped. If it finds something it can't safely work around, it stops immediately and names the exact path — it never partially applies a run.
+The script is idempotent: run it again any time, and anything already correctly in place is skipped. It records what it did in `.agent-factory/factory-install.json`, and a re-run reads that manifest so it never loses track of what it owns. If it finds something it can't safely work around, it stops immediately and names the exact path — it never partially applies a run.
 
-To trigger the same script conversationally instead of from a shell, use the `init-factory` skill (`factory/skills/init-factory/SKILL.md`): it confirms the target with you, runs the script, and relays its output.
+**Removing it again.** `factory/scripts/remove-factory` reverses the whole install from the manifest — deleting the git-ignored footprint, stripping the `agent_factory related` `.gitignore` block, and removing the `agent_factory_hook-` pre-commit block while leaving your own hooks in place — back to a clean `git status`. A repo that had its own `.gitignore`, pre-commit config, orientation file, or workflows gets them all back byte-for-byte.
+
+To trigger the install conversationally instead of from a shell, use the `init-factory` skill (`factory/skills/init-factory/SKILL.md`): it confirms the target with you, runs the script, and relays its output.
 
 ## Troubleshooting
 

@@ -1,70 +1,76 @@
-# Pre-commit hooks for Agent HQ projects.
+# Pre-commit hooks for Agent Factory projects.
 # Copied by project-init tooling — paths are project-root-relative.
 # The deterministic gate scripts live in factory/scripts/ (also copied by init).
 # mdformat and ruff are language/project gates; see factory/skills/validate/SKILL.md
 # for the same checks run on demand, mid-session, without a commit.
+#
+# EXTRICABLE BY PREFIX: every hook id below is prefixed `agent_factory_hook-`.
+# When init-factory splices this block into a project that already has its own
+# .pre-commit-config.yaml, it lands as a separate `- repo: local` list item whose
+# hooks all carry that prefix. remove-factory drops exactly that item, leaving the
+# project's own hooks untouched. Do not remove the prefix — it is the removal key.
 
 repos:
   - repo: local
     hooks:
       # formats all markdown files — zero local install, see factory/scripts/mdformat
-      - id: mdformat
-        name: mdformat
+      - id: agent_factory_hook-mdformat
+        name: "agent_factory: mdformat"
         entry: factory/scripts/mdformat --number
         language: system
         types: [markdown]
 
       # lints all python files (skip if the project isn't Python) — zero local install, via uvx
-      - id: ruff-check
-        name: ruff check
+      - id: agent_factory_hook-ruff-check
+        name: "agent_factory: ruff check"
         entry: uvx ruff check --fix
         language: system
         types_or: [python, pyi, jupyter]
 
       # lints python code blocks in markdown — zero local install, via uvx
-      - id: ruff-format
-        name: ruff format
+      - id: agent_factory_hook-ruff-format
+        name: "agent_factory: ruff format"
         entry: uvx ruff format
         language: system
         types_or: [python, pyi, jupyter]
 
-      - id: spec-lint
-        name: spec-lint (specification consistency & traceability)
+      - id: agent_factory_hook-spec-lint
+        name: "agent_factory: spec-lint (specification consistency & traceability)"
         entry: python3 factory/scripts/spec-lint
         language: system
         pass_filenames: false
         files: ^docs/spec/
 
-      - id: arch-lint
-        name: arch-lint (arc42 <-> Structurizr consistency, ADR frontmatter)
+      - id: agent_factory_hook-arch-lint
+        name: "agent_factory: arch-lint (arc42 <-> Structurizr consistency, ADR frontmatter)"
         entry: python3 factory/scripts/arch-lint --docs-dir docs --no-validate
         language: system
         pass_filenames: false
         files: ^docs/(architecture\.dsl|05_building_block_view\.md|assets/images/.*|adr/.*\.md)$
 
-      - id: backlog-lint
-        name: backlog-lint (story schema & traceability gate)
+      - id: agent_factory_hook-backlog-lint
+        name: "agent_factory: backlog-lint (story schema & traceability gate)"
         entry: python3 factory/scripts/backlog-lint --backlog-dir backlog
         language: system
         pass_filenames: false
         files: ^backlog/ST-.*\.md$
 
-      - id: matrix-lint
-        name: matrix-lint (model matrix consistency gate)
+      - id: agent_factory_hook-matrix-lint
+        name: "agent_factory: matrix-lint (model matrix consistency gate)"
         entry: python3 factory/scripts/matrix-lint --matrix config/model.conf
         language: system
         pass_filenames: false
         files: ^config/model\.conf$
 
-      - id: statemachine-lint
-        name: statemachine-lint (pseudocode ↔ Mermaid consistency)
+      - id: agent_factory_hook-statemachine-lint
+        name: "agent_factory: statemachine-lint (pseudocode <-> Mermaid consistency)"
         entry: python3 factory/scripts/statemachine-lint --spec-dir docs/spec
         language: system
         pass_filenames: false
         files: ^docs/spec/.*\.md$
 
-      - id: index-lint
-        name: index-lint (regenerate INDEX.yaml from agent/skill/playbook frontmatter)
+      - id: agent_factory_hook-index-lint
+        name: "agent_factory: index-lint (regenerate INDEX.yaml from agent/skill/playbook frontmatter)"
         entry: python3 factory/scripts/index-lint
         language: system
         pass_filenames: false
@@ -72,8 +78,8 @@ repos:
 
       # governs phase ORDERING between playbook states (not artifact validity);
       # inspects everything staged, so it always runs — no-op without a marker
-      - id: transition-lint
-        name: transition-lint (playbook phase-ordering gate)
+      - id: agent_factory_hook-transition-lint
+        name: "agent_factory: transition-lint (playbook phase-ordering gate)"
         entry: python3 factory/scripts/transition-lint
         language: system
         pass_filenames: false

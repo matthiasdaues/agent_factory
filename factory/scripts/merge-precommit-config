@@ -12,7 +12,7 @@ Deliberately not a general YAML merger (no third-party dependency, matching
 the zero-dependency approach of the other *-lint scripts, ADR-0006). It
 understands exactly one shape: a top-level `repos:` key holding a block-style
 list. Anything else about `--target`'s structure is left untouched — this
-script only ever appends one new list item to that one list.
+script only ever inserts one new list item at the top of that one list.
 
 Algorithm
   1. Derive the no-op marker from `--template` itself: its own first
@@ -25,13 +25,12 @@ Algorithm
   2. Otherwise find the line that is exactly `repos:` at column 0. Missing,
      or `repos:` written with inline content (flow style, e.g. `repos: []`)
      → abort; this shape isn't understood, merge by hand.
-  3. Find where that list ends: the next line back at column 0 (a sibling
-     top-level key), or EOF. Check the indent of the list's own existing
-     items (if any) matches our template's 2-space convention — a mismatch
-     would produce invalid YAML by mixing sibling indents, so abort rather
-     than guess.
-  4. Splice `--template`'s own `- repo: local` block (verbatim, unchanged)
-     in at that boundary.
+  3. Confirm the indent of the list's own existing items (if any) matches our
+     template's 2-space convention — a mismatch would produce invalid YAML by
+     mixing sibling indents, so abort rather than guess.
+  4. Splice `--template`'s own `- repo: local` block (verbatim, unchanged) in
+     at the TOP of the list, right after the `repos:` line, so Agent Factory's
+     gates run first and its block sits at a predictable, extricable position.
 
 Usage
   merge-precommit-config --target .pre-commit-config.yaml --template factory/config/pre-commit-config.yaml
@@ -164,8 +163,12 @@ def merge(target_text: str, template_text: str) -> str | None:
             "indents and produce invalid YAML; merge by hand"
         )
 
+    # Insert at the TOP of the repos: list (right after the `repos:` line), so
+    # Agent Factory's gates run first and the agent_factory_hook-* block sits at
+    # a predictable place. `start` is the index of the `repos:` line itself.
     block = find_template_block(template_text)
-    spliced = target_lines[:end] + [""] + block + target_lines[end:]
+    insert_at = start + 1
+    spliced = target_lines[:insert_at] + block + [""] + target_lines[insert_at:]
 
     return "\n".join(spliced) + "\n"
 
