@@ -1,6 +1,17 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["tiktoken"]
+# ///
 """index-lint - Generate/verify factory/INDEX.yaml from factory/agents/,
 factory/skills/, factory/playbooks/, and factory/rulebooks/ frontmatter.
+
+What: Regenerates factory/INDEX.yaml from that frontmatter, with per-entry
+      token counts; --check verifies it is current instead of rewriting.
+When: On commit when those frontmatter files change; --check in /validate;
+      run plain to regenerate.
+By:   pre-commit hook `index-lint`; trigger imports its
+      load_agents()/load_playbooks().
 
 INDEX.yaml is a generated artifact, never hand-edited: agents grouped by
 their `phase`/`phase-name` frontmatter, skills grouped by their `category`

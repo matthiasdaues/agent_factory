@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 """remove-factory — reverse an init-factory install back to a clean tree.
 
+What: Reads the removal manifest and undoes exactly what init-factory did,
+      nothing more.
+When: To uninstall Agent Factory from a project.
+By:   run by hand — the companion to init-factory.
+
 The companion to init-factory. Reads the removal manifest init-factory left at
 `.agent-factory/factory-install.json` and undoes exactly what that run did,
 nothing more:
 
-  - git-ignored footprint (factory/, .claude/, the specific .github/* entries,
-    config/model.conf, session ephemera, .agent-factory/) — deleted outright.
+  - git-ignored footprint (factory/, .claude/, .pi/, the specific .github/*
+    entries, root AGENTS.md when init-factory created it, config/model.conf,
+    session ephemera, .agent-factory/) — deleted outright.
     None of it was ever tracked, so `git status` is unaffected.
   - .gitignore — the single "agent_factory related" marker block is stripped
     (or the whole file removed, if init-factory created it).
@@ -215,7 +221,7 @@ def delete_paths(target: Path, manifest: dict) -> None:
 
 def prune_empty_dirs(target: Path) -> None:
     # Directories init-factory may have added into but not owned wholesale.
-    for rel in (".github/hooks", "config", ".github", ".claude"):
+    for rel in (".github/hooks", "config", ".github", ".claude", ".pi"):
         path = target / rel
         if path.is_dir() and not any(path.iterdir()):
             path.rmdir()

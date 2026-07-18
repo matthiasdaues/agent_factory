@@ -2,6 +2,13 @@
 """verify-base — assert a worktree's HEAD is not behind its target branch,
 and optionally that it was cut from a specific declared SHA.
 
+What: Checks a worktree's base is not stale (optionally against a declared
+      SHA) and writes verify-base-ok on a full pass.
+When: The first tool call in every worktree-isolated dispatch, before any
+      file is read or edited.
+By:   dispatch prompts (branching-policy preamble); enforced by
+      block-dangerous-git, which denies worktree `git commit` without the marker.
+
 Required as the FIRST tool call in every worktree-isolated dispatch prompt
 (branching-policy.md § Verify-Base Preamble). A worktree whose base has
 gone stale relative to its target branch reasons against code that no

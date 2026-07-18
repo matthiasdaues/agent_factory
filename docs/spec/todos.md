@@ -45,6 +45,24 @@ Deferred decisions and named gaps found while reverse-engineering this specifica
 
 `factory/scripts/verify-base` and `factory/scripts/premerge-check` now write a marker file on success; `block-dangerous-git.sh` denies `git commit` in a marker-less worktree and `git merge <branch>` without a matching `premerge-check-ok` marker. Mechanical enforcement, not a prompt instruction. Still open: `Edit`/`Write` inside a marker-less worktree aren't gated, only `git commit` — a subagent can still read/edit before verifying, just can't persist a commit.
 
+## T-08: Pi guardrail is an extension, weaker than the native hook path
+
+Under Pi the git-safety guardrail is a project-local extension loaded only after project trust resolves, not a native `PreToolUse` hook. A non-interactive run that has not saved trust (or is not launched with `-a`) can skip it. `run_agent` passes `-a` on every spawn (BR-031) so its children load the guardrail, but the parent Pi session's own guardrail still depends on trust. Documented in [factory/docs/factory-guide.md § CLI safety guardrails](../../factory/docs/factory-guide.md#cli-safety-guardrails).
+
+- [ ] Decide whether to recommend the global `~/.pi/agent/extensions/` install or a container as the stronger default for Pi.
+
+## T-09: `run_agent` tier resolution duplicates or shells the Python resolver
+
+`run-agent.ts` is TypeScript; the canonical tier→model resolver (`matrix-lint.parse_matrix`, reused by `trigger`) is Python. `run-agent.ts` must either re-implement the `model.conf` parse in TS or shell out to a small Python resolver to keep a single source of truth. See [ADR-0004](../../adr/0004-pi-subagent-invocation-via-subprocess-spawn.md).
+
+- [ ] Confirm the chosen resolution path holds up once OpenRouter model IDs (ADR-0005) populate `pi.*`.
+
+## T-10: `dispatch_wave` built after the `run_agent` primitive reaches readiness
+
+Per the build order, the `run_agent` single-agent primitive shipped and was validated first; `dispatch_wave` (parallel, worktree-isolated dispatch with `premerge-check` integration, FR-J4) followed. The tool takes one caller-planned, file-disjoint wave — output-file overlap and dependency ordering stay with the calling agent, as `implementation-agent` documents.
+
+- [x] Land `dispatch_wave` and its two-parallel-agent validation.
+
 ## Referenced from
 
 - [validation-rules.md](supplementary_specs/validation-rules.md)

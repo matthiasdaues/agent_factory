@@ -75,15 +75,27 @@ See [UC-06](../use_cases/UC-06-regenerate-the-catalog.md).
 
 See [UC-07](../use_cases/UC-07-block-a-dangerous-git-command.md).
 
+## `factory/config/extensions/run-agent.ts` — the `run_agent` tool
+
+|            |                                                                                                                                                                |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Invocation | Pi model-callable tool `run_agent(agent: string, task: string, model?: string)`, registered by the project-local extension when Pi trusts the project          |
+| Reads      | `factory/agents/<agent>.md` (persona and `tier` frontmatter); `config/model.conf` `pi.<tier>` (via the shared tier resolver); the `PI_RUN_AGENT_DEPTH` env var |
+| Spawns     | `pi --no-session -a --mode json --model <m> --append-system-prompt <agent.md> -p <task>` in the project directory, with `PI_RUN_AGENT_DEPTH` incremented       |
+| Returns    | `{ text, usage, exitCode }` parsed from the child's `message_end` event; an error result (no spawn) on unknown agent, unresolved model, or exceeded depth      |
+| Guardrail  | The child loads `.pi/extensions/`, so the git-safety guardrail binds it too; the one sanctioned `factory/scripts/run-tests --staged` remains permitted         |
+
+See [UC-10](../use_cases/UC-10-invoke-a-factory-agent-under-pi.md).
+
 ## `factory/scripts/init-factory`
 
-|               |                                                                                                                                                                             |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage         | `init-factory [--source DIR] [--target DIR]`                                                                                                                                |
-| Reads         | The source checkout's `factory/`; the target's existing `.gitignore`, `.claude/settings.json`, `.pre-commit-config.yaml`, `config/model.conf`, if present                   |
-| Writes        | `factory/` (copy, once), `.gitignore` (merge), `.claude/`, `.github/` (symlinks + settings), `config/model.conf` (copy, once), `.pre-commit-config.yaml` (symlink or merge) |
-| Exit code     | `0` on success, including a clean no-op re-run; `1` on any collision or unsupported existing state                                                                          |
-| stdout/stderr | One `init-factory: <line>` report line per step; `init-factory: STOPPED — <reason>` on collision                                                                            |
+|               |                                                                                                                                                                                                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage         | `init-factory [--source DIR] [--target DIR]`                                                                                                                                                                                                |
+| Reads         | The source checkout's `factory/`; the target's existing `.gitignore`, `.claude/settings.json`, `.pre-commit-config.yaml`, `config/model.conf`, if present                                                                                   |
+| Writes        | `factory/` (copy, once), `.gitignore` (merge), `.claude/`, `.github/`, `.pi/` (symlinks + settings; `.pi/extensions/` for the guardrail and `run-agent.ts`), `config/model.conf` (copy, once), `.pre-commit-config.yaml` (symlink or merge) |
+| Exit code     | `0` on success, including a clean no-op re-run; `1` on any collision or unsupported existing state                                                                                                                                          |
+| stdout/stderr | One `init-factory: <line>` report line per step; `init-factory: STOPPED — <reason>` on collision                                                                                                                                            |
 
 See [UC-08](../use_cases/UC-08-initialize-agent-factory-into-a-project.md).
 

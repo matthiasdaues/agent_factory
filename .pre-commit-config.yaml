@@ -46,42 +46,42 @@ repos:
 
       - id: spec-lint
         name: spec-lint (specification consistency & traceability)
-        entry: python3 factory/scripts/spec-lint
+        entry: factory/scripts/spec-lint
         language: system
         pass_filenames: false
         files: ^docs/spec/
 
       - id: arch-lint
         name: arch-lint (arc42 <-> Structurizr consistency, ADR frontmatter)
-        entry: python3 factory/scripts/arch-lint --docs-dir docs --no-validate
+        entry: factory/scripts/arch-lint --docs-dir docs --no-validate
         language: system
         pass_filenames: false
         files: ^docs/(architecture\.dsl|05_building_block_view\.md|assets/images/.*|adr/.*\.md)$
 
       - id: backlog-lint
         name: backlog-lint (story schema & traceability gate)
-        entry: python3 factory/scripts/backlog-lint --backlog-dir backlog
+        entry: factory/scripts/backlog-lint --backlog-dir backlog
         language: system
         pass_filenames: false
         files: ^backlog/ST-.*\.md$
 
       - id: matrix-lint
         name: matrix-lint (model matrix consistency gate)
-        entry: python3 factory/scripts/matrix-lint --matrix config/model.conf
+        entry: factory/scripts/matrix-lint --matrix config/model.conf
         language: system
         pass_filenames: false
         files: ^config/model\.conf$
 
       - id: statemachine-lint
         name: statemachine-lint (pseudocode ↔ Mermaid consistency)
-        entry: python3 factory/scripts/statemachine-lint --spec-dir docs/spec
+        entry: factory/scripts/statemachine-lint --spec-dir docs/spec
         language: system
         pass_filenames: false
         files: ^docs/spec/.*\.md$
 
       - id: index-lint
         name: index-lint (regenerate INDEX.yaml from agent/skill/playbook/rulebook frontmatter)
-        entry: python3 factory/scripts/index-lint
+        entry: factory/scripts/index-lint
         language: system
         pass_filenames: false
         files: ^(factory/agents/.*\.md|factory/skills/.*/SKILL\.md|factory/playbooks/.*\.md|factory/rulebooks/(?!templates/).*\.md)$
@@ -90,7 +90,7 @@ repos:
       # inspects everything staged, so it always runs — no-op without a marker
       - id: transition-lint
         name: transition-lint (playbook phase-ordering gate)
-        entry: python3 factory/scripts/transition-lint
+        entry: factory/scripts/transition-lint
         language: system
         pass_filenames: false
         always_run: true
@@ -98,7 +98,7 @@ repos:
       # UC-09, BR-029: Run tests only when src/ or test/ code changes
       - id: run-tests
         name: run-tests (changed-only mode)
-        entry: python3 factory/scripts/run-tests --changed-only
+        entry: factory/scripts/run-tests --changed-only
         language: system
         pass_filenames: false
         files: ^(src/|tests?/)
@@ -128,35 +128,35 @@ repos:
 
       - id: spec-lint-orchestrator
         name: spec-lint (specification consistency & traceability, orchestrator)
-        entry: python3 factory/scripts/spec-lint --spec-dir orchestrator/docs/spec
+        entry: factory/scripts/spec-lint --spec-dir orchestrator/docs/spec
         language: system
         pass_filenames: false
         files: ^orchestrator/docs/spec/
 
       - id: arch-lint-orchestrator
         name: arch-lint (arc42 <-> Structurizr consistency, orchestrator)
-        entry: python3 factory/scripts/arch-lint --docs-dir orchestrator/docs --no-validate
+        entry: factory/scripts/arch-lint --docs-dir orchestrator/docs --no-validate
         language: system
         pass_filenames: false
         files: ^orchestrator/docs/(architecture\.dsl|05_building_block_view\.md|assets/images/.*)$
 
       - id: backlog-lint-orchestrator
         name: backlog-lint (story schema & traceability gate, orchestrator)
-        entry: python3 factory/scripts/backlog-lint --backlog-dir orchestrator/backlog
+        entry: factory/scripts/backlog-lint --backlog-dir orchestrator/backlog
         language: system
         pass_filenames: false
         files: ^orchestrator/backlog/ST-.*\.md$
 
       - id: matrix-lint-orchestrator
         name: matrix-lint (model matrix consistency gate, orchestrator)
-        entry: python3 factory/scripts/matrix-lint --matrix orchestrator/model.conf
+        entry: factory/scripts/matrix-lint --matrix orchestrator/model.conf
         language: system
         pass_filenames: false
         files: ^orchestrator/model\.conf$
 
       - id: statemachine-lint-orchestrator
         name: statemachine-lint (pseudocode ↔ Mermaid consistency, orchestrator)
-        entry: python3 factory/scripts/statemachine-lint --spec-dir orchestrator/docs/spec
+        entry: factory/scripts/statemachine-lint --spec-dir orchestrator/docs/spec
         language: system
         pass_filenames: false
         files: ^orchestrator/docs/spec/.*\.md$

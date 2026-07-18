@@ -1,5 +1,15 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
 """arch-lint — deterministic consistency gate for arc42 + Structurizr docs.
+
+What: Flags drift between arc42 prose chapters and architecture.dsl, and
+      invalid ADR frontmatter.
+When: On commit when architecture.dsl, chapter 5, ADRs, or diagrams change;
+      on demand via /validate.
+By:   pre-commit hook `arch-lint`; the atam-review and maintain-architecture
+      skills.
 
 Catches the drift class from the DSL-drift post-mortem: prose chapters and the
 Structurizr model (`architecture.dsl`) evolving out of step, with no check to

@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """session-reconcile — compare the session log against real git state.
 
+What: Diffs the session log against committed changes and the working tree,
+      flagging unexplained or drifted paths (no LLM).
+When: After a session, to audit that logged runs match the tree.
+By:   run by hand / a reconcile step — not a gate.
+
 Reads two machine facts and reports where they disagree, with no LLM and no
 prose-parsing (see factory/docs/proposals/session-log-addendum.md § 4):
 

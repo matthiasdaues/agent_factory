@@ -2,6 +2,13 @@
 """trigger — resolve an agent or playbook step from factory/INDEX.yaml's
 source data and invoke it via a CLI, interactive or background.
 
+What: Resolves what to run (agent, or one playbook step) and its model
+      (tier → model.conf), then hands off to the target CLI.
+When: At dispatch, when a skill or orchestrator runs an agent or advances a
+      playbook step.
+By:   the run-step skill and orchestration — not a gate; sequencing lives in
+      transition-lint and phase.
+
 This is the whole of the CLI-agnostic dispatch mechanism: resolve what to
 run (agent name, or one step of a playbook's agent sequence) and how
 (tier -> model via model.conf), then hand off to the target CLI. It does

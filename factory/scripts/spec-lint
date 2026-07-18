@@ -1,5 +1,15 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
 # spec-lint - Deterministic consistency & traceability linter for docs/spec/.
+#
+# What: Parses docs/spec/ Markdown, builds the traceability graph, and reports
+#       deterministic ID/consistency defects — Pass 1 of the spec review.
+# When: On commit when docs/spec/ changes; on demand via /validate; ahead of
+#       the inspect-spec LLM pass.
+# By:   pre-commit hook `spec-lint` (and its orchestrator variant); the
+#       inspect-spec skill / spec-review-agent.
 #
 # This is the Pass-1 (deterministic) half of the spec review mechanism. It parses
 # the Markdown specification artifacts, builds a traceability graph from the declared

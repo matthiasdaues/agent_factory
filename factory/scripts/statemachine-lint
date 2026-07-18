@@ -1,5 +1,13 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
 """statemachine-lint — pseudocode ↔ Mermaid consistency gate for state machines.
+
+What: Verifies co-located Mermaid stateDiagram-v2 blocks are strictly derived
+      from the canonical pseudocode (the pseudocode is the source of truth).
+When: On commit when docs/spec/ markdown changes; on demand via /validate.
+By:   pre-commit hook `statemachine-lint`.
 
 Parses the canonical event-driven pseudocode notation from markdown files and
 validates that any co-located Mermaid stateDiagram-v2 blocks are strictly

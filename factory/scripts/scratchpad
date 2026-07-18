@@ -1,6 +1,11 @@
 #!/bin/bash
 # scratchpad - Append a note to session-scratchpad.md, sectioned by date
 #
+# What: Appends a note (from stdin) to ./session-scratchpad.md under a dated
+#       section.
+# When: When the user says "note this" or invokes /scratchpad.
+# By:   the scratchpad skill.
+#
 # Reads the note from stdin, writes to ./session-scratchpad.md (project
 # root, cwd-relative). Creates the file if missing. Starts a new "## YYYY-MM-DD"
 # section when the most recent date section isn't today. Appends the note as

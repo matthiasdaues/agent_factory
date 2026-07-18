@@ -36,42 +36,42 @@ repos:
 
       - id: agent_factory_hook-spec-lint
         name: "agent_factory: spec-lint (specification consistency & traceability)"
-        entry: python3 factory/scripts/spec-lint
+        entry: factory/scripts/spec-lint
         language: system
         pass_filenames: false
         files: ^docs/spec/
 
       - id: agent_factory_hook-arch-lint
         name: "agent_factory: arch-lint (arc42 <-> Structurizr consistency, ADR frontmatter)"
-        entry: python3 factory/scripts/arch-lint --docs-dir docs --no-validate
+        entry: factory/scripts/arch-lint --docs-dir docs --no-validate
         language: system
         pass_filenames: false
         files: ^docs/(architecture\.dsl|05_building_block_view\.md|assets/images/.*|adr/.*\.md)$
 
       - id: agent_factory_hook-backlog-lint
         name: "agent_factory: backlog-lint (story schema & traceability gate)"
-        entry: python3 factory/scripts/backlog-lint --backlog-dir backlog
+        entry: factory/scripts/backlog-lint --backlog-dir backlog
         language: system
         pass_filenames: false
         files: ^backlog/ST-.*\.md$
 
       - id: agent_factory_hook-matrix-lint
         name: "agent_factory: matrix-lint (model matrix consistency gate)"
-        entry: python3 factory/scripts/matrix-lint --matrix config/model.conf
+        entry: factory/scripts/matrix-lint --matrix config/model.conf
         language: system
         pass_filenames: false
         files: ^config/model\.conf$
 
       - id: agent_factory_hook-statemachine-lint
         name: "agent_factory: statemachine-lint (pseudocode <-> Mermaid consistency)"
-        entry: python3 factory/scripts/statemachine-lint --spec-dir docs/spec
+        entry: factory/scripts/statemachine-lint --spec-dir docs/spec
         language: system
         pass_filenames: false
         files: ^docs/spec/.*\.md$
 
       - id: agent_factory_hook-index-lint
         name: "agent_factory: index-lint (regenerate INDEX.yaml from agent/skill/playbook frontmatter)"
-        entry: python3 factory/scripts/index-lint
+        entry: factory/scripts/index-lint
         language: system
         pass_filenames: false
         files: ^(factory/agents/.*\.md|factory/skills/.*/SKILL\.md|factory/playbooks/.*\.md)$
@@ -80,7 +80,7 @@ repos:
       # inspects everything staged, so it always runs — no-op without a marker
       - id: agent_factory_hook-transition-lint
         name: "agent_factory: transition-lint (playbook phase-ordering gate)"
-        entry: python3 factory/scripts/transition-lint
+        entry: factory/scripts/transition-lint
         language: system
         pass_filenames: false
         always_run: true

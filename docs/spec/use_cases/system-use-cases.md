@@ -62,6 +62,16 @@ Technical requirements at the system's interfaces, expressed in **EARS** syntax 
 - If the command matches a pattern in the fixed dangerous-pattern list, then `block-dangerous-git.sh` shall exit `2` and report the matched pattern (UC-07, BR-019).
 - Where the command matches no pattern in the list, `block-dangerous-git.sh` shall exit `0` (UC-07).
 
+## Pi agent invocation (`run_agent`)
+
+- When the caller invokes `run_agent`, the extension shall spawn a fresh `pi` subprocess and never role-play the agent in the caller's own session (UC-10, BR-030).
+- The spawned child shall be granted project trust per spawn with `-a` (UC-10, BR-031).
+- The spawned child shall receive the agent persona via `--append-system-prompt`, preserving Pi's own tool guidance and the project `AGENTS.md` (UC-10, BR-032).
+- Where the child loads `.pi/extensions/`, the git-safety guardrail shall bind the child as it binds the parent (UC-10, BR-033).
+- `run_agent` shall return structured JSON parsed from `--mode json` `message_end`, carrying final text and token usage (UC-10, BR-034).
+- If the spawn depth recorded in `PI_RUN_AGENT_DEPTH` is at the bound, then `run_agent` shall refuse to spawn and return a depth-bound error (UC-10, BR-035).
+- If the named agent file is absent, or no model resolves for `pi.<tier>` under `on_missing: halt`, then `run_agent` shall return an error result and launch no subprocess (UC-10).
+
 ## Installation (`init-factory`)
 
 - When `init-factory` finds an unexpected file at a destination path, it shall stop the entire run before any later step executes (UC-08, BR-021).
