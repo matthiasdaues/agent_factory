@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Test Record",
+  "type": "object",
+  "required": [
+    "claim_id",
+    "claim_version",
+    "test_question",
+    "refuting_result",
+    "method",
+    "evidence_examined",
+    "observed_result",
+    "limitations",
+    "outcome"
+  ],
+  "properties": {
+    "claim_id": {
+      "type": "string",
+      "pattern": "^CLAIM-[0-9]{4}$"
+    },
+    "claim_version": {
+      "type": "integer"
+    },
+    "test_question": {
+      "type": "string"
+    },
+    "refuting_result": {
+      "type": "string"
+    },
+    "method": {
+      "type": "string"
+    },
+    "evidence_examined": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "observed_result": {
+      "type": "string"
+    },
+    "limitations": {
+      "type": "string"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["SURVIVED", "REFUTED", "INCONCLUSIVE", "INVALID_TEST"]
+    }
+  }
+}
