@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "required": ["bounded_question", "assignment_type"],
+  "properties": {
+    "bounded_question": { "type": "string" },
+    "assignment_type": {
+      "type": "string",
+      "enum": ["direct-evidence", "contrary-evidence", "alternative-explanation"]
+    }
+  }
+}
