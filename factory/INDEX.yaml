@@ -84,6 +84,15 @@ agents:
     path: agents/qa-agent.md
     tokens: 614
     total_tokens: 4142
+  - name: claim-reviewer
+    title: Claim Reviewer
+    phase: 6
+    phase_name: Research
+    tier: standard
+    description: Attempts to refute a claim produced by the Researcher, checking whether it can be falsified, whether its sources hold up, and whether its tests were severe — then casts a vote on its disposition without ever editing the claim itself.
+    path: agents/claim-reviewer.md
+    tokens: 607
+    total_tokens: 2185
   - name: research-orchestrator
     title: Research Orchestrator
     phase: 6
