@@ -393,6 +393,10 @@ rulebooks:
     category: conventions
     path: rulebooks/conventions/versioning-policy.md
     tokens: 657
+  - name: claim-admission-policy
+    category: policies
+    path: rulebooks/policies/research/claim-admission-policy.md
+    tokens: 978
   - name: evidence-policy
     category: policies
     path: rulebooks/policies/research/evidence-policy.md
@@ -401,3 +405,7 @@ rulebooks:
     category: policies
     path: rulebooks/policies/research/report-policy.md
     tokens: 726
+  - name: role-separation
+    category: policies
+    path: rulebooks/policies/research/role-separation.md
+    tokens: 878
