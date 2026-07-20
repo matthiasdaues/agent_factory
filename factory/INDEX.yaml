@@ -393,3 +393,11 @@ rulebooks:
     category: conventions
     path: rulebooks/conventions/versioning-policy.md
     tokens: 657
+  - name: evidence-policy
+    category: policies
+    path: rulebooks/policies/research/evidence-policy.md
+    tokens: 700
+  - name: report-policy
+    category: policies
+    path: rulebooks/policies/research/report-policy.md
+    tokens: 726
