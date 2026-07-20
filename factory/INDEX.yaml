@@ -102,6 +102,15 @@ agents:
     path: agents/research-orchestrator.md
     tokens: 1087
     total_tokens: 2943
+  - name: research-report-writer
+    title: Research Report Writer
+    phase: 6
+    phase_name: Research
+    tier: standard
+    description: Writes the final report from the frozen claim register. Arranges surviving claims, summarizes them, and preserves refutations and limitations — without conducting new research or overstating what survived.
+    path: agents/research-report-writer.md
+    tokens: 639
+    total_tokens: 1365
   - name: researcher
     title: Researcher
     phase: 6
