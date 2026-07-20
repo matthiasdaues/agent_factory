@@ -1,0 +1,739 @@
+#!/usr/bin/env python3
+# policy-validate — deterministic policy validator for research artifacts.
+#
+# What: Stage 2 of the three-stage research validation order
+#       (schema -> policy -> semantic). Given a set of related research
+#       artifacts (conjectures, source records, test records, reviews, votes, a
+#       claim register, and a final report), it enforces the *enforceable* half
+#       of the four research policies (role-separation, claim-admission,
+#       evidence, report). It never judges meaning — whether evidence is
+#       convincing, whether a source is truly independent in substance, whether
+#       a test was severe. Those semantic questions belong to stage 3 and to
+#       human/agent reviewers.
+#
+# When: After schema validation (stage 1, `factory/scripts/schema-validate`) and
+#       before semantic review (stage 3). The `--pipeline` mode runs the stages
+#       in order and stops at the first failing stage.
+#
+# By:   `factory/scripts/policy-validate <artifact-or-dir>...`
+#       `factory/scripts/policy-validate --pipeline <artifact-or-dir>...`
+#
+# Like schema-validate, this has NO third-party dependencies (Python 3.8+ stdlib
+# only), so it runs anywhere without a virtualenv, and is subprocess-friendly:
+# one PASS/FAIL line per check to stdout, operational errors to stderr.
+#
+# Artifact kind is inferred from an explicit top-level `artifact_type` field
+# when present, otherwise from the file-name prefix (the playbook's directory
+# layout: conjectures/, sources/, tests/, reviews/, votes/, plus the singular
+# claim-register and final-report). The research schemas leave
+# `additionalProperties` open, so the policy-only fields this validator reads
+# (a conjecture's `claim_id`/`author`, a review's `reviewer`/`review_id`, a
+# register entry's `claim_id`) pass schema validation untouched.
+#
+# Correlation model (from the role-separation and claim-admission policies):
+#   conjecture   : claim_id, content_hash (current claim version), author,
+#                  planned_tests, qualifications, supporting_evidence
+#   source-record: source_identity, source_family
+#   test-record  : claim_id, outcome (SURVIVED/REFUTED/INCONCLUSIVE/INVALID_TEST)
+#   review       : claim_id, reviewer, review_id, defect_level, [claim_hash]
+#   vote         : review_ref -> review.review_id, claim_hash, reviewer, value
+#   claim-register: surviving/refuted/unresolved/superseded claims (by claim_id)
+#   final-report : findings[].surviving_claim_refs -> register surviving claim_id
+#
+# Exit code:
+#   0  every enforceable policy check passed
+#   1  at least one policy (or, in --pipeline, schema) check failed
+#   2  operational error — missing file, unreadable/invalid JSON, bad usage
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+# Directory of this script, used to locate schema-validate and the schemas.
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_SCHEMA_VALIDATE = _SCRIPT_DIR / "schema-validate"
+_DEFAULT_SCHEMAS_DIR = _SCRIPT_DIR.parent / "rulebooks" / "schemas" / "research"
+
+# Default quorum: the minimum number of *decisive* votes (SURVIVE or REFUTE) a
+# claim needs before a survival tally is even considered. Mirrors the workflow's
+# "at least three reviewers must assess each material claim". Overridable so a
+# research plan can set its own threshold (the policies defer quorum size to
+# planning).
+_DEFAULT_QUORUM = 3
+
+# Test outcomes.
+_REFUTING_OUTCOME = "REFUTED"
+_INVALID_OUTCOME = "INVALID_TEST"
+_SURVIVED_OUTCOME = "SURVIVED"
+
+# Ordered kind prefixes: most specific first so "claim-register" is not mistaken
+# for a "claim..." conjecture and "source-record" resolves to the source kind.
+_KIND_PREFIXES = [
+    "claim-register",
+    "final-report",
+    "source",
+    "test",
+    "conjecture",
+    "review",
+    "vote",
+]
+
+# Kind -> schema file name, for the --pipeline schema stage.
+_KIND_SCHEMA = {
+    "conjecture": "conjecture.schema.json",
+    "source": "source-record.schema.json",
+    "test": "test-record.schema.json",
+    "review": "review.schema.json",
+    "vote": "vote.schema.json",
+    "claim-register": "claim-register.schema.json",
+    "final-report": "final-report.schema.json",
+}
+
+
+class Artifact:
+    """One loaded research artifact plus the metadata the checks correlate on.
+
+    Wraps the parsed JSON (`data`) with its source `path` and inferred `kind`.
+    `record_id` is the review id / stable handle used when another artifact
+    references this one (a vote's `review_ref` points at a review's id); it
+    falls back to the file stem when the artifact carries no explicit id.
+    """
+
+    def __init__(self, path: Path, kind: str, data: Any):
+        self.path = path
+        self.kind = kind
+        self.data = data
+
+    @property
+    def record_id(self) -> str:
+        if isinstance(self.data, dict):
+            for key in ("review_id", "id"):
+                value = self.data.get(key)
+                if isinstance(value, str) and value:
+                    return value
+        return self.path.stem
+
+
+class CheckResult:
+    """Outcome of one named policy check: passed flag plus failure messages."""
+
+    def __init__(self, name: str):
+        self.name = name
+        self.failures: List[str] = []
+
+    def fail(self, message: str) -> None:
+        self.failures.append(message)
+
+    @property
+    def ok(self) -> bool:
+        return not self.failures
+
+
+# --------------------------------------------------------------------------- #
+# Loading and classification
+# --------------------------------------------------------------------------- #
+
+
+def _load_json(path: Path) -> Any:
+    """Parse a JSON file, exiting 2 with a clear message on failure."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        print(f"policy-validate: cannot read '{path}': {exc}", file=sys.stderr)
+        raise SystemExit(2)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as exc:
+        print(f"policy-validate: '{path}' is not valid JSON: {exc}", file=sys.stderr)
+        raise SystemExit(2)
+
+
+def _infer_kind(path: Path, data: Any) -> Optional[str]:
+    """Determine an artifact's kind from its `artifact_type` field or file name.
+
+    An explicit `artifact_type` wins; otherwise the file-name prefix is matched
+    against the known kinds (most specific first). Returns None for a file whose
+    kind cannot be determined, so the caller can decide whether to skip or error.
+    """
+    if isinstance(data, dict):
+        declared = data.get("artifact_type")
+        if isinstance(declared, str) and declared in _KIND_SCHEMA:
+            return declared
+    stem = path.stem.lower()
+    for kind in _KIND_PREFIXES:
+        if stem == kind or stem.startswith(kind):
+            return kind
+    return None
+
+
+def _gather_files(paths: List[str]) -> List[Path]:
+    """Expand CLI paths into a sorted list of JSON files.
+
+    A directory contributes every `*.json` under it (recursively, matching the
+    playbook's nested output layout); a file contributes itself.
+    """
+    files: List[Path] = []
+    for raw in paths:
+        p = Path(raw)
+        if p.is_dir():
+            files.extend(sorted(p.rglob("*.json")))
+        elif p.is_file():
+            files.append(p)
+        else:
+            print(f"policy-validate: no such path '{p}'", file=sys.stderr)
+            raise SystemExit(2)
+    return files
+
+
+class ArtifactSet:
+    """Indexed view over a related set of artifacts, built once for all checks.
+
+    Holds the per-kind collections and the lookup tables (conjecture by claim id
+    and by content hash, reviews by id and by claim, tests by claim) that the
+    correlation checks read. A research run yields at most one claim register and
+    one final report; the rest are lists.
+    """
+
+    def __init__(self, artifacts: List[Artifact]):
+        self.artifacts = artifacts
+        self.conjectures: List[Artifact] = []
+        self.sources: List[Artifact] = []
+        self.tests: List[Artifact] = []
+        self.reviews: List[Artifact] = []
+        self.votes: List[Artifact] = []
+        self.register: Optional[Artifact] = None
+        self.report: Optional[Artifact] = None
+
+        for art in artifacts:
+            if art.kind == "conjecture":
+                self.conjectures.append(art)
+            elif art.kind == "source":
+                self.sources.append(art)
+            elif art.kind == "test":
+                self.tests.append(art)
+            elif art.kind == "review":
+                self.reviews.append(art)
+            elif art.kind == "vote":
+                self.votes.append(art)
+            elif art.kind == "claim-register":
+                self.register = art
+            elif art.kind == "final-report":
+                self.report = art
+
+        # claim_id -> conjecture; content_hash -> conjecture (current version).
+        self.conjecture_by_claim: Dict[str, Artifact] = {}
+        self.conjecture_by_hash: Dict[str, Artifact] = {}
+        for c in self.conjectures:
+            claim_id = c.data.get("claim_id")
+            if isinstance(claim_id, str):
+                self.conjecture_by_claim[claim_id] = c
+            content_hash = c.data.get("content_hash")
+            if isinstance(content_hash, str):
+                self.conjecture_by_hash[content_hash] = c
+
+        # review_id -> review; claim_id -> [reviews].
+        self.review_by_id: Dict[str, Artifact] = {}
+        self.reviews_by_claim: Dict[str, List[Artifact]] = {}
+        for r in self.reviews:
+            self.review_by_id[r.record_id] = r
+            claim_id = r.data.get("claim_id")
+            if isinstance(claim_id, str):
+                self.reviews_by_claim.setdefault(claim_id, []).append(r)
+
+        # claim_id -> [tests].
+        self.tests_by_claim: Dict[str, List[Artifact]] = {}
+        for t in self.tests:
+            claim_id = t.data.get("claim_id")
+            if isinstance(claim_id, str):
+                self.tests_by_claim.setdefault(claim_id, []).append(t)
+
+        # source_identity -> source_family.
+        self.family_by_source: Dict[str, str] = {}
+        for s in self.sources:
+            ident = s.data.get("source_identity")
+            family = s.data.get("source_family")
+            if isinstance(ident, str) and isinstance(family, str):
+                self.family_by_source[ident] = family
+
+    def current_hash(self, claim_id: str) -> Optional[str]:
+        """Content hash of the current conjecture for `claim_id`, or None."""
+        c = self.conjecture_by_claim.get(claim_id)
+        if c is None:
+            return None
+        h = c.data.get("content_hash")
+        return h if isinstance(h, str) else None
+
+    def votes_for_claim(self, claim_id: str) -> List[Artifact]:
+        """Votes whose review references `claim_id` (via review_ref -> review)."""
+        result = []
+        for v in self.votes:
+            if self._vote_claim_id(v) == claim_id:
+                result.append(v)
+        return result
+
+    def _vote_claim_id(self, vote: Artifact) -> Optional[str]:
+        """Resolve a vote to its claim id through its referenced review."""
+        review_ref = vote.data.get("review_ref")
+        review = self.review_by_id.get(review_ref) if review_ref else None
+        if review is not None:
+            claim_id = review.data.get("claim_id")
+            if isinstance(claim_id, str):
+                return claim_id
+        # Fallback: resolve through the claim hash to the current conjecture.
+        conj = self.conjecture_by_hash.get(vote.data.get("claim_hash"))
+        if conj is not None:
+            claim_id = conj.data.get("claim_id")
+            if isinstance(claim_id, str):
+                return claim_id
+        return None
+
+
+# --------------------------------------------------------------------------- #
+# Checks
+# --------------------------------------------------------------------------- #
+
+
+def check_reference_integrity(s: ArtifactSet) -> CheckResult:
+    """Every cross-artifact reference resolves to an artifact that exists.
+
+    Reviews and tests must name a known claim; a vote must name a review that
+    exists. (Whether the vote's hash is *current* is the claim-admission check,
+    not a dangling-reference error, so a superseded hash is not flagged here.)
+    """
+    result = CheckResult("reference-integrity")
+    for r in s.reviews:
+        claim_id = r.data.get("claim_id")
+        if claim_id not in s.conjecture_by_claim:
+            result.fail(f"review '{r.record_id}' references unknown claim '{claim_id}'")
+    for t in s.tests:
+        claim_id = t.data.get("claim_id")
+        if claim_id not in s.conjecture_by_claim:
+            result.fail(f"test '{t.path.stem}' references unknown claim '{claim_id}'")
+    for v in s.votes:
+        review_ref = v.data.get("review_ref")
+        if review_ref not in s.review_by_id:
+            result.fail(
+                f"vote '{v.path.stem}' references unknown review '{review_ref}'"
+            )
+    return result
+
+
+def check_role_separation(s: ArtifactSet) -> CheckResult:
+    """No agent both authors a claim and judges it; the orchestrator never judges.
+
+    For each claim, the author identity must not appear among its *judges*
+    (reviewers and voters are one role, the Claim Reviewer, so a reviewer who
+    also votes is fine). The orchestrator identity — if the register names one —
+    must not author or judge any claim. This covers role-separation Rules 1, 3,
+    and 5. Rule 2 (a reviewer must not edit the claim) and Rule 4 (the report
+    writer must not create findings) are enforced elsewhere: Rule 4 is the
+    report-traceability check; Rule 2 needs the prior claim version and is a
+    semantic-stage concern.
+    """
+    result = CheckResult("role-separation")
+    orchestrator = None
+    if s.register is not None:
+        orchestrator = s.register.data.get("orchestrator")
+
+    for claim_id, conj in s.conjecture_by_claim.items():
+        author = conj.data.get("author")
+        judges = set()
+        for r in s.reviews_by_claim.get(claim_id, []):
+            reviewer = r.data.get("reviewer")
+            if isinstance(reviewer, str):
+                judges.add(reviewer)
+        for v in s.votes_for_claim(claim_id):
+            voter = v.data.get("reviewer")
+            if isinstance(voter, str):
+                judges.add(voter)
+
+        if isinstance(author, str) and author in judges:
+            result.fail(
+                f"{claim_id}: author '{author}' also reviews or votes on its own claim"
+            )
+        if isinstance(orchestrator, str):
+            if orchestrator in judges:
+                result.fail(
+                    f"{claim_id}: orchestrator '{orchestrator}' reviews or votes"
+                )
+            if orchestrator == author:
+                result.fail(
+                    f"{claim_id}: orchestrator '{orchestrator}' also authored the claim"
+                )
+    return result
+
+
+def check_source_family_independence(s: ArtifactSet) -> CheckResult:
+    """Copies from one source family do not count as independent corroboration.
+
+    A conjecture that cites two or more distinct source records sharing a single
+    source family is presenting repetition as if it were corroboration. Only one
+    source family may be credited per finding (Evidence Policy).
+    """
+    result = CheckResult("source-family-independence")
+    for conj in s.conjectures:
+        claim_id = conj.data.get("claim_id", conj.path.stem)
+        cited = [
+            ev
+            for ev in conj.data.get("supporting_evidence", [])
+            if ev in s.family_by_source
+        ]
+        family_of = {ident: s.family_by_source[ident] for ident in cited}
+        if len(cited) > len(set(family_of.values())):
+            # At least two cited sources collapse to one family.
+            families: Dict[str, List[str]] = {}
+            for ident, fam in family_of.items():
+                families.setdefault(fam, []).append(ident)
+            dupes = {f: ids for f, ids in families.items() if len(ids) > 1}
+            result.fail(
+                f"{claim_id}: cited sources {dupes} share a source family; "
+                f"repetition is not independent corroboration"
+            )
+    return result
+
+
+def _valid_decisive_votes(s: ArtifactSet, claim_id: str) -> Tuple[int, int, int]:
+    """Return (survive, refute, stale) counts among current-hash votes.
+
+    A vote whose `claim_hash` does not match the claim's current content hash was
+    cast against a superseded version and does not count — a changed claim (a new
+    hash, e.g. after adding an assumption) invalidates prior votes.
+    """
+    current = s.current_hash(claim_id)
+    survive = refute = stale = 0
+    for v in s.votes_for_claim(claim_id):
+        if current is not None and v.data.get("claim_hash") != current:
+            stale += 1
+            continue
+        value = v.data.get("value")
+        if value == "SURVIVE":
+            survive += 1
+        elif value == "REFUTE":
+            refute += 1
+    return survive, refute, stale
+
+
+def _current_reviews(s: ArtifactSet, claim_id: str) -> List[Artifact]:
+    """Reviews of `claim_id` not superseded by a claim-hash change.
+
+    A review that carries a `claim_hash` different from the current one was cast
+    against a prior claim version and no longer counts; a review without a hash
+    is treated as current.
+    """
+    current = s.current_hash(claim_id)
+    out = []
+    for r in s.reviews_by_claim.get(claim_id, []):
+        rh = r.data.get("claim_hash")
+        if isinstance(rh, str) and current is not None and rh != current:
+            continue
+        out.append(r)
+    return out
+
+
+def _register_claim_ids(register_data: dict, bucket: str) -> List[str]:
+    """Collect claim ids from one register bucket (surviving/refuted/...)."""
+    ids = []
+    for entry in register_data.get(bucket, []):
+        if isinstance(entry, dict):
+            cid = entry.get("claim_id")
+            if isinstance(cid, str):
+                ids.append(cid)
+    return ids
+
+
+def check_claim_admission(s: ArtifactSet, quorum: int) -> CheckResult:
+    """Recompute admission for every claim the register lists as surviving.
+
+    The register asserts a claim survived; this check verifies the artifacts bear
+    that out against the Claim-Admission Policy's enforceable conditions:
+      - the conjecture exists,
+      - all planned tests were run (an INVALID_TEST does not count as run, so it
+        cannot support a claim),
+      - no test refuted the claim (a failed severe test blocks survival),
+      - at least one current review exists,
+      - no current review records a BLOCKER,
+      - decisive votes reach quorum and SURVIVE holds a strict majority
+        (a tie fails; abstentions/unresolved are not decisive and cannot make a
+        majority; votes against a superseded hash do not count).
+    """
+    result = CheckResult("claim-admission")
+    if s.register is None:
+        return result
+
+    for claim_id in _register_claim_ids(s.register.data, "surviving_claims"):
+        conj = s.conjecture_by_claim.get(claim_id)
+        if conj is None:
+            result.fail(
+                f"{claim_id}: listed surviving but has no conjecture in the set"
+            )
+            continue
+
+        tests = s.tests_by_claim.get(claim_id, [])
+        run_tests = [t for t in tests if t.data.get("outcome") != _INVALID_OUTCOME]
+        planned = conj.data.get("planned_tests", [])
+        if len(run_tests) < len(planned):
+            result.fail(
+                f"{claim_id}: {len(planned)} planned test(s) but only "
+                f"{len(run_tests)} valid test record(s) — required tests not run "
+                f"(an INVALID_TEST does not support the claim)"
+            )
+        if any(t.data.get("outcome") == _REFUTING_OUTCOME for t in tests):
+            result.fail(
+                f"{claim_id}: a test outcome is REFUTED — a failed severe test "
+                f"blocks survival"
+            )
+
+        reviews = _current_reviews(s, claim_id)
+        if not reviews:
+            result.fail(
+                f"{claim_id}: no current review — required review not completed "
+                f"(a changed claim starts a new review cycle)"
+            )
+        if any(r.data.get("defect_level") == "BLOCKER" for r in reviews):
+            result.fail(
+                f"{claim_id}: a review records a BLOCKER defect — blocks survival"
+            )
+
+        survive, refute, stale = _valid_decisive_votes(s, claim_id)
+        decisive = survive + refute
+        if decisive < quorum:
+            result.fail(
+                f"{claim_id}: quorum not reached — {decisive} decisive vote(s) "
+                f"(need {quorum}); {stale} vote(s) ignored as cast against a "
+                f"superseded claim version"
+            )
+        elif survive * 2 <= decisive:
+            result.fail(
+                f"{claim_id}: SURVIVE ({survive}) is not a strict majority of "
+                f"{decisive} decisive vote(s) — a tie or plurality does not admit"
+            )
+    return result
+
+
+def check_register_integrity(s: ArtifactSet) -> CheckResult:
+    """The frozen register preserves qualifications and keeps failed tests visible.
+
+    For each surviving claim the register must: carry every qualification the
+    conjecture stated (a required qualification may not be dropped), and list
+    every non-SURVIVED test record among its `failed_tests` (a failed or
+    inconclusive test must remain visible, not be hidden).
+    """
+    result = CheckResult("register-integrity")
+    if s.register is None:
+        return result
+
+    entries = {
+        e.get("claim_id"): e
+        for e in s.register.data.get("surviving_claims", [])
+        if isinstance(e, dict)
+    }
+    for claim_id, entry in entries.items():
+        conj = s.conjecture_by_claim.get(claim_id)
+        if conj is not None:
+            required_quals = conj.data.get("qualifications", [])
+            kept = entry.get("qualifications", [])
+            missing = [q for q in required_quals if q not in kept]
+            if missing:
+                result.fail(
+                    f"{claim_id}: register drops required qualification(s) {missing}"
+                )
+
+        failed = entry.get("failed_tests", [])
+        for t in s.tests_by_claim.get(claim_id, []):
+            if t.data.get("outcome") == _SURVIVED_OUTCOME:
+                continue
+            handle = t.data.get("test_id") or t.data.get("test_question")
+            if handle is None:
+                continue
+            visible = any(
+                handle == f or (isinstance(f, str) and handle in f) for f in failed
+            )
+            if not visible:
+                result.fail(
+                    f"{claim_id}: failed/inconclusive test '{handle}' is not "
+                    f"listed in the register's failed_tests"
+                )
+    return result
+
+
+def check_report_traceability(s: ArtifactSet) -> CheckResult:
+    """Every factual finding maps to a surviving claim in the frozen register.
+
+    A finding may only cite a claim the register lists as surviving. Citing a
+    refuted or unresolved claim (presenting it as fact) or a claim absent from
+    the register (an unsupported statement, or a finding the report writer
+    invented) fails.
+    """
+    result = CheckResult("report-traceability")
+    if s.report is None or s.register is None:
+        return result
+
+    surviving = set(_register_claim_ids(s.register.data, "surviving_claims"))
+    refuted = set(_register_claim_ids(s.register.data, "refuted_claims"))
+    unresolved = set(_register_claim_ids(s.register.data, "unresolved_claims"))
+
+    for i, finding in enumerate(s.report.data.get("findings", [])):
+        if not isinstance(finding, dict):
+            continue
+        refs = finding.get("surviving_claim_refs", [])
+        for ref in refs:
+            if ref in surviving:
+                continue
+            if ref in refuted or ref in unresolved:
+                result.fail(
+                    f"finding[{i}] cites '{ref}', a refuted/unresolved claim — "
+                    f"it may not enter the report as fact"
+                )
+            else:
+                result.fail(
+                    f"finding[{i}] cites '{ref}', which is not a surviving claim "
+                    f"in the register — unsupported report statement"
+                )
+    return result
+
+
+def run_policy_checks(s: ArtifactSet, quorum: int) -> List[CheckResult]:
+    """Run every policy check in a fixed order and return their results."""
+    return [
+        check_reference_integrity(s),
+        check_role_separation(s),
+        check_source_family_independence(s),
+        check_claim_admission(s, quorum),
+        check_register_integrity(s),
+        check_report_traceability(s),
+    ]
+
+
+# --------------------------------------------------------------------------- #
+# Stages / CLI
+# --------------------------------------------------------------------------- #
+
+
+def _load_artifacts(files: List[Path]) -> List[Artifact]:
+    """Load and classify every file, exiting 2 on an unclassifiable artifact."""
+    artifacts = []
+    for f in files:
+        data = _load_json(f)
+        kind = _infer_kind(f, data)
+        if kind is None:
+            print(
+                f"policy-validate: cannot determine artifact kind for '{f}' "
+                f"(name it after its kind or add an 'artifact_type' field)",
+                file=sys.stderr,
+            )
+            raise SystemExit(2)
+        artifacts.append(Artifact(f, kind, data))
+    return artifacts
+
+
+def _report_checks(results: List[CheckResult]) -> bool:
+    """Print one PASS/FAIL line per check; return True when all passed."""
+    all_ok = True
+    for r in results:
+        if r.ok:
+            print(f"[PASS] {r.name}")
+        else:
+            all_ok = False
+            for message in r.failures:
+                print(f"[FAIL] {r.name}: {message}")
+    return all_ok
+
+
+def _run_schema_stage(files: List[Path], schemas_dir: Path) -> bool:
+    """Validate each artifact against its schema; return True when all conform.
+
+    Stops and returns False at the first artifact that fails schema validation,
+    so the pipeline never reaches policy validation on structurally broken input.
+    """
+    for f in files:
+        data = _load_json(f)
+        kind = _infer_kind(f, data)
+        schema_name = _KIND_SCHEMA.get(kind) if kind else None
+        if schema_name is None:
+            print(f"[FAIL] schema: cannot map '{f}' to a schema")
+            return False
+        schema_path = schemas_dir / schema_name
+        proc = subprocess.run(
+            [sys.executable, str(_SCHEMA_VALIDATE), str(f), str(schema_path)],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0:
+            print(f"[FAIL] schema: {f.name}")
+            sys.stdout.write(proc.stdout)
+            sys.stderr.write(proc.stderr)
+            return False
+        print(f"[PASS] schema: {f.name}")
+    return True
+
+
+def main(argv: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="policy-validate",
+        description=(
+            "Stage 2 policy validator for research artifacts (schema -> policy "
+            "-> semantic). Enforces the enforceable rules of the role-"
+            "separation, claim-admission, evidence, and report policies."
+        ),
+    )
+    parser.add_argument(
+        "paths",
+        nargs="+",
+        help="artifact JSON files and/or directories of artifacts",
+    )
+    parser.add_argument(
+        "--pipeline",
+        action="store_true",
+        help="run schema -> policy -> semantic in order, stopping at the first "
+        "failing stage",
+    )
+    parser.add_argument(
+        "--quorum",
+        type=int,
+        default=_DEFAULT_QUORUM,
+        help=f"minimum decisive votes required (default {_DEFAULT_QUORUM})",
+    )
+    parser.add_argument(
+        "--schemas-dir",
+        type=Path,
+        default=_DEFAULT_SCHEMAS_DIR,
+        help="directory holding the research JSON schemas",
+    )
+    args = parser.parse_args(argv)
+
+    files = _gather_files(args.paths)
+    if not files:
+        print("policy-validate: no artifacts found", file=sys.stderr)
+        return 2
+
+    if args.pipeline:
+        # Stage 1 — schema. Stop here if any artifact is malformed.
+        if not _run_schema_stage(files, args.schemas_dir):
+            print("\npolicy-validate: stopped at schema stage")
+            return 1
+
+    # Stage 2 — policy.
+    artifacts = _load_artifacts(files)
+    results = run_policy_checks(ArtifactSet(artifacts), args.quorum)
+    if not _report_checks(results):
+        if args.pipeline:
+            print("\npolicy-validate: stopped at policy stage")
+        return 1
+
+    if args.pipeline:
+        # Stage 3 — hand off to semantic review; do not attempt it here.
+        print(
+            "[HANDOFF] semantic review required: evidence sufficiency, source "
+            "independence in substance, and test severity remain for human/"
+            "agent reviewers"
+        )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
