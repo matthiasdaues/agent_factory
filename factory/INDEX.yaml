@@ -84,6 +84,15 @@ agents:
     path: agents/qa-agent.md
     tokens: 614
     total_tokens: 4142
+  - name: research-orchestrator
+    title: Research Orchestrator
+    phase: 6
+    phase_name: Research
+    tier: standard
+    description: Runs the falsification-driven research playbook end to end — validates the brief, assigns independent research, tallies votes, freezes the claim register, and starts report generation — without ever authoring, reviewing, or voting on a claim itself.
+    path: agents/research-orchestrator.md
+    tokens: 1087
+    total_tokens: 2943
   - name: developer-agent
     title: Developer Agent
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
