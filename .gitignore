@@ -20,7 +20,6 @@ models/
 
 # >>> agent_factory related >>>
 # Added by init-factory; remove with factory/scripts/remove-factory.
-/factory/
 /.claude/
 /.pi/
 /.agent-factory/
