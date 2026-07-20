@@ -6,11 +6,13 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 
 ## Decision Index
 
-| ID   | Title                                                                                                                   | Status   | Evaluation  |
-| ---- | ----------------------------------------------------------------------------------------------------------------------- | -------- | ----------- |
-| 0001 | [Pre-commit monorepo scoping](adr/0001-precommit-monorepo-scoping.md)                                                   | accepted | none        |
-| 0002 | [Factory owns flow control; orchestrator is a trigger](adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md) | accepted | pugh-matrix |
-| 0003 | [Test execution via unavoidable hooks only](adr/0003-test-execution-via-hooks.md)                                       | accepted | none        |
+| ID   | Title                                                                                                                                    | Status   | Evaluation  |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------- | ----------- |
+| 0001 | [Pre-commit monorepo scoping](adr/0001-precommit-monorepo-scoping.md)                                                                    | accepted | none        |
+| 0002 | [Factory owns flow control; orchestrator is a trigger](adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md)                  | accepted | pugh-matrix |
+| 0003 | [Test execution via unavoidable hooks only](adr/0003-test-execution-via-hooks.md)                                                        | accepted | none        |
+| 0004 | [Pi runs a factory agent by spawning a separate `pi` subprocess](adr/0004-pi-subagent-invocation-via-subprocess-spawn.md)                | proposed | pugh-matrix |
+| 0005 | [OpenRouter tiers curated into `model.conf`; discovery is a separate offline aid](adr/0005-openrouter-model-discovery-for-model-conf.md) | proposed | none        |
 
 ## Key Decisions
 
@@ -32,6 +34,10 @@ All follow the "Agentic Creation, Deterministic Validation" principle: agents cr
 ### Monorepo Scoping
 
 **ADR-0001** declares one root `.pre-commit-config.yaml` for the monorepo, with each subproject's hooks namespaced (e.g., `-orchestrator` suffix) and path-scoped (`files: ^orchestrator/`). `factory/scripts/merge-precommit-config` splices subproject hook blocks into the root file.
+
+### Pi Invocation Layer
+
+**ADR-0004** establishes that Pi, which has no native subagent concept, runs a factory agent by spawning a separate `pi` subprocess through the model-callable `run_agent` tool (a project-local extension). This restores author/reviewer independence and parallel dispatch under Pi over the exact mechanism Pi's own documentation sanctions, rejecting in-context role-play (fails independence) and a custom agent hierarchy (fights Pi's design, YAGNI). **ADR-0005** keeps Pi tier→model resolution static and offline in `model.conf`, adding `openrouter-discover` as a separate operator aid for curating and validating `pi.*` OpenRouter rows — never a network call on the runtime path.
 
 ## Superseded Decisions
 

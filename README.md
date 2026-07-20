@@ -13,7 +13,7 @@ Agent Factory turns a rough idea into production-quality code. An AI coding assi
 
 ## Getting started
 
-New to Agent Factory? Go to [factory/README.md](factory/README.md) — it walks you through installing the toolset and running your first playbook.
+Never used Agent Factory — or any AI coding workflow — before? Start with the [beginner's introduction](docs/beginner-intro.md). It explains, in plain language and no commands, what you are about to do and why. Then go to [factory/README.md](factory/README.md), which walks you through installing the toolset and running your first playbook.
 
 ## How it works
 

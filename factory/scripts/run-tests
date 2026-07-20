@@ -1,6 +1,15 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
 """
 Run tests via factory-managed test execution.
+
+What: Detects the project's test framework and runs it (full/changed/staged),
+      emitting a JSON summary.
+When: On commit when src/ or tests/ change (UC-09); on demand.
+By:   pre-commit hook `run-tests`; block-dangerous-git permits
+      `run-tests --staged`; the bug-fix and greenfield playbook FSMs.
 
 Detects test framework from project structure, executes appropriate test
 command, and emits JSON summary. Part of the test execution hooks architecture

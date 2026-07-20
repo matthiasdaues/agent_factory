@@ -1,6 +1,11 @@
 #!/bin/bash
 # structurizr - Docker-only wrapper for the Structurizr DSL export pipeline
 #
+# What: Docker-only wrapper for the Structurizr DSL export/validate/inspect
+#       pipeline (no local install).
+# When: When architecture diagrams are exported or the DSL is validated.
+# By:   the maintain-architecture and scaffold-arc42 skills / architecture-agent.
+#
 # This script provides a unified interface to Structurizr export, validation,
 # and inspection operations without requiring local installation of Structurizr,
 # Playwright, or any other tool. All operations run inside a Docker container.

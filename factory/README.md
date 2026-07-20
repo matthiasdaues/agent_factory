@@ -4,7 +4,7 @@
 
 Part of [Agent Factory](../README.md). See also: [orchestrator](../orchestrator/README.md), [architecture docs](../docs/README.md).
 
-This page gets you from zero to a running first playbook. For what agents, skills, playbooks, and rulebooks actually are, and how the checks work, see the [factory guide](docs/factory-guide.md).
+This page gets you from zero to a running first playbook. Never used Agent Factory — or any AI coding workflow — before? Read the [beginner's introduction](../docs/beginner-intro.md) first; it explains what you are about to do before you run any command. For what agents, skills, playbooks, and rulebooks actually are, and how the checks work, see the [factory guide](docs/factory-guide.md).
 
 ## Prerequisites
 
@@ -42,35 +42,53 @@ mkdir my-project && cd my-project
 ../agent_factory/factory/scripts/init-factory
 ```
 
-`init-factory` is a plain script — **it needs no AI to run it**, a shell is enough. Here's exactly what it creates:
+`init-factory` is a plain script — **it needs no AI to run it**, a shell is enough. It is built on two promises: it never disturbs what your project already has, and everything it adds can be removed without a trace. Here's exactly what it creates:
 
 1. **`factory/`** — copied wholesale from agent_factory, containing all agents, skills, playbooks, scripts, and rulebooks
-2. **`.claude/`** and **`.github/`** — created (or left alone if they exist), with symlinks into `factory/`:
+2. **`.claude/`**, **`.github/`**, and **`.pi/`** — created (or left alone if they exist), with symlinks into `factory/`:
    - `agents/`, `skills/`, `playbooks/`, `rulebooks/`, `scripts/`, `INDEX.yaml`
    - `.claude/CLAUDE.md` → `factory/config/AGENTS.md` (orientation file)
-   - `.github/copilot-instructions.md` → `factory/config/AGENTS.md`
+   - `.github/copilot-instructions.md` → `factory/config/AGENTS.md` — **unless you already have one**, in which case yours is left untouched and Agent Factory's is not forced on top
+   - `AGENTS.md` → `factory/config/AGENTS.md` for Pi, with project-local resources under `.pi/`
    - `.claude/hooks/block-dangerous-git.sh` → `factory/config/hooks/block-dangerous-git.sh`
    - `.github/hooks/block-dangerous-git.sh` → `factory/config/hooks/block-dangerous-git.sh`
    - `.github/hooks/block-dangerous-git.json` → `factory/config/hooks/block-dangerous-git.json`
+   - `.pi/extensions/block-dangerous-git.ts` → `factory/config/extensions/block-dangerous-git.ts`
+   - `.pi/extensions/run-agent.ts` → `factory/config/extensions/run-agent.ts` (Pi's subagent mechanism — see the note below)
+   - `.pi/extensions/dispatch-wave.ts` → `factory/config/extensions/dispatch-wave.ts` (Pi's parallel worktree dispatch — see the note below)
 3. **`.claude/settings.json`** — created or updated with the git-safety guardrail PreToolUse hook
 4. **`config/model.conf`** — copied (not symlinked) as a starter; you customize this per project
-5. **`.pre-commit-config.yaml`** — symlinked to `factory/config/pre-commit-config.yaml` if missing, or merged if you already have one
-6. **`.gitignore`** — appends Agent Factory lines (`.claude`, `.github`, session ephemera, Python cache folders) if not already present
-7. Runs `git init` if your target isn't already a git repo
-8. Runs `uvx pre-commit install` to wire the hooks into git
+5. **`.pre-commit-config.yaml`** — the one tracked change. Agent Factory's gates are added as a `- repo: local` block whose hook ids are all prefixed `agent_factory_hook-`, spliced in at the top of your `repos:` list (or written as a fresh file if you had none). Your own hooks are never touched, and the prefix makes the block extricable. An inert `.pre-commit-config.yml` is left alone — pre-commit only auto-reads `.yaml`.
+6. **`.gitignore`** — a single marker-delimited block headed `agent_factory related`, listing exactly the footprint Agent Factory adds (`factory/`, `.claude/`, `.pi/`, `.agent-factory/`, `config/model.conf`, `AGENTS.md` when init-factory created it, session ephemera, and the specific `.github/*` entries). Note it ignores those `.github` entries **individually** — never all of `.github`, so your Actions workflows stay tracked.
+7. **`.agent-factory/factory-install.json`** — a removal manifest recording exactly what this run did, so `remove-factory` can reverse it precisely
+8. Runs `git init` if your target isn't already a git repo, then `uvx pre-commit install` to wire the hooks into git
 
-**Safe to re-run**: every step is idempotent. If `factory/` already exists, it's left untouched (use the update script instead). Existing `.pre-commit-config.yaml` with your own hooks? `init-factory` merges Agent Factory's hooks in without disturbing yours.
+**Safe to re-run**: every step is idempotent, and a re-run reads the prior manifest so it never loses track of what it owns. If `factory/` already exists, it's left untouched (use the update script instead).
 
-Check it worked, then commit:
+Because the whole footprint is git-ignored, the only thing `init-factory` adds to your tracked history is that one `agent_factory related` `.gitignore` block and the prefixed pre-commit hooks. Check it worked, then commit:
 
 ```bash
-git status                        # .pre-commit-config.yaml and config/ are now untracked, ready to commit
+git status                        # only .gitignore and .pre-commit-config.yaml show as changes
 git add -A && git commit -m "init: wire up Agent Factory"
 ```
 
 If the first commit modifies a few files, that's `mdformat`/`ruff` auto-fixing formatting — re-stage and commit again.
 
-Now open your AI coding CLI in `my-project` and greet it. It should read `.claude/CLAUDE.md` (or `.github/copilot-instructions.md`) and confirm it understands the local-first rule.
+### Removing it again
+
+`init-factory` is fully reversible. From the project root:
+
+```bash
+factory/scripts/remove-factory
+```
+
+It reads the manifest and takes everything back down to a clean `git status`: the git-ignored footprint is deleted, the `agent_factory related` `.gitignore` block is stripped (restoring your file's exact bytes), and the `agent_factory_hook-` pre-commit block is removed while your own hooks stay put. A project that already had its own orientation file, pre-commit config, or `.github/workflows` gets them back exactly as they were.
+
+Now open your AI coding CLI in `my-project` and greet it. It should read `.claude/CLAUDE.md`, `.github/copilot-instructions.md`, or `AGENTS.md` (Pi) and confirm it understands the local-first rule.
+
+**Pi caveat:** unlike Claude Code and Copilot CLI, Pi has no built-in PreToolUse hook file. Agent Factory therefore scaffolds a project-local Pi extension under `.pi/extensions/` that blocks the same dangerous commands when the project is trusted and project-local extensions are loaded. In non-interactive or untrusted-project runs, that extension may not load. For stronger Pi enforcement, install the extension globally under `~/.pi/agent/extensions/`, invoke Pi with `-e`, or run Pi in a sandbox/container.
+
+**Running agents under Pi:** Agent Factory supports Pi in parallel with Claude Code and Copilot CLI — the same agents, skills, and playbooks run under all three. Claude Code and Copilot CLI spawn subagents natively; Pi has no native subagent, so `init-factory` also installs `.pi/extensions/run-agent.ts`, which registers a `run_agent` tool. Under Pi, run a factory agent by calling `run_agent` — it launches the agent in a separate `pi` session, preserving the author/reviewer independence the phase chain depends on. For parallel implementation, `.pi/extensions/dispatch-wave.ts` adds a `dispatch_wave` tool that runs a whole wave of agents at once, each in its own git worktree, merged through `premerge-check` — the Pi port of `implementation-agent`. See the [factory guide § Running an agent in a separate session](docs/factory-guide.md#running-an-agent-in-a-separate-session).
 
 ## Your first playbook
 

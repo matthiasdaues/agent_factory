@@ -1,6 +1,10 @@
 #!/bin/bash
 # Interactive test script for the flow control harness PoC
 # Run each section manually to see the gates in action
+#
+# What: Interactive manual test script for the flow-control harness PoC.
+# When: Run by hand, section by section, to watch the gates act.
+# By:   a developer exploring the harness — not part of any automated flow.
 
 set -e
 

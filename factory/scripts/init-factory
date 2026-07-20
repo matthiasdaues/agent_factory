@@ -1,11 +1,43 @@
 #!/usr/bin/env python3
-"""init-factory — idempotent setup: wire Agent Factory into a target project.
+"""init-factory — idempotent, *tracelessly removable* setup: wire Agent Factory
+into a target project without interfering with what's already there.
+
+What: Copies factory/ in and symlinks the per-CLI resources, guardrails, and
+      config, recording everything for clean removal.
+When: Once per project to install the toolset (re-run to update).
+By:   run by hand (a shell, no AI needed); the init-factory skill relays it.
 
 Works identically whether `--target` is a brand-new empty directory or an
-existing repo with its own history, docs, and hooks — every step below
-states its own fresh-vs-existing behavior. Safe to re-run: a clean re-run
-against an already-initialized target reports "nothing to do" everywhere
-except the one thing this script never diffs (see step 3).
+existing repo with its own history, docs, CI workflows, and hooks. Two
+promises govern every step:
+
+  1. NON-INTERFERENCE. init-factory never overwrites, reformats, or shadows a
+     file the project already owns. An existing orientation file, an existing
+     pre-commit config, existing .github/workflows — all are left exactly as
+     they were. Where Agent Factory needs to add something, it adds it beside
+     the project's own content, never on top of it.
+
+  2. TRACELESS REMOVAL. Everything Agent Factory drops into the target is
+     either (a) git-ignored under a single, marker-delimited "agent_factory
+     related" block, so it never enters the project's tracked history at all,
+     or (b) — for the one file that must be tracked, the pre-commit config —
+     added as hooks whose ids are prefixed `agent_factory_hook-`, extricable
+     by that prefix. A companion script, `factory/scripts/remove-factory`,
+     reverses the whole install back to a clean `git status`. init-factory
+     records exactly what it did in `.agent-factory/factory-install.json` so
+     the remover can be exact.
+
+Why .github can't just be git-ignored wholesale: the target's own GitHub
+Actions live in `.github/workflows/`. Ignoring all of `.github` would hide
+that CI infrastructure from git. So init-factory ignores only the specific
+entries it adds under `.github/` (the CLI symlinks, the hooks dir, and — only
+when init-factory itself created it — copilot-instructions.md), never the
+directory as a whole.
+
+Pi has no native PreToolUse hook file like Claude Code or Copilot CLI. For pi,
+init-factory instead scaffolds a project-local extension under `.pi/extensions/`
+that blocks the same dangerous bash/git patterns when the project is trusted
+and project-local extensions are loaded.
 
 Deliberately NOT bundled into a skill by default — this can be run directly,
 standalone, with no AI in the loop at all (`init-factory` is a normal
@@ -21,41 +53,33 @@ Steps
   2. `git init` if --target isn't already a repo.
   3. Copy factory/ from --source into --target, UNLESS --target/factory
      already exists — in that case this step is skipped (not diffed, not
-     refreshed; that's the still-unbuilt update script's job), and every
-     later step runs against whatever's already there.
-  4. Merge required lines into --target/.gitignore — append only what's
-     missing, never overwrite, never duplicate on re-run.
-  5. Create --target/.claude and --target/.github unconditionally, no
-     CLI-choice prompt. Already present → continue.
-  6. Symlink factory/{agents,skills,playbooks,rulebooks,scripts,INDEX.yaml}
-     and factory/config/AGENTS.md into both dot-dirs (the latter as each
-     CLI's root orientation file: CLAUDE.md, .github/copilot-instructions.md).
-     Per path: missing → link it; already the correct symlink → skip;
-     anything else → STOP THE WHOLE RUN, name the exact colliding path.
-  7. Symlink factory/config/hooks/block-dangerous-git.sh into both
-     --target/.claude/hooks/ and --target/.github/hooks/ — one script,
-     since Claude Code and Copilot CLI's PreToolUse hooks share the same
-     "exit code 2 denies" convention, and the script itself reads
-     whichever CLI's JSON shape arrives on stdin.
-       - Claude Code: wired into --target/.claude/settings.json as a
-         PreToolUse/Bash hook. settings.json missing → created. Already
-         wired in → no-op. Exists but doesn't parse as JSON, or its
-         hooks.PreToolUse isn't a list → STOP THE WHOLE RUN, name the
-         exact path, ask the user to wire it in by hand.
-       - Copilot CLI: factory/config/hooks/block-dangerous-git.json is
-         symlinked to --target/.github/hooks/block-dangerous-git.json.
-         Copilot loads one hook per file under .github/hooks/, so no
-         merge step is needed — same collision-safe symlink as step 6.
-  8. Copy (never symlink) factory/config/model.conf to
-     --target/config/model.conf, only if that path doesn't exist yet — this
-     file is meant to diverge per project, so an existing copy is assumed
-     already customized and is never touched again.
-  9. --target/.pre-commit-config.yaml: missing → symlink to
-     factory/config/pre-commit-config.yaml. Exists as a real file already →
-     hand off to merge-precommit-config, which splices Agent Factory's
-     hooks in without disturbing whatever hooks were already there.
-  10. `uvx pre-commit install` — pre-commit's own install is already
-      idempotent, no extra check needed.
+     refreshed; that's the still-unbuilt update script's job).
+  4. Create --target/.claude, --target/.github, and --target/.pi (if missing).
+  5. Symlink factory/{agents,skills,playbooks,rulebooks,scripts,INDEX.yaml}
+     and the orientation file into each CLI's local directory. NON-INTERFERENCE:
+     if an orientation file (.claude/CLAUDE.md, .github/copilot-instructions.md,
+     or AGENTS.md for pi) already exists as a real file, it is left untouched
+     and skipped — the project keeps its own; Agent Factory's is not forced on
+     top.
+  6. Install the git-safety guardrail for all three CLIs:
+       - Claude Code: symlink the shared hook and wire it into
+         .claude/settings.json (created if absent, merged if present, never
+         duplicated).
+       - Copilot CLI: symlink the shared hook script and JSON matcher into
+         .github/hooks/.
+       - Pi: symlink the project-local extension
+         `.pi/extensions/block-dangerous-git.ts`.
+  7. Copy factory/config/model.conf to --target/config/model.conf, only if
+     absent (meant to diverge per project).
+  8. Pre-commit: the ONLY tracked change. If --target/.pre-commit-config.yaml
+     exists, splice Agent Factory's `agent_factory_hook-*` block in beside the
+     project's own hooks (merge-precommit-config). If it doesn't exist, create
+     it carrying just that block. A project's inert `.pre-commit-config.yml`
+     is never touched — pre-commit only auto-reads `.yaml`.
+  9. Emit the single "agent_factory related" .gitignore block (created or
+     appended; rewritten in place on re-run).
+  10. Write .agent-factory/factory-install.json (the removal manifest).
+  11. `uvx pre-commit install`.
 
 Usage
   init-factory                                    # target = cwd, source = this checkout
@@ -63,8 +87,8 @@ Usage
   init-factory --target /path/to/project --source /path/to/agent_factory
 
 Exit code: 0 on success (including a clean no-op re-run). 1 on any collision
-or unsupported existing state — nothing is left partially applied; the first
-step that can't proceed stops the whole run before touching anything later.
+or unsupported existing state — the first step that can't proceed stops the
+whole run before touching anything later.
 """
 
 from __future__ import annotations
@@ -72,23 +96,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
-
-REQUIRED_GITIGNORE_LINES = [
-    "# Local AI folders",
-    ".claude",
-    ".github",
-    "",
-    "# Local ephemeral notes",
-    "session-scratchpad.md",
-    "",
-    "# Python specific folders and files",
-    "__pycache__/",
-    "*.pyc",
-    ".ruff_cache/",
-]
 
 # name -> path relative to factory/, symlinked into each dot-dir under the same name
 FACTORY_CONTENT = [
@@ -100,12 +111,13 @@ FACTORY_CONTENT = [
     "INDEX.yaml",
 ]
 
-DOT_DIRS = [".claude", ".github"]
+DOT_DIRS = [".claude", ".github", ".pi"]
 
 # dot-dir -> this CLI's root orientation-file path, relative to --target
 ORIENTATION_FILE = {
     ".claude": ".claude/CLAUDE.md",
     ".github": ".github/copilot-instructions.md",
+    ".pi": "AGENTS.md",
 }
 
 # The exact PreToolUse/Bash hook command string that wires the git-safety
@@ -113,6 +125,13 @@ ORIENTATION_FILE = {
 CLAUDE_GUARDRAIL_HOOK_COMMAND = (
     '"$CLAUDE_PROJECT_DIR"/.claude/hooks/block-dangerous-git.sh'
 )
+
+# Marker lines that fence the single .gitignore block. remove-factory strips
+# everything between them (inclusive). Keep these strings in sync there.
+GITIGNORE_BEGIN = "# >>> agent_factory related >>>"
+GITIGNORE_END = "# <<< agent_factory related <<<"
+
+MANIFEST_PATH = ".agent-factory/factory-install.json"
 
 
 class Collision(Exception):
@@ -125,7 +144,12 @@ def log(report: list[str], line: str) -> None:
     print(f"init-factory: {line}")
 
 
-def ensure_target_dir(target: Path, report: list[str]) -> None:
+# --------------------------------------------------------------------------- #
+# Steps
+# --------------------------------------------------------------------------- #
+
+
+def ensure_target_dir(target: Path, install: dict, report: list[str]) -> None:
     if target.exists():
         log(report, f"target directory exists: {target}")
         return
@@ -134,17 +158,26 @@ def ensure_target_dir(target: Path, report: list[str]) -> None:
     log(report, f"created target directory: {target}")
 
 
-def ensure_git(target: Path, report: list[str]) -> None:
+def ensure_git(target: Path, install: dict, report: list[str]) -> None:
     if (target / ".git").exists():
+        # setdefault: a prior run may have recorded that WE created this repo.
+        install.setdefault("git_initialized_by_us", False)
         log(report, "git: already a repo, left untouched")
         return
 
     subprocess.run(["git", "init", str(target)], check=True, capture_output=True)
+    install["git_initialized_by_us"] = True
     log(report, "git: initialized new repo")
 
 
-def copy_factory(source_factory: Path, target: Path, report: list[str]) -> None:
+def copy_factory(
+    source_factory: Path, target: Path, install: dict, report: list[str]
+) -> None:
     dest = target / "factory"
+
+    # factory/ is unconditionally Agent Factory's own toolset — always record
+    # it for removal, whether we copy it now or it was copied on a prior run.
+    install["remove_paths"].append("factory")
 
     if dest.exists():
         log(
@@ -154,58 +187,41 @@ def copy_factory(source_factory: Path, target: Path, report: list[str]) -> None:
         )
         return
 
-    import shutil
-
     shutil.copytree(source_factory, dest, symlinks=False)
     log(report, f"factory/: copied in from {source_factory}")
 
 
-def merge_gitignore(target: Path, report: list[str]) -> None:
-    path = target / ".gitignore"
-
-    if not path.exists():
-        path.write_text("\n".join(REQUIRED_GITIGNORE_LINES) + "\n", encoding="utf-8")
-        log(report, ".gitignore: created")
-        return
-
-    existing = path.read_text(encoding="utf-8")
-    existing_lines = set(existing.splitlines())
-    missing = [
-        line for line in REQUIRED_GITIGNORE_LINES if line and line not in existing_lines
-    ]
-
-    if not missing:
-        log(report, ".gitignore: already has everything required, no change")
-        return
-
-    addition = "\n# Agent Factory\n" + "\n".join(missing) + "\n"
-    path.write_text(existing.rstrip("\n") + "\n" + addition, encoding="utf-8")
-    log(report, f".gitignore: appended {len(missing)} missing line(s)")
-
-
-def ensure_dot_dirs(target: Path, report: list[str]) -> None:
+def ensure_dot_dirs(target: Path, install: dict, report: list[str]) -> None:
     for name in DOT_DIRS:
         path = target / name
 
         if path.exists():
+            install["dir_existed"][name] = True
             log(report, f"{name}/: already present, continuing")
             continue
 
         path.mkdir()
+        install["dir_existed"][name] = False
+        install["remove_paths"].append(name)
         log(report, f"{name}/: created")
 
 
-def ensure_symlink(link: Path, dest: Path, report: list[str]) -> None:
-    """dest is the real path the symlink should resolve to. Relative link,
-    computed from link's own directory, so the whole tree stays portable."""
+def ensure_symlink(
+    link: Path, dest: Path, report: list[str], install: dict | None = None
+) -> bool:
+    """Create a relative symlink at `link` pointing to `dest`. Returns True if
+    a new link was created, False if it was already correct. Records created
+    links in install["remove_paths"] when `install` is passed."""
     rel = os.path.relpath(dest, start=link.parent)
 
     if link.is_symlink():
         current = (link.parent / os.readlink(link)).resolve()
 
         if current == dest.resolve():
+            if install is not None:
+                install["remove_paths"].append(_relpath(link, install))
             log(report, f"skip (already linked): {link}")
-            return
+            return False
 
         raise Collision(f"{link} is already a symlink to {current}, not to {dest}")
 
@@ -213,58 +229,122 @@ def ensure_symlink(link: Path, dest: Path, report: list[str]) -> None:
         raise Collision(f"{link} already exists and is not a symlink to {dest}")
 
     link.symlink_to(rel)
+    if install is not None:
+        install["remove_paths"].append(_relpath(link, install))
     log(report, f"linked: {link} -> {rel}")
+    return True
 
 
-def symlink_factory_content(target: Path, report: list[str]) -> None:
+def _relpath(path: Path, install: dict) -> str:
+    return os.path.relpath(path, start=install["_target"])
+
+
+def symlink_factory_content(target: Path, install: dict, report: list[str]) -> None:
     factory = target / "factory"
 
     for dot_dir in DOT_DIRS:
         base = target / dot_dir
 
         for name in FACTORY_CONTENT:
-            ensure_symlink(base / name, factory / name, report)
+            ensure_symlink(base / name, factory / name, report, install=install)
+            # .github entries are ignored individually (never the whole dir, which
+            # would hide the project's own workflows); .claude and .pi are ignored
+            # wholesale.
+            if dot_dir == ".github":
+                install["github_ignored_entries"].add(f".github/{name}")
 
-        ensure_symlink(
-            target / ORIENTATION_FILE[dot_dir], factory / "config" / "AGENTS.md", report
+        _link_orientation(target, dot_dir, factory, install, report)
+
+
+def _link_orientation(
+    target: Path, dot_dir: str, factory: Path, install: dict, report: list[str]
+) -> None:
+    rel = ORIENTATION_FILE[dot_dir]
+    link = target / rel
+    dest = factory / "config" / "AGENTS.md"
+
+    # NON-INTERFERENCE: a real, project-owned orientation file is left as is.
+    if link.exists() and not link.is_symlink():
+        install["orientation"][rel] = "skipped-existing"
+        log(
+            report,
+            f"{rel}: already exists as a project file — left untouched "
+            "(Agent Factory orientation not forced on top)",
         )
+        return
+
+    ensure_symlink(link, dest, report, install=install)
+    install["orientation"][rel] = "linked"
+    if dot_dir == ".github":
+        install["github_ignored_entries"].add(rel)
+    elif dot_dir == ".pi":
+        install["ignore_root_agents"] = True
 
 
-def install_git_guardrail(target: Path, report: list[str]) -> None:
-    """Wire the shared git-safety PreToolUse hook into both --target/.claude
-    and --target/.github. One script serves both CLIs (see
-    factory/config/hooks/block-dangerous-git.sh); only the wiring differs,
-    since each CLI has its own hook-config shape.
-    """
-    _install_claude_guardrail(target, report)
-    _install_copilot_guardrail(target, report)
+def install_git_guardrail(target: Path, install: dict, report: list[str]) -> None:
+    _install_claude_guardrail(target, install, report)
+    _install_copilot_guardrail(target, install, report)
+    _install_pi_guardrail(target, install, report)
 
 
-def _install_claude_guardrail(target: Path, report: list[str]) -> None:
+def _install_claude_guardrail(target: Path, install: dict, report: list[str]) -> None:
     hooks_dir = target / ".claude" / "hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
 
     link = hooks_dir / "block-dangerous-git.sh"
     dest = target / "factory" / "config" / "hooks" / "block-dangerous-git.sh"
-    ensure_symlink(link, dest, report)
+    ensure_symlink(link, dest, report, install=install)
 
-    _ensure_claude_guardrail_settings(target, report)
+    _ensure_claude_guardrail_settings(target, install, report)
 
 
-def _install_copilot_guardrail(target: Path, report: list[str]) -> None:
+def _install_copilot_guardrail(target: Path, install: dict, report: list[str]) -> None:
     hooks_dir = target / ".github" / "hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
+    install["github_ignored_entries"].add(".github/hooks")
 
     script_link = hooks_dir / "block-dangerous-git.sh"
     script_dest = target / "factory" / "config" / "hooks" / "block-dangerous-git.sh"
-    ensure_symlink(script_link, script_dest, report)
+    ensure_symlink(script_link, script_dest, report, install=install)
 
     config_link = hooks_dir / "block-dangerous-git.json"
     config_dest = target / "factory" / "config" / "hooks" / "block-dangerous-git.json"
-    ensure_symlink(config_link, config_dest, report)
+    ensure_symlink(config_link, config_dest, report, install=install)
 
 
-def _ensure_claude_guardrail_settings(target: Path, report: list[str]) -> None:
+def _ensure_pi_extensions_dir(target: Path, install: dict, report: list[str]) -> Path:
+    extensions_dir = target / ".pi" / "extensions"
+    if not extensions_dir.exists():
+        extensions_dir.mkdir(parents=True)
+        install["remove_paths"].append(".pi/extensions")
+        log(report, ".pi/extensions: created")
+    return extensions_dir
+
+
+def _install_pi_guardrail(target: Path, install: dict, report: list[str]) -> None:
+    extensions_dir = _ensure_pi_extensions_dir(target, install, report)
+
+    link = extensions_dir / "block-dangerous-git.ts"
+    dest = target / "factory" / "config" / "extensions" / "block-dangerous-git.ts"
+    ensure_symlink(link, dest, report, install=install)
+
+
+def install_pi_invocation_layer(target: Path, install: dict, report: list[str]) -> None:
+    """Symlink the Pi invocation-layer extensions into .pi/extensions/. Pi has
+    no native subagent concept; run_agent runs one factory agent in a separate
+    Pi session, and dispatch_wave runs a parallel, worktree-isolated wave of
+    them (ADR-0004, UC-10, FR-J4)."""
+    extensions_dir = _ensure_pi_extensions_dir(target, install, report)
+
+    for name in ("run-agent.ts", "dispatch-wave.ts"):
+        link = extensions_dir / name
+        dest = target / "factory" / "config" / "extensions" / name
+        ensure_symlink(link, dest, report, install=install)
+
+
+def _ensure_claude_guardrail_settings(
+    target: Path, install: dict, report: list[str]
+) -> None:
     path = target / ".claude" / "settings.json"
 
     if not path.exists():
@@ -284,8 +364,15 @@ def _ensure_claude_guardrail_settings(target: Path, report: list[str]) -> None:
             }
         }
         path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+        install["claude_settings_existed"] = False
+        # Recorded for removal in case .claude/ itself pre-existed and so isn't
+        # deleted wholesale; harmless when .claude/ is removed as a unit.
+        install["remove_paths"].append(".claude/settings.json")
         log(report, ".claude/settings.json: created with git-safety guardrail hook")
         return
+
+    # setdefault: if a prior run created it, keep existed=False (it's ours).
+    install.setdefault("claude_settings_existed", True)
 
     try:
         settings = json.loads(path.read_text(encoding="utf-8"))
@@ -339,40 +426,61 @@ def _ensure_claude_guardrail_settings(target: Path, report: list[str]) -> None:
     log(report, ".claude/settings.json: added git-safety guardrail hook")
 
 
-def copy_model_matrix(target: Path, report: list[str]) -> None:
-    dest = target / "config" / "model.conf"
+def copy_model_matrix(target: Path, install: dict, report: list[str]) -> None:
+    config_dir = target / "config"
+    dest = config_dir / "model.conf"
 
     if dest.exists():
+        # If a prior run created it, the loaded manifest already carries the
+        # ignore + removal records; if it's the project's own, we leave it out.
         log(
             report,
             "config/model.conf: already present, left untouched (meant to diverge per project)",
         )
         return
 
-    import shutil
+    if not config_dir.exists():
+        config_dir.mkdir(parents=True)
+        install["remove_paths"].append("config")
 
-    dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(target / "factory" / "config" / "model.conf", dest)
+    install["remove_paths"].append("config/model.conf")
+    install["ignore_model_conf"] = True
     log(report, "config/model.conf: copied in as a starter")
 
 
-def handle_precommit(target: Path, report: list[str]) -> None:
+def handle_precommit(target: Path, install: dict, report: list[str]) -> None:
     dest = target / ".pre-commit-config.yaml"
     template = target / "factory" / "config" / "pre-commit-config.yaml"
 
     if dest.is_symlink():
+        # A legacy install may have symlinked this to the template. That no
+        # longer works: factory/ is now git-ignored, so a tracked symlink into
+        # it would dangle after removal. Convert it to a real file carrying the
+        # same block, so it survives factory/ removal and stays extricable.
         current = (dest.parent / os.readlink(dest)).resolve()
-
-        if current == template.resolve():
-            log(report, "skip (already linked): .pre-commit-config.yaml")
-            return
-
-        raise Collision(f"{dest} is already a symlink to {current}, not to {template}")
-
-    if not dest.exists():
-        ensure_symlink(dest, template, report)
+        if current != template.resolve():
+            raise Collision(
+                f"{dest} is already a symlink to {current}, not to {template}"
+            )
+        dest.unlink()
+        dest.write_text(_fresh_precommit_text(template), encoding="utf-8")
+        install["precommit"] = {"path": ".pre-commit-config.yaml", "existed": False}
+        log(report, ".pre-commit-config.yaml: replaced legacy symlink with real file")
         return
 
+    if not dest.exists():
+        dest.write_text(_fresh_precommit_text(template), encoding="utf-8")
+        install["precommit"] = {"path": ".pre-commit-config.yaml", "existed": False}
+        install["remove_paths"].append(".pre-commit-config.yaml")
+        log(report, ".pre-commit-config.yaml: created with Agent Factory's hook block")
+        return
+
+    # Record the original's trailing-newline state so removal restores it exactly.
+    install.setdefault(
+        "precommit_orig_final_newline",
+        dest.read_text(encoding="utf-8").endswith("\n"),
+    )
     merge_script = target / "factory" / "scripts" / "merge-precommit-config"
     result = subprocess.run(
         [
@@ -391,7 +499,169 @@ def handle_precommit(target: Path, report: list[str]) -> None:
             "handle automatically — see its error above, merge by hand"
         )
 
-    log(report, ".pre-commit-config.yaml: merged Agent Factory's hooks in")
+    # setdefault: if a prior run created this file, keep existed=False so the
+    # remover deletes it wholesale rather than only stripping our block.
+    install.setdefault(
+        "precommit", {"path": ".pre-commit-config.yaml", "existed": True}
+    )
+    log(report, ".pre-commit-config.yaml: spliced Agent Factory's hook block in")
+
+
+def _fresh_precommit_text(template: Path) -> str:
+    """A standalone .pre-commit-config.yaml carrying only Agent Factory's
+    `- repo: local` block (extracted verbatim from the template)."""
+    lines = template.read_text(encoding="utf-8").splitlines()
+    for i, line in enumerate(lines):
+        if line.rstrip() == "  - repo: local":
+            block = "\n".join(lines[i:])
+            break
+    else:
+        raise Collision(
+            f"{template} has no `- repo: local` block to build a config from"
+        )
+
+    header = (
+        "# Created by Agent Factory init-factory. The agent_factory_hook-* hooks\n"
+        "# below are added here and removed by factory/scripts/remove-factory\n"
+        "# (extricable by their id prefix). Safe to delete if it holds nothing else.\n"
+        "repos:\n"
+    )
+    return header + block + "\n"
+
+
+def write_gitignore_block(target: Path, install: dict, report: list[str]) -> None:
+    path = target / ".gitignore"
+
+    entries = [
+        "/factory/",
+        "/.claude/",
+        "/.pi/",
+        "/.agent-factory/",
+        "/session-scratchpad.md",
+    ]
+    if install.get("ignore_model_conf"):
+        entries.append("/config/model.conf")
+    if install.get("ignore_root_agents"):
+        entries.append("/AGENTS.md")
+    for entry in sorted(install["github_ignored_entries"]):
+        entries.append("/" + entry)
+
+    install["ignored_paths"] = entries
+
+    body = [
+        GITIGNORE_BEGIN,
+        "# Added by init-factory; remove with factory/scripts/remove-factory.",
+        *entries,
+        GITIGNORE_END,
+    ]
+    block = "\n".join(body) + "\n"
+
+    if not path.exists():
+        path.write_text(block, encoding="utf-8")
+        install["gitignore_existed"] = False
+        install.setdefault("gitignore_orig_final_newline", True)
+        install["remove_paths"].append(".gitignore")
+        log(report, ".gitignore: created with the agent_factory related block")
+        return
+
+    # setdefault: if a prior run created .gitignore, keep existed=False.
+    install.setdefault("gitignore_existed", True)
+    existing = path.read_text(encoding="utf-8")
+
+    if GITIGNORE_BEGIN in existing and GITIGNORE_END in existing:
+        pre, rest = existing.split(GITIGNORE_BEGIN, 1)
+        _, post = rest.split(GITIGNORE_END, 1)
+        rebuilt = pre.rstrip("\n") + "\n\n" + block + post.lstrip("\n")
+        if rebuilt != existing:
+            path.write_text(rebuilt, encoding="utf-8")
+            log(report, ".gitignore: refreshed the agent_factory related block")
+        else:
+            log(report, ".gitignore: agent_factory related block already current")
+        return
+
+    # First append: preserve the project's exact bytes. Record whether the
+    # original ended with a newline so remove-factory can restore it precisely,
+    # rather than leaving a stray trailing newline behind.
+    had_nl = existing.endswith("\n")
+    install.setdefault("gitignore_orig_final_newline", had_nl)
+    base = existing if had_nl else existing + "\n"
+    path.write_text(base + "\n" + block, encoding="utf-8")
+    log(report, ".gitignore: appended the agent_factory related block")
+
+
+def load_prior_manifest(target: Path, install: dict, report: list[str]) -> None:
+    """Seed `install` from a previous run's manifest so an idempotent re-run
+    preserves what init already knows is Agent Factory's — steps that skip
+    because a path already exists would otherwise lose that knowledge, leaving
+    the remover unable to clean it up."""
+    path = target / MANIFEST_PATH
+
+    if not path.exists():
+        return
+
+    try:
+        prior = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return
+
+    install["remove_paths"] = list(prior.get("remove_paths", []))
+    install["orientation"] = dict(prior.get("orientation", {}))
+    if prior.get("precommit"):
+        install["precommit"] = prior["precommit"]
+    for key in (
+        "git_initialized_by_us",
+        "gitignore_existed",
+        "gitignore_orig_final_newline",
+        "precommit_orig_final_newline",
+        "claude_settings_existed",
+    ):
+        if key in prior:
+            install[key] = prior[key]
+    for p in prior.get("ignored_paths", []):
+        if p == "/config/model.conf":
+            install["ignore_model_conf"] = True
+        elif p == "/AGENTS.md":
+            install["ignore_root_agents"] = True
+        elif p.startswith("/.github/"):
+            install["github_ignored_entries"].add(p.lstrip("/"))
+
+    log(report, f"{MANIFEST_PATH}: prior install found, preserving its records")
+
+
+def write_manifest(target: Path, install: dict, report: list[str]) -> None:
+    manifest_path = target / MANIFEST_PATH
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+
+    payload = {
+        "version": 1,
+        "git_initialized_by_us": install.get("git_initialized_by_us", False),
+        "gitignore_existed": install.get("gitignore_existed", True),
+        "gitignore_markers": {"begin": GITIGNORE_BEGIN, "end": GITIGNORE_END},
+        "gitignore_orig_final_newline": install.get(
+            "gitignore_orig_final_newline", True
+        ),
+        "precommit": install.get("precommit", {}),
+        "precommit_orig_final_newline": install.get(
+            "precommit_orig_final_newline", True
+        ),
+        "precommit_hook_id_prefix": "agent_factory_hook-",
+        "claude_settings_existed": install.get("claude_settings_existed", True),
+        "orientation": install.get("orientation", {}),
+        "ignored_paths": install.get("ignored_paths", []),
+        "remove_paths": _dedup(install["remove_paths"]),
+    }
+    manifest_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    log(report, f"{MANIFEST_PATH}: wrote removal manifest")
+
+
+def _dedup(paths: list[str]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for p in paths:
+        if p not in seen:
+            seen.add(p)
+            out.append(p)
+    return out
 
 
 def pre_commit_install(target: Path, report: list[str]) -> None:
@@ -434,17 +704,28 @@ def main(argv: list[str] | None = None) -> int:
 
     target = args.target.resolve()
     report: list[str] = []
+    install: dict = {
+        "_target": target,
+        "remove_paths": [],
+        "dir_existed": {},
+        "orientation": {},
+        "github_ignored_entries": set(),
+        "ignore_root_agents": False,
+    }
 
     try:
-        ensure_target_dir(target, report)
-        ensure_git(target, report)
-        copy_factory(source_factory, target, report)
-        merge_gitignore(target, report)
-        ensure_dot_dirs(target, report)
-        symlink_factory_content(target, report)
-        install_git_guardrail(target, report)
-        copy_model_matrix(target, report)
-        handle_precommit(target, report)
+        ensure_target_dir(target, install, report)
+        load_prior_manifest(target, install, report)
+        ensure_git(target, install, report)
+        copy_factory(source_factory, target, install, report)
+        ensure_dot_dirs(target, install, report)
+        symlink_factory_content(target, install, report)
+        install_git_guardrail(target, install, report)
+        install_pi_invocation_layer(target, install, report)
+        copy_model_matrix(target, install, report)
+        handle_precommit(target, install, report)
+        write_gitignore_block(target, install, report)
+        write_manifest(target, install, report)
         pre_commit_install(target, report)
     except Collision as e:
         print(f"init-factory: STOPPED — {e}", file=sys.stderr)

@@ -1,5 +1,10 @@
 """Session-log helper for Agent Factory gate scripts.
 
+What: Records one JSON Lines entry per wrapped gate run — the on-disk delta,
+      the run's exit code, and its structured summary where emitted.
+When: Around each gate run that opts into session logging.
+By:   imported by gate scripts (e.g. spec-lint) — not run directly.
+
 Records one JSON Lines entry per wrapped gate run: what actually moved on disk
 (a ``git status --porcelain`` diff taken around the run), the run's own exit
 code, and — where the gate emits it — its structured summary. See

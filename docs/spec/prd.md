@@ -38,7 +38,7 @@ ______________________________________________________________________
 
 - **Human Operator** (primary) — a person driving Agent Factory directly: running scripts by hand, committing code, approving phase gates.
 - **Orchestrator-as-Trigger** (secondary) — the nested `orchestrator/` Python CLI, a peer of the Human Operator. It invokes the same `factory/scripts/*` mechanisms programmatically instead of a human typing them.
-- **CLI-Invoked Agent** (secondary) — the Claude Code or Copilot CLI agent session that `trigger` dispatches, operating under the scoped permission allowlist `trigger` constructs for it.
+- **CLI-Invoked Agent** (secondary) — the Claude Code, Copilot CLI, or Pi agent session that `trigger` dispatches, operating under the scoped permission allowlist `trigger` constructs for it. Under Pi, which has no native subagent concept, this actor is also the caller of the `run_agent` tool: it spawns a fresh Pi session to run another factory agent with separate-session semantics (FR-J).
 
 ## 4. Functional Requirements
 
@@ -84,7 +84,7 @@ ______________________________________________________________________
 
 ### FR-H — Installation (`init-factory`)
 
-- **FR-H1** — Idempotent: copies `factory/`, merges `.gitignore`, symlinks factory content and the guardrail hook into both `.claude/` and `.github/`, copies `config/model.conf` once, merges or symlinks `.pre-commit-config.yaml`.
+- **FR-H1** — Idempotent: copies `factory/`, merges `.gitignore`, symlinks factory content and the guardrail into `.claude/`, `.github/`, and `.pi/` (the last as a project-local extension, since Pi has no native `PreToolUse` hook), copies `config/model.conf` once, merges or symlinks `.pre-commit-config.yaml`. Pi scaffolds in parallel to the other two CLIs.
 - **FR-H2** — Collision-safe: any step that finds something unexpected at a destination path stops the whole run before touching anything later.
 
 ### FR-I — Test Execution (`run-tests`)
@@ -99,6 +99,16 @@ ______________________________________________________________________
   - Phase advance via FSM `script_exit_zero: factory/scripts/run-tests --full` condition
 - **FR-I6** — Agents are blocked from running test commands directly (`pytest`, `npm test`, `go test`, `cargo test`) by `block-dangerous-git.sh`; test execution is hook-triggered only.
 
+### FR-J — Pi agent invocation (`run_agent`, `dispatch_wave`)
+
+Pi has no native subagent concept, so a factory agent cannot run in a separate Pi session the way Claude Code spawns a subagent. `run_agent` supplies that missing invocation layer as a project-local extension tool.
+
+- **FR-J1** — The extension `.pi/extensions/run-agent.ts` registers a model-callable tool `run_agent(agent, task, model?)` that resolves `factory/agents/<agent>.md`, resolves the model (`model` argument, else `config/model.conf` `pi.<tier>`, honoring `on_missing`), and spawns a separate `pi` subprocess (`--no-session -a --mode json --model <m> --append-system-prompt <agent> -p <task>`), returning the child's final text and token usage parsed from `message_end`.
+- **FR-J2** — The spawn is a genuinely separate session that never receives the caller's context, preserving author/reviewer independence (BR-030); on a resolution, recursion, or spawn error the tool returns a diagnostic result and launches nothing.
+- **FR-J3** — A fixed recursion-depth bound, carried in an environment variable the parent sets and the child reads, caps nested `run_agent` spawns (BR-035).
+- **FR-J4** — The dispatcher tool `dispatch_wave`, layered on the `run_agent` primitive, spawns several agents in parallel — each in its own git worktree, each under a per-story model tier — and integrates `premerge-check`; it ports `implementation-agent`, whose current prose depends on Claude Code's native Agent-tool worktree isolation.
+- **FR-J5** — `run-agent.ts` lives in `factory/config/extensions/`, is symlinked into the git-ignored `.pi/extensions/` by `init-factory`, and is reversed by `remove-factory` to a clean `git status`; it adds no tracked project state.
+
 ## 5. Constraints
 
 - Every `factory/scripts/*.py` gate has zero third-party dependencies — Python 3.8+ stdlib only — so gates run without a virtualenv.
@@ -110,6 +120,7 @@ ______________________________________________________________________
 - A Human Operator can drive `greenfield-development.fsm.yml` end to end using only `transition-lint`, `phase advance`, `phase retry`, and `trigger` — no `orchestrator/` CLI involved.
 - `orchestrator/` can drive the identical playbook run through the same four mechanisms, adding no flow-control logic of its own.
 - `factory/INDEX.yaml` always matches what `index-lint` would generate from current frontmatter (`index-lint --check` exits `0`) — no hand-edit drift.
+- A conversational Pi session can invoke a factory agent by name via `run_agent` and receive its result from a separate `pi` session that never saw the caller's context, and `dispatch_wave` can run at least two `developer-agent` sessions in parallel worktrees merged through `premerge-check`.
 
 ## 7. Assumptions
 

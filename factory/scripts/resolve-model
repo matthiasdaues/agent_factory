@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+"""resolve-model - Resolve an agent's tier to a concrete model id.
+
+What: Reads an agent's tier and resolves <cli>.<tier> to a model id from
+      model.conf, reusing matrix-lint's parser.
+When: At dispatch, when an agent must be launched with a resolved model.
+By:   the Pi run_agent tool (run-agent.ts) and trigger — not a pre-commit hook.
+
+The shared tier resolver behind both `trigger` (Python) and the Pi
+`run_agent` tool (`factory/config/extensions/run-agent.ts`, which shells this
+script). It keeps `config/model.conf` with exactly one parser: it imports
+`matrix-lint`'s own `parse_matrix()` rather than re-implementing the format
+(SOLID SRP; ADR-0004, todos T-09).
+
+Given an agent name and a CLI, it reads the agent's `tier` from that agent's
+markdown frontmatter, looks up `<cli>.<tier>` in `config/model.conf`, and
+prints the model id to stdout. `on_missing` in model.conf decides what happens
+when the tier is unconfigured: `halt` (default) exits 2 with a diagnostic;
+`auto` exits 0 printing nothing, letting the target CLI use its own default.
+
+Usage:
+  resolve-model --agent <name> --cli <cli> [--tier TIER]
+                [--model-conf PATH] [--agents-dir DIR]
+
+Exit codes: 0 resolved (model on stdout) or on_missing=auto (empty stdout);
+2 on a resolution error (unknown agent, unreadable model.conf, or
+on_missing=halt with no configured model).
+"""
+
+from __future__ import annotations
+
+import argparse
+import importlib.util
+import sys
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
+
+_SCRIPTS_DIR = Path(__file__).resolve().parent
+
+
+def _load_module(name: str, path: Path):
+    loader = SourceFileLoader(name, str(path))
+    spec = importlib.util.spec_from_loader(name, loader)
+    module = importlib.util.module_from_spec(spec)
+    # Register before exec: matrix-lint uses @dataclass, which resolves the
+    # defining module via sys.modules during class creation.
+    sys.modules[name] = module
+    loader.exec_module(module)
+    return module
+
+
+matrix_lint = _load_module("matrix_lint", _SCRIPTS_DIR / "matrix-lint")
+
+
+class ResolutionError(Exception):
+    """A tier/agent/model could not be resolved — exit 2."""
+
+
+def read_agent_tier(agents_dir: Path, agent: str) -> str:
+    """Read the `tier:` field from an agent's markdown frontmatter.
+
+    Defaults to ``standard`` when the field is absent, matching how the
+    catalog and `trigger` treat an agent with no declared tier.
+    """
+    agent_file = agents_dir / f"{agent}.md"
+    if not agent_file.exists():
+        raise ResolutionError(f"agent not found: {agent_file}")
+
+    text = agent_file.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return "standard"
+
+    for line in lines[1:]:
+        if line.strip() == "---":
+            break
+        if ":" in line:
+            key, _, value = line.partition(":")
+            if key.strip() == "tier":
+                return value.strip() or "standard"
+    return "standard"
+
+
+def resolve(model_conf: Path, cli: str, tier: str) -> str | None:
+    """Return a model id, or None if on_missing=auto and none is configured."""
+    if not model_conf.exists():
+        raise ResolutionError(f"model config not found: {model_conf}")
+
+    err, facts = matrix_lint.parse_matrix(model_conf.read_text(encoding="utf-8"))
+    if err is not None:
+        raise ResolutionError(f"{model_conf}: {err}")
+
+    key = f"{cli}.{tier}"
+    model = facts.get(key)
+    if model is not None:
+        return model
+
+    on_missing = facts.get("on_missing", "halt")
+    if on_missing == "halt":
+        raise ResolutionError(f"no model configured for {key!r} (on_missing=halt)")
+    return None
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Resolve an agent's tier to a model id."
+    )
+    parser.add_argument(
+        "--agent", help="Agent name (frontmatter tier is read from it)."
+    )
+    parser.add_argument("--tier", help="Tier override; skips reading the agent file.")
+    parser.add_argument(
+        "--cli", required=True, help="Target CLI, e.g. pi, claude, copilot."
+    )
+    parser.add_argument(
+        "--model-conf",
+        type=Path,
+        default=_SCRIPTS_DIR.parents[1] / "config" / "model.conf",
+        help="Path to model.conf (default: <repo-root>/config/model.conf).",
+    )
+    parser.add_argument(
+        "--agents-dir",
+        type=Path,
+        default=_SCRIPTS_DIR.parent / "agents",
+        help="Directory of agent markdown files.",
+    )
+    args = parser.parse_args(argv)
+
+    try:
+        tier = args.tier
+        if tier is None:
+            if not args.agent:
+                raise ResolutionError("one of --tier or --agent is required")
+            tier = read_agent_tier(args.agents_dir, args.agent)
+
+        model = resolve(args.model_conf, args.cli, tier)
+    except ResolutionError as exc:
+        print(f"resolve-model: {exc}", file=sys.stderr)
+        return 2
+
+    if model is not None:
+        print(model)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

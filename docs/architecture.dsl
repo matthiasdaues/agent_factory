@@ -4,7 +4,7 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
         # External actors
         humanOperator = person "Human Operator" "Person driving Agent Factory by hand"
         orchestrator = softwareSystem "Orchestrator CLI" "Python CLI that invokes factory mechanisms programmatically" "External"
-        cliAgent = person "CLI-Invoked Agent" "Claude Code or Copilot CLI agent session under scoped allowlist" "Agent"
+        cliAgent = person "CLI-Invoked Agent" "Claude Code, Copilot CLI, or Pi agent session under scoped allowlist; under Pi also the caller of run_agent" "Agent"
         
         # Git as supporting actor
         git = softwareSystem "Git / pre-commit" "Version control and hook execution" "External"
@@ -30,6 +30,9 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
             dispatcher = container "Dispatcher" "Resolves agents/models and spawns CLI sessions" "Bash/Python" {
                 trigger = component "trigger" "Dispatches named agent or playbook step to CLI" "Bash"
                 indexLint = component "index-lint" "Generates INDEX.yaml from frontmatter" "Python"
+                runAgent = component "run-agent (Pi extension)" "Pi model-callable tool: spawns a separate pi session to run one factory agent" "TypeScript/Pi"
+                dispatchWave = component "dispatch-wave (Pi extension)" "Pi model-callable tool: runs a parallel wave of factory agents, each in its own git worktree, integrating premerge-check before merging (ports implementation-agent)" "TypeScript/Pi"
+                openrouterDiscover = component "openrouter-discover" "Operator aid: queries OpenRouter catalog to curate/validate pi.* tier rows in model.conf (offline of the runtime path)" "Python"
             }
             
             # Configuration and state storage
@@ -69,9 +72,15 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
         trigger -> catalog "Resolves agent/playbook by name"
         trigger -> cliAgent "Spawns CLI session with scoped allowlist"
         indexLint -> catalog "Generates/validates INDEX.yaml"
-        
+        cliAgent -> runAgent "Pi: invokes run_agent tool (no native subagents)"
+        runAgent -> catalog "Resolves agent by name; tier via model.conf"
+        runAgent -> cliAgent "Spawns a separate pi session for the agent"
+        cliAgent -> dispatchWave "Pi: invokes dispatch_wave tool for a parallel, worktree-isolated wave"
+        dispatchWave -> catalog "Resolves each item's agent by name; tier via model.conf"
+        dispatchWave -> cliAgent "Spawns parallel pi sessions, one per worktree"
+
         # Relationships - CLI Agent
-        cliAgent -> blockDangerousGit "Every shell command routed through PreToolUse"
+        cliAgent -> blockDangerousGit "Every shell command routed through PreToolUse (or Pi extension)"
         cliAgent -> transitionLint "Commits trigger pre-commit hooks"
     }
 

@@ -1,6 +1,6 @@
 # Agent Factory — CLI Orientation
 
-Canonical orientation content for any AI coding CLI working in a project that uses Agent Factory. Symlinked to this CLI's expected root filename (`CLAUDE.md`, or read natively as `AGENTS.md`) at project-init time.
+Canonical orientation content for any AI coding CLI working in a project that uses Agent Factory. Symlinked to each CLI's expected root filename at project-init time.
 
 ## Rules
 
@@ -8,7 +8,10 @@ Canonical orientation content for any AI coding CLI working in a project that us
 
   - Claude Code: `.claude/skills/<name>/SKILL.md`, `.claude/agents/<name>.md`
   - GitHub Copilot CLI: `.github/skills/<name>/SKILL.md`, `.github/agents/<name>.md`
+  - Pi: `.pi/skills/<name>/SKILL.md`, `.pi/agents/<name>.md`
 
-- **MUST**: Read the local `INDEX.yaml` first, same directory as above (`.claude/INDEX.yaml` for Claude Code, `.github/INDEX.yaml` for GitHub Copilot CLI). All locally available agents, skills, and playbooks are referenced there.
+- **MUST (Pi only)**: Pi has no native subagent. To run a factory *agent* — not a skill — invoke the `run_agent` tool (registered by the `run-agent` extension), passing the agent name and the task. Do not read `.pi/agents/<name>.md` and act it out in the current session: `run_agent` spawns the agent in a separate Pi session, and that separation is what preserves author/reviewer independence. To run several file-disjoint agents in parallel, invoke `dispatch_wave` (registered by the `dispatch-wave` extension), which isolates each in its own git worktree and merges through `premerge-check`. Claude Code and GitHub Copilot CLI spawn subagents natively and need no such tools.
+
+- **MUST**: Read the local `INDEX.yaml` first, same directory as above (`.claude/INDEX.yaml` for Claude Code, `.github/INDEX.yaml` for GitHub Copilot CLI, `.pi/INDEX.yaml` for Pi). All locally available agents, skills, and playbooks are referenced there.
 
 - **MUST**: Before you answer the first prompt, greet the user and acknowledge that you have read and understood the local first rule.

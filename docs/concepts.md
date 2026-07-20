@@ -1,6 +1,6 @@
 # How Agent Factory Works
 
-The theory behind Agent Factory, and a map of this repo. If you want to start using the toolset, go to [factory/README.md](../factory/README.md) instead — this page is background, not a tutorial.
+The theory behind Agent Factory, and a map of this repo. If you are brand new, start with the [beginner's introduction](beginner-intro.md) — a plain-language on-ramp. If you want to start using the toolset, go to [factory/README.md](../factory/README.md) instead. This page is background, not a tutorial.
 
 ## The phase chain
 
@@ -49,6 +49,7 @@ agent_factory/
 │   └── pyproject.toml                # CLI package configuration
 ├── backlog/                          # Whole-repo backlog — cross-cutting stories, distinct from orchestrator/backlog/
 ├── docs/                             # This repo's own whole-repo, cross-cutting docs — distinct from orchestrator/docs/
+│   ├── beginner-intro.md             # Plain-language on-ramp for first-time users — read before any command
 │   ├── concepts.md                   # This file
 │   ├── CONTEXT-MAP.md                # Bounded-context map for this multi-context repo (orchestrator, factory, factory_api)
 │   ├── README.md                     # arc42 architecture documentation for Factory Flow Control — table of contents

@@ -10,7 +10,8 @@
       "AG-06",
       "AG-07",
       "AG-08",
-      "AG-09"
+      "AG-09",
+      "AG-10"
     ],
     "use_cases": [
       "UC-01",
@@ -21,7 +22,8 @@
       "UC-06",
       "UC-07",
       "UC-08",
-      "UC-09"
+      "UC-09",
+      "UC-10"
     ],
     "business_rules": [
       "BR-001",
@@ -50,7 +52,15 @@
       "BR-024",
       "BR-025",
       "BR-026",
-      "BR-027"
+      "BR-027",
+      "BR-028",
+      "BR-029",
+      "BR-030",
+      "BR-031",
+      "BR-032",
+      "BR-033",
+      "BR-034",
+      "BR-035"
     ],
     "entities": [
       "AGENT_ENTRY",
@@ -62,6 +72,7 @@
       "MODEL_MATRIX_ENTRY",
       "PLAYBOOK_ENTRY",
       "PLAYBOOK_STATE_MARKER",
+      "RULEBOOK_ENTRY",
       "SKILL_ENTRY",
       "STATE_DEFINITION"
     ]
@@ -335,6 +346,11 @@
     {
       "from": "UC-09",
       "rel": "references_br",
+      "to": "BR-029"
+    },
+    {
+      "from": "UC-09",
+      "rel": "references_br",
       "to": "BR-023"
     },
     {
@@ -356,6 +372,11 @@
       "from": "UC-09",
       "rel": "references_br",
       "to": "BR-027"
+    },
+    {
+      "from": "UC-09",
+      "rel": "references_br",
+      "to": "BR-029"
     },
     {
       "from": "UC-07",
@@ -385,12 +406,62 @@
     {
       "from": "UC-07",
       "rel": "references_br",
+      "to": "BR-024"
+    },
+    {
+      "from": "UC-07",
+      "rel": "references_br",
       "to": "BR-019"
     },
     {
       "from": "UC-07",
       "rel": "references_br",
       "to": "BR-019"
+    },
+    {
+      "from": "UC-10",
+      "rel": "realizes",
+      "to": "AG-10"
+    },
+    {
+      "from": "UC-10",
+      "rel": "references_br",
+      "to": "BR-035"
+    },
+    {
+      "from": "UC-10",
+      "rel": "references_br",
+      "to": "BR-030"
+    },
+    {
+      "from": "UC-10",
+      "rel": "references_br",
+      "to": "BR-031"
+    },
+    {
+      "from": "UC-10",
+      "rel": "references_br",
+      "to": "BR-032"
+    },
+    {
+      "from": "UC-10",
+      "rel": "references_br",
+      "to": "BR-033"
+    },
+    {
+      "from": "UC-10",
+      "rel": "references_br",
+      "to": "BR-034"
+    },
+    {
+      "from": "UC-10",
+      "rel": "references_br",
+      "to": "BR-035"
+    },
+    {
+      "from": "UC-10",
+      "rel": "references_br",
+      "to": "BR-035"
     },
     {
       "from": "UC-08",

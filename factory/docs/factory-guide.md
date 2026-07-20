@@ -1,6 +1,6 @@
 # Factory Guide
 
-What's inside `factory/`, and how its pieces fit together. If you just want to get running, go to [factory/README.md](../README.md) instead — this page is background, read it once you're set up.
+What's inside `factory/`, and how its pieces fit together. If you are brand new, start with the [beginner's introduction](../../docs/beginner-intro.md); if you just want to get running, go to [factory/README.md](../README.md) instead. This page is background — read it once you're set up.
 
 ## Agents
 
@@ -9,6 +9,17 @@ An agent is one job — "write requirements," "review the architecture," "implem
 Most phases have two agents: an **author** and a **reviewer**. The author produces an artifact (a spec, an architecture doc, code). The reviewer checks it in a separate session, without seeing the author's reasoning — only the artifact itself. This catches mistakes a self-review would miss, the same way a second pair of eyes catches things you can't see in your own pull request.
 
 The full list, grouped by phase, is in [`factory/INDEX.yaml`](../INDEX.yaml). Each entry includes a `tokens` field (tiktoken cl100k_base token count of the agent's prompt text) and a `total_tokens` field (body + referenced skills + referenced rulebooks) for context window budget planning.
+
+### Running an agent in a separate session
+
+The author/reviewer split depends on each agent running in its own session, so the reviewer sees only the artifact, never the author's reasoning. How that separate session is created depends on the CLI:
+
+- **Claude Code and GitHub Copilot CLI** spawn subagents natively: the parent session dispatches an agent and reads back its result.
+- **Pi** has no native subagent. `init-factory` installs a project-local extension, `.pi/extensions/run-agent.ts`, that registers a `run_agent` tool. Calling it spawns a genuinely separate `pi` subprocess with the chosen agent's markdown as its system prompt and returns the child's result. Under Pi, run a factory agent by calling `run_agent` — not by reading the agent file and acting it out in the current session, which would leak the author's reasoning into the review.
+
+`run_agent` resolves the child's model from `config/model.conf` — the `pi.<tier>` row for the agent's declared tier — unless an explicit model id is passed, and it bounds nested spawns with a recursion-depth cap. The git-safety guardrail extension loads in the child too, so a spawned agent stays governed by the same guardrail as its parent. See [ADR-0004](../../docs/adr/0004-pi-subagent-invocation-via-subprocess-spawn.md) and [UC-10](../../docs/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md).
+
+For parallel work, a second Pi extension, `.pi/extensions/dispatch-wave.ts`, registers a `dispatch_wave` tool — the port of `implementation-agent`, which under Claude Code relies on the native Agent tool's `isolation: "worktree"` and simultaneous subagent spawns. Given one caller-planned, file-disjoint wave, `dispatch_wave` cuts a feature branch in its own git worktree per item, spawns each agent there in parallel, and — unless told not to — runs `premerge-check` before merging each finished branch into the target. It does not plan the wave: output-file overlap and dependency ordering stay with the calling agent, exactly as `implementation-agent` documents. `premerge-check` runs against the wave's frozen base, so a sibling merge advancing the target never falsely flags a later branch as stale.
 
 ## Skills
 
@@ -93,14 +104,16 @@ Separately, `pre-commit` runs `mdformat` and `ruff` on every commit, formatting 
 
 ## CLI safety guardrails
 
-`init-factory` also installs a `PreToolUse` hook, `factory/config/hooks/block-dangerous-git.sh`, that blocks a fixed list of dangerous git invocations before they run — for both Claude Code and Copilot CLI. Two groups:
+`init-factory` also installs a git-safety guardrail that blocks a fixed list of dangerous git invocations before they run. For Claude Code and Copilot CLI this is a native `PreToolUse` hook; for Pi it is a project-local extension under `.pi/extensions/` that blocks the same dangerous `bash` commands when loaded. Two groups:
 
 - **Commands that discard or overwrite work or history**: `git push`, `git reset --hard`, `git clean -f`/`-fd`, `git branch -D`, `git checkout .`, `git restore .`, and bare `push --force` / `reset --hard` fragments anywhere in a longer command line.
 - **Commands that bypass this repo's own commit gates**: `--no-verify`, `git commit -n`, reassigning `core.hooksPath`, `pre-commit uninstall`, and `SKIP=...` environment overrides on `git commit` or `pre-commit`.
 
-One script serves both CLIs: it reads the shell command from either CLI's `PreToolUse` JSON shape, and both CLIs treat the hook's exit code 2 as "deny."
+One script serves the hook-based CLIs: it reads the shell command from either CLI's `PreToolUse` JSON shape, and both CLIs treat the hook's exit code 2 as "deny."
 
-The hook is installed automatically for every project — not opt-in, not a skill you invoke by hand. `init-factory` symlinks the script into both `.claude/hooks/` and `.github/hooks/`, and wires each CLI's own hook-config shape to it: `.claude/settings.json` as a `PreToolUse`/`Bash` hook for Claude Code, `.github/hooks/block-dangerous-git.json` (`matcher: "bash"`) for Copilot CLI. Since `.claude/` and `.github/` both stay gitignored, this is pure local machine state, re-created fresh by `init-factory` in every clone.
+The guardrail is installed automatically for every project — not opt-in, not a skill you invoke by hand. `init-factory` symlinks the script into both `.claude/hooks/` and `.github/hooks/`, and wires each CLI's own hook-config shape to it: `.claude/settings.json` as a `PreToolUse`/`Bash` hook for Claude Code, `.github/hooks/block-dangerous-git.json` (`matcher: "bash"`) for Copilot CLI. For Pi, `init-factory` symlinks `.pi/extensions/block-dangerous-git.ts` to `factory/config/extensions/block-dangerous-git.ts`; Pi auto-discovers project-local extensions from `.pi/extensions/` once the project is trusted. `.claude/` and `.pi/` are gitignored wholesale; under `.github/`, only the entries Agent Factory adds — including `.github/hooks/` — are gitignored, never your Actions workflows. This is pure local machine state, re-created fresh by `init-factory` in every clone.
+
+**Pi caveat:** this is not as strong as the native Claude/Copilot hook path. Pi loads project-local extensions only after project trust resolves, and non-interactive runs may ignore them unless trust is already saved or the run is explicitly approved. For stronger Pi enforcement, install the same extension globally under `~/.pi/agent/extensions/`, pass it via `pi -e`, or run Pi in a sandbox/container. See Pi's own [Extensions](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/docs/extensions.md), [Security](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/docs/security.md), and [Containerization](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/docs/containerization.md) docs for the underlying model.
 
 Treat it as a backstop, not a security boundary. It catches an accidental or under-pressure bypass — a background agent routing around a failing gate, for instance — not a determined one. A user with shell access outside the CLI, or anyone who edits the CLI's own configuration, can always route around it.
 
@@ -129,15 +142,18 @@ cd /path/to/existing-project
 /path/to/agent_factory/factory/scripts/init-factory
 ```
 
-What it does differently here, compared to a fresh project:
+Two promises govern the whole install: it never disturbs what the project already owns, and everything it adds can be removed without a trace. Concretely, against an existing repo:
 
-- **`.gitignore`** — appends only the lines Agent Factory needs. It never rewrites or duplicates what's already there.
-- **`.pre-commit-config.yaml`** — if the file doesn't exist, it's added exactly as in a fresh project. If it already exists, `init-factory` hands off to `factory/scripts/merge-precommit-config`, which splices Agent Factory's hooks into your existing `repos:` list, leaving your existing hooks untouched.
+- **`.gitignore`** — adds a single marker-delimited block headed `agent_factory related`, listing exactly the footprint it introduces. It never rewrites or duplicates what's already there, and it preserves your file's exact bytes (down to a missing final newline). Under `.github/` it ignores the specific entries it adds, one by one — never the whole directory, so your `.github/workflows/` stay tracked.
+- **`.pre-commit-config.yaml`** — the one tracked change. If the file doesn't exist, it's created carrying just Agent Factory's block. If it exists, `init-factory` hands off to `factory/scripts/merge-precommit-config`, which splices the `- repo: local` block — every hook id prefixed `agent_factory_hook-` — in at the top of your `repos:` list, leaving your own hooks untouched. An inert `.pre-commit-config.yml` is never touched; pre-commit only auto-reads `.yaml`.
+- **Orientation files** — if you already have a `.github/copilot-instructions.md` (or `.claude/CLAUDE.md`), it is left exactly as it is. Agent Factory's orientation is not forced on top of yours.
 - **Everything else** — your `docs/`, your scripts, your configuration — is left alone. `init-factory` never touches a file or directory it didn't create.
 
-The script is idempotent: run it again any time, and anything already correctly in place is skipped. If it finds something it can't safely work around, it stops immediately and names the exact path — it never partially applies a run.
+The script is idempotent: run it again any time, and anything already correctly in place is skipped. It records what it did in `.agent-factory/factory-install.json`, and a re-run reads that manifest so it never loses track of what it owns. If it finds something it can't safely work around, it stops immediately and names the exact path — it never partially applies a run.
 
-To trigger the same script conversationally instead of from a shell, use the `init-factory` skill (`factory/skills/init-factory/SKILL.md`): it confirms the target with you, runs the script, and relays its output.
+**Removing it again.** `factory/scripts/remove-factory` reverses the whole install from the manifest — deleting the git-ignored footprint, stripping the `agent_factory related` `.gitignore` block, and removing the `agent_factory_hook-` pre-commit block while leaving your own hooks in place — back to a clean `git status`. A repo that had its own `.gitignore`, pre-commit config, orientation file, or workflows gets them all back byte-for-byte.
+
+To trigger the install conversationally instead of from a shell, use the `init-factory` skill (`factory/skills/init-factory/SKILL.md`): it confirms the target with you, runs the script, and relays its output.
 
 ## Troubleshooting
 
