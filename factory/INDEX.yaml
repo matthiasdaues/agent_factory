@@ -93,6 +93,15 @@ agents:
     path: agents/research-orchestrator.md
     tokens: 1087
     total_tokens: 2943
+  - name: researcher
+    title: Researcher
+    phase: 6
+    phase_name: Research
+    tier: standard
+    description: Research a bounded question and form testable claims — find sources, assess their provenance, record evidence for and against, and design or execute refutation tests. Never reviews or votes on its own claim.
+    path: agents/researcher.md
+    tokens: 478
+    total_tokens: 2056
   - name: developer-agent
     title: Developer Agent
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
