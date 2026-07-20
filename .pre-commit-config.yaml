@@ -21,6 +21,80 @@ repos:
   - repo: local
     hooks:
       # formats all markdown files — zero local install, see factory/scripts/mdformat
+      - id: agent_factory_hook-mdformat
+        name: "agent_factory: mdformat"
+        entry: factory/scripts/mdformat --number
+        language: system
+        types: [markdown]
+
+      # lints all python files (skip if the project isn't Python) — zero local install, via uvx
+      - id: agent_factory_hook-ruff-check
+        name: "agent_factory: ruff check"
+        entry: uvx ruff check --fix
+        language: system
+        types_or: [python, pyi, jupyter]
+
+      # lints python code blocks in markdown — zero local install, via uvx
+      - id: agent_factory_hook-ruff-format
+        name: "agent_factory: ruff format"
+        entry: uvx ruff format
+        language: system
+        types_or: [python, pyi, jupyter]
+
+      - id: agent_factory_hook-spec-lint
+        name: "agent_factory: spec-lint (specification consistency & traceability)"
+        entry: factory/scripts/spec-lint
+        language: system
+        pass_filenames: false
+        files: ^docs/spec/
+
+      - id: agent_factory_hook-arch-lint
+        name: "agent_factory: arch-lint (arc42 <-> Structurizr consistency, ADR frontmatter)"
+        entry: factory/scripts/arch-lint --docs-dir docs --no-validate
+        language: system
+        pass_filenames: false
+        files: ^docs/(architecture\.dsl|05_building_block_view\.md|assets/images/.*|adr/.*\.md)$
+
+      - id: agent_factory_hook-backlog-lint
+        name: "agent_factory: backlog-lint (story schema & traceability gate)"
+        entry: factory/scripts/backlog-lint --backlog-dir backlog
+        language: system
+        pass_filenames: false
+        files: ^backlog/ST-.*\.md$
+
+      - id: agent_factory_hook-matrix-lint
+        name: "agent_factory: matrix-lint (model matrix consistency gate)"
+        entry: factory/scripts/matrix-lint --matrix config/model.conf
+        language: system
+        pass_filenames: false
+        files: ^config/model\.conf$
+
+      - id: agent_factory_hook-statemachine-lint
+        name: "agent_factory: statemachine-lint (pseudocode <-> Mermaid consistency)"
+        entry: factory/scripts/statemachine-lint --spec-dir docs/spec
+        language: system
+        pass_filenames: false
+        files: ^docs/spec/.*\.md$
+
+      - id: agent_factory_hook-index-lint
+        name: "agent_factory: index-lint (regenerate INDEX.yaml from agent/skill/playbook frontmatter)"
+        entry: factory/scripts/index-lint
+        language: system
+        pass_filenames: false
+        files: ^(factory/agents/.*\.md|factory/skills/.*/SKILL\.md|factory/playbooks/.*\.md)$
+
+      # governs phase ORDERING between playbook states (not artifact validity);
+      # inspects everything staged, so it always runs — no-op without a marker
+      - id: agent_factory_hook-transition-lint
+        name: "agent_factory: transition-lint (playbook phase-ordering gate)"
+        entry: factory/scripts/transition-lint
+        language: system
+        pass_filenames: false
+        always_run: true
+
+  - repo: local
+    hooks:
+      # formats all markdown files — zero local install, see factory/scripts/mdformat
       - id: mdformat
         name: mdformat
         entry: factory/scripts/mdformat --number
