@@ -750,6 +750,70 @@ class TestCodexNormalizerST0043:
         assert result.usage_granularity == "full"
 
 
+class TestPiNormalizerST0044:
+    def test_ST0044_root_stream_includes_child_text_and_final_cumulative_usage(
+        self, tmp_path
+    ):
+        events = [
+            {"type": "session_start", "systemPrompt": "PI SYSTEM"},
+            {"type": "prompt", "message": {"role": "user", "content": "ROOT ASK"}},
+            {
+                "type": "message_end",
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {"type": "thinking", "thinking": "ROOT THINK"},
+                        {
+                            "type": "toolCall",
+                            "name": "run_agent",
+                            "arguments": {"task": "CHILD TASK"},
+                        },
+                        {"type": "text", "text": "ROOT ANSWER"},
+                    ],
+                    "usage": {
+                        "input": 80,
+                        "output": 20,
+                        "cacheRead": 4,
+                        "cacheWrite": 2,
+                    },
+                },
+            },
+            {
+                "type": "tool_execution_end",
+                "toolName": "run_agent",
+                "result": "CHILD RESULT",
+            },
+            {
+                "type": "message_end",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": "FINAL ANSWER"}],
+                    "usage": {
+                        "input": 120,
+                        "output": 35,
+                        "cacheRead": 9,
+                        "cacheWrite": 3,
+                    },
+                },
+            },
+        ]
+        path = _write_transcript(tmp_path, events)
+
+        result = usage_capture.get_normalizer("pi").parse(path)
+
+        assert "PI SYSTEM" in result.input_text
+        assert "ROOT ASK" in result.input_text
+        assert "CHILD RESULT" in result.input_text
+        assert "ROOT THINK" in result.output_text
+        assert "CHILD TASK" in result.output_text
+        assert "FINAL ANSWER" in result.output_text
+        assert result.reported_input == 200
+        assert result.reported_output == 55
+        assert result.reported_cache_read == 13
+        assert result.reported_cache_write == 5
+        assert result.usage_granularity == "full"
+
+
 def _normalize_via_subprocess(cli: str, path: Path) -> dict:
     """Run `usage-capture --normalize` through the script's own shebang.
 

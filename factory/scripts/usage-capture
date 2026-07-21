@@ -692,11 +692,110 @@ class CodexNormalizer:
         return result
 
 
+class PiNormalizer:
+    """Normalize Pi's line-delimited JSON event stream.
+
+    Pi reports per-response usage on assistant ``message_end`` events, so the
+    breakdown is summed across the completed stream. All event text is retained, including nested
+    tool results present in a root stream, so a root record conserves total
+    usage while separately captured subprocess records remain attribution.
+    """
+
+    _USAGE_FIELDS = {
+        "input": "reported_input",
+        "output": "reported_output",
+        "cacheRead": "reported_cache_read",
+        "cacheWrite": "reported_cache_write",
+    }
+
+    @staticmethod
+    def _message_segments(message: dict) -> list[str]:
+        content = message.get("content")
+        blocks = content if isinstance(content, list) else [content]
+        segments: list[str] = []
+        for block in blocks:
+            if isinstance(block, str) and block:
+                segments.append(block)
+            elif isinstance(block, dict):
+                btype = block.get("type")
+                if btype == "thinking":
+                    value = block.get("thinking") or block.get("text")
+                elif btype in {"toolCall", "tool_call", "tool_use"}:
+                    name = block.get("name") or ""
+                    arguments = block.get("arguments", block.get("input"))
+                    encoded = (
+                        arguments
+                        if isinstance(arguments, str)
+                        else json.dumps(arguments, ensure_ascii=False, sort_keys=True)
+                        if arguments is not None
+                        else ""
+                    )
+                    value = f"{name} {encoded}".strip()
+                else:
+                    value = block.get("text")
+                if isinstance(value, str) and value:
+                    segments.append(value)
+        return segments
+
+    def parse(self, transcript_path: Union[str, Path]) -> NormalizedTranscript:
+        ordered: list[str] = []
+        inputs: list[str] = []
+        outputs: list[str] = []
+        reported = {field_name: 0 for field_name in self._USAGE_FIELDS.values()}
+        saw_usage = False
+
+        for line in Path(transcript_path).read_text(encoding="utf-8").splitlines():
+            try:
+                event = json.loads(line)
+            except (ValueError, TypeError):
+                continue
+            if not isinstance(event, dict):
+                continue
+            event_type = event.get("type")
+            segments: list[str] = []
+            direction = _INPUT
+            message = event.get("message")
+            if isinstance(message, dict):
+                segments = self._message_segments(message)
+                direction = _OUTPUT if message.get("role") == "assistant" else _INPUT
+                usage = message.get("usage")
+                if event_type == "message_end" and isinstance(usage, dict):
+                    saw_usage = True
+                    for key, field_name in self._USAGE_FIELDS.items():
+                        value = usage.get(key)
+                        if isinstance(value, (int, float)):
+                            reported[field_name] += int(value)
+            elif event_type == "session_start":
+                value = event.get("systemPrompt")
+                segments = [value] if isinstance(value, str) and value else []
+            elif event_type in {"tool_execution_end", "tool_result"}:
+                value = event.get("result") or event.get("content")
+                if isinstance(value, str) and value:
+                    segments = [value]
+                elif isinstance(value, (dict, list)):
+                    segments = [json.dumps(value, ensure_ascii=False, sort_keys=True)]
+
+            ordered.extend(segments)
+            (outputs if direction == _OUTPUT else inputs).extend(segments)
+
+        result = NormalizedTranscript(
+            input_text="\n".join(inputs),
+            output_text="\n".join(outputs),
+            ordered_segments=ordered,
+        )
+        if saw_usage:
+            for field_name, value in reported.items():
+                setattr(result, field_name, value)
+            result.usage_granularity = "full"
+        return result
+
+
 # CLI -> normalizer registry. Adding another CLI is a new entry, not a rewrite.
 _NORMALIZERS: dict = {
     "claude-code": ClaudeCodeNormalizer(),
     "copilot": CopilotNormalizer(),
     "codex": CodexNormalizer(),
+    "pi": PiNormalizer(),
 }
 
 SUPPORTED_CLIS = tuple(_NORMALIZERS)
