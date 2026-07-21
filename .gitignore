@@ -33,4 +33,5 @@ models/
 /.github/rulebooks
 /.github/scripts
 /.github/skills
+HANDOFF.md
 # <<< agent_factory related <<<
