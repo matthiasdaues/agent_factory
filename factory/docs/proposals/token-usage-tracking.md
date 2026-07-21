@@ -182,6 +182,13 @@ The script is uniform; the trigger is necessarily CLI-specific. Each hands
 Both hook kinds receive the transcript path and session id, so both human and
 dispatched sessions are covered within a CLI.
 
+Copilot accounting is inclusive at the root. The parent `agentStop` transcript
+contains child activity, so its normalized and reported totals include that
+activity. `subagentStop` records provide attribution drill-down; an aggregator
+must use root records for total spend and must not add child records again. The
+built-in `general-purpose` agent emits no `subagentStop`, but its spend is still
+captured inside the inclusive parent record.
+
 **Rollout order:** Claude Code `Stop` + `SubagentStop` established the shared
 capture core and first adapter. Complete the remaining supported CLIs in this
 priority order: GitHub Copilot CLI, Codex, then Pi. The script remains

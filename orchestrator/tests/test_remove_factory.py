@@ -173,6 +173,30 @@ class TestTracelessRemoval:
 
         assert _snapshot(tmp_path) == before
 
+    def test_roundtrip_preserves_project_owned_copilot_hook_file(self, tmp_path):
+        _make_project(tmp_path)
+        hooks = tmp_path / ".github/hooks"
+        hooks.mkdir()
+        project_hook = hooks / "project-observability.json"
+        project_hook.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "hooks": {
+                        "agentStop": [{"type": "command", "bash": "./project-hook.sh"}]
+                    },
+                },
+                indent=2,
+            )
+            + "\n"
+        )
+        before = _snapshot(tmp_path)
+
+        assert _run_init(tmp_path) == 0
+        assert _run_remove(tmp_path) == 0
+
+        assert _snapshot(tmp_path) == before
+
     def test_double_init_then_single_remove_is_byte_identical(self, tmp_path):
         _make_project(tmp_path)
         before = _snapshot(tmp_path)

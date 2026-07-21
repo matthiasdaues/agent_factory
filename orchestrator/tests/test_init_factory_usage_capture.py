@@ -51,6 +51,10 @@ def _settings(target: Path) -> Path:
     return target / ".claude" / "settings.json"
 
 
+def _copilot_hook_config(target: Path) -> Path:
+    return target / ".github" / "hooks" / "capture-usage.json"
+
+
 def _has_capture_entry(settings: dict, event: str) -> bool:
     for entry in settings.get("hooks", {}).get(event, []):
         for hook in entry.get("hooks", []):
@@ -84,6 +88,25 @@ class TestFreshTarget:
         for event in CAPTURE_EVENTS:
             assert _has_capture_entry(settings, event), f"missing {event} hook entry"
 
+    def test_copilot_native_agentstop_hooks_are_installed(self, tmp_path):
+        assert _run_init(tmp_path) == 0
+
+        config_path = _copilot_hook_config(tmp_path)
+        assert config_path.is_symlink()
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        assert config["version"] == 1
+        assert set(config["hooks"]) == {"agentStop", "subagentStop"}
+        for event in ("agentStop", "subagentStop"):
+            assert config["hooks"][event] == [
+                {
+                    "type": "command",
+                    "bash": "./.github/hooks/capture-copilot-usage.sh",
+                    "cwd": ".",
+                    "timeoutSec": 10,
+                }
+            ]
+        assert (tmp_path / ".github/hooks/capture-copilot-usage.sh").is_symlink()
+
 
 class TestReRunIsNoop:
     def test_second_run_leaves_symlink_and_settings_unchanged(self, tmp_path):
@@ -99,6 +122,16 @@ class TestReRunIsNoop:
         assert link.is_symlink()
         assert link.resolve() == link_target_before
         assert settings_path.read_text(encoding="utf-8") == settings_before
+
+    def test_second_run_leaves_copilot_hook_assets_unchanged(self, tmp_path):
+        assert _run_init(tmp_path) == 0
+        config = _copilot_hook_config(tmp_path)
+        script = tmp_path / ".github/hooks/capture-copilot-usage.sh"
+        before = (config.resolve(), config.read_bytes(), script.resolve())
+
+        assert _run_init(tmp_path) == 0
+
+        assert (config.resolve(), config.read_bytes(), script.resolve()) == before
 
 
 class TestPreExistingSettingsPreserved:

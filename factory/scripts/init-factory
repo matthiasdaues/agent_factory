@@ -69,11 +69,9 @@ Steps
          .github/hooks/.
        - Pi: symlink the project-local extension
          `.pi/extensions/block-dangerous-git.ts`.
-  7. Install the Claude Code usage-capture trigger (ST-0040): symlink
-     `capture-usage.sh` into `.claude/hooks/` and wire `Stop` and
-     `SubagentStop` entries into `.claude/settings.json`, the same
-     created-if-absent/merged-if-present rule as the guardrail above. Pi and
-     Copilot capture triggers are follow-on stories.
+  7. Install usage-capture triggers for Claude Code and Copilot CLI. Claude
+     uses merged `Stop`/`SubagentStop` settings; Copilot uses a dedicated
+     Factory-owned `.github/hooks/*.json` file for `agentStop`/`subagentStop`.
   8. Copy factory/config/model.conf to --target/config/model.conf, only if
      absent (meant to diverge per project).
   9. Pre-commit: the ONLY tracked change. If --target/.pre-commit-config.yaml
@@ -303,16 +301,7 @@ def install_git_guardrail(target: Path, install: dict, report: list[str]) -> Non
 
 
 def install_usage_capture(target: Path, install: dict, report: list[str]) -> None:
-    """Install the Claude Code usage-capture trigger the same way as the
-    git-safety guardrail above: symlink the shared hook script into
-    .claude/hooks/ and wire Stop + SubagentStop entries into
-    .claude/settings.json (created if absent, merged if present, never
-    duplicated, never clobbering hooks the project already owns).
-
-    Claude Code only for now — it is the CLI in active human use and one
-    hook-pair covers both human main sessions and every sub-agent (rollout
-    order per the token-usage-tracking proposal's "Capture Triggers, per
-    CLI"). Pi and Copilot capture triggers are follow-on stories."""
+    """Install native Claude Code and Copilot CLI usage-capture triggers."""
     hooks_dir = target / ".claude" / "hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
 
@@ -321,6 +310,34 @@ def install_usage_capture(target: Path, install: dict, report: list[str]) -> Non
     ensure_symlink(link, dest, report, install=install)
 
     _ensure_claude_capture_settings(target, install, report)
+    _install_copilot_usage_capture(target, install, report)
+
+
+def _install_copilot_usage_capture(
+    target: Path, install: dict, report: list[str]
+) -> None:
+    """Install an isolated Copilot version-1 hook file.
+
+    Copilot combines `.github/hooks/*.json`, so a dedicated Factory-owned file
+    is merge-safe without parsing or rewriting project-owned hook files.
+    """
+    hooks_dir = target / ".github" / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+    install["github_ignored_entries"].add(".github/hooks")
+
+    for name in ("capture-copilot-usage.sh", "capture-usage.json"):
+        ensure_symlink(
+            hooks_dir / name,
+            target / "factory" / "config" / "hooks" / name,
+            report,
+            install=install,
+        )
+
+    log(
+        report,
+        "Copilot usage capture: agentStop totals include child activity; "
+        "subagentStop is attribution-only (general-purpose emits no child hook)",
+    )
 
 
 def _install_claude_guardrail(target: Path, install: dict, report: list[str]) -> None:

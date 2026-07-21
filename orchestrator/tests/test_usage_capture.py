@@ -543,10 +543,8 @@ class TestClaudeCodeNormalizerReportedUsage:
         path = _write_transcript(tmp_path, lines)
         result = usage_capture.get_normalizer("claude-code").parse(path)
 
-        # normalized_* still derivable — both role streams are populated.
         assert "ASK" in result.input_text
         assert "REPLY" in result.output_text
-        # reported_* left null; granularity is the documented "none" case.
         assert result.reported_input is None
         assert result.reported_output is None
         assert result.reported_cache_read is None
@@ -571,8 +569,107 @@ class TestClaudeCodeNormalizerReportedUsage:
 
         assert "GOOD_ONE" in result.input_text
         assert "GOOD_TWO" in result.output_text
-        assert result.reported_input == 5  # the good line's usage still counts
+        assert result.reported_input == 5
         assert result.usage_granularity == "full"
+
+
+def _copilot_parent_transcript_with_general_purpose_child():
+    """Synthetic Copilot events; never derived from a private transcript."""
+    return [
+        {"type": "system.message", "data": {"content": "COPILOT_SYSTEM"}},
+        {"type": "user.message", "data": {"content": "PARENT_QUESTION"}},
+        {
+            "type": "assistant.message",
+            "data": {
+                "content": "PARENT_ANSWER",
+                "reasoningText": "PARENT_REASONING",
+            },
+        },
+        {
+            "type": "tool.execution_start",
+            "data": {
+                "toolName": "task",
+                "arguments": {"agent": "general-purpose", "prompt": "CHILD_TASK"},
+            },
+        },
+        {
+            "type": "assistant.message",
+            "data": {
+                "content": "GENERAL_PURPOSE_CHILD_ANSWER",
+                "parentToolCallId": "general-purpose-call",
+            },
+        },
+        {
+            "type": "tool.execution_complete",
+            "data": {
+                "result": "GENERAL_PURPOSE_CHILD_RESULT",
+                "toolCallId": "general-purpose-call",
+            },
+        },
+        {
+            "type": "assistant.usage",
+            "data": {
+                "inputTokens": 100,
+                "outputTokens": 20,
+                "cacheReadTokens": 5,
+                "cacheWriteTokens": 2,
+            },
+        },
+        {
+            "type": "assistant.usage",
+            "data": {
+                "inputTokens": 40,
+                "outputTokens": 9,
+                "cacheReadTokens": 3,
+                "cacheWriteTokens": 1,
+                "initiator": "sub-agent",
+                "parentToolCallId": "general-purpose-call",
+            },
+        },
+    ]
+
+
+class TestCopilotNormalizerST0042:
+    def test_parent_is_inclusive_of_general_purpose_child_text_and_usage(
+        self, tmp_path
+    ):
+        path = _write_transcript(
+            tmp_path, _copilot_parent_transcript_with_general_purpose_child()
+        )
+
+        result = usage_capture.get_normalizer("copilot").parse(path)
+
+        assert "PARENT_QUESTION" in result.input_text
+        assert "GENERAL_PURPOSE_CHILD_RESULT" in result.input_text
+        assert "PARENT_ANSWER" in result.output_text
+        assert "PARENT_REASONING" in result.output_text
+        assert "GENERAL_PURPOSE_CHILD_ANSWER" in result.output_text
+        assert "CHILD_TASK" in result.output_text
+        assert result.reported_input == 140
+        assert result.reported_output == 29
+        assert result.reported_cache_read == 8
+        assert result.reported_cache_write == 3
+        assert result.usage_granularity == "full"
+
+    def test_unknown_and_malformed_events_are_skipped(self, tmp_path):
+        path = _write_transcript(
+            tmp_path,
+            [
+                "not-json",
+                {"type": "future.event", "data": {"content": "IGNORE_ME"}},
+                {"type": "user.message", "data": {"content": "KEEP_INPUT"}},
+                {
+                    "type": "assistant.message",
+                    "data": {"content": "KEEP_OUTPUT"},
+                },
+            ],
+        )
+
+        result = usage_capture.get_normalizer("copilot").parse(path)
+
+        assert result.input_text == "KEEP_INPUT"
+        assert result.output_text == "KEEP_OUTPUT"
+        assert "IGNORE_ME" not in result.text
 
 
 def _normalize_via_subprocess(cli: str, path: Path) -> dict:
