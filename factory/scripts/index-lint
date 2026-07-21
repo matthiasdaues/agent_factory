@@ -241,11 +241,12 @@ def load_playbooks(playbooks_dir: Path) -> list[dict[str, object]]:
     for path in sorted(playbooks_dir.glob("*.md")):
         text = path.read_text(encoding="utf-8")
         fm = parse_frontmatter(text)
-        fsm_path = path.parent / f"{path.stem}.fsm.yml"
+        name = path.stem
+        fsm_path = path.parent / f"{name}.fsm.yml"
 
         entry: dict[str, object] = {
-            "name": path.stem,
-            "title": fm.get("title", path.stem),
+            "name": name,
+            "title": fm.get("title", name),
             "category": fm.get("category", ""),
             "description": _first_body_paragraph(text),
             "_path": str(path),

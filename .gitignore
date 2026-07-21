@@ -18,3 +18,19 @@ __pycache__/
 
 models/
 
+# >>> agent_factory related >>>
+# Added by init-factory; remove with factory/scripts/remove-factory.
+/.claude/
+/.pi/
+/.agent-factory/
+/session-scratchpad.md
+/AGENTS.md
+/.github/INDEX.yaml
+/.github/agents
+/.github/copilot-instructions.md
+/.github/hooks
+/.github/playbooks
+/.github/rulebooks
+/.github/scripts
+/.github/skills
+# <<< agent_factory related <<<

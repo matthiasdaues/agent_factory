@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Review",
+  "type": "object",
+  "required": ["claim_id", "checks", "defect_level"],
+  "properties": {
+    "claim_id": {
+      "type": "string",
+      "pattern": "^CLAIM-[0-9]{4}$"
+    },
+    "checks": {
+      "type": "object",
+      "required": [
+        "testable",
+        "alternatives_considered",
+        "tests_severe",
+        "survived_unchanged",
+        "sources_support_wording",
+        "sources_independent",
+        "assumptions_explicit",
+        "within_tested_scope",
+        "contrary_evidence_addressed",
+        "possible_overturning_evidence"
+      ],
+      "properties": {
+        "testable": { "type": "boolean" },
+        "alternatives_considered": { "type": "boolean" },
+        "tests_severe": { "type": "boolean" },
+        "survived_unchanged": { "type": "boolean" },
+        "sources_support_wording": { "type": "boolean" },
+        "sources_independent": { "type": "boolean" },
+        "assumptions_explicit": { "type": "boolean" },
+        "within_tested_scope": { "type": "boolean" },
+        "contrary_evidence_addressed": { "type": "boolean" },
+        "possible_overturning_evidence": { "type": "boolean" }
+      }
+    },
+    "defect_level": {
+      "type": "string",
+      "enum": ["BLOCKER", "MAJOR", "MINOR", "NOTE"]
+    }
+  }
+}
