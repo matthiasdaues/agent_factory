@@ -393,3 +393,237 @@ class TestJsonlLoggingAdapterFailureIsSwallowed:
         captured = capsys.readouterr()
         assert "usage-capture" in captured.err
         assert record.record_id in captured.err
+
+
+# ── Transcript normalizer (ST-0037) ─────────────────────────────────────
+
+
+def _write_transcript(tmp_path, lines) -> Path:
+    """Write *lines* (dicts and/or raw strings) as a `.jsonl` transcript.
+
+    The fixture is built inline into a `tmp_path` file rather than tracked, so
+    ST-0037 stays within its two declared outputs. Raw strings pass through
+    verbatim (used to inject a malformed line).
+    """
+    path = tmp_path / "transcript.jsonl"
+    rendered = []
+    for line in lines:
+        rendered.append(line if isinstance(line, str) else json.dumps(line))
+    path.write_text("\n".join(rendered) + "\n", encoding="utf-8")
+    return path
+
+
+def _claude_transcript_with_usage():
+    """A Claude Code `.jsonl` run carrying per-message `usage`.
+
+    Covers every content-block kind ST-0037 must fold into one stream: a
+    system prompt, a user turn, an assistant turn with thinking + text +
+    tool_use, and a tool_result fed back in the following user turn.
+    """
+    return [
+        {"type": "system", "message": {"role": "system", "content": "SYSTEM_PROMPT"}},
+        {
+            "type": "user",
+            "message": {"role": "user", "content": "USER_QUESTION"},
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {"type": "thinking", "thinking": "THINKING_TRACE"},
+                    {"type": "text", "text": "ASSISTANT_ANSWER"},
+                    {
+                        "type": "tool_use",
+                        "name": "Read",
+                        "input": {"file_path": "TOOL_INPUT_PATH"},
+                    },
+                ],
+                "usage": {
+                    "input_tokens": 100,
+                    "output_tokens": 40,
+                    "cache_read_input_tokens": 7,
+                    "cache_creation_input_tokens": 3,
+                },
+            },
+        },
+        {
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "content": [{"type": "text", "text": "TOOL_RESULT_BODY"}],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 50,
+                    "output_tokens": 0,
+                    "cache_read_input_tokens": 1,
+                    "cache_creation_input_tokens": 0,
+                },
+            },
+        },
+    ]
+
+
+class TestNormalizerInterface:
+    def test_selectable_per_cli(self):
+        normalizer = usage_capture.get_normalizer("claude-code")
+        assert hasattr(normalizer, "parse")
+
+    def test_unsupported_cli_raises_value_error(self):
+        # An unknown CLI is a capture-site programming error, distinct from a
+        # malformed transcript (which is skipped, not raised on).
+        try:
+            usage_capture.get_normalizer("no-such-cli")
+        except ValueError as exc:
+            assert "no-such-cli" in str(exc)
+        else:  # pragma: no cover - fail explicitly if no error raised
+            raise AssertionError("expected ValueError for unsupported cli")
+
+
+class TestClaudeCodeNormalizerText:
+    def test_full_run_text_includes_every_block_kind(self, tmp_path):
+        path = _write_transcript(tmp_path, _claude_transcript_with_usage())
+        result = usage_capture.get_normalizer("claude-code").parse(path)
+
+        full = result.text
+        # System prompt, user turn, thinking, assistant answer, tool input,
+        # and tool result — not just the boundary prompt and final output.
+        for fragment in (
+            "SYSTEM_PROMPT",
+            "USER_QUESTION",
+            "THINKING_TRACE",
+            "ASSISTANT_ANSWER",
+            "TOOL_INPUT_PATH",
+            "TOOL_RESULT_BODY",
+        ):
+            assert fragment in full, f"{fragment} missing from full run text"
+
+    def test_role_split_directs_input_and_output(self, tmp_path):
+        path = _write_transcript(tmp_path, _claude_transcript_with_usage())
+        result = usage_capture.get_normalizer("claude-code").parse(path)
+
+        # input <- system, user, tool_result
+        assert "SYSTEM_PROMPT" in result.input_text
+        assert "USER_QUESTION" in result.input_text
+        assert "TOOL_RESULT_BODY" in result.input_text
+        # output <- assistant text, thinking, tool_use
+        assert "ASSISTANT_ANSWER" in result.output_text
+        assert "THINKING_TRACE" in result.output_text
+        assert "TOOL_INPUT_PATH" in result.output_text
+        # and the streams do not bleed into each other
+        assert "TOOL_RESULT_BODY" not in result.output_text
+        assert "THINKING_TRACE" not in result.input_text
+
+
+class TestClaudeCodeNormalizerReportedUsage:
+    def test_usage_is_summed_across_messages_at_full_granularity(self, tmp_path):
+        path = _write_transcript(tmp_path, _claude_transcript_with_usage())
+        result = usage_capture.get_normalizer("claude-code").parse(path)
+
+        assert result.reported_input == 150  # 100 + 50
+        assert result.reported_output == 40  # 40 + 0
+        assert result.reported_cache_read == 8  # 7 + 1
+        assert result.reported_cache_write == 3  # 3 + 0
+        assert result.usage_granularity == "full"
+
+    def test_usageless_transcript_yields_null_reported_and_no_granularity(
+        self, tmp_path
+    ):
+        lines = [
+            {"type": "user", "message": {"role": "user", "content": "ASK"}},
+            {
+                "type": "assistant",
+                "message": {"role": "assistant", "content": "REPLY"},
+            },
+        ]
+        path = _write_transcript(tmp_path, lines)
+        result = usage_capture.get_normalizer("claude-code").parse(path)
+
+        # normalized_* still derivable — both role streams are populated.
+        assert "ASK" in result.input_text
+        assert "REPLY" in result.output_text
+        # reported_* left null; granularity is the documented "none" case.
+        assert result.reported_input is None
+        assert result.reported_output is None
+        assert result.reported_cache_read is None
+        assert result.reported_cache_write is None
+        assert result.usage_granularity is None
+
+    def test_malformed_line_is_skipped_not_raised(self, tmp_path):
+        lines = [
+            {"type": "user", "message": {"role": "user", "content": "GOOD_ONE"}},
+            "{ this is not valid json",
+            {
+                "type": "assistant",
+                "message": {
+                    "role": "assistant",
+                    "content": "GOOD_TWO",
+                    "usage": {"input_tokens": 5, "output_tokens": 9},
+                },
+            },
+        ]
+        path = _write_transcript(tmp_path, lines)
+        result = usage_capture.get_normalizer("claude-code").parse(path)
+
+        assert "GOOD_ONE" in result.input_text
+        assert "GOOD_TWO" in result.output_text
+        assert result.reported_input == 5  # the good line's usage still counts
+        assert result.usage_granularity == "full"
+
+
+def _normalize_via_subprocess(cli: str, path: Path) -> dict:
+    """Run `usage-capture --normalize` through the script's own shebang.
+
+    Same rationale as `_count_via_subprocess`: bare `uvx pytest` has no
+    tiktoken, but the script's `uv run --script` shebang does — so the
+    `normalized_*` integers below are real cl100k_base counts, proven to come
+    from the *same single read* that yields `reported_*`.
+    """
+    result = subprocess.run(
+        [str(_SCRIPT), "--normalize", cli, str(path)],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    return json.loads(result.stdout)
+
+
+class TestNormalizerProducesBothCountsFromOneRead:
+    def test_single_read_yields_normalized_and_reported(self, tmp_path):
+        path = _write_transcript(tmp_path, _claude_transcript_with_usage())
+        bundle = _normalize_via_subprocess("claude-code", path)
+
+        # normalized_* — real cl100k_base counts over the role-split streams.
+        assert bundle["normalized_input"] > 0
+        assert bundle["normalized_output"] > 0
+        assert (
+            bundle["normalized_total"]
+            == bundle["normalized_input"] + bundle["normalized_output"]
+        )
+        # reported_* — summed from the very same read.
+        assert bundle["reported_input"] == 150
+        assert bundle["reported_output"] == 40
+        assert bundle["reported_cache_read"] == 8
+        assert bundle["reported_cache_write"] == 3
+        assert bundle["usage_granularity"] == "full"
+
+    def test_usageless_single_read_still_yields_normalized(self, tmp_path):
+        lines = [
+            {"type": "user", "message": {"role": "user", "content": "ASK SOMETHING"}},
+            {
+                "type": "assistant",
+                "message": {"role": "assistant", "content": "A REPLY HERE"},
+            },
+        ]
+        path = _write_transcript(tmp_path, lines)
+        bundle = _normalize_via_subprocess("claude-code", path)
+
+        assert bundle["normalized_input"] > 0
+        assert bundle["normalized_output"] > 0
+        assert bundle["reported_input"] is None
+        assert bundle["reported_output"] is None
+        assert bundle["usage_granularity"] is None
