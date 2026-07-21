@@ -19,9 +19,49 @@ The author/reviewer split depends on each agent running in its own session, so t
 
 `run_agent` resolves the child's model from `config/model.conf` — the `pi.<tier>` row for the agent's declared tier — unless an explicit model id is passed, and it bounds nested spawns with a recursion-depth cap. The git-safety guardrail extension loads in the child too, so a spawned agent stays governed by the same guardrail as its parent. See [ADR-0004](../../docs/adr/0004-pi-subagent-invocation-via-subprocess-spawn.md) and [UC-10](../../docs/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md).
 
-Pi usage capture is automatic. Human sessions append one record at Pi's graceful `session_shutdown` boundary. `run_agent` and every `dispatch_wave` child append one separate attribution record from the child's complete JSON event stream, carrying parent-session and nesting-depth context. The root transcript retains child tool activity, and the Pi normalizer sums every per-response `message_end` usage breakdown. Capture is best-effort and never changes a tool result or shutdown outcome.
-
 For parallel work, a second Pi extension, `.pi/extensions/dispatch-wave.ts`, registers a `dispatch_wave` tool — the port of `implementation-agent`, which under Claude Code relies on the native Agent tool's `isolation: "worktree"` and simultaneous subagent spawns. Given one caller-planned, file-disjoint wave, `dispatch_wave` cuts a feature branch in its own git worktree per item, spawns each agent there in parallel, and — unless told not to — runs `premerge-check` before merging each finished branch into the target. It does not plan the wave: output-file overlap and dependency ordering stay with the calling agent, exactly as `implementation-agent` documents. `premerge-check` runs against the wave's frozen base, so a sibling merge advancing the target never falsely flags a later branch as stale.
+
+## Runtime usage capture
+
+Agent Factory records runtime token usage for Claude Code, GitHub Copilot CLI,
+Codex, and Pi. Every capture site calls the same
+`factory/scripts/usage-capture` pipeline: a CLI-specific transcript normalizer,
+the fixed `tiktoken cl100k_base` comparison tokenizer, and an append-only JSONL
+logging adapter. One record is appended to
+`.agent-factory/usage/<session_id>.jsonl`; the exact text that was tokenized is
+copied beneath `.agent-factory/usage/transcripts/` and linked through
+`transcript_ref`. The existing `/.agent-factory/` ignore rule covers the whole
+runtime area.
+
+`normalized_input`, `normalized_output`, and their derived total are always
+present. Provider `reported_*` fields and `usage_granularity` are nullable when
+the transcript contains no provider breakdown. Capture is best-effort: direct
+invocation reports errors on stderr and returns success, while native lifecycle
+adapters may suppress those errors too. Capture failure never changes session
+completion or a tool result. `remove-factory` removes Factory-owned hook assets
+and exact merged entries while preserving project-owned configuration.
+
+| CLI                | Human/root trigger                 | Child trigger                                      | Accounting rule                                                                                                                                            |
+| ------------------ | ---------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code        | `Stop` in `.claude/settings.json`  | `SubagentStop`                                     | Root/child conservation semantics are pending [RECON-0008](../../docs/findings/RECON-0008.md).                                                             |
+| GitHub Copilot CLI | `agentStop` under `.github/hooks/` | `subagentStop` for supported custom agents         | The root is inclusive; child records are attribution only. The built-in `general-purpose` agent emits no child hook, but its activity remains in the root. |
+| Codex              | `Stop` in `.codex/hooks.json`      | `SubagentStop`                                     | The latest cumulative root snapshot is inclusive; child records are attribution only.                                                                      |
+| Pi                 | `session_shutdown` extension       | Inline at each `run_agent` / `dispatch_wave` child | The root stream retains nested activity; per-response `message_end` usage is summed.                                                                       |
+
+Codex project command hooks remain inactive until their current definitions are
+trusted. After `init-factory`, open Codex's `/hooks` UI and approve the installed
+project hooks. Installation currently does not print this activation step; that
+operational defect is tracked as
+[RECON-0007](../../docs/findings/RECON-0007.md).
+
+Pi human sessions capture once at graceful `session_shutdown`. Inline child
+capture disables the child's shutdown extension, preventing duplicate records.
+`run_agent` and `dispatch_wave` attach nesting depth and should attach the parent
+session id; the unresolved human-parent propagation defect is tracked as
+[RECON-0006](../../docs/findings/RECON-0006.md).
+
+The architecture rationale is recorded in
+[ADR-0007](../../docs/adr/0007-normalize-runtime-usage-through-cli-adapters.md).
 
 ## Skills
 
@@ -150,28 +190,6 @@ One script serves the hook-based CLIs: it reads the shell command from either CL
 The guardrail is installed automatically for every project — not opt-in, not a skill you invoke by hand. `init-factory` symlinks the script into both `.claude/hooks/` and `.github/hooks/`, and wires each CLI's own hook-config shape to it: `.claude/settings.json` as a `PreToolUse`/`Bash` hook for Claude Code, `.github/hooks/block-dangerous-git.json` (`matcher: "bash"`) for Copilot CLI. For Pi, `init-factory` symlinks `.pi/extensions/block-dangerous-git.ts` to `factory/config/extensions/block-dangerous-git.ts`; Pi auto-discovers project-local extensions from `.pi/extensions/` once the project is trusted. `.claude/` and `.pi/` are gitignored wholesale; under `.github/`, only the entries Agent Factory adds — including `.github/hooks/` — are gitignored, never your Actions workflows. This is pure local machine state, re-created fresh by `init-factory` in every clone.
 
 **Pi caveat:** this is not as strong as the native Claude/Copilot hook path. Pi loads project-local extensions only after project trust resolves, and non-interactive runs may ignore them unless trust is already saved or the run is explicitly approved. For stronger Pi enforcement, install the same extension globally under `~/.pi/agent/extensions/`, pass it via `pi -e`, or run Pi in a sandbox/container. See Pi's own [Extensions](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/docs/extensions.md), [Security](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/docs/security.md), and [Containerization](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/docs/containerization.md) docs for the underlying model.
-
-### Copilot usage capture
-
-`init-factory` installs Factory-owned `agentStop` and `subagentStop` command
-hooks under `.github/hooks/`. The parent `agentStop` record is the inclusive
-source of total spend: child activity present in its transcript is included.
-`subagentStop` records are attribution drill-down and must not be added to the
-parent again when totals are aggregated. Copilot's built-in `general-purpose`
-agent emits no `subagentStop`, so it has no separate attribution record; its
-usage remains included in the parent record.
-
-### Codex usage capture
-
-`init-factory` merge-installs Factory-owned `Stop` and `SubagentStop` commands
-in `.codex/hooks.json`, preserving existing Codex hooks and settings. Both call
-the same best-effort adapter under `.codex/hooks/`; removal strips only those
-exact Factory entries and assets.
-
-The root Codex record is the inclusive source of total spend. Capture keeps
-child activity found in the root rollout and uses its latest cumulative token
-snapshot. A `SubagentStop` record is attribution drill-down and must not be
-added to the root again when totals are aggregated.
 
 Treat it as a backstop, not a security boundary. It catches an accidental or under-pressure bypass — a background agent routing around a failing gate, for instance — not a determined one. A user with shell access outside the CLI, or anyone who edits the CLI's own configuration, can always route around it.
 

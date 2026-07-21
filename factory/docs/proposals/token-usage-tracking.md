@@ -90,11 +90,11 @@ loop for X cost across all its iterations."
 
 **Spend**
 
-| Field                                                                              | Meaning                                                                     |
-| ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `normalized_input`, `normalized_output`, `normalized_total`                        | our tokenizer over the run text — **the comparable metric**; always present |
-| `reported_input`, `reported_output`, `reported_cache_read`, `reported_cache_write` | provider-reported; nullable; for real-cost reconciliation only              |
-| `usage_granularity`                                                                | `full \| aggregate` — whether the reported breakdown is trustworthy         |
+| Field                                                                              | Meaning                                                                              |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `normalized_input`, `normalized_output`, `normalized_total`                        | our tokenizer over the run text — **the comparable metric**; always present          |
+| `reported_input`, `reported_output`, `reported_cache_read`, `reported_cache_write` | provider-reported; nullable; for real-cost reconciliation only                       |
+| `usage_granularity`                                                                | `full \| aggregate \| null` — whether a provider breakdown exists and is trustworthy |
 
 **Outcome**
 
@@ -179,8 +179,8 @@ The script is uniform; the trigger is necessarily CLI-specific. Each hands
 | Codex              | `Stop` hook (`.codex/hooks.json`)  | `SubagentStop` hook                          |
 | Pi                 | `session_shutdown` extension hook  | `run_agent` / `dispatch_wave` call it inline |
 
-Both hook kinds receive the transcript path and session id, so both human and
-dispatched sessions are covered within a CLI.
+Each native capture site supplies or derives the transcript and session id, so
+both human and dispatched sessions are covered within a CLI.
 
 Copilot accounting is inclusive at the root. The parent `agentStop` transcript
 contains child activity, so its normalized and reported totals include that
@@ -230,16 +230,21 @@ exactly one child record with explicit parent and depth context.
 
 ## Design Details
 
-- **`record_id`** uniquely identifies a record and names its transcript copy;
-  derived from `session_id` plus a per-session sequence (or a UUID).
+- **`record_id`** uniquely identifies a record and names its transcript copy.
+  With a session id it is `<session_id>-NNNN`: a zero-padded sequence seeded
+  from the count of existing non-empty lines in that session's JSONL file. A
+  UUID4 is used when no session id exists. The MVP assumes one capture writer
+  at a time for a given session id; `O_APPEND` protects record writes but does
+  not make sequence allocation atomic across simultaneous same-session writers.
 - **Retention** of transcripts is manual and per-session for now; pruning
   policy is deferred with the rest of the read side.
-- **Failure is silent to the run:** capture errors are logged to stderr and
-  swallowed; the measured run is never affected.
+- **Failure is silent to the run:** direct `usage-capture` invocation reports
+  errors on stderr and returns success. Native lifecycle adapters may suppress
+  that stderr as well as swallowing the failure, so session completion and tool
+  results are never affected.
 
 ## Open Questions
 
-- Confirm the exact `record_id` scheme (session-sequence vs. UUID).
 - ~~Confirm the exact Pi human-session event that provides the completed
   transcript or event stream without double-counting agent output~~ — resolved
   (ST-0044): the installed extension captures the completed branch once on

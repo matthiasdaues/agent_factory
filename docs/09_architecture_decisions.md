@@ -14,6 +14,7 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0004 | [Pi runs a factory agent by spawning a separate `pi` subprocess](adr/0004-pi-subagent-invocation-via-subprocess-spawn.md)                                  | proposed | pugh-matrix |
 | 0005 | [OpenRouter tiers curated into `model.conf`; discovery is a separate offline aid](adr/0005-openrouter-model-discovery-for-model-conf.md)                   | proposed | none        |
 | 0006 | [Research: flat prefixed rulebook storage and a schema → policy → semantic validation pipeline](adr/0006-research-flat-storage-and-validation-pipeline.md) | proposed | none        |
+| 0007 | [Normalize runtime usage through CLI adapters into local append-only records](adr/0007-normalize-runtime-usage-through-cli-adapters.md)                    | proposed | none        |
 
 ## Key Decisions
 
@@ -43,6 +44,16 @@ All follow the "Agentic Creation, Deterministic Validation" principle: agents cr
 ### Research Feature Structure and Validation
 
 **ADR-0006** records three structural decisions behind the falsification-driven research feature. Research rulebook files use flat, by-kind storage with a `research-` filename prefix rather than a per-feature subtree, keeping `index-lint`'s directory-derived category intact. A new `rulebooks/schemas/` category holds JSON-Schema data contracts, deliberately outside `INDEX.yaml` (which scans Markdown only). Research artifacts pass a fixed three-stage pipeline — schema (`schema-validate`), then policy (`policy-validate`), then semantic review — that splits validation by whether a machine can decide it, applying the "Agentic Creation, Deterministic Validation" principle. Research agents group under phase 6, a self-contained workflow driven by the `research-topic` playbook, not a sixth step in the linear production chain.
+
+### Runtime Usage Observability
+
+**ADR-0007** establishes one CLI-agnostic runtime usage pipeline with
+per-CLI transcript normalizers and native lifecycle adapters. Fixed
+`cl100k_base` counts provide the cross-CLI comparison metric, while nullable
+provider counts support cost reconciliation. Append-only local JSONL and linked
+transcript copies are the MVP backend; the orchestrator does not duplicate
+CLI-owned capture. Root and child records follow each platform's conservation
+semantics so attribution is not added twice to an inclusive root.
 
 ## Superseded Decisions
 
