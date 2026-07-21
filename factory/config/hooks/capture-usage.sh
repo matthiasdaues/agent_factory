@@ -1,9 +1,11 @@
 #!/bin/bash
 # Claude Code Stop and SubagentStop hook script.
 # Captures usage records when sessions end. On a Stop (human main session) or
-# SubagentStop (dispatched sub-agent) event, reads the transcript path and
-# session id from the hook payload and invokes usage-capture with --cli
-# claude-code and the available context.
+# SubagentStop (dispatched sub-agent) event, reads the event's own transcript
+# path and the shared session id from the hook payload and invokes
+# usage-capture with --cli claude-code and the available context. Claude's
+# SubagentStop transcript_path is the main transcript; agent_transcript_path is
+# required for the child record.
 #
 # This script mirrors block-dangerous-git.sh: factory-owned under
 # factory/config/hooks/, symlinked into a project by init-factory, and
@@ -15,10 +17,16 @@
 
 INPUT=$(cat)
 
-# Extract required fields from the hook payload.
-TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // empty')
+# Extract required fields from the hook payload. Claude supplies the main
+# transcript as transcript_path for both events; SubagentStop's own completed
+# run is agent_transcript_path and must not fall back to the main transcript.
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
 HOOK_EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // empty')
+if [ "$HOOK_EVENT" = "SubagentStop" ]; then
+  TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.agent_transcript_path // empty')
+else
+  TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // empty')
+fi
 
 # If transcript_path or session_id is missing/empty, exit quietly (best-effort).
 if [ -z "$TRANSCRIPT_PATH" ] || [ -z "$SESSION_ID" ]; then

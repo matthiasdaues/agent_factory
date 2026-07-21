@@ -573,6 +573,119 @@ class TestClaudeCodeNormalizerReportedUsage:
         assert result.usage_granularity == "full"
 
 
+def _claude_assistant_event(
+    marker: str,
+    *,
+    input_tokens: int,
+    output_tokens: int,
+    cache_read: int = 0,
+    cache_write: int = 0,
+) -> dict:
+    return {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [{"type": "text", "text": marker}],
+            "usage": {
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "cache_read_input_tokens": cache_read,
+                "cache_creation_input_tokens": cache_write,
+            },
+        },
+    }
+
+
+def _parse_claude_fixture(tmp_path: Path, name: str, lines: list[dict]):
+    fixture_dir = tmp_path / name
+    fixture_dir.mkdir()
+    path = _write_transcript(fixture_dir, lines)
+    return usage_capture.get_normalizer("claude-code").parse(path)
+
+
+class TestClaudeCodeConservationRECON0008:
+    def test_latest_root_plus_each_distinct_child_once(self, tmp_path):
+        early_root = _parse_claude_fixture(
+            tmp_path,
+            "early-root",
+            [
+                _claude_assistant_event(
+                    "ROOT_FIRST_TURN", input_tokens=10, output_tokens=2
+                )
+            ],
+        )
+        final_root = _parse_claude_fixture(
+            tmp_path,
+            "final-root",
+            [
+                _claude_assistant_event(
+                    "ROOT_FIRST_TURN", input_tokens=10, output_tokens=2
+                ),
+                {
+                    "type": "user",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "content": "CHILD_RESULT_SUMMARY",
+                            }
+                        ],
+                    },
+                    # Claude may write a compact result-level usage summary
+                    # here. It is not the child's cumulative transcript usage.
+                    "toolUseResult": {
+                        "agentId": "child-a",
+                        "usage": {"input_tokens": 999, "output_tokens": 999},
+                        "totalTokens": 1998,
+                    },
+                },
+                _claude_assistant_event(
+                    "ROOT_FINAL_TURN", input_tokens=20, output_tokens=4
+                ),
+            ],
+        )
+        child_a = _parse_claude_fixture(
+            tmp_path,
+            "child-a",
+            [
+                _claude_assistant_event(
+                    "CHILD_A_INTERNAL", input_tokens=3, output_tokens=5
+                )
+            ],
+        )
+        child_b = _parse_claude_fixture(
+            tmp_path,
+            "child-b",
+            [
+                _claude_assistant_event(
+                    "CHILD_B_INTERNAL", input_tokens=4, output_tokens=6
+                )
+            ],
+        )
+
+        assert early_root.reported_input == 10
+        assert final_root.reported_input == 30
+        assert final_root.reported_output == 6
+        assert "CHILD_A_INTERNAL" not in final_root.text
+        assert "CHILD_B_INTERNAL" not in final_root.text
+        assert "CHILD_A_INTERNAL" in child_a.text
+        assert "CHILD_B_INTERNAL" in child_b.text
+
+        # A reader must select the latest cumulative root and de-duplicate
+        # child records by invocation identity before adding each child once.
+        roots = [early_root, final_root]
+        children_by_id = {"child-a": child_a, "child-b": child_b}
+        total_input = roots[-1].reported_input + sum(
+            child.reported_input for child in children_by_id.values()
+        )
+        total_output = roots[-1].reported_output + sum(
+            child.reported_output for child in children_by_id.values()
+        )
+        assert total_input == 37
+        assert total_output == 17
+
+
 def _copilot_parent_transcript_with_general_purpose_child():
     """Synthetic Copilot events; never derived from a private transcript."""
     return [

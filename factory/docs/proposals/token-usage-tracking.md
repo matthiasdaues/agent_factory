@@ -182,6 +182,17 @@ The script is uniform; the trigger is necessarily CLI-specific. Each hands
 Each native capture site supplies or derives the transcript and session id, so
 both human and dispatched sessions are covered within a CLI.
 
+Claude accounting is non-inclusive at the root. `Stop` records are cumulative
+snapshots of the main transcript, which contains the `Agent` request and
+returned summary but excludes the child's internal messages and full
+per-message provider usage. `SubagentStop.transcript_path` also names that main
+transcript, so the adapter must capture the separate `agent_transcript_path`.
+Reporting total spend must select the latest root snapshot and add each
+distinct child record once. Result-level `toolUseResult.usage` metadata in the
+root is not the child's cumulative usage and is not added by the normalizer.
+Boundary task/result text can appear in both normalized records because both
+model invocations consumed it.
+
 Copilot accounting is inclusive at the root. The parent `agentStop` transcript
 contains child activity, so its normalized and reported totals include that
 activity. `subagentStop` records provide attribution drill-down; an aggregator

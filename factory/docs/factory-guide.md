@@ -43,7 +43,7 @@ and exact merged entries while preserving project-owned configuration.
 
 | CLI                | Human/root trigger                 | Child trigger                                      | Accounting rule                                                                                                                                            |
 | ------------------ | ---------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Claude Code        | `Stop` in `.claude/settings.json`  | `SubagentStop`                                     | Root/child conservation semantics are pending [RECON-0008](../../docs/findings/RECON-0008.md).                                                             |
+| Claude Code        | `Stop` in `.claude/settings.json`  | `SubagentStop`                                     | The latest cumulative root excludes child internals and usage. Add each distinct child record once.                                                        |
 | GitHub Copilot CLI | `agentStop` under `.github/hooks/` | `subagentStop` for supported custom agents         | The root is inclusive; child records are attribution only. The built-in `general-purpose` agent emits no child hook, but its activity remains in the root. |
 | Codex              | `Stop` in `.codex/hooks.json`      | `SubagentStop`                                     | The latest cumulative root snapshot is inclusive; child records are attribution only.                                                                      |
 | Pi                 | `session_shutdown` extension       | Inline at each `run_agent` / `dispatch_wave` child | The root stream retains nested activity; per-response `message_end` usage is summed.                                                                       |
@@ -59,6 +59,15 @@ capture disables the child's shutdown extension, preventing duplicate records.
 `run_agent` and `dispatch_wave` attach nesting depth and should attach the parent
 session id; the unresolved human-parent propagation defect is tracked as
 [RECON-0006](../../docs/findings/RECON-0006.md).
+
+Claude `Stop` records are cumulative snapshots of the main transcript. For
+session totals, select the latest root record and add each distinct
+`SubagentStop` record once. Claude's `SubagentStop.transcript_path` points to
+the main transcript; Agent Factory instead captures the required
+`agent_transcript_path`, which contains the child's internal messages and
+per-message provider usage. Boundary task and result text can occur in both
+records because it entered both model contexts; that is real normalized usage,
+not aggregation duplication.
 
 The architecture rationale is recorded in
 [ADR-0007](../../docs/adr/0007-normalize-runtime-usage-through-cli-adapters.md).
