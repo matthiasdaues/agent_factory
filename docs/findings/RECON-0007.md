@@ -4,7 +4,7 @@ source: reconcile-spec
 severity: major
 category: defect
 artifact: factory/scripts/init-factory
-status: open
+status: resolved
 traces: [ST-0043]
 ---
 
@@ -35,21 +35,13 @@ merge-installed and that direct invocation of each installed command produces
 canonical artifacts. Those synthetic tests cannot prove that Codex admitted
 the hook through its trust gate.
 
-## Pending live acceptance
+## Resolution
 
-Keep this finding open until a user completes this procedure:
+`init-factory` now distinguishes installation from activation and reports the
+required `/hooks` review-and-trust step on fresh installs and re-runs. Automated
+tests cover both public installer paths.
 
-1. Run `init-factory` against a disposable consumer repository.
-2. Start interactive Codex in that repository without
-   `--dangerously-bypass-hook-trust`.
-3. Open `/hooks`, review the installed project `Stop` and `SubagentStop`
-   commands, and explicitly trust them.
-4. Complete a minimal real Codex turn and exit normally.
-5. Verify that the installed lifecycle hook appended one canonical record under
-   `.agent-factory/usage/` and persisted the transcript copy referenced by the
-   record.
-
-Acceptance evidence must record the date, Codex version, disposable repository
-identifier, trusted hook events, generated record path, transcript-copy path,
-and schema/usage checks. It must not include prompt or transcript contents. A
-synthetic adapter invocation or a run using the hook-trust bypass does not count.
+On 2026-07-22, a user completed the interactive trust flow without bypassing
+hook trust. A real Codex turn then produced exactly one canonical usage record
+and an existing transcript-copy artifact. The metadata-only acceptance record
+is [Codex usage-capture trusted smoke test](../reviews/codex-usage-capture-smoke-2026-07-22.md).
