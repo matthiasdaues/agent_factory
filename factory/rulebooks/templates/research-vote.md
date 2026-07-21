@@ -8,7 +8,7 @@ version: 1.0.0
 Skeleton for a single vote artifact — one eligible reviewer's disposition on a
 claim, cast against one completed review of one exact claim hash (proposal
 Procedure Step 9). Governed by
-[vote.schema.json](../../schemas/research/vote.schema.json).
+[vote.schema.json](../../schemas/research-vote.schema.json).
 
 ## Fields
 
@@ -23,4 +23,4 @@ Procedure Step 9). Governed by
 
 ## Referenced from
 
-- [vote.schema.json](../../schemas/research/vote.schema.json)
+- [vote.schema.json](../../schemas/research-vote.schema.json)

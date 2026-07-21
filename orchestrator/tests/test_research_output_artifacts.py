@@ -38,13 +38,13 @@ import pytest
 _ROOT = Path(__file__).resolve().parents[2]
 _VALIDATE = _ROOT / "factory" / "scripts" / "schema-validate"
 
-_SCHEMAS_DIR = _ROOT / "factory" / "rulebooks" / "schemas" / "research"
-_TEMPLATES_DIR = _ROOT / "factory" / "rulebooks" / "templates" / "research"
+_SCHEMAS_DIR = _ROOT / "factory" / "rulebooks" / "schemas"
+_TEMPLATES_DIR = _ROOT / "factory" / "rulebooks" / "templates"
 
-_CLAIM_REGISTER_SCHEMA = _SCHEMAS_DIR / "claim-register.schema.json"
-_FINAL_REPORT_SCHEMA = _SCHEMAS_DIR / "final-report.schema.json"
-_CLAIM_REGISTER_TEMPLATE = _TEMPLATES_DIR / "claim-register.md"
-_FINAL_REPORT_TEMPLATE = _TEMPLATES_DIR / "final-report.md"
+_CLAIM_REGISTER_SCHEMA = _SCHEMAS_DIR / "research-claim-register.schema.json"
+_FINAL_REPORT_SCHEMA = _SCHEMAS_DIR / "research-final-report.schema.json"
+_CLAIM_REGISTER_TEMPLATE = _TEMPLATES_DIR / "research-claim-register.md"
+_FINAL_REPORT_TEMPLATE = _TEMPLATES_DIR / "research-final-report.md"
 
 
 def run(artifact: Path, schema: Path) -> subprocess.CompletedProcess:

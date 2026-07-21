@@ -18,10 +18,10 @@ from pathlib import Path
 
 
 _ROOT = Path(__file__).resolve().parents[2]
-_POLICIES_DIR = _ROOT / "factory" / "rulebooks" / "policies" / "research"
+_POLICIES_DIR = _ROOT / "factory" / "rulebooks" / "conventions"
 
-_ROLE_SEPARATION_POLICY = _POLICIES_DIR / "role-separation.md"
-_CLAIM_ADMISSION_POLICY = _POLICIES_DIR / "claim-admission-policy.md"
+_ROLE_SEPARATION_POLICY = _POLICIES_DIR / "research-role-separation.md"
+_CLAIM_ADMISSION_POLICY = _POLICIES_DIR / "research-claim-admission-policy.md"
 
 
 def _parse_frontmatter(file_path: Path) -> dict:

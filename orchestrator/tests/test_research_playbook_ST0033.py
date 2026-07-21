@@ -4,7 +4,7 @@ discovery fix (ST-0033).
 The research-topic playbook is a prose runbook that wires the thirteen-step
 falsification-driven research procedure. Tests verify:
 
-1. File existence and frontmatter: the nested `research-topic/PLAYBOOK.md`
+1. File existence and frontmatter: the nested `research-topic.md`
    exists and carries the frontmatter index-lint requires (title, category,
    type, scenario, version).
 2. Body wiring: all thirteen steps appear in order, each naming an agent, an
@@ -13,7 +13,7 @@ falsification-driven research procedure. Tests verify:
    three-reviewers, and new-version-on-resolution rules are stated.
 3. Integration proof of the index-lint fix: after regeneration the real
    `factory/INDEX.yaml` lists a playbook `name: research-topic` at
-   `path: playbooks/research-topic/PLAYBOOK.md`, while still listing the
+   `path: playbooks/research-topic.md`, while still listing the
    existing flat playbooks.
 """
 
@@ -27,7 +27,7 @@ import pytest
 
 
 _ROOT = Path(__file__).resolve().parents[2]
-_PLAYBOOK = _ROOT / "factory" / "playbooks" / "research-topic" / "PLAYBOOK.md"
+_PLAYBOOK = _ROOT / "factory" / "playbooks" / "research-topic.md"
 _INDEX = _ROOT / "factory" / "INDEX.yaml"
 _INDEX_LINT = _ROOT / "factory" / "scripts" / "index-lint"
 
@@ -232,8 +232,8 @@ class TestIndexLintIntegration:
         assert "name: research-topic" in text, (
             "INDEX.yaml does not list the research-topic playbook"
         )
-        assert "path: playbooks/research-topic/PLAYBOOK.md" in text, (
-            "research-topic playbook not indexed at its nested path"
+        assert "path: playbooks/research-topic.md" in text, (
+            "research-topic playbook not indexed at its flat path"
         )
 
     def test_research_topic_agent_sequence(self):

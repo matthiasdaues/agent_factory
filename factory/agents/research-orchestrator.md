@@ -11,9 +11,9 @@ description: >-
   or voting on a claim itself.
 inputs:
   - factory/docs/proposals/falsification-driven-research-workflow.md
-  - factory/rulebooks/policies/research/role-separation.md
-  - factory/rulebooks/policies/research/claim-admission-policy.md
-  - factory/rulebooks/schemas/research/*.schema.json
+  - factory/rulebooks/conventions/research-role-separation.md
+  - factory/rulebooks/conventions/research-claim-admission-policy.md
+  - factory/rulebooks/schemas/research-*.schema.json
 outputs:
   - research-plan.md (validation result)
   - assignments/*.md
@@ -60,7 +60,7 @@ The Orchestrator must not:
 
 ## Source of These Boundaries
 
-These permitted and forbidden actions, and the role separation they enforce, come from [role-separation.md](../rulebooks/policies/research/role-separation.md). That policy's Rule 3 ("The Orchestrator Cannot Vote") and Rule 5 ("One Agent Cannot Fill Conflicting Roles for the Same Claim") bind this agent specifically: the Orchestrator tallies votes and freezes the claim register, but must never appear as the `reviewer` on a vote, and must never hold an author, reviewer, or voter position on a claim it is also tallying or freezing.
+These permitted and forbidden actions, and the role separation they enforce, come from [role-separation.md](../rulebooks/conventions/research-role-separation.md). That policy's Rule 3 ("The Orchestrator Cannot Vote") and Rule 5 ("One Agent Cannot Fill Conflicting Roles for the Same Claim") bind this agent specifically: the Orchestrator tallies votes and freezes the claim register, but must never appear as the `reviewer` on a vote, and must never hold an author, reviewer, or voter position on a claim it is also tallying or freezing.
 
 ## Workflow
 

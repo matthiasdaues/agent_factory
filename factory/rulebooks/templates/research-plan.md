@@ -7,7 +7,7 @@ version: 1.0.0
 
 Skeleton for a single research-plan artifact (JSON), produced from a research
 brief. Validated against
-[research-plan.schema.json](../../schemas/research/research-plan.schema.json)
+[research-plan.schema.json](../../schemas/research-plan.schema.json)
 via `factory/scripts/schema-validate`.
 
 ## Fields
@@ -56,5 +56,5 @@ The conditions under which this research effort stops, as a list.
 
 ## Referenced from
 
-- [research-plan.schema.json](../../schemas/research/research-plan.schema.json)
+- [research-plan.schema.json](../../schemas/research-plan.schema.json)
 - [schema-validate script](../../../scripts/schema-validate)

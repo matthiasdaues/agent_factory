@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://agent-factory/rulebooks/schemas/research/final-report.schema.json",
+  "$id": "https://agent-factory/rulebooks/schemas/research-final-report.schema.json",
   "title": "Final Report",
   "description": "Distinguishes surviving findings from refuted conjectures, unresolved alternatives, recommendations, evidence gaps, and limitations. Every factual finding must cite the surviving claim(s) it rests on.",
   "type": "object",

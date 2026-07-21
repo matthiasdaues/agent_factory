@@ -22,8 +22,8 @@ import pytest
 
 _ROOT = Path(__file__).resolve().parents[2]
 _VALIDATE = _ROOT / "factory" / "scripts" / "schema-validate"
-_SCHEMA_DIR = _ROOT / "factory" / "rulebooks" / "schemas" / "research"
-_TEMPLATE_DIR = _ROOT / "factory" / "rulebooks" / "templates" / "research"
+_SCHEMA_DIR = _ROOT / "factory" / "rulebooks" / "schemas"
+_TEMPLATE_DIR = _ROOT / "factory" / "rulebooks" / "templates"
 
 
 def run(artifact_path: Path, schema_path: Path) -> subprocess.CompletedProcess:

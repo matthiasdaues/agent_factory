@@ -17,10 +17,10 @@ from pathlib import Path
 
 
 _ROOT = Path(__file__).resolve().parents[2]
-_POLICIES_DIR = _ROOT / "factory" / "rulebooks" / "policies" / "research"
+_POLICIES_DIR = _ROOT / "factory" / "rulebooks" / "conventions"
 
-_EVIDENCE_POLICY = _POLICIES_DIR / "evidence-policy.md"
-_REPORT_POLICY = _POLICIES_DIR / "report-policy.md"
+_EVIDENCE_POLICY = _POLICIES_DIR / "research-evidence-policy.md"
+_REPORT_POLICY = _POLICIES_DIR / "research-report-policy.md"
 
 
 def _parse_frontmatter(file_path: Path) -> dict:

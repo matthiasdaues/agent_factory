@@ -20,8 +20,8 @@ Apply a structured set of ten review checks to assess whether a claim is defensi
 
 ## Output Artifacts
 
-- **Review** — structured assessment against the ten checks, with classified defects (from `rulebooks/templates/research/review.md` and validated by `rulebooks/schemas/research/review.schema.json`).
-- **Vote** — a vote decision tied to the reviewed claim hash (from `rulebooks/templates/research/vote.md` and validated by `rulebooks/schemas/research/vote.schema.json`).
+- **Review** — structured assessment against the ten checks, with classified defects (from `rulebooks/templates/research-review.md` and validated by `rulebooks/schemas/research-review.schema.json`).
+- **Vote** — a vote decision tied to the reviewed claim hash (from `rulebooks/templates/research-vote.md` and validated by `rulebooks/schemas/research-vote.schema.json`).
 
 ## The Ten Review Checks
 

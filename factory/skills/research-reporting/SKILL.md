@@ -22,11 +22,11 @@ The final report is the deliverable output of the research workflow and must acc
 
 ## Input Artifacts
 
-- **Frozen claim register** — the completed compilation of all claims (surviving, refuted, unresolved, and superseded), their evidence, tests, reviews, and votes. Frozen means no further claims or votes will be added. (Validated by `rulebooks/schemas/research/claim-register.schema.json`).
+- **Frozen claim register** — the completed compilation of all claims (surviving, refuted, unresolved, and superseded), their evidence, tests, reviews, and votes. Frozen means no further claims or votes will be added. (Validated by `rulebooks/schemas/research-claim-register.schema.json`).
 
 ## Output Artifacts
 
-- **Final report** — structured final report drawn from surviving claims (from `rulebooks/templates/research/final-report.md` and validated by `rulebooks/schemas/research/final-report.schema.json`).
+- **Final report** — structured final report drawn from surviving claims (from `rulebooks/templates/research-final-report.md` and validated by `rulebooks/schemas/research-final-report.schema.json`).
 
 ## Key Principles
 
@@ -93,7 +93,7 @@ The report must not:
 
 ## Structure and Form
 
-The final report follows the template at `rulebooks/templates/research/final-report.md` and must conform to the schema at `rulebooks/schemas/research/final-report.schema.json`.
+The final report follows the template at `rulebooks/templates/research-final-report.md` and must conform to the schema at `rulebooks/schemas/research-final-report.schema.json`.
 
 Typical sections include:
 

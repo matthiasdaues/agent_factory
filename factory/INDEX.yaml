@@ -91,8 +91,8 @@ agents:
     tier: standard
     description: Attempts to refute a claim produced by the Researcher, checking whether it can be falsified, whether its sources hold up, and whether its tests were severe — then casts a vote on its disposition without ever editing the claim itself.
     path: agents/claim-reviewer.md
-    tokens: 607
-    total_tokens: 2185
+    tokens: 604
+    total_tokens: 2182
   - name: research-orchestrator
     title: Research Orchestrator
     phase: 6
@@ -100,8 +100,8 @@ agents:
     tier: standard
     description: Runs the falsification-driven research playbook end to end — validates the brief, assigns independent research, tallies votes, freezes the claim register, and starts report generation — without ever authoring, reviewing, or voting on a claim itself.
     path: agents/research-orchestrator.md
-    tokens: 1087
-    total_tokens: 2943
+    tokens: 1086
+    total_tokens: 2942
   - name: research-report-writer
     title: Research Report Writer
     phase: 6
@@ -109,8 +109,8 @@ agents:
     tier: standard
     description: Writes the final report from the frozen claim register. Arranges surviving claims, summarizes them, and preserves refutations and limitations — without conducting new research or overstating what survived.
     path: agents/research-report-writer.md
-    tokens: 639
-    total_tokens: 1365
+    tokens: 634
+    total_tokens: 1360
   - name: researcher
     title: Researcher
     phase: 6
@@ -118,8 +118,8 @@ agents:
     tier: standard
     description: Research a bounded question and form testable claims — find sources, assess their provenance, record evidence for and against, and design or execute refutation tests. Never reviews or votes on its own claim.
     path: agents/researcher.md
-    tokens: 478
-    total_tokens: 2056
+    tokens: 476
+    total_tokens: 2054
   - name: developer-agent
     title: Developer Agent
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
@@ -272,7 +272,7 @@ skills:
     category: research
     description: Test a claim, its evidence, and refutation attempts against ten review checks, classify defects, and produce a vote tied to exact claim hash.
     path: skills/adversarial-review/SKILL.md
-    tokens: 1151
+    tokens: 1149
   - name: claim-formulation
     category: research
     description: Produce one precise, testable claim from recorded evidence with scope, assumptions, and content hash.
@@ -287,12 +287,12 @@ skills:
     category: research
     description: Turn a validated brief into research questions, assignments, competing conjectures, and stop conditions.
     path: skills/research-planning/SKILL.md
-    tokens: 411
+    tokens: 403
   - name: research-reporting
     category: research
     description: Build a final report from the frozen claim register without adding new findings, citing surviving claim IDs and preserving qualifications.
     path: skills/research-reporting/SKILL.md
-    tokens: 1171
+    tokens: 1167
   - name: source-research
     category: research
     description: Find sources for one bounded assignment and record them against the source-record artifact.
@@ -400,7 +400,7 @@ playbooks:
     title: Research Topic Playbook
     category: orchestration
     description: Operational procedure for falsification-driven research, running from an approved research brief to a validated final report. The playbook admits a claim to the report only after that claim has survived a serious attempt at refutation within its stated scope. A surviving claim is never presented as proved; it has only withstood the defined tests.
-    path: playbooks/research-topic/PLAYBOOK.md
+    path: playbooks/research-topic.md
     agents:
       - research-orchestrator
       - researcher
@@ -416,7 +416,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 2685
-    total_tokens: 11234
+    total_tokens: 11223
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration
@@ -464,6 +464,22 @@ rulebooks:
     category: conventions
     path: rulebooks/conventions/report-format.md
     tokens: 621
+  - name: research-claim-admission-policy
+    category: conventions
+    path: rulebooks/conventions/research-claim-admission-policy.md
+    tokens: 978
+  - name: research-evidence-policy
+    category: conventions
+    path: rulebooks/conventions/research-evidence-policy.md
+    tokens: 700
+  - name: research-report-policy
+    category: conventions
+    path: rulebooks/conventions/research-report-policy.md
+    tokens: 726
+  - name: research-role-separation
+    category: conventions
+    path: rulebooks/conventions/research-role-separation.md
+    tokens: 878
   - name: review-loop-discipline
     category: conventions
     path: rulebooks/conventions/review-loop-discipline.md
@@ -480,19 +496,3 @@ rulebooks:
     category: conventions
     path: rulebooks/conventions/versioning-policy.md
     tokens: 657
-  - name: claim-admission-policy
-    category: policies
-    path: rulebooks/policies/research/claim-admission-policy.md
-    tokens: 978
-  - name: evidence-policy
-    category: policies
-    path: rulebooks/policies/research/evidence-policy.md
-    tokens: 700
-  - name: report-policy
-    category: policies
-    path: rulebooks/policies/research/report-policy.md
-    tokens: 726
-  - name: role-separation
-    category: policies
-    path: rulebooks/policies/research/role-separation.md
-    tokens: 878

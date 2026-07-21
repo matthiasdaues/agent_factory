@@ -30,16 +30,16 @@ import pytest
 
 _ROOT = Path(__file__).resolve().parents[2]
 _VALIDATE = _ROOT / "factory" / "scripts" / "schema-validate"
-_SCHEMA_DIR = _ROOT / "factory" / "rulebooks" / "schemas" / "research"
-_TEMPLATE_DIR = _ROOT / "factory" / "rulebooks" / "templates" / "research"
+_SCHEMA_DIR = _ROOT / "factory" / "rulebooks" / "schemas"
+_TEMPLATE_DIR = _ROOT / "factory" / "rulebooks" / "templates"
 
-_TEST_RECORD_SCHEMA = _SCHEMA_DIR / "test-record.schema.json"
-_REVIEW_SCHEMA = _SCHEMA_DIR / "review.schema.json"
-_VOTE_SCHEMA = _SCHEMA_DIR / "vote.schema.json"
+_TEST_RECORD_SCHEMA = _SCHEMA_DIR / "research-test-record.schema.json"
+_REVIEW_SCHEMA = _SCHEMA_DIR / "research-review.schema.json"
+_VOTE_SCHEMA = _SCHEMA_DIR / "research-vote.schema.json"
 
-_TEST_RECORD_TEMPLATE = _TEMPLATE_DIR / "test-record.md"
-_REVIEW_TEMPLATE = _TEMPLATE_DIR / "review.md"
-_VOTE_TEMPLATE = _TEMPLATE_DIR / "vote.md"
+_TEST_RECORD_TEMPLATE = _TEMPLATE_DIR / "research-test-record.md"
+_REVIEW_TEMPLATE = _TEMPLATE_DIR / "research-review.md"
+_VOTE_TEMPLATE = _TEMPLATE_DIR / "research-vote.md"
 
 
 def run(artifact_path: Path, schema_path: Path) -> subprocess.CompletedProcess:

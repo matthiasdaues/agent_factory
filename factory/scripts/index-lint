@@ -238,17 +238,10 @@ def load_skills(skills_dir: Path) -> list[dict]:
 def load_playbooks(playbooks_dir: Path) -> list[dict[str, object]]:
     playbooks = []
 
-    # Discover both flat `*.md` playbooks and nested `*/PLAYBOOK.md` playbooks,
-    # mirroring the way skills use `*/SKILL.md`. A nested playbook takes its
-    # parent directory as its name (research-topic), not `path.stem` (PLAYBOOK).
-    paths = sorted(playbooks_dir.glob("*.md")) + sorted(
-        playbooks_dir.glob("*/PLAYBOOK.md")
-    )
-
-    for path in paths:
+    for path in sorted(playbooks_dir.glob("*.md")):
         text = path.read_text(encoding="utf-8")
         fm = parse_frontmatter(text)
-        name = path.parent.name if path.name == "PLAYBOOK.md" else path.stem
+        name = path.stem
         fsm_path = path.parent / f"{name}.fsm.yml"
 
         entry: dict[str, object] = {

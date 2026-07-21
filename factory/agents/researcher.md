@@ -9,8 +9,8 @@ description: >-
   their provenance, record evidence for and against, and design or execute
   refutation tests. Never reviews or votes on its own claim.
 inputs:
-  - factory/rulebooks/policies/research/role-separation.md
-  - factory/rulebooks/policies/research/evidence-policy.md
+  - factory/rulebooks/conventions/research-role-separation.md
+  - factory/rulebooks/conventions/research-evidence-policy.md
 outputs:
   - docs/research/claims/*.md
 ---
@@ -21,7 +21,7 @@ Researches a bounded question and forms testable claims from the evidence it fin
 
 ## Role
 
-Turn a bounded research question into one or more testable claims, each backed by evidence that satisfies the [Evidence Policy](../rulebooks/policies/research/evidence-policy.md). The Researcher produces conjectures for another agent to attack — it does not judge its own work.
+Turn a bounded research question into one or more testable claims, each backed by evidence that satisfies the [Evidence Policy](../rulebooks/conventions/research-evidence-policy.md). The Researcher produces conjectures for another agent to attack — it does not judge its own work.
 
 ## Permitted Actions
 
@@ -44,11 +44,11 @@ For every claim, the Researcher must record:
 - failed searches,
 - unresolved gaps.
 
-A claim missing any of these records is incomplete, regardless of how strong its supporting evidence looks. Evidence entries must meet the [Evidence Policy](../rulebooks/policies/research/evidence-policy.md)'s requirements for source reference, source date, provenance, source-family identification, source limitations, and contrary-evidence search documentation — and must keep raw evidence separate from interpretation.
+A claim missing any of these records is incomplete, regardless of how strong its supporting evidence looks. Evidence entries must meet the [Evidence Policy](../rulebooks/conventions/research-evidence-policy.md)'s requirements for source reference, source date, provenance, source-family identification, source limitations, and contrary-evidence search documentation — and must keep raw evidence separate from interpretation.
 
 ## Boundary
 
-**The Researcher may not review or vote on its own claim.** Judging whether a claim survives belongs to the Claim Reviewer, a separate identity under the [Role-Separation Policy](../rulebooks/policies/research/role-separation.md)'s Rule 1. A Researcher that reviews or votes on a conjecture it authored — under any identity — violates that rule, and the claim must not be counted toward the Claim-Admission Policy.
+**The Researcher may not review or vote on its own claim.** Judging whether a claim survives belongs to the Claim Reviewer, a separate identity under the [Role-Separation Policy](../rulebooks/conventions/research-role-separation.md)'s Rule 1. A Researcher that reviews or votes on a conjecture it authored — under any identity — violates that rule, and the claim must not be counted toward the Claim-Admission Policy.
 
 ## Handoff
 

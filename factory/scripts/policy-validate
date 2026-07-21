@@ -57,7 +57,7 @@ from typing import Any, Dict, List, Optional, Tuple
 # Directory of this script, used to locate schema-validate and the schemas.
 _SCRIPT_DIR = Path(__file__).resolve().parent
 _SCHEMA_VALIDATE = _SCRIPT_DIR / "schema-validate"
-_DEFAULT_SCHEMAS_DIR = _SCRIPT_DIR.parent / "rulebooks" / "schemas" / "research"
+_DEFAULT_SCHEMAS_DIR = _SCRIPT_DIR.parent / "rulebooks" / "schemas"
 
 # Default quorum: the minimum number of *decisive* votes (SURVIVE or REFUTE) a
 # claim needs before a survival tally is even considered. Mirrors the workflow's
@@ -85,13 +85,13 @@ _KIND_PREFIXES = [
 
 # Kind -> schema file name, for the --pipeline schema stage.
 _KIND_SCHEMA = {
-    "conjecture": "conjecture.schema.json",
-    "source": "source-record.schema.json",
-    "test": "test-record.schema.json",
-    "review": "review.schema.json",
-    "vote": "vote.schema.json",
-    "claim-register": "claim-register.schema.json",
-    "final-report": "final-report.schema.json",
+    "conjecture": "research-conjecture.schema.json",
+    "source": "research-source-record.schema.json",
+    "test": "research-test-record.schema.json",
+    "review": "research-review.schema.json",
+    "vote": "research-vote.schema.json",
+    "claim-register": "research-claim-register.schema.json",
+    "final-report": "research-final-report.schema.json",
 }
 
 

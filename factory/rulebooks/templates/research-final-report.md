@@ -6,13 +6,13 @@ version: 1.0.0
 # Final Report Template
 
 Skeleton for a research run's final report. Validated against
-[final-report.schema.json](../../schemas/research/final-report.schema.json).
+[final-report.schema.json](../../schemas/research-final-report.schema.json).
 
 ## Frontmatter
 
 ```yaml
 ---
-schema: factory/rulebooks/schemas/research/final-report.schema.json
+schema: factory/rulebooks/schemas/research-final-report.schema.json
 ---
 ```
 
@@ -50,4 +50,4 @@ Constraints on scope, method, or time that bound what this report can claim.
 
 ## Referenced from
 
-- [final-report.schema.json](../../schemas/research/final-report.schema.json)
+- [final-report.schema.json](../../schemas/research-final-report.schema.json)

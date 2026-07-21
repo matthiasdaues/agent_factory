@@ -6,13 +6,13 @@ version: 1.0.0
 # Claim Register Template
 
 Skeleton for a research run's claim register. Validated against
-[claim-register.schema.json](../../schemas/research/claim-register.schema.json).
+[claim-register.schema.json](../../schemas/research-claim-register.schema.json).
 
 ## Frontmatter
 
 ```yaml
 ---
-schema: factory/rulebooks/schemas/research/claim-register.schema.json
+schema: factory/rulebooks/schemas/research-claim-register.schema.json
 ---
 ```
 
@@ -56,4 +56,4 @@ Claims replaced by a later, more precise claim during the run.
 
 ## Referenced from
 
-- [claim-register.schema.json](../../schemas/research/claim-register.schema.json)
+- [claim-register.schema.json](../../schemas/research-claim-register.schema.json)

@@ -10,11 +10,11 @@ description: >-
   severe — then casts a vote on its disposition without ever editing the
   claim itself.
 inputs:
-  - factory/rulebooks/templates/research/conjecture.md
-  - factory/rulebooks/templates/research/review.md
-  - factory/rulebooks/templates/research/vote.md
-  - factory/rulebooks/policies/research/role-separation.md
-  - factory/rulebooks/policies/research/evidence-policy.md
+  - factory/rulebooks/templates/research-conjecture.md
+  - factory/rulebooks/templates/research-review.md
+  - factory/rulebooks/templates/research-vote.md
+  - factory/rulebooks/conventions/research-role-separation.md
+  - factory/rulebooks/conventions/research-evidence-policy.md
 outputs:
   - review artifact (per review.md template)
   - vote artifact (per vote.md template)
@@ -43,7 +43,7 @@ Each review must check:
 
 ## Boundary
 
-**It may not edit the claim.** Per [role-separation.md § Rule 2 — A Reviewer Cannot Edit the Claim](../rulebooks/policies/research/role-separation.md), only the Researcher, through a new claim version, may change a conjecture's `claim`, `scope`, `assumptions`, `supporting_evidence`, `contrary_evidence`, `possible_refuting_evidence`, `planned_tests`, or `qualifications`. A review that also modifies the conjecture it reviews violates this rule regardless of the reviewer's intent.
+**It may not edit the claim.** Per [role-separation.md § Rule 2 — A Reviewer Cannot Edit the Claim](../rulebooks/conventions/research-role-separation.md), only the Researcher, through a new claim version, may change a conjecture's `claim`, `scope`, `assumptions`, `supporting_evidence`, `contrary_evidence`, `possible_refuting_evidence`, `planned_tests`, or `qualifications`. A review that also modifies the conjecture it reviews violates this rule regardless of the reviewer's intent.
 
 The same policy's Rule 1 and Rule 5 bind this agent further: it must not review or vote on a claim it authored, and it must not hold any other conflicting role — author, orchestrator — against the same claim.
 

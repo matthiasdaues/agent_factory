@@ -26,7 +26,7 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parents[2]
 _AGENT_FILE = _ROOT / "factory" / "agents" / "research-orchestrator.md"
 _ROLE_SEPARATION_POLICY = (
-    _ROOT / "factory" / "rulebooks" / "policies" / "research" / "role-separation.md"
+    _ROOT / "factory" / "rulebooks" / "conventions" / "research-role-separation.md"
 )
 
 # Permitted actions, verbatim from the proposal's Research Orchestrator section.

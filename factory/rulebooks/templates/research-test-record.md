@@ -7,7 +7,7 @@ version: 1.0.0
 
 Skeleton for a single test-record artifact — the outcome of one adversarial
 test run against one conjecture (proposal Procedure Step 7). Governed by
-[test-record.schema.json](../../schemas/research/test-record.schema.json).
+[test-record.schema.json](../../schemas/research-test-record.schema.json).
 
 ## Fields
 
@@ -27,4 +27,4 @@ test run against one conjecture (proposal Procedure Step 7). Governed by
 
 ## Referenced from
 
-- [test-record.schema.json](../../schemas/research/test-record.schema.json)
+- [test-record.schema.json](../../schemas/research-test-record.schema.json)

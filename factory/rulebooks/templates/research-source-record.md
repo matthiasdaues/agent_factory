@@ -8,7 +8,7 @@ version: 1.0.0
 Skeleton for a single source-record JSON artifact — the evidence unit of the
 falsification-driven research playbook (Procedure Step 4). Validated by
 `factory/scripts/schema-validate` against
-[source-record.schema.json](../../schemas/research/source-record.schema.json).
+[source-record.schema.json](../../schemas/research-source-record.schema.json).
 
 ## Fields
 
@@ -75,4 +75,4 @@ Chain of custody: how this record was obtained and how to re-verify it.
 
 ## Referenced from
 
-- [source-record.schema.json](../../schemas/research/source-record.schema.json)
+- [source-record.schema.json](../../schemas/research-source-record.schema.json)

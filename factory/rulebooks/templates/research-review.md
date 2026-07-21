@@ -7,7 +7,7 @@ version: 1.0.0
 
 Skeleton for a single review artifact — one reviewer's adversarial check of a
 claim against its test records (proposal Procedure Step 8). Governed by
-[review.schema.json](../../schemas/research/review.schema.json).
+[review.schema.json](../../schemas/research-review.schema.json).
 
 ## Fields
 
@@ -32,4 +32,4 @@ claim against its test records (proposal Procedure Step 8). Governed by
 
 ## Referenced from
 
-- [review.schema.json](../../schemas/research/review.schema.json)
+- [review.schema.json](../../schemas/research-review.schema.json)

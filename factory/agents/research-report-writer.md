@@ -9,12 +9,12 @@ description: >-
   claims, summarizes them, and preserves refutations and limitations — without
   conducting new research or overstating what survived.
 inputs:
-  - factory/rulebooks/policies/research/report-policy.md
-  - factory/rulebooks/templates/research/claim-register.md
-  - factory/rulebooks/templates/research/final-report.md
-  - factory/rulebooks/schemas/research/final-report.schema.json
+  - factory/rulebooks/conventions/research-report-policy.md
+  - factory/rulebooks/templates/research-claim-register.md
+  - factory/rulebooks/templates/research-final-report.md
+  - factory/rulebooks/schemas/research-final-report.schema.json
 outputs:
-  - final-report.md (per factory/rulebooks/templates/research/final-report.md)
+  - final-report.md (per factory/rulebooks/templates/research-final-report.md)
 triggers:
   - "write the research report"
   - "build the final report"
@@ -54,17 +54,17 @@ This agent must not:
 1. **Read the frozen claim register** — take surviving, refuted, unresolved,
    and superseded claims as given; do not reopen or re-test any of them.
 2. **Draft the report** — follow
-   [final-report.md](../rulebooks/templates/research/final-report.md): every
+   [final-report.md](../rulebooks/templates/research-final-report.md): every
    factual section cites the surviving claim ID(s) it rests on; refuted
    conjectures, unresolved alternatives, evidence gaps, and limitations each
    get their own section, per
-   [report-policy.md](../rulebooks/policies/research/report-policy.md).
+   [report-policy.md](../rulebooks/conventions/research-report-policy.md).
 3. **Check wording** — use the policy's preferred non-proof phrasing
    ("survived the defined tests", "not refuted within the tested scope",
    "provisionally retained", "remains open to refutation"); never the
    prohibited phrasing ("is true", "is proved", "is certain", "is fact").
 4. **Validate** — the report must pass `schema-validate` against
-   [final-report.schema.json](../rulebooks/schemas/research/final-report.schema.json)
+   [final-report.schema.json](../rulebooks/schemas/research-final-report.schema.json)
    before handoff.
 
 ## Completion Criteria

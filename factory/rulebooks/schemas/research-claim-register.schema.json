@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://agent-factory/rulebooks/schemas/research/claim-register.schema.json",
+  "$id": "https://agent-factory/rulebooks/schemas/research-claim-register.schema.json",
   "title": "Claim Register",
   "description": "Separates every claim examined during a research run by its final disposition — surviving, refuted, unresolved, or superseded — and records the falsification trail for each surviving claim.",
   "type": "object",

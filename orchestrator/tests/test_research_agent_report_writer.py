@@ -119,7 +119,7 @@ class TestBodyContent:
 
     def test_references_report_policy(self):
         pattern = re.compile(
-            r"factory/rulebooks/policies/research/report-policy\.md|report-policy\.md",
+            r"factory/rulebooks/conventions/research-report-policy\.md|research-report-policy\.md",
             re.IGNORECASE,
         )
         assert pattern.search(self._text), (

@@ -23,7 +23,7 @@ Transform a validated research brief into a research plan that defines:
 
 ## Output
 
-The skill produces a research plan artifact validated against [`factory/rulebooks/schemas/research/research-plan.schema.json`](../../rulebooks/schemas/research/research-plan.schema.json).
+The skill produces a research plan artifact validated against [`factory/rulebooks/schemas/research-plan.schema.json`](../../rulebooks/schemas/research-plan.schema.json).
 
 Each plan must contain:
 
@@ -37,7 +37,7 @@ Each plan must contain:
 | `review_requirements`   | What a review of this plan's output must check      |
 | `stop_conditions`       | Conditions under which this research effort stops   |
 
-Refer to [`factory/rulebooks/templates/research/research-plan.md`](../../rulebooks/templates/research/research-plan.md) for the template structure.
+Refer to [`factory/rulebooks/templates/research-plan.md`](../../rulebooks/templates/research-plan.md) for the template structure.
 
 ## Responsibility
 

@@ -26,21 +26,16 @@ _ROOT = Path(__file__).resolve().parents[2]
 _VALIDATE = _ROOT / "factory" / "scripts" / "schema-validate"
 
 _SOURCE_SCHEMA = (
-    _ROOT
-    / "factory"
-    / "rulebooks"
-    / "schemas"
-    / "research"
-    / "source-record.schema.json"
+    _ROOT / "factory" / "rulebooks" / "schemas" / "research-source-record.schema.json"
 )
 _CONJECTURE_SCHEMA = (
-    _ROOT / "factory" / "rulebooks" / "schemas" / "research" / "conjecture.schema.json"
+    _ROOT / "factory" / "rulebooks" / "schemas" / "research-conjecture.schema.json"
 )
 _SOURCE_TEMPLATE = (
-    _ROOT / "factory" / "rulebooks" / "templates" / "research" / "source-record.md"
+    _ROOT / "factory" / "rulebooks" / "templates" / "research-source-record.md"
 )
 _CONJECTURE_TEMPLATE = (
-    _ROOT / "factory" / "rulebooks" / "templates" / "research" / "conjecture.md"
+    _ROOT / "factory" / "rulebooks" / "templates" / "research-conjecture.md"
 )
 
 _VALID_SOURCE_RECORD = {
