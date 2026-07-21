@@ -265,6 +265,9 @@ The release is complete when:
 - Claude Code, GitHub Copilot CLI, Codex, and Pi sessions — human and sub-agent
   or dispatched — are captured automatically through their native lifecycle
   surfaces.
+- Codex automatic capture starts only after the user reviews and trusts the
+  installed project hooks through `/hooks`; new or changed definitions require
+  renewed trust.
 - Each CLI has an end-to-end test proving the installed trigger produces the
   same canonical record and transcript-copy contract.
 - Capture never fails, blocks, or slows the run it measures.

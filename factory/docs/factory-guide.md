@@ -50,9 +50,9 @@ and exact merged entries while preserving project-owned configuration.
 
 Codex project command hooks remain inactive until their current definitions are
 trusted. After `init-factory`, open Codex's `/hooks` UI and approve the installed
-project hooks. Installation currently does not print this activation step; that
-operational defect is tracked as
-[RECON-0007](../../docs/findings/RECON-0007.md).
+project hooks. `init-factory` reports this activation step on fresh installs and
+re-runs. Wiring the files does not activate them: Codex skips a new or changed
+hook definition until it is reviewed and trusted again.
 
 Pi human sessions capture once at graceful `session_shutdown`. Inline child
 capture disables the child's shutdown extension, preventing duplicate records.

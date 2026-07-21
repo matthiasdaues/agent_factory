@@ -140,6 +140,16 @@ class TestFreshTarget:
             assert commands.count(init_factory.CODEX_CAPTURE_HOOK_COMMAND) == 1
         assert (tmp_path / ".codex/hooks/capture-codex-usage.sh").is_symlink()
 
+    def test_RECON0007_codex_install_reports_required_hook_trust(
+        self, tmp_path, capsys
+    ):
+        assert _run_init(tmp_path) == 0
+
+        output = capsys.readouterr().out
+        assert "Codex usage capture: installed but not active until trusted" in output
+        assert "open /hooks" in output
+        assert "review and trust the project hooks" in output
+
 
 class TestReRunIsNoop:
     def test_second_run_leaves_symlink_and_settings_unchanged(self, tmp_path):
@@ -175,6 +185,16 @@ class TestReRunIsNoop:
         assert _run_init(tmp_path) == 0
 
         assert (config.read_bytes(), script.resolve()) == before
+
+    def test_RECON0007_codex_rerun_repeats_required_hook_trust(self, tmp_path, capsys):
+        assert _run_init(tmp_path) == 0
+        capsys.readouterr()
+
+        assert _run_init(tmp_path) == 0
+
+        output = capsys.readouterr().out
+        assert "Codex usage capture: installed but not active until trusted" in output
+        assert "open /hooks" in output
 
 
 class TestPreExistingSettingsPreserved:

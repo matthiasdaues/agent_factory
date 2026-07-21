@@ -72,7 +72,8 @@ Steps
   7. Install usage-capture triggers for Claude Code, Copilot CLI, and Codex.
      Claude uses merged `Stop`/`SubagentStop` settings; Copilot uses a dedicated
      Factory-owned `.github/hooks/*.json` file for `agentStop`/`subagentStop`;
-     Codex uses merged `Stop`/`SubagentStop` entries in `.codex/hooks.json`.
+     Codex uses merged `Stop`/`SubagentStop` entries in `.codex/hooks.json` and
+     reports the separate `/hooks` review-and-trust activation step.
   8. Copy factory/config/model.conf to --target/config/model.conf, only if
      absent (meant to diverge per project).
   9. Pre-commit: the ONLY tracked change. If --target/.pre-commit-config.yaml
@@ -388,6 +389,12 @@ def _install_codex_usage_capture(
     if changed or not path.exists():
         path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
         log(report, ".codex/hooks.json: wired Stop/SubagentStop usage capture")
+
+    log(
+        report,
+        "Codex usage capture: installed but not active until trusted; "
+        "start Codex, open /hooks, then review and trust the project hooks",
+    )
 
 
 def _install_copilot_usage_capture(
