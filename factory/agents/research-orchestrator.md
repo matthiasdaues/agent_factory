@@ -10,7 +10,7 @@ description: >-
   register, and starts report generation — without ever authoring, reviewing,
   or voting on a claim itself.
 inputs:
-  - factory/docs/proposals/falsification-driven-research-workflow.md
+  - factory/playbooks/research-topic.md
   - factory/rulebooks/conventions/research-role-separation.md
   - factory/rulebooks/conventions/research-claim-admission-policy.md
   - factory/rulebooks/schemas/research-*.schema.json

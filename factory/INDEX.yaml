@@ -100,8 +100,8 @@ agents:
     tier: standard
     description: Runs the falsification-driven research playbook end to end — validates the brief, assigns independent research, tallies votes, freezes the claim register, and starts report generation — without ever authoring, reviewing, or voting on a claim itself.
     path: agents/research-orchestrator.md
-    tokens: 1086
-    total_tokens: 2942
+    tokens: 1079
+    total_tokens: 2935
   - name: research-report-writer
     title: Research Report Writer
     phase: 6
@@ -416,7 +416,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 2685
-    total_tokens: 11223
+    total_tokens: 11216
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration
