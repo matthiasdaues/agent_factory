@@ -69,9 +69,10 @@ Steps
          .github/hooks/.
        - Pi: symlink the project-local extension
          `.pi/extensions/block-dangerous-git.ts`.
-  7. Install usage-capture triggers for Claude Code and Copilot CLI. Claude
-     uses merged `Stop`/`SubagentStop` settings; Copilot uses a dedicated
-     Factory-owned `.github/hooks/*.json` file for `agentStop`/`subagentStop`.
+  7. Install usage-capture triggers for Claude Code, Copilot CLI, and Codex.
+     Claude uses merged `Stop`/`SubagentStop` settings; Copilot uses a dedicated
+     Factory-owned `.github/hooks/*.json` file for `agentStop`/`subagentStop`;
+     Codex uses merged `Stop`/`SubagentStop` entries in `.codex/hooks.json`.
   8. Copy factory/config/model.conf to --target/config/model.conf, only if
      absent (meant to diverge per project).
   9. Pre-commit: the ONLY tracked change. If --target/.pre-commit-config.yaml
@@ -138,6 +139,12 @@ CLAUDE_GUARDRAIL_HOOK_COMMAND = (
 # own `hook_event_name`, not via a different command string.
 CLAUDE_CAPTURE_HOOK_COMMAND = '"$CLAUDE_PROJECT_DIR"/.claude/hooks/capture-usage.sh'
 CLAUDE_CAPTURE_HOOK_EVENTS = ("Stop", "SubagentStop")
+
+# Codex exposes the same lifecycle event names through its project-level
+# `.codex/hooks.json`. Keep the command exact so remove-factory can identify
+# only Factory's entries without disturbing project hooks.
+CODEX_CAPTURE_HOOK_COMMAND = ".codex/hooks/capture-codex-usage.sh"
+CODEX_CAPTURE_HOOK_EVENTS = ("Stop", "SubagentStop")
 
 # Marker lines that fence the single .gitignore block. remove-factory strips
 # everything between them (inclusive). Keep these strings in sync there.
@@ -301,7 +308,7 @@ def install_git_guardrail(target: Path, install: dict, report: list[str]) -> Non
 
 
 def install_usage_capture(target: Path, install: dict, report: list[str]) -> None:
-    """Install native Claude Code and Copilot CLI usage-capture triggers."""
+    """Install native Claude, Copilot, and Codex usage-capture triggers."""
     hooks_dir = target / ".claude" / "hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
 
@@ -311,6 +318,63 @@ def install_usage_capture(target: Path, install: dict, report: list[str]) -> Non
 
     _ensure_claude_capture_settings(target, install, report)
     _install_copilot_usage_capture(target, install, report)
+    _install_codex_usage_capture(target, install, report)
+
+
+def _install_codex_usage_capture(
+    target: Path, install: dict, report: list[str]
+) -> None:
+    """Merge Factory's Codex lifecycle hooks into project hook config."""
+    codex_dir = target / ".codex"
+    hooks_dir = codex_dir / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+    install["codex_ignored_entries"].add(".codex/hooks/capture-codex-usage.sh")
+
+    ensure_symlink(
+        hooks_dir / "capture-codex-usage.sh",
+        target / "factory/config/hooks/capture-codex-usage.sh",
+        report,
+        install=install,
+    )
+
+    path = codex_dir / "hooks.json"
+    if path.exists():
+        install.setdefault("codex_hooks_existed", True)
+        try:
+            config = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise Collision(f"{path} exists but isn't valid JSON ({exc})")
+        if not isinstance(config, dict):
+            raise Collision(f"{path} exists but its top-level JSON isn't an object")
+    else:
+        config = {}
+        install["codex_hooks_existed"] = False
+        install["remove_paths"].append(".codex/hooks.json")
+        install["codex_ignored_entries"].add(".codex/hooks.json")
+
+    hooks = config.setdefault("hooks", {})
+    if not isinstance(hooks, dict):
+        raise Collision(f"{path}: 'hooks' key exists but isn't an object")
+
+    changed = False
+    for event in CODEX_CAPTURE_HOOK_EVENTS:
+        entries = hooks.setdefault(event, [])
+        if not isinstance(entries, list):
+            raise Collision(f"{path}: 'hooks.{event}' exists but isn't a list")
+        already_wired = any(
+            isinstance(hook, dict) and hook.get("command") == CODEX_CAPTURE_HOOK_COMMAND
+            for entry in entries
+            for hook in (entry.get("hooks", []) if isinstance(entry, dict) else [])
+        )
+        if not already_wired:
+            entries.append(
+                {"hooks": [{"type": "command", "command": CODEX_CAPTURE_HOOK_COMMAND}]}
+            )
+            changed = True
+
+    if changed or not path.exists():
+        path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+        log(report, ".codex/hooks.json: wired Stop/SubagentStop usage capture")
 
 
 def _install_copilot_usage_capture(
@@ -698,6 +762,8 @@ def write_gitignore_block(target: Path, install: dict, report: list[str]) -> Non
         entries.append("/AGENTS.md")
     for entry in sorted(install["github_ignored_entries"]):
         entries.append("/" + entry)
+    for entry in sorted(install["codex_ignored_entries"]):
+        entries.append("/" + entry)
 
     install["ignored_paths"] = entries
 
@@ -777,6 +843,11 @@ def load_prior_manifest(target: Path, install: dict, report: list[str]) -> None:
             install["ignore_root_agents"] = True
         elif p.startswith("/.github/"):
             install["github_ignored_entries"].add(p.lstrip("/"))
+        elif p.startswith("/.codex/"):
+            install["codex_ignored_entries"].add(p.lstrip("/"))
+
+    if "codex_hooks_existed" in prior:
+        install["codex_hooks_existed"] = prior["codex_hooks_existed"]
 
     log(report, f"{MANIFEST_PATH}: prior install found, preserving its records")
 
@@ -799,6 +870,7 @@ def write_manifest(target: Path, install: dict, report: list[str]) -> None:
         ),
         "precommit_hook_id_prefix": "agent_factory_hook-",
         "claude_settings_existed": install.get("claude_settings_existed", True),
+        "codex_hooks_existed": install.get("codex_hooks_existed", True),
         "orientation": install.get("orientation", {}),
         "ignored_paths": install.get("ignored_paths", []),
         "remove_paths": _dedup(install["remove_paths"]),
@@ -863,6 +935,7 @@ def main(argv: list[str] | None = None) -> int:
         "dir_existed": {},
         "orientation": {},
         "github_ignored_entries": set(),
+        "codex_ignored_entries": set(),
         "ignore_root_agents": False,
     }
 

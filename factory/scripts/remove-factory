@@ -23,6 +23,9 @@ nothing more:
   - .claude/settings.json — if the project owned it, only Agent Factory's
     git-safety PreToolUse hook and usage-capture Stop/SubagentStop hook entries
     are removed; if init-factory created it, it went with .claude/.
+  - .codex/hooks.json — if the project owned it, only Agent Factory's
+    usage-capture Stop/SubagentStop entries are removed; a Factory-created file
+    is deleted outright.
   - the pre-commit git hook is uninstalled only if init-factory was the one
     that `git init`-ed the repo.
 
@@ -55,6 +58,8 @@ CLAUDE_GUARDRAIL_HOOK_COMMAND = (
 )
 CLAUDE_CAPTURE_HOOK_COMMAND = '"$CLAUDE_PROJECT_DIR"/.claude/hooks/capture-usage.sh'
 CLAUDE_CAPTURE_HOOK_EVENTS = ("Stop", "SubagentStop")
+CODEX_CAPTURE_HOOK_COMMAND = ".codex/hooks/capture-codex-usage.sh"
+CODEX_CAPTURE_HOOK_EVENTS = ("Stop", "SubagentStop")
 
 REPOS_KEY = re.compile(r"^repos:\s*$")
 TOP_LEVEL_KEY = re.compile(r"^\S")
@@ -164,14 +169,24 @@ def _strip_hook_command(hooks: dict, event: str, command: str) -> bool:
     kept = []
     removed = False
     for entry in entries:
-        entry_hooks = entry.get("hooks", []) if isinstance(entry, dict) else []
-        if any(
-            isinstance(hook, dict) and hook.get("command") == command
-            for hook in entry_hooks
-        ):
-            removed = True
+        if not isinstance(entry, dict):
+            kept.append(entry)
             continue
-        kept.append(entry)
+        entry_hooks = entry.get("hooks")
+        if not isinstance(entry_hooks, list):
+            kept.append(entry)
+            continue
+        filtered_hooks = [
+            hook
+            for hook in entry_hooks
+            if not (isinstance(hook, dict) and hook.get("command") == command)
+        ]
+        if len(filtered_hooks) == len(entry_hooks):
+            kept.append(entry)
+            continue
+        removed = True
+        if filtered_hooks:
+            kept.append({**entry, "hooks": filtered_hooks})
 
     if not removed:
         return False
@@ -218,6 +233,35 @@ def strip_settings_hook(target: Path, manifest: dict) -> None:
     log(".claude/settings.json: removed " + ", ".join(removed_events) + " hook entry")
 
 
+def strip_codex_hooks(target: Path, manifest: dict) -> None:
+    """Remove only Factory's entries from a project-owned Codex hook file."""
+    if not manifest.get("codex_hooks_existed"):
+        return
+
+    path = target / ".codex/hooks.json"
+    if not path.exists():
+        return
+    try:
+        config = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return
+    hooks = config.get("hooks") if isinstance(config, dict) else None
+    if not isinstance(hooks, dict):
+        return
+
+    removed = [
+        event
+        for event in CODEX_CAPTURE_HOOK_EVENTS
+        if _strip_hook_command(hooks, event, CODEX_CAPTURE_HOOK_COMMAND)
+    ]
+    if not removed:
+        return
+    if not hooks:
+        config.pop("hooks", None)
+    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    log(".codex/hooks.json: removed usage-capture " + ", ".join(removed))
+
+
 def uninstall_pre_commit(target: Path, manifest: dict) -> None:
     if not manifest.get("git_initialized_by_us"):
         return  # the repo (and any pre-existing hook) predates us — leave it
@@ -244,7 +288,15 @@ def delete_paths(target: Path, manifest: dict) -> None:
 
 def prune_empty_dirs(target: Path) -> None:
     # Directories init-factory may have added into but not owned wholesale.
-    for rel in (".github/hooks", "config", ".github", ".claude", ".pi"):
+    for rel in (
+        ".github/hooks",
+        ".codex/hooks",
+        "config",
+        ".github",
+        ".claude",
+        ".codex",
+        ".pi",
+    ):
         path = target / rel
         if path.is_dir() and not any(path.iterdir()):
             path.rmdir()
@@ -277,6 +329,7 @@ def main(argv: list[str] | None = None) -> int:
     strip_gitignore_block(target, manifest)
     strip_precommit_block(target, manifest)
     strip_settings_hook(target, manifest)
+    strip_codex_hooks(target, manifest)
     uninstall_pre_commit(target, manifest)
     delete_paths(target, manifest)
 
