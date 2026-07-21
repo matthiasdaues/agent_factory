@@ -3,19 +3,23 @@
 # requires-python = ">=3.10"
 # dependencies = ["tiktoken"]
 # ///
-"""usage-capture - Usage record shape, record_id scheme, and the fixed
-cl100k_base tokenizer behind factory-wide runtime spend capture.
+"""usage-capture - Usage record shape, record_id scheme, the fixed
+cl100k_base tokenizer, and the swappable logging-adapter seam behind
+factory-wide runtime spend capture.
 
 What: Defines `UsageRecord` (one record per agent invocation), the
-      `RecordIdSequencer` that names a record and its transcript copy, and
+      `RecordIdSequencer` that names a record and its transcript copy,
       `count_tokens()`, a local, deterministic `tiktoken cl100k_base`
-      counter. This is the measurement core; it does not yet read a
-      transcript, write JSONL, or expose a CLI.
-When: Imported by later slices (ST-0036 JSONL adapter, ST-0037 per-CLI
-      transcript normalizer, ST-0038 argparse CLI entrypoint) that grow this
-      same file, and by capture sites once those slices land.
+      counter, and the persistence seam: the `LoggingAdapter` protocol plus
+      its `JsonlLoggingAdapter` implementation, which appends one record
+      line per session and persists a linked transcript copy. It does not
+      yet parse a real per-CLI transcript or expose an argparse CLI.
+When: Imported by later slices (ST-0037 per-CLI transcript normalizer,
+      ST-0038 argparse CLI entrypoint) that grow this same file, and by
+      capture sites once those slices land.
 By:   `factory/docs/proposals/token-usage-tracking.md` ("The Usage Record",
-      "Tokenization Strategy", "Design Details"); backlog ST-0035.
+      "Tokenization Strategy", "Persistence", "Design Details"); backlog
+      ST-0035, ST-0036.
 
 Self-bootstrapping like `index-lint`: the PEP 723 block above makes
 `tiktoken` available via `uv run --script` without a project virtualenv.
@@ -35,10 +39,13 @@ them (`transcript_ref`, `base_commit`/`commit_id`).
 
 from __future__ import annotations
 
+import json
+import os
 import sys
 import uuid
 from dataclasses import asdict, dataclass, field
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Protocol, Union, runtime_checkable
 
 # ── Tokenizer ────────────────────────────────────────────────────────────
 
@@ -172,6 +179,97 @@ class UsageRecord:
         reader reconstruct what was written and what happened.
         """
         return asdict(self)
+
+
+# ── Logging-adapter seam (ST-0036) ──────────────────────────────────────
+
+
+@runtime_checkable
+class LoggingAdapter(Protocol):
+    """The persistence seam capture sites depend on, never a concrete
+    backend directly (proposal: "Persistence").
+
+    `JsonlLoggingAdapter` is the only implementation today. A future
+    PostgreSQL adapter — served by a dedicated logging service, per the
+    proposal's "Explicitly deferred" scope — implements this same
+    `record()` method (inserts instead of appends) and swaps in wherever a
+    capture site currently holds a `JsonlLoggingAdapter`, with no change to
+    the capture site itself. That adapter is not built here; only this
+    interface is fixed.
+    """
+
+    def record(self, usage_record: "UsageRecord", transcript_text: str) -> None:
+        """Persist *usage_record* and a copy of *transcript_text* (the
+        already-tokenized transcript text a capture site hands in), and set
+        `usage_record.transcript_ref` to point at the persisted copy.
+
+        Best-effort by contract: an implementation must catch its own
+        failures, log them to stderr, and return normally rather than
+        raise — capture must never fail, block, or slow the run it
+        measures (proposal: "Core Principles").
+        """
+        ...
+
+
+class JsonlLoggingAdapter:
+    """Default `LoggingAdapter`: appends one record per line to a
+    per-session JSONL file and persists a transcript copy alongside it.
+
+    What: Implements the seam above against the local filesystem
+          (proposal: "Persistence"). `record()` first writes the
+          transcript copy to
+          `<base_dir>/.agent-factory/usage/transcripts/<session_id>/<record_id>.jsonl`
+          and sets `usage_record.transcript_ref`, then appends the
+          serialized record as one JSON line to
+          `<base_dir>/.agent-factory/usage/<session_id>.jsonl`. The append
+          uses a single `os.open(..., O_APPEND | O_CREAT | O_WRONLY)` plus
+          one `os.write()` call per line: POSIX guarantees an O_APPEND
+          write of this shape lands as one atomic block, so concurrent
+          appends from parallel dispatch (many sub-agents, many processes)
+          never interleave or truncate each other's lines — no
+          application-level lock is needed.
+    When: Constructed directly today; ST-0038's CLI entrypoint will
+          instantiate one per invocation once the argparse layer exists.
+    By:   `factory/docs/proposals/token-usage-tracking.md` ("Persistence",
+          "The Capture Tool"); backlog ST-0036.
+
+    Any failure inside `record()` — an unwritable path, a directory that
+    collides with a file, a serialization error — is caught, logged to
+    stderr, and swallowed. `record()` always returns normally; it never
+    raises into the caller.
+    """
+
+    def __init__(self, base_dir: Union[str, Path] = ".") -> None:
+        self._usage_dir = Path(base_dir) / ".agent-factory" / "usage"
+
+    def record(self, usage_record: "UsageRecord", transcript_text: str) -> None:
+        try:
+            self._write(usage_record, transcript_text)
+        except Exception as exc:  # best-effort: never raise into the caller
+            print(
+                "usage-capture: JsonlLoggingAdapter failed to record "
+                f"{usage_record.record_id!r}: {exc}",
+                file=sys.stderr,
+            )
+
+    def _write(self, usage_record: "UsageRecord", transcript_text: str) -> None:
+        session_id = usage_record.session_id or "unknown"
+
+        # Persist the transcript copy first so transcript_ref is set
+        # before the record line below is serialized.
+        transcript_dir = self._usage_dir / "transcripts" / session_id
+        transcript_dir.mkdir(parents=True, exist_ok=True)
+        transcript_path = transcript_dir / f"{usage_record.record_id}.jsonl"
+        transcript_path.write_text(transcript_text, encoding="utf-8")
+        usage_record.transcript_ref = TranscriptRef(path=str(transcript_path))
+
+        line = (json.dumps(usage_record.to_dict()) + "\n").encode("utf-8")
+        session_path = self._usage_dir / f"{session_id}.jsonl"
+        fd = os.open(session_path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o644)
+        try:
+            os.write(fd, line)
+        finally:
+            os.close(fd)
 
 
 # ── Minimal invocation seam (not the CLI — ST-0038 builds that) ──────────

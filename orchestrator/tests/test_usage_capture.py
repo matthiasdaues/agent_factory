@@ -1,8 +1,11 @@
-"""Tests for `factory/scripts/usage-capture` (ST-0035 foundation slice).
+"""Tests for `factory/scripts/usage-capture` (ST-0035, ST-0036).
 
-This file is grown by later stories (ST-0036 JSONL adapter, ST-0037
-normalizer, ST-0038 CLI entrypoint); ST-0035 covers only the usage record
-shape, the `record_id` scheme, and the cl100k_base tokenizer.
+This file is grown by later stories (ST-0037 normalizer, ST-0038 CLI
+entrypoint); ST-0035 covers the usage record shape, the `record_id` scheme,
+and the cl100k_base tokenizer. ST-0036 adds the `LoggingAdapter` seam and
+its `JsonlLoggingAdapter` implementation: append-one-line-per-record,
+transcript-copy persistence, concurrent-append safety, and the best-effort
+failure contract.
 
 The script is extensionless and, like `openrouter-discover`/`resolve-model`,
 loaded via importlib for the record/record_id tests, which touch no
@@ -21,8 +24,10 @@ interpreter.
 
 from __future__ import annotations
 
+import concurrent.futures
 import dataclasses
 import importlib.util
+import json
 import subprocess
 import sys
 import uuid
@@ -244,3 +249,147 @@ class TestRecordIdSequencer:
     def test_uuid_fallback_is_unique_per_call(self):
         seq = usage_capture.RecordIdSequencer()
         assert seq.next_id(None) != seq.next_id(None)
+
+
+# ── LoggingAdapter / JsonlLoggingAdapter (ST-0036) ──────────────────────
+
+
+def _make_record(record_id: str, session_id: str) -> "usage_capture.UsageRecord":
+    return usage_capture.UsageRecord(
+        record_id=record_id,
+        normalized_input=1,
+        normalized_output=1,
+        session_id=session_id,
+    )
+
+
+class TestJsonlLoggingAdapterAppendsRecords:
+    def test_appends_one_record_line_to_session_file(self, tmp_path):
+        adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
+        record = _make_record("sess-1-0001", "sess-1")
+
+        adapter.record(record, "transcript text")
+
+        session_file = tmp_path / ".agent-factory" / "usage" / "sess-1.jsonl"
+        lines = session_file.read_text().splitlines()
+        assert len(lines) == 1
+        assert json.loads(lines[0])["record_id"] == "sess-1-0001"
+
+    def test_creates_usage_directory_on_demand(self, tmp_path):
+        adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
+        assert not (tmp_path / ".agent-factory").exists()
+
+        adapter.record(_make_record("sess-2-0001", "sess-2"), "x")
+
+        assert (tmp_path / ".agent-factory" / "usage" / "sess-2.jsonl").exists()
+
+    def test_second_record_appends_a_second_line_not_overwrite(self, tmp_path):
+        adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
+        adapter.record(_make_record("sess-3-0001", "sess-3"), "first")
+        adapter.record(_make_record("sess-3-0002", "sess-3"), "second")
+
+        session_file = tmp_path / ".agent-factory" / "usage" / "sess-3.jsonl"
+        lines = session_file.read_text().splitlines()
+        assert len(lines) == 2
+        assert [json.loads(line)["record_id"] for line in lines] == [
+            "sess-3-0001",
+            "sess-3-0002",
+        ]
+
+
+class TestJsonlLoggingAdapterTranscriptPersistence:
+    def test_transcript_copy_written_and_ref_points_at_it(self, tmp_path):
+        adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
+        record = _make_record("sess-4-0001", "sess-4")
+
+        adapter.record(record, "the tokenized transcript body")
+
+        expected_path = (
+            tmp_path
+            / ".agent-factory"
+            / "usage"
+            / "transcripts"
+            / "sess-4"
+            / "sess-4-0001.jsonl"
+        )
+        assert expected_path.exists()
+        assert expected_path.read_text() == "the tokenized transcript body"
+        assert record.transcript_ref.path == str(expected_path)
+
+    def test_serialized_record_line_carries_the_same_transcript_ref(self, tmp_path):
+        adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
+        record = _make_record("sess-5-0001", "sess-5")
+
+        adapter.record(record, "body")
+
+        session_file = tmp_path / ".agent-factory" / "usage" / "sess-5.jsonl"
+        payload = json.loads(session_file.read_text().splitlines()[0])
+        assert payload["transcript_ref"]["path"] == record.transcript_ref.path
+
+
+class TestJsonlLoggingAdapterConcurrency:
+    def test_many_concurrent_appends_are_neither_lost_nor_interleaved(self, tmp_path):
+        """Fires many threads at one adapter/session simultaneously.
+
+        `os.write` releases the GIL for the duration of the syscall, so
+        concurrent threads genuinely race at the OS level here — this
+        exercises the same O_APPEND atomicity the adapter relies on for
+        real concurrent *processes* (e.g. parallel sub-agent dispatch),
+        without the complexity of spawning subprocesses against a
+        dynamically-loaded, extensionless module.
+        """
+        adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
+        session_id = "sess-concurrent"
+        count = 100
+
+        def _write(i: int) -> None:
+            record = _make_record(f"{session_id}-{i:04d}", session_id)
+            adapter.record(record, f"transcript {i}")
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=20) as pool:
+            list(pool.map(_write, range(count)))
+
+        session_file = tmp_path / ".agent-factory" / "usage" / f"{session_id}.jsonl"
+        lines = session_file.read_text().splitlines()
+        assert len(lines) == count  # no lost writes
+
+        seen_ids = {json.loads(line)["record_id"] for line in lines}
+        assert len(seen_ids) == count  # every line parses; none interleaved/corrupted
+
+
+class TestJsonlLoggingAdapterFailureIsSwallowed:
+    def test_unwritable_target_is_swallowed_and_logged_to_stderr(
+        self, tmp_path, capsys
+    ):
+        # Pre-create a plain file where the per-session transcripts
+        # directory needs to be a directory, forcing the adapter's own
+        # mkdir(parents=True) to raise.
+        transcripts_dir = tmp_path / ".agent-factory" / "usage" / "transcripts"
+        transcripts_dir.mkdir(parents=True)
+        session_id = "sess-broken"
+        (transcripts_dir / session_id).write_text("I am a file, not a directory")
+
+        adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
+        record = _make_record(f"{session_id}-0001", session_id)
+
+        adapter.record(record, "text")  # must not raise
+
+        captured = capsys.readouterr()
+        assert "usage-capture" in captured.err
+        assert record.record_id in captured.err
+        assert record.transcript_ref is None  # failed before transcript_ref was set
+
+    def test_serialization_error_is_swallowed_and_logged_to_stderr(
+        self, tmp_path, capsys
+    ):
+        adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
+        record = _make_record("sess-bad-0001", "sess-bad")
+        # `object()` is not JSON-serializable; poisons json.dumps() inside
+        # the adapter's write path without touching the filesystem at all.
+        record.branch = object()
+
+        adapter.record(record, "text")  # must not raise
+
+        captured = capsys.readouterr()
+        assert "usage-capture" in captured.err
+        assert record.record_id in captured.err
