@@ -55,6 +55,10 @@ def _copilot_hook_config(target: Path) -> Path:
     return target / ".github" / "hooks" / "capture-usage.json"
 
 
+def _codex_hook_config(target: Path) -> Path:
+    return target / ".codex" / "hooks.json"
+
+
 def _has_capture_entry(settings: dict, event: str) -> bool:
     for entry in settings.get("hooks", {}).get(event, []):
         for hook in entry.get("hooks", []):
@@ -107,6 +111,35 @@ class TestFreshTarget:
             ]
         assert (tmp_path / ".github/hooks/capture-copilot-usage.sh").is_symlink()
 
+    def test_ST0043_codex_native_stop_hooks_are_merge_installed(self, tmp_path):
+        codex = tmp_path / ".codex"
+        codex.mkdir()
+        existing = {
+            "hooks": {
+                "Stop": [{"hooks": [{"type": "command", "command": "project-stop"}]}],
+                "AfterToolUse": [
+                    {"hooks": [{"type": "command", "command": "project-tool"}]}
+                ],
+            },
+            "projectSetting": True,
+        }
+        _codex_hook_config(tmp_path).write_text(json.dumps(existing, indent=2) + "\n")
+
+        assert _run_init(tmp_path) == 0
+
+        config = json.loads(_codex_hook_config(tmp_path).read_text())
+        assert config["projectSetting"] is True
+        assert config["hooks"]["AfterToolUse"] == existing["hooks"]["AfterToolUse"]
+        assert existing["hooks"]["Stop"][0] in config["hooks"]["Stop"]
+        for event in ("Stop", "SubagentStop"):
+            commands = [
+                hook.get("command")
+                for entry in config["hooks"][event]
+                for hook in entry.get("hooks", [])
+            ]
+            assert commands.count(init_factory.CODEX_CAPTURE_HOOK_COMMAND) == 1
+        assert (tmp_path / ".codex/hooks/capture-codex-usage.sh").is_symlink()
+
 
 class TestReRunIsNoop:
     def test_second_run_leaves_symlink_and_settings_unchanged(self, tmp_path):
@@ -132,6 +165,16 @@ class TestReRunIsNoop:
         assert _run_init(tmp_path) == 0
 
         assert (config.resolve(), config.read_bytes(), script.resolve()) == before
+
+    def test_ST0043_second_run_leaves_codex_config_and_asset_unchanged(self, tmp_path):
+        assert _run_init(tmp_path) == 0
+        config = _codex_hook_config(tmp_path)
+        script = tmp_path / ".codex/hooks/capture-codex-usage.sh"
+        before = (config.read_bytes(), script.resolve())
+
+        assert _run_init(tmp_path) == 0
+
+        assert (config.read_bytes(), script.resolve()) == before
 
 
 class TestPreExistingSettingsPreserved:
@@ -193,9 +236,10 @@ class TestGitignoreNeedsNoNewEntry:
             )
         )
         assert "/.agent-factory/" in manifest["ignored_paths"]
-        assert not any("usage" in entry for entry in manifest["ignored_paths"]), (
-            "no new ignore entry should have been added for .agent-factory/usage/"
-        )
+        assert not any(
+            entry.startswith("/.agent-factory/usage")
+            for entry in manifest["ignored_paths"]
+        ), "no new ignore entry should have been added for .agent-factory/usage/"
 
 
 class TestRemovalMarker:

@@ -159,6 +159,18 @@ parent again when totals are aggregated. Copilot's built-in `general-purpose`
 agent emits no `subagentStop`, so it has no separate attribution record; its
 usage remains included in the parent record.
 
+### Codex usage capture
+
+`init-factory` merge-installs Factory-owned `Stop` and `SubagentStop` commands
+in `.codex/hooks.json`, preserving existing Codex hooks and settings. Both call
+the same best-effort adapter under `.codex/hooks/`; removal strips only those
+exact Factory entries and assets.
+
+The root Codex record is the inclusive source of total spend. Capture keeps
+child activity found in the root rollout and uses its latest cumulative token
+snapshot. A `SubagentStop` record is attribution drill-down and must not be
+added to the root again when totals are aggregated.
+
 Treat it as a backstop, not a security boundary. It catches an accidental or under-pressure bypass — a background agent routing around a failing gate, for instance — not a determined one. A user with shell access outside the CLI, or anyone who edits the CLI's own configuration, can always route around it.
 
 ## Session logging

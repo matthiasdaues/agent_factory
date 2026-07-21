@@ -672,6 +672,84 @@ class TestCopilotNormalizerST0042:
         assert "IGNORE_ME" not in result.text
 
 
+class TestCodexNormalizerST0043:
+    def test_ST0043_full_root_transcript_includes_child_activity_and_latest_usage(
+        self, tmp_path
+    ):
+        events = [
+            {
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "ROOT ASK"}],
+                },
+            },
+            {
+                "type": "response_item",
+                "payload": {
+                    "type": "function_call",
+                    "name": "spawn_agent",
+                    "arguments": '{"task":"inspect"}',
+                },
+            },
+            {
+                "type": "response_item",
+                "payload": {
+                    "type": "function_call_output",
+                    "output": "CHILD RESULT",
+                },
+            },
+            {
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "ROOT ANSWER"}],
+                },
+            },
+            {
+                "type": "event_msg",
+                "payload": {
+                    "type": "token_count",
+                    "info": {
+                        "total_token_usage": {
+                            "input_tokens": 90,
+                            "cached_input_tokens": 15,
+                            "output_tokens": 30,
+                        }
+                    },
+                },
+            },
+            {
+                "type": "event_msg",
+                "payload": {
+                    "type": "token_count",
+                    "info": {
+                        "total_token_usage": {
+                            "input_tokens": 120,
+                            "cached_input_tokens": 20,
+                            "output_tokens": 45,
+                        }
+                    },
+                },
+            },
+        ]
+        path = tmp_path / "rollout.jsonl"
+        path.write_text("\n".join(json.dumps(event) for event in events) + "\n")
+
+        result = usage_capture.get_normalizer("codex").parse(path)
+
+        assert result.input_text == "ROOT ASK\nCHILD RESULT"
+        assert result.output_text == ('spawn_agent {"task":"inspect"}\nROOT ANSWER')
+        assert "CHILD RESULT" in result.text
+        assert result.reported_input == 120
+        assert result.reported_output == 45
+        assert result.reported_cache_read == 20
+        assert result.reported_cache_write == 0
+        assert result.usage_granularity == "full"
+
+
 def _normalize_via_subprocess(cli: str, path: Path) -> dict:
     """Run `usage-capture --normalize` through the script's own shebang.
 

@@ -197,6 +197,37 @@ class TestTracelessRemoval:
 
         assert _snapshot(tmp_path) == before
 
+    def test_ST0043_roundtrip_preserves_project_owned_codex_hooks(self, tmp_path):
+        _make_project(tmp_path)
+        codex = tmp_path / ".codex"
+        codex.mkdir()
+        hooks = {
+            "hooks": {
+                "Stop": [{"hooks": [{"type": "command", "command": "project-stop"}]}],
+                "AfterToolUse": [
+                    {"hooks": [{"type": "command", "command": "project-tool"}]}
+                ],
+            },
+            "projectSetting": True,
+        }
+        (codex / "hooks.json").write_text(json.dumps(hooks, indent=2) + "\n")
+        (codex / "project.toml").write_text("approval_policy = 'never'\n")
+        before = _snapshot(tmp_path)
+
+        assert _run_init(tmp_path) == 0
+        assert _run_remove(tmp_path) == 0
+
+        assert _snapshot(tmp_path) == before
+
+    def test_ST0043_fresh_codex_hook_structure_is_removed(self, tmp_path):
+        _make_project(tmp_path)
+
+        assert _run_init(tmp_path) == 0
+        assert (tmp_path / ".codex/hooks.json").is_file()
+        assert _run_remove(tmp_path) == 0
+
+        assert not (tmp_path / ".codex").exists()
+
     def test_double_init_then_single_remove_is_byte_identical(self, tmp_path):
         _make_project(tmp_path)
         before = _snapshot(tmp_path)

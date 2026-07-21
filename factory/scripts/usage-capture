@@ -535,9 +535,7 @@ class CopilotNormalizer:
             if isinstance(value, str) and value:
                 segments.append(value)
             elif isinstance(value, (dict, list)):
-                segments.append(
-                    json.dumps(value, ensure_ascii=False, sort_keys=True)
-                )
+                segments.append(json.dumps(value, ensure_ascii=False, sort_keys=True))
         return segments
 
     def parse(self, transcript_path: Union[str, Path]) -> NormalizedTranscript:
@@ -588,10 +586,117 @@ class CopilotNormalizer:
         return result
 
 
+class CodexNormalizer:
+    """Normalize Codex rollout JSONL without excluding nested activity.
+
+    Codex writes response items and cumulative token-count events. Response
+    items are kept in file order; function calls are model output and function
+    results are model input. The last ``total_token_usage`` snapshot is the
+    provider total for the rollout (summing snapshots would double count).
+    Consequently a root rollout remains inclusive of any child work Codex
+    records in it, while a separately hooked child rollout is attribution
+    detail only.
+    """
+
+    _USAGE_FIELDS = {
+        "input_tokens": "reported_input",
+        "output_tokens": "reported_output",
+        "cached_input_tokens": "reported_cache_read",
+    }
+
+    @staticmethod
+    def _content_segments(content: object) -> list[str]:
+        if not isinstance(content, list):
+            return []
+        segments = []
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            value = block.get("text")
+            if isinstance(value, str) and value:
+                segments.append(value)
+        return segments
+
+    @classmethod
+    def _response_segments(cls, payload: dict) -> tuple[str, list[str]]:
+        item_type = payload.get("type")
+        if item_type == "message":
+            direction = _OUTPUT if payload.get("role") == "assistant" else _INPUT
+            return direction, cls._content_segments(payload.get("content"))
+        if item_type == "reasoning":
+            return _OUTPUT, cls._content_segments(payload.get("summary"))
+        if item_type in {"function_call", "custom_tool_call"}:
+            name = payload.get("name") or ""
+            arguments = payload.get("arguments") or payload.get("input")
+            text = name
+            if isinstance(arguments, str) and arguments:
+                text = f"{name} {arguments}".strip()
+            elif isinstance(arguments, (dict, list)):
+                text = f"{name} {json.dumps(arguments, ensure_ascii=False, sort_keys=True)}".strip()
+            return _OUTPUT, [text] if text else []
+        if item_type in {"function_call_output", "custom_tool_call_output"}:
+            value = payload.get("output")
+            if isinstance(value, str) and value:
+                return _INPUT, [value]
+            if isinstance(value, (dict, list)):
+                return _INPUT, [json.dumps(value, ensure_ascii=False, sort_keys=True)]
+        return _INPUT, []
+
+    def parse(self, transcript_path: Union[str, Path]) -> NormalizedTranscript:
+        ordered: list[str] = []
+        inputs: list[str] = []
+        outputs: list[str] = []
+        latest_usage: Optional[dict] = None
+
+        for line in Path(transcript_path).read_text(encoding="utf-8").splitlines():
+            try:
+                event = json.loads(line)
+            except (ValueError, TypeError):
+                continue
+            if not isinstance(event, dict):
+                continue
+            payload = event.get("payload")
+            if not isinstance(payload, dict):
+                continue
+
+            if event.get("type") == "response_item":
+                direction, segments = self._response_segments(payload)
+                ordered.extend(segments)
+                (outputs if direction == _OUTPUT else inputs).extend(segments)
+            elif (
+                event.get("type") == "event_msg"
+                and payload.get("type") == "token_count"
+            ):
+                info = payload.get("info")
+                usage = (
+                    info.get("total_token_usage") if isinstance(info, dict) else None
+                )
+                if isinstance(usage, dict):
+                    latest_usage = usage
+
+        result = NormalizedTranscript(
+            input_text="\n".join(inputs),
+            output_text="\n".join(outputs),
+            ordered_segments=ordered,
+        )
+        if latest_usage is not None:
+            for key, field_name in self._USAGE_FIELDS.items():
+                value = latest_usage.get(key)
+                setattr(
+                    result,
+                    field_name,
+                    int(value) if isinstance(value, (int, float)) else 0,
+                )
+            result.reported_cache_write = 0
+            result.usage_granularity = "full"
+        return result
+
+
 # CLI -> normalizer registry. Adding another CLI is a new entry, not a rewrite.
 _NORMALIZERS: dict = {
     "claude-code": ClaudeCodeNormalizer(),
     "copilot": CopilotNormalizer(),
+    "codex": CodexNormalizer(),
 }
 
 SUPPORTED_CLIS = tuple(_NORMALIZERS)
@@ -615,6 +720,7 @@ def get_normalizer(cli: str) -> TranscriptNormalizer:
 
 # ── CLI entrypoint (ST-0038) ─────────────────────────────────────────────
 
+
 # Context flags (proposal: "The Capture Tool" example invocation), mapped
 # straight onto the `UsageRecord` field of the same name via `dest=`; only
 # `--commit` (-> commit_id) and `--story-id`/`--parent-session`/`--loop-role`
@@ -632,7 +738,9 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "and append the record to .agent-factory/usage/<session>.jsonl."
         ),
     )
-    parser.add_argument("--cli", required=True, help="claude-code | pi | copilot")
+    parser.add_argument(
+        "--cli", required=True, help="claude-code | copilot | codex | pi"
+    )
     parser.add_argument(
         "--transcript",
         required=True,

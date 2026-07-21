@@ -189,6 +189,13 @@ must use root records for total spend and must not add child records again. The
 built-in `general-purpose` agent emits no `subagentStop`, but its spend is still
 captured inside the inclusive parent record.
 
+Codex follows the same conservation rule. A root rollout's final cumulative
+`total_token_usage` and normalized transcript include child activity recorded
+in that rollout. `SubagentStop` records add attribution only; reporting total
+spend must use the inclusive root and must not add child records again. Codex
+emits cumulative token snapshots during a run, so capture uses the latest
+snapshot rather than summing snapshots and double counting earlier activity.
+
 **Rollout order:** Claude Code `Stop` + `SubagentStop` established the shared
 capture core and first adapter. Complete the remaining supported CLIs in this
 priority order: GitHub Copilot CLI, Codex, then Pi. The script remains
