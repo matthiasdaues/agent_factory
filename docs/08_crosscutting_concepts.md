@@ -4,20 +4,21 @@
 
 ## 8.1 Agentic Creation, Deterministic Validation
 
-**Principle**: Creation is agentic, validation is deterministic and must be triggered mechanically through unavoidable hooks.
+**Principle**: Creation is agentic; validation is deterministic. Where a check must be *unavoidable* — tests, phase-order gates, dangerous commands — it is triggered mechanically through hooks an agent cannot skip. Other deterministic validators run *on demand*, invoked by a playbook, agent, or operator; they trade unavoidability for reproducibility, and are trustworthy because their result is a mechanical exit code, not an agent's word.
 
 Derived from [`factory/rulebooks/conventions/foundational-principles.md`](../factory/rulebooks/conventions/foundational-principles.md).
 
 ### What It Means
 
-| Concern        | Who/What Owns It                                                  | Enforced How                                                         |
-| -------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------- |
-| **Creation**   | Agents and humans write specs, code, tests, docs, ADRs            | Agentic — LLM-driven or human-authored, inherently non-deterministic |
-| **Validation** | Scripts check artifacts against predefined, state-dependent rules | Deterministic — hooks, exit codes, no judgment calls                 |
-| Tests run      | Hooks (pre-commit, pre-push, FSM gate) invoke `run-tests`         | `script_exit_zero` gate condition, exit 0/1/2                        |
-| Commits gated  | Pre-commit hook runs `transition-lint`                            | Blocks staged files outside current phase's `outputs:` globs         |
-| Git safety     | PreToolUse hook runs `block-dangerous-git.sh`                     | Denies commands before execution, exit 2                             |
-| Phase gates    | `phase advance` evaluates FSM `entry_conditions`                  | Refuses (exit 1) if any condition unmet, lists all failures          |
+| Concern                      | Who/What Owns It                                                               | Enforced How                                                                                                   |
+| ---------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| **Creation**                 | Agents and humans write specs, code, tests, docs, ADRs                         | Agentic — LLM-driven or human-authored, inherently non-deterministic                                           |
+| **Validation**               | Scripts check artifacts against predefined, state-dependent rules              | Deterministic — hooks, exit codes, no judgment calls                                                           |
+| Tests run                    | Hooks (pre-commit, pre-push, FSM gate) invoke `run-tests`                      | `script_exit_zero` gate condition, exit 0/1/2                                                                  |
+| Commits gated                | Pre-commit hook runs `transition-lint`                                         | Blocks staged files outside current phase's `outputs:` globs                                                   |
+| Git safety                   | PreToolUse hook runs `block-dangerous-git.sh`                                  | Denies commands before execution, exit 2                                                                       |
+| Phase gates                  | `phase advance` evaluates FSM `entry_conditions`                               | Refuses (exit 1) if any condition unmet, lists all failures                                                    |
+| Research artifacts validated | `schema-validate` (stage 1) and `policy-validate` (stage 2), invoked on demand | Deterministic — exit codes, no judgment; invoked by the research playbook/agents, not hook-enforced (see §8.6) |
 
 ### Why It Matters
 
@@ -117,6 +118,20 @@ The playbook state marker (`.agent-factory/playbook-state.yml`) and the FSM (e.g
 - **No process-local state**: `orchestrator/` has its own `RUN`/`RUN_LOCK` bookkeeping (a distinct concern), but it does not hold a competing notion of "current phase." It reads the marker like everyone else.
 
 This makes resumption trivial: start a new agent session, read the marker, derive "what's next." No recovery logic, no stale state reconciliation.
+
+## 8.6 Staged Validation: Research Artifacts
+
+The falsification-driven research feature validates its JSON artifacts through a fixed three-stage order, layered by *whether a machine can decide the check* rather than bundled into one pass:
+
+| Stage        | Owner                               | Decides                                                                                         |
+| ------------ | ----------------------------------- | ----------------------------------------------------------------------------------------------- |
+| 1 — schema   | `factory/scripts/schema-validate`   | Structure — required fields, types, enums, identifier patterns, timestamps, array minimums      |
+| 2 — policy   | `factory/scripts/policy-validate`   | Enforceable cross-artifact policy — role separation, references, quorum, current claim versions |
+| 3 — semantic | a qualified human or agent reviewer | Meaning — evidence support, source independence in substance, test severity, claim atomicity    |
+
+The order is fixed: an artifact must pass stage 1, then stage 2, then stage 3 before the next playbook step begins, and progression blocks on the first failing stage (`policy-validate --pipeline` chains stages 1 and 2 and stops at the first failure). This is the same "Agentic Creation, Deterministic Validation" principle applied to a new domain: mechanise every check that can be mechanised (stages 1–2, stdlib-only exit-code validators, exactly like `spec-lint` and `arch-lint`), and name honestly the residue that a script cannot settle (stage 3).
+
+Two distinctions from §8.2 matter. First, these validators are **on demand, not hook-enforced**: the research playbook and agents invoke them, so they are deterministic and reproducible but not *unavoidable* the way a pre-commit gate is. Second, the schemas they check against are **data, not prose** — JSON-Schema files under `factory/rulebooks/schemas/`, a rulebook category deliberately outside `INDEX.yaml`. See [ADR-0006](09_architecture_decisions.md) and [`research-topic.md` § The Validation Gate](../factory/playbooks/research-topic.md).
 
 ## Referenced from
 

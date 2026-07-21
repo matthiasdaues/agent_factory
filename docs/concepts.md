@@ -20,6 +20,8 @@ requirements ↔ spec-review → architecture ↔ architecture-review → planni
 
 Not every task needs the full chain. See [factory/docs/factory-guide.md § Playbooks](../factory/docs/factory-guide.md#playbooks) for the shorter paths.
 
+Alongside this production chain runs one standalone workflow that is not a step in it: **Research** (phase 6). The `research-topic` playbook drives a falsification-driven research effort — from an approved brief to a validated report — with its own agents (`research-orchestrator`, `researcher`, `claim-reviewer`, `research-report-writer`) and a three-stage schema → policy → semantic validation gate. A claim reaches the report only after surviving a serious attempt to refute it. See [factory/docs/factory-guide.md § The research workflow](../factory/docs/factory-guide.md#the-research-workflow).
+
 `factory/` itself — the state-machine harness, dispatch mechanism, and generated catalog that enforce phase order and cap review loops — has its own specification and its own arc42 architecture documentation. See [docs/spec/prd.md](spec/prd.md) and [docs/README.md](README.md).
 
 ## Key ideas
@@ -37,8 +39,8 @@ agent_factory/
 │   ├── agents/                       # One .md file per agent
 │   ├── skills/                       # One folder per skill, each holding a SKILL.md
 │   ├── playbooks/                    # End-to-end flows for common scenarios (bug fix, feature addition, ...)
-│   ├── rulebooks/                    # Cross-cutting conventions: commit format, cross-references, ADR style, ...
-│   ├── scripts/                      # Deterministic gates (*-lint) plus setup tooling (init-factory, mdformat, ...)
+│   ├── rulebooks/                    # conventions/ (prose rules + research policies), templates/ (artifact skeletons), schemas/ (JSON-Schema data contracts)
+│   ├── scripts/                      # Deterministic gates (*-lint, plus schema-validate/policy-validate) and setup tooling (init-factory, mdformat, ...)
 │   ├── config/                       # Templates: AGENTS.md, pre-commit-config.yaml, model.conf
 │   └── INDEX.yaml                     # Generated catalog of every agent, skill, playbook, and rulebook with token counts — regenerate with index-lint
 ├── orchestrator/                     # Python CLI that drives agent sessions — nested sub-project, not distributed by init-factory

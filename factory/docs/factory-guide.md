@@ -54,6 +54,10 @@ Once you're comfortable, these drive some or all of the five-phase chain (requir
 | [`technical-poc.md`](../playbooks/technical-poc.md)                   | A real technical risk question, usually comparing 2+ candidate approaches, feeding an actual decision. Heavier than `poc-spike.md`, lighter than the full chain. |
 | [`architecture-review.md`](../playbooks/architecture-review.md)       | Reviewing existing architecture documentation against quality attributes.                                                                                        |
 
+### The research workflow
+
+Separate from the idea → production chain, [`research-topic.md`](../playbooks/research-topic.md) runs a **falsification-driven research** effort — from an approved research brief to a validated final report. It is driven by the phase-6 **Research** agents (`research-orchestrator`, `researcher`, `claim-reviewer`, `research-report-writer`) and their `research-*` skills. A claim reaches the report only after surviving a serious attempt at refutation within its stated scope; a surviving claim is never presented as proved, only as having withstood the defined tests. Every artifact passes the three-stage validation gate (schema → policy → semantic; see [§ Linting and gating](#linting-and-gating)) before the next step begins.
+
 ## Playbook phase gates
 
 Playbooks above are prose: nothing stops staging an architecture file before the spec gate clears except the human remembering the playbook's own instructions. An optional structured harness, layered on top, catches phase-boundary mistakes mechanically instead.
@@ -78,6 +82,19 @@ See [Structured Playbooks as a Deterministic Harness](proposals/playbook-structu
 
 A rulebook is a cross-cutting convention that applies across agents and skills — commit message format, how to cross-reference other documents, ADR style, branch scoping. [`factory/rulebooks/rules.md`](../rulebooks/rules.md) states each rule in one line; the matching file in `factory/rulebooks/conventions/` carries the reasoning, examples, and edge cases. Agents and skills cite these rules rather than restating them.
 
+Rulebooks are grouped by kind, one directory per kind. `index-lint` derives each rulebook's `category` from its parent directory:
+
+| Directory                                   | Holds                                                                                       | In `INDEX.yaml`? |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------- |
+| [`conventions/`](../rulebooks/conventions/) | The prose conventions above, plus the four research **policies** (`research-*.md`)          | Yes              |
+| [`templates/`](../rulebooks/templates/)     | Fill-in skeletons for artifacts — ADRs, and the ten `research-*.md` artifact templates      | Yes              |
+| [`schemas/`](../rulebooks/schemas/)         | JSON-Schema data contracts (`research-*.schema.json`) the research validators check against | No — see below   |
+
+The research feature adds files across all three, marked by a `research-` filename prefix rather than a per-feature subtree (see [ADR-0006](../../docs/adr/0006-research-flat-storage-and-validation-pipeline.md)). Two points are deliberate, not drift:
+
+- The four **research policies** live under `conventions/`, so `index-lint` catalogs them with `category: conventions` even though their own frontmatter reads `category: policies` — a label describing their nature. There is no `policies/` directory.
+- `schemas/` is a genuinely new category of rulebook: machine-readable data, not prose. Its `.schema.json` files are intentionally **absent** from `INDEX.yaml`, because `index-lint` scans Markdown frontmatter only. The validators resolve them by path, never by catalog name.
+
 ## Linting and gating
 
 A gate is a deterministic script — no LLM judgement involved — that catches a provable defect before a reviewer agent spends time on it: a broken cross-reference, a missing required section, an inconsistent ID. Cheap, reproducible, no false positives.
@@ -99,6 +116,23 @@ factory/scripts/matrix-lint config/model.conf
 ```
 
 These scripts are stdlib-only Python — no install needed to run them.
+
+### Research artifact validation
+
+The research workflow adds two more deterministic validators, stdlib-only in the same spirit but invoked on demand by the research skills and agents (and by you), not wired to a phase boundary. They implement the first two stages of a fixed three-stage validation order — **schema → policy → semantic** — that splits validation by whether a machine can decide it:
+
+| Stage        | Tool                                | Checks                                                                                                              |
+| ------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| 1 — schema   | `factory/scripts/schema-validate`   | One JSON artifact against one JSON Schema: required fields, types, enums, identifier patterns, timestamps           |
+| 2 — policy   | `factory/scripts/policy-validate`   | The enforceable half of the research policies across artifacts: role separation, references, quorum, claim versions |
+| 3 — semantic | a qualified human or agent reviewer | Evidence support, source independence, test severity, claim atomicity — the judgment no script makes                |
+
+```bash
+factory/scripts/schema-validate <artifact-file> <schema-file>
+factory/scripts/policy-validate --pipeline <artifact-or-dir>...   # runs stage 1, then stage 2, stopping at the first failure
+```
+
+An artifact must pass stage 1, then stage 2, then stage 3 before the next playbook step begins. The schemas live in [`factory/rulebooks/schemas/`](../rulebooks/schemas/). See [ADR-0006](../../docs/adr/0006-research-flat-storage-and-validation-pipeline.md) and [`research-topic.md` § The Validation Gate](../playbooks/research-topic.md).
 
 Separately, `pre-commit` runs `mdformat` and `ruff` on every commit, formatting markdown and Python automatically. Both run through `uvx`, so nothing needs installing locally beyond `uv` itself — the same zero-local-install pattern `factory/scripts/structurizr` uses for its Docker dependency.
 
