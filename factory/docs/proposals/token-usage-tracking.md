@@ -6,7 +6,7 @@ Add runtime token-usage tracking to Agent Factory. Every agent run — whether a
 human started the session or the orchestrator dispatched it — appends one record
 of what that run actually consumed. The record measures spend with a single,
 CLI- and model-independent tokenizer so that runs are directly comparable across
-CLIs and across models. The first release captures and persists these records;
+CLIs and across models. The release captures and persists these records;
 it does not read, aggregate, or present them.
 
 A captured record answers a question the factory cannot answer today: *what did
@@ -60,7 +60,7 @@ One record is emitted per agent invocation (one LLM session). Fields, grouped:
 
 | Field                  | Meaning                                                      |
 | ---------------------- | ------------------------------------------------------------ |
-| `cli`                  | `claude-code \| pi \| copilot`                               |
+| `cli`                  | `claude-code \| copilot \| codex \| pi`                      |
 | `session_id`           | the CLI session's identifier                                 |
 | `parent_session_id`    | parent run, for building the sub-agent spend tree (nullable) |
 | `depth`                | nesting depth (`PI_RUN_AGENT_DEPTH`)                         |
@@ -172,28 +172,33 @@ in-process use.
 The script is uniform; the trigger is necessarily CLI-specific. Each hands
 `usage-capture` a transcript path and context.
 
-| CLI          | Human-started session                      | Sub-agent / dispatched                       |
-| ------------ | ------------------------------------------ | -------------------------------------------- |
-| Claude Code  | `Stop` hook (settings.json)                | `SubagentStop` hook                          |
-| Pi           | session-end / `message_end` extension hook | `run_agent` / `dispatch_wave` call it inline |
-| Orchestrator | —                                          | explicit call after each phase run           |
+| CLI                | Human-started session                      | Sub-agent / dispatched                       |
+| ------------------ | ------------------------------------------ | -------------------------------------------- |
+| Claude Code        | `Stop` hook (settings.json)                | `SubagentStop` hook                          |
+| GitHub Copilot CLI | `agentStop` hook (`.github/hooks`)         | `subagentStop` hook                          |
+| Codex              | `Stop` hook (`.codex/hooks.json`)          | `SubagentStop` hook                          |
+| Pi                 | session-end / `message_end` extension hook | `run_agent` / `dispatch_wave` call it inline |
 
 Both hook kinds receive the transcript path and session id, so both human and
 dispatched sessions are covered within a CLI.
 
-**Rollout order:** Claude Code `Stop` + `SubagentStop` first — it is the CLI in
-active human use, and one hook-pair covers human main sessions and every
-sub-agent. Then Pi, then the orchestrator, then Copilot. The script ships
-CLI-agnostic from the start; adding a CLI is a new normalizer, not a rewrite.
+**Rollout order:** Claude Code `Stop` + `SubagentStop` established the shared
+capture core and first adapter. Complete the remaining supported CLIs in this
+priority order: GitHub Copilot CLI, Codex, then Pi. The script remains
+CLI-agnostic: each rollout adds a normalizer and native trigger, not a rewrite.
+The orchestrator is a launch path, not a fifth transcript format; the CLI it
+launches owns capture so the orchestrator must not create duplicate records.
 
 ## Scope
 
-**In the first release:**
+**In the release:**
 
-- The `usage-capture` script: normalizer interface, Claude Code normalizer,
+- The `usage-capture` script: normalizer interface, normalizers for Claude
+  Code, GitHub Copilot CLI, Codex, and Pi,
   `cl100k_base` tokenizer, JSONL logging adapter, transcript persistence.
 - The full usage record as specified.
-- Claude Code `Stop` and `SubagentStop` capture wired up.
+- Native human-session and sub-agent capture wired up for all four supported
+  CLIs.
 
 **Explicitly deferred:**
 
@@ -201,8 +206,6 @@ CLI-agnostic from the start; adding a CLI is a new normalizer, not a rewrite.
 - Dollar-cost math (a later layer over `reported_*` × `model` × a rate table).
 - The PostgreSQL adapter and its logging service.
 - Budget enforcement.
-- Pi, orchestrator, and Copilot capture points (the normalizer/trigger seams
-  exist; wiring them is follow-on).
 
 ## Design Details
 
@@ -216,23 +219,26 @@ CLI-agnostic from the start; adding a CLI is a new normalizer, not a rewrite.
 ## Open Questions
 
 - Confirm the exact `record_id` scheme (session-sequence vs. UUID).
-- Confirm whether Pi's human-session capture uses a dedicated extension hook or
-  is deferred entirely to the Pi rollout phase.
+- Confirm the exact Pi human-session event that provides the completed
+  transcript or event stream without double-counting agent output.
 - ~~Confirm the `.agent-factory/usage/` path against the existing init-factory
   ignore manifest~~ — resolved (ST-0040): it already falls under the existing
   `/.agent-factory/` line, no new ignore entry needed.
 
 ## Completion Criteria
 
-The first release is complete when:
+The release is complete when:
 
 - `factory/scripts/usage-capture` exists and, given a transcript and context,
   writes a well-formed record to `.agent-factory/usage/<session_id>.jsonl` and
   persists the linked transcript copy.
 - Records carry `normalized_*` counts produced by `cl100k_base` over the full
   transcript, with `reported_*` populated where the transcript provides it.
-- Claude Code `Stop` and `SubagentStop` sessions — human and sub-agent — are
-  captured automatically.
+- Claude Code, GitHub Copilot CLI, Codex, and Pi sessions — human and sub-agent
+  or dispatched — are captured automatically through their native lifecycle
+  surfaces.
+- Each CLI has an end-to-end test proving the installed trigger produces the
+  same canonical record and transcript-copy contract.
 - Capture never fails, blocks, or slows the run it measures.
 - The path is git-ignored and concurrent appends from parallel dispatch do not
   corrupt the file.
