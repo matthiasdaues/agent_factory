@@ -308,7 +308,7 @@ def install_git_guardrail(target: Path, install: dict, report: list[str]) -> Non
 
 
 def install_usage_capture(target: Path, install: dict, report: list[str]) -> None:
-    """Install native Claude, Copilot, and Codex usage-capture triggers."""
+    """Install native usage-capture triggers for every supported CLI."""
     hooks_dir = target / ".claude" / "hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
 
@@ -319,6 +319,19 @@ def install_usage_capture(target: Path, install: dict, report: list[str]) -> Non
     _ensure_claude_capture_settings(target, install, report)
     _install_copilot_usage_capture(target, install, report)
     _install_codex_usage_capture(target, install, report)
+    _install_pi_usage_capture(target, install, report)
+
+
+def _install_pi_usage_capture(target: Path, install: dict, report: list[str]) -> None:
+    """Install Pi's native human-session shutdown trigger and shared bridge."""
+    extensions_dir = _ensure_pi_extensions_dir(target, install, report)
+    for name in ("capture-usage.ts", "pi-usage.ts"):
+        ensure_symlink(
+            extensions_dir / name,
+            target / "factory" / "config" / "extensions" / name,
+            report,
+            install=install,
+        )
 
 
 def _install_codex_usage_capture(
@@ -453,7 +466,7 @@ def install_pi_invocation_layer(target: Path, install: dict, report: list[str]) 
     them (ADR-0004, UC-10, FR-J4)."""
     extensions_dir = _ensure_pi_extensions_dir(target, install, report)
 
-    for name in ("run-agent.ts", "dispatch-wave.ts"):
+    for name in ("run-agent.ts", "dispatch-wave.ts", "pi-usage.ts"):
         link = extensions_dir / name
         dest = target / "factory" / "config" / "extensions" / name
         ensure_symlink(link, dest, report, install=install)

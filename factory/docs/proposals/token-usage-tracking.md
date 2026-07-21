@@ -172,12 +172,12 @@ in-process use.
 The script is uniform; the trigger is necessarily CLI-specific. Each hands
 `usage-capture` a transcript path and context.
 
-| CLI                | Human-started session                      | Sub-agent / dispatched                       |
-| ------------------ | ------------------------------------------ | -------------------------------------------- |
-| Claude Code        | `Stop` hook (settings.json)                | `SubagentStop` hook                          |
-| GitHub Copilot CLI | `agentStop` hook (`.github/hooks`)         | `subagentStop` hook                          |
-| Codex              | `Stop` hook (`.codex/hooks.json`)          | `SubagentStop` hook                          |
-| Pi                 | session-end / `message_end` extension hook | `run_agent` / `dispatch_wave` call it inline |
+| CLI                | Human-started session              | Sub-agent / dispatched                       |
+| ------------------ | ---------------------------------- | -------------------------------------------- |
+| Claude Code        | `Stop` hook (settings.json)        | `SubagentStop` hook                          |
+| GitHub Copilot CLI | `agentStop` hook (`.github/hooks`) | `subagentStop` hook                          |
+| Codex              | `Stop` hook (`.codex/hooks.json`)  | `SubagentStop` hook                          |
+| Pi                 | `session_shutdown` extension hook  | `run_agent` / `dispatch_wave` call it inline |
 
 Both hook kinds receive the transcript path and session id, so both human and
 dispatched sessions are covered within a CLI.
@@ -202,6 +202,13 @@ priority order: GitHub Copilot CLI, Codex, then Pi. The script remains
 CLI-agnostic: each rollout adds a normalizer and native trigger, not a rewrite.
 The orchestrator is a launch path, not a fifth transcript format; the CLI it
 launches owns capture so the orchestrator must not create duplicate records.
+
+Pi emits a provider-usage breakdown for each assistant `message_end`; the Pi
+normalizer sums those per-response values across the completed stream. Human
+sessions capture once at the documented graceful `session_shutdown` lifecycle
+event. Dispatched subprocesses set an inline-capture marker so their own loaded
+shutdown extension stays silent: `run_agent` or each `dispatch_wave` item owns
+exactly one child record with explicit parent and depth context.
 
 ## Scope
 
@@ -233,8 +240,10 @@ launches owns capture so the orchestrator must not create duplicate records.
 ## Open Questions
 
 - Confirm the exact `record_id` scheme (session-sequence vs. UUID).
-- Confirm the exact Pi human-session event that provides the completed
-  transcript or event stream without double-counting agent output.
+- ~~Confirm the exact Pi human-session event that provides the completed
+  transcript or event stream without double-counting agent output~~ — resolved
+  (ST-0044): the installed extension captures the completed branch once on
+  Pi's documented `session_shutdown` event.
 - ~~Confirm the `.agent-factory/usage/` path against the existing init-factory
   ignore manifest~~ — resolved (ST-0040): it already falls under the existing
   `/.agent-factory/` line, no new ignore entry needed.

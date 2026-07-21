@@ -34,6 +34,7 @@ import { join } from "node:path";
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { capturePiStream, INLINE_CAPTURE_ENV, newSessionId, SESSION_ENV } from "./pi-usage.ts";
 
 /** Cap on nested agent spawns, shared with run_agent (BR-035). */
 const MAX_DEPTH = 3;
@@ -184,7 +185,17 @@ export default function (pi: ExtensionAPI) {
           if (model) args.push("--model", model);
           args.push("--append-system-prompt", persona, "-p", task);
 
-          const child = await spawnPi(args, r.worktree, depth + 1, signal);
+          const childSessionId = newSessionId();
+          const parentSessionId = process.env[SESSION_ENV];
+          const child = await spawnPi(args, r.worktree, depth + 1, signal, childSessionId, parentSessionId);
+          capturePiStream(cwd, child.stdout, {
+            sessionId: childSessionId,
+            parentSessionId,
+            depth: depth + 1,
+            agent: r.agent,
+            model: model || undefined,
+            exitStatus: child.status === 0 ? "success" : "failure",
+          });
           r.spawned = true;
           r.spawnExit = child.status;
           if (child.error) {
@@ -289,12 +300,20 @@ function spawnPi(
   cwd: string,
   childDepth: number,
   signal: AbortSignal,
+  sessionId: string,
+  parentSessionId?: string,
 ): Promise<SpawnResult> {
   return new Promise((resolve) => {
     const child = spawn("pi", args, {
       cwd,
       signal,
-      env: { ...process.env, [DEPTH_ENV]: String(childDepth) },
+      env: {
+        ...process.env,
+        [DEPTH_ENV]: String(childDepth),
+        [SESSION_ENV]: sessionId,
+        PI_AGENT_FACTORY_PARENT_SESSION_ID: parentSessionId || "",
+        [INLINE_CAPTURE_ENV]: "1",
+      },
     });
     let stdout = "";
     let stderr = "";
