@@ -4,22 +4,25 @@
 # dependencies = ["tiktoken"]
 # ///
 """usage-capture - Usage record shape, record_id scheme, the fixed
-cl100k_base tokenizer, and the swappable logging-adapter seam behind
-factory-wide runtime spend capture.
+cl100k_base tokenizer, the per-CLI transcript normalizer, the swappable
+logging-adapter seam, and the argparse CLI entrypoint that composes all of
+it into factory-wide runtime spend capture.
 
 What: Defines `UsageRecord` (one record per agent invocation), the
       `RecordIdSequencer` that names a record and its transcript copy,
       `count_tokens()`, a local, deterministic `tiktoken cl100k_base`
-      counter, and the persistence seam: the `LoggingAdapter` protocol plus
-      its `JsonlLoggingAdapter` implementation, which appends one record
-      line per session and persists a linked transcript copy. It does not
-      yet parse a real per-CLI transcript or expose an argparse CLI.
-When: Imported by later slices (ST-0037 per-CLI transcript normalizer,
-      ST-0038 argparse CLI entrypoint) that grow this same file, and by
-      capture sites once those slices land.
+      counter, the persistence seam (`LoggingAdapter` protocol plus
+      `JsonlLoggingAdapter`), the per-CLI `TranscriptNormalizer` protocol
+      plus `get_normalizer()` registry and `ClaudeCodeNormalizer`, and
+      `_main()` — the standalone `usage-capture --cli ... --transcript ...`
+      entrypoint every capture site invokes uniformly.
+When: Invoked directly, via its own PEP 723 shebang, by each capture site —
+      a Claude Code hook, a Pi extension, the orchestrator — once per agent
+      invocation. The underlying module may also be `import`ed in-process
+      (proposal: "The Capture Tool").
 By:   `factory/docs/proposals/token-usage-tracking.md` ("The Usage Record",
-      "Tokenization Strategy", "Persistence", "Design Details"); backlog
-      ST-0035, ST-0036.
+      "Tokenization Strategy", "Persistence", "The Capture Tool", "Design
+      Details"); backlog ST-0035, ST-0036, ST-0037, ST-0038.
 
 Self-bootstrapping like `index-lint`: the PEP 723 block above makes
 `tiktoken` available via `uv run --script` without a project virtualenv.
@@ -39,6 +42,7 @@ them (`transcript_ref`, `base_commit`/`commit_id`).
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
@@ -95,6 +99,20 @@ class RecordIdSequencer:
             return str(uuid.uuid4())
         self._sequences[session_id] = self._sequences.get(session_id, 0) + 1
         return f"{session_id}-{self._sequences[session_id]:04d}"
+
+    def seed(self, session_id: str, count: int) -> None:
+        """Pre-set *session_id*'s counter to *count* records already seen.
+
+        A fresh `RecordIdSequencer` only sees records assigned in its own
+        process. The CLI entrypoint (ST-0038) builds one per invocation —
+        this script is a new process each call — so without seeding, every
+        invocation for a given session would restart at `-0001` and
+        collide with, silently overwriting, an earlier record's persisted
+        transcript copy. Seeding from however many lines already exist in
+        the session's own JSONL file keeps ids unique across the many
+        invocations one real session makes.
+        """
+        self._sequences[session_id] = count
 
 
 # ── UsageRecord ──────────────────────────────────────────────────────────
@@ -502,18 +520,135 @@ def get_normalizer(cli: str) -> TranscriptNormalizer:
         ) from None
 
 
-# ── Minimal invocation seam (not the CLI — ST-0038 builds that) ──────────
+# ── CLI entrypoint (ST-0038) ─────────────────────────────────────────────
+
+# Context flags (proposal: "The Capture Tool" example invocation), mapped
+# straight onto the `UsageRecord` field of the same name via `dest=`; only
+# `--commit` (-> commit_id) and `--story-id`/`--parent-session`/`--loop-role`
+# (dashes argparse would otherwise fold into non-matching attribute names)
+# need an explicit `dest`.
+def _build_arg_parser() -> argparse.ArgumentParser:
+    """Argument parser for the real CLI: `--cli`/`--transcript` select and
+    read the run; every other flag is invocation context that lands on the
+    matching `UsageRecord` field (proposal: "The Capture Tool")."""
+    parser = argparse.ArgumentParser(
+        prog="usage-capture",
+        description=(
+            "Capture one usage record for a single agent invocation: "
+            "normalize --transcript for --cli, tokenize it via cl100k_base, "
+            "and append the record to .agent-factory/usage/<session>.jsonl."
+        ),
+    )
+    parser.add_argument("--cli", required=True, help="claude-code | pi | copilot")
+    parser.add_argument(
+        "--transcript",
+        required=True,
+        type=Path,
+        help="path to the CLI's own transcript file",
+    )
+    parser.add_argument("--session", dest="session_id")
+    parser.add_argument("--parent-session", dest="parent_session_id")
+    parser.add_argument("--depth", type=int)
+    parser.add_argument("--agent")
+    parser.add_argument("--skill")
+    parser.add_argument("--model")
+    parser.add_argument("--phase")
+    parser.add_argument("--playbook")
+    parser.add_argument("--story-id", dest="story_id")
+    parser.add_argument("--loop-role", dest="loop_role")
+    parser.add_argument("--iteration", type=int)
+    parser.add_argument("--branch")
+    parser.add_argument("--base-commit", dest="base_commit")
+    parser.add_argument("--commit", dest="commit_id")
+    parser.add_argument("--exit-status", dest="exit_status")
+    return parser
+
+
+def _next_record_id(usage_dir: Path, session_id: Optional[str]) -> str:
+    """`record_id` for one capture, continuing *session_id*'s sequence
+    already on disk (see `RecordIdSequencer.seed`'s docstring for why: this
+    CLI is a new process per invocation, so an unseeded sequencer would
+    restart at `-0001` every call)."""
+    sequencer = RecordIdSequencer()
+    if session_id:
+        session_file = usage_dir / f"{session_id}.jsonl"
+        if session_file.exists():
+            existing = sum(
+                1
+                for line in session_file.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            )
+            sequencer.seed(session_id, existing)
+    return sequencer.next_id(session_id)
+
+
+def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> None:
+    """Run one capture end to end: normalize, tokenize, assemble, persist.
+
+    Composes the two swappable seams around the fixed tokenizer (proposal:
+    "The Capture Tool") — `get_normalizer(args.cli)` and
+    `JsonlLoggingAdapter` — around exactly one `count_tokens()` pass over
+    each role-split stream, producing exactly one `UsageRecord` per call.
+
+    Raises on any failure (unknown `--cli` via `get_normalizer`, an
+    unreadable transcript, ...); `_main` is the best-effort boundary that
+    catches it, per the proposal's "Core Principles" — capture must never
+    fail, block, or slow the run it measures. `JsonlLoggingAdapter.record()`
+    already swallows its own persistence failures (ST-0036), so this
+    function only ever raises on failures upstream of persistence.
+    """
+    normalizer = get_normalizer(args.cli)  # raises ValueError for unknown cli
+    transcript = normalizer.parse(args.transcript)
+
+    normalized_input = count_tokens(transcript.input_text)
+    normalized_output = count_tokens(transcript.output_text)
+
+    usage_dir = Path(base_dir) / ".agent-factory" / "usage"
+    record_id = _next_record_id(usage_dir, args.session_id)
+
+    record = UsageRecord(
+        record_id=record_id,
+        normalized_input=normalized_input,
+        normalized_output=normalized_output,
+        cli=args.cli,
+        session_id=args.session_id,
+        parent_session_id=args.parent_session_id,
+        depth=args.depth,
+        loop_role=args.loop_role,
+        iteration=args.iteration,
+        agent=args.agent,
+        skill=args.skill,
+        phase=args.phase,
+        playbook=args.playbook,
+        story_id=args.story_id,
+        model=args.model,
+        reported_input=transcript.reported_input,
+        reported_output=transcript.reported_output,
+        reported_cache_read=transcript.reported_cache_read,
+        reported_cache_write=transcript.reported_cache_write,
+        usage_granularity=transcript.usage_granularity,
+        exit_status=args.exit_status,
+        branch=args.branch,
+        base_commit=args.base_commit,
+        commit_id=args.commit_id,
+    )
+
+    JsonlLoggingAdapter(base_dir=base_dir).record(record, transcript.text)
 
 
 def _main(argv: Optional[list] = None) -> int:
-    """Not the real CLI: ST-0038 builds the argparse entrypoint that reads a
-    transcript and context flags and writes a JSONL record. This exists
-    solely so a test running under a bare interpreter (no `tiktoken`
-    installed there) can exercise `count_tokens()` — and the ST-0037
-    normalizer's `normalized_*` split — through this script's own shebang,
-    which bootstraps `tiktoken` via `uv run --script` (the same pattern
-    `test_research_playbook_ST0033.py` uses to get a real, non-fallback
-    tokenizer count out of `index-lint`).
+    """The real CLI entrypoint (proposal: "The Capture Tool").
+
+    Parses `--cli`/`--transcript` plus the context flags, runs the
+    normalize -> tokenize -> assemble -> persist pipeline in `_capture()`
+    for exactly one record, and always returns 0. Best-effort at every
+    boundary per the proposal's "Core Principles": an unknown `--cli`, a
+    missing/malformed argument, an unreadable transcript, or any other
+    failure is logged to stderr and swallowed here — a capture failure
+    must never fail, block, or slow the run it measures. The
+    `--count-tokens`/`--normalize` dev seams (ST-0035/ST-0037) are
+    preserved unchanged above; real capture-site callers use the flags
+    `_build_arg_parser()` defines.
     """
     argv = sys.argv[1:] if argv is None else argv
     if argv and argv[0] == "--count-tokens":
@@ -542,12 +677,24 @@ def _main(argv: Optional[list] = None) -> int:
             )
         )
         return 0
-    print(
-        "usage-capture: no CLI yet (ST-0038 adds one); "
-        "import count_tokens()/UsageRecord/RecordIdSequencer instead",
-        file=sys.stderr,
-    )
-    return 1
+
+    try:
+        args = _build_arg_parser().parse_args(argv)
+    except SystemExit as exc:
+        if exc.code in (0, None):
+            raise  # --help/--version: let argparse's own normal exit through
+        print(
+            "usage-capture: argument parsing failed; skipping capture",
+            file=sys.stderr,
+        )
+        return 0
+
+    try:
+        _capture(args)
+    except Exception as exc:  # best-effort boundary: never fail the measured run
+        print(f"usage-capture: capture failed: {exc}", file=sys.stderr)
+
+    return 0
 
 
 if __name__ == "__main__":
