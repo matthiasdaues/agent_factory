@@ -149,6 +149,16 @@ The guardrail is installed automatically for every project — not opt-in, not a
 
 **Pi caveat:** this is not as strong as the native Claude/Copilot hook path. Pi loads project-local extensions only after project trust resolves, and non-interactive runs may ignore them unless trust is already saved or the run is explicitly approved. For stronger Pi enforcement, install the same extension globally under `~/.pi/agent/extensions/`, pass it via `pi -e`, or run Pi in a sandbox/container. See Pi's own [Extensions](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/docs/extensions.md), [Security](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/docs/security.md), and [Containerization](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/docs/containerization.md) docs for the underlying model.
 
+### Copilot usage capture
+
+`init-factory` installs Factory-owned `agentStop` and `subagentStop` command
+hooks under `.github/hooks/`. The parent `agentStop` record is the inclusive
+source of total spend: child activity present in its transcript is included.
+`subagentStop` records are attribution drill-down and must not be added to the
+parent again when totals are aggregated. Copilot's built-in `general-purpose`
+agent emits no `subagentStop`, so it has no separate attribution record; its
+usage remains included in the parent record.
+
 Treat it as a backstop, not a security boundary. It catches an accidental or under-pressure bypass — a background agent routing around a failing gate, for instance — not a determined one. A user with shell access outside the CLI, or anyone who edits the CLI's own configuration, can always route around it.
 
 ## Session logging

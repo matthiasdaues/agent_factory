@@ -13,7 +13,7 @@ What: Defines `UsageRecord` (one record per agent invocation), the
       `count_tokens()`, a local, deterministic `tiktoken cl100k_base`
       counter, the persistence seam (`LoggingAdapter` protocol plus
       `JsonlLoggingAdapter`), the per-CLI `TranscriptNormalizer` protocol
-      plus `get_normalizer()` registry and `ClaudeCodeNormalizer`, and
+      plus `get_normalizer()` registry, Claude/Copilot normalizers, and
       `_main()` — the standalone `usage-capture --cli ... --transcript ...`
       entrypoint every capture site invokes uniformly.
 When: Invoked directly, via its own PEP 723 shebang, by each capture site —
@@ -349,8 +349,7 @@ class NormalizedTranscript:
 class TranscriptNormalizer(Protocol):
     """Per-CLI seam: turn one CLI's transcript into a `NormalizedTranscript`.
 
-    `ClaudeCodeNormalizer` is the only implementation today. Adding Pi or
-    Copilot is a new class registered in `_NORMALIZERS`, selected by `cli` —
+    CLI normalizers are classes registered in `_NORMALIZERS`, selected by `cli` —
     never a rewrite of the tokenizer, the record, or the logging adapter
     (proposal: "The Capture Tool" — the normalizer is one of two swappable
     internal seams around a fixed tokenizer).
@@ -498,8 +497,102 @@ class ClaudeCodeNormalizer:
         return result
 
 
-# CLI -> normalizer registry. Adding Pi/Copilot is a new entry, not a rewrite.
-_NORMALIZERS: dict = {"claude-code": ClaudeCodeNormalizer()}
+class CopilotNormalizer:
+    """Normalize Copilot CLI ``events.jsonl`` events.
+
+    Copilot's persisted event stream is deliberately isolated here. Unknown
+    event types and malformed lines are ignored so additions to the CLI's
+    internal log do not break capture. Parent transcripts are inclusive: no
+    event is filtered by ``parentToolCallId`` or ``initiator``, therefore child
+    activity present in a root transcript contributes to the root total.
+    """
+
+    _INPUT_EVENTS = {"system.message", "user.message", "tool.execution_complete"}
+    _OUTPUT_EVENTS = {"assistant.message", "tool.execution_start"}
+    _USAGE_FIELDS = {
+        "inputTokens": "reported_input",
+        "outputTokens": "reported_output",
+        "cacheReadTokens": "reported_cache_read",
+        "cacheWriteTokens": "reported_cache_write",
+    }
+
+    @staticmethod
+    def _event_segments(event_type: str, data: dict) -> list[str]:
+        values: list[object]
+        if event_type in {"system.message", "user.message"}:
+            values = [data.get("content")]
+        elif event_type == "assistant.message":
+            values = [data.get("reasoningText"), data.get("content")]
+        elif event_type == "tool.execution_start":
+            values = [data.get("toolName"), data.get("arguments")]
+        elif event_type == "tool.execution_complete":
+            values = [data.get("result")]
+        else:
+            return []
+
+        segments = []
+        for value in values:
+            if isinstance(value, str) and value:
+                segments.append(value)
+            elif isinstance(value, (dict, list)):
+                segments.append(
+                    json.dumps(value, ensure_ascii=False, sort_keys=True)
+                )
+        return segments
+
+    def parse(self, transcript_path: Union[str, Path]) -> NormalizedTranscript:
+        ordered: list[str] = []
+        inputs: list[str] = []
+        outputs: list[str] = []
+        reported = {field_name: 0 for field_name in self._USAGE_FIELDS.values()}
+        saw_usage = False
+
+        raw = Path(transcript_path).read_text(encoding="utf-8")
+        for line in raw.splitlines():
+            try:
+                event = json.loads(line)
+            except (ValueError, TypeError):
+                continue
+            if not isinstance(event, dict):
+                continue
+            event_type = event.get("type")
+            data = event.get("data")
+            if not isinstance(event_type, str) or not isinstance(data, dict):
+                continue
+
+            segments = self._event_segments(event_type, data)
+            ordered.extend(segments)
+            if event_type in self._INPUT_EVENTS:
+                inputs.extend(segments)
+            elif event_type in self._OUTPUT_EVENTS:
+                outputs.extend(segments)
+
+            if event_type == "assistant.usage":
+                saw_usage = True
+                for key, field_name in self._USAGE_FIELDS.items():
+                    value = data.get(key)
+                    if isinstance(value, (int, float)):
+                        reported[field_name] += int(value)
+
+        result = NormalizedTranscript(
+            input_text="\n".join(inputs),
+            output_text="\n".join(outputs),
+            ordered_segments=ordered,
+        )
+        if saw_usage:
+            result.reported_input = reported["reported_input"]
+            result.reported_output = reported["reported_output"]
+            result.reported_cache_read = reported["reported_cache_read"]
+            result.reported_cache_write = reported["reported_cache_write"]
+            result.usage_granularity = "full"
+        return result
+
+
+# CLI -> normalizer registry. Adding another CLI is a new entry, not a rewrite.
+_NORMALIZERS: dict = {
+    "claude-code": ClaudeCodeNormalizer(),
+    "copilot": CopilotNormalizer(),
+}
 
 SUPPORTED_CLIS = tuple(_NORMALIZERS)
 
