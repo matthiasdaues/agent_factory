@@ -69,17 +69,24 @@ Steps
          .github/hooks/.
        - Pi: symlink the project-local extension
          `.pi/extensions/block-dangerous-git.ts`.
-  7. Copy factory/config/model.conf to --target/config/model.conf, only if
+  7. Install the Claude Code usage-capture trigger (ST-0040): symlink
+     `capture-usage.sh` into `.claude/hooks/` and wire `Stop` and
+     `SubagentStop` entries into `.claude/settings.json`, the same
+     created-if-absent/merged-if-present rule as the guardrail above. Pi and
+     Copilot capture triggers are follow-on stories.
+  8. Copy factory/config/model.conf to --target/config/model.conf, only if
      absent (meant to diverge per project).
-  8. Pre-commit: the ONLY tracked change. If --target/.pre-commit-config.yaml
+  9. Pre-commit: the ONLY tracked change. If --target/.pre-commit-config.yaml
      exists, splice Agent Factory's `agent_factory_hook-*` block in beside the
      project's own hooks (merge-precommit-config). If it doesn't exist, create
      it carrying just that block. A project's inert `.pre-commit-config.yml`
      is never touched — pre-commit only auto-reads `.yaml`.
-  9. Emit the single "agent_factory related" .gitignore block (created or
-     appended; rewritten in place on re-run).
-  10. Write .agent-factory/factory-install.json (the removal manifest).
-  11. `uvx pre-commit install`.
+  10. Emit the single "agent_factory related" .gitignore block (created or
+      appended; rewritten in place on re-run). `.agent-factory/usage/` (the
+      capture trigger's runtime output) already falls under the existing
+      `/.agent-factory/` entry — no new line needed.
+  11. Write .agent-factory/factory-install.json (the removal manifest).
+  12. `uvx pre-commit install`.
 
 Usage
   init-factory                                    # target = cwd, source = this checkout
@@ -125,6 +132,14 @@ ORIENTATION_FILE = {
 CLAUDE_GUARDRAIL_HOOK_COMMAND = (
     '"$CLAUDE_PROJECT_DIR"/.claude/hooks/block-dangerous-git.sh'
 )
+
+# The exact Stop/SubagentStop hook command string that wires the usage-capture
+# trigger into a project's .claude/settings.json. One hook-pair covers both
+# the human main session (Stop) and every dispatched sub-agent (SubagentStop)
+# within the CLI; the shared script tells them apart via the hook payload's
+# own `hook_event_name`, not via a different command string.
+CLAUDE_CAPTURE_HOOK_COMMAND = '"$CLAUDE_PROJECT_DIR"/.claude/hooks/capture-usage.sh'
+CLAUDE_CAPTURE_HOOK_EVENTS = ("Stop", "SubagentStop")
 
 # Marker lines that fence the single .gitignore block. remove-factory strips
 # everything between them (inclusive). Keep these strings in sync there.
@@ -287,6 +302,27 @@ def install_git_guardrail(target: Path, install: dict, report: list[str]) -> Non
     _install_pi_guardrail(target, install, report)
 
 
+def install_usage_capture(target: Path, install: dict, report: list[str]) -> None:
+    """Install the Claude Code usage-capture trigger the same way as the
+    git-safety guardrail above: symlink the shared hook script into
+    .claude/hooks/ and wire Stop + SubagentStop entries into
+    .claude/settings.json (created if absent, merged if present, never
+    duplicated, never clobbering hooks the project already owns).
+
+    Claude Code only for now — it is the CLI in active human use and one
+    hook-pair covers both human main sessions and every sub-agent (rollout
+    order per the token-usage-tracking proposal's "Capture Triggers, per
+    CLI"). Pi and Copilot capture triggers are follow-on stories."""
+    hooks_dir = target / ".claude" / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+
+    link = hooks_dir / "capture-usage.sh"
+    dest = target / "factory" / "config" / "hooks" / "capture-usage.sh"
+    ensure_symlink(link, dest, report, install=install)
+
+    _ensure_claude_capture_settings(target, install, report)
+
+
 def _install_claude_guardrail(target: Path, install: dict, report: list[str]) -> None:
     hooks_dir = target / ".claude" / "hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
@@ -424,6 +460,106 @@ def _ensure_claude_guardrail_settings(
     )
     path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
     log(report, ".claude/settings.json: added git-safety guardrail hook")
+
+
+def _ensure_claude_capture_settings(
+    target: Path, install: dict, report: list[str]
+) -> None:
+    """Wire the usage-capture Stop/SubagentStop entries into
+    .claude/settings.json, mirroring `_ensure_claude_guardrail_settings`
+    above: created if absent, merged if present, one entry per event, never
+    duplicated, never touching hooks the project already owns (including the
+    guardrail's own PreToolUse entry, which this function never looks at)."""
+    path = target / ".claude" / "settings.json"
+
+    if not path.exists():
+        settings = {
+            "hooks": {
+                event: [
+                    {
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": CLAUDE_CAPTURE_HOOK_COMMAND,
+                            }
+                        ]
+                    }
+                ]
+                for event in CLAUDE_CAPTURE_HOOK_EVENTS
+            }
+        }
+        path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+        install["claude_settings_existed"] = False
+        install["remove_paths"].append(".claude/settings.json")
+        log(
+            report,
+            ".claude/settings.json: created with usage-capture Stop/SubagentStop hooks",
+        )
+        return
+
+    # setdefault: if a prior run (or the guardrail install just above) created
+    # it, keep existed=False (it's ours).
+    install.setdefault("claude_settings_existed", True)
+
+    try:
+        settings = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise Collision(
+            f"{path} exists but isn't valid JSON ({e}) — wire the usage-capture "
+            "hooks in by hand: Stop and SubagentStop hooks running "
+            f"{CLAUDE_CAPTURE_HOOK_COMMAND}"
+        )
+
+    if not isinstance(settings, dict):
+        raise Collision(
+            f"{path} exists but its top-level JSON isn't an object — wire the "
+            f"usage-capture hooks in by hand: Stop and SubagentStop hooks "
+            f"running {CLAUDE_CAPTURE_HOOK_COMMAND}"
+        )
+
+    hooks = settings.setdefault("hooks", {})
+    if not isinstance(hooks, dict):
+        raise Collision(
+            f"{path}: 'hooks' key exists but isn't an object — wire it in by hand"
+        )
+
+    changed = False
+    for event in CLAUDE_CAPTURE_HOOK_EVENTS:
+        changed = _wire_capture_event(path, hooks, event, report) or changed
+
+    if changed:
+        path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+
+
+def _wire_capture_event(path: Path, hooks: dict, event: str, report: list[str]) -> bool:
+    """Append the usage-capture command entry under hooks[event] unless
+    already present. Returns True iff it added a new entry (so the caller
+    only rewrites the file when something actually changed)."""
+    entries = hooks.setdefault(event, [])
+    if not isinstance(entries, list):
+        raise Collision(
+            f"{path}: 'hooks.{event}' exists but isn't a list — wire the "
+            "usage-capture hook in by hand"
+        )
+
+    for entry in entries:
+        entry_hooks = entry.get("hooks", []) if isinstance(entry, dict) else []
+        for hook in entry_hooks:
+            if (
+                isinstance(hook, dict)
+                and hook.get("command") == CLAUDE_CAPTURE_HOOK_COMMAND
+            ):
+                log(
+                    report,
+                    f".claude/settings.json: {event} usage-capture hook already wired in",
+                )
+                return False
+
+    entries.append(
+        {"hooks": [{"type": "command", "command": CLAUDE_CAPTURE_HOOK_COMMAND}]}
+    )
+    log(report, f".claude/settings.json: added {event} usage-capture hook")
+    return True
 
 
 def copy_model_matrix(target: Path, install: dict, report: list[str]) -> None:
@@ -721,6 +857,7 @@ def main(argv: list[str] | None = None) -> int:
         ensure_dot_dirs(target, install, report)
         symlink_factory_content(target, install, report)
         install_git_guardrail(target, install, report)
+        install_usage_capture(target, install, report)
         install_pi_invocation_layer(target, install, report)
         copy_model_matrix(target, install, report)
         handle_precommit(target, install, report)

@@ -218,8 +218,9 @@ CLI-agnostic from the start; adding a CLI is a new normalizer, not a rewrite.
 - Confirm the exact `record_id` scheme (session-sequence vs. UUID).
 - Confirm whether Pi's human-session capture uses a dedicated extension hook or
   is deferred entirely to the Pi rollout phase.
-- Confirm the `.agent-factory/usage/` path against the existing init-factory
-  ignore manifest (it is already a git-ignored runtime area).
+- ~~Confirm the `.agent-factory/usage/` path against the existing init-factory
+  ignore manifest~~ — resolved (ST-0040): it already falls under the existing
+  `/.agent-factory/` line, no new ignore entry needed.
 
 ## Completion Criteria
 
