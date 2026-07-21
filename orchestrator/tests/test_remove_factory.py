@@ -16,6 +16,7 @@ these tests are self-contained and stable.
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
@@ -48,6 +49,19 @@ repos:
         language: system
 """
 PROJECT_WORKFLOW = "name: CI\non: [push]\njobs: {}\n"
+PROJECT_CLAUDE_SETTINGS = {
+    "hooks": {
+        "PostToolUse": [
+            {
+                "matcher": "Bash",
+                "hooks": [{"type": "command", "command": "echo project-done"}],
+            }
+        ],
+        "Stop": [
+            {"hooks": [{"type": "command", "command": "echo project-owned-stop"}]}
+        ],
+    }
+}
 
 
 def _make_project(root: Path, with_copilot_instructions: bool = False) -> None:
@@ -172,6 +186,32 @@ class TestTracelessRemoval:
     def test_remove_without_manifest_is_noop(self, tmp_path):
         _make_project(tmp_path)
         before = _snapshot(tmp_path)
+
+        assert _run_remove(tmp_path) == 0
+
+        assert _snapshot(tmp_path) == before
+
+    def test_roundtrip_with_existing_claude_settings_removes_only_our_hooks(
+        self, tmp_path
+    ):
+        _make_project(tmp_path)
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+        (claude_dir / "settings.json").write_text(
+            json.dumps(PROJECT_CLAUDE_SETTINGS, indent=2) + "\n", encoding="utf-8"
+        )
+        before = _snapshot(tmp_path)
+
+        assert _run_init(tmp_path) == 0
+        settings_after_init = json.loads(
+            (claude_dir / "settings.json").read_text(encoding="utf-8")
+        )
+        assert any(
+            hook.get("command") == init_factory.CLAUDE_CAPTURE_HOOK_COMMAND
+            for event in init_factory.CLAUDE_CAPTURE_HOOK_EVENTS
+            for entry in settings_after_init["hooks"][event]
+            for hook in entry.get("hooks", [])
+        )
 
         assert _run_remove(tmp_path) == 0
 

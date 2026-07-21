@@ -20,9 +20,9 @@ nothing more:
     init-factory only spliced into a file the project already had, just the
     `agent_factory_hook-*` `- repo: local` item is removed, leaving the
     project's own hooks untouched.
-  - .claude/settings.json — if the project owned it, only the git-safety
-    PreToolUse hook entry is removed; if init-factory created it, it went with
-    .claude/.
+  - .claude/settings.json — if the project owned it, only Agent Factory's
+    git-safety PreToolUse hook and usage-capture Stop/SubagentStop hook entries
+    are removed; if init-factory created it, it went with .claude/.
   - the pre-commit git hook is uninstalled only if init-factory was the one
     that `git init`-ed the repo.
 
@@ -50,6 +50,11 @@ from pathlib import Path
 
 MANIFEST_PATH = ".agent-factory/factory-install.json"
 HOOK_ID_PREFIX = "agent_factory_hook-"
+CLAUDE_GUARDRAIL_HOOK_COMMAND = (
+    '"$CLAUDE_PROJECT_DIR"/.claude/hooks/block-dangerous-git.sh'
+)
+CLAUDE_CAPTURE_HOOK_COMMAND = '"$CLAUDE_PROJECT_DIR"/.claude/hooks/capture-usage.sh'
+CLAUDE_CAPTURE_HOOK_EVENTS = ("Stop", "SubagentStop")
 
 REPOS_KEY = re.compile(r"^repos:\s*$")
 TOP_LEVEL_KEY = re.compile(r"^\S")
@@ -151,6 +156,33 @@ def strip_precommit_block(target: Path, manifest: dict) -> None:
     )
 
 
+def _strip_hook_command(hooks: dict, event: str, command: str) -> bool:
+    entries = hooks.get(event)
+    if not isinstance(entries, list):
+        return False
+
+    kept = []
+    removed = False
+    for entry in entries:
+        entry_hooks = entry.get("hooks", []) if isinstance(entry, dict) else []
+        if any(
+            isinstance(hook, dict) and hook.get("command") == command
+            for hook in entry_hooks
+        ):
+            removed = True
+            continue
+        kept.append(entry)
+
+    if not removed:
+        return False
+
+    if kept:
+        hooks[event] = kept
+    else:
+        hooks.pop(event, None)
+    return True
+
+
 def strip_settings_hook(target: Path, manifest: dict) -> None:
     if not manifest.get("claude_settings_existed"):
         return  # init-factory created it — deleted with .claude/ instead
@@ -159,7 +191,6 @@ def strip_settings_hook(target: Path, manifest: dict) -> None:
     if not path.exists():
         return
 
-    guardrail = '"$CLAUDE_PROJECT_DIR"/.claude/hooks/block-dangerous-git.sh'
     try:
         settings = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
@@ -168,31 +199,23 @@ def strip_settings_hook(target: Path, manifest: dict) -> None:
     hooks = settings.get("hooks")
     if not isinstance(hooks, dict):
         return
-    pre = hooks.get("PreToolUse")
-    if not isinstance(pre, list):
+
+    removed_events: list[str] = []
+    if _strip_hook_command(hooks, "PreToolUse", CLAUDE_GUARDRAIL_HOOK_COMMAND):
+        removed_events.append("git-safety PreToolUse")
+
+    for event in CLAUDE_CAPTURE_HOOK_EVENTS:
+        if _strip_hook_command(hooks, event, CLAUDE_CAPTURE_HOOK_COMMAND):
+            removed_events.append(f"usage-capture {event}")
+
+    if not removed_events:
         return
 
-    kept = []
-    for entry in pre:
-        entry_hooks = entry.get("hooks", []) if isinstance(entry, dict) else []
-        if any(
-            isinstance(h, dict) and h.get("command") == guardrail for h in entry_hooks
-        ):
-            continue
-        kept.append(entry)
-
-    if len(kept) == len(pre):
-        return
-
-    if kept:
-        hooks["PreToolUse"] = kept
-    else:
-        hooks.pop("PreToolUse", None)
-        if not hooks:
-            settings.pop("hooks", None)
+    if not hooks:
+        settings.pop("hooks", None)
 
     path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
-    log(".claude/settings.json: removed the git-safety guardrail hook entry")
+    log(".claude/settings.json: removed " + ", ".join(removed_events) + " hook entry")
 
 
 def uninstall_pre_commit(target: Path, manifest: dict) -> None:
