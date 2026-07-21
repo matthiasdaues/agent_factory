@@ -627,3 +627,197 @@ class TestNormalizerProducesBothCountsFromOneRead:
         assert bundle["reported_input"] is None
         assert bundle["reported_output"] is None
         assert bundle["usage_granularity"] is None
+
+
+# ── CLI entrypoint (ST-0038) ─────────────────────────────────────────────
+
+# The proposal's example invocation (`usage-capture --cli pi --transcript
+# <path> --session <id> --agent <name> --model <m> --loop-role review
+# --iteration 2 --commit <sha> ...`), adapted to the one CLI this slice
+# actually registers a normalizer for (`claude-code`), exercising every
+# context flag ST-0038's acceptance criteria lists.
+_FULL_FLAG_SET = [
+    "--parent-session",
+    "sess-cli-parent",
+    "--depth",
+    "2",
+    "--agent",
+    "developer-agent",
+    "--skill",
+    "tdd",
+    "--model",
+    "claude-sonnet-5",
+    "--phase",
+    "implementation",
+    "--playbook",
+    "feature-addition",
+    "--story-id",
+    "ST-0038",
+    "--loop-role",
+    "create",
+    "--iteration",
+    "1",
+    "--branch",
+    "story/ST-0038",
+    "--base-commit",
+    "abc123",
+    "--commit",
+    "def456",
+    "--exit-status",
+    "success",
+]
+
+
+def _run_capture(cwd, extra_args) -> subprocess.CompletedProcess:
+    """Invoke `usage-capture` as a subprocess through its own shebang, the
+    same rationale as `_count_via_subprocess`/`_normalize_via_subprocess`:
+    a bare `uvx pytest` interpreter has no `tiktoken`, but the script's own
+    `uv run --script` shebang bootstraps it, so the real argparse ->
+    normalize -> tokenize -> persist pipeline runs end to end."""
+    return subprocess.run(
+        [str(_SCRIPT), *extra_args],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+    )
+
+
+class TestCliEntrypointHappyPath:
+    def test_example_invocation_appends_well_formed_record(self, tmp_path):
+        transcript_path = _write_transcript(tmp_path, _claude_transcript_with_usage())
+
+        result = _run_capture(
+            tmp_path,
+            [
+                "--cli",
+                "claude-code",
+                "--transcript",
+                str(transcript_path),
+                "--session",
+                "sess-cli-1",
+                *_FULL_FLAG_SET,
+            ],
+        )
+        assert result.returncode == 0, result.stderr
+
+        session_file = tmp_path / ".agent-factory" / "usage" / "sess-cli-1.jsonl"
+        lines = session_file.read_text().splitlines()
+        assert len(lines) == 1  # exactly one record per call
+        record = json.loads(lines[0])
+
+        # Every context flag landed on its matching UsageRecord field.
+        assert record["cli"] == "claude-code"
+        assert record["session_id"] == "sess-cli-1"
+        assert record["parent_session_id"] == "sess-cli-parent"
+        assert record["depth"] == 2
+        assert record["agent"] == "developer-agent"
+        assert record["skill"] == "tdd"
+        assert record["model"] == "claude-sonnet-5"
+        assert record["phase"] == "implementation"
+        assert record["playbook"] == "feature-addition"
+        assert record["story_id"] == "ST-0038"
+        assert record["loop_role"] == "create"
+        assert record["iteration"] == 1
+        assert record["branch"] == "story/ST-0038"
+        assert record["base_commit"] == "abc123"
+        assert record["commit_id"] == "def456"
+        assert record["exit_status"] == "success"
+
+        # normalized_* real cl100k_base counts; reported_* from the fixture.
+        assert record["normalized_input"] > 0
+        assert record["normalized_output"] > 0
+        assert (
+            record["normalized_total"]
+            == record["normalized_input"] + record["normalized_output"]
+        )
+        assert record["reported_input"] == 150
+        assert record["reported_output"] == 40
+        assert record["reported_cache_read"] == 8
+        assert record["reported_cache_write"] == 3
+        assert record["usage_granularity"] == "full"
+
+        # The persisted transcript copy exists and transcript_ref points at
+        # it. The adapter's default base_dir is "." (relative to the
+        # subprocess's own cwd, tmp_path), so resolve it the same way here.
+        transcript_ref_path = tmp_path / record["transcript_ref"]["path"]
+        assert transcript_ref_path.exists()
+        assert transcript_ref_path.read_text() != ""
+
+    def test_repeated_invocations_same_session_do_not_collide_record_ids(
+        self, tmp_path
+    ):
+        """Guards `RecordIdSequencer.seed`: this CLI is a fresh process per
+        call, so two captures for one session must still get distinct
+        record_ids (and distinct transcript-copy files), not both "-0001"."""
+        transcript_path = _write_transcript(tmp_path, _claude_transcript_with_usage())
+        args = [
+            "--cli",
+            "claude-code",
+            "--transcript",
+            str(transcript_path),
+            "--session",
+            "sess-repeat",
+        ]
+
+        first = _run_capture(tmp_path, args)
+        second = _run_capture(tmp_path, args)
+        assert first.returncode == 0, first.stderr
+        assert second.returncode == 0, second.stderr
+
+        session_file = tmp_path / ".agent-factory" / "usage" / "sess-repeat.jsonl"
+        lines = session_file.read_text().splitlines()
+        assert len(lines) == 2
+        record_ids = [json.loads(line)["record_id"] for line in lines]
+        assert record_ids == ["sess-repeat-0001", "sess-repeat-0002"]
+
+        transcripts_dir = (
+            tmp_path / ".agent-factory" / "usage" / "transcripts" / "sess-repeat"
+        )
+        assert len(list(transcripts_dir.iterdir())) == 2  # neither copy overwritten
+
+
+class TestCliEntrypointBestEffort:
+    def test_unknown_cli_is_a_noop_and_exits_zero(self, tmp_path):
+        transcript_path = _write_transcript(tmp_path, _claude_transcript_with_usage())
+
+        result = _run_capture(
+            tmp_path,
+            [
+                "--cli",
+                "no-such-cli",
+                "--transcript",
+                str(transcript_path),
+                "--session",
+                "sess-unknown-cli",
+            ],
+        )
+
+        assert result.returncode == 0
+        assert not (tmp_path / ".agent-factory").exists()  # nothing written
+        assert result.stderr != ""  # but the failure is not silent
+
+    def test_bad_transcript_path_still_exits_zero(self, tmp_path):
+        missing_path = tmp_path / "does-not-exist.jsonl"
+
+        result = _run_capture(
+            tmp_path,
+            [
+                "--cli",
+                "claude-code",
+                "--transcript",
+                str(missing_path),
+                "--session",
+                "sess-bad-transcript",
+            ],
+        )
+
+        assert result.returncode == 0
+        assert not (tmp_path / ".agent-factory").exists()
+        assert result.stderr != ""
+
+    def test_missing_required_flags_still_exits_zero(self, tmp_path):
+        # No --cli/--transcript at all: argparse would normally exit(2).
+        result = _run_capture(tmp_path, ["--session", "sess-missing-flags"])
+
+        assert result.returncode == 0
+        assert result.stderr != ""
