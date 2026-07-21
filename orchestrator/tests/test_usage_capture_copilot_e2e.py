@@ -89,8 +89,8 @@ class TestInstalledCopilotHooksST0042:
         assert child["agent"] == "code-review"
         assert main["reported_input"] == child["reported_input"] == 12
         assert main["reported_output"] == child["reported_output"] == 4
-        assert Path(main["transcript_ref"]["path"]).is_file()
-        assert Path(child["transcript_ref"]["path"]).is_file()
+        assert (tmp_path / main["transcript_ref"]["path"]).is_file()
+        assert (tmp_path / child["transcript_ref"]["path"]).is_file()
 
     def test_hook_failure_is_best_effort(self, tmp_path):
         hook = _install(tmp_path)
