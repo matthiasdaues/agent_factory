@@ -6,13 +6,14 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 
 ## Decision Index
 
-| ID   | Title                                                                                                                                    | Status   | Evaluation  |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------- | ----------- |
-| 0001 | [Pre-commit monorepo scoping](adr/0001-precommit-monorepo-scoping.md)                                                                    | accepted | none        |
-| 0002 | [Factory owns flow control; orchestrator is a trigger](adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md)                  | accepted | pugh-matrix |
-| 0003 | [Test execution via unavoidable hooks only](adr/0003-test-execution-via-hooks.md)                                                        | accepted | none        |
-| 0004 | [Pi runs a factory agent by spawning a separate `pi` subprocess](adr/0004-pi-subagent-invocation-via-subprocess-spawn.md)                | proposed | pugh-matrix |
-| 0005 | [OpenRouter tiers curated into `model.conf`; discovery is a separate offline aid](adr/0005-openrouter-model-discovery-for-model-conf.md) | proposed | none        |
+| ID   | Title                                                                                                                                                      | Status   | Evaluation  |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ----------- |
+| 0001 | [Pre-commit monorepo scoping](adr/0001-precommit-monorepo-scoping.md)                                                                                      | accepted | none        |
+| 0002 | [Factory owns flow control; orchestrator is a trigger](adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md)                                    | accepted | pugh-matrix |
+| 0003 | [Test execution via unavoidable hooks only](adr/0003-test-execution-via-hooks.md)                                                                          | accepted | none        |
+| 0004 | [Pi runs a factory agent by spawning a separate `pi` subprocess](adr/0004-pi-subagent-invocation-via-subprocess-spawn.md)                                  | proposed | pugh-matrix |
+| 0005 | [OpenRouter tiers curated into `model.conf`; discovery is a separate offline aid](adr/0005-openrouter-model-discovery-for-model-conf.md)                   | proposed | none        |
+| 0006 | [Research: flat prefixed rulebook storage and a schema → policy → semantic validation pipeline](adr/0006-research-flat-storage-and-validation-pipeline.md) | proposed | none        |
 
 ## Key Decisions
 
@@ -38,6 +39,10 @@ All follow the "Agentic Creation, Deterministic Validation" principle: agents cr
 ### Pi Invocation Layer
 
 **ADR-0004** establishes that Pi, which has no native subagent concept, runs a factory agent by spawning a separate `pi` subprocess through the model-callable `run_agent` tool (a project-local extension). This restores author/reviewer independence and parallel dispatch under Pi over the exact mechanism Pi's own documentation sanctions, rejecting in-context role-play (fails independence) and a custom agent hierarchy (fights Pi's design, YAGNI). **ADR-0005** keeps Pi tier→model resolution static and offline in `model.conf`, adding `openrouter-discover` as a separate operator aid for curating and validating `pi.*` OpenRouter rows — never a network call on the runtime path.
+
+### Research Feature Structure and Validation
+
+**ADR-0006** records three structural decisions behind the falsification-driven research feature. Research rulebook files use flat, by-kind storage with a `research-` filename prefix rather than a per-feature subtree, keeping `index-lint`'s directory-derived category intact. A new `rulebooks/schemas/` category holds JSON-Schema data contracts, deliberately outside `INDEX.yaml` (which scans Markdown only). Research artifacts pass a fixed three-stage pipeline — schema (`schema-validate`), then policy (`policy-validate`), then semantic review — that splits validation by whether a machine can decide it, applying the "Agentic Creation, Deterministic Validation" principle. Research agents group under phase 6, a self-contained workflow driven by the `research-topic` playbook, not a sixth step in the linear production chain.
 
 ## Superseded Decisions
 

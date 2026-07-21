@@ -24,6 +24,8 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
                 transitionLint = component "transition-lint" "Pre-commit hook blocking out-of-phase files" "Python"
                 blockDangerousGit = component "block-dangerous-git.sh" "PreToolUse hook blocking destructive commands" "Bash"
                 runTests = component "run-tests" "Framework-agnostic test runner for hooks" "Python"
+                schemaValidate = component "schema-validate" "Deterministic JSON-Schema validator for research artifacts: stage 1 of the schema->policy->semantic validation order" "Python"
+                policyValidate = component "policy-validate" "Deterministic research-policy validator: stage 2; --pipeline runs schema then policy in order, stopping at the first failure" "Python"
             }
             
             # Dispatch container
@@ -67,6 +69,9 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
         transitionLint -> stateFiles "Reads marker for current state"
         runTests -> stateFiles "Invoked by phase advance script_exit_zero"
         blockDangerousGit -> cliAgent "Blocks destructive commands before execution"
+        cliAgent -> schemaValidate "Research skills/agents validate an artifact against its schema (stage 1)"
+        cliAgent -> policyValidate "Research skills/agents validate artifacts against enforceable policy (stage 2)"
+        policyValidate -> schemaValidate "Chains stage 1 in --pipeline mode"
         
         # Relationships - Dispatcher
         trigger -> catalog "Resolves agent/playbook by name"
