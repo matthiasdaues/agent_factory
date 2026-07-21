@@ -1,20 +1,17 @@
 /** Capture a human Pi session once at Pi's graceful session_shutdown boundary. */
-import { basename } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { capturePiStream, DEPTH_ENV, INLINE_CAPTURE_ENV, newSessionId, SESSION_ENV } from "./pi-usage.ts";
+import { activeSessionId, capturePiStream, DEPTH_ENV, INLINE_CAPTURE_ENV } from "./pi-usage.ts";
 
 export default function (pi: ExtensionAPI) {
   if (process.env[INLINE_CAPTURE_ENV] === "1") return;
   let captured = false;
-  const fallbackSessionId = process.env[SESSION_ENV] || newSessionId();
 
   pi.on("session_shutdown", async (_event, ctx) => {
     if (captured) return;
     captured = true;
     try {
       const manager = ctx.sessionManager;
-      const sessionFile = manager.getSessionFile();
-      const sessionId = sessionFile ? basename(sessionFile, ".jsonl") : fallbackSessionId;
+      const sessionId = activeSessionId(manager);
       const events = manager.getBranch().map((entry: unknown) => {
         const item = entry as { type?: string; message?: unknown };
         return item.type === "message"

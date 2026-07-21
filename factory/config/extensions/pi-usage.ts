@@ -2,7 +2,7 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 export const SESSION_ENV = "PI_AGENT_FACTORY_SESSION_ID";
 export const DEPTH_ENV = "PI_RUN_AGENT_DEPTH";
@@ -17,8 +17,23 @@ export interface PiCaptureContext {
   exitStatus?: string;
 }
 
+interface PiSessionManager {
+  getSessionFile(): string | undefined;
+}
+
+let fallbackSessionId: string | undefined;
+
 export function newSessionId(): string {
   return `pi-${randomUUID()}`;
+}
+
+/** Resolve the current Pi session consistently at tool and shutdown boundaries. */
+export function activeSessionId(sessionManager?: PiSessionManager): string {
+  const sessionFile = sessionManager?.getSessionFile();
+  if (sessionFile) return basename(sessionFile, ".jsonl");
+  if (process.env[SESSION_ENV]) return process.env[SESSION_ENV];
+  fallbackSessionId ??= newSessionId();
+  return fallbackSessionId;
 }
 
 /** Capture exactly one stream. Errors are deliberately swallowed. */

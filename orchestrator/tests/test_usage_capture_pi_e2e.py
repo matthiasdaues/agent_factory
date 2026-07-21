@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -87,15 +88,131 @@ def test_ST0044_init_remove_preserves_project_pi_content(tmp_path):
     assert list(custom.parent.iterdir()) == [custom]
 
 
-def test_ST0044_invocation_extensions_capture_each_child_once():
-    run_agent = (_ROOT / "factory/config/extensions/run-agent.ts").read_text()
-    dispatch = (_ROOT / "factory/config/extensions/dispatch-wave.ts").read_text()
-    assert run_agent.count("capturePiStream(cwd, child.stdout") == 1
-    assert dispatch.count("capturePiStream(cwd, child.stdout") == 1
-    assert "parentSessionId" in run_agent and "depth: depth + 1" in run_agent
-    assert "parentSessionId" in dispatch and "depth: depth + 1" in dispatch
-    assert '[INLINE_CAPTURE_ENV]: "1"' in run_agent
-    assert '[INLINE_CAPTURE_ENV]: "1"' in dispatch
+def _install_pi_stub(target: Path) -> dict[str, str]:
+    bin_dir = target / "test-bin"
+    bin_dir.mkdir()
+    pi = bin_dir / "pi"
+    pi.write_text(
+        "#!/bin/sh\n"
+        'printf \'%s\\n\' \'{"type":"message_end","message":{"role":"assistant",'
+        '"content":[{"type":"text","text":"done"}],'
+        '"usage":{"input":11,"output":5,"cacheRead":2,"cacheWrite":0}}}\'\n'
+    )
+    pi.chmod(0o755)
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}:{env['PATH']}"
+    env.pop("PI_AGENT_FACTORY_SESSION_ID", None)
+    env.pop("PI_RUN_AGENT_DEPTH", None)
+    return env
+
+
+def _install_typebox_stub(target: Path) -> None:
+    package = target / "node_modules/typebox"
+    package.mkdir(parents=True)
+    (package / "package.json").write_text(
+        json.dumps({"name": "typebox", "type": "module", "exports": "./index.js"})
+    )
+    (package / "index.js").write_text(
+        "export const Type = new Proxy({}, {get: () => (...args) => ({args})});\n"
+    )
+
+
+def _exercise_tool(
+    target: Path, extension_name: str, params: dict, env: dict[str, str]
+) -> None:
+    extension = target / ".pi/extensions" / extension_name
+    script = target / f"exercise-{extension_name}.mjs"
+    script.write_text(
+        f"""
+import extension from {json.dumps(extension.as_uri())};
+let tool;
+extension({{registerTool(value) {{ tool = value; }}}});
+const ctx = {{
+  cwd: {json.dumps(str(target))},
+  sessionManager: {{getSessionFile() {{ return '/sessions/pi-human-parent.jsonl'; }}}}
+}};
+const result = await tool.execute('call-1', {json.dumps(params)}, undefined, undefined, ctx);
+if (result.details?.error) throw new Error(JSON.stringify(result));
+"""
+    )
+    result = subprocess.run(
+        ["node", "--experimental-strip-types", str(script)],
+        cwd=target,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_RECON0006_installed_run_agent_persists_human_parent_and_depth(tmp_path):
+    _init(tmp_path)
+    _install_typebox_stub(tmp_path)
+    env = _install_pi_stub(tmp_path)
+
+    _exercise_tool(
+        tmp_path,
+        "run-agent.ts",
+        {"agent": "developer-agent", "task": "test", "model": "test/model"},
+        env,
+    )
+
+    child_files = list((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl"))
+    assert len(child_files) == 1
+    record = json.loads(child_files[0].read_text())
+    assert record["parent_session_id"] == "pi-human-parent"
+    assert record["depth"] == 1
+
+
+def test_RECON0006_installed_dispatch_wave_persists_human_parent_and_depth(tmp_path):
+    subprocess.run(
+        ["git", "init", "-b", "main"], cwd=tmp_path, check=True, capture_output=True
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True
+    )
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, check=True)
+    (tmp_path / "seed").write_text("seed\n")
+    subprocess.run(["git", "add", "seed"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "seed"], cwd=tmp_path, check=True, capture_output=True
+    )
+    base = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=tmp_path,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+    _init(tmp_path)
+    _install_typebox_stub(tmp_path)
+    env = _install_pi_stub(tmp_path)
+
+    _exercise_tool(
+        tmp_path,
+        "dispatch-wave.ts",
+        {
+            "target": "main",
+            "merge": False,
+            "items": [
+                {
+                    "task": "test",
+                    "branch": "test/recon-0006",
+                    "base": base,
+                    "agent": "developer-agent",
+                    "model": "test/model",
+                }
+            ],
+        },
+        env,
+    )
+
+    child_files = list((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl"))
+    assert len(child_files) == 1
+    record = json.loads(child_files[0].read_text())
+    assert record["parent_session_id"] == "pi-human-parent"
+    assert record["depth"] == 1
 
 
 def test_ST0044_capture_bridge_is_best_effort():
