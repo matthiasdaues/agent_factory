@@ -272,6 +272,236 @@ class JsonlLoggingAdapter:
             os.close(fd)
 
 
+# ── Transcript-normalizer seam (per CLI) (ST-0037) ───────────────────────
+
+# Direction of the text a content block contributes to the normalized split.
+# Block type decides first (so a tool's *input* always counts as output and a
+# tool *result* always as input, wherever they are nested); a plain text block
+# falls back to the containing message's role. Documented in ST-0037's
+# analysis: user/system/tool-result text -> input; assistant/thinking/tool-use
+# text -> output.
+_INPUT = "input"
+_OUTPUT = "output"
+
+# Reported-usage key map: provider `usage` key -> UsageRecord `reported_*`
+# field. Missing keys count as zero once any usage object has been seen.
+_USAGE_KEYS = {
+    "input_tokens": "reported_input",
+    "output_tokens": "reported_output",
+    "cache_read_input_tokens": "reported_cache_read",
+    "cache_creation_input_tokens": "reported_cache_write",
+}
+
+
+@dataclass
+class NormalizedTranscript:
+    """One transcript read, reduced to what the record needs (ST-0037).
+
+    Holds the role-split text streams and the summed provider usage from a
+    single pass over a transcript, so both the `normalized_*` counts (by
+    tokenizing `input_text`/`output_text`) and the `reported_*` totals come
+    from one read — never a second parse.
+
+    `input_text` / `output_text` are the role-split streams the
+    `normalized_input` / `normalized_output` counts are taken over. `text` is
+    the full run in original order — system prompt, every turn, tool inputs
+    and results, and thinking — for whole-run tokenizing and the persisted
+    transcript copy. The four `reported_*` totals and `usage_granularity` are
+    `full` when any per-message `usage` was seen and left `None` (the "none"
+    case: no reported breakdown exists to characterize) when none was.
+    """
+
+    input_text: str
+    output_text: str
+    ordered_segments: list = field(default_factory=list)
+    reported_input: Optional[int] = None
+    reported_output: Optional[int] = None
+    reported_cache_read: Optional[int] = None
+    reported_cache_write: Optional[int] = None
+    usage_granularity: Optional[str] = None
+
+    @property
+    def text(self) -> str:
+        """Full run text in original order (for whole-run tokenizing and the
+        persisted transcript copy)."""
+        return "\n".join(self.ordered_segments)
+
+
+@runtime_checkable
+class TranscriptNormalizer(Protocol):
+    """Per-CLI seam: turn one CLI's transcript into a `NormalizedTranscript`.
+
+    `ClaudeCodeNormalizer` is the only implementation today. Adding Pi or
+    Copilot is a new class registered in `_NORMALIZERS`, selected by `cli` —
+    never a rewrite of the tokenizer, the record, or the logging adapter
+    (proposal: "The Capture Tool" — the normalizer is one of two swappable
+    internal seams around a fixed tokenizer).
+    """
+
+    def parse(self, transcript_path: Union[str, Path]) -> "NormalizedTranscript":
+        """Read *transcript_path* once and return its `NormalizedTranscript`."""
+        ...
+
+
+def _content_text(content: object) -> str:
+    """Flatten a `tool_result`-style `content` (a string, or a list of typed
+    text blocks) into plain text; best-effort, tolerant of odd shapes."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                parts.append(item.get("text", "") or "")
+        return "\n".join(p for p in parts if p)
+    return ""
+
+
+def _block_text(block: object) -> str:
+    """Extract the text a single content block contributes to the stream."""
+    if isinstance(block, str):
+        return block
+    if not isinstance(block, dict):
+        return ""
+    btype = block.get("type")
+    if btype == "text":
+        return block.get("text", "") or ""
+    if btype == "thinking":
+        return block.get("thinking", "") or block.get("text", "") or ""
+    if btype == "tool_use":
+        name = block.get("name", "") or ""
+        tool_input = block.get("input")
+        if tool_input is None:
+            return name
+        return f"{name} {json.dumps(tool_input, ensure_ascii=False, sort_keys=True)}"
+    if btype == "tool_result":
+        return _content_text(block.get("content"))
+    # Unknown block: best-effort — take any `text` it happens to carry.
+    return block.get("text", "") or ""
+
+
+def _block_direction(block: object, role: Optional[str]) -> str:
+    """Classify a block as input or output (block type first, role fallback)."""
+    btype = block.get("type") if isinstance(block, dict) else None
+    if btype == "tool_result":
+        return _INPUT
+    if btype in ("tool_use", "thinking"):
+        return _OUTPUT
+    # Plain text (or a bare string block): follow the message role.
+    return _OUTPUT if role == "assistant" else _INPUT
+
+
+class ClaudeCodeNormalizer:
+    """Normalize a Claude Code `.jsonl` transcript (ST-0037).
+
+    What: Reads the transcript one JSON object per line. Each line is
+          typically `{"type": ..., "message": {"role": ...,
+          "content": [ {"type": "text"|"tool_use"|"tool_result"|"thinking",
+          ...} ], "usage": {...}}}`. Every content block's text is appended
+          to the ordered full-run stream and to its role-split stream
+          (`input_text` / `output_text`), so the whole run — system prompt,
+          every turn, tool inputs and results, thinking — is measured, not
+          just the boundary prompt and final output. In the same pass, any
+          per-message `usage` object is summed into the `reported_*` totals
+          and `usage_granularity` is set to `full`; a transcript carrying no
+          usage leaves them null.
+    When: Selected by `get_normalizer("claude-code")` from a capture site
+          (ST-0038 wires the Claude Code `Stop`/`SubagentStop` hooks to it).
+    By:   `factory/docs/proposals/token-usage-tracking.md` ("The Capture
+          Tool", "Tokenization Strategy", "The Usage Record"); backlog
+          ST-0037.
+
+    Best-effort by contract: a line that is not valid JSON is skipped, never
+    raised on, so one corrupt line cannot fail the capture of a whole run.
+    """
+
+    def parse(self, transcript_path: Union[str, Path]) -> NormalizedTranscript:
+        ordered: list = []
+        inputs: list = []
+        outputs: list = []
+        reported = {name: 0 for name in _USAGE_KEYS.values()}
+        saw_usage = False
+
+        raw = Path(transcript_path).read_text(encoding="utf-8")
+        for line in raw.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except (ValueError, TypeError):
+                # Malformed line: skip it, never raise (best-effort capture).
+                continue
+            if not isinstance(obj, dict):
+                continue
+
+            message = obj.get("message")
+            if not isinstance(message, dict):
+                message = obj  # tolerate a top-level shape (e.g. system lines)
+            role = message.get("role") or obj.get("type")
+
+            content = message.get("content")
+            blocks = content if isinstance(content, list) else [content]
+            for block in blocks:
+                if block is None:
+                    continue
+                text = _block_text(block)
+                if not text:
+                    continue
+                ordered.append(text)
+                if _block_direction(block, role) == _INPUT:
+                    inputs.append(text)
+                else:
+                    outputs.append(text)
+
+            usage = message.get("usage")
+            if usage is None:
+                usage = obj.get("usage")
+            if isinstance(usage, dict):
+                saw_usage = True
+                for key, field_name in _USAGE_KEYS.items():
+                    value = usage.get(key)
+                    if isinstance(value, (int, float)):
+                        reported[field_name] += int(value)
+
+        result = NormalizedTranscript(
+            input_text="\n".join(inputs),
+            output_text="\n".join(outputs),
+            ordered_segments=ordered,
+        )
+        if saw_usage:
+            result.reported_input = reported["reported_input"]
+            result.reported_output = reported["reported_output"]
+            result.reported_cache_read = reported["reported_cache_read"]
+            result.reported_cache_write = reported["reported_cache_write"]
+            result.usage_granularity = "full"
+        return result
+
+
+# CLI -> normalizer registry. Adding Pi/Copilot is a new entry, not a rewrite.
+_NORMALIZERS: dict = {"claude-code": ClaudeCodeNormalizer()}
+
+SUPPORTED_CLIS = tuple(_NORMALIZERS)
+
+
+def get_normalizer(cli: str) -> TranscriptNormalizer:
+    """Return the transcript normalizer for *cli*.
+
+    Raises `ValueError` for a CLI with no normalizer — a programming error at
+    the capture site, distinct from a malformed transcript (which is skipped,
+    not raised on).
+    """
+    try:
+        return _NORMALIZERS[cli]
+    except KeyError:
+        raise ValueError(
+            f"no transcript normalizer for cli {cli!r}; "
+            f"supported: {', '.join(SUPPORTED_CLIS)}"
+        ) from None
+
+
 # ── Minimal invocation seam (not the CLI — ST-0038 builds that) ──────────
 
 
@@ -279,14 +509,38 @@ def _main(argv: Optional[list] = None) -> int:
     """Not the real CLI: ST-0038 builds the argparse entrypoint that reads a
     transcript and context flags and writes a JSONL record. This exists
     solely so a test running under a bare interpreter (no `tiktoken`
-    installed there) can exercise `count_tokens()` through this script's
-    own shebang, which bootstraps `tiktoken` via `uv run --script` — the
-    same pattern `test_research_playbook_ST0033.py` already uses to get a
-    real, non-fallback tokenizer count out of `index-lint`.
+    installed there) can exercise `count_tokens()` — and the ST-0037
+    normalizer's `normalized_*` split — through this script's own shebang,
+    which bootstraps `tiktoken` via `uv run --script` (the same pattern
+    `test_research_playbook_ST0033.py` uses to get a real, non-fallback
+    tokenizer count out of `index-lint`).
     """
     argv = sys.argv[1:] if argv is None else argv
     if argv and argv[0] == "--count-tokens":
         print(count_tokens(sys.stdin.read()))
+        return 0
+    if argv and argv[0] == "--normalize" and len(argv) == 3:
+        # `--normalize <cli> <transcript_path>`: parse once, then tokenize the
+        # role-split streams through the real cl100k_base counter and emit the
+        # combined normalized_* / reported_* bundle as one JSON object.
+        _, cli, path = argv
+        nt = get_normalizer(cli).parse(path)
+        normalized_input = count_tokens(nt.input_text)
+        normalized_output = count_tokens(nt.output_text)
+        print(
+            json.dumps(
+                {
+                    "normalized_input": normalized_input,
+                    "normalized_output": normalized_output,
+                    "normalized_total": normalized_input + normalized_output,
+                    "reported_input": nt.reported_input,
+                    "reported_output": nt.reported_output,
+                    "reported_cache_read": nt.reported_cache_read,
+                    "reported_cache_write": nt.reported_cache_write,
+                    "usage_granularity": nt.usage_granularity,
+                }
+            )
+        )
         return 0
     print(
         "usage-capture: no CLI yet (ST-0038 adds one); "
