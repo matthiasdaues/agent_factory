@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agent-factory/rulebooks/schemas/research-final-report.schema.json",
+  "title": "Final Report",
+  "description": "Distinguishes surviving findings from refuted conjectures, unresolved alternatives, recommendations, evidence gaps, and limitations. Every factual finding must cite the surviving claim(s) it rests on.",
+  "type": "object",
+  "required": [
+    "findings",
+    "refuted_conjectures",
+    "unresolved_alternatives",
+    "recommendations",
+    "evidence_gaps",
+    "limitations"
+  ],
+  "properties": {
+    "findings": {
+      "description": "Factual sections built only from surviving claims. Each one must reference the surviving claim ID(s) it rests on.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "surviving_claim_refs"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "surviving_claim_refs": {
+            "description": "IDs of the surviving claim(s) in the claim register that this finding rests on.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^CLAIM-[0-9]{4}$"
+            }
+          }
+        }
+      }
+    },
+    "refuted_conjectures": {
+      "description": "Conjectures a test or review falsified during the run.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "unresolved_alternatives": {
+      "description": "Alternative explanations neither confirmed nor ruled out.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "recommendations": {
+      "description": "Actions recommended on the strength of the surviving findings.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evidence_gaps": {
+      "description": "Known gaps where evidence was insufficient to settle a claim.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "limitations": {
+      "description": "Constraints on scope, method, or time that bound what this report can claim.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
