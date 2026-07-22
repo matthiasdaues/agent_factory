@@ -4,7 +4,7 @@ import {
   accessSync,
   constants,
   existsSync,
-  mkdirSync,
+  readFileSync,
   realpathSync,
   unlinkSync,
   writeFileSync,
@@ -110,16 +110,39 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
   const sessionId = context.sessionId || newSessionId();
   const usageRoot = activeUsageRoot(cwd);
   const captureScript = join(usageRoot, "factory", "scripts", "usage-capture");
+  const factoryState = join(usageRoot, ".agent-factory", "usage-control", "state.json");
+  const pendingDir = join(usageRoot, ".agent-factory", "usage-control", "pending");
   const scratch = join(usageRoot, ".agent-factory", "usage", ".capture");
   const transcript = join(scratch, `${sessionId}-${randomUUID()}.jsonl`);
+  const marker = join(pendingDir, `${sessionId}-${randomUUID()}.pending.json`);
   try {
-    mkdirSync(scratch, { recursive: true });
-    writeFileSync(transcript, stream.endsWith("\n") ? stream : `${stream}\n`, "utf-8");
+    if (canonical(scratch) !== normalize(scratch) || canonical(pendingDir) !== normalize(pendingDir)) {
+      throw new Error("usage lifecycle directories are redirected");
+    }
+    const state = readActiveState(factoryState);
+    writeFileSync(
+      marker,
+      JSON.stringify({
+        generation: state.generation,
+        staged_source: transcript,
+        session_id: sessionId,
+        created_at: new Date().toISOString(),
+      }) + "\n",
+      { encoding: "utf-8", flag: "wx" },
+    );
+    requireEligibleState(factoryState, state.generation);
+    writeFileSync(transcript, stream.endsWith("\n") ? stream : `${stream}\n`, {
+      encoding: "utf-8",
+      flag: "wx",
+    });
+    requireEligibleState(factoryState, state.generation);
     accessSync(captureScript, constants.X_OK);
     const args = [
       "--cli", "pi", "--transcript", transcript, "--session", sessionId,
       "--depth", String(context.depth ?? 0),
       "--delete-source",
+      "--pending-marker", marker,
+      "--usage-generation", state.generation,
     ];
     if (context.parentSessionId) args.push("--parent-session", context.parentSessionId);
     if (context.agent) args.push("--agent", context.agent);
@@ -130,12 +153,35 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
       stdio: "ignore",
       detached: true,
     });
-    child.once("error", () => removeStagedTranscript(transcript));
+    child.once("error", () => removeRegistration(marker, transcript));
     child.unref();
   } catch {
     // Usage telemetry must never affect the measured run.
-    removeStagedTranscript(transcript);
+    removeRegistration(marker, transcript);
   }
+}
+
+interface UsageState {
+  mode: string;
+  generation: string;
+}
+
+function readActiveState(path: string): UsageState {
+  const state = JSON.parse(readFileSync(path, "utf-8")) as UsageState;
+  if (state.mode !== "active" || !state.generation) throw new Error("usage removal in progress");
+  return state;
+}
+
+function requireEligibleState(path: string, generation: string): void {
+  const state = JSON.parse(readFileSync(path, "utf-8")) as UsageState;
+  if (state.generation !== generation || !["active", "drain"].includes(state.mode)) {
+    throw new Error("usage installation generation changed or was cancelled");
+  }
+}
+
+function removeRegistration(marker: string, transcript: string): void {
+  removeStagedTranscript(marker);
+  removeStagedTranscript(transcript);
 }
 
 function removeStagedTranscript(transcript: string): void {

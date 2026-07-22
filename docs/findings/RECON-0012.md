@@ -4,7 +4,7 @@ source: reconcile-spec
 severity: major
 category: defect
 artifact: factory/scripts/remove-factory
-status: open
+status: resolved
 traces: [ST-0044, ADR-0007]
 ---
 
@@ -26,3 +26,18 @@ remove their staged inputs, and prevent any later recreation of Factory paths.
 Add a gated installed-path regression that starts a detached Pi capture, runs
 `remove-factory`, releases the capture, and proves both the chosen pending-usage
 disposition and the absence of post-removal path resurrection.
+
+**Resolution:** `init-factory` now creates a generation state and pending
+registry. Pi registers a durable capture against the active generation and the
+detached worker moves its marker from pending to committing before the final
+persistence decision. Default removal transitions to `drain`, allowing every
+eligible pre-transition registration to commit. Explicit `cancel` discards
+pending registrations without signalling PIDs; already-committing work must
+settle before teardown. Both modes are bounded. A timeout restores `active` and
+returns nonzero before uninstall mutations.
+
+Six installed concurrency regressions prove successful drain, timeout
+restoration, explicit cancel without resurrection, registration rejection
+under the removal fence, malformed/stale registry path safety, and bounded
+abort while a commit marker remains. Successful uninstall still deletes only
+the manifest-owned Factory footprint and preserves unrelated project files.
