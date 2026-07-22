@@ -4,7 +4,7 @@ source: reconcile-spec
 severity: major
 category: defect
 artifact: orchestrator/tests/test_usage_capture_copilot_e2e.py
-status: open
+status: resolved
 traces: [ST-0042, ADR-0007]
 ---
 
@@ -25,3 +25,16 @@ sequenced canonical records, and applies the documented aggregation fixture to
 prove that only the latest root snapshot contributes to total spend. Include a
 supported `subagentStop` record and prove it remains attribution-only rather
 than being added to the root total.
+
+**Resolution:** The installed-path regression now sends two sequential
+`agentStop` payloads for one session through the real Copilot hook. The second
+synthetic transcript retains the first turn's per-call usage and adds the
+second turn, producing ordered records `-0001` and `-0002`, distinct persisted
+transcripts, and cumulative provider totals of 12/4 then 30/10.
+
+A supported `subagentStop` payload produces a separate non-null-agent
+attribution record. A test-local fixture applies the deferred reader contract
+to the emitted canonical records: it validates the record sequence for the
+target root session, selects only `-0002`, and excludes both `-0001` and the
+child for normalized and reported totals. No production reader API was added
+because aggregation remains explicitly deferred by ADR-0007.
