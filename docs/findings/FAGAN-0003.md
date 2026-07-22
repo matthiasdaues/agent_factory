@@ -4,7 +4,7 @@ source: fagan-review
 severity: major
 category: defect
 artifact: factory/scripts/usage-capture:965
-status: open
+status: resolved
 traces: [ST-0036, ST-0038, ST-0042, ST-0043]
 ---
 
@@ -25,3 +25,17 @@ transcript files exclusively so an allocation collision cannot overwrite
 evidence. Add a synchronized multi-process regression for two same-session
 captures that asserts distinct record IDs, distinct transcript references, and
 the correct content in both transcript files.
+
+**Resolution:** Record-ID allocation and transcript creation are now one
+lock-free `UsageStoragePaths.reserve_transcript()` operation. It estimates the
+next sequence from existing records and probes monotonically with
+`O_CREAT | O_EXCL | O_NOFOLLOW`; concurrent processes can share an estimate,
+but only one owns each evidence path. Normal failures remove only their own
+reservation. A crash may leave an empty, unreferenced reservation, which later
+allocators skip as a valid sequence gap. Numeric reservation sequence—not JSONL
+append order—defines snapshot order.
+
+A synchronized 12-process regression releases real `usage-capture` processes
+against one session and verifies unique IDs, unique references, and the matching
+distinct content behind every reference. A separate orphan-reservation test
+proves crash gaps do not block later capture.

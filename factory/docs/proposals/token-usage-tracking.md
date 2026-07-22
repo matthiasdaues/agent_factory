@@ -278,11 +278,13 @@ records is not aggregation duplication: both model invocations consumed it.
 ## Design Details
 
 - **`record_id`** uniquely identifies a record and names its transcript copy.
-  With a session id it is `<session_id>-NNNN`: a zero-padded sequence seeded
-  from the count of existing non-empty lines in that session's JSONL file. A
-  UUID4 is used when no session id exists. The MVP assumes one capture writer
-  at a time for a given session id; `O_APPEND` protects record writes but does
-  not make sequence allocation atomic across simultaneous same-session writers.
+  With a session id it is `<session_id>-NNNN`: a zero-padded numeric reservation
+  sequence. Allocation estimates the next number from existing records, then
+  atomically reserves the transcript with exclusive no-follow creation and
+  probes forward on collision. This is inter-process safe without locks; a crash
+  can leave an empty reservation and therefore a valid sequence gap. Numeric
+  reservation order—not JSONL append order—defines snapshot order. A UUID4 is
+  used when no session id exists.
 - **Retention** of transcripts is manual and per-session for now; pruning
   policy is deferred with the rest of the read side.
 - **Opaque identifiers never become paths directly.** Bounded lowercase ASCII
