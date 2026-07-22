@@ -2,12 +2,13 @@
 
 ## Summary
 
-Add runtime token-usage tracking to Agent Factory. Every agent run — whether a
-human started the session or the orchestrator dispatched it — appends one record
-of what that run actually consumed. The record measures spend with a single,
-CLI- and model-independent tokenizer so that runs are directly comparable across
-CLIs and across models. The release captures and persists these records;
-it does not read, aggregate, or present them.
+Add runtime token-usage tracking to Agent Factory. Every native capture event —
+whether from a human session or an orchestrator-dispatched child — appends one
+record of the usage visible at that event. Root lifecycle events may therefore
+produce cumulative snapshots for the same session. Each record measures spend
+with a single, CLI- and model-independent tokenizer so that runs are directly
+comparable across CLIs and across models. The release captures and persists
+these records; it does not read, aggregate, or present them.
 
 A captured record answers a question the factory cannot answer today: *what did
 this run actually cost, and how does that compare to the same work under a
@@ -54,7 +55,9 @@ budget you do not first measure.
 
 ## The Usage Record
 
-One record is emitted per agent invocation (one LLM session). Fields, grouped:
+One record is emitted per native capture event. A session can have several
+cumulative root snapshots, so aggregation selects the latest applicable root
+rather than summing snapshots. Fields, grouped:
 
 **Correlation**
 
@@ -193,12 +196,14 @@ root is not the child's cumulative usage and is not added by the normalizer.
 Boundary task/result text can appear in both normalized records because both
 model invocations consumed it.
 
-Copilot accounting is inclusive at the root. The parent `agentStop` transcript
-contains child activity, so its normalized and reported totals include that
-activity. `subagentStop` records provide attribution drill-down; an aggregator
-must use root records for total spend and must not add child records again. The
-built-in `general-purpose` agent emits no `subagentStop`, but its spend is still
-captured inside the inclusive parent record.
+Copilot accounting is inclusive at the root. Each `agentStop` appends a
+cumulative snapshot of the parent transcript, which contains child activity, so
+its normalized and reported totals include that activity. An aggregator must
+select the latest root snapshot for the session, not sum earlier turn
+snapshots. `subagentStop` records provide attribution drill-down and must not be
+added again. The built-in `general-purpose` agent emits no `subagentStop`, but
+its spend is still captured inside the inclusive parent record. Repeated-turn
+coverage must prove this snapshot-selection rule.
 
 Codex follows the same conservation rule. A root rollout's final cumulative
 `total_token_usage` and normalized transcript include child activity recorded
@@ -220,6 +225,13 @@ sessions capture once at the documented graceful `session_shutdown` lifecycle
 event. Dispatched subprocesses set an inline-capture marker so their own loaded
 shutdown extension stays silent: `run_agent` or each `dispatch_wave` item owns
 exactly one child record with explicit parent and depth context.
+
+Pi accounting is non-inclusive across subprocess boundaries. A human or parent
+stream contains the task/result boundary text it consumed, but it does not
+contain the separate model calls made by a `run_agent` or `dispatch_wave`
+descendant. Reporting total Pi spend must therefore add the root record and
+every distinct descendant record exactly once. Boundary text present in both
+records is not aggregation duplication: both model invocations consumed it.
 
 ## Scope
 

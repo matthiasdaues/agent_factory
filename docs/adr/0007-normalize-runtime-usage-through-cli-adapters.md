@@ -75,6 +75,9 @@ rates, and enforcement out of this release under YAGNI.
 - Root/child aggregation is platform-specific. Adding attribution records to
   an inclusive root would double count spend. Claude is non-inclusive: totals
   select the latest cumulative root snapshot and add each distinct child
-  record once. Copilot and Codex child records remain attribution-only.
+  record once. Pi is also non-inclusive across subprocess boundaries: totals
+  add the root and every distinct descendant once. Copilot and Codex child
+  records remain attribution-only; repeated Copilot root events are cumulative
+  snapshots, so totals select the latest one rather than summing turns.
 - Append safety does not make same-session sequence allocation atomic; the MVP
   assumes one writer at a time per session id.
