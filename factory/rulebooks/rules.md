@@ -67,6 +67,15 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST** run `factory/scripts/premerge-check <target> <branch>` before `git merge <branch>` — the merge is blocked without the resulting `.agent-factory/premerge-check-ok` marker.
 - **MUST NOT** bypass a failing pre-commit hook (`--no-verify`, `core.hooksPath`); fix the hook. Discard with `git checkout HEAD -- <path>`, not `git checkout .`.
 - **SHOULD** commit through the hooks with the two-pass sequence — `add` → `commit`; on "files were modified by this hook", `add -u` → recommit — or use `factory/scripts/commit-safe`.
+- **MUST** remove a clean worktree and safely delete its merged branch after its target passes verification, unless the branch remains a named active review base.
+
+## Handoffs
+
+→ [handoff-format.md](conventions/handoff-format.md)
+
+- **MUST** put one authoritative current-state section before optional historical context.
+- **MUST** record exact local and upstream tips plus ahead/behind counts; decorated branch labels and approximate counts are insufficient.
+- **MUST** replace or move superseded instructions instead of leaving them mixed with current open work.
 
 ## Cross-references
 

@@ -48,8 +48,32 @@ The pre-commit hooks **rewrite staged files** as part of committing: `mdformat` 
 
 Alternatively, pre-run the formatters on the staged set first (`factory/scripts/mdformat --number`, `factory/scripts/index-lint`) so the hooks are no-ops on the first pass. `factory/scripts/commit-safe` wraps the two-pass sequence into one command.
 
+## Close absorbed work immediately
+
+After a story or finding branch is merged and the target branch passes its
+required verification:
+
+1. Confirm the source worktree is clean with `git -C <worktree> status --short`.
+2. Remove that exact worktree with `git worktree remove <worktree>`.
+3. Delete the merged local branch with `git branch -d <branch>`.
+4. Retain either only when it is named as an active base for a pending review or
+   follow-up; record that reason in the handoff.
+
+Use explicit paths and branch names. Never use globs, forced deletion, or a
+broad filesystem command for phase cleanup. Cleanup is part of closing the
+merged unit, not deferred housekeeping at the end of a feature.
+
+## Record branch state explicitly
+
+At merge and handoff boundaries, record the local branch tip, its configured
+upstream tip (or `none`), and ahead/behind counts. Use exact SHAs; decorated log
+labels alone can conflate a local branch with similarly named remote-tracking
+refs. The required handoff shape is defined by
+[handoff-format.md](handoff-format.md#authoritative-current-state).
+
 ## Referenced from
 
 - [rules.md § Git workflow](../rules.md#git-workflow)
 - [commit-conventions.md § Enforcement](commit-conventions.md#enforcement)
 - [branching-policy.md § Pre-Merge Diff Check](branching-policy.md#pre-merge-diff-check)
+- [handoff-format.md](handoff-format.md)

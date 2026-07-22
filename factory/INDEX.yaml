@@ -64,8 +64,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints. Each subagent implements one story using TDD on its own feature branch. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 1597
-    total_tokens: 4870
+    tokens: 1686
+    total_tokens: 4959
   - name: reconciliation-agent
     title: Reconciliation Agent
     phase: 4
@@ -345,7 +345,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 949
-    total_tokens: 17372
+    total_tokens: 17461
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -360,8 +360,8 @@ playbooks:
       - implementation-agent
       - reconciliation-agent
       - qa-agent
-    tokens: 1048
-    total_tokens: 32067
+    tokens: 1253
+    total_tokens: 32361
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -379,7 +379,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 1691
-    total_tokens: 33673
+    total_tokens: 33762
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -427,7 +427,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 1730
+    tokens: 1845
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
@@ -459,7 +459,11 @@ rulebooks:
   - name: git-workflow
     category: conventions
     path: rulebooks/conventions/git-workflow.md
-    tokens: 880
+    tokens: 1139
+  - name: handoff-format
+    category: conventions
+    path: rulebooks/conventions/handoff-format.md
+    tokens: 378
   - name: markdown-formatting
     category: conventions
     path: rulebooks/conventions/markdown-formatting.md

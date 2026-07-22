@@ -27,6 +27,22 @@ Operational procedure for **adding features to existing system**.
 **Large**: Multiple stories, architectural decisions needed, cross-cutting concerns
 **If NO** → Start at Phase 1 (Requirements)
 
+## Approval Contract
+
+At the start of each phase, present one bounded approval covering its reversible,
+in-scope work. State:
+
+- outputs and acceptance invariants;
+- deterministic gates that must pass;
+- stop conditions: a changed requirement, unresolved design choice, destructive
+  action, external side effect, failed gate, or scope expansion.
+
+After approval, execute the phase through its stated gates without requesting
+confirmation for each routine reversible step. Existing decision points remain:
+stakeholders still approve requirements, architecture decisions, backlog scope,
+destructive cleanup, and any response to a stop condition. Batching must not be
+used to infer broader authority.
+
 ## Phase 1: Requirements (Large Features Only)
 
 ### Step 1.1 — Update Specification
@@ -192,5 +208,8 @@ Final checks:
 - [ ] Spec updated to reflect new feature
 - [ ] Architecture docs updated (if applicable)
 - [ ] All findings resolved
+- [ ] Every absorbed story/finding worktree is clean and removed
+- [ ] Every absorbed local branch is deleted safely with `git branch -d`, unless named as an active review base
+- [ ] Handoff records exact local/upstream tips and ahead/behind counts per [handoff-format.md](../rulebooks/conventions/handoff-format.md)
 
 **Ready to merge**

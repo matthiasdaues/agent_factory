@@ -161,6 +161,28 @@ not aggregation duplication.
 The architecture rationale is recorded in
 [ADR-0007](../../docs/adr/0007-normalize-runtime-usage-through-cli-adapters.md).
 
+### Usage-capture test ownership
+
+Each test file owns one layer and contract boundary. Add a case to the existing
+owner first. Create another file only when the new behavior belongs to a new
+layer; if a regression duplicates a lower-level case, replace the overlap or
+state the distinct end-to-end boundary it protects.
+
+| Test file                                    | Layer                 | Unique contract boundary                                                                                                     |
+| -------------------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `test_usage_capture.py`                      | Unit and component    | Transcript parsing, normalization, aggregation, record reservation, and persistence primitives                               |
+| `test_usage_capture_e2e.py`                  | Installed shared path | A configured hook reaches the shared capture runtime and writes a normalized record                                          |
+| `test_usage_capture_copilot_e2e.py`          | Copilot adapter       | Copilot hook payloads, inclusive-root accounting, and child-attribution behavior                                             |
+| `test_usage_capture_codex_e2e.py`            | Codex adapter         | Codex hook payloads, trust-gated installation, and inclusive-root accounting                                                 |
+| `test_usage_capture_pi_e2e.py`               | Pi adapter            | Extension/bootstrap handoff, descendant aggregation, supervisor ownership, and failure cleanup                               |
+| `test_usage_capture_native_lifecycle_e2e.py` | Shared lifecycle      | Detached registration, drain/cancel, generation fencing, accepted-worker cleanup, and uninstall races across native adapters |
+| `test_init_factory_usage_capture.py`         | Installation          | CLI-specific assets, permissions, runtime provisioning, idempotency, and capability probes                                   |
+| `test_remove_factory.py`                     | Removal               | Exact Factory-owned hook stripping, pending-capture policy, and preservation of project-owned configuration                  |
+
+The map documents ownership, not a target test count. Contract-distinct
+end-to-end tests remain appropriate even when they exercise shared lower-level
+code.
+
 ## Skills
 
 A skill is a how-to — a reusable procedure an agent (or you, directly) invokes to do one well-defined thing: run a structured interview, write an ADR, run a security review. Each skill is a folder in `factory/skills/` holding a `SKILL.md`. Agents call skills; skills don't call agents.
