@@ -23,8 +23,10 @@ from __future__ import annotations
 
 import importlib.util
 import errno
+import os
 import json
 import stat
+import subprocess
 import sys
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
@@ -70,6 +72,149 @@ def _has_capture_entry(settings: dict, event: str) -> bool:
 
 
 class TestFreshTarget:
+    def test_SEC0003_all_cli_capture_sites_use_package_manager_free_launcher(self):
+        launcher = (_ROOT / "factory/scripts/usage-capture-runtime").read_text()
+        assert not any(
+            command in launcher for command in ("uv ", "uvx ", "pip ", "curl ", "wget ")
+        )
+        for relative in (
+            "factory/config/hooks/capture-usage.sh",
+            "factory/config/hooks/capture-copilot-usage.sh",
+            "factory/config/hooks/capture-codex-usage.sh",
+            "factory/config/extensions/pi-usage.ts",
+        ):
+            text = (_ROOT / relative).read_text()
+            assert "usage-capture-runtime" in text
+            assert "uv run" not in text and "pip " not in text
+
+    def test_SEC0003_runtime_ignores_poisoned_uv_cache_and_network(self, tmp_path):
+        assert _run_init(tmp_path) == 0
+        poison = tmp_path / "poison-bin"
+        poison.mkdir()
+        marker = tmp_path / "UV_WAS_EXECUTED"
+        fake_uv = poison / "uv"
+        fake_uv.write_text(f"#!/bin/sh\ntouch {marker}\nexit 99\n")
+        fake_uv.chmod(0o700)
+        env = {
+            **os.environ,
+            "PATH": f"{poison}{os.pathsep}{os.environ['PATH']}",
+            "UV_OFFLINE": "1",
+            "UV_CACHE_DIR": str(tmp_path / "absent-cache"),
+        }
+
+        result = subprocess.run(
+            [str(tmp_path / "factory/scripts/usage-capture-runtime"), "--count-tokens"],
+            input="Hello, world!",
+            text=True,
+            capture_output=True,
+            env=env,
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "4"
+        assert not marker.exists()
+
+    def test_SEC0003_requirements_are_exact_and_hash_protected(self):
+        text = (_ROOT / init_factory.USAGE_REQUIREMENTS).read_text()
+        requirements = [
+            line
+            for line in text.splitlines()
+            if line and not line[0].isspace() and not line.startswith("#")
+        ]
+        assert requirements
+        assert any(line.startswith("tiktoken==0.13.0 ") for line in requirements)
+        assert all("==" in line and line.endswith("\\") for line in requirements)
+        assert text.count("--hash=sha256:") >= len(requirements)
+
+    def test_SEC0003_provisions_hashed_runtime_before_capture_hooks(self, tmp_path):
+        assert _run_init(tmp_path) == 0
+
+        runtime = tmp_path / init_factory.USAGE_RUNTIME
+        python = runtime / (
+            "Scripts/python.exe" if init_factory.os.name == "nt" else "bin/python"
+        )
+        assert python.exists()
+        assert (runtime / ".requirements-sha256").is_file()
+        assert _hook_link(tmp_path).is_symlink()
+        assert stat.S_IMODE(runtime.stat().st_mode) == 0o700
+
+    def test_SEC0003_provisioning_uses_hashes_disables_builds_and_python_downloads(
+        self, tmp_path, monkeypatch
+    ):
+        requirements = tmp_path / init_factory.USAGE_REQUIREMENTS
+        requirements.parent.mkdir(parents=True)
+        requirements.write_text("tiktoken==0.13.0 --hash=sha256:abc\n")
+        calls = []
+
+        def fake_run(command, **_kwargs):
+            calls.append(command)
+            if command[1] == "venv":
+                python = Path(command[-1]) / (
+                    "Scripts/python.exe"
+                    if init_factory.os.name == "nt"
+                    else "bin/python"
+                )
+                python.parent.mkdir(parents=True)
+                python.write_text("")
+                python.chmod(0o700)
+            return subprocess.CompletedProcess(command, 0, "", "")
+
+        monkeypatch.setattr(init_factory.subprocess, "run", fake_run)
+
+        assert init_factory.provision_usage_runtime(tmp_path, [])
+        sync = next(command for command in calls if command[1:3] == ["pip", "sync"])
+        assert "--require-hashes" in sync
+        assert "--no-build" in sync
+        assert "--no-python-downloads" in sync
+
+    def test_SEC0003_offline_failure_leaves_capture_hooks_inactive(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        real_run = init_factory.subprocess.run
+
+        def fail_uv(command, **kwargs):
+            if command[:2] == ["uv", "venv"]:
+                assert "--offline" in command
+                return subprocess.CompletedProcess(
+                    command, 1, "", "verified artifacts unavailable"
+                )
+            return real_run(command, **kwargs)
+
+        monkeypatch.setenv("UV_OFFLINE", "1")
+        monkeypatch.setattr(init_factory.subprocess, "run", fail_uv)
+
+        assert _run_init(tmp_path) == 0
+        assert not _hook_link(tmp_path).exists()
+        assert not _copilot_hook_config(tmp_path).exists()
+        assert not _codex_hook_config(tmp_path).exists()
+        assert not (tmp_path / ".pi/extensions/capture-usage.ts").exists()
+        assert (
+            "usage capture unavailable; lifecycle hooks left inactive"
+            in capsys.readouterr().out
+        )
+
+    def test_SEC0003_hash_or_build_failure_removes_partial_runtime(
+        self, tmp_path, monkeypatch
+    ):
+        requirements = tmp_path / init_factory.USAGE_REQUIREMENTS
+        requirements.parent.mkdir(parents=True)
+        requirements.write_text("tiktoken==0.13.0 --hash=sha256:bad\n")
+
+        def fail_sync(command, **_kwargs):
+            if command[1] == "venv":
+                Path(command[-1]).mkdir(parents=True)
+                return subprocess.CompletedProcess(command, 0, "", "")
+            assert "--require-hashes" in command and "--no-build" in command
+            return subprocess.CompletedProcess(command, 1, "", "hash mismatch")
+
+        monkeypatch.setattr(init_factory.subprocess, "run", fail_sync)
+        report = []
+
+        assert not init_factory.provision_usage_runtime(tmp_path, report)
+        assert not (tmp_path / init_factory.USAGE_RUNTIME).exists()
+        assert not list((tmp_path / ".agent-factory").glob("usage-runtime-stage-*"))
+        assert any("hash mismatch" in line for line in report)
+
     def test_SEC0002_init_creates_private_retention_config_and_preserves_override(
         self, tmp_path
     ):
@@ -208,6 +353,18 @@ class TestFreshTarget:
 
 
 class TestReRunIsNoop:
+    def test_SEC0003_second_init_rebuilds_exact_runtime(self, tmp_path):
+        assert _run_init(tmp_path) == 0
+        runtime = tmp_path / init_factory.USAGE_RUNTIME
+        digest = (runtime / ".requirements-sha256").read_text()
+        foreign = runtime / "foreign-package"
+        foreign.write_text("must not survive exact sync")
+
+        assert _run_init(tmp_path) == 0
+
+        assert (runtime / ".requirements-sha256").read_text() == digest
+        assert not foreign.exists()
+
     def test_second_run_leaves_symlink_and_settings_unchanged(self, tmp_path):
         assert _run_init(tmp_path) == 0
 

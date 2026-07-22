@@ -223,7 +223,7 @@ if (result.details?.error) throw new Error(JSON.stringify(result));
 
 
 def _install_gated_capture(target: Path, env: dict[str, str]) -> tuple[Path, Path]:
-    script = target / "factory/scripts/usage-capture"
+    script = target / "factory/scripts/usage-capture-runtime"
     real = script.with_name("usage-capture-real")
     script.rename(real)
     started = target / "capture-started"
@@ -738,7 +738,7 @@ def test_RECON0010_dispatch_wave_returns_while_capture_is_stalled(tmp_path):
 
 def test_RECON0010_async_spawn_error_cleans_staged_source(tmp_path):
     _init(tmp_path)
-    capture = tmp_path / "factory/scripts/usage-capture"
+    capture = tmp_path / "factory/scripts/usage-capture-runtime"
     capture.write_text("#!/definitely/missing/interpreter\n")
     capture.chmod(0o755)
     bridge = tmp_path / ".pi/extensions/pi-usage.ts"
@@ -924,7 +924,7 @@ def test_RECON0009_nested_dispatch_records_survive_merged_worktree_removal(tmp_p
     # dispatch worktrees need the installed Factory runtime in their committed base.
     subprocess.run(["git", "add", "-f", "factory"], cwd=primary, check=True)
     subprocess.run(
-        ["git", "commit", "-m", "install factory"],
+        ["git", "commit", "--no-verify", "-m", "install factory"],
         cwd=primary,
         check=True,
         capture_output=True,

@@ -45,16 +45,37 @@ rollout phases.)
 from __future__ import annotations
 
 import json
+import importlib.util
 import os
+import shutil
 import subprocess
+import sys
 import time
 import uuid
 from pathlib import Path
+from importlib.machinery import SourceFileLoader
+
+import pytest
 
 
 _ROOT = Path(__file__).resolve().parents[2]
 _FACTORY_ROOT = _ROOT
 _HOOK_SCRIPT = _FACTORY_ROOT / "factory" / "config" / "hooks" / "capture-usage.sh"
+_INIT = _ROOT / "factory/scripts/init-factory"
+_loader = SourceFileLoader("init_factory_claude_e2e", str(_INIT))
+_spec = importlib.util.spec_from_loader(_loader.name, _loader)
+init_factory = importlib.util.module_from_spec(_spec)
+sys.modules[_loader.name] = init_factory
+_loader.exec_module(init_factory)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _provision_source_checkout_runtime():
+    """The source-hook tests still exercise the production offline launcher."""
+    runtime = _ROOT / init_factory.USAGE_RUNTIME
+    assert init_factory.provision_usage_runtime(_ROOT, [])
+    yield
+    shutil.rmtree(runtime, ignore_errors=True)
 
 
 def _make_unique_session_id(base: str = "session") -> str:

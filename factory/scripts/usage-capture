@@ -1,7 +1,7 @@
-#!/usr/bin/env -S uv run --script
+#!/usr/bin/env -S uv run --offline --locked --no-python-downloads --script
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["tiktoken"]
+# dependencies = ["tiktoken==0.13.0"]
 # ///
 """usage-capture - Usage record shape, record_id scheme, the fixed
 cl100k_base tokenizer, the per-CLI transcript normalizer, the swappable
@@ -24,16 +24,19 @@ By:   `factory/docs/proposals/token-usage-tracking.md` ("The Usage Record",
       "Tokenization Strategy", "Persistence", "The Capture Tool", "Design
       Details"); backlog ST-0035, ST-0036, ST-0037, ST-0038.
 
-Self-bootstrapping like `index-lint`: the PEP 723 block above makes
-`tiktoken` available via `uv run --script` without a project virtualenv.
+`init-factory` installs the exact, hash-verified dependencies into the
+project-owned usage runtime before activating lifecycle hooks.  Automatic
+capture invokes that interpreter directly; this source shebang deliberately
+permits offline developer/test execution against the adjacent exact lock, but
+cannot update the lock, download Python, or access the network.
 Unlike index-lint's static-index counter, this script has no chars/4
 fallback — the proposal requires `normalized_*` to always be real
 `cl100k_base` counts (a comparable yardstick across CLIs and models), never
 an approximation. Consequently `import tiktoken` is lazy, inside
 `count_tokens()`, not at module scope: it lets the record/record_id half of
 this file (no third-party dependency) stay importable in any bare
-interpreter, while token counting itself only ever runs through this
-script's own shebang, where `tiktoken` is guaranteed present.
+interpreter, while installed token counting runs through the provisioned
+project runtime, where `tiktoken` is guaranteed present.
 
 The record stores integers and references, never text: `to_dict()` never
 needs to attach a git diff or transcript body, only the paths that link to
