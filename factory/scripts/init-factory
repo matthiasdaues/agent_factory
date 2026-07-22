@@ -106,6 +106,7 @@ import os
 import shutil
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
 # name -> path relative to factory/, symlinked into each dot-dir under the same name
@@ -899,6 +900,22 @@ def write_manifest(target: Path, install: dict, report: list[str]) -> None:
     log(report, f"{MANIFEST_PATH}: wrote removal manifest")
 
 
+def initialize_usage_lifecycle(target: Path, report: list[str]) -> None:
+    """Pre-create the non-resurrecting Pi registration fence and registry."""
+    control = target / ".agent-factory" / "usage-control"
+    (control / "pending").mkdir(parents=True, exist_ok=True)
+    (target / ".agent-factory" / "usage" / ".capture").mkdir(
+        parents=True, exist_ok=True
+    )
+    state = control / "state.json"
+    if not state.exists():
+        state.write_text(
+            json.dumps({"mode": "active", "generation": str(uuid.uuid4())}) + "\n",
+            encoding="utf-8",
+        )
+        log(report, ".agent-factory/usage-control: initialized")
+
+
 def _dedup(paths: list[str]) -> list[str]:
     seen: set[str] = set()
     out: list[str] = []
@@ -973,6 +990,7 @@ def main(argv: list[str] | None = None) -> int:
         handle_precommit(target, install, report)
         write_gitignore_block(target, install, report)
         write_manifest(target, install, report)
+        initialize_usage_lifecycle(target, report)
         pre_commit_install(target, report)
     except Collision as e:
         print(f"init-factory: STOPPED — {e}", file=sys.stderr)

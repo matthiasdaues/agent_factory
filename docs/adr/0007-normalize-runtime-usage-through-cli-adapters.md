@@ -65,6 +65,13 @@ cannot delay the measured lifecycle or tool result. The detached process owns
 guarded source cleanup. Normal parent exit permits completion; abrupt host or
 process-group termination remains best-effort.
 
+Coordinate Pi uninstall through a generation-fenced pending registry. Default
+removal drains all captures registered before the state transition; explicit
+cancel may discard only work that has not entered persistence. Both paths wait
+with a fixed bound for the commit fence. A timeout restores the active install
+and aborts teardown. Atomic files and renames provide the portable lifecycle
+protocol; PIDs are diagnostic only and are never signalled.
+
 ## Consequences
 
 **Positive**

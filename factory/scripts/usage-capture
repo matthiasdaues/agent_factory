@@ -47,6 +47,7 @@ import json
 import os
 import sys
 import uuid
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Optional, Protocol, Union, runtime_checkable
@@ -869,6 +870,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "non-symlink file directly under .agent-factory/usage/.capture"
         ),
     )
+    parser.add_argument("--pending-marker", type=Path, help=argparse.SUPPRESS)
+    parser.add_argument("--usage-generation", help=argparse.SUPPRESS)
     return parser
 
 
@@ -891,6 +894,72 @@ def _delete_factory_staged_source(path: Path, base_dir: Union[str, Path]) -> Non
         candidate.unlink()
     except OSError:
         pass
+
+
+def _delete_factory_pending_marker(path: Path, base_dir: Union[str, Path]) -> None:
+    try:
+        candidate = Path(path)
+        pending = (
+            Path(base_dir).resolve() / ".agent-factory" / "usage-control" / "pending"
+        )
+        if (
+            candidate.is_absolute()
+            and not candidate.is_symlink()
+            and candidate.parent == pending
+            and candidate.suffixes[-2:] == [".pending", ".json"]
+            and candidate.is_file()
+        ):
+            candidate.unlink()
+    except OSError:
+        pass
+
+
+@contextmanager
+def _pi_persistence_fence(args: argparse.Namespace, base_dir: Union[str, Path]):
+    """Fence a registered Pi commit against drain/cancel teardown."""
+    marker = getattr(args, "pending_marker", None)
+    if marker is None:
+        yield True
+        return
+
+    root = Path(base_dir).resolve()
+    pending = root / ".agent-factory" / "usage-control" / "pending"
+    committing: Optional[Path] = None
+    allowed = False
+    try:
+        if (
+            not marker.is_absolute()
+            or marker.is_symlink()
+            or marker.parent != pending
+            or marker.suffixes[-2:] != [".pending", ".json"]
+            or not marker.is_file()
+        ):
+            yield False
+            return
+        committing = marker.with_name(
+            marker.name.replace(".pending.json", ".committing.json")
+        )
+        marker.replace(committing)
+        registration = json.loads(committing.read_text(encoding="utf-8"))
+        state = json.loads(
+            (root / ".agent-factory" / "usage-control" / "state.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        allowed = (
+            registration.get("generation") == getattr(args, "usage_generation", None)
+            and state.get("generation") == getattr(args, "usage_generation", None)
+            and state.get("mode") in ("active", "drain")
+        )
+        yield allowed
+    except (OSError, ValueError, json.JSONDecodeError):
+        yield False
+    finally:
+        if committing is not None:
+            try:
+                committing.unlink()
+            except OSError:
+                pass
 
 
 def _next_record_id(usage_dir: Path, session_id: Optional[str]) -> str:
@@ -962,7 +1031,9 @@ def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> None
         commit_id=args.commit_id,
     )
 
-    JsonlLoggingAdapter(base_dir=base_dir).record(record, transcript.text)
+    with _pi_persistence_fence(args, base_dir) as allowed:
+        if allowed:
+            JsonlLoggingAdapter(base_dir=base_dir).record(record, transcript.text)
 
 
 def _main(argv: Optional[list] = None) -> int:
@@ -1025,6 +1096,8 @@ def _main(argv: Optional[list] = None) -> int:
     finally:
         if args.delete_source:
             _delete_factory_staged_source(args.transcript, ".")
+        if args.pending_marker:
+            _delete_factory_pending_marker(args.pending_marker, ".")
 
     return 0
 

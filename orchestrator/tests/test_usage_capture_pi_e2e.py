@@ -207,6 +207,173 @@ def _release_capture_and_assert_cleanup(target: Path, gate: Path, session: str) 
     return record
 
 
+def _start_stalled_direct_capture(target: Path, session: str):
+    env = os.environ.copy()
+    started, gate = _install_gated_capture(target, env)
+    bridge = target / ".pi/extensions/pi-usage.ts"
+    exercise = target / f"exercise-{session}.mjs"
+    exercise.write_text(
+        f"""
+import {{capturePiStream}} from {json.dumps(bridge.as_uri())};
+capturePiStream({json.dumps(str(target))}, '{{"type":"message_end","message":{{"role":"assistant","content":[{{"type":"text","text":"ok"}}],"usage":{{"input":3,"output":1}}}}}}', {{sessionId:{json.dumps(session)}}});
+"""
+    )
+    _run_node(exercise, cwd=target, env=env, timeout=3)
+    _wait_for(started.is_file)
+    pending = target / ".agent-factory/usage-control/pending"
+    _wait_for(lambda: len(list(pending.iterdir())) == 1)
+    return gate, pending
+
+
+def test_RECON0012_remove_drains_registered_capture_before_teardown(tmp_path):
+    _init(tmp_path)
+    gate, _pending = _start_stalled_direct_capture(tmp_path, "pi-remove-drain")
+    remover = subprocess.Popen(
+        [str(_REMOVE), "--target", str(tmp_path), "--pending-timeout", "5"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    state = tmp_path / ".agent-factory/usage-control/state.json"
+    _wait_for(lambda: json.loads(state.read_text())["mode"] == "drain")
+    assert remover.poll() is None
+
+    gate.touch()
+    stdout, stderr = remover.communicate(timeout=10)
+    assert remover.returncode == 0, stderr
+    assert "Agent Factory removed" in stdout
+    assert not (tmp_path / ".agent-factory").exists()
+    time.sleep(0.1)
+    assert not (tmp_path / ".agent-factory").exists()
+
+
+def test_RECON0012_drain_timeout_restores_active_installation(tmp_path):
+    _init(tmp_path)
+    gate, _pending = _start_stalled_direct_capture(tmp_path, "pi-remove-timeout")
+    result = subprocess.run(
+        [
+            str(_REMOVE),
+            "--target",
+            str(tmp_path),
+            "--pending-timeout",
+            "0.1",
+        ],
+        text=True,
+        capture_output=True,
+        timeout=3,
+    )
+    assert result.returncode == 1
+    assert (tmp_path / ".agent-factory/factory-install.json").is_file()
+    state = json.loads(
+        (tmp_path / ".agent-factory/usage-control/state.json").read_text()
+    )
+    assert state["mode"] == "active"
+    assert (tmp_path / ".pi/extensions/capture-usage.ts").is_symlink()
+
+    gate.touch()
+    assert _records(tmp_path, "pi-remove-timeout")
+
+
+def test_RECON0012_explicit_cancel_prevents_late_resurrection(tmp_path):
+    user_file = tmp_path / ".github/workflows/user.yml"
+    user_file.parent.mkdir(parents=True, exist_ok=True)
+    user_file.write_text("user-owned\n")
+    _init(tmp_path)
+    gate, _pending = _start_stalled_direct_capture(tmp_path, "pi-remove-cancel")
+    result = subprocess.run(
+        [
+            str(_REMOVE),
+            "--target",
+            str(tmp_path),
+            "--pending-usage",
+            "cancel",
+            "--pending-timeout",
+            "2",
+        ],
+        text=True,
+        capture_output=True,
+        timeout=5,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "cancelled 1 pending Pi usage capture" in result.stdout
+    assert user_file.read_text() == "user-owned\n"
+
+    gate.touch()
+    time.sleep(0.2)
+    assert not (tmp_path / ".agent-factory").exists()
+    again = subprocess.run(
+        [str(_REMOVE), "--target", str(tmp_path)], text=True, capture_output=True
+    )
+    assert again.returncode == 0
+
+
+def test_RECON0012_registration_rejects_removal_fence_without_recreation(tmp_path):
+    _init(tmp_path)
+    state_path = tmp_path / ".agent-factory/usage-control/state.json"
+    state = json.loads(state_path.read_text())
+    state_path.write_text(json.dumps({**state, "mode": "cancel"}) + "\n")
+    bridge = tmp_path / ".pi/extensions/pi-usage.ts"
+    exercise = tmp_path / "exercise-fenced.mjs"
+    exercise.write_text(
+        f"""
+import {{capturePiStream}} from {json.dumps(bridge.as_uri())};
+capturePiStream({json.dumps(str(tmp_path))}, '{{"type":"message_end","message":{{"role":"assistant","content":[{{"type":"text","text":"ok"}}],"usage":{{"input":3,"output":1}}}}}}', {{sessionId:'pi-fenced'}});
+"""
+    )
+    _run_node(exercise, cwd=tmp_path, timeout=3)
+    assert not list((tmp_path / ".agent-factory/usage-control/pending").iterdir())
+    assert not list((tmp_path / ".agent-factory/usage/.capture").iterdir())
+
+
+def test_RECON0012_cancel_does_not_follow_malformed_registry_paths(tmp_path):
+    _init(tmp_path)
+    outside = tmp_path / "user-data.txt"
+    outside.write_text("keep\n")
+    pending = tmp_path / ".agent-factory/usage-control/pending"
+    (pending / "stale.pending.json").write_text(
+        json.dumps({"staged_source": str(outside), "generation": "stale"})
+    )
+    (pending / "malformed.pending.json").write_text("not json\n")
+
+    result = subprocess.run(
+        [str(_REMOVE), "--target", str(tmp_path), "--pending-usage", "cancel"],
+        text=True,
+        capture_output=True,
+        timeout=5,
+    )
+    assert result.returncode == 0, result.stderr
+    assert outside.read_text() == "keep\n"
+
+
+def test_RECON0012_committing_marker_causes_bounded_abort(tmp_path):
+    _init(tmp_path)
+    pending = tmp_path / ".agent-factory/usage-control/pending"
+    committing = pending / "stalled.committing.json"
+    committing.write_text("{}\n")
+    result = subprocess.run(
+        [
+            str(_REMOVE),
+            "--target",
+            str(tmp_path),
+            "--pending-usage",
+            "cancel",
+            "--pending-timeout",
+            "0.1",
+        ],
+        text=True,
+        capture_output=True,
+        timeout=3,
+    )
+    assert result.returncode == 1
+    assert (tmp_path / ".agent-factory/factory-install.json").is_file()
+    assert (
+        json.loads((tmp_path / ".agent-factory/usage-control/state.json").read_text())[
+            "mode"
+        ]
+        == "active"
+    )
+
+
 def test_RECON0010_human_shutdown_returns_while_capture_is_stalled(tmp_path):
     _init(tmp_path)
     env = os.environ.copy()

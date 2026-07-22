@@ -80,6 +80,16 @@ Only the local durable staging write remains synchronous. Abrupt host shutdown
 or forced process-group termination can still lose an in-flight best-effort
 capture.
 
+`remove-factory` coordinates with detached Pi captures. Its default
+`--pending-usage=drain` waits up to `--pending-timeout` seconds for every
+capture registered before removal to commit; timeout restores the active
+installation and exits nonzero without uninstalling. Explicit
+`--pending-usage=cancel` discards registered-but-not-committing captures. A
+generation fence prevents new registration after removal owns the project, and
+late workers cannot recreate `.agent-factory`. No PIDs are signalled. Completed
+usage and transcripts remain part of the traceless Factory footprint and are
+deleted by a successful uninstall.
+
 Claude `Stop` records are cumulative snapshots of the main transcript. For
 session totals, select the latest root record and add each distinct
 `SubagentStop` record once. Claude's `SubagentStop.transcript_path` points to

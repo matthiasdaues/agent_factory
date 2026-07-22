@@ -241,6 +241,15 @@ local staging write is synchronous. Normal parent-process exit does not orphan
 the detached capture, but abrupt host shutdown or forced process-group
 termination remains best-effort and may lose an in-flight record.
 
+Pi registrations carry the installation generation in a Factory-owned pending
+registry. Uninstall transitions that generation to `drain` or explicit
+`cancel`: drain permits every eligible pre-transition worker to commit, while
+cancel rejects workers that have not entered persistence. The remover waits
+with a fixed bound for the registry to empty; timeout restores `active` and
+leaves the installation intact. Successful teardown happens only after the
+commit fence is clear, so late workers cannot resurrect Factory paths. The
+protocol uses atomic filesystem operations and never signals a recorded PID.
+
 Pi accounting is non-inclusive across subprocess boundaries. A human or parent
 stream contains the task/result boundary text it consumed, but it does not
 contain the separate model calls made by a `run_agent` or `dispatch_wave`
