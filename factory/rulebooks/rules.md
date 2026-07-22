@@ -20,6 +20,13 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST** separate agentic creation from deterministic validation — agents create artifacts; unavoidable hooks trigger scripts that validate against predefined, state-dependent criteria.
 - **MUST** build only what the specification requires, in the smallest verified step it allows (YAGNI).
 
+## Proposals
+
+→ [proposal.md template](templates/proposal.md), [feature-addition.md](../playbooks/feature-addition.md)
+
+- **MUST** open a feature-addition from a proposal written to the [proposal template](templates/proposal.md) at `factory/docs/proposals/<name>.md` — the design origin the Planning phase consumes.
+- **MUST NOT** reference a `docs/proposals/*` file in a shipped agent's `inputs:` — a proposal is a design origin, not a runtime artifact; point `inputs:` at tracked, shipped artifacts (the playbook, policies, schemas it consumes).
+
 ## Coding
 
 - placeholder for future rules
@@ -44,12 +51,22 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST NOT** block indefinitely on a sub-agent's reply — do the work yourself if it declines or doesn't respond.
 - **MUST** split a whole-codebase dispatch into smaller, independently mergeable dispatches rather than run it as one.
 - **MUST** checkpoint a long-running dispatch with commits between rounds.
+- **MUST** verify a sub-agent's reported result against observable state (git, tests, gates) before treating the work as done — the mechanical gates, not the self-report, are authoritative.
 
 ## Commits
 
 → [commit-conventions.md](conventions/commit-conventions.md)
 
 - **MUST** include the story or bug ID in parentheses on every implementation commit — `<type>: <description> (<ID>)`.
+
+## Git workflow
+
+→ [git-workflow.md](conventions/git-workflow.md)
+
+- **MUST** issue git as a lone command — never chained after `cd` or another command (the working directory persists; the guardrail mis-parses compound lines).
+- **MUST** run `factory/scripts/premerge-check <target> <branch>` before `git merge <branch>` — the merge is blocked without the resulting `.agent-factory/premerge-check-ok` marker.
+- **MUST NOT** bypass a failing pre-commit hook (`--no-verify`, `core.hooksPath`); fix the hook. Discard with `git checkout HEAD -- <path>`, not `git checkout .`.
+- **SHOULD** commit through the hooks with the two-pass sequence — `add` → `commit`; on "files were modified by this hook", `add -u` → recommit — or use `factory/scripts/commit-safe`.
 
 ## Cross-references
 

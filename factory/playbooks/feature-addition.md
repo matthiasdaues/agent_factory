@@ -14,6 +14,7 @@ Operational procedure for **adding features to existing system**.
 
 - [ ] Existing project with spec and architecture
 - [ ] `CONTEXT.md` exists
+- [ ] A proposal at `factory/docs/proposals/<name>.md` (per the [proposal template](../rulebooks/templates/proposal.md)) — the design origin the Planning phase consumes
 - [ ] Feature request or user story defined
 
 ## Decision: Scope Assessment
