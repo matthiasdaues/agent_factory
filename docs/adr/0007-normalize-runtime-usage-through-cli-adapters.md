@@ -68,12 +68,13 @@ records outside worktrees that `dispatch_wave` removes after successful merges.
 The capture executable is resolved from that independently validated primary
 checkout; an environment value cannot select arbitrary code to execute.
 
-Pi performs the smallest reliable synchronous handoff by writing the completed
-stream to Factory's local capture scratch directory. It then detaches a
-Factory-owned Node supervisor with ignored standard streams, so tokenization
-and persistence cannot delay the measured lifecycle or tool result. The
-supervisor waits only outside that measured boundary and solely owns guarded
-registration, status, and staged-source cleanup after the launcher/Python child
+Every adapter performs the smallest reliable synchronous handoff by writing a
+completed stream or provider-transcript snapshot to Factory's local capture
+scratch directory and generation-fenced registry. It then detaches one
+capture-specific supervisor through Factory's provisioned Python runtime, so
+tokenization and persistence cannot delay the measured lifecycle or tool
+result. The supervisor waits only outside that measured boundary and solely
+owns guarded status and staged-source cleanup after the capture child
 terminates. Python writes a private completion status: `captured` only after
 canonical record persistence succeeds, otherwise `dropped`. Normal launcher
 and Python failures therefore reach a terminal state and retain a bounded,
@@ -81,20 +82,27 @@ owner-private diagnostic. Explicit removal cancellation stays benign and cannot
 be followed by diagnostic path recreation. Abrupt supervisor/host termination
 remains best-effort.
 
-Coordinate Pi uninstall through a generation-fenced pending registry. Default
+Coordinate uninstall through a generation-fenced pending registry. Default
 removal drains all captures registered before the state transition; explicit
 cancel may discard only work that has not entered persistence. Both paths wait
 with a fixed bound for the commit fence. A timeout restores the active install
 and aborts teardown. Atomic files and renames provide the portable lifecycle
 protocol; PIDs are diagnostic only and are never signalled.
 
-Registration is lock-free and linearizable: Pi hard-links the lifecycle state
-to its pending token, atomically snapshotting either the active inode before the
+Registration is lock-free and linearizable: each adapter hard-links the
+lifecycle state to its pending token, atomically snapshotting either the active inode before the
 remover's state replacement or the drain/cancel inode after it. Metadata then
 atomically replaces the token contents without making the registration
 invisible. This requires same-volume file hard links; initialization probes the
-capability and reports when Pi capture is unavailable without blocking setup for
-the other CLIs.
+capability and leaves lifecycle hooks inactive when the fence is unavailable.
+
+Native hooks preserve their provider payload semantics and synchronously do
+only validation, registration, a private O(transcript-size) snapshot, and
+supervisor spawn. This local copy is the unavoidable durability cost that lets
+the provider delete its original transcript immediately after hook return.
+Normalization and canonical persistence remain detached. The shared lifecycle
+uses no Node runtime, so standalone Codex remains supported, and is deliberately
+capture-specific rather than a general background-work abstraction.
 
 Provision tokenizer code only at the explicit, user-invoked initialization
 boundary. `init-factory` creates a project-owned private virtual environment

@@ -41,7 +41,7 @@ enabled only when every verified artifact is already available. A missing or
 invalid artifact leaves unrelated Factory setup intact and reports capture as
 unavailable. Lifecycle hooks never run uv or consult its cache. Re-running init
 re-verifies the committed dependency set; `remove-factory` deletes the runtime
-after pending Pi captures settle.
+after pending captures from every adapter settle.
 
 Session and record identifiers are opaque data. Existing bounded lowercase
 identifiers retain their familiar filenames; unsafe, platform-specific, Unicode,
@@ -107,19 +107,25 @@ nested agent runs inside a disposable dispatch worktree. An inherited root is
 accepted only when it agrees with the independently derived checkout and its
 Factory installation; invalid values fall back to repository derivation.
 Pi writes the completed stream to that root's private capture scratch directory
-as a durable handoff, then launches a Factory-owned Node supervisor detached
-with no interactive standard streams. Tokenization and record persistence
+as a durable handoff, then launches a Factory-owned capture supervisor through
+the provisioned Python runtime with no interactive standard streams. Tokenization and record persistence
 therefore do not delay human shutdown or `run_agent` / `dispatch_wave` results.
 The supervisor waits outside the measured lifecycle and solely removes the
 validated pending/committing marker, private completion status, and staged
-source after the capture child terminates. Missing interpreters and launcher or
-Python failures retain a bounded diagnostic in the private usage-control tree;
+source after the capture child terminates. Capture child failures retain a
+bounded diagnostic in the private usage-control tree;
 diagnostics contain no transcript text. Explicit uninstall cancellation is
 benign and no supervisor failure recreates removed Factory paths. Only the local
 durable staging write remains synchronous. Abrupt supervisor or host shutdown
 can still lose an in-flight best-effort capture.
 
-`remove-factory` coordinates with detached Pi captures. Its default
+Claude, Codex, and Copilot hooks use the same lifecycle. Before returning they
+register and privately snapshot the provider transcript, then leave
+normalization and persistence to the detached supervisor. Snapshot time is
+O(transcript size); no tokenization or persistence blocks the hook. Standalone
+Codex does not require Node.
+
+`remove-factory` coordinates with detached captures from every adapter. Its default
 `--pending-usage=drain` waits up to `--pending-timeout` seconds for every
 capture registered before removal to commit; timeout restores the active
 installation and exits nonzero without uninstalling. Explicit

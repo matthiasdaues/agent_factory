@@ -25,10 +25,10 @@ if [ ! -x "$USAGE_CAPTURE" ]; then
   exit 0
 fi
 
-CMD=("$USAGE_CAPTURE" --cli copilot --transcript "$TRANSCRIPT_PATH" --session "$SESSION_ID")
+CMD=("$USAGE_CAPTURE" --lifecycle register --root "$PROJECT_DIR" --cli copilot --transcript "$TRANSCRIPT_PATH" --session "$SESSION_ID")
 if [ -n "$AGENT_NAME" ]; then
   CMD+=(--agent "$AGENT_NAME")
 fi
 
-(cd "$PROJECT_DIR" && "${CMD[@]}") >/dev/null 2>&1 &
+(cd "$PROJECT_DIR" && "${CMD[@]}") >/dev/null 2>&1
 exit 0
