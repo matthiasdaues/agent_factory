@@ -6,8 +6,8 @@ HOOK PATH — the way Claude Code itself does at session end. It verifies:
 - The Stop/SubagentStop hook script reads JSON from stdin (`transcript_path`
   for Stop; `agent_transcript_path` and `agent_type` for SubagentStop).
 - The hook resolves `factory/scripts/usage-capture` from CLAUDE_PROJECT_DIR.
-- The hook invokes usage-capture in the BACKGROUND (so the hook exits 0 before
-  capture finishes) and always exits 0.
+- The hook durably registers a private snapshot, then exits 0 before detached
+  normalization and persistence finish.
 - A well-formed record line appears in `.agent-factory/usage/<session_id>.jsonl`.
 - A transcript copy exists at the persisted path.
 - The record carries the full field set: `normalized_*` (real cl100k_base
@@ -74,8 +74,10 @@ def _provision_source_checkout_runtime():
     """The source-hook tests still exercise the production offline launcher."""
     runtime = _ROOT / init_factory.USAGE_RUNTIME
     assert init_factory.provision_usage_runtime(_ROOT, [])
+    init_factory.initialize_usage_lifecycle(_ROOT, [])
     yield
     shutil.rmtree(runtime, ignore_errors=True)
+    shutil.rmtree(_ROOT / ".agent-factory/usage-control", ignore_errors=True)
 
 
 def _make_unique_session_id(base: str = "session") -> str:

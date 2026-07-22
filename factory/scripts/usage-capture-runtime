@@ -17,4 +17,9 @@ else
     exit 71
 fi
 
+if [ "${1:-}" = "--lifecycle" ]; then
+    shift
+    exec "$PYTHON" "$SCRIPT_DIR/usage-capture-lifecycle" "$@"
+fi
+
 exec "$PYTHON" "$SCRIPT_DIR/usage-capture" "$@"

@@ -24,7 +24,7 @@ if [ ! -x "$USAGE_CAPTURE" ]; then
   exit 0
 fi
 
-CMD=("$USAGE_CAPTURE" --cli codex --transcript "$TRANSCRIPT_PATH" --session "$SESSION_ID")
+CMD=("$USAGE_CAPTURE" --lifecycle register --root "$PROJECT_DIR" --cli codex --transcript "$TRANSCRIPT_PATH" --session "$SESSION_ID")
 if [ -n "$PARENT_SESSION_ID" ]; then
   CMD+=(--parent-session "$PARENT_SESSION_ID")
 fi
@@ -32,5 +32,5 @@ if [ -n "$AGENT_NAME" ]; then
   CMD+=(--agent "$AGENT_NAME")
 fi
 
-(cd "$PROJECT_DIR" && "${CMD[@]}") >/dev/null 2>&1 &
+(cd "$PROJECT_DIR" && "${CMD[@]}") >/dev/null 2>&1
 exit 0

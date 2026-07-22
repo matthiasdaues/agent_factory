@@ -114,7 +114,6 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
   const usageRoot = activeUsageRoot(cwd);
   if (!usageRuntimeReady(usageRoot)) return;
   const captureScript = join(usageRoot, "factory", "scripts", "usage-capture-runtime");
-  const supervisorScript = join(usageRoot, "factory", "scripts", "pi-capture-supervisor.mjs");
   const factoryState = join(usageRoot, ".agent-factory", "usage-control", "state.json");
   const controlDir = join(usageRoot, ".agent-factory", "usage-control");
   const pendingDir = join(usageRoot, ".agent-factory", "usage-control", "pending");
@@ -156,7 +155,6 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
     chmodSync(transcript, 0o600);
     requireEligibleState(factoryState, state.generation);
     accessSync(captureScript, constants.X_OK);
-    accessSync(supervisorScript, constants.R_OK);
     const args = [
       "--cli", "pi", "--transcript", transcript, "--session", sessionId,
       "--depth", String(context.depth ?? 0),
@@ -169,8 +167,8 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
     if (context.agent) args.push("--agent", context.agent);
     if (context.model) args.push("--model", context.model);
     if (context.exitStatus) args.push("--exit-status", context.exitStatus);
-    const child = spawn(process.execPath, [
-      supervisorScript,
+    const child = spawn(captureScript, [
+      "--lifecycle", "supervise",
       "--root", usageRoot,
       "--marker", marker,
       "--source", transcript,
@@ -199,7 +197,9 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
 }
 
 function usageRuntimeReady(root: string): boolean {
-  return existsSync(join(root, ".agent-factory", "usage-runtime", ".requirements-sha256")) &&
+  const runtime = join(root, ".agent-factory", "usage-runtime");
+  return existsSync(join(runtime, ".requirements-sha256")) &&
+    (existsSync(join(runtime, "bin", "python")) || existsSync(join(runtime, "Scripts", "python.exe"))) &&
     existsSync(join(root, "factory", "scripts", "usage-capture-runtime"));
 }
 

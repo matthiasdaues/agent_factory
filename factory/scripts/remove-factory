@@ -358,7 +358,7 @@ def _cancel_pending(target: Path, control: Path) -> int:
 def prepare_usage_removal(
     target: Path, disposition: str, timeout: float
 ) -> tuple[bool, Optional[Path]]:
-    """Fence Pi persistence, then drain or explicitly cancel registrations."""
+    """Fence persistence, then drain or explicitly cancel registrations."""
     control = target / USAGE_CONTROL
     state_path = control / "state.json"
     if not state_path.is_file():
@@ -382,14 +382,14 @@ def prepare_usage_removal(
                 _write_usage_state(control, "active", generation)
                 owner.unlink(missing_ok=True)
                 print(
-                    "remove-factory: pending Pi usage did not settle before timeout; "
+                    "remove-factory: pending usage did not settle before timeout; "
                     "installation left active",
                     file=sys.stderr,
                 )
                 return False, None
             time.sleep(0.05)
         if cancelled:
-            log(f"cancelled {cancelled} pending Pi usage capture(s)")
+            log(f"cancelled {cancelled} pending usage capture(s)")
         return True, owner
     except (OSError, KeyError, json.JSONDecodeError) as exc:
         owner.unlink(missing_ok=True)

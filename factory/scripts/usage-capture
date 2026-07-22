@@ -1262,7 +1262,7 @@ def _write_supervisor_completion(
 
 @contextmanager
 def _pi_persistence_fence(args: argparse.Namespace, base_dir: Union[str, Path]):
-    """Fence a registered Pi commit against drain/cancel teardown."""
+    """Fence a registered capture commit against drain/cancel teardown."""
     marker = getattr(args, "pending_marker", None)
     if marker is None:
         yield True

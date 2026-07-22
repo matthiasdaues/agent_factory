@@ -55,7 +55,7 @@ if [ ! -x "$USAGE_CAPTURE" ]; then
 fi
 
 # Build the command. Start with required args.
-USAGE_CAPTURE_CMD=("$USAGE_CAPTURE" --cli claude-code --transcript "$TRANSCRIPT_PATH" --session "$SESSION_ID")
+USAGE_CAPTURE_CMD=("$USAGE_CAPTURE" --lifecycle register --root "$PROJECT_DIR" --cli claude-code --transcript "$TRANSCRIPT_PATH" --session "$SESSION_ID")
 
 # For SubagentStop, add agent_type as --agent.
 if [ "$HOOK_EVENT" = "SubagentStop" ]; then
@@ -65,9 +65,9 @@ if [ "$HOOK_EVENT" = "SubagentStop" ]; then
   fi
 fi
 
-# Invoke usage-capture in the background so we never block session end.
-# Redirect stderr to null to silence any transient errors; capture is best-effort.
-"${USAGE_CAPTURE_CMD[@]}" >/dev/null 2>&1 &
+# Complete only the private snapshot/registration handoff synchronously.
+# Normalization and persistence are detached by the lifecycle registrar.
+(cd "$PROJECT_DIR" && "${USAGE_CAPTURE_CMD[@]}") >/dev/null 2>&1
 
 # Always exit 0. Session end must never be delayed or failed by capture.
 exit 0

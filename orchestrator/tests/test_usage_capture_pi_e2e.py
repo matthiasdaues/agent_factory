@@ -542,7 +542,7 @@ def test_FAGAN0002_cancel_discards_active_snapshot_token(tmp_path):
     )
 
     assert result.returncode == 0, result.stderr
-    assert "cancelled 1 pending Pi usage capture" in result.stdout
+    assert "cancelled 1 pending usage capture" in result.stdout
     assert not (tmp_path / ".agent-factory").exists()
 
 
@@ -607,7 +607,7 @@ def test_RECON0012_explicit_cancel_prevents_late_resurrection(tmp_path):
         timeout=5,
     )
     assert result.returncode == 0, result.stderr
-    assert "cancelled 1 pending Pi usage capture" in result.stdout
+    assert "cancelled 1 pending usage capture" in result.stdout
     assert user_file.read_text() == "user-owned\n"
 
     gate.touch()
@@ -825,8 +825,7 @@ await new Promise(resolve => setTimeout(resolve, 100));
     scratch = tmp_path / ".agent-factory/usage/.capture"
     _wait_for(lambda: not scratch.exists() or not list(scratch.iterdir()))
     _wait_for_terminal_capture(tmp_path)
-    diagnostic = json.loads(_diagnostics(tmp_path)[0].read_text())
-    assert diagnostic["reason"] == "launcher-spawn-enoent"
+    assert _diagnostics(tmp_path) == []
     assert not (tmp_path / ".agent-factory/usage/pi-spawn-error.jsonl").exists()
 
 
@@ -839,11 +838,7 @@ def test_FAGAN0004_missing_runtime_interpreter_reaches_terminal_state(tmp_path):
 
     _wait_for_terminal_capture(tmp_path)
     assert not (tmp_path / ".agent-factory/usage/pi-missing-interpreter.jsonl").exists()
-    diagnostics = _diagnostics(tmp_path)
-    assert len(diagnostics) == 1
-    assert stat.S_IMODE(diagnostics[0].parent.stat().st_mode) == 0o700
-    assert stat.S_IMODE(diagnostics[0].stat().st_mode) == 0o600
-    assert json.loads(diagnostics[0].read_text())["reason"] == "capture-process-failed"
+    assert _diagnostics(tmp_path) == []
     result = subprocess.run(
         [str(_REMOVE), "--target", str(tmp_path), "--pending-timeout", "1"],
         text=True,
@@ -886,8 +881,9 @@ def test_FAGAN0004_supervisor_rejects_foreign_cleanup_paths(tmp_path):
 
     result = subprocess.run(
         [
-            "node",
-            str(tmp_path / "factory/scripts/pi-capture-supervisor.mjs"),
+            str(tmp_path / "factory/scripts/usage-capture-runtime"),
+            "--lifecycle",
+            "supervise",
             "--root",
             str(tmp_path),
             "--marker",
@@ -899,7 +895,7 @@ def test_FAGAN0004_supervisor_rejects_foreign_cleanup_paths(tmp_path):
             "--generation",
             generation,
             "--capture-command",
-            "/bin/true",
+            str(tmp_path / "factory/scripts/usage-capture-runtime"),
         ],
         text=True,
         capture_output=True,

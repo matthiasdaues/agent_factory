@@ -245,9 +245,9 @@ the primary checkout's `.agent-factory/usage/` directory rather than a
 disposable worktree. An inherited root is trusted only when it matches the
 independently derived primary checkout and Factory-owned layout.
 
-Pi stages each completed stream durably beneath that root, then starts a
-Factory-owned Node supervisor detached with ignored standard streams and
-returns immediately. The supervisor waits for the launcher/Python child outside
+Pi stages each completed stream durably beneath that root, then starts the
+Factory-owned capture supervisor through the provisioned Python runtime with
+ignored standard streams and returns immediately. The supervisor waits for the capture child outside
 the measured boundary and is the sole owner of pending/committing registration,
 completion-status, and staged-source cleanup. Every path and the registration's
 generation/source pair are validated before use. Python reports `captured` only
@@ -258,7 +258,14 @@ removed Factory directories. Only the local staging write is synchronous.
 Abrupt supervisor or host termination remains best-effort and may lose an
 in-flight record.
 
-Pi registrations carry the installation generation in a Factory-owned pending
+Claude, Codex, and Copilot hooks use the same capture-specific lifecycle. Each
+hook synchronously registers and makes a private snapshot of its provider
+transcript before returning. This O(transcript-size) local copy is the
+durability cost that lets the original disappear immediately; normalization
+and persistence remain detached. The lifecycle uses no Node runtime, so
+standalone Codex remains supported.
+
+All registrations carry the installation generation in a Factory-owned pending
 registry. Uninstall transitions that generation to `drain` or explicit
 `cancel`: drain permits every eligible pre-transition worker to commit, while
 cancel rejects workers that have not entered persistence. The remover waits
