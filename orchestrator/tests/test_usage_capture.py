@@ -1129,6 +1129,59 @@ class TestCliEntrypointHappyPath:
 
 
 class TestCliEntrypointBestEffort:
+    def test_RECON0010_delete_source_removes_only_factory_staged_input(self, tmp_path):
+        scratch = tmp_path / ".agent-factory/usage/.capture"
+        scratch.mkdir(parents=True)
+        staged = scratch / "pi-staged.jsonl"
+        staged.write_text('{"not":"a pi event"}\n')
+
+        result = _run_capture(
+            tmp_path,
+            [
+                "--cli",
+                "pi",
+                "--transcript",
+                str(staged),
+                "--session",
+                "pi-staged",
+                "--delete-source",
+            ],
+        )
+
+        assert result.returncode == 0
+        assert not staged.exists()
+
+    def test_RECON0010_delete_source_rejects_arbitrary_and_symlink_paths(
+        self, tmp_path
+    ):
+        arbitrary = _write_transcript(tmp_path, _claude_transcript_with_usage())
+        scratch = tmp_path / ".agent-factory/usage/.capture"
+        scratch.mkdir(parents=True)
+        staged_link = scratch / "linked.jsonl"
+        staged_link.symlink_to(arbitrary)
+        traversed = scratch / "nested" / ".." / "traversed.jsonl"
+        (scratch / "nested").mkdir()
+        (scratch / "traversed.jsonl").write_text(arbitrary.read_text())
+
+        for transcript in (arbitrary, staged_link, traversed):
+            result = _run_capture(
+                tmp_path,
+                [
+                    "--cli",
+                    "claude-code",
+                    "--transcript",
+                    str(transcript),
+                    "--session",
+                    "pi-untrusted-delete",
+                    "--delete-source",
+                ],
+            )
+            assert result.returncode == 0
+
+        assert arbitrary.exists()
+        assert staged_link.is_symlink()
+        assert (scratch / "traversed.jsonl").exists()
+
     def test_unknown_cli_is_a_noop_and_exits_zero(self, tmp_path):
         transcript_path = _write_transcript(tmp_path, _claude_transcript_with_usage())
 

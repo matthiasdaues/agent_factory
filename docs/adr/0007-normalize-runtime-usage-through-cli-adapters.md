@@ -55,8 +55,15 @@ For Pi subprocess trees, resolve the persistence base once as the consumer
 repository's primary checkout and propagate it as validated process context.
 Linked worktrees share Git's common directory, so this keeps descendant
 records outside worktrees that `dispatch_wave` removes after successful merges.
-The capture executable remains resolved from the installed extension source;
-an environment value cannot select arbitrary code to execute.
+The capture executable is resolved from that independently validated primary
+checkout; an environment value cannot select arbitrary code to execute.
+
+Pi performs the smallest reliable synchronous handoff by writing the completed
+stream to Factory's local capture scratch directory. It then detaches
+`usage-capture` with ignored standard streams, so tokenization and persistence
+cannot delay the measured lifecycle or tool result. The detached process owns
+guarded source cleanup. Normal parent exit permits completion; abrupt host or
+process-group termination remains best-effort.
 
 ## Consequences
 
