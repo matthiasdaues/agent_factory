@@ -233,6 +233,14 @@ the primary checkout's `.agent-factory/usage/` directory rather than a
 disposable worktree. An inherited root is trusted only when it matches the
 independently derived primary checkout and Factory-owned layout.
 
+Pi stages each completed stream durably beneath that root, then starts
+`usage-capture` detached with ignored standard streams and returns immediately.
+The detached process owns staged-source cleanup on both success and failure;
+its deletion option refuses arbitrary, traversed, or symlink paths. Only the
+local staging write is synchronous. Normal parent-process exit does not orphan
+the detached capture, but abrupt host shutdown or forced process-group
+termination remains best-effort and may lose an in-flight record.
+
 Pi accounting is non-inclusive across subprocess boundaries. A human or parent
 stream contains the task/result boundary text it consumed, but it does not
 contain the separate model calls made by a `run_agent` or `dispatch_wave`
@@ -272,6 +280,8 @@ records is not aggregation duplication: both model invocations consumed it.
   errors on stderr and returns success. Native lifecycle adapters may suppress
   that stderr as well as swallowing the failure, so session completion and tool
   results are never affected.
+- **Pi persistence is detached:** lifecycle and tool boundaries durably stage
+  locally but never wait for normalization or persistence to complete.
 
 ## Open Questions
 

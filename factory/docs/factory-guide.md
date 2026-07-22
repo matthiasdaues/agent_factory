@@ -70,6 +70,15 @@ directory. Captures therefore remain under the primary checkout even when a
 nested agent runs inside a disposable dispatch worktree. An inherited root is
 accepted only when it agrees with the independently derived checkout and its
 Factory installation; invalid values fall back to repository derivation.
+Pi writes the completed stream to that root's private capture scratch directory
+as a durable handoff, then launches persistence as a detached process with no
+interactive standard streams. Tokenization and record persistence therefore do
+not delay human shutdown or `run_agent` / `dispatch_wave` results. The detached
+process removes its staged source after success or failure; deletion is limited
+to regular, non-symlink files directly inside Factory's capture scratch area.
+Only the local durable staging write remains synchronous. Abrupt host shutdown
+or forced process-group termination can still lose an in-flight best-effort
+capture.
 
 Claude `Stop` records are cumulative snapshots of the main transcript. For
 session totals, select the latest root record and add each distinct

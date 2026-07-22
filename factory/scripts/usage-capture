@@ -861,7 +861,36 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--base-commit", dest="base_commit")
     parser.add_argument("--commit", dest="commit_id")
     parser.add_argument("--exit-status", dest="exit_status")
+    parser.add_argument(
+        "--delete-source",
+        action="store_true",
+        help=(
+            "delete --transcript after capture only when it is a regular, "
+            "non-symlink file directly under .agent-factory/usage/.capture"
+        ),
+    )
     return parser
+
+
+def _delete_factory_staged_source(path: Path, base_dir: Union[str, Path]) -> None:
+    """Delete only a Pi bridge-owned durable handoff file.
+
+    The flag is intentionally not a general unlink primitive: arbitrary,
+    traversed, and symlink paths are retained even when capture was requested
+    with ``--delete-source``.
+    """
+    try:
+        candidate = Path(path)
+        scratch = Path(base_dir).resolve() / ".agent-factory" / "usage" / ".capture"
+        if not candidate.is_absolute() or candidate.is_symlink():
+            return
+        if scratch.is_symlink() or scratch.resolve() != scratch:
+            return
+        if candidate.parent != scratch or not candidate.is_file():
+            return
+        candidate.unlink()
+    except OSError:
+        pass
 
 
 def _next_record_id(usage_dir: Path, session_id: Optional[str]) -> str:
@@ -993,6 +1022,9 @@ def _main(argv: Optional[list] = None) -> int:
         _capture(args)
     except Exception as exc:  # best-effort boundary: never fail the measured run
         print(f"usage-capture: capture failed: {exc}", file=sys.stderr)
+    finally:
+        if args.delete_source:
+            _delete_factory_staged_source(args.transcript, ".")
 
     return 0
 

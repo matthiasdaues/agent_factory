@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -25,17 +26,33 @@ def _init(target: Path) -> None:
 
 def _records(target: Path, session: str) -> list[dict]:
     path = target / ".agent-factory/usage" / f"{session}.jsonl"
+    _wait_for(path.is_file)
     return [json.loads(line) for line in path.read_text().splitlines()]
 
 
-def _run_node(script: Path, *, cwd: Path, env: dict[str, str] | None = None) -> None:
+def _wait_for(predicate, timeout: float = 10) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return
+        time.sleep(0.02)
+    assert predicate(), "condition did not become true before timeout"
+
+
+def _run_node(
+    script: Path,
+    *,
+    cwd: Path,
+    env: dict[str, str] | None = None,
+    timeout: float = 60,
+) -> None:
     result = subprocess.run(
         ["node", "--experimental-strip-types", str(script)],
         cwd=cwd,
         env=env,
         text=True,
         capture_output=True,
-        timeout=60,
+        timeout=timeout,
     )
     assert result.returncode == 0, result.stderr
 
@@ -130,7 +147,12 @@ def _install_typebox_stub(target: Path) -> None:
 
 
 def _exercise_tool(
-    target: Path, extension_name: str, params: dict, env: dict[str, str]
+    target: Path,
+    extension_name: str,
+    params: dict,
+    env: dict[str, str],
+    *,
+    timeout: float = 60,
 ) -> None:
     extension = target / ".pi/extensions" / extension_name
     script = target / f"exercise-{extension_name}.mjs"
@@ -153,9 +175,177 @@ if (result.details?.error) throw new Error(JSON.stringify(result));
         env=env,
         text=True,
         capture_output=True,
-        timeout=60,
+        timeout=timeout,
     )
     assert result.returncode == 0, result.stderr
+
+
+def _install_gated_capture(target: Path, env: dict[str, str]) -> tuple[Path, Path]:
+    script = target / "factory/scripts/usage-capture"
+    real = script.with_name("usage-capture-real")
+    script.rename(real)
+    started = target / "capture-started"
+    gate = target / "capture-release"
+    script.write_text(
+        "#!/bin/sh\n"
+        'touch "$RECON_CAPTURE_STARTED"\n'
+        'while [ ! -e "$RECON_CAPTURE_GATE" ]; do sleep 0.05; done\n'
+        f'exec {real} "$@"\n'
+    )
+    script.chmod(0o755)
+    env["RECON_CAPTURE_STARTED"] = str(started)
+    env["RECON_CAPTURE_GATE"] = str(gate)
+    return started, gate
+
+
+def _release_capture_and_assert_cleanup(target: Path, gate: Path, session: str) -> dict:
+    gate.touch()
+    record = _records(target, session)[0]
+    scratch = target / ".agent-factory/usage/.capture"
+    _wait_for(lambda: not scratch.exists() or not list(scratch.iterdir()))
+    assert (target / record["transcript_ref"]["path"]).is_file()
+    return record
+
+
+def test_RECON0010_human_shutdown_returns_while_capture_is_stalled(tmp_path):
+    _init(tmp_path)
+    env = os.environ.copy()
+    started, gate = _install_gated_capture(tmp_path, env)
+    extension = tmp_path / ".pi/extensions/capture-usage.ts"
+    exercise = tmp_path / "exercise-stalled-human.mjs"
+    exercise.write_text(
+        f"""
+import extension from {json.dumps(extension.as_uri())};
+let shutdown;
+extension({{on(name, handler) {{ if (name === 'session_shutdown') shutdown = handler; }}}});
+const ctx = {{cwd:{json.dumps(str(tmp_path))},sessionManager:{{
+  getSessionFile() {{ return '/sessions/pi-stalled-human.jsonl'; }},
+  getBranch() {{ return [{{type:'message',message:{{role:'assistant',content:[{{type:'text',text:'ok'}}],usage:{{input:3,output:1}}}}}}]; }}
+}}}};
+await shutdown({{type:'session_shutdown'}}, ctx);
+await shutdown({{type:'session_shutdown'}}, ctx);
+"""
+    )
+
+    _run_node(exercise, cwd=tmp_path, env=env, timeout=3)
+    _wait_for(started.is_file)
+    assert not (tmp_path / ".agent-factory/usage/pi-stalled-human.jsonl").exists()
+    records = _release_capture_and_assert_cleanup(tmp_path, gate, "pi-stalled-human")
+    assert records["agent"] == "human"
+
+
+def test_RECON0010_run_agent_returns_while_capture_is_stalled(tmp_path):
+    _init(tmp_path)
+    _install_typebox_stub(tmp_path)
+    env = _install_pi_stub(tmp_path)
+    started, gate = _install_gated_capture(tmp_path, env)
+
+    _exercise_tool(
+        tmp_path,
+        "run-agent.ts",
+        {"agent": "developer-agent", "task": "test", "model": "test/model"},
+        env,
+        timeout=3,
+    )
+    _wait_for(started.is_file)
+    assert not list((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl"))
+    gate.touch()
+    _wait_for(
+        lambda: len(list((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl"))) == 1
+    )
+    record = json.loads(
+        next((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl")).read_text()
+    )
+    _wait_for(lambda: not list((tmp_path / ".agent-factory/usage/.capture").iterdir()))
+    assert record["parent_session_id"] == "pi-human-parent"
+    assert record["depth"] == 1
+
+
+def test_RECON0010_dispatch_wave_returns_while_capture_is_stalled(tmp_path):
+    subprocess.run(
+        ["git", "init", "-b", "main"], cwd=tmp_path, check=True, capture_output=True
+    )
+    (tmp_path / "seed").write_text("seed\n")
+    subprocess.run(["git", "add", "seed"], cwd=tmp_path, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "user.name=Test",
+            "commit",
+            "-m",
+            "seed",
+        ],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+    base = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=tmp_path,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+    _init(tmp_path)
+    _install_typebox_stub(tmp_path)
+    env = _install_pi_stub(tmp_path)
+    started, gate = _install_gated_capture(tmp_path, env)
+
+    _exercise_tool(
+        tmp_path,
+        "dispatch-wave.ts",
+        {
+            "target": "main",
+            "merge": False,
+            "items": [
+                {
+                    "task": "test",
+                    "branch": "test/recon-0010",
+                    "base": base,
+                    "agent": "developer-agent",
+                    "model": "test/model",
+                }
+            ],
+        },
+        env,
+        timeout=3,
+    )
+    _wait_for(started.is_file)
+    assert not list((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl"))
+    gate.touch()
+    _wait_for(
+        lambda: len(list((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl"))) == 1
+    )
+    record = json.loads(
+        next((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl")).read_text()
+    )
+    _wait_for(lambda: not list((tmp_path / ".agent-factory/usage/.capture").iterdir()))
+    assert record["parent_session_id"] == "pi-human-parent"
+    assert record["depth"] == 1
+
+
+def test_RECON0010_async_spawn_error_cleans_staged_source(tmp_path):
+    _init(tmp_path)
+    capture = tmp_path / "factory/scripts/usage-capture"
+    capture.write_text("#!/definitely/missing/interpreter\n")
+    capture.chmod(0o755)
+    bridge = tmp_path / ".pi/extensions/pi-usage.ts"
+    exercise = tmp_path / "exercise-spawn-error.mjs"
+    exercise.write_text(
+        f"""
+import {{capturePiStream}} from {json.dumps(bridge.as_uri())};
+capturePiStream({json.dumps(str(tmp_path))}, '{{"type":"message_end","message":{{"role":"assistant","content":[{{"type":"text","text":"ok"}}],"usage":{{"input":3,"output":1}}}}}}', {{sessionId:'pi-spawn-error'}});
+await new Promise(resolve => setTimeout(resolve, 100));
+"""
+    )
+
+    _run_node(exercise, cwd=tmp_path, timeout=3)
+    scratch = tmp_path / ".agent-factory/usage/.capture"
+    _wait_for(lambda: not scratch.exists() or not list(scratch.iterdir()))
+    assert not (tmp_path / ".agent-factory/usage/pi-spawn-error.jsonl").exists()
 
 
 def test_RECON0006_installed_run_agent_persists_human_parent_and_depth(tmp_path):
@@ -170,6 +360,10 @@ def test_RECON0006_installed_run_agent_persists_human_parent_and_depth(tmp_path)
         env,
     )
 
+    child_files = list((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl"))
+    _wait_for(
+        lambda: len(list((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl"))) == 1
+    )
     child_files = list((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl"))
     assert len(child_files) == 1
     record = json.loads(child_files[0].read_text())
@@ -220,6 +414,9 @@ def test_RECON0006_installed_dispatch_wave_persists_human_parent_and_depth(tmp_p
         env,
     )
 
+    _wait_for(
+        lambda: len(list((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl"))) == 1
+    )
     child_files = list((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl"))
     assert len(child_files) == 1
     record = json.loads(child_files[0].read_text())
@@ -295,7 +492,7 @@ capturePiStream({json.dumps(str(primary))}, '{{"type":"message_end","message":{{
     env["PI_AGENT_FACTORY_USAGE_ROOT"] = str(attacker)
     _run_node(script, cwd=primary, env=env)
 
-    assert (primary / ".agent-factory/usage/pi-safe.jsonl").is_file()
+    _wait_for((primary / ".agent-factory/usage/pi-safe.jsonl").is_file)
     assert not (attacker / "PWNED").exists()
 
 
@@ -390,10 +587,9 @@ process.stdout.write(JSON.stringify({type:'message_end',message:{role:'assistant
     )
 
     assert not (primary / ".agent-factory/worktrees/test-recon-0009").exists()
-    records = [
-        json.loads(path.read_text())
-        for path in (primary / ".agent-factory/usage").glob("pi-*.jsonl")
-    ]
+    usage = primary / ".agent-factory/usage"
+    _wait_for(lambda: len(list(usage.glob("pi-*.jsonl"))) == 2)
+    records = [json.loads(path.read_text()) for path in usage.glob("pi-*.jsonl")]
     assert sorted(record["depth"] for record in records) == [1, 2]
     outer = next(record for record in records if record["depth"] == 1)
     nested = next(record for record in records if record["depth"] == 2)

@@ -1,9 +1,16 @@
 /** Best-effort bridge from Pi JSON streams to the shared usage-capture CLI. */
-import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, realpathSync, unlinkSync, writeFileSync } from "node:fs";
+import { execFileSync, spawn } from "node:child_process";
+import {
+  accessSync,
+  constants,
+  existsSync,
+  mkdirSync,
+  realpathSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { randomUUID } from "node:crypto";
 import { basename, dirname, isAbsolute, join, normalize, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
 export const SESSION_ENV = "PI_AGENT_FACTORY_SESSION_ID";
 export const DEPTH_ENV = "PI_RUN_AGENT_DEPTH";
@@ -25,14 +32,6 @@ interface PiSessionManager {
 
 let fallbackSessionId: string | undefined;
 let cachedUsageRoot: string | undefined;
-
-const CAPTURE_SCRIPT = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
-  "scripts",
-  "usage-capture",
-);
 
 export function newSessionId(): string {
   return `pi-${randomUUID()}`;
@@ -105,33 +104,44 @@ function canonical(path: string): string {
   }
 }
 
-/** Capture exactly one stream. Errors are deliberately swallowed. */
+/** Durably stage one stream and detach persistence from the measured run. */
 export function capturePiStream(cwd: string, stream: string, context: PiCaptureContext): void {
   if (!stream.trim()) return;
   const sessionId = context.sessionId || newSessionId();
   const usageRoot = activeUsageRoot(cwd);
+  const captureScript = join(usageRoot, "factory", "scripts", "usage-capture");
   const scratch = join(usageRoot, ".agent-factory", "usage", ".capture");
   const transcript = join(scratch, `${sessionId}-${randomUUID()}.jsonl`);
   try {
     mkdirSync(scratch, { recursive: true });
     writeFileSync(transcript, stream.endsWith("\n") ? stream : `${stream}\n`, "utf-8");
+    accessSync(captureScript, constants.X_OK);
     const args = [
       "--cli", "pi", "--transcript", transcript, "--session", sessionId,
       "--depth", String(context.depth ?? 0),
+      "--delete-source",
     ];
     if (context.parentSessionId) args.push("--parent-session", context.parentSessionId);
     if (context.agent) args.push("--agent", context.agent);
     if (context.model) args.push("--model", context.model);
     if (context.exitStatus) args.push("--exit-status", context.exitStatus);
-    spawnSync(CAPTURE_SCRIPT, args, {
+    const child = spawn(captureScript, args, {
       cwd: usageRoot,
-      encoding: "utf-8",
       stdio: "ignore",
-      timeout: 30_000,
+      detached: true,
     });
+    child.once("error", () => removeStagedTranscript(transcript));
+    child.unref();
   } catch {
     // Usage telemetry must never affect the measured run.
-  } finally {
-    try { unlinkSync(transcript); } catch { /* absent/unwritable scratch is harmless */ }
+    removeStagedTranscript(transcript);
+  }
+}
+
+function removeStagedTranscript(transcript: string): void {
+  try {
+    unlinkSync(transcript);
+  } catch {
+    // Absent/unwritable scratch is harmless at the best-effort boundary.
   }
 }
