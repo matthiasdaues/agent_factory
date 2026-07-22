@@ -4,8 +4,10 @@ import {
   accessSync,
   constants,
   existsSync,
+  linkSync,
   readFileSync,
   realpathSync,
+  renameSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -111,17 +113,24 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
   const usageRoot = activeUsageRoot(cwd);
   const captureScript = join(usageRoot, "factory", "scripts", "usage-capture");
   const factoryState = join(usageRoot, ".agent-factory", "usage-control", "state.json");
+  const controlDir = join(usageRoot, ".agent-factory", "usage-control");
   const pendingDir = join(usageRoot, ".agent-factory", "usage-control", "pending");
   const scratch = join(usageRoot, ".agent-factory", "usage", ".capture");
   const transcript = join(scratch, `${sessionId}-${randomUUID()}.jsonl`);
-  const marker = join(pendingDir, `${sessionId}-${randomUUID()}.pending.json`);
+  const registrationId = `${sessionId}-${randomUUID()}`;
+  const marker = join(pendingDir, `${registrationId}.pending.json`);
+  const metadataTemp = join(controlDir, `${registrationId}.registration.tmp`);
   try {
     if (canonical(scratch) !== normalize(scratch) || canonical(pendingDir) !== normalize(pendingDir)) {
       throw new Error("usage lifecycle directories are redirected");
     }
-    const state = readActiveState(factoryState);
+    // The hard link atomically snapshots the state inode and makes this
+    // registration visible in one filesystem operation. It therefore orders
+    // unambiguously before or after remove-factory's atomic state replacement.
+    linkSync(factoryState, marker);
+    const state = readActiveState(marker);
     writeFileSync(
-      marker,
+      metadataTemp,
       JSON.stringify({
         generation: state.generation,
         staged_source: transcript,
@@ -130,6 +139,9 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
       }) + "\n",
       { encoding: "utf-8", flag: "wx" },
     );
+    // Atomically replace snapshot contents without a visibility gap in the
+    // pending registry.
+    renameSync(metadataTemp, marker);
     requireEligibleState(factoryState, state.generation);
     writeFileSync(transcript, stream.endsWith("\n") ? stream : `${stream}\n`, {
       encoding: "utf-8",
@@ -153,11 +165,17 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
       stdio: "ignore",
       detached: true,
     });
-    child.once("error", () => removeRegistration(marker, transcript));
+    child.once("error", () => removeRegistration(marker, transcript, metadataTemp));
     child.unref();
-  } catch {
+  } catch (error) {
     // Usage telemetry must never affect the measured run.
-    removeRegistration(marker, transcript);
+    if (isHardLinkCapabilityError(error)) {
+      console.error(
+        "Agent Factory: Pi usage capture unavailable: the project filesystem " +
+          "does not support the required same-volume hard-link registration fence.",
+      );
+    }
+    removeRegistration(marker, transcript, metadataTemp);
   }
 }
 
@@ -179,9 +197,16 @@ function requireEligibleState(path: string, generation: string): void {
   }
 }
 
-function removeRegistration(marker: string, transcript: string): void {
+function isHardLinkCapabilityError(error: unknown): boolean {
+  const code =
+    error && typeof error === "object" && "code" in error ? String(error.code) : "";
+  return ["EACCES", "EPERM", "EXDEV", "ENOTSUP", "EOPNOTSUPP"].includes(code);
+}
+
+function removeRegistration(marker: string, transcript: string, metadataTemp?: string): void {
   removeStagedTranscript(marker);
   removeStagedTranscript(transcript);
+  if (metadataTemp) removeStagedTranscript(metadataTemp);
 }
 
 function removeStagedTranscript(transcript: string): void {

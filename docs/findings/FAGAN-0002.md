@@ -4,7 +4,7 @@ source: fagan-review
 severity: major
 category: defect
 artifact: factory/config/extensions/pi-usage.ts:122
-status: open
+status: resolved
 traces: [ST-0044, ADR-0007, RECON-0012]
 ---
 
@@ -27,3 +27,24 @@ empty. Add a deterministic barrier-based installed-path regression for the
 sequence `read active -> remover sees empty -> create marker`, proving removal
 either drains the registered capture or prevents it without late path
 recreation.
+
+**Resolution:** Pi now creates the final pending marker as a hard link to
+`state.json` before it reads lifecycle state. Hard-link creation and the
+remover's atomic state replacement have a filesystem order: a token linked
+first snapshots the active-generation inode and is visible before drain scans;
+a token linked afterward snapshots drain/cancel and cannot spawn persistence.
+Registration metadata is atomically renamed over that same marker, so it never
+disappears from the registry during conversion.
+
+Drain treats active snapshot tokens as in-flight and aborts boundedly on a
+crashed token, restoring the active installation. Cancel may discard snapshot
+or pending tokens, while committing workers still drain. Initialization probes
+same-volume hard-link support without failing unrelated CLI setup, and both init
+and runtime report a clear limitation instead of silently weakening the fence.
+
+An installed-path regression patches Node's filesystem bindings to pause the
+old implementation after its active read and the new implementation after its
+atomic link. It proves removal remains blocked by the visible token, then by the
+detached worker, before completing without path resurrection. Separate tests
+cover stale-token drain restoration, cancel cleanup, and unsupported-filesystem
+diagnostics.

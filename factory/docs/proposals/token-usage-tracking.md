@@ -249,6 +249,12 @@ with a fixed bound for the registry to empty; timeout restores `active` and
 leaves the installation intact. Successful teardown happens only after the
 commit fence is clear, so late workers cannot resurrect Factory paths. The
 protocol uses atomic filesystem operations and never signals a recorded PID.
+Registration itself is an atomic hard-link snapshot of lifecycle state. A token
+created before the state replacement remains visibly active and must drain; one
+created afterward snapshots drain/cancel and is rejected. Registration metadata
+atomically replaces the token contents without a visibility gap. Same-volume
+file-hardlink support is therefore a Pi capture prerequisite; initialization
+and runtime report its absence while leaving unrelated CLI setup usable.
 
 Pi accounting is non-inclusive across subprocess boundaries. A human or parent
 stream contains the task/result boundary text it consumed, but it does not

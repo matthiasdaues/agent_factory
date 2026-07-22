@@ -198,6 +198,48 @@ def _install_gated_capture(target: Path, env: dict[str, str]) -> tuple[Path, Pat
     return started, gate
 
 
+def _install_registration_barrier(
+    target: Path, env: dict[str, str]
+) -> tuple[Path, Path]:
+    """Pause old state-read fencing or new hard-link fencing at the race."""
+    started = target / "registration-started"
+    gate = target / "registration-release"
+    preload = target / "registration-barrier.cjs"
+    preload.write_text(
+        f"""
+const fs = require('node:fs');
+const moduleApi = require('node:module');
+const started = {json.dumps(str(started))};
+const gate = {json.dumps(str(gate))};
+let blocked = false;
+function barrier() {{
+  if (blocked) return;
+  blocked = true;
+  fs.writeFileSync(started, '');
+  while (!fs.existsSync(gate)) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+}}
+const originalRead = fs.readFileSync;
+fs.readFileSync = function(path, ...args) {{
+  const value = originalRead.call(fs, path, ...args);
+  if (String(path).endsWith('/usage-control/state.json')) {{
+    try {{ if (JSON.parse(String(value)).mode === 'active') barrier(); }} catch {{}}
+  }}
+  return value;
+}};
+const originalLink = fs.linkSync;
+fs.linkSync = function(...args) {{
+  const value = originalLink.apply(fs, args);
+  barrier();
+  return value;
+}};
+moduleApi.syncBuiltinESMExports();
+"""
+    )
+    prior = env.get("NODE_OPTIONS", "")
+    env["NODE_OPTIONS"] = f"{prior} --require={preload}".strip()
+    return started, gate
+
+
 def _release_capture_and_assert_cleanup(target: Path, gate: Path, session: str) -> dict:
     gate.touch()
     record = _records(target, session)[0]
@@ -247,6 +289,69 @@ def test_RECON0012_remove_drains_registered_capture_before_teardown(tmp_path):
     assert not (tmp_path / ".agent-factory").exists()
 
 
+def test_FAGAN0002_registration_snapshot_closes_pre_marker_removal_race(tmp_path):
+    _init(tmp_path)
+    env = os.environ.copy()
+    capture_started, capture_gate = _install_gated_capture(tmp_path, env)
+    registration_started, registration_gate = _install_registration_barrier(
+        tmp_path, env
+    )
+    bridge = tmp_path / ".pi/extensions/pi-usage.ts"
+    exercise = tmp_path / "exercise-registration-race.mjs"
+    exercise.write_text(
+        f"""
+import {{capturePiStream}} from {json.dumps(bridge.as_uri())};
+capturePiStream({json.dumps(str(tmp_path))}, '{{"type":"message_end","message":{{"role":"assistant","content":[{{"type":"text","text":"race"}}],"usage":{{"input":3,"output":1}}}}}}', {{sessionId:'pi-registration-race'}});
+"""
+    )
+    capture = subprocess.Popen(
+        ["node", "--experimental-strip-types", str(exercise)],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    _wait_for(registration_started.is_file)
+    remover = subprocess.Popen(
+        [str(_REMOVE), "--target", str(tmp_path), "--pending-timeout", "5"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    state = tmp_path / ".agent-factory/usage-control/state.json"
+    _wait_for(
+        lambda: (
+            remover.poll() is not None
+            or (state.is_file() and json.loads(state.read_text())["mode"] == "drain")
+        )
+    )
+    pending = tmp_path / ".agent-factory/usage-control/pending"
+    _wait_for(
+        lambda: (
+            remover.poll() is not None
+            or (pending.is_dir() and bool(list(pending.iterdir())))
+        )
+    )
+    removal_waited_for_token = (
+        remover.poll() is None and pending.is_dir() and bool(list(pending.iterdir()))
+    )
+    registration_gate.touch()
+    if removal_waited_for_token:
+        _wait_for(capture_started.is_file)
+        assert remover.poll() is None
+        capture_gate.touch()
+    capture_stdout, capture_stderr = capture.communicate(timeout=10)
+    remover_stdout, remover_stderr = remover.communicate(timeout=10)
+
+    assert removal_waited_for_token
+    assert capture.returncode == 0, capture_stderr or capture_stdout
+    assert remover.returncode == 0, remover_stderr or remover_stdout
+    assert not (tmp_path / ".agent-factory").exists()
+    time.sleep(0.1)
+    assert not (tmp_path / ".agent-factory").exists()
+
+
 def test_RECON0012_drain_timeout_restores_active_installation(tmp_path):
     _init(tmp_path)
     gate, _pending = _start_stalled_direct_capture(tmp_path, "pi-remove-timeout")
@@ -272,6 +377,82 @@ def test_RECON0012_drain_timeout_restores_active_installation(tmp_path):
 
     gate.touch()
     assert _records(tmp_path, "pi-remove-timeout")
+
+
+def test_FAGAN0002_stale_active_snapshot_aborts_drain_and_restores_active(tmp_path):
+    _init(tmp_path)
+    control = tmp_path / ".agent-factory/usage-control"
+    token = control / "pending/stale-active.pending.json"
+    os.link(control / "state.json", token)
+
+    result = subprocess.run(
+        [str(_REMOVE), "--target", str(tmp_path), "--pending-timeout", "0.1"],
+        text=True,
+        capture_output=True,
+        timeout=3,
+    )
+
+    assert result.returncode == 1
+    assert token.is_file()
+    assert json.loads((control / "state.json").read_text())["mode"] == "active"
+
+
+def test_FAGAN0002_cancel_discards_active_snapshot_token(tmp_path):
+    _init(tmp_path)
+    control = tmp_path / ".agent-factory/usage-control"
+    token = control / "pending/stale-active.pending.json"
+    os.link(control / "state.json", token)
+
+    result = subprocess.run(
+        [str(_REMOVE), "--target", str(tmp_path), "--pending-usage", "cancel"],
+        text=True,
+        capture_output=True,
+        timeout=3,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "cancelled 1 pending Pi usage capture" in result.stdout
+    assert not (tmp_path / ".agent-factory").exists()
+
+
+def test_FAGAN0002_unsupported_hardlinks_report_capture_limitation(tmp_path):
+    _init(tmp_path)
+    preload = tmp_path / "unsupported-hardlink.cjs"
+    preload.write_text(
+        """
+const fs = require('node:fs');
+const moduleApi = require('node:module');
+fs.linkSync = function() {
+  const error = new Error('hard links unsupported');
+  error.code = 'EOPNOTSUPP';
+  throw error;
+};
+moduleApi.syncBuiltinESMExports();
+"""
+    )
+    env = os.environ.copy()
+    env["NODE_OPTIONS"] = f"--require={preload}"
+    bridge = tmp_path / ".pi/extensions/pi-usage.ts"
+    exercise = tmp_path / "exercise-unsupported-hardlink.mjs"
+    exercise.write_text(
+        f"""
+import {{capturePiStream}} from {json.dumps(bridge.as_uri())};
+capturePiStream({json.dumps(str(tmp_path))}, '{{"type":"message_end","message":{{"role":"assistant","content":"x"}}}}', {{sessionId:'pi-no-hardlink'}});
+"""
+    )
+
+    result = subprocess.run(
+        ["node", "--experimental-strip-types", str(exercise)],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=5,
+    )
+
+    assert result.returncode == 0
+    assert "Pi usage capture unavailable" in result.stderr
+    assert not list((tmp_path / ".agent-factory/usage-control/pending").iterdir())
 
 
 def test_RECON0012_explicit_cancel_prevents_late_resurrection(tmp_path):

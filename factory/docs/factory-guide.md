@@ -101,6 +101,13 @@ late workers cannot recreate `.agent-factory`. No PIDs are signalled. Completed
 usage and transcripts remain part of the traceless Factory footprint and are
 deleted by a successful uninstall.
 
+The registration fence relies on same-volume file hard links: each pending
+token atomically snapshots lifecycle state before its metadata replaces the
+token contents. `init-factory` probes this capability. If the project filesystem
+does not provide it, setup for Claude, Copilot, Codex, and other Pi assets still
+completes, but init and Pi runtime report that race-safe Pi usage capture is
+unavailable rather than falling back to an unsafe fence.
+
 Claude `Stop` records are cumulative snapshots of the main transcript. For
 session totals, select the latest root record and add each distinct
 `SubagentStop` record once. Claude's `SubagentStop.transcript_path` points to
