@@ -22,6 +22,7 @@ and that no new .gitignore entry was needed for `.agent-factory/usage/`.
 from __future__ import annotations
 
 import importlib.util
+import errno
 import json
 import sys
 from importlib.machinery import SourceFileLoader
@@ -68,6 +69,20 @@ def _has_capture_entry(settings: dict, event: str) -> bool:
 
 
 class TestFreshTarget:
+    def test_FAGAN0002_hardlink_capability_failure_is_reported_not_fatal(
+        self, tmp_path, monkeypatch
+    ):
+        def unsupported_link(*_args, **_kwargs):
+            raise OSError(errno.EOPNOTSUPP, "hard links unsupported")
+
+        monkeypatch.setattr(init_factory.os, "link", unsupported_link)
+        report = []
+
+        init_factory.initialize_usage_lifecycle(tmp_path, report)
+
+        assert (tmp_path / ".agent-factory/usage-control/state.json").is_file()
+        assert any("Pi usage capture unavailable" in line for line in report)
+
     def test_hook_symlinked_into_copied_factory_config(self, tmp_path):
         rc = _run_init(tmp_path)
         assert rc == 0

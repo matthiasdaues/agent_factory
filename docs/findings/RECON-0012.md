@@ -28,7 +28,8 @@ Add a gated installed-path regression that starts a detached Pi capture, runs
 disposition and the absence of post-removal path resurrection.
 
 **Resolution:** `init-factory` now creates a generation state and pending
-registry. Pi registers a durable capture against the active generation and the
+registry. Pi atomically snapshots lifecycle state into a visible hard-link token
+before replacing its contents with durable registration metadata, and the
 detached worker moves its marker from pending to committing before the final
 persistence decision. Default removal transitions to `drain`, allowing every
 eligible pre-transition registration to commit. Explicit `cancel` discards

@@ -901,7 +901,7 @@ def write_manifest(target: Path, install: dict, report: list[str]) -> None:
 
 
 def initialize_usage_lifecycle(target: Path, report: list[str]) -> None:
-    """Pre-create the non-resurrecting Pi registration fence and registry."""
+    """Pre-create and probe the atomic Pi registration fence and registry."""
     control = target / ".agent-factory" / "usage-control"
     (control / "pending").mkdir(parents=True, exist_ok=True)
     (target / ".agent-factory" / "usage" / ".capture").mkdir(
@@ -914,6 +914,17 @@ def initialize_usage_lifecycle(target: Path, report: list[str]) -> None:
             encoding="utf-8",
         )
         log(report, ".agent-factory/usage-control: initialized")
+    probe = control / "pending" / f"hardlink-probe-{uuid.uuid4()}"
+    try:
+        os.link(state, probe)
+    except OSError as exc:
+        log(
+            report,
+            "Pi usage capture unavailable: the project filesystem does not "
+            f"support the required same-volume hard-link registration fence ({exc})",
+        )
+    finally:
+        probe.unlink(missing_ok=True)
 
 
 def _dedup(paths: list[str]) -> list[str]:

@@ -78,6 +78,14 @@ with a fixed bound for the commit fence. A timeout restores the active install
 and aborts teardown. Atomic files and renames provide the portable lifecycle
 protocol; PIDs are diagnostic only and are never signalled.
 
+Registration is lock-free and linearizable: Pi hard-links the lifecycle state
+to its pending token, atomically snapshotting either the active inode before the
+remover's state replacement or the drain/cancel inode after it. Metadata then
+atomically replaces the token contents without making the registration
+invisible. This requires same-volume file hard links; initialization probes the
+capability and reports when Pi capture is unavailable without blocking setup for
+the other CLIs.
+
 ## Consequences
 
 **Positive**
