@@ -114,6 +114,7 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
   const usageRoot = activeUsageRoot(cwd);
   if (!usageRuntimeReady(usageRoot)) return;
   const captureScript = join(usageRoot, "factory", "scripts", "usage-capture-runtime");
+  const bootstrapScript = join(usageRoot, "factory", "scripts", "pi-capture-bootstrap.mjs");
   const factoryState = join(usageRoot, ".agent-factory", "usage-control", "state.json");
   const controlDir = join(usageRoot, ".agent-factory", "usage-control");
   const pendingDir = join(usageRoot, ".agent-factory", "usage-control", "pending");
@@ -123,6 +124,7 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
   const marker = join(pendingDir, `${registrationId}.pending.json`);
   const metadataTemp = join(controlDir, `${registrationId}.registration.tmp`);
   const completionStatus = join(controlDir, `${registrationId}.completion.json`);
+  const acceptanceHandshake = join(controlDir, `${registrationId}.accepted.json`);
   try {
     if (canonical(scratch) !== normalize(scratch) || canonical(pendingDir) !== normalize(pendingDir)) {
       throw new Error("usage lifecycle directories are redirected");
@@ -155,6 +157,7 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
     chmodSync(transcript, 0o600);
     requireEligibleState(factoryState, state.generation);
     accessSync(captureScript, constants.X_OK);
+    accessSync(bootstrapScript, constants.R_OK);
     const args = [
       "--cli", "pi", "--transcript", transcript, "--session", sessionId,
       "--depth", String(context.depth ?? 0),
@@ -167,13 +170,23 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
     if (context.agent) args.push("--agent", context.agent);
     if (context.model) args.push("--model", context.model);
     if (context.exitStatus) args.push("--exit-status", context.exitStatus);
-    const child = spawn(captureScript, [
+    const child = spawn(process.execPath, [
+      bootstrapScript,
+      "--root", usageRoot,
+      "--marker", marker,
+      "--source", transcript,
+      "--status", completionStatus,
+      "--handshake", acceptanceHandshake,
+      "--generation", state.generation,
+      "--supervisor-command",
+      captureScript,
       "--lifecycle", "supervise",
       "--root", usageRoot,
       "--marker", marker,
       "--source", transcript,
       "--status", completionStatus,
       "--generation", state.generation,
+      "--acceptance-handshake", acceptanceHandshake,
       "--capture-command",
       captureScript,
       ...args,
@@ -182,7 +195,7 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
       stdio: "ignore",
       detached: true,
     });
-    child.once("error", () => removeRegistration(marker, transcript, metadataTemp, completionStatus));
+    child.once("error", () => removeRegistration(marker, transcript, metadataTemp, completionStatus, acceptanceHandshake));
     child.unref();
   } catch (error) {
     // Usage telemetry must never affect the measured run.
@@ -192,7 +205,7 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
           "does not support the required same-volume hard-link registration fence.",
       );
     }
-    removeRegistration(marker, transcript, metadataTemp, completionStatus);
+    removeRegistration(marker, transcript, metadataTemp, completionStatus, acceptanceHandshake);
   }
 }
 
@@ -227,11 +240,12 @@ function isHardLinkCapabilityError(error: unknown): boolean {
   return ["EACCES", "EPERM", "EXDEV", "ENOTSUP", "EOPNOTSUPP"].includes(code);
 }
 
-function removeRegistration(marker: string, transcript: string, metadataTemp?: string, completionStatus?: string): void {
+function removeRegistration(marker: string, transcript: string, metadataTemp?: string, completionStatus?: string, acceptanceHandshake?: string): void {
   removeStagedTranscript(marker);
   removeStagedTranscript(transcript);
   if (metadataTemp) removeStagedTranscript(metadataTemp);
   if (completionStatus) removeStagedTranscript(completionStatus);
+  if (acceptanceHandshake) removeStagedTranscript(acceptanceHandshake);
 }
 
 function removeStagedTranscript(transcript: string): void {

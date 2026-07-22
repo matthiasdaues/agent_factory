@@ -265,6 +265,14 @@ durability cost that lets the original disappear immediately; normalization
 and persistence remain detached. The lifecycle uses no Node runtime, so
 standalone Codex remains supported.
 
+Pi wraps Python startup in a tiny Node bootstrap because the interpreter can
+disappear after Pi's durable registration but before the shared supervisor
+starts. Python explicitly accepts ownership with a private generation-bound
+handshake after validating the registration. The bootstrap exits on acceptance;
+before it, launcher failure or bounded timeout performs only guarded cleanup and
+a transcript-free diagnostic. It never tokenizes, persists, implements removal
+policy, or remains as a second full supervisor.
+
 All registrations carry the installation generation in a Factory-owned pending
 registry. Uninstall transitions that generation to `drain` or explicit
 `cancel`: drain permits every eligible pre-transition worker to commit, while

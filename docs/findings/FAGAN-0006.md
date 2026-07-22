@@ -4,7 +4,7 @@ source: fagan-review
 severity: major
 category: defect
 artifact: factory/config/extensions/pi-usage.ts:170
-status: open
+status: resolved
 traces: [ST-0044, ADR-0007, FAGAN-0004]
 ---
 
@@ -33,3 +33,20 @@ supervisor acceptance, then proves terminal cleanup, an owner-private
 diagnostic, bounded successful removal, and no post-removal path resurrection.
 Do not add a second full supervisor, job queue, process manager, or general
 background-work framework.
+
+**Resolution:** Pi now detaches a capture-specific Node bootstrap that owns
+only the interval between durable registration and explicit Python acceptance.
+It validates the canonical Factory root, pending marker, staged source,
+completion status, acceptance path, and generation before launching the trusted
+runtime. The shared Python supervisor writes a private `0600` acceptance file
+immediately after its own validation; observing that exact handshake transfers
+ownership and the bootstrap exits. Python remains the sole normalization,
+persistence, status, diagnostic, and post-acceptance cleanup supervisor.
+
+Before acceptance, launcher spawn/exit and bounded timeout produce a private,
+transcript-free diagnostic and narrowly clean marker, source, status, and
+handshake. Cancel/removal suppresses diagnostics and no path is recreated.
+Installed regressions remove the interpreter after registration, exercise
+successful transfer, timeout, and pre-accept cancel, then prove bounded removal
+and no resurrection. The bootstrap contains no tokenization, persistence,
+drain policy, queue, or general process-management behavior.

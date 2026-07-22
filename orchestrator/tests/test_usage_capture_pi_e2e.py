@@ -55,6 +55,7 @@ def _wait_for_terminal_capture(target: Path) -> None:
             (not pending.exists() or not list(pending.iterdir()))
             and (not scratch.exists() or not list(scratch.iterdir()))
             and not list(control.glob("*.completion.json"))
+            and not list(control.glob("*.accepted.json"))
         )
     )
 
@@ -825,8 +826,136 @@ await new Promise(resolve => setTimeout(resolve, 100));
     scratch = tmp_path / ".agent-factory/usage/.capture"
     _wait_for(lambda: not scratch.exists() or not list(scratch.iterdir()))
     _wait_for_terminal_capture(tmp_path)
-    assert _diagnostics(tmp_path) == []
+    diagnostic = json.loads(_diagnostics(tmp_path)[0].read_text())
+    assert diagnostic["reason"] == "launcher-spawn-enoent"
     assert not (tmp_path / ".agent-factory/usage/pi-spawn-error.jsonl").exists()
+
+
+def test_FAGAN0006_post_registration_interpreter_loss_is_cleaned(tmp_path):
+    _init(tmp_path)
+    launcher = tmp_path / "factory/scripts/usage-capture-runtime"
+    real_launcher = tmp_path / "factory/scripts/usage-capture-runtime-real"
+    launcher.rename(real_launcher)
+    runtime_python = tmp_path / ".agent-factory/usage-runtime/bin/python"
+    launcher.write_text(
+        f'#!/bin/sh\nrm -f {runtime_python}\nexec {real_launcher} "$@"\n'
+    )
+    launcher.chmod(0o755)
+
+    _invoke_direct_pi_capture(tmp_path, "pi-post-registration-interpreter-loss")
+
+    _wait_for_terminal_capture(tmp_path)
+    assert not list((tmp_path / ".agent-factory/usage/.capture").iterdir())
+    assert not list((tmp_path / ".agent-factory/usage-control/pending").iterdir())
+    diagnostic_path = _diagnostics(tmp_path)[0]
+    diagnostic = json.loads(diagnostic_path.read_text())
+    assert diagnostic["reason"] == "launcher-exit-before-acceptance"
+    assert diagnostic["exit_code"] == 71
+    assert stat.S_IMODE(diagnostic_path.parent.stat().st_mode) == 0o700
+    assert stat.S_IMODE(diagnostic_path.stat().st_mode) == 0o600
+    assert "pi-post-registration-interpreter-loss" not in diagnostic_path.read_text()
+    result = subprocess.run(
+        [str(_REMOVE), "--target", str(tmp_path), "--pending-timeout", "1"],
+        text=True,
+        capture_output=True,
+        timeout=3,
+    )
+    assert result.returncode == 0, result.stderr
+    assert not (tmp_path / ".agent-factory").exists()
+
+
+def test_FAGAN0006_acceptance_transfers_cleanup_to_python(tmp_path):
+    _init(tmp_path)
+
+    _invoke_direct_pi_capture(tmp_path, "pi-accepted-supervisor")
+
+    record = _records(tmp_path, "pi-accepted-supervisor")[0]
+    assert record["cli"] == "pi"
+    control = tmp_path / ".agent-factory/usage-control"
+    assert not list(control.glob("*.accepted.json"))
+    assert _diagnostics(tmp_path) == []
+
+
+def test_FAGAN0006_cancel_before_acceptance_does_not_resurrect(tmp_path):
+    _init(tmp_path)
+    launcher = tmp_path / "factory/scripts/usage-capture-runtime"
+    real_launcher = tmp_path / "factory/scripts/usage-capture-runtime-real"
+    launcher.rename(real_launcher)
+    gate = tmp_path / "bootstrap-gate"
+    launcher.write_text(
+        "#!/bin/sh\n"
+        f"while [ ! -e {gate} ]; do sleep 0.02; done\n"
+        f'exec {real_launcher} "$@"\n'
+    )
+    launcher.chmod(0o755)
+
+    _invoke_direct_pi_capture(tmp_path, "pi-bootstrap-cancel")
+    pending = tmp_path / ".agent-factory/usage-control/pending"
+    _wait_for(lambda: bool(list(pending.glob("*.pending.json"))))
+    result = subprocess.run(
+        [str(_REMOVE), "--target", str(tmp_path), "--pending-usage", "cancel"],
+        text=True,
+        capture_output=True,
+        timeout=3,
+    )
+    assert result.returncode == 0, result.stderr
+    gate.touch()
+    time.sleep(0.2)
+
+    assert not (tmp_path / ".agent-factory").exists()
+    assert not (tmp_path / "factory").exists()
+
+
+def test_FAGAN0006_acceptance_timeout_cleans_and_diagnoses(tmp_path):
+    _init(tmp_path)
+    control = tmp_path / ".agent-factory/usage-control"
+    pending = control / "pending"
+    scratch = tmp_path / ".agent-factory/usage/.capture"
+    generation = json.loads((control / "state.json").read_text())["generation"]
+    source = scratch / "timeout.jsonl"
+    source.write_text("staged\n")
+    marker = pending / "timeout.pending.json"
+    marker.write_text(
+        json.dumps({"generation": generation, "staged_source": str(source)}) + "\n"
+    )
+    handshake = control / "timeout.accepted.json"
+    status = control / "timeout.completion.json"
+    launcher = tmp_path / "factory/scripts/usage-capture-runtime"
+    launcher.write_text("#!/bin/sh\nsleep 0.3\n")
+    launcher.chmod(0o755)
+
+    result = subprocess.run(
+        [
+            "node",
+            str(tmp_path / "factory/scripts/pi-capture-bootstrap.mjs"),
+            "--root",
+            str(tmp_path),
+            "--marker",
+            str(marker),
+            "--source",
+            str(source),
+            "--status",
+            str(status),
+            "--handshake",
+            str(handshake),
+            "--generation",
+            generation,
+            "--accept-timeout-ms",
+            "100",
+            "--supervisor-command",
+            str(launcher),
+        ],
+        text=True,
+        capture_output=True,
+        timeout=2,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert not marker.exists()
+    assert not source.exists()
+    assert not handshake.exists()
+    diagnostic = json.loads(_diagnostics(tmp_path)[0].read_text())
+    assert diagnostic["reason"] == "acceptance-timeout"
 
 
 def test_FAGAN0004_missing_runtime_interpreter_reaches_terminal_state(tmp_path):
