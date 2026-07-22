@@ -51,6 +51,12 @@ Persist the exact tokenized text as a local transcript copy referenced by the
 record. Keep retention, aggregation, presentation, PostgreSQL storage, cost
 rates, and enforcement out of this release under YAGNI.
 
+Treat provider and hook identifiers as opaque data. A central storage-path
+mapper preserves only bounded lowercase legacy-safe components and otherwise
+uses fixed digest keys, retaining raw identifiers in records. Reject symlinked
+or non-directory storage components, create transcript evidence exclusively
+without following links, and append session records without following links.
+
 For Pi subprocess trees, resolve the persistence base once as the consumer
 repository's primary checkout and propagate it as validated process context.
 Linked worktrees share Git's common directory, so this keeps descendant

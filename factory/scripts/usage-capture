@@ -43,14 +43,114 @@ them (`transcript_ref`, `base_commit`/`commit_id`).
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import re
+import stat
 import sys
 import uuid
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Optional, Protocol, Union, runtime_checkable
+
+_DIRECTORY_MODE = 0o755  # SEC-0002 owns tightening storage permissions.
+_FILE_MODE = 0o644
+_OPAQUE_PREFIX = "opaque-"
+_LEGACY_SAFE_COMPONENT = re.compile(r"^[a-z0-9][a-z0-9._-]{0,99}$")
+_WINDOWS_DEVICE_STEMS = {
+    "con",
+    "prn",
+    "aux",
+    "nul",
+    *(f"com{number}" for number in range(1, 10)),
+    *(f"lpt{number}" for number in range(1, 10)),
+}
+
+
+def filesystem_key(opaque_id: object) -> str:
+    """Map an opaque external identifier to one safe filesystem component.
+
+    Existing bounded lowercase identifiers retain their historical layout.
+    Everything else gets a fixed-size digest name; the original value stays
+    in the JSON record and is never recovered from the pathname.
+    """
+    raw = str(opaque_id)
+    stem = raw.split(".", 1)[0]
+    legacy_safe = (
+        bool(_LEGACY_SAFE_COMPONENT.fullmatch(raw))
+        and raw not in (".", "..")
+        and not raw.startswith(_OPAQUE_PREFIX)
+        and stem not in _WINDOWS_DEVICE_STEMS
+        and not raw.endswith((".", " "))
+    )
+    if legacy_safe:
+        return raw
+    digest = hashlib.sha256(raw.encode("utf-8", errors="surrogatepass")).hexdigest()
+    return f"{_OPAQUE_PREFIX}{digest}"
+
+
+def _write_all(fd: int, data: bytes) -> None:
+    view = memoryview(data)
+    while view:
+        written = os.write(fd, view)
+        if written <= 0:
+            raise OSError("short write while persisting usage evidence")
+        view = view[written:]
+
+
+class UsageStoragePaths:
+    """Central, contained filesystem layout for opaque usage identifiers."""
+
+    def __init__(self, base_dir: Union[str, Path] = ".") -> None:
+        self.base_dir = Path(base_dir).resolve()
+        self.agent_dir = self.base_dir / ".agent-factory"
+        self.usage_dir = self.agent_dir / "usage"
+        self.transcripts_dir = self.usage_dir / "transcripts"
+
+    @staticmethod
+    def _ensure_directory(path: Path) -> None:
+        try:
+            path.mkdir(mode=_DIRECTORY_MODE)
+        except FileExistsError:
+            pass
+        info = path.lstat()
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+            raise OSError(f"unsafe usage storage directory: {path}")
+
+    @staticmethod
+    def _require_regular_if_present(path: Path) -> None:
+        try:
+            info = path.lstat()
+        except FileNotFoundError:
+            return
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
+            raise OSError(f"unsafe usage storage file: {path}")
+
+    def ensure_layout(self) -> None:
+        self._ensure_directory(self.agent_dir)
+        self._ensure_directory(self.usage_dir)
+        self._ensure_directory(self.transcripts_dir)
+
+    def session_path(self, session_id: object) -> Path:
+        return self.usage_dir / f"{filesystem_key(session_id)}.jsonl"
+
+    def transcript_directory(self, session_id: object) -> Path:
+        return self.transcripts_dir / filesystem_key(session_id)
+
+    def transcript_path(self, session_id: object, record_id: object) -> Path:
+        return self.transcript_directory(session_id) / f"{filesystem_key(record_id)}.jsonl"
+
+    def existing_record_count(self, session_id: object) -> int:
+        self.ensure_layout()
+        path = self.session_path(session_id)
+        self._require_regular_if_present(path)
+        try:
+            text = path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            return 0
+        return sum(1 for line in text.splitlines() if line.strip())
 
 # ── Tokenizer ────────────────────────────────────────────────────────────
 
@@ -259,7 +359,8 @@ class JsonlLoggingAdapter:
     """
 
     def __init__(self, base_dir: Union[str, Path] = ".") -> None:
-        self._usage_dir = Path(base_dir) / ".agent-factory" / "usage"
+        self._storage = UsageStoragePaths(base_dir)
+        self._usage_dir = self._storage.usage_dir
 
     def record(self, usage_record: "UsageRecord", transcript_text: str) -> None:
         try:
@@ -273,22 +374,48 @@ class JsonlLoggingAdapter:
 
     def _write(self, usage_record: "UsageRecord", transcript_text: str) -> None:
         session_id = usage_record.session_id or "unknown"
-
-        # Persist the transcript copy first so transcript_ref is set
-        # before the record line below is serialized.
-        transcript_dir = self._usage_dir / "transcripts" / session_id
-        transcript_dir.mkdir(parents=True, exist_ok=True)
-        transcript_path = transcript_dir / f"{usage_record.record_id}.jsonl"
-        transcript_path.write_text(transcript_text, encoding="utf-8")
-        usage_record.transcript_ref = TranscriptRef(path=str(transcript_path))
-
-        line = (json.dumps(usage_record.to_dict()) + "\n").encode("utf-8")
-        session_path = self._usage_dir / f"{session_id}.jsonl"
-        fd = os.open(session_path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o644)
+        self._storage.ensure_layout()
+        transcript_dir = self._storage.transcript_directory(session_id)
+        self._storage._ensure_directory(transcript_dir)
+        transcript_path = self._storage.transcript_path(
+            session_id, usage_record.record_id
+        )
+        transcript_flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(
+            os, "O_NOFOLLOW", 0
+        )
+        fd = os.open(transcript_path, transcript_flags, _FILE_MODE)
         try:
-            os.write(fd, line)
+            if not stat.S_ISREG(os.fstat(fd).st_mode):
+                raise OSError(f"unsafe transcript target: {transcript_path}")
+            _write_all(fd, transcript_text.encode("utf-8"))
         finally:
             os.close(fd)
+
+        usage_record.transcript_ref = TranscriptRef(path=str(transcript_path))
+        session_path = self._storage.session_path(session_id)
+        line = (json.dumps(usage_record.to_dict()) + "\n").encode("utf-8")
+        session_flags = os.O_APPEND | os.O_CREAT | os.O_WRONLY | getattr(
+            os, "O_NOFOLLOW", 0
+        )
+        try:
+            self._storage._require_regular_if_present(session_path)
+            fd = os.open(session_path, session_flags, _FILE_MODE)
+            try:
+                if not stat.S_ISREG(os.fstat(fd).st_mode):
+                    raise OSError(f"unsafe usage record target: {session_path}")
+                # Keep one write for the atomic O_APPEND record contract.
+                written = os.write(fd, line)
+                if written != len(line):
+                    raise OSError("short write while appending usage record")
+            finally:
+                os.close(fd)
+        except Exception:
+            usage_record.transcript_ref = None
+            try:
+                transcript_path.unlink()
+            except OSError:
+                pass
+            raise
 
 
 # ── Transcript-normalizer seam (per CLI) (ST-0037) ───────────────────────
@@ -962,21 +1089,14 @@ def _pi_persistence_fence(args: argparse.Namespace, base_dir: Union[str, Path]):
                 pass
 
 
-def _next_record_id(usage_dir: Path, session_id: Optional[str]) -> str:
+def _next_record_id(storage: UsageStoragePaths, session_id: Optional[str]) -> str:
     """`record_id` for one capture, continuing *session_id*'s sequence
     already on disk (see `RecordIdSequencer.seed`'s docstring for why: this
     CLI is a new process per invocation, so an unseeded sequencer would
     restart at `-0001` every call)."""
     sequencer = RecordIdSequencer()
     if session_id:
-        session_file = usage_dir / f"{session_id}.jsonl"
-        if session_file.exists():
-            existing = sum(
-                1
-                for line in session_file.read_text(encoding="utf-8").splitlines()
-                if line.strip()
-            )
-            sequencer.seed(session_id, existing)
+        sequencer.seed(session_id, storage.existing_record_count(session_id))
     return sequencer.next_id(session_id)
 
 
@@ -1001,8 +1121,8 @@ def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> None
     normalized_input = count_tokens(transcript.input_text)
     normalized_output = count_tokens(transcript.output_text)
 
-    usage_dir = Path(base_dir) / ".agent-factory" / "usage"
-    record_id = _next_record_id(usage_dir, args.session_id)
+    storage = UsageStoragePaths(base_dir)
+    record_id = _next_record_id(storage, args.session_id)
 
     record = UsageRecord(
         record_id=record_id,

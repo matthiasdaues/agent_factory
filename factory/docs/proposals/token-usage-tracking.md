@@ -131,12 +131,12 @@ git, and the transcript is persisted separately and linked.
 ## Persistence
 
 - **Append-only JSONL**, one record per line, at
-  `.agent-factory/usage/<session_id>.jsonl`, **git-ignored** (runtime telemetry:
+  `.agent-factory/usage/<session-key>.jsonl`, **git-ignored** (runtime telemetry:
   append-only, unbounded, and noise in history). POSIX `O_APPEND` makes
   concurrent appends atomic, so parallel dispatch — many sub-agents writing at
   once — is safe with no locking.
 - **The tokenized transcript is persisted** as a copy under
-  `.agent-factory/usage/transcripts/<session_id>/<record_id>.jsonl`, and
+  `.agent-factory/usage/transcripts/<session-key>/<record-key>.jsonl`, and
   `transcript_ref` points at it. This keeps the audit link from dangling when a
   CLI cleans up its own scratch transcript. Storage is local, ignored, and
   prunable by session.
@@ -285,6 +285,12 @@ records is not aggregation duplication: both model invocations consumed it.
   not make sequence allocation atomic across simultaneous same-session writers.
 - **Retention** of transcripts is manual and per-session for now; pruning
   policy is deferred with the rest of the read side.
+- **Opaque identifiers never become paths directly.** Bounded lowercase ASCII
+  identifiers that were already safe retain their historical layout. All other
+  session and record identifiers map to fixed `opaque-<sha256>` filesystem keys;
+  the original values remain only in the JSON record. Every storage component
+  rejects symlinks, transcripts are created exclusively with no-follow semantics,
+  and session records are appended without following links.
 - **Failure is silent to the run:** direct `usage-capture` invocation reports
   errors on stderr and returns success. Native lifecycle adapters may suppress
   that stderr as well as swallowing the failure, so session completion and tool
@@ -307,7 +313,7 @@ records is not aggregation duplication: both model invocations consumed it.
 The release is complete when:
 
 - `factory/scripts/usage-capture` exists and, given a transcript and context,
-  writes a well-formed record to `.agent-factory/usage/<session_id>.jsonl` and
+  writes a well-formed record to `.agent-factory/usage/<session-key>.jsonl` and
   persists the linked transcript copy.
 - Records carry `normalized_*` counts produced by `cl100k_base` over the full
   transcript, with `reported_*` populated where the transcript provides it.
