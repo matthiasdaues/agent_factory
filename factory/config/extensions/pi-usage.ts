@@ -1,12 +1,14 @@
 /** Best-effort bridge from Pi JSON streams to the shared usage-capture CLI. */
-import { spawnSync } from "node:child_process";
-import { mkdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, realpathSync, unlinkSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { basename, join } from "node:path";
+import { basename, dirname, isAbsolute, join, normalize, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export const SESSION_ENV = "PI_AGENT_FACTORY_SESSION_ID";
 export const DEPTH_ENV = "PI_RUN_AGENT_DEPTH";
 export const INLINE_CAPTURE_ENV = "PI_AGENT_FACTORY_INLINE_CAPTURE";
+export const USAGE_ROOT_ENV = "PI_AGENT_FACTORY_USAGE_ROOT";
 
 export interface PiCaptureContext {
   sessionId?: string;
@@ -22,6 +24,15 @@ interface PiSessionManager {
 }
 
 let fallbackSessionId: string | undefined;
+let cachedUsageRoot: string | undefined;
+
+const CAPTURE_SCRIPT = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "scripts",
+  "usage-capture",
+);
 
 export function newSessionId(): string {
   return `pi-${randomUUID()}`;
@@ -36,11 +47,70 @@ export function activeSessionId(sessionManager?: PiSessionManager): string {
   return fallbackSessionId;
 }
 
+/**
+ * Resolve one persistent consumer root for the complete Pi process tree.
+ *
+ * Linked worktrees share the primary checkout's git common directory.  That
+ * makes its parent a stable persistence root even after a dispatch worktree is
+ * removed.  An inherited value is accepted only when it agrees with this
+ * independently derived root, preventing environment-controlled executable
+ * selection or telemetry redirection.
+ */
+export function activeUsageRoot(cwd: string): string {
+  if (cachedUsageRoot) return cachedUsageRoot;
+  const absoluteCwd = canonical(resolve(cwd));
+  const derived = gitPrimaryRoot(absoluteCwd);
+  const inherited = trustedInheritedRoot(process.env[USAGE_ROOT_ENV], derived, absoluteCwd);
+  cachedUsageRoot = inherited ?? derived ?? absoluteCwd;
+  process.env[USAGE_ROOT_ENV] = cachedUsageRoot;
+  return cachedUsageRoot;
+}
+
+function trustedInheritedRoot(
+  value: string | undefined,
+  derived: string | undefined,
+  cwd: string,
+): string | undefined {
+  if (!value || value.includes("\0") || !isAbsolute(value) || normalize(value) !== value) {
+    return undefined;
+  }
+  const candidate = canonical(value);
+  if (derived && candidate !== derived) return undefined;
+  if (!derived && candidate !== cwd) return undefined;
+  if (!existsSync(join(candidate, ".agent-factory", "factory-install.json"))) return undefined;
+  if (!existsSync(join(candidate, "factory", "scripts", "usage-capture"))) return undefined;
+  return candidate;
+}
+
+function gitPrimaryRoot(cwd: string): string | undefined {
+  try {
+    const common = execFileSync(
+      "git",
+      ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+      { cwd, encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] },
+    ).trim();
+    if (!common || !isAbsolute(common)) return undefined;
+    const root = canonical(dirname(common));
+    return existsSync(join(root, "factory", "scripts", "usage-capture")) ? root : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function canonical(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return normalize(path);
+  }
+}
+
 /** Capture exactly one stream. Errors are deliberately swallowed. */
 export function capturePiStream(cwd: string, stream: string, context: PiCaptureContext): void {
   if (!stream.trim()) return;
   const sessionId = context.sessionId || newSessionId();
-  const scratch = join(cwd, ".agent-factory", "usage", ".capture");
+  const usageRoot = activeUsageRoot(cwd);
+  const scratch = join(usageRoot, ".agent-factory", "usage", ".capture");
   const transcript = join(scratch, `${sessionId}-${randomUUID()}.jsonl`);
   try {
     mkdirSync(scratch, { recursive: true });
@@ -53,8 +123,8 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
     if (context.agent) args.push("--agent", context.agent);
     if (context.model) args.push("--model", context.model);
     if (context.exitStatus) args.push("--exit-status", context.exitStatus);
-    spawnSync(join(cwd, "factory", "scripts", "usage-capture"), args, {
-      cwd,
+    spawnSync(CAPTURE_SCRIPT, args, {
+      cwd: usageRoot,
       encoding: "utf-8",
       stdio: "ignore",
       timeout: 30_000,

@@ -51,6 +51,13 @@ Persist the exact tokenized text as a local transcript copy referenced by the
 record. Keep retention, aggregation, presentation, PostgreSQL storage, cost
 rates, and enforcement out of this release under YAGNI.
 
+For Pi subprocess trees, resolve the persistence base once as the consumer
+repository's primary checkout and propagate it as validated process context.
+Linked worktrees share Git's common directory, so this keeps descendant
+records outside worktrees that `dispatch_wave` removes after successful merges.
+The capture executable remains resolved from the installed extension source;
+an environment value cannot select arbitrary code to execute.
+
 ## Consequences
 
 **Positive**

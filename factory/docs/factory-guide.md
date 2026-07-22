@@ -64,6 +64,13 @@ separate Pi subprocess's model calls are not included in its parent's provider
 or normalized totals. Boundary task/result text can occur in both records
 because both model invocations consumed it.
 
+All processes in a Pi invocation tree inherit one validated canonical usage
+root: the consumer project's primary checkout, derived from Git's shared common
+directory. Captures therefore remain under the primary checkout even when a
+nested agent runs inside a disposable dispatch worktree. An inherited root is
+accepted only when it agrees with the independently derived checkout and its
+Factory installation; invalid values fall back to repository derivation.
+
 Claude `Stop` records are cumulative snapshots of the main transcript. For
 session totals, select the latest root record and add each distinct
 `SubagentStop` record once. Claude's `SubagentStop.transcript_path` points to
