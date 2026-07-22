@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import stat
 import subprocess
 import time
@@ -14,6 +15,10 @@ import pytest
 _ROOT = Path(__file__).resolve().parents[2]
 _INIT = _ROOT / "factory/scripts/init-factory"
 _REMOVE = _ROOT / "factory/scripts/remove-factory"
+_REGISTRATION_ARTIFACT = re.compile(
+    r"-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    r"(?:\.(?:pending|committing)\.json|\.completion\.json|\.jsonl)$"
+)
 
 
 def _init(target: Path) -> None:
@@ -52,6 +57,39 @@ def _wait_for_terminal_capture(target: Path) -> None:
             and not list(control.glob("*.completion.json"))
         )
     )
+
+
+def _wait_for_no_registered_capture(target: Path) -> None:
+    """Wait for real UUID registrations, ignoring synthetic fence fixtures."""
+    pending = target / ".agent-factory/usage-control/pending"
+    scratch = target / ".agent-factory/usage/.capture"
+    control = target / ".agent-factory/usage-control"
+
+    def registration_artifacts() -> list[Path]:
+        paths = []
+        for directory in (pending, scratch, control):
+            if directory.is_dir():
+                paths.extend(
+                    path
+                    for path in directory.iterdir()
+                    if _REGISTRATION_ARTIFACT.search(path.name)
+                )
+        return paths
+
+    _wait_for(lambda: not registration_artifacts())
+
+
+@pytest.fixture(autouse=True)
+def _settle_installed_pi_captures(tmp_path: Path):
+    """Do not return a Pi E2E tmp tree while its supervisor can mutate it."""
+    yield
+    controls = [
+        path
+        for path in tmp_path.rglob("usage-control")
+        if path.parent.name == ".agent-factory" and path.is_dir()
+    ]
+    for control in controls:
+        _wait_for_no_registered_capture(control.parent.parent)
 
 
 def _invoke_direct_pi_capture(target: Path, session: str) -> None:

@@ -52,3 +52,22 @@ retaining transcript text. Explicit cancel is benign and diagnostics cannot
 recreate removed lifecycle paths. Installed Pi tests now wait for pending,
 committing, scratch, and completion artifacts to settle; the Pi E2E suite exits
 cleanly under `-W error`.
+
+A post-merge full-suite run appeared to reproduce the cleanup warning, but the
+reported path was a stale pytest garbage tree from the synchronous
+`test_modes_are_exact_independent_of_umask[0777]` unit test. Its empty
+`.agent-factory` directory had mode `000`, a fixed old mtime, and no pending,
+committing, completion, scratch, or transcript artifact. Repeated runs merely
+renamed that same undeletable inode to a new `garbage-<uuid>` path; no Pi
+supervisor was mutating it.
+
+The audit did identify a separate harness hardening opportunity: successful
+record-reading helpers waited for terminal cleanup, but direct and failure-path
+tests did not all pass through those helpers. The Pi E2E module now has an
+automatic teardown fence that discovers every installed Factory root created
+below that test's temporary directory and waits for real UUID-backed supervisor
+artifacts to settle. Synthetic markers used to exercise drain and validation
+remain outside that fence. This keeps the nonblocking production boundary
+intact while ensuring no test releases a temporary tree that its detached
+capture can still mutate. The exact full `orchestrator/tests/` suite is the
+regression boundary, not warning suppression.
