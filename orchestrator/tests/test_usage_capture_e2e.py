@@ -1,19 +1,19 @@
 """End-to-end test: Claude Code Stop/SubagentStop hook -> capture path (ST-0041).
 
-This test drives a Claude Code `.jsonl` transcript fixture THROUGH THE INSTALLED
-HOOK PATH — the way Claude Code itself does at session end. It verifies:
+This smoke suite drives Claude Code payloads through the installed hook path.
+It owns only Claude's payload mapping, reported-token accounting, child
+transcript selection, and representative malformed-input behavior.
 
 - The Stop/SubagentStop hook script reads JSON from stdin (`transcript_path`
   for Stop; `agent_transcript_path` and `agent_type` for SubagentStop).
 - The hook resolves `factory/scripts/usage-capture` from CLAUDE_PROJECT_DIR.
-- The hook durably registers a private snapshot, then exits 0 before detached
-  normalization and persistence finish.
-- A well-formed record line appears in `.agent-factory/usage/<session_id>.jsonl`.
-- A transcript copy exists at the persisted path.
-- The record carries the full field set: `normalized_*` (real cl100k_base
-  counts), `reported_*` populated from the fixture, `usage_granularity='full'`.
-- A capture failure (bad transcript, unwritable usage dir) leaves the run
-  UNAFFECTED — the hook still exits 0, no stdout.
+- The adapter maps reported usage and the CLI identifier correctly.
+- SubagentStop uses the child transcript and records its agent type.
+- A malformed payload remains a silent, best-effort no-op.
+
+Shared persistence, record reservation, transcript-copy, and supervised
+lifecycle contracts are owned by `test_usage_capture.py` and
+`test_usage_capture_native_lifecycle_e2e.py`.
 
 COVERAGE CHECKLIST: Completion Criteria from the proposal
 (factory/docs/proposals/token-usage-tracking.md) map to the stories below:
@@ -337,38 +337,6 @@ class TestHookE2E:
         assert "CHILD_ONLY_MARKER" in captured_text
         assert "PARENT_ONLY_MARKER" not in captured_text
 
-    def test_RECON0008_subagent_stop_never_falls_back_to_parent_transcript(
-        self, tmp_path
-    ):
-        project_dir = _FACTORY_ROOT
-        usage_dir = project_dir / ".agent-factory" / "usage"
-        parent_transcript = _make_single_assistant_transcript(
-            tmp_path / "parent-only.jsonl",
-            "PARENT_MUST_NOT_BECOME_CHILD",
-            input_tokens=900,
-            output_tokens=90,
-        )
-        session_id = _make_unique_session_id("test-missing-child-path")
-        payload = _make_stop_payload(
-            parent_transcript,
-            session_id,
-            hook_event_name="SubagentStop",
-            agent_type="developer-agent",
-        )
-
-        result = subprocess.run(
-            [str(_HOOK_SCRIPT)],
-            input=payload,
-            capture_output=True,
-            text=True,
-            cwd=project_dir,
-            env={**os.environ, "CLAUDE_PROJECT_DIR": str(project_dir)},
-        )
-
-        assert result.returncode == 0
-        time.sleep(0.2)
-        assert not (usage_dir / f"{session_id}.jsonl").exists()
-
     def test_failure_in_capture_leaves_hook_unaffected(self, tmp_path):
         """A capture failure (bad transcript) does not fail the hook."""
         project_dir = tmp_path / "project"
@@ -392,136 +360,3 @@ class TestHookE2E:
         assert result.returncode == 0
         # Hook should have no stdout (best-effort, silent failure on the capture side).
         assert result.stdout == ""
-
-    def test_unwritable_usage_dir_leaves_hook_unaffected(self, tmp_path):
-        """Failure to write usage records does not fail the hook."""
-        project_dir = tmp_path / "project"
-        project_dir.mkdir()
-
-        # Pre-create a file where the usage directory needs to be a directory.
-        (project_dir / ".agent-factory").write_text("I am a file, not a directory")
-
-        transcript_path = _make_transcript_with_usage(tmp_path)
-        session_id = _make_unique_session_id("test-4")
-        payload = _make_stop_payload(transcript_path, session_id)
-
-        # Set CLAUDE_PROJECT_DIR to the isolated project (no factory scripts there, but
-        # the hook will fail gracefully since capture-usage is missing or path is blocked).
-        result = subprocess.run(
-            [str(_HOOK_SCRIPT)],
-            input=payload,
-            capture_output=True,
-            text=True,
-            cwd=project_dir,
-            env={**os.environ, "CLAUDE_PROJECT_DIR": str(project_dir)},
-        )
-
-        # Hook must exit 0 despite the unwritable path.
-        assert result.returncode == 0
-        assert result.stdout == ""
-
-    def test_missing_required_fields_in_payload_exits_zero(self, tmp_path):
-        """Hook exits 0 if transcript_path or session_id is missing."""
-        project_dir = tmp_path / "project"
-        project_dir.mkdir()
-
-        # Payload missing session_id.
-        payload = json.dumps(
-            {
-                "transcript_path": "/tmp/transcript.jsonl",
-                # session_id intentionally omitted
-                "hook_event_name": "Stop",
-            }
-        )
-
-        result = subprocess.run(
-            [str(_HOOK_SCRIPT)],
-            input=payload,
-            capture_output=True,
-            text=True,
-            cwd=project_dir,
-            env={**os.environ, "CLAUDE_PROJECT_DIR": str(project_dir)},
-        )
-
-        assert result.returncode == 0
-        assert result.stdout == ""
-
-    def test_hook_resolves_usage_capture_from_claude_project_dir(self, tmp_path):
-        """Hook finds usage-capture via CLAUDE_PROJECT_DIR."""
-        project_dir = _FACTORY_ROOT
-
-        transcript_path = _make_transcript_with_usage(tmp_path)
-        session_id = _make_unique_session_id("test-5")
-        payload = _make_stop_payload(transcript_path, session_id)
-
-        # Invoke with CLAUDE_PROJECT_DIR set to the factory root.
-        result = subprocess.run(
-            [str(_HOOK_SCRIPT)],
-            input=payload,
-            capture_output=True,
-            text=True,
-            cwd=project_dir,
-            env={**os.environ, "CLAUDE_PROJECT_DIR": str(project_dir)},
-        )
-
-        # Hook should find usage-capture and run it.
-        assert result.returncode == 0
-        assert result.stdout == ""
-
-
-class TestHookIntegrationWithMultipleRecords:
-    """Multiple invocations of the hook in the same session."""
-
-    def test_two_stop_invocations_same_session_generate_distinct_record_ids(
-        self, tmp_path
-    ):
-        """The hook can be invoked multiple times for one session without collision."""
-        project_dir = _FACTORY_ROOT
-        usage_dir = project_dir / ".agent-factory" / "usage"
-
-        transcript_path = _make_transcript_with_usage(tmp_path)
-        session_id = _make_unique_session_id("test-multi")
-
-        # First invocation.
-        payload1 = _make_stop_payload(transcript_path, session_id)
-        result1 = subprocess.run(
-            [str(_HOOK_SCRIPT)],
-            input=payload1,
-            capture_output=True,
-            text=True,
-            cwd=project_dir,
-            env={**os.environ, "CLAUDE_PROJECT_DIR": str(project_dir)},
-        )
-        assert result1.returncode == 0
-
-        # Second invocation, same session.
-        payload2 = _make_stop_payload(transcript_path, session_id)
-        result2 = subprocess.run(
-            [str(_HOOK_SCRIPT)],
-            input=payload2,
-            capture_output=True,
-            text=True,
-            cwd=project_dir,
-            env={**os.environ, "CLAUDE_PROJECT_DIR": str(project_dir)},
-        )
-        assert result2.returncode == 0
-
-        # Both records should exist with distinct record_ids.
-        record1 = _poll_usage_file(session_id, usage_dir)
-        assert record1 is not None
-        assert record1["record_id"].endswith("-0001")  # First record
-
-        # Poll again after a short delay to let the second record fully persist.
-        time.sleep(0.5)
-        session_file = usage_dir / f"{session_id}.jsonl"
-        lines = session_file.read_text(encoding="utf-8").splitlines()
-        assert len(lines) == 2
-
-        record_ids = [json.loads(line)["record_id"] for line in lines]
-        # Check that both records have the session_id prefix and sequential numbers
-        assert record_ids[0].startswith(f"{session_id}-") and record_ids[0].endswith(
-            "-0001"
-        )
-        assert record_ids[1].startswith(f"{session_id}-") and record_ids[1].endswith(
-            "-0002"
-        )

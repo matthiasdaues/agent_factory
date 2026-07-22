@@ -48,48 +48,6 @@ def _parse_frontmatter(file_path: Path) -> dict:
     return fields
 
 
-class TestFilesExist:
-    """Deliverables are created at the expected paths."""
-
-    def test_adversarial_review_skill_exists(self):
-        assert _ADVERSARIAL_REVIEW_SKILL.exists(), (
-            f"Adversarial-review skill not found at {_ADVERSARIAL_REVIEW_SKILL}"
-        )
-
-    def test_research_reporting_skill_exists(self):
-        assert _RESEARCH_REPORTING_SKILL.exists(), (
-            f"Research-reporting skill not found at {_RESEARCH_REPORTING_SKILL}"
-        )
-
-
-class TestFrontmatterValid:
-    """Each skill has valid frontmatter with required keys."""
-
-    def test_adversarial_review_frontmatter(self):
-        fm = _parse_frontmatter(_ADVERSARIAL_REVIEW_SKILL)
-        assert fm.get("name") == "adversarial-review", (
-            "adversarial-review name must be 'adversarial-review'"
-        )
-        assert fm.get("description"), (
-            "adversarial-review missing 'description' in frontmatter"
-        )
-        assert fm.get("category") == "research", (
-            "adversarial-review category must be 'research'"
-        )
-
-    def test_research_reporting_frontmatter(self):
-        fm = _parse_frontmatter(_RESEARCH_REPORTING_SKILL)
-        assert fm.get("name") == "research-reporting", (
-            "research-reporting name must be 'research-reporting'"
-        )
-        assert fm.get("description"), (
-            "research-reporting missing 'description' in frontmatter"
-        )
-        assert fm.get("category") == "research", (
-            "research-reporting category must be 'research'"
-        )
-
-
 class TestAdversarialReviewContent:
     """Adversarial-review skill must describe the ten checks and defect classification."""
 

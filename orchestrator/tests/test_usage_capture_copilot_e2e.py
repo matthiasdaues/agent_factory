@@ -1,4 +1,8 @@
-"""Installed Copilot CLI hook -> canonical usage capture (ST-0042)."""
+"""Copilot adapter smoke tests: cumulative accounting and malformed input.
+
+Shared persistence, record reservation, and lifecycle behavior are owned by
+``test_usage_capture.py`` and ``test_usage_capture_native_lifecycle_e2e.py``.
+"""
 
 from __future__ import annotations
 
@@ -41,10 +45,6 @@ def _invoke(hook: Path, payload: dict) -> subprocess.CompletedProcess:
     return subprocess.run(
         [str(hook)], input=json.dumps(payload), text=True, capture_output=True
     )
-
-
-def _wait_for_record(project: Path, session: str) -> dict:
-    return _wait_for_records(project, session, 1)[-1]
 
 
 def _wait_for_records(project: Path, session: str, count: int) -> list[dict]:
@@ -178,45 +178,6 @@ class TestInstalledCopilotHooksST0042:
         assert conserved["normalized"] != sum(
             record["normalized_total"] for record in all_records
         )
-
-    def test_agentstop_and_supported_subagentstop_append_canonical_records(
-        self, tmp_path
-    ):
-        hook = _install(tmp_path)
-
-        main_result = _invoke(
-            hook,
-            {
-                "sessionId": "copilot-main",
-                "transcriptPath": str(_transcript(tmp_path / "main.jsonl", "MAIN")),
-                "cwd": str(tmp_path),
-                "timestamp": 1,
-                "stopReason": "end_turn",
-            },
-        )
-        child_result = _invoke(
-            hook,
-            {
-                "sessionId": "copilot-child",
-                "transcriptPath": str(_transcript(tmp_path / "child.jsonl", "CHILD")),
-                "cwd": str(tmp_path),
-                "timestamp": 2,
-                "agentName": "code-review",
-                "stopReason": "end_turn",
-            },
-        )
-
-        assert main_result.returncode == child_result.returncode == 0
-        assert main_result.stdout == child_result.stdout == ""
-        main = _wait_for_record(tmp_path, "copilot-main")
-        child = _wait_for_record(tmp_path, "copilot-child")
-        assert main["cli"] == child["cli"] == "copilot"
-        assert main["agent"] is None
-        assert child["agent"] == "code-review"
-        assert main["reported_input"] == child["reported_input"] == 12
-        assert main["reported_output"] == child["reported_output"] == 4
-        assert (tmp_path / main["transcript_ref"]["path"]).is_file()
-        assert (tmp_path / child["transcript_ref"]["path"]).is_file()
 
     def test_hook_failure_is_best_effort(self, tmp_path):
         hook = _install(tmp_path)

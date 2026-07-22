@@ -1,4 +1,8 @@
-"""Installed Codex Stop/SubagentStop hook -> canonical capture (ST-0043)."""
+"""Codex adapter smoke tests: inclusive accounting, wiring, malformed input.
+
+Shared persistence, record reservation, and lifecycle behavior are owned by
+``test_usage_capture.py`` and ``test_usage_capture_native_lifecycle_e2e.py``.
+"""
 
 from __future__ import annotations
 
