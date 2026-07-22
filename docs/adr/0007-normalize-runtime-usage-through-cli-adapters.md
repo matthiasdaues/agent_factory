@@ -47,9 +47,13 @@ is not inclusive must define how child records compose before aggregation is
 built. Capture remains best-effort and returns success even when normalization
 or persistence fails.
 
-Persist the exact tokenized text as a local transcript copy referenced by the
-record. Keep retention, aggregation, presentation, PostgreSQL storage, cost
-rates, and enforcement out of this release under YAGNI.
+Persist the exact tokenized text by default as a local transcript copy referenced
+by the record. An explicit `omit` retention mode keeps all token totals and audit
+context while retaining only an empty, marked evidence reservation. Runtime
+directories/files use exact owner-only `0700`/`0600` modes; invalid retention or
+platforms without enforceable owner-only semantics force text omission, never
+accounting loss. Records/evidence remain until session deletion or uninstall;
+automatic TTL and regex redaction stay out under YAGNI.
 
 Treat provider and hook identifiers as opaque data. A central storage-path
 mapper preserves only bounded lowercase legacy-safe components and otherwise
@@ -101,9 +105,9 @@ the other CLIs.
 **Negative / risks**
 
 - `cl100k_base` is deliberately neutral, not provider billing truth.
-- Local transcript copies contain the run's prompts, reasoning, and tool data;
-  they consume unbounded disk until manually pruned and require the same local
-  confidentiality as the source transcript.
+- Full local transcript copies contain prompts, reasoning, and tool data and
+  consume unbounded disk until manually pruned. Owner-only modes reduce local
+  exposure; sensitive projects should select whole-text omission.
 - Lifecycle hooks depend on each CLI's trust and event contracts. Codex hooks
   are inactive until explicitly trusted, and format changes can silently reduce
   capture until adapter tests are updated.

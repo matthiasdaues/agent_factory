@@ -2,6 +2,7 @@
 import { execFileSync, spawn } from "node:child_process";
 import {
   accessSync,
+  chmodSync,
   constants,
   existsSync,
   linkSync,
@@ -137,8 +138,9 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
         session_id: sessionId,
         created_at: new Date().toISOString(),
       }) + "\n",
-      { encoding: "utf-8", flag: "wx" },
+      { encoding: "utf-8", flag: "wx", mode: 0o600 },
     );
+    chmodSync(metadataTemp, 0o600);
     // Atomically replace snapshot contents without a visibility gap in the
     // pending registry.
     renameSync(metadataTemp, marker);
@@ -146,7 +148,9 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
     writeFileSync(transcript, stream.endsWith("\n") ? stream : `${stream}\n`, {
       encoding: "utf-8",
       flag: "wx",
+      mode: 0o600,
     });
+    chmodSync(transcript, 0o600);
     requireEligibleState(factoryState, state.generation);
     accessSync(captureScript, constants.X_OK);
     const args = [
