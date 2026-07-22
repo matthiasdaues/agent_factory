@@ -143,12 +143,14 @@ function cancelled(ctx) {
 
 async function bootstrap() {
   let ctx;
+  let supervisor;
   let transferred = false;
   try {
     const { values, command } = parse(process.argv.slice(2));
     ctx = validate(values, command);
     const result = await new Promise((resolveResult) => {
       const child = spawn(command[0], command.slice(1), { cwd: ctx.root, stdio: "ignore" });
+      supervisor = child;
       let settled = false;
       const finish = (value) => {
         if (settled) return;
@@ -166,7 +168,10 @@ async function bootstrap() {
       const timeout = setTimeout(() => finish({ reason: "acceptance-timeout", code: null }), ctx.timeout);
     });
     transferred = result.reason === "accepted";
-    if (transferred) unlinkValidated(ctx.handshake, ctx.control, ".accepted.json");
+    if (transferred) {
+      unlinkValidated(ctx.handshake, ctx.control, ".accepted.json");
+      supervisor.unref();
+    }
     if (!transferred && result.reason !== "cancelled") diagnostic(ctx, result.reason, result.code);
   } catch {
     // Invalid/untrusted paths are never cleanup authority.

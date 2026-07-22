@@ -4,7 +4,7 @@ source: fagan-review
 severity: major
 category: defect
 artifact: factory/scripts/pi-capture-bootstrap.mjs:185
-status: open
+status: resolved
 traces: [ST-0044, ADR-0007, FAGAN-0006]
 ---
 
@@ -25,3 +25,12 @@ regression that writes the valid acceptance handshake and then stays alive;
 prove the bootstrap exits promptly while the accepted supervisor continues.
 Do not add another lifecycle protocol, process manager, or broader bootstrap
 responsibility.
+
+**Resolution:** The bootstrap now retains the child handle only while its
+pre-acceptance timers and validation remain active. After observing and
+acknowledging the exact generation-bound handshake, it calls `child.unref()` and
+exits; the accepted Python process continues independently as the sole full
+supervisor. A deterministic installed regression uses an exact fake supervisor
+that accepts and then stays alive, proving the bootstrap returns promptly while
+the child continues. Existing launcher-failure, timeout, and cancel tests still
+cover bootstrap ownership before acceptance.
