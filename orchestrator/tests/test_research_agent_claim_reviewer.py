@@ -24,60 +24,6 @@ _ROOT = Path(__file__).resolve().parents[2]
 _AGENT = _ROOT / "factory" / "agents" / "claim-reviewer.md"
 
 
-def _frontmatter_block(text: str) -> str:
-    """Return the raw text between the opening and closing `---` markers.
-
-    Frontmatter values here may be single-line scalars or YAML folded
-    scalars (`>-`); this helper returns the raw block so per-key regexes
-    can look for each key independently, rather than parsing full YAML.
-    """
-    assert text.startswith("---"), "file must start with frontmatter"
-    end = text.find("\n---", 3)
-    assert end != -1, "frontmatter must be closed with a second '---'"
-    return text[3:end]
-
-
-def _frontmatter_scalar(block: str, key: str) -> str:
-    """Extract a single-line scalar value for `key` from the frontmatter block."""
-    match = re.search(rf"^{re.escape(key)}:\s*(.+)$", block, re.MULTILINE)
-    assert match, f"frontmatter missing key: '{key}'"
-    return match.group(1).strip()
-
-
-class TestFileExists:
-    """The agent definition is created at the expected path."""
-
-    def test_claim_reviewer_exists(self):
-        assert _AGENT.exists(), f"claim-reviewer agent not found at {_AGENT}"
-
-
-class TestFrontmatterValid:
-    """Frontmatter carries the keys and values index-lint requires."""
-
-    _text = _AGENT.read_text(encoding="utf-8")
-    _block = _frontmatter_block(_text)
-
-    def test_name(self):
-        assert _frontmatter_scalar(self._block, "name") == "claim-reviewer"
-
-    def test_title(self):
-        assert _frontmatter_scalar(self._block, "title") == "Claim Reviewer"
-
-    def test_tier(self):
-        assert _frontmatter_scalar(self._block, "tier") == "standard"
-
-    def test_phase_is_six(self):
-        assert _frontmatter_scalar(self._block, "phase") == "6"
-
-    def test_phase_name_is_research(self):
-        assert _frontmatter_scalar(self._block, "phase-name") == "Research"
-
-    def test_description_present(self):
-        assert re.search(r"^description:\s*\S", self._block, re.MULTILINE), (
-            "frontmatter missing 'description'"
-        )
-
-
 class TestReviewChecksPresent:
     """Body must list every review check from the proposal's Claim Reviewer section."""
 

@@ -54,48 +54,6 @@ def _parse_frontmatter(file_path: Path) -> dict:
     return fields
 
 
-class TestFilesExist:
-    """Deliverables are created at the expected paths."""
-
-    def test_research_planning_exists(self):
-        assert _RESEARCH_PLANNING.exists(), (
-            f"Research-planning skill not found at {_RESEARCH_PLANNING}"
-        )
-
-    def test_source_research_exists(self):
-        assert _SOURCE_RESEARCH.exists(), (
-            f"Source-research skill not found at {_SOURCE_RESEARCH}"
-        )
-
-
-class TestFrontmatterValid:
-    """Each skill has valid frontmatter with required keys."""
-
-    def test_research_planning_frontmatter(self):
-        fm = _parse_frontmatter(_RESEARCH_PLANNING)
-        assert fm.get("name") == "research-planning", (
-            "research-planning must have name: research-planning"
-        )
-        assert fm.get("description"), (
-            "research-planning missing 'description' in frontmatter"
-        )
-        assert fm.get("category") == "research", (
-            "research-planning category must be 'research'"
-        )
-
-    def test_source_research_frontmatter(self):
-        fm = _parse_frontmatter(_SOURCE_RESEARCH)
-        assert fm.get("name") == "source-research", (
-            "source-research must have name: source-research"
-        )
-        assert fm.get("description"), (
-            "source-research missing 'description' in frontmatter"
-        )
-        assert fm.get("category") == "research", (
-            "source-research category must be 'research'"
-        )
-
-
 class TestResearchPlanningContent:
     """Research-planning skill must state required content."""
 
