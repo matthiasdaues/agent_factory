@@ -106,5 +106,8 @@ protocol; PIDs are diagnostic only and are never signalled.
   add the root and every distinct descendant once. Copilot and Codex child
   records remain attribution-only; repeated Copilot root events are cumulative
   snapshots, so totals select the latest one rather than summing turns.
-- Append safety does not make same-session sequence allocation atomic; the MVP
-  assumes one writer at a time per session id.
+- Same-session writers atomically reserve transcript evidence by exclusive
+  creation and probe numeric candidates forward on collision. No advisory lock
+  or stale-lock recovery is required. Crashes may leave empty reservations and
+  valid sequence gaps; numeric reservation order, not JSONL append order, is the
+  cumulative snapshot order.

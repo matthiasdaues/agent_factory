@@ -39,6 +39,11 @@ or oversized values use fixed digest-based filesystem keys while their original
 values remain in the JSON record. Capture rejects symlinked storage components
 and never overwrites an existing transcript copy.
 
+Concurrent captures for one session reserve transcript paths atomically and
+probe forward when another process already owns a candidate. Record IDs can
+therefore contain gaps after a crashed capture. Their numeric reservation
+sequence, rather than JSONL line order, determines cumulative snapshot order.
+
 `normalized_input`, `normalized_output`, and their derived total are always
 present. Provider `reported_*` fields and `usage_granularity` are nullable when
 the transcript contains no provider breakdown. Capture is best-effort: direct

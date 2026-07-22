@@ -1174,6 +1174,103 @@ def _run_capture(cwd, extra_args) -> subprocess.CompletedProcess:
 
 
 class TestCliEntrypointHappyPath:
+    def test_FAGAN0003_concurrent_processes_reserve_distinct_evidence(self, tmp_path):
+        session_id = "sess-process-race"
+        gate = tmp_path / "start-gate"
+        markers = [f"DISTINCT_EVIDENCE_{index}" for index in range(12)]
+        processes = []
+        wrapper = (
+            "import os,sys,time; "
+            "gate=sys.argv[1]; script=sys.argv[2]; "
+            "\nwhile not os.path.exists(gate): time.sleep(0.001)\n"
+            "os.execv(script, [script, *sys.argv[3:]])"
+        )
+        for index, marker in enumerate(markers):
+            (tmp_path / f"worker-{index}").mkdir()
+            transcript = _write_transcript(
+                tmp_path / f"worker-{index}",
+                [
+                    {"type": "user", "message": {"role": "user", "content": marker}},
+                    {
+                        "type": "assistant",
+                        "message": {"role": "assistant", "content": f"answer {index}"},
+                    },
+                ],
+            )
+            processes.append(
+                subprocess.Popen(
+                    [
+                        sys.executable,
+                        "-c",
+                        wrapper,
+                        str(gate),
+                        str(_SCRIPT),
+                        "--cli",
+                        "claude-code",
+                        "--transcript",
+                        str(transcript),
+                        "--session",
+                        session_id,
+                    ],
+                    cwd=tmp_path,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+            )
+
+        gate.touch()
+        results = [process.communicate(timeout=30) for process in processes]
+
+        assert [process.returncode for process in processes] == [0] * len(processes)
+        assert all(not stderr for _, stderr in results)
+        session_file = tmp_path / ".agent-factory/usage" / f"{session_id}.jsonl"
+        records = [json.loads(line) for line in session_file.read_text().splitlines()]
+        assert len(records) == len(markers)
+        assert len({record["record_id"] for record in records}) == len(markers)
+        assert sorted(
+            int(record["record_id"].rsplit("-", 1)[1]) for record in records
+        ) == list(range(1, len(markers) + 1))
+        refs = [Path(record["transcript_ref"]["path"]) for record in records]
+        assert len(set(refs)) == len(markers)
+        assert {ref.read_text().splitlines()[0] for ref in refs} == set(markers)
+
+    def test_FAGAN0003_orphan_reservation_creates_valid_sequence_gap(self, tmp_path):
+        session_id = "sess-orphan"
+        reserved = (
+            tmp_path
+            / ".agent-factory/usage/transcripts"
+            / session_id
+            / f"{session_id}-0001.jsonl"
+        )
+        reserved.parent.mkdir(parents=True)
+        reserved.touch()
+        (tmp_path / "fresh").mkdir()
+        transcript = _write_transcript(
+            tmp_path / "fresh",
+            [{"type": "user", "message": {"role": "user", "content": "FRESH"}}],
+        )
+
+        result = _run_capture(
+            tmp_path,
+            [
+                "--cli",
+                "claude-code",
+                "--transcript",
+                str(transcript),
+                "--session",
+                session_id,
+            ],
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert reserved.read_text() == ""
+        record = json.loads(
+            (tmp_path / ".agent-factory/usage" / f"{session_id}.jsonl").read_text()
+        )
+        assert record["record_id"] == f"{session_id}-0002"
+        assert Path(record["transcript_ref"]["path"]).read_text() == "FRESH"
+
     def test_SEC0001_hostile_session_is_mapped_before_sequence_lookup(self, tmp_path):
         transcript_path = _write_transcript(tmp_path, _claude_transcript_with_usage())
         session_id = "../../cli-escape"

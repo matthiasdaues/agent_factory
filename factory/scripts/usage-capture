@@ -140,7 +140,9 @@ class UsageStoragePaths:
         return self.transcripts_dir / filesystem_key(session_id)
 
     def transcript_path(self, session_id: object, record_id: object) -> Path:
-        return self.transcript_directory(session_id) / f"{filesystem_key(record_id)}.jsonl"
+        return (
+            self.transcript_directory(session_id) / f"{filesystem_key(record_id)}.jsonl"
+        )
 
     def existing_record_count(self, session_id: object) -> int:
         self.ensure_layout()
@@ -151,6 +153,83 @@ class UsageStoragePaths:
         except FileNotFoundError:
             return 0
         return sum(1 for line in text.splitlines() if line.strip())
+
+    def next_sequence_estimate(self, session_id: str) -> int:
+        """Estimate the next numeric suffix; exclusive creation decides truth."""
+        self.ensure_layout()
+        path = self.session_path(session_id)
+        self._require_regular_if_present(path)
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except FileNotFoundError:
+            return 1
+        prefix = f"{session_id}-"
+        highest = 0
+        populated = 0
+        for line in lines:
+            if not line.strip():
+                continue
+            populated += 1
+            try:
+                record_id = str(json.loads(line).get("record_id", ""))
+            except (AttributeError, json.JSONDecodeError):
+                continue
+            suffix = record_id.removeprefix(prefix)
+            if record_id.startswith(prefix) and suffix.isdecimal():
+                highest = max(highest, int(suffix))
+        return max(highest, populated) + 1
+
+    def reserve_transcript(
+        self, session_id: str, record_id: Optional[str] = None
+    ) -> "TranscriptReservation":
+        """Exclusively reserve evidence for one record without an OS lock.
+
+        Concurrent allocators may share an estimate, but only one can create a
+        candidate. Losers probe monotonically forward. An abandoned empty file
+        is a durable crash reservation and therefore creates a valid gap.
+        """
+        self.ensure_layout()
+        transcript_dir = self.transcript_directory(session_id)
+        self._ensure_directory(transcript_dir)
+        sequence = self.next_sequence_estimate(session_id) if record_id is None else 0
+        flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0)
+        while True:
+            candidate = record_id or f"{session_id}-{sequence:04d}"
+            path = self.transcript_path(session_id, candidate)
+            try:
+                fd = os.open(path, flags, _FILE_MODE)
+            except FileExistsError:
+                if record_id is not None:
+                    raise
+                sequence += 1
+                continue
+            if not stat.S_ISREG(os.fstat(fd).st_mode):
+                os.close(fd)
+                try:
+                    path.unlink()
+                except OSError:
+                    pass
+                raise OSError(f"unsafe transcript target: {path}")
+            return TranscriptReservation(candidate, path, fd)
+
+
+@dataclass
+class TranscriptReservation:
+    """An exclusively-created transcript path owned by one capture."""
+
+    record_id: str
+    path: Path
+    fd: int
+
+    def discard(self) -> None:
+        if self.fd >= 0:
+            os.close(self.fd)
+            self.fd = -1
+        try:
+            self.path.unlink()
+        except OSError:
+            pass
+
 
 # ── Tokenizer ────────────────────────────────────────────────────────────
 
@@ -205,13 +284,10 @@ class RecordIdSequencer:
         """Pre-set *session_id*'s counter to *count* records already seen.
 
         A fresh `RecordIdSequencer` only sees records assigned in its own
-        process. The CLI entrypoint (ST-0038) builds one per invocation —
-        this script is a new process each call — so without seeding, every
-        invocation for a given session would restart at `-0001` and
-        collide with, silently overwriting, an earlier record's persisted
-        transcript copy. Seeding from however many lines already exist in
-        the session's own JSONL file keeps ids unique across the many
-        invocations one real session makes.
+        process. This remains a deterministic in-process utility. The CLI
+        entrypoint uses `UsageStoragePaths.reserve_transcript()` instead,
+        because exclusive filesystem reservation is what makes allocation
+        safe across processes.
         """
         self._sequences[session_id] = count
 
@@ -364,7 +440,11 @@ class JsonlLoggingAdapter:
 
     def record(self, usage_record: "UsageRecord", transcript_text: str) -> None:
         try:
-            self._write(usage_record, transcript_text)
+            session_id = usage_record.session_id or "unknown"
+            reservation = self._storage.reserve_transcript(
+                session_id, usage_record.record_id
+            )
+            self._write_reserved(usage_record, transcript_text, reservation)
         except Exception as exc:  # best-effort: never raise into the caller
             print(
                 "usage-capture: JsonlLoggingAdapter failed to record "
@@ -372,32 +452,39 @@ class JsonlLoggingAdapter:
                 file=sys.stderr,
             )
 
-    def _write(self, usage_record: "UsageRecord", transcript_text: str) -> None:
-        session_id = usage_record.session_id or "unknown"
-        self._storage.ensure_layout()
-        transcript_dir = self._storage.transcript_directory(session_id)
-        self._storage._ensure_directory(transcript_dir)
-        transcript_path = self._storage.transcript_path(
-            session_id, usage_record.record_id
-        )
-        transcript_flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(
-            os, "O_NOFOLLOW", 0
-        )
-        fd = os.open(transcript_path, transcript_flags, _FILE_MODE)
+    def record_reserved(
+        self,
+        usage_record: "UsageRecord",
+        transcript_text: str,
+        reservation: TranscriptReservation,
+    ) -> None:
+        """Persist a capture using the transcript it atomically reserved."""
         try:
-            if not stat.S_ISREG(os.fstat(fd).st_mode):
-                raise OSError(f"unsafe transcript target: {transcript_path}")
-            _write_all(fd, transcript_text.encode("utf-8"))
-        finally:
-            os.close(fd)
+            self._write_reserved(usage_record, transcript_text, reservation)
+        except Exception as exc:  # best-effort: never raise into the caller
+            print(
+                "usage-capture: JsonlLoggingAdapter failed to record "
+                f"{usage_record.record_id!r}: {exc}",
+                file=sys.stderr,
+            )
 
-        usage_record.transcript_ref = TranscriptRef(path=str(transcript_path))
-        session_path = self._storage.session_path(session_id)
-        line = (json.dumps(usage_record.to_dict()) + "\n").encode("utf-8")
-        session_flags = os.O_APPEND | os.O_CREAT | os.O_WRONLY | getattr(
-            os, "O_NOFOLLOW", 0
-        )
+    def _write_reserved(
+        self,
+        usage_record: "UsageRecord",
+        transcript_text: str,
+        reservation: TranscriptReservation,
+    ) -> None:
+        session_id = usage_record.session_id or "unknown"
         try:
+            _write_all(reservation.fd, transcript_text.encode("utf-8"))
+            os.close(reservation.fd)
+            reservation.fd = -1
+            usage_record.transcript_ref = TranscriptRef(path=str(reservation.path))
+            session_path = self._storage.session_path(session_id)
+            line = (json.dumps(usage_record.to_dict()) + "\n").encode("utf-8")
+            session_flags = (
+                os.O_APPEND | os.O_CREAT | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0)
+            )
             self._storage._require_regular_if_present(session_path)
             fd = os.open(session_path, session_flags, _FILE_MODE)
             try:
@@ -411,10 +498,7 @@ class JsonlLoggingAdapter:
                 os.close(fd)
         except Exception:
             usage_record.transcript_ref = None
-            try:
-                transcript_path.unlink()
-            except OSError:
-                pass
+            reservation.discard()
             raise
 
 
@@ -1089,17 +1173,6 @@ def _pi_persistence_fence(args: argparse.Namespace, base_dir: Union[str, Path]):
                 pass
 
 
-def _next_record_id(storage: UsageStoragePaths, session_id: Optional[str]) -> str:
-    """`record_id` for one capture, continuing *session_id*'s sequence
-    already on disk (see `RecordIdSequencer.seed`'s docstring for why: this
-    CLI is a new process per invocation, so an unseeded sequencer would
-    restart at `-0001` every call)."""
-    sequencer = RecordIdSequencer()
-    if session_id:
-        sequencer.seed(session_id, storage.existing_record_count(session_id))
-    return sequencer.next_id(session_id)
-
-
 def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> None:
     """Run one capture end to end: normalize, tokenize, assemble, persist.
 
@@ -1121,39 +1194,45 @@ def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> None
     normalized_input = count_tokens(transcript.input_text)
     normalized_output = count_tokens(transcript.output_text)
 
-    storage = UsageStoragePaths(base_dir)
-    record_id = _next_record_id(storage, args.session_id)
-
-    record = UsageRecord(
-        record_id=record_id,
-        normalized_input=normalized_input,
-        normalized_output=normalized_output,
-        cli=args.cli,
-        session_id=args.session_id,
-        parent_session_id=args.parent_session_id,
-        depth=args.depth,
-        loop_role=args.loop_role,
-        iteration=args.iteration,
-        agent=args.agent,
-        skill=args.skill,
-        phase=args.phase,
-        playbook=args.playbook,
-        story_id=args.story_id,
-        model=args.model,
-        reported_input=transcript.reported_input,
-        reported_output=transcript.reported_output,
-        reported_cache_read=transcript.reported_cache_read,
-        reported_cache_write=transcript.reported_cache_write,
-        usage_granularity=transcript.usage_granularity,
-        exit_status=args.exit_status,
-        branch=args.branch,
-        base_commit=args.base_commit,
-        commit_id=args.commit_id,
-    )
-
     with _pi_persistence_fence(args, base_dir) as allowed:
         if allowed:
-            JsonlLoggingAdapter(base_dir=base_dir).record(record, transcript.text)
+            storage = UsageStoragePaths(base_dir)
+            session_id = args.session_id or "unknown"
+            fallback_id = None if args.session_id else str(uuid.uuid4())
+            reservation = storage.reserve_transcript(session_id, fallback_id)
+            try:
+                record = UsageRecord(
+                    record_id=reservation.record_id,
+                    normalized_input=normalized_input,
+                    normalized_output=normalized_output,
+                    cli=args.cli,
+                    session_id=args.session_id,
+                    parent_session_id=args.parent_session_id,
+                    depth=args.depth,
+                    loop_role=args.loop_role,
+                    iteration=args.iteration,
+                    agent=args.agent,
+                    skill=args.skill,
+                    phase=args.phase,
+                    playbook=args.playbook,
+                    story_id=args.story_id,
+                    model=args.model,
+                    reported_input=transcript.reported_input,
+                    reported_output=transcript.reported_output,
+                    reported_cache_read=transcript.reported_cache_read,
+                    reported_cache_write=transcript.reported_cache_write,
+                    usage_granularity=transcript.usage_granularity,
+                    exit_status=args.exit_status,
+                    branch=args.branch,
+                    base_commit=args.base_commit,
+                    commit_id=args.commit_id,
+                )
+            except Exception:
+                reservation.discard()
+                raise
+            JsonlLoggingAdapter(base_dir=base_dir).record_reserved(
+                record, transcript.text, reservation
+            )
 
 
 def _main(argv: Optional[list] = None) -> int:
