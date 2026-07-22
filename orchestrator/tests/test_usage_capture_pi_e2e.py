@@ -958,6 +958,65 @@ def test_FAGAN0006_acceptance_timeout_cleans_and_diagnoses(tmp_path):
     assert diagnostic["reason"] == "acceptance-timeout"
 
 
+def test_FAGAN0007_bootstrap_exits_while_accepted_supervisor_continues(tmp_path):
+    _init(tmp_path)
+    control = tmp_path / ".agent-factory/usage-control"
+    pending = control / "pending"
+    scratch = tmp_path / ".agent-factory/usage/.capture"
+    generation = json.loads((control / "state.json").read_text())["generation"]
+    source = scratch / "accepted-live.jsonl"
+    source.write_text("staged\n")
+    marker = pending / "accepted-live.pending.json"
+    marker.write_text(
+        json.dumps({"generation": generation, "staged_source": str(source)}) + "\n"
+    )
+    handshake = control / "accepted-live.accepted.json"
+    status = control / "accepted-live.completion.json"
+    child_alive = tmp_path / "accepted-child-alive"
+    child_finished = tmp_path / "accepted-child-finished"
+    launcher = tmp_path / "factory/scripts/usage-capture-runtime"
+    launcher.write_text(
+        "#!/bin/sh\n"
+        f"printf '%s\\n' '{json.dumps({'accepted': True, 'generation': generation})}' > {handshake}\n"
+        f"touch {child_alive}\n"
+        "sleep 2\n"
+        f"touch {child_finished}\n"
+    )
+    launcher.chmod(0o755)
+
+    started = time.monotonic()
+    result = subprocess.run(
+        [
+            "node",
+            str(tmp_path / "factory/scripts/pi-capture-bootstrap.mjs"),
+            "--root",
+            str(tmp_path),
+            "--marker",
+            str(marker),
+            "--source",
+            str(source),
+            "--status",
+            str(status),
+            "--handshake",
+            str(handshake),
+            "--generation",
+            generation,
+            "--supervisor-command",
+            str(launcher),
+        ],
+        text=True,
+        capture_output=True,
+        timeout=1,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert time.monotonic() - started < 1
+    assert child_alive.is_file()
+    assert not child_finished.exists()
+    assert not handshake.exists()
+    _wait_for(child_finished.is_file, timeout=3)
+
+
 def test_FAGAN0004_missing_runtime_interpreter_reaches_terminal_state(tmp_path):
     _init(tmp_path)
     runtime_python = tmp_path / ".agent-factory/usage-runtime/bin/python"
