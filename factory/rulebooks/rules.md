@@ -31,6 +31,15 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 - placeholder for future rules
 
+## Testing
+
+→ [testing-strategy.md](conventions/testing-strategy.md)
+
+- **MUST** give each observable contract one owning test layer and strengthen that owner before adding overlap.
+- **MUST** select test cases by equivalence class, boundary, or distinct failure mode — never to meet a cosmetic count or fixed coverage percentage.
+- **MUST NOT** duplicate a deterministic linter's rule in pytest.
+- **MUST** prove a surviving owner detects a representative fault before deleting overlapping tests.
+
 ## Branching
 
 → [branching-policy.md](conventions/branching-policy.md)
@@ -68,6 +77,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST NOT** bypass a failing pre-commit hook (`--no-verify`, `core.hooksPath`); fix the hook. Discard with `git checkout HEAD -- <path>`, not `git checkout .`.
 - **SHOULD** commit through the hooks with the two-pass sequence — `add` → `commit`; on "files were modified by this hook", `add -u` → recommit — or use `factory/scripts/commit-safe`.
 - **MUST** remove a clean worktree and safely delete its merged branch after its target passes verification, unless the branch remains a named active review base.
+- **MUST** use full 40-character SHAs in machine-consumed gates, markers, dispatch records, and handoffs; abbreviated SHAs are display-only.
 
 ## Handoffs
 
