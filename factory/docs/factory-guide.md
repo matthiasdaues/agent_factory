@@ -119,6 +119,13 @@ benign and no supervisor failure recreates removed Factory paths. Only the local
 durable staging write remains synchronous. Abrupt supervisor or host shutdown
 can still lose an in-flight best-effort capture.
 
+Pi uses a small Node bootstrap only until the provisioned Python supervisor
+writes a private acceptance handshake. This closes the interpreter-disappears
+startup window: pre-accept launcher failure or timeout cleans the validated
+registration and records a bounded diagnostic, while cancel/removal stays quiet
+and cannot recreate paths. After acceptance the bootstrap exits; Python remains
+the only full capture supervisor.
+
 Claude, Codex, and Copilot hooks use the same lifecycle. Before returning they
 register and privately snapshot the provider transcript, then leave
 normalization and persistence to the detached supervisor. Snapshot time is

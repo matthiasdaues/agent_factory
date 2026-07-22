@@ -10,6 +10,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -76,6 +77,8 @@ def cleanup(ctx: dict) -> None:
     unlink(ctx["committing"], ctx["pending"], ".committing.json")
     unlink(ctx["source"], ctx["scratch"], ".jsonl")
     unlink(ctx["status"], ctx["control"], ".completion.json")
+    if ctx.get("handshake") is not None:
+        unlink(ctx["handshake"], ctx["control"], ".accepted.json")
 
 
 def snapshot(source: Path, destination: Path) -> None:
@@ -242,6 +245,17 @@ def validate_supervisor(args) -> dict:
     expected = control / marker.name.replace(".pending.json", ".completion.json")
     if status_path != expected or status_path.exists() or status_path.is_symlink():
         raise ValueError("invalid status")
+    handshake = Path(args.acceptance_handshake) if args.acceptance_handshake else None
+    if handshake is not None:
+        expected_handshake = control / marker.name.replace(
+            ".pending.json", ".accepted.json"
+        )
+        if (
+            handshake != expected_handshake
+            or handshake.exists()
+            or handshake.is_symlink()
+        ):
+            raise ValueError("invalid acceptance handshake")
     registration = json.loads(marker.read_text(encoding="utf-8"))
     if registration.get("generation") != args.generation or registration.get(
         "staged_source"
@@ -261,6 +275,7 @@ def validate_supervisor(args) -> dict:
         "source": source,
         "status": status_path,
         "generation": args.generation,
+        "handshake": handshake,
     }
 
 
@@ -303,6 +318,20 @@ def supervise(args) -> int:
     ctx = None
     try:
         ctx = validate_supervisor(args)
+        if ctx["handshake"] is not None:
+            write_private(
+                ctx["handshake"],
+                {"accepted": True, "generation": ctx["generation"]},
+            )
+            deadline = time.monotonic() + 6
+            while ctx["handshake"].exists() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            if (
+                ctx["handshake"].exists()
+                or not regular(ctx["marker"])
+                or not regular(ctx["source"])
+            ):
+                raise RuntimeError("bootstrap did not acknowledge acceptance")
         completed = subprocess.run(
             args.capture_command,
             cwd=ctx["root"],
@@ -344,6 +373,7 @@ def build_parser() -> argparse.ArgumentParser:
     supervisor.add_argument("--source", required=True)
     supervisor.add_argument("--status", required=True)
     supervisor.add_argument("--generation", required=True)
+    supervisor.add_argument("--acceptance-handshake")
     supervisor.add_argument(
         "--capture-command", nargs=argparse.REMAINDER, required=True
     )

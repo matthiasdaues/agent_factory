@@ -104,6 +104,16 @@ Normalization and canonical persistence remain detached. The shared lifecycle
 uses no Node runtime, so standalone Codex remains supported, and is deliberately
 capture-specific rather than a general background-work abstraction.
 
+Pi alone needs a tiny Node bootstrap because its provisioned interpreter can
+disappear after the TypeScript extension registers but before Python starts.
+The bootstrap owns only this pre-acceptance window. The shared Python supervisor
+writes an explicit private acceptance handshake after validating the exact
+Factory paths and generation; the bootstrap then exits and Python remains sole
+full supervisor. Pre-accept launcher failure or bounded timeout performs guarded
+cleanup and a transcript-free diagnostic only while lifecycle state permits.
+Cancel/removal remains quiet and cannot be followed by path recreation. This is
+not a second capture supervisor or a general process framework.
+
 Provision tokenizer code only at the explicit, user-invoked initialization
 boundary. `init-factory` creates a project-owned private virtual environment
 from committed exact, hashed requirements using hash-required, wheel-only
