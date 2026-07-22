@@ -465,15 +465,16 @@ class LoggingAdapter(Protocol):
     interface is fixed.
     """
 
-    def record(self, usage_record: "UsageRecord", transcript_text: str) -> None:
+    def record(self, usage_record: "UsageRecord", transcript_text: str) -> bool:
         """Persist *usage_record* and a copy of *transcript_text* (the
         already-tokenized transcript text a capture site hands in), and set
         `usage_record.transcript_ref` to point at the persisted copy.
 
         Best-effort by contract: an implementation must catch its own
-        failures, log them to stderr, and return normally rather than
+        failures, log them to stderr, and return ``False`` rather than
         raise — capture must never fail, block, or slow the run it
-        measures (proposal: "Core Principles").
+        measures (proposal: "Core Principles"). ``True`` means canonical
+        record and evidence persistence completed.
         """
         ...
 
@@ -502,7 +503,7 @@ class JsonlLoggingAdapter:
 
     Any failure inside `record()` — an unwritable path, a directory that
     collides with a file, a serialization error — is caught, logged to
-    stderr, and swallowed. `record()` always returns normally; it never
+    stderr, and swallowed. `record()` returns a success boolean and never
     raises into the caller.
     """
 
@@ -513,35 +514,39 @@ class JsonlLoggingAdapter:
         self._usage_dir = self._storage.usage_dir
         self._retention = retention
 
-    def record(self, usage_record: "UsageRecord", transcript_text: str) -> None:
+    def record(self, usage_record: "UsageRecord", transcript_text: str) -> bool:
         try:
             session_id = usage_record.session_id or "unknown"
             reservation = self._storage.reserve_transcript(
                 session_id, usage_record.record_id
             )
             self._write_reserved(usage_record, transcript_text, reservation)
+            return True
         except Exception as exc:  # best-effort: never raise into the caller
             print(
                 "usage-capture: JsonlLoggingAdapter failed to record "
                 f"{usage_record.record_id!r}: {exc}",
                 file=sys.stderr,
             )
+            return False
 
     def record_reserved(
         self,
         usage_record: "UsageRecord",
         transcript_text: str,
         reservation: TranscriptReservation,
-    ) -> None:
+    ) -> bool:
         """Persist a capture using the transcript it atomically reserved."""
         try:
             self._write_reserved(usage_record, transcript_text, reservation)
+            return True
         except Exception as exc:  # best-effort: never raise into the caller
             print(
                 "usage-capture: JsonlLoggingAdapter failed to record "
                 f"{usage_record.record_id!r}: {exc}",
                 file=sys.stderr,
             )
+            return False
 
     def _write_reserved(
         self,
@@ -1164,6 +1169,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--pending-marker", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--usage-generation", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--cleanup-owner",
+        choices=("python", "supervisor"),
+        default="python",
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument("--completion-status", type=Path, help=argparse.SUPPRESS)
     return parser
 
 
@@ -1202,6 +1214,48 @@ def _delete_factory_pending_marker(path: Path, base_dir: Union[str, Path]) -> No
             and candidate.is_file()
         ):
             candidate.unlink()
+    except OSError:
+        pass
+
+
+def _write_supervisor_completion(
+    path: Path,
+    outcome: str,
+    base_dir: Union[str, Path],
+    pending_marker: Optional[Path],
+) -> None:
+    """Write one bounded status only inside Factory's usage-control dir."""
+    try:
+        candidate = Path(path)
+        control = Path(base_dir).resolve() / ".agent-factory" / "usage-control"
+        pending = control / "pending"
+        marker = Path(pending_marker) if pending_marker is not None else Path()
+        expected = control / marker.name.replace(".pending.json", ".completion.json")
+        if (
+            not candidate.is_absolute()
+            or candidate.parent != control
+            or not candidate.name.endswith(".completion.json")
+            or not marker.is_absolute()
+            or marker.parent != pending
+            or not marker.name.endswith(".pending.json")
+            or candidate != expected
+            or candidate.is_symlink()
+            or candidate.exists()
+            or control.is_symlink()
+            or control.resolve() != control
+        ):
+            return
+        payload = (json.dumps({"outcome": outcome}) + "\n").encode("utf-8")
+        fd = os.open(
+            candidate,
+            os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0),
+            _FILE_MODE,
+        )
+        try:
+            os.fchmod(fd, _FILE_MODE)
+            _write_all(fd, payload)
+        finally:
+            os.close(fd)
     except OSError:
         pass
 
@@ -1247,14 +1301,17 @@ def _pi_persistence_fence(args: argparse.Namespace, base_dir: Union[str, Path]):
     except (OSError, ValueError, json.JSONDecodeError):
         yield False
     finally:
-        if committing is not None:
+        if (
+            committing is not None
+            and getattr(args, "cleanup_owner", "python") != "supervisor"
+        ):
             try:
                 committing.unlink()
             except OSError:
                 pass
 
 
-def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> None:
+def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> bool:
     """Run one capture end to end: normalize, tokenize, assemble, persist.
 
     Composes the two swappable seams around the fixed tokenizer (proposal:
@@ -1314,11 +1371,14 @@ def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> None
             except Exception:
                 reservation.discard()
                 raise
-            JsonlLoggingAdapter(base_dir=base_dir, retention=retention).record_reserved(
+            return JsonlLoggingAdapter(
+                base_dir=base_dir, retention=retention
+            ).record_reserved(
                 record,
                 transcript.text,
                 reservation,
             )
+    return False
 
 
 def _main(argv: Optional[list] = None) -> int:
@@ -1374,15 +1434,23 @@ def _main(argv: Optional[list] = None) -> int:
         )
         return 0
 
+    outcome = "dropped"
     try:
-        _capture(args)
+        if _capture(args):
+            outcome = "captured"
     except Exception as exc:  # best-effort boundary: never fail the measured run
         print(f"usage-capture: capture failed: {exc}", file=sys.stderr)
     finally:
-        if args.delete_source:
-            _delete_factory_staged_source(args.transcript, ".")
-        if args.pending_marker:
-            _delete_factory_pending_marker(args.pending_marker, ".")
+        if args.cleanup_owner == "supervisor":
+            if args.completion_status:
+                _write_supervisor_completion(
+                    args.completion_status, outcome, ".", args.pending_marker
+                )
+        else:
+            if args.delete_source:
+                _delete_factory_staged_source(args.transcript, ".")
+            if args.pending_marker:
+                _delete_factory_pending_marker(args.pending_marker, ".")
 
     return 0
 

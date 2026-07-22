@@ -107,14 +107,17 @@ nested agent runs inside a disposable dispatch worktree. An inherited root is
 accepted only when it agrees with the independently derived checkout and its
 Factory installation; invalid values fall back to repository derivation.
 Pi writes the completed stream to that root's private capture scratch directory
-as a durable handoff, then launches persistence as a detached process with no
-interactive standard streams. Tokenization and record persistence therefore do
-not delay human shutdown or `run_agent` / `dispatch_wave` results. The detached
-process removes its staged source after success or failure; deletion is limited
-to regular, non-symlink files directly inside Factory's capture scratch area.
-Only the local durable staging write remains synchronous. Abrupt host shutdown
-or forced process-group termination can still lose an in-flight best-effort
-capture.
+as a durable handoff, then launches a Factory-owned Node supervisor detached
+with no interactive standard streams. Tokenization and record persistence
+therefore do not delay human shutdown or `run_agent` / `dispatch_wave` results.
+The supervisor waits outside the measured lifecycle and solely removes the
+validated pending/committing marker, private completion status, and staged
+source after the capture child terminates. Missing interpreters and launcher or
+Python failures retain a bounded diagnostic in the private usage-control tree;
+diagnostics contain no transcript text. Explicit uninstall cancellation is
+benign and no supervisor failure recreates removed Factory paths. Only the local
+durable staging write remains synchronous. Abrupt supervisor or host shutdown
+can still lose an in-flight best-effort capture.
 
 `remove-factory` coordinates with detached Pi captures. Its default
 `--pending-usage=drain` waits up to `--pending-timeout` seconds for every

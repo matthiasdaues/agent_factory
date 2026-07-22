@@ -7,14 +7,14 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PROJECT_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)
 RUNTIME="$PROJECT_DIR/.agent-factory/usage-runtime"
 
-[ -f "$RUNTIME/.requirements-sha256" ] || exit 0
+[ -f "$RUNTIME/.requirements-sha256" ] || exit 70
 
 if [ -x "$RUNTIME/bin/python" ]; then
     PYTHON="$RUNTIME/bin/python"
 elif [ -x "$RUNTIME/Scripts/python.exe" ]; then
     PYTHON="$RUNTIME/Scripts/python.exe"
 else
-    exit 0
+    exit 71
 fi
 
 exec "$PYTHON" "$SCRIPT_DIR/usage-capture" "$@"

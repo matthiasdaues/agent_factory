@@ -1577,6 +1577,77 @@ class TestCliEntrypointHappyPath:
 
 
 class TestCliEntrypointBestEffort:
+    def test_FAGAN0004_supervisor_status_requires_canonical_persistence(self, tmp_path):
+        control = tmp_path / ".agent-factory/usage-control"
+        pending = control / "pending"
+        scratch = tmp_path / ".agent-factory/usage/.capture"
+        pending.mkdir(parents=True)
+        scratch.mkdir(parents=True)
+        generation = "generation-status"
+        (control / "state.json").write_text(
+            json.dumps({"mode": "active", "generation": generation}) + "\n"
+        )
+        staged = scratch / "pi-status.jsonl"
+        staged.write_text(
+            '{"type":"message_end","message":{"role":"assistant","content":"ok","usage":{"input":1,"output":1}}}\n'
+        )
+        marker = pending / "pi-status.pending.json"
+        marker.write_text(
+            json.dumps({"generation": generation, "staged_source": str(staged)}) + "\n"
+        )
+        status = control / "pi-status.completion.json"
+        # Force the final record append to fail after transcript reservation.
+        (tmp_path / ".agent-factory/usage/pi-status.jsonl").mkdir()
+
+        result = _run_capture(
+            tmp_path,
+            [
+                "--cli",
+                "pi",
+                "--transcript",
+                str(staged),
+                "--session",
+                "pi-status",
+                "--pending-marker",
+                str(marker),
+                "--usage-generation",
+                generation,
+                "--cleanup-owner",
+                "supervisor",
+                "--completion-status",
+                str(status),
+            ],
+        )
+
+        assert result.returncode == 0
+        assert json.loads(status.read_text()) == {"outcome": "dropped"}
+        assert staged.is_file()
+        assert (pending / "pi-status.committing.json").is_file()
+
+    def test_FAGAN0004_completion_status_rejects_foreign_and_symlink_paths(
+        self, tmp_path
+    ):
+        control = tmp_path / ".agent-factory/usage-control"
+        control.mkdir(parents=True)
+        foreign = tmp_path / "foreign.completion.json"
+        target = tmp_path / "target"
+        target.write_text("owned")
+        linked = control / "linked.completion.json"
+        linked.symlink_to(target)
+        pending = control / "pending"
+        pending.mkdir()
+
+        usage_capture._write_supervisor_completion(
+            foreign, "captured", tmp_path, pending / "foreign.pending.json"
+        )
+        usage_capture._write_supervisor_completion(
+            linked, "captured", tmp_path, pending / "linked.pending.json"
+        )
+
+        assert not foreign.exists()
+        assert linked.is_symlink()
+        assert target.read_text() == "owned"
+
     def test_RECON0010_delete_source_removes_only_factory_staged_input(self, tmp_path):
         scratch = tmp_path / ".agent-factory/usage/.capture"
         scratch.mkdir(parents=True)

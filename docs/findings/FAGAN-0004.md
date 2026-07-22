@@ -4,7 +4,7 @@ source: fagan-review
 severity: major
 category: defect
 artifact: factory/config/extensions/pi-usage.ts:168
-status: open
+status: resolved
 traces: [ST-0044, ADR-0007, RECON-0010, RECON-0012]
 ---
 
@@ -39,3 +39,16 @@ regression that breaks or removes the runtime interpreter after registration
 and proves marker/source cleanup, a visible diagnostic, and bounded removal.
 Update asynchronous tests to wait for the registered capture's terminal state
 so pytest temporary-directory cleanup is deterministic.
+
+**Resolution:** Pi now detaches a Factory-owned Node supervisor rather than
+the capture launcher directly. The supervisor remains outside the measured
+lifecycle, waits for the launcher/Python child, validates the registration,
+generation, staged source, completion status, and Factory directory boundaries,
+then solely owns terminal cleanup. Python reports `captured` only after the
+canonical record and evidence are persisted; swallowed adapter failures report
+`dropped`. Missing interpreters, spawn failures, non-zero Python exits, and
+missing/dropped status produce bounded owner-private diagnostics without
+retaining transcript text. Explicit cancel is benign and diagnostics cannot
+recreate removed lifecycle paths. Installed Pi tests now wait for pending,
+committing, scratch, and completion artifacts to settle; the Pi E2E suite exits
+cleanly under `-W error`.
