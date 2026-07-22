@@ -34,7 +34,15 @@ import { join } from "node:path";
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { activeSessionId, capturePiStream, INLINE_CAPTURE_ENV, newSessionId, SESSION_ENV } from "./pi-usage.ts";
+import {
+  activeSessionId,
+  activeUsageRoot,
+  capturePiStream,
+  INLINE_CAPTURE_ENV,
+  newSessionId,
+  SESSION_ENV,
+  USAGE_ROOT_ENV,
+} from "./pi-usage.ts";
 
 /** Cap on nested agent spawns, shared with run_agent (BR-035). */
 const MAX_DEPTH = 3;
@@ -116,6 +124,7 @@ export default function (pi: ExtensionAPI) {
     }),
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       const cwd = (ctx as { cwd: string }).cwd;
+      const usageRoot = activeUsageRoot(cwd);
 
       const depth = Number.parseInt(process.env[DEPTH_ENV] ?? "0", 10) || 0;
       if (depth >= MAX_DEPTH) {
@@ -189,7 +198,15 @@ export default function (pi: ExtensionAPI) {
           const parentSessionId = activeSessionId(
             (ctx as { sessionManager?: { getSessionFile(): string | undefined } }).sessionManager,
           );
-          const child = await spawnPi(args, r.worktree, depth + 1, signal, childSessionId, parentSessionId);
+          const child = await spawnPi(
+            args,
+            r.worktree,
+            depth + 1,
+            signal,
+            childSessionId,
+            parentSessionId,
+            usageRoot,
+          );
           capturePiStream(cwd, child.stdout, {
             sessionId: childSessionId,
             parentSessionId,
@@ -304,6 +321,7 @@ function spawnPi(
   signal: AbortSignal,
   sessionId: string,
   parentSessionId?: string,
+  usageRoot?: string,
 ): Promise<SpawnResult> {
   return new Promise((resolve) => {
     const child = spawn("pi", args, {
@@ -315,6 +333,7 @@ function spawnPi(
         [SESSION_ENV]: sessionId,
         PI_AGENT_FACTORY_PARENT_SESSION_ID: parentSessionId || "",
         [INLINE_CAPTURE_ENV]: "1",
+        [USAGE_ROOT_ENV]: usageRoot || "",
       },
     });
     let stdout = "";

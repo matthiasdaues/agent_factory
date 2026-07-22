@@ -20,7 +20,15 @@ import { join } from "node:path";
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { activeSessionId, capturePiStream, INLINE_CAPTURE_ENV, newSessionId, SESSION_ENV } from "./pi-usage.ts";
+import {
+  activeSessionId,
+  activeUsageRoot,
+  capturePiStream,
+  INLINE_CAPTURE_ENV,
+  newSessionId,
+  SESSION_ENV,
+  USAGE_ROOT_ENV,
+} from "./pi-usage.ts";
 
 /** Cap on nested run_agent spawns (BR-035). */
 const MAX_DEPTH = 3;
@@ -92,6 +100,7 @@ export default function (pi: ExtensionAPI) {
       args.push("--append-system-prompt", persona, "-p", params.task);
 
       const childSessionId = newSessionId();
+      const usageRoot = activeUsageRoot(cwd);
       const parentSessionId = activeSessionId(
         (ctx as { sessionManager?: { getSessionFile(): string | undefined } }).sessionManager,
       );
@@ -106,6 +115,7 @@ export default function (pi: ExtensionAPI) {
           [SESSION_ENV]: childSessionId,
           PI_AGENT_FACTORY_PARENT_SESSION_ID: parentSessionId || "",
           [INLINE_CAPTURE_ENV]: "1",
+          [USAGE_ROOT_ENV]: usageRoot,
         },
       });
 

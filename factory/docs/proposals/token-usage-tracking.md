@@ -226,6 +226,13 @@ event. Dispatched subprocesses set an inline-capture marker so their own loaded
 shutdown extension stays silent: `run_agent` or each `dispatch_wave` item owns
 exactly one child record with explicit parent and depth context.
 
+The Pi extension resolves one canonical consumer-project root from Git's
+shared common directory and propagates it through every child process. Human,
+`run_agent`, `dispatch_wave`, and nested descendant records consequently share
+the primary checkout's `.agent-factory/usage/` directory rather than a
+disposable worktree. An inherited root is trusted only when it matches the
+independently derived primary checkout and Factory-owned layout.
+
 Pi accounting is non-inclusive across subprocess boundaries. A human or parent
 stream contains the task/result boundary text it consumed, but it does not
 contain the separate model calls made by a `run_agent` or `dispatch_wave`
