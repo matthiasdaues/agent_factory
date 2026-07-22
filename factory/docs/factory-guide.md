@@ -44,9 +44,9 @@ and exact merged entries while preserving project-owned configuration.
 | CLI                | Human/root trigger                 | Child trigger                                      | Accounting rule                                                                                                                                            |
 | ------------------ | ---------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Claude Code        | `Stop` in `.claude/settings.json`  | `SubagentStop`                                     | The latest cumulative root excludes child internals and usage. Add each distinct child record once.                                                        |
-| GitHub Copilot CLI | `agentStop` under `.github/hooks/` | `subagentStop` for supported custom agents         | The root is inclusive; child records are attribution only. The built-in `general-purpose` agent emits no child hook, but its activity remains in the root. |
+| GitHub Copilot CLI | `agentStop` under `.github/hooks/` | `subagentStop` for supported custom agents         | Select the latest cumulative root snapshot. It is inclusive; child records are attribution only. The built-in `general-purpose` agent emits no child hook. |
 | Codex              | `Stop` in `.codex/hooks.json`      | `SubagentStop`                                     | The latest cumulative root snapshot is inclusive; child records are attribution only.                                                                      |
-| Pi                 | `session_shutdown` extension       | Inline at each `run_agent` / `dispatch_wave` child | The root stream retains nested activity; per-response `message_end` usage is summed.                                                                       |
+| Pi                 | `session_shutdown` extension       | Inline at each `run_agent` / `dispatch_wave` child | The root excludes separate subprocess spend. Add every distinct descendant record once.                                                                    |
 
 Codex project command hooks remain inactive until their current definitions are
 trusted. After `init-factory`, open Codex's `/hooks` UI and approve the installed
@@ -56,9 +56,13 @@ hook definition until it is reviewed and trusted again.
 
 Pi human sessions capture once at graceful `session_shutdown`. Inline child
 capture disables the child's shutdown extension, preventing duplicate records.
-`run_agent` and `dispatch_wave` attach nesting depth and should attach the parent
-session id; the unresolved human-parent propagation defect is tracked as
-[RECON-0006](../../docs/findings/RECON-0006.md).
+`run_agent` and `dispatch_wave` attach nesting depth and the active parent
+session id. The shared resolver prefers Pi's active session file, then the
+explicit child-session environment, then a process-stable fallback. Pi totals
+add the human/root record and every distinct descendant exactly once because a
+separate Pi subprocess's model calls are not included in its parent's provider
+or normalized totals. Boundary task/result text can occur in both records
+because both model invocations consumed it.
 
 Claude `Stop` records are cumulative snapshots of the main transcript. For
 session totals, select the latest root record and add each distinct
