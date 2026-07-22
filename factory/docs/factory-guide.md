@@ -218,6 +218,10 @@ If the marker file is absent, both tools are no-ops — a project not using the 
 
 See [Structured Playbooks as a Deterministic Harness](proposals/playbook-structured-harness-strategy.md) for the full design rationale and the proof of concept's scope. The harness now has its own full specification — actors, use cases, entity model, and business rules — at [docs/spec/prd.md](../../docs/spec/prd.md).
 
+## Proposals
+
+A proposal is the seed brief that opens a feature-addition — the design origin the Planning phase turns into a backlog. Proposals live in `factory/docs/proposals/`, one markdown file per feature, written to the [proposal template](../rulebooks/templates/proposal.md): summary, motivation, design, an explicit in-scope / deferred split, open questions, and completion criteria. A proposal is a design *origin*, not a runtime artifact — a shipped agent's `inputs:` must never reference it. See [feature-addition.md](../playbooks/feature-addition.md) for where a proposal enters the workflow.
+
 ## Rulebooks
 
 A rulebook is a cross-cutting convention that applies across agents and skills — commit message format, how to cross-reference other documents, ADR style, branch scoping. [`factory/rulebooks/rules.md`](../rulebooks/rules.md) states each rule in one line; the matching file in `factory/rulebooks/conventions/` carries the reasoning, examples, and edge cases. Agents and skills cite these rules rather than restating them.

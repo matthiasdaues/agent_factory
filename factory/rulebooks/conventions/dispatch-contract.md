@@ -32,6 +32,12 @@ A single dispatch that tries to cover an entire codebase in one pass ("relentles
 
 Motivating example: the 2026-07-12 session's orchestrator-weeding and doc-reconciliation dispatches each hit the org API spend limit multiple times, at 300k–465k tokens per resume cycle; both were single, whole-codebase-scoped dispatches.
 
+### Verify Sub-Agent Reports Against State
+
+A sub-agent's success report is a claim, not proof. Before treating a dispatched unit of work as done, verify it against observable state — the branch tip and `git log`, the actual test run, and the mechanical gates ([verify-base](branching-policy.md#verify-base-preamble), [premerge-check](branching-policy.md#pre-merge-diff-check)) — never the self-report alone.
+
+Motivating example: in the 2026-07-21 session a developer-agent committed on a stale worktree base missing 144 commits and reported "7 passed"; `premerge-check` blocked the merge, and a direct git check exposed the false report.
+
 ## Enforcement
 
 Human/agent-authored discipline, not a git hook or lint gate — a sub-agent's addressing choice and a dispatcher's scope-splitting decision both happen inside the dispatching agent's own prompt-composition step, before any tool call a hook could intercept. Enforced by including the clauses above, verbatim, in every dispatch prompt that spawns sub-agents or covers more than one module/directory. See [implementation-agent.md § Workflow](../../agents/implementation-agent.md#workflow) for the current concrete application.

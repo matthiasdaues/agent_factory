@@ -24,14 +24,29 @@ TOP=$(git rev-parse --show-toplevel 2>/dev/null)
 
 if echo "$COMMAND" | grep -qE '^git[[:space:]]+commit([[:space:]]|$)'; then
   if [ "$(git rev-parse --git-dir 2>/dev/null)" != "$(git rev-parse --git-common-dir 2>/dev/null)" ] \
-     && [ -n "$TOP" ] && [ ! -f "$TOP/.agent-factory/verify-base-ok" ]; then
-    deny "git commit in a worktree with no .agent-factory/verify-base-ok marker. Run factory/scripts/verify-base <target> [--expect-base <SHA>] first."
+     && [ -n "$TOP" ]; then
+    MARKER="$TOP/.agent-factory/verify-base-ok"
+    if [ ! -f "$MARKER" ]; then
+      deny "git commit in a worktree with no .agent-factory/verify-base-ok marker. Run factory/scripts/verify-base <target> [--expect-base <SHA>] first."
+    fi
+    # ST-0047: the marker must correspond to THIS worktree — its verified base
+    # (head=) must be an ancestor of the current HEAD, so a stale or mismatched
+    # marker (e.g. a reused worktree path) no longer authorizes a commit. HEAD
+    # advancing during TDD still passes, since it descends from the verified base.
+    MARKER_HEAD=$(sed -n 's/^head=//p' "$MARKER")
+    if [ -z "$MARKER_HEAD" ] || ! git merge-base --is-ancestor "$MARKER_HEAD" HEAD 2>/dev/null; then
+      deny "git commit in a worktree whose verify-base-ok marker does not match its base (marker head is not an ancestor of HEAD). Re-run factory/scripts/verify-base <target> [--expect-base <SHA>]."
+    fi
   fi
 fi
 
 if echo "$COMMAND" | grep -qE '^git[[:space:]]+merge[[:space:]]'; then
+  # Isolate the `git merge …` invocation (up to a shell separator) before
+  # parsing the branch, so a compound line like `cd repo; git merge feat/x`
+  # does not leak `cd` as the operative branch (ST-0046).
+  MERGE_SEG=$(echo "$COMMAND" | grep -oE 'git[[:space:]]+merge[[:space:]]+[^|&;]*' | head -1)
   MERGE_BRANCH=""
-  for tok in $(echo "$COMMAND" | sed -E 's/^git[[:space:]]+merge[[:space:]]+//'); do
+  for tok in $(echo "$MERGE_SEG" | sed -E 's/^git[[:space:]]+merge[[:space:]]+//'); do
     case "$tok" in
       -*) continue ;;
       *) MERGE_BRANCH="$tok"; break ;;
@@ -57,7 +72,9 @@ DANGEROUS_PATTERNS=(
   "push --force"
   "reset --hard"
   # --- pre-commit / gate-hook bypasses (never skip this repo's own gates) ---
-  "--no-verify"
+  # Require a git context so a benign non-git command carrying the string
+  # (e.g. `grep --no-verify …`) is not blocked, while every git bypass is (ST-0046).
+  "git[[:space:]][^|&;]*--no-verify"
   "git[[:space:]]+commit[^|&;]*[[:space:]]-n([[:space:]]|\$)"
   "core\.hooksPath"
   "pre-commit uninstall"
