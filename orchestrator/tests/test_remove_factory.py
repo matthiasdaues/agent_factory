@@ -16,6 +16,7 @@ these tests are self-contained and stable.
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
@@ -48,6 +49,19 @@ repos:
         language: system
 """
 PROJECT_WORKFLOW = "name: CI\non: [push]\njobs: {}\n"
+PROJECT_CLAUDE_SETTINGS = {
+    "hooks": {
+        "PostToolUse": [
+            {
+                "matcher": "Bash",
+                "hooks": [{"type": "command", "command": "echo project-done"}],
+            }
+        ],
+        "Stop": [
+            {"hooks": [{"type": "command", "command": "echo project-owned-stop"}]}
+        ],
+    }
+}
 
 
 def _make_project(root: Path, with_copilot_instructions: bool = False) -> None:
@@ -159,6 +173,61 @@ class TestTracelessRemoval:
 
         assert _snapshot(tmp_path) == before
 
+    def test_roundtrip_preserves_project_owned_copilot_hook_file(self, tmp_path):
+        _make_project(tmp_path)
+        hooks = tmp_path / ".github/hooks"
+        hooks.mkdir()
+        project_hook = hooks / "project-observability.json"
+        project_hook.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "hooks": {
+                        "agentStop": [{"type": "command", "bash": "./project-hook.sh"}]
+                    },
+                },
+                indent=2,
+            )
+            + "\n"
+        )
+        before = _snapshot(tmp_path)
+
+        assert _run_init(tmp_path) == 0
+        assert _run_remove(tmp_path) == 0
+
+        assert _snapshot(tmp_path) == before
+
+    def test_ST0043_roundtrip_preserves_project_owned_codex_hooks(self, tmp_path):
+        _make_project(tmp_path)
+        codex = tmp_path / ".codex"
+        codex.mkdir()
+        hooks = {
+            "hooks": {
+                "Stop": [{"hooks": [{"type": "command", "command": "project-stop"}]}],
+                "AfterToolUse": [
+                    {"hooks": [{"type": "command", "command": "project-tool"}]}
+                ],
+            },
+            "projectSetting": True,
+        }
+        (codex / "hooks.json").write_text(json.dumps(hooks, indent=2) + "\n")
+        (codex / "project.toml").write_text("approval_policy = 'never'\n")
+        before = _snapshot(tmp_path)
+
+        assert _run_init(tmp_path) == 0
+        assert _run_remove(tmp_path) == 0
+
+        assert _snapshot(tmp_path) == before
+
+    def test_ST0043_fresh_codex_hook_structure_is_removed(self, tmp_path):
+        _make_project(tmp_path)
+
+        assert _run_init(tmp_path) == 0
+        assert (tmp_path / ".codex/hooks.json").is_file()
+        assert _run_remove(tmp_path) == 0
+
+        assert not (tmp_path / ".codex").exists()
+
     def test_double_init_then_single_remove_is_byte_identical(self, tmp_path):
         _make_project(tmp_path)
         before = _snapshot(tmp_path)
@@ -172,6 +241,32 @@ class TestTracelessRemoval:
     def test_remove_without_manifest_is_noop(self, tmp_path):
         _make_project(tmp_path)
         before = _snapshot(tmp_path)
+
+        assert _run_remove(tmp_path) == 0
+
+        assert _snapshot(tmp_path) == before
+
+    def test_roundtrip_with_existing_claude_settings_removes_only_our_hooks(
+        self, tmp_path
+    ):
+        _make_project(tmp_path)
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+        (claude_dir / "settings.json").write_text(
+            json.dumps(PROJECT_CLAUDE_SETTINGS, indent=2) + "\n", encoding="utf-8"
+        )
+        before = _snapshot(tmp_path)
+
+        assert _run_init(tmp_path) == 0
+        settings_after_init = json.loads(
+            (claude_dir / "settings.json").read_text(encoding="utf-8")
+        )
+        assert any(
+            hook.get("command") == init_factory.CLAUDE_CAPTURE_HOOK_COMMAND
+            for event in init_factory.CLAUDE_CAPTURE_HOOK_EVENTS
+            for entry in settings_after_init["hooks"][event]
+            for hook in entry.get("hooks", [])
+        )
 
         assert _run_remove(tmp_path) == 0
 

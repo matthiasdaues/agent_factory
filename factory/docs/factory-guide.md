@@ -21,6 +21,146 @@ The author/reviewer split depends on each agent running in its own session, so t
 
 For parallel work, a second Pi extension, `.pi/extensions/dispatch-wave.ts`, registers a `dispatch_wave` tool — the port of `implementation-agent`, which under Claude Code relies on the native Agent tool's `isolation: "worktree"` and simultaneous subagent spawns. Given one caller-planned, file-disjoint wave, `dispatch_wave` cuts a feature branch in its own git worktree per item, spawns each agent there in parallel, and — unless told not to — runs `premerge-check` before merging each finished branch into the target. It does not plan the wave: output-file overlap and dependency ordering stay with the calling agent, exactly as `implementation-agent` documents. `premerge-check` runs against the wave's frozen base, so a sibling merge advancing the target never falsely flags a later branch as stale.
 
+## Runtime usage capture
+
+Agent Factory records runtime token usage for Claude Code, GitHub Copilot CLI,
+Codex, and Pi. Every capture site calls the same
+`factory/scripts/usage-capture` pipeline: a CLI-specific transcript normalizer,
+the fixed `tiktoken cl100k_base` comparison tokenizer, and an append-only JSONL
+logging adapter. One record is appended to
+`.agent-factory/usage/<session-key>.jsonl`; the exact text that was tokenized is
+copied beneath `.agent-factory/usage/transcripts/` and linked through
+`transcript_ref`. The existing `/.agent-factory/` ignore rule covers the whole
+runtime area.
+
+`init-factory` prepares the tokenizer at its explicit trusted installation
+boundary before wiring capture hooks. It installs exact hash-verified wheels
+into the owner-only `.agent-factory/usage-runtime` with builds and Python
+downloads disabled. Set `UV_OFFLINE=1` for an offline initialization; capture is
+enabled only when every verified artifact is already available. A missing or
+invalid artifact leaves unrelated Factory setup intact and reports capture as
+unavailable. Lifecycle hooks never run uv or consult its cache. Re-running init
+re-verifies the committed dependency set; `remove-factory` deletes the runtime
+after pending captures from every adapter settle.
+
+Session and record identifiers are opaque data. Existing bounded lowercase
+identifiers retain their familiar filenames; unsafe, platform-specific, Unicode,
+or oversized values use fixed digest-based filesystem keys while their original
+values remain in the JSON record. Capture rejects symlinked storage components
+and never overwrites an existing transcript copy.
+
+Usage storage is private by construction: Factory-owned runtime directories use
+`0700` and files use `0600`, with existing safe owned paths repaired regardless
+of umask. Configure copied text with
+`init-factory --usage-transcript-retention full|omit`, override temporarily via
+`AGENT_FACTORY_USAGE_TRANSCRIPT_RETENTION`, or pass the capture CLI option.
+`omit` preserves all token totals and audit context but stores only an empty
+evidence placeholder marked `content-omitted`. On platforms where owner-only
+mode semantics cannot be enforced, omission is automatic. Invalid values also
+fail closed to omission.
+
+Records and evidence remain until their session is manually deleted or
+`remove-factory` runs; no automatic TTL is applied. Pi's owner-only staging copy
+is deleted immediately after processing. Regex redaction and disabling token
+accounting are not supported.
+
+Concurrent captures for one session reserve transcript paths atomically and
+probe forward when another process already owns a candidate. Record IDs can
+therefore contain gaps after a crashed capture. Their numeric reservation
+sequence, rather than JSONL line order, determines cumulative snapshot order.
+
+`normalized_input`, `normalized_output`, and their derived total are always
+present. Provider `reported_*` fields and `usage_granularity` are nullable when
+the transcript contains no provider breakdown. Capture is best-effort: direct
+invocation reports errors on stderr and returns success, while native lifecycle
+adapters may suppress those errors too. Capture failure never changes session
+completion or a tool result. `remove-factory` removes Factory-owned hook assets
+and exact merged entries while preserving project-owned configuration.
+
+| CLI                | Human/root trigger                 | Child trigger                                      | Accounting rule                                                                                                                                            |
+| ------------------ | ---------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code        | `Stop` in `.claude/settings.json`  | `SubagentStop`                                     | The latest cumulative root excludes child internals and usage. Add each distinct child record once.                                                        |
+| GitHub Copilot CLI | `agentStop` under `.github/hooks/` | `subagentStop` for supported custom agents         | Select the latest cumulative root snapshot. It is inclusive; child records are attribution only. The built-in `general-purpose` agent emits no child hook. |
+| Codex              | `Stop` in `.codex/hooks.json`      | `SubagentStop`                                     | The latest cumulative root snapshot is inclusive; child records are attribution only.                                                                      |
+| Pi                 | `session_shutdown` extension       | Inline at each `run_agent` / `dispatch_wave` child | The root excludes separate subprocess spend. Add every distinct descendant record once.                                                                    |
+
+Codex project command hooks remain inactive until their current definitions are
+trusted. After `init-factory`, open Codex's `/hooks` UI and approve the installed
+project hooks. `init-factory` reports this activation step on fresh installs and
+re-runs. Wiring the files does not activate them: Codex skips a new or changed
+hook definition until it is reviewed and trusted again.
+
+Pi human sessions capture once at graceful `session_shutdown`. Inline child
+capture disables the child's shutdown extension, preventing duplicate records.
+`run_agent` and `dispatch_wave` attach nesting depth and the active parent
+session id. The shared resolver prefers Pi's active session file, then the
+explicit child-session environment, then a process-stable fallback. Pi totals
+add the human/root record and every distinct descendant exactly once because a
+separate Pi subprocess's model calls are not included in its parent's provider
+or normalized totals. Boundary task/result text can occur in both records
+because both model invocations consumed it.
+
+All processes in a Pi invocation tree inherit one validated canonical usage
+root: the consumer project's primary checkout, derived from Git's shared common
+directory. Captures therefore remain under the primary checkout even when a
+nested agent runs inside a disposable dispatch worktree. An inherited root is
+accepted only when it agrees with the independently derived checkout and its
+Factory installation; invalid values fall back to repository derivation.
+Pi writes the completed stream to that root's private capture scratch directory
+as a durable handoff, then launches a Factory-owned capture supervisor through
+the provisioned Python runtime with no interactive standard streams. Tokenization and record persistence
+therefore do not delay human shutdown or `run_agent` / `dispatch_wave` results.
+The supervisor waits outside the measured lifecycle and solely removes the
+validated pending/committing marker, private completion status, and staged
+source after the capture child terminates. Capture child failures retain a
+bounded diagnostic in the private usage-control tree;
+diagnostics contain no transcript text. Explicit uninstall cancellation is
+benign and no supervisor failure recreates removed Factory paths. Only the local
+durable staging write remains synchronous. Abrupt supervisor or host shutdown
+can still lose an in-flight best-effort capture.
+
+Pi uses a small Node bootstrap only until the provisioned Python supervisor
+writes a private acceptance handshake. This closes the interpreter-disappears
+startup window: pre-accept launcher failure or timeout cleans the validated
+registration and records a bounded diagnostic, while cancel/removal stays quiet
+and cannot recreate paths. After acceptance the bootstrap exits; Python remains
+the only full capture supervisor.
+
+Claude, Codex, and Copilot hooks use the same lifecycle. Before returning they
+register and privately snapshot the provider transcript, then leave
+normalization and persistence to the detached supervisor. Snapshot time is
+O(transcript size); no tokenization or persistence blocks the hook. Standalone
+Codex does not require Node.
+
+`remove-factory` coordinates with detached captures from every adapter. Its default
+`--pending-usage=drain` waits up to `--pending-timeout` seconds for every
+capture registered before removal to commit; timeout restores the active
+installation and exits nonzero without uninstalling. Explicit
+`--pending-usage=cancel` discards registered-but-not-committing captures. A
+generation fence prevents new registration after removal owns the project, and
+late workers cannot recreate `.agent-factory`. No PIDs are signalled. Completed
+usage and transcripts remain part of the traceless Factory footprint and are
+deleted by a successful uninstall.
+
+The registration fence relies on same-volume file hard links: each pending
+token atomically snapshots lifecycle state before its metadata replaces the
+token contents. `init-factory` probes this capability. If the project filesystem
+does not provide it, setup for Claude, Copilot, Codex, and other Pi assets still
+completes, but init and Pi runtime report that race-safe Pi usage capture is
+unavailable rather than falling back to an unsafe fence.
+
+Claude `Stop` records are cumulative snapshots of the main transcript. For
+session totals, select the latest root record and add each distinct
+`SubagentStop` record once. Claude's `SubagentStop.transcript_path` points to
+the main transcript; Agent Factory instead captures the required
+`agent_transcript_path`, which contains the child's internal messages and
+per-message provider usage. Boundary task and result text can occur in both
+records because it entered both model contexts; that is real normalized usage,
+not aggregation duplication.
+
+The architecture rationale is recorded in
+[ADR-0007](../../docs/adr/0007-normalize-runtime-usage-through-cli-adapters.md).
+
 ## Skills
 
 A skill is a how-to — a reusable procedure an agent (or you, directly) invokes to do one well-defined thing: run a structured interview, write an ADR, run a security review. Each skill is a folder in `factory/skills/` holding a `SKILL.md`. Agents call skills; skills don't call agents.

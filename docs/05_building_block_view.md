@@ -6,13 +6,14 @@
 
 Factory Flow Control consists of three primary containers:
 
-| Container         | Responsibility                                                                                   | Technology     |
-| ----------------- | ------------------------------------------------------------------------------------------------ | -------------- |
-| **State Manager** | Reads/writes playbook state marker, resolves FSM transitions, drives phases                      | Bash, Python   |
-| **Validator**     | Enforces gates, permissions, test execution via unavoidable hooks                                | Bash, Python   |
-| **Dispatcher**    | Resolves agents/models from catalog, spawns CLI sessions with scoped permits                     | Bash, Python   |
-| State Files       | Local git-ignored marker (`.agent-factory/playbook-state.yml`) and FSM defs                      | YAML (storage) |
-| Catalog           | Generated `factory/INDEX.yaml` from agent/skill/playbook/rulebook frontmatter, with token counts | YAML (storage) |
+| Container         | Responsibility                                                                                   | Technology                |
+| ----------------- | ------------------------------------------------------------------------------------------------ | ------------------------- |
+| **State Manager** | Reads/writes playbook state marker, resolves FSM transitions, drives phases                      | Bash, Python              |
+| **Validator**     | Enforces gates, permissions, test execution via unavoidable hooks                                | Bash, Python              |
+| **Dispatcher**    | Resolves agents/models from catalog, spawns CLI sessions with scoped permits                     | Bash, Python              |
+| **Usage Capture** | Normalizes CLI transcripts and appends canonical runtime usage records                           | Python, shell, TypeScript |
+| State Files       | Local git-ignored marker (`.agent-factory/playbook-state.yml`) and FSM defs                      | YAML (storage)            |
+| Catalog           | Generated `factory/INDEX.yaml` from agent/skill/playbook/rulebook frontmatter, with token counts | YAML (storage)            |
 
 ![Containers](assets/images/Containers.png)
 
@@ -123,6 +124,7 @@ Every building block's entry point, invoked how, and by whom:
 | phase advance          | Human, orchestrator                     | `factory/scripts/phase advance`                                     | 0 (advanced), 1 (conditions unmet), 2 (misc)  |
 | phase retry            | Human, orchestrator                     | `factory/scripts/phase retry [--default-max-iterations]`            | 0 (retried), 2 (cap exceeded)                 |
 | trigger                | Human, orchestrator, run-step skill     | `factory/scripts/trigger agent <name> [--background]`               | 0 (dispatched), 1+ (error)                    |
+| usage-capture          | Native CLI hooks and Pi extensions      | `factory/scripts/usage-capture --cli ... --transcript ...`          | 0 (captured or best-effort no-op)             |
 | index-lint             | Pre-commit hook, CI                     | `factory/scripts/index-lint [--check]`                              | 0 (fresh), 1 (stale)                          |
 | run-step skill         | Claude Code, Copilot CLI (LLM-executed) | Skill markdown invoked by AI                                        | (N/A — skill is prose)                        |
 | run-agent (Pi)         | Pi session (via `run_agent` tool call)  | `.pi/extensions/run-agent.ts` → spawns `pi ... -p <task>`           | (tool result: text + usage, or error)         |
@@ -130,6 +132,21 @@ Every building block's entry point, invoked how, and by whom:
 | openrouter-discover    | Human operator, CI (`--check`)          | `factory/scripts/openrouter-discover [--list\|--suggest\|--check]`  | 0 (ok), 1 (drift)                             |
 | schema-validate        | Research skills/agents, CLI             | `factory/scripts/schema-validate <artifact-file> <schema-file>`     | 0 (conforms), 1 (violations), 2 (operational) |
 | policy-validate        | Research skills/agents, CLI             | `factory/scripts/policy-validate [--pipeline] <artifact-or-dir>...` | 0 (pass), 1 (fail), 2 (operational)           |
+
+## 5.6 Level 2: Runtime Usage Capture
+
+`usage-capture` is a CLI-agnostic pipeline with two adapter seams. A
+CLI-specific normalizer maps Claude Code, Copilot, Codex, or Pi events into
+ordered input/output text and nullable provider usage. The fixed
+`cl100k_base` tokenizer produces comparable `normalized_*` counts. A JSONL
+logging adapter appends the canonical record beneath `.agent-factory/usage/`
+and persists the exact tokenized transcript copy referenced by the record.
+
+Native lifecycle adapters own invocation: Claude `Stop`/`SubagentStop`,
+Copilot `agentStop`/`subagentStop`, Codex `Stop`/`SubagentStop`, and Pi
+`session_shutdown` plus inline child capture. The orchestrator never writes a
+second record. See
+[ADR-0007](adr/0007-normalize-runtime-usage-through-cli-adapters.md).
 
 ## Referenced from
 
