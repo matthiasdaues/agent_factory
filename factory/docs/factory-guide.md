@@ -39,6 +39,21 @@ or oversized values use fixed digest-based filesystem keys while their original
 values remain in the JSON record. Capture rejects symlinked storage components
 and never overwrites an existing transcript copy.
 
+Usage storage is private by construction: Factory-owned runtime directories use
+`0700` and files use `0600`, with existing safe owned paths repaired regardless
+of umask. Configure copied text with
+`init-factory --usage-transcript-retention full|omit`, override temporarily via
+`AGENT_FACTORY_USAGE_TRANSCRIPT_RETENTION`, or pass the capture CLI option.
+`omit` preserves all token totals and audit context but stores only an empty
+evidence placeholder marked `content-omitted`. On platforms where owner-only
+mode semantics cannot be enforced, omission is automatic. Invalid values also
+fail closed to omission.
+
+Records and evidence remain until their session is manually deleted or
+`remove-factory` runs; no automatic TTL is applied. Pi's owner-only staging copy
+is deleted immediately after processing. Regex redaction and disabling token
+accounting are not supported.
+
 Concurrent captures for one session reserve transcript paths atomically and
 probe forward when another process already owns a candidate. Record IDs can
 therefore contain gaps after a crashed capture. Their numeric reservation

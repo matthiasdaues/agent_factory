@@ -55,8 +55,9 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Optional, Protocol, Union, runtime_checkable
 
-_DIRECTORY_MODE = 0o755  # SEC-0002 owns tightening storage permissions.
-_FILE_MODE = 0o644
+_DIRECTORY_MODE = 0o700
+_FILE_MODE = 0o600
+_RETENTION_ENV = "AGENT_FACTORY_USAGE_TRANSCRIPT_RETENTION"
 _OPAQUE_PREFIX = "opaque-"
 _LEGACY_SAFE_COMPONENT = re.compile(r"^[a-z0-9][a-z0-9._-]{0,99}$")
 _WINDOWS_DEVICE_STEMS = {
@@ -110,14 +111,20 @@ class UsageStoragePaths:
         self.transcripts_dir = self.usage_dir / "transcripts"
 
     @staticmethod
-    def _ensure_directory(path: Path) -> None:
+    def _ensure_directory(path: Path, *, repair: bool = True) -> None:
+        created = False
         try:
             path.mkdir(mode=_DIRECTORY_MODE)
+            created = True
         except FileExistsError:
             pass
         info = path.lstat()
         if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
             raise OSError(f"unsafe usage storage directory: {path}")
+        if hasattr(os, "geteuid") and info.st_uid != os.geteuid():
+            raise OSError(f"foreign-owned usage storage directory: {path}")
+        if created or repair:
+            os.chmod(path, _DIRECTORY_MODE, follow_symlinks=False)
 
     @staticmethod
     def _require_regular_if_present(path: Path) -> None:
@@ -127,9 +134,24 @@ class UsageStoragePaths:
             return
         if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
             raise OSError(f"unsafe usage storage file: {path}")
+        if info.st_nlink != 1:
+            raise OSError(f"unsafe hard-linked usage storage file: {path}")
+        if hasattr(os, "geteuid") and info.st_uid != os.geteuid():
+            raise OSError(f"foreign-owned usage storage file: {path}")
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(path, flags)
+        try:
+            opened = os.fstat(fd)
+            if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
+                raise OSError(f"unsafe usage storage file: {path}")
+            if hasattr(os, "geteuid") and opened.st_uid != os.geteuid():
+                raise OSError(f"foreign-owned usage storage file: {path}")
+            os.fchmod(fd, _FILE_MODE)
+        finally:
+            os.close(fd)
 
     def ensure_layout(self) -> None:
-        self._ensure_directory(self.agent_dir)
+        self._ensure_directory(self.agent_dir, repair=False)
         self._ensure_directory(self.usage_dir)
         self._ensure_directory(self.transcripts_dir)
 
@@ -203,13 +225,15 @@ class UsageStoragePaths:
                     raise
                 sequence += 1
                 continue
-            if not stat.S_ISREG(os.fstat(fd).st_mode):
+            opened = os.fstat(fd)
+            if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
                 os.close(fd)
                 try:
                     path.unlink()
                 except OSError:
                     pass
                 raise OSError(f"unsafe transcript target: {path}")
+            os.fchmod(fd, _FILE_MODE)
             return TranscriptReservation(candidate, path, fd)
 
 
@@ -229,6 +253,51 @@ class TranscriptReservation:
             self.path.unlink()
         except OSError:
             pass
+
+
+def supports_owner_only_permissions() -> bool:
+    """Whether POSIX owner/group/other mode bits provide the contract."""
+    return os.name == "posix" and hasattr(os, "fchmod")
+
+
+def resolve_transcript_retention(
+    cli_value: Optional[str],
+    base_dir: Union[str, Path] = ".",
+    environ: Optional[dict[str, str]] = None,
+) -> str:
+    """Resolve CLI > environment > secure project config > compatible default."""
+    environment = os.environ if environ is None else environ
+    value = cli_value or environment.get(_RETENTION_ENV)
+    if value is None:
+        config = Path(base_dir).resolve() / ".agent-factory/usage-control/config.json"
+        try:
+            info = config.lstat()
+            if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
+                raise OSError("unsafe retention config")
+            if info.st_nlink != 1:
+                raise OSError("unsafe hard-linked retention config")
+            if hasattr(os, "geteuid") and info.st_uid != os.geteuid():
+                raise OSError("foreign-owned retention config")
+            os.chmod(config, _FILE_MODE, follow_symlinks=False)
+            value = json.loads(config.read_text(encoding="utf-8")).get(
+                "transcript_retention"
+            )
+        except FileNotFoundError:
+            value = "full"
+        except (OSError, AttributeError, json.JSONDecodeError):
+            value = "omit"
+    if value not in ("full", "omit"):
+        print(
+            "usage-capture: invalid transcript retention; forcing omit", file=sys.stderr
+        )
+        value = "omit"
+    if not supports_owner_only_permissions() and value != "omit":
+        print(
+            "usage-capture: owner-only permissions unsupported; forcing transcript omission",
+            file=sys.stderr,
+        )
+        return "omit"
+    return value
 
 
 # ── Tokenizer ────────────────────────────────────────────────────────────
@@ -434,9 +503,12 @@ class JsonlLoggingAdapter:
     raises into the caller.
     """
 
-    def __init__(self, base_dir: Union[str, Path] = ".") -> None:
+    def __init__(
+        self, base_dir: Union[str, Path] = ".", retention: str = "full"
+    ) -> None:
         self._storage = UsageStoragePaths(base_dir)
         self._usage_dir = self._storage.usage_dir
+        self._retention = retention
 
     def record(self, usage_record: "UsageRecord", transcript_text: str) -> None:
         try:
@@ -476,10 +548,14 @@ class JsonlLoggingAdapter:
     ) -> None:
         session_id = usage_record.session_id or "unknown"
         try:
-            _write_all(reservation.fd, transcript_text.encode("utf-8"))
+            if self._retention == "full":
+                _write_all(reservation.fd, transcript_text.encode("utf-8"))
             os.close(reservation.fd)
             reservation.fd = -1
-            usage_record.transcript_ref = TranscriptRef(path=str(reservation.path))
+            usage_record.transcript_ref = TranscriptRef(
+                path=str(reservation.path),
+                span="content-omitted" if self._retention == "omit" else None,
+            )
             session_path = self._storage.session_path(session_id)
             line = (json.dumps(usage_record.to_dict()) + "\n").encode("utf-8")
             session_flags = (
@@ -490,6 +566,7 @@ class JsonlLoggingAdapter:
             try:
                 if not stat.S_ISREG(os.fstat(fd).st_mode):
                     raise OSError(f"unsafe usage record target: {session_path}")
+                os.fchmod(fd, _FILE_MODE)
                 # Keep one write for the atomic O_APPEND record contract.
                 written = os.write(fd, line)
                 if written != len(line):
@@ -1073,6 +1150,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--base-commit", dest="base_commit")
     parser.add_argument("--commit", dest="commit_id")
     parser.add_argument("--exit-status", dest="exit_status")
+    parser.add_argument("--transcript-retention")
     parser.add_argument(
         "--delete-source",
         action="store_true",
@@ -1193,6 +1271,9 @@ def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> None
 
     normalized_input = count_tokens(transcript.input_text)
     normalized_output = count_tokens(transcript.output_text)
+    retention = resolve_transcript_retention(
+        getattr(args, "transcript_retention", None), base_dir
+    )
 
     with _pi_persistence_fence(args, base_dir) as allowed:
         if allowed:
@@ -1230,8 +1311,10 @@ def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> None
             except Exception:
                 reservation.discard()
                 raise
-            JsonlLoggingAdapter(base_dir=base_dir).record_reserved(
-                record, transcript.text, reservation
+            JsonlLoggingAdapter(base_dir=base_dir, retention=retention).record_reserved(
+                record,
+                transcript.text,
+                reservation,
             )
 
 

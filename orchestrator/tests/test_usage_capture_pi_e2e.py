@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 import subprocess
 import time
 from pathlib import Path
@@ -99,6 +100,47 @@ await shutdown({{type:'session_shutdown'}}, ctx);
     transcript = tmp_path / record["transcript_ref"]["path"]
     assert transcript.is_file()
     assert "ASK" in transcript.read_text()
+
+
+def test_SEC0002_pi_omit_keeps_totals_without_persisting_text(tmp_path):
+    result = subprocess.run(
+        [
+            str(_INIT),
+            "--target",
+            str(tmp_path),
+            "--source",
+            str(_ROOT),
+            "--usage-transcript-retention",
+            "omit",
+        ],
+        text=True,
+        capture_output=True,
+    )
+    assert result.returncode == 0, result.stderr
+    bridge = tmp_path / ".pi/extensions/pi-usage.ts"
+    exercise = tmp_path / "exercise-pi-omit.mjs"
+    secret = "PI_UNIQUE_SECRET_CONTENT"
+    exercise.write_text(
+        f"""
+import {{capturePiStream}} from {json.dumps(bridge.as_uri())};
+capturePiStream({json.dumps(str(tmp_path))}, '{{"type":"message_end","message":{{"role":"assistant","content":[{{"type":"text","text":{json.dumps(secret)}}}],"usage":{{"input":9,"output":4}}}}}}', {{sessionId:'pi-omit'}});
+"""
+    )
+    _run_node(exercise, cwd=tmp_path)
+
+    record = _records(tmp_path, "pi-omit")[0]
+    evidence = tmp_path / record["transcript_ref"]["path"]
+    assert record["reported_input"] == 9
+    assert record["reported_output"] == 4
+    assert record["normalized_total"] > 0
+    assert record["transcript_ref"]["span"] == "content-omitted"
+    assert evidence.read_bytes() == b""
+    _wait_for(lambda: not list((tmp_path / ".agent-factory/usage/.capture").iterdir()))
+    assert all(
+        secret not in path.read_text(errors="ignore")
+        for path in (tmp_path / ".agent-factory").rglob("*")
+        if path.is_file()
+    )
 
 
 def test_ST0044_init_remove_preserves_project_pi_content(tmp_path):
@@ -287,6 +329,25 @@ def test_RECON0012_remove_drains_registered_capture_before_teardown(tmp_path):
     assert not (tmp_path / ".agent-factory").exists()
     time.sleep(0.1)
     assert not (tmp_path / ".agent-factory").exists()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX mode bits required")
+def test_SEC0002_pi_staging_and_control_paths_are_private(tmp_path):
+    _init(tmp_path)
+    gate, pending = _start_stalled_direct_capture(tmp_path, "pi-private-modes")
+    control = tmp_path / ".agent-factory/usage-control"
+    scratch = tmp_path / ".agent-factory/usage/.capture"
+    marker = next(pending.iterdir())
+    staged = next(scratch.iterdir())
+
+    for directory in (control, pending, scratch):
+        assert stat.S_IMODE(directory.stat().st_mode) == 0o700
+    for file in (control / "state.json", control / "config.json", marker, staged):
+        assert stat.S_IMODE(file.stat().st_mode) == 0o600
+
+    gate.touch()
+    _records(tmp_path, "pi-private-modes")
+    _wait_for(lambda: not list(scratch.iterdir()))
 
 
 def test_FAGAN0002_registration_snapshot_closes_pre_marker_removal_race(tmp_path):

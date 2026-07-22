@@ -28,6 +28,8 @@ import concurrent.futures
 import dataclasses
 import importlib.util
 import json
+import os
+import stat
 import subprocess
 import sys
 import uuid
@@ -464,6 +466,112 @@ class TestSecureOpaqueIdentifierStorageSEC0001:
         assert existing.read_text() == "original evidence"
         assert record.transcript_ref is None
         assert not (tmp_path / ".agent-factory/usage/sess-safe.jsonl").exists()
+
+
+class TestPrivateUsageStorageSEC0002:
+    @pytest.mark.parametrize("caller_umask", [0o000, 0o777])
+    def test_modes_are_exact_independent_of_umask(self, tmp_path, caller_umask):
+        previous = os.umask(caller_umask)
+        try:
+            adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
+            record = _make_record("sess-private-0001", "sess-private")
+            adapter.record(record, "secret")
+        finally:
+            os.umask(previous)
+
+        directories = [
+            tmp_path / ".agent-factory/usage",
+            tmp_path / ".agent-factory/usage/transcripts",
+            tmp_path / ".agent-factory/usage/transcripts/sess-private",
+        ]
+        files = [
+            tmp_path / ".agent-factory/usage/sess-private.jsonl",
+            Path(record.transcript_ref.path),
+        ]
+        assert [stat.S_IMODE(path.stat().st_mode) for path in directories] == [
+            0o700
+        ] * len(directories)
+        assert [stat.S_IMODE(path.stat().st_mode) for path in files] == [0o600] * len(
+            files
+        )
+
+    def test_existing_owned_modes_are_repaired_without_following_links(self, tmp_path):
+        usage = tmp_path / ".agent-factory/usage"
+        transcript_dir = usage / "transcripts/sess-repair"
+        transcript_dir.mkdir(parents=True, mode=0o755)
+        session = usage / "sess-repair.jsonl"
+        session.write_text("")
+        session.chmod(0o644)
+        transcript_dir.chmod(0o755)
+
+        usage_capture.JsonlLoggingAdapter(tmp_path).record(
+            _make_record("sess-repair-0001", "sess-repair"), "secret"
+        )
+
+        assert stat.S_IMODE(session.stat().st_mode) == 0o600
+        assert stat.S_IMODE(transcript_dir.stat().st_mode) == 0o700
+
+    def test_omit_keeps_totals_and_placeholder_but_no_text(self, tmp_path):
+        record = _make_record("sess-omit-0001", "sess-omit")
+        adapter = usage_capture.JsonlLoggingAdapter(tmp_path, retention="omit")
+
+        adapter.record(record, "UNIQUE_SECRET_TEXT")
+
+        evidence = Path(record.transcript_ref.path)
+        assert evidence.read_bytes() == b""
+        assert record.transcript_ref.span == "content-omitted"
+        payload = json.loads(
+            (tmp_path / ".agent-factory/usage/sess-omit.jsonl").read_text()
+        )
+        assert payload["normalized_total"] == 2
+        assert all(
+            "UNIQUE_SECRET_TEXT" not in path.read_text(errors="ignore")
+            for path in (tmp_path / ".agent-factory").rglob("*")
+            if path.is_file()
+        )
+
+    def test_retention_precedence_and_invalid_fail_closed(self, tmp_path):
+        control = tmp_path / ".agent-factory/usage-control"
+        control.mkdir(parents=True)
+        (control / "config.json").write_text('{"transcript_retention":"omit"}\n')
+
+        assert (
+            usage_capture.resolve_transcript_retention("full", tmp_path, {}) == "full"
+        )
+        assert (
+            usage_capture.resolve_transcript_retention(
+                None, tmp_path, {"AGENT_FACTORY_USAGE_TRANSCRIPT_RETENTION": "full"}
+            )
+            == "full"
+        )
+        assert usage_capture.resolve_transcript_retention(None, tmp_path, {}) == "omit"
+        assert (
+            usage_capture.resolve_transcript_retention("invalid", tmp_path, {})
+            == "omit"
+        )
+
+    def test_hardlinked_existing_record_is_rejected_without_chmod(self, tmp_path):
+        outside = tmp_path / "outside.jsonl"
+        outside.write_text("keep")
+        outside.chmod(0o644)
+        usage = tmp_path / ".agent-factory/usage"
+        (usage / "transcripts").mkdir(parents=True)
+        os.link(outside, usage / "sess-link.jsonl")
+        record = _make_record("sess-link-0001", "sess-link")
+
+        usage_capture.JsonlLoggingAdapter(tmp_path).record(record, "secret")
+
+        assert outside.read_text() == "keep"
+        assert stat.S_IMODE(outside.stat().st_mode) == 0o644
+        assert record.transcript_ref is None
+
+    def test_platform_without_owner_only_modes_forces_omit(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            usage_capture, "supports_owner_only_permissions", lambda: False
+        )
+        assert (
+            usage_capture.resolve_transcript_retention("full", tmp_path, {}) == "omit"
+        )
 
 
 class TestJsonlLoggingAdapterConcurrency:
@@ -1064,6 +1172,85 @@ class TestPiNormalizerST0044:
         assert result.reported_cache_read == 13
         assert result.reported_cache_write == 5
         assert result.usage_granularity == "full"
+
+
+def test_SEC0002_all_normalizers_preserve_totals_when_text_is_omitted(tmp_path):
+    secret = "ALL_CLI_SECRET_TEXT"
+    fixtures = {
+        "claude-code": [
+            {"type": "user", "message": {"role": "user", "content": secret}},
+            _claude_assistant_event("answer", input_tokens=3, output_tokens=2),
+        ],
+        "copilot": [
+            {"type": "user.message", "data": {"content": secret}},
+            {"type": "assistant.message", "data": {"content": "answer"}},
+            {"type": "assistant.usage", "data": {"inputTokens": 3, "outputTokens": 2}},
+        ],
+        "codex": [
+            {
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": secret}],
+                },
+            },
+            {
+                "type": "event_msg",
+                "payload": {
+                    "type": "token_count",
+                    "info": {
+                        "total_token_usage": {"input_tokens": 3, "output_tokens": 2}
+                    },
+                },
+            },
+        ],
+        "pi": [
+            {"type": "prompt", "message": {"role": "user", "content": secret}},
+            {
+                "type": "message_end",
+                "message": {
+                    "role": "assistant",
+                    "content": "answer",
+                    "usage": {"input": 3, "output": 2},
+                },
+            },
+        ],
+    }
+    for cli, events in fixtures.items():
+        fixture_dir = tmp_path / cli
+        fixture_dir.mkdir()
+        normalized = usage_capture.get_normalizer(cli).parse(
+            _write_transcript(fixture_dir, events)
+        )
+        record = usage_capture.UsageRecord(
+            record_id=f"{cli}-session-0001",
+            session_id=f"{cli}-session",
+            cli=cli,
+            normalized_input=len(normalized.input_text),
+            normalized_output=len(normalized.output_text),
+            reported_input=normalized.reported_input,
+            reported_output=normalized.reported_output,
+        )
+        usage_capture.JsonlLoggingAdapter(tmp_path, retention="omit").record(
+            record, normalized.text
+        )
+        payload = json.loads(
+            (tmp_path / ".agent-factory/usage" / f"{cli}-session.jsonl")
+            .read_text()
+            .splitlines()[-1]
+        )
+        assert payload["normalized_total"] > 0
+        assert payload["reported_input"] == 3
+        assert payload["reported_output"] == 2
+        assert Path(payload["transcript_ref"]["path"]).read_bytes() == b""
+        assert payload["transcript_ref"]["span"] == "content-omitted"
+
+    assert all(
+        secret not in path.read_text(errors="ignore")
+        for path in (tmp_path / ".agent-factory").rglob("*")
+        if path.is_file()
+    )
 
 
 def _normalize_via_subprocess(cli: str, path: Path) -> dict:

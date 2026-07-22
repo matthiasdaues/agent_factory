@@ -314,7 +314,9 @@ def _write_usage_state(control: Path, mode: str, generation: str) -> None:
         json.dumps({"mode": mode, "generation": generation}) + "\n",
         encoding="utf-8",
     )
+    temp.chmod(0o600)
     os.replace(temp, control / "state.json")
+    (control / "state.json").chmod(0o600)
 
 
 def _pending_markers(control: Path) -> list[Path]:
@@ -365,6 +367,7 @@ def prepare_usage_removal(
     try:
         with owner.open("x", encoding="utf-8") as handle:
             handle.write(str(os.getpid()))
+        owner.chmod(0o600)
     except FileExistsError:
         print("remove-factory: usage removal already in progress", file=sys.stderr)
         return False, None

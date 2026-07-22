@@ -24,6 +24,7 @@ from __future__ import annotations
 import importlib.util
 import errno
 import json
+import stat
 import sys
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
@@ -69,6 +70,46 @@ def _has_capture_entry(settings: dict, event: str) -> bool:
 
 
 class TestFreshTarget:
+    def test_SEC0002_init_creates_private_retention_config_and_preserves_override(
+        self, tmp_path
+    ):
+        assert (
+            init_factory.main(
+                [
+                    "--target",
+                    str(tmp_path),
+                    "--source",
+                    str(_ROOT),
+                    "--usage-transcript-retention",
+                    "omit",
+                ]
+            )
+            == 0
+        )
+        config = tmp_path / ".agent-factory/usage-control/config.json"
+        assert json.loads(config.read_text())["transcript_retention"] == "omit"
+        assert stat.S_IMODE(config.stat().st_mode) == 0o600
+        assert _run_init(tmp_path) == 0
+        assert json.loads(config.read_text())["transcript_retention"] == "omit"
+
+    def test_SEC0002_init_repairs_historical_usage_tree(self, tmp_path):
+        historical = tmp_path / ".agent-factory/usage/transcripts/old-session"
+        historical.mkdir(parents=True)
+        evidence = historical / "old-record.jsonl"
+        evidence.write_text("old secret")
+        for directory in (
+            tmp_path / ".agent-factory/usage",
+            tmp_path / ".agent-factory/usage/transcripts",
+            historical,
+        ):
+            directory.chmod(0o755)
+        evidence.chmod(0o644)
+
+        assert _run_init(tmp_path) == 0
+
+        assert stat.S_IMODE(evidence.stat().st_mode) == 0o600
+        assert stat.S_IMODE(historical.stat().st_mode) == 0o700
+
     def test_FAGAN0002_hardlink_capability_failure_is_reported_not_fatal(
         self, tmp_path, monkeypatch
     ):

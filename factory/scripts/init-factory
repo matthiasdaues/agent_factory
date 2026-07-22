@@ -104,6 +104,7 @@ import argparse
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import uuid
@@ -900,20 +901,107 @@ def write_manifest(target: Path, install: dict, report: list[str]) -> None:
     log(report, f"{MANIFEST_PATH}: wrote removal manifest")
 
 
-def initialize_usage_lifecycle(target: Path, report: list[str]) -> None:
+def _private_directory(path: Path) -> None:
+    path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    info = path.lstat()
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+        raise Collision(f"unsafe Factory usage directory: {path}")
+    os.chmod(path, 0o700, follow_symlinks=False)
+
+
+def _private_file(path: Path, content: str) -> None:
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        info = None
+    if info is not None and (
+        not stat.S_ISREG(info.st_mode)
+        or info.st_nlink != 1
+        or (hasattr(os, "geteuid") and info.st_uid != os.geteuid())
+    ):
+        raise Collision(f"unsafe Factory usage file: {path}")
+    fd = os.open(
+        path,
+        os.O_CREAT | os.O_TRUNC | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0),
+        0o600,
+    )
+    try:
+        opened = os.fstat(fd)
+        if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
+            raise Collision(f"unsafe Factory usage file: {path}")
+        os.fchmod(fd, 0o600)
+        os.write(fd, content.encode("utf-8"))
+    finally:
+        os.close(fd)
+
+
+def _repair_private_tree(root: Path) -> None:
+    """Repair only safe, owner-owned Factory usage descendants."""
+    if not root.exists() or root.is_symlink():
+        return
+    for entry in os.scandir(root):
+        info = entry.stat(follow_symlinks=False)
+        if stat.S_ISLNK(info.st_mode):
+            continue
+        if hasattr(os, "geteuid") and info.st_uid != os.geteuid():
+            continue
+        path = Path(entry.path)
+        if stat.S_ISDIR(info.st_mode):
+            os.chmod(path, 0o700, follow_symlinks=False)
+            _repair_private_tree(path)
+        elif stat.S_ISREG(info.st_mode) and info.st_nlink == 1:
+            fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+            try:
+                opened = os.fstat(fd)
+                if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
+                    continue
+                os.fchmod(fd, 0o600)
+            finally:
+                os.close(fd)
+
+
+def initialize_usage_lifecycle(
+    target: Path, report: list[str], transcript_retention: str | None = None
+) -> None:
     """Pre-create and probe the atomic Pi registration fence and registry."""
     control = target / ".agent-factory" / "usage-control"
-    (control / "pending").mkdir(parents=True, exist_ok=True)
-    (target / ".agent-factory" / "usage" / ".capture").mkdir(
-        parents=True, exist_ok=True
-    )
+    usage = target / ".agent-factory" / "usage"
+    _private_directory(control)
+    _private_directory(control / "pending")
+    _private_directory(usage)
+    _private_directory(usage / ".capture")
     state = control / "state.json"
     if not state.exists():
-        state.write_text(
+        _private_file(
+            state,
             json.dumps({"mode": "active", "generation": str(uuid.uuid4())}) + "\n",
-            encoding="utf-8",
         )
         log(report, ".agent-factory/usage-control: initialized")
+    else:
+        state_info = state.lstat()
+        if (
+            stat.S_ISLNK(state_info.st_mode)
+            or not stat.S_ISREG(state_info.st_mode)
+            or (hasattr(os, "geteuid") and state_info.st_uid != os.geteuid())
+        ):
+            raise Collision(f"unsafe Factory usage state: {state}")
+        os.chmod(state, 0o600, follow_symlinks=False)
+    config = control / "config.json"
+    if transcript_retention is not None or not config.exists():
+        mode = transcript_retention or "full"
+        _private_file(config, json.dumps({"transcript_retention": mode}) + "\n")
+    else:
+        config_info = config.lstat()
+        if (
+            stat.S_ISLNK(config_info.st_mode)
+            or not stat.S_ISREG(config_info.st_mode)
+            or config_info.st_nlink != 1
+            or (hasattr(os, "geteuid") and config_info.st_uid != os.geteuid())
+        ):
+            raise Collision(f"unsafe Factory usage config: {config}")
+        os.chmod(config, 0o600, follow_symlinks=False)
+    _repair_private_tree(usage)
+    _repair_private_tree(control)
     probe = control / "pending" / f"hardlink-probe-{uuid.uuid4()}"
     try:
         os.link(state, probe)
@@ -963,6 +1051,11 @@ def main(argv: list[str] | None = None) -> int:
         default=Path("."),
         help="project directory to initialize (default: cwd)",
     )
+    ap.add_argument(
+        "--usage-transcript-retention",
+        choices=("full", "omit"),
+        default=None,
+    )
     args = ap.parse_args(argv)
 
     source_root = (args.source or Path(__file__).resolve().parents[2]).resolve()
@@ -1001,7 +1094,7 @@ def main(argv: list[str] | None = None) -> int:
         handle_precommit(target, install, report)
         write_gitignore_block(target, install, report)
         write_manifest(target, install, report)
-        initialize_usage_lifecycle(target, report)
+        initialize_usage_lifecycle(target, report, args.usage_transcript_retention)
         pre_commit_install(target, report)
     except Collision as e:
         print(f"init-factory: STOPPED — {e}", file=sys.stderr)

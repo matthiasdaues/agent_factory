@@ -135,11 +135,20 @@ git, and the transcript is persisted separately and linked.
   append-only, unbounded, and noise in history). POSIX `O_APPEND` makes
   concurrent appends atomic, so parallel dispatch — many sub-agents writing at
   once — is safe with no locking.
-- **The tokenized transcript is persisted** as a copy under
+- **The tokenized transcript is persisted by default** as a copy under
   `.agent-factory/usage/transcripts/<session-key>/<record-key>.jsonl`, and
   `transcript_ref` points at it. This keeps the audit link from dangling when a
   CLI cleans up its own scratch transcript. Storage is local, ignored, and
   prunable by session.
+- **Sensitive projects can omit copied text without losing accounting.**
+  Retention resolves CLI option, environment, secure project config, then the
+  compatible `full` default. `omit` still produces every normalized/provider
+  total and context field; its exclusive evidence placeholder is empty and
+  marked `content-omitted`. Invalid settings and platforms unable to enforce
+  owner-only permissions force omission.
+- **Runtime storage is owner-only.** Factory usage/control directories are
+  `0700`; records, evidence, reservations, control state, and Pi scratch files
+  are `0600`, repaired independently of umask without following links.
 - **Behind a logging-adapter seam.** Capture sites hand a record to an adapter;
   the JSONL adapter appends the line and persists the transcript copy. A future
   PostgreSQL adapter, served by a dedicated logging service, replaces the JSONL
@@ -291,8 +300,11 @@ records is not aggregation duplication: both model invocations consumed it.
   can leave an empty reservation and therefore a valid sequence gap. Numeric
   reservation order—not JSONL append order—defines snapshot order. A UUID4 is
   used when no session id exists.
-- **Retention** of transcripts is manual and per-session for now; pruning
-  policy is deferred with the rest of the read side.
+- **Retention** is explicit and per-session: records and full/omitted evidence
+  remain until manual session deletion or `remove-factory`; there is no
+  automatic TTL. Pi scratch is deleted immediately after processing. Whole-text
+  omission is the supported redaction control; regex redaction is intentionally
+  absent because it cannot reliably find secrets. Accounting cannot be disabled.
 - **Opaque identifiers never become paths directly.** Bounded lowercase ASCII
   identifiers that were already safe retain their historical layout. All other
   session and record identifiers map to fixed `opaque-<sha256>` filesystem keys;
@@ -322,7 +334,7 @@ The release is complete when:
 
 - `factory/scripts/usage-capture` exists and, given a transcript and context,
   writes a well-formed record to `.agent-factory/usage/<session-key>.jsonl` and
-  persists the linked transcript copy.
+  persists linked full evidence or an explicitly marked omitted placeholder.
 - Records carry `normalized_*` counts produced by `cl100k_base` over the full
   transcript, with `reported_*` populated where the transcript provides it.
 - Claude Code, GitHub Copilot CLI, Codex, and Pi sessions — human and sub-agent
