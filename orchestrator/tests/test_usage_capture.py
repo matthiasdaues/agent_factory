@@ -1,25 +1,8 @@
-"""Tests for `factory/scripts/usage-capture` (ST-0035, ST-0036).
+"""Contract tests for the CLI-agnostic usage-capture core.
 
-This file is grown by later stories (ST-0037 normalizer, ST-0038 CLI
-entrypoint); ST-0035 covers the usage record shape, the `record_id` scheme,
-and the cl100k_base tokenizer. ST-0036 adds the `LoggingAdapter` seam and
-its `JsonlLoggingAdapter` implementation: append-one-line-per-record,
-transcript-copy persistence, concurrent-append safety, and the best-effort
-failure contract.
-
-The script is extensionless and, like `openrouter-discover`/`resolve-model`,
-loaded via importlib for the record/record_id tests, which touch no
-third-party dependency. The tokenizer itself needs `tiktoken`, which the
-script's exact-locked offline source shebang bootstraps but a bare test
-interpreter (this suite runs under plain `uvx pytest`) does not have —
-`import tiktoken` is therefore lazy inside `count_tokens()`, never at module
-scope, so importing the module for the record tests never requires it.
-
-The tokenizer's own tests exercise it by invoking the script as a
-subprocess through its own shebang (`subprocess.run([str(_SCRIPT), ...])`),
-the same pattern `test_research_playbook_ST0033.py` already uses to get a
-real, non-fallback `tiktoken` count out of `index-lint` from a bare
-interpreter.
+The module owns normalization, token conservation, secure persistence,
+atomic record reservation, and best-effort failure. CLI-specific lifecycle
+journeys belong in their adapter end-to-end modules.
 """
 
 from __future__ import annotations
@@ -71,13 +54,12 @@ def _count_via_subprocess(text: str) -> int:
 
 
 class TestTokenizer:
-    def test_known_fixture_has_exact_count(self):
-        # cl100k_base encodes "Hello, world!" as 4 tokens: [9906, 11, 1917, 0]
-        assert _count_via_subprocess("Hello, world!") == 4
-
-    def test_second_known_fixture_has_exact_count(self):
-        text = "The quick brown fox jumps over the lazy dog."
-        assert _count_via_subprocess(text) == 10
+    def test_known_fixtures_have_exact_counts(self):
+        fixtures = {
+            "Hello, world!": 4,
+            "The quick brown fox jumps over the lazy dog.": 10,
+        }
+        assert {text: _count_via_subprocess(text) for text in fixtures} == fixtures
 
     def test_same_input_yields_same_count(self):
         text = "deterministic, local, no network, no LLM call"
@@ -141,18 +123,13 @@ _NULLABLE_BY_DEFAULT = _ALL_FIELDS - {
 
 
 class TestUsageRecordFieldPresence:
-    def test_every_proposal_field_is_present(self):
+    def test_schema_contains_contract_fields_and_record_id(self):
         record = usage_capture.UsageRecord(
             record_id="sess-0001", normalized_input=3, normalized_output=5
         )
         field_names = {f.name for f in dataclasses.fields(record)}
         missing = _ALL_FIELDS - field_names
         assert not missing, f"UsageRecord is missing fields: {missing}"
-
-    def test_record_id_is_also_present(self):
-        record = usage_capture.UsageRecord(
-            record_id="sess-0001", normalized_input=1, normalized_output=1
-        )
         assert record.record_id == "sess-0001"
 
 
@@ -164,39 +141,27 @@ class TestNullability:
         for name in _NULLABLE_BY_DEFAULT:
             assert getattr(record, name) is None, f"{name} did not default to None"
 
-    def test_normalized_fields_are_never_null(self):
+    def test_normalized_defaults_are_non_null_and_nullable_values_override(self):
         record = usage_capture.UsageRecord(
-            record_id="sess-0001", normalized_input=0, normalized_output=0
+            record_id="sess-0001",
+            normalized_input=0,
+            normalized_output=0,
+            cli="claude-code",
+            loop_role="review",
         )
         assert record.normalized_input is not None
         assert record.normalized_output is not None
         assert record.normalized_total is not None
-
-    def test_supplied_nullable_field_overrides_default(self):
-        record = usage_capture.UsageRecord(
-            record_id="sess-0001",
-            normalized_input=1,
-            normalized_output=1,
-            cli="claude-code",
-            loop_role="review",
-        )
         assert record.cli == "claude-code"
         assert record.loop_role == "review"
 
 
 class TestNormalizedTotalInvariant:
-    def test_total_equals_input_plus_output(self):
+    def test_total_is_derived_from_input_and_output(self):
         record = usage_capture.UsageRecord(
             record_id="sess-0001", normalized_input=120, normalized_output=45
         )
         assert record.normalized_total == 165
-
-    def test_total_is_derived_not_settable_out_of_sync(self):
-        """normalized_total is computed, not caller-supplied — the invariant
-        cannot be violated by construction, only by never being asked for."""
-        record = usage_capture.UsageRecord(
-            record_id="sess-0001", normalized_input=7, normalized_output=3
-        )
         assert (
             record.normalized_total
             == record.normalized_input + record.normalized_output
@@ -239,20 +204,11 @@ class TestRecordIdSequencer:
         first_b = seq.next_id("sess-b")
         assert first_b == "sess-b-0001"
 
-    def test_missing_session_id_falls_back_to_uuid(self):
+    def test_absent_session_ids_fall_back_to_unique_uuids(self):
         seq = usage_capture.RecordIdSequencer()
-        record_id = seq.next_id(None)
-        # Falls back to a real UUID4 string, not a session-sequence id.
-        assert uuid.UUID(record_id).version == 4
-
-    def test_empty_session_id_falls_back_to_uuid(self):
-        seq = usage_capture.RecordIdSequencer()
-        record_id = seq.next_id("")
-        assert uuid.UUID(record_id).version == 4
-
-    def test_uuid_fallback_is_unique_per_call(self):
-        seq = usage_capture.RecordIdSequencer()
-        assert seq.next_id(None) != seq.next_id(None)
+        generated = [seq.next_id(None), seq.next_id(""), seq.next_id(None)]
+        assert all(uuid.UUID(record_id).version == 4 for record_id in generated)
+        assert len(set(generated)) == len(generated)
 
 
 # ── LoggingAdapter / JsonlLoggingAdapter (ST-0036) ──────────────────────
@@ -268,27 +224,9 @@ def _make_record(record_id: str, session_id: str) -> "usage_capture.UsageRecord"
 
 
 class TestJsonlLoggingAdapterAppendsRecords:
-    def test_appends_one_record_line_to_session_file(self, tmp_path):
-        adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
-        record = _make_record("sess-1-0001", "sess-1")
-
-        adapter.record(record, "transcript text")
-
-        session_file = tmp_path / ".agent-factory" / "usage" / "sess-1.jsonl"
-        lines = session_file.read_text().splitlines()
-        assert len(lines) == 1
-        assert json.loads(lines[0])["record_id"] == "sess-1-0001"
-
-    def test_creates_usage_directory_on_demand(self, tmp_path):
+    def test_creates_storage_then_appends_without_overwrite(self, tmp_path):
         adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
         assert not (tmp_path / ".agent-factory").exists()
-
-        adapter.record(_make_record("sess-2-0001", "sess-2"), "x")
-
-        assert (tmp_path / ".agent-factory" / "usage" / "sess-2.jsonl").exists()
-
-    def test_second_record_appends_a_second_line_not_overwrite(self, tmp_path):
-        adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
         adapter.record(_make_record("sess-3-0001", "sess-3"), "first")
         adapter.record(_make_record("sess-3-0002", "sess-3"), "second")
 
@@ -302,7 +240,7 @@ class TestJsonlLoggingAdapterAppendsRecords:
 
 
 class TestJsonlLoggingAdapterTranscriptPersistence:
-    def test_transcript_copy_written_and_ref_points_at_it(self, tmp_path):
+    def test_copy_and_serialized_record_share_transcript_reference(self, tmp_path):
         adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
         record = _make_record("sess-4-0001", "sess-4")
 
@@ -319,19 +257,12 @@ class TestJsonlLoggingAdapterTranscriptPersistence:
         assert expected_path.exists()
         assert expected_path.read_text() == "the tokenized transcript body"
         assert record.transcript_ref.path == str(expected_path)
-
-    def test_serialized_record_line_carries_the_same_transcript_ref(self, tmp_path):
-        adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
-        record = _make_record("sess-5-0001", "sess-5")
-
-        adapter.record(record, "body")
-
-        session_file = tmp_path / ".agent-factory" / "usage" / "sess-5.jsonl"
+        session_file = tmp_path / ".agent-factory" / "usage" / "sess-4.jsonl"
         payload = json.loads(session_file.read_text().splitlines()[0])
         assert payload["transcript_ref"]["path"] == record.transcript_ref.path
 
 
-class TestSecureOpaqueIdentifierStorageSEC0001:
+class TestSecureOpaqueIdentifierStorage:
     @pytest.mark.parametrize(
         "opaque_id",
         [
@@ -468,7 +399,7 @@ class TestSecureOpaqueIdentifierStorageSEC0001:
         assert not (tmp_path / ".agent-factory/usage/sess-safe.jsonl").exists()
 
 
-class TestPrivateUsageStorageSEC0002:
+class TestPrivateUsageStorage:
     @pytest.mark.parametrize("caller_umask", [0o000, 0o777])
     def test_modes_are_exact_independent_of_umask(self, tmp_path, caller_umask):
         previous = os.umask(caller_umask)
@@ -576,15 +507,7 @@ class TestPrivateUsageStorageSEC0002:
 
 class TestJsonlLoggingAdapterConcurrency:
     def test_many_concurrent_appends_are_neither_lost_nor_interleaved(self, tmp_path):
-        """Fires many threads at one adapter/session simultaneously.
-
-        `os.write` releases the GIL for the duration of the syscall, so
-        concurrent threads genuinely race at the OS level here — this
-        exercises the same O_APPEND atomicity the adapter relies on for
-        real concurrent *processes* (e.g. parallel sub-agent dispatch),
-        without the complexity of spawning subprocesses against a
-        dynamically-loaded, extensionless module.
-        """
+        """Concurrent appends remain complete and independently parseable."""
         adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
         session_id = "sess-concurrent"
         count = 100
@@ -732,7 +655,7 @@ class TestNormalizerInterface:
 
 
 class TestClaudeCodeNormalizerText:
-    def test_full_run_text_includes_every_block_kind(self, tmp_path):
+    def test_full_run_text_and_role_split_include_every_block_kind(self, tmp_path):
         path = _write_transcript(tmp_path, _claude_transcript_with_usage())
         result = usage_capture.get_normalizer("claude-code").parse(path)
 
@@ -748,20 +671,14 @@ class TestClaudeCodeNormalizerText:
             "TOOL_RESULT_BODY",
         ):
             assert fragment in full, f"{fragment} missing from full run text"
-
-    def test_role_split_directs_input_and_output(self, tmp_path):
-        path = _write_transcript(tmp_path, _claude_transcript_with_usage())
-        result = usage_capture.get_normalizer("claude-code").parse(path)
-
-        # input <- system, user, tool_result
-        assert "SYSTEM_PROMPT" in result.input_text
-        assert "USER_QUESTION" in result.input_text
-        assert "TOOL_RESULT_BODY" in result.input_text
-        # output <- assistant text, thinking, tool_use
-        assert "ASSISTANT_ANSWER" in result.output_text
-        assert "THINKING_TRACE" in result.output_text
-        assert "TOOL_INPUT_PATH" in result.output_text
-        # and the streams do not bleed into each other
+        assert all(
+            fragment in result.input_text
+            for fragment in ("SYSTEM_PROMPT", "USER_QUESTION", "TOOL_RESULT_BODY")
+        )
+        assert all(
+            fragment in result.output_text
+            for fragment in ("ASSISTANT_ANSWER", "THINKING_TRACE", "TOOL_INPUT_PATH")
+        )
         assert "TOOL_RESULT_BODY" not in result.output_text
         assert "THINKING_TRACE" not in result.input_text
 
@@ -850,7 +767,7 @@ def _parse_claude_fixture(tmp_path: Path, name: str, lines: list[dict]):
     return usage_capture.get_normalizer("claude-code").parse(path)
 
 
-class TestClaudeCodeConservationRECON0008:
+class TestClaudeCodeConservation:
     def test_latest_root_plus_each_distinct_child_once(self, tmp_path):
         early_root = _parse_claude_fixture(
             tmp_path,
@@ -989,7 +906,7 @@ def _copilot_parent_transcript_with_general_purpose_child():
     ]
 
 
-class TestCopilotNormalizerST0042:
+class TestCopilotNormalizer:
     def test_parent_is_inclusive_of_general_purpose_child_text_and_usage(
         self, tmp_path
     ):
@@ -1032,8 +949,8 @@ class TestCopilotNormalizerST0042:
         assert "IGNORE_ME" not in result.text
 
 
-class TestCodexNormalizerST0043:
-    def test_ST0043_full_root_transcript_includes_child_activity_and_latest_usage(
+class TestCodexNormalizer:
+    def test_full_root_transcript_includes_child_activity_and_latest_usage(
         self, tmp_path
     ):
         events = [
@@ -1110,10 +1027,8 @@ class TestCodexNormalizerST0043:
         assert result.usage_granularity == "full"
 
 
-class TestPiNormalizerST0044:
-    def test_ST0044_root_stream_includes_child_text_and_final_cumulative_usage(
-        self, tmp_path
-    ):
+class TestPiNormalizer:
+    def test_root_stream_includes_child_text_and_final_cumulative_usage(self, tmp_path):
         events = [
             {"type": "session_start", "systemPrompt": "PI SYSTEM"},
             {"type": "prompt", "message": {"role": "user", "content": "ROOT ASK"}},
@@ -1174,7 +1089,7 @@ class TestPiNormalizerST0044:
         assert result.usage_granularity == "full"
 
 
-def test_SEC0002_all_normalizers_preserve_totals_when_text_is_omitted(tmp_path):
+def test_all_normalizers_preserve_totals_when_text_is_omitted(tmp_path):
     secret = "ALL_CLI_SECRET_TEXT"
     fixtures = {
         "claude-code": [
@@ -1361,7 +1276,7 @@ def _run_capture(cwd, extra_args) -> subprocess.CompletedProcess:
 
 
 class TestCliEntrypointHappyPath:
-    def test_FAGAN0003_concurrent_processes_reserve_distinct_evidence(self, tmp_path):
+    def test_concurrent_processes_reserve_distinct_evidence(self, tmp_path):
         session_id = "sess-process-race"
         gate = tmp_path / "start-gate"
         markers = [f"DISTINCT_EVIDENCE_{index}" for index in range(12)]
@@ -1422,7 +1337,7 @@ class TestCliEntrypointHappyPath:
         assert len(set(refs)) == len(markers)
         assert {ref.read_text().splitlines()[0] for ref in refs} == set(markers)
 
-    def test_FAGAN0003_orphan_reservation_creates_valid_sequence_gap(self, tmp_path):
+    def test_orphan_reservation_creates_valid_sequence_gap(self, tmp_path):
         session_id = "sess-orphan"
         reserved = (
             tmp_path
@@ -1458,7 +1373,7 @@ class TestCliEntrypointHappyPath:
         assert record["record_id"] == f"{session_id}-0002"
         assert Path(record["transcript_ref"]["path"]).read_text() == "FRESH"
 
-    def test_SEC0001_hostile_session_is_mapped_before_sequence_lookup(self, tmp_path):
+    def test_hostile_session_is_mapped_before_sequence_lookup(self, tmp_path):
         transcript_path = _write_transcript(tmp_path, _claude_transcript_with_usage())
         session_id = "../../cli-escape"
 
@@ -1577,7 +1492,7 @@ class TestCliEntrypointHappyPath:
 
 
 class TestCliEntrypointBestEffort:
-    def test_FAGAN0004_supervisor_status_requires_canonical_persistence(self, tmp_path):
+    def test_supervisor_status_requires_canonical_persistence(self, tmp_path):
         control = tmp_path / ".agent-factory/usage-control"
         pending = control / "pending"
         scratch = tmp_path / ".agent-factory/usage/.capture"
@@ -1624,9 +1539,7 @@ class TestCliEntrypointBestEffort:
         assert staged.is_file()
         assert (pending / "pi-status.committing.json").is_file()
 
-    def test_FAGAN0004_completion_status_rejects_foreign_and_symlink_paths(
-        self, tmp_path
-    ):
+    def test_completion_status_rejects_foreign_and_symlink_paths(self, tmp_path):
         control = tmp_path / ".agent-factory/usage-control"
         control.mkdir(parents=True)
         foreign = tmp_path / "foreign.completion.json"
@@ -1648,7 +1561,7 @@ class TestCliEntrypointBestEffort:
         assert linked.is_symlink()
         assert target.read_text() == "owned"
 
-    def test_RECON0010_delete_source_removes_only_factory_staged_input(self, tmp_path):
+    def test_delete_source_removes_only_factory_staged_input(self, tmp_path):
         scratch = tmp_path / ".agent-factory/usage/.capture"
         scratch.mkdir(parents=True)
         staged = scratch / "pi-staged.jsonl"
@@ -1670,9 +1583,7 @@ class TestCliEntrypointBestEffort:
         assert result.returncode == 0
         assert not staged.exists()
 
-    def test_RECON0010_delete_source_rejects_arbitrary_and_symlink_paths(
-        self, tmp_path
-    ):
+    def test_delete_source_rejects_arbitrary_and_symlink_paths(self, tmp_path):
         arbitrary = _write_transcript(tmp_path, _claude_transcript_with_usage())
         scratch = tmp_path / ".agent-factory/usage/.capture"
         scratch.mkdir(parents=True)
