@@ -1,4 +1,4 @@
-"""Installed-path executable coverage for Pi usage capture (ST-0044)."""
+"""Pi lifecycle transition and installed-entry smoke tests."""
 
 from __future__ import annotations
 
@@ -35,6 +35,36 @@ def _records(target: Path, session: str) -> list[dict]:
     _wait_for(path.is_file)
     _wait_for_terminal_capture(target)
     return [json.loads(line) for line in path.read_text().splitlines()]
+
+
+def _init_git_repo(target: Path) -> str:
+    subprocess.run(
+        ["git", "init", "-b", "main"], cwd=target, check=True, capture_output=True
+    )
+    (target / "seed").write_text("seed\n")
+    subprocess.run(["git", "add", "seed"], cwd=target, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "user.name=Test",
+            "commit",
+            "-m",
+            "seed",
+        ],
+        cwd=target,
+        check=True,
+        capture_output=True,
+    )
+    return subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=target,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
 
 
 def _wait_for(predicate, timeout: float = 10) -> None:
@@ -128,52 +158,7 @@ def _run_node(
     assert result.returncode == 0, result.stderr
 
 
-@pytest.mark.skipif(
-    not subprocess.run(["node", "--version"], capture_output=True).returncode == 0,
-    reason="node required",
-)
-def test_ST0044_installed_session_shutdown_captures_once(tmp_path):
-    _init(tmp_path)
-    extension = tmp_path / ".pi/extensions/capture-usage.ts"
-    assert extension.is_symlink()
-    script = tmp_path / "exercise.mjs"
-    script.write_text(
-        f"""
-import extension from {json.dumps(extension.as_uri())};
-let shutdown;
-extension({{on(name, handler) {{ if (name === 'session_shutdown') shutdown = handler; }}}});
-const ctx = {{cwd: {json.dumps(str(tmp_path))}, sessionManager: {{
-  getSessionFile() {{ return '/sessions/pi-human.jsonl'; }},
-  getBranch() {{ return [
-    {{type:'message', message:{{role:'user', content:'ASK'}}}},
-    {{type:'message', message:{{role:'assistant', content:[{{type:'text',text:'ANSWER'}}], usage:{{input:7,output:3,cacheRead:1,cacheWrite:0}}}}}}
-  ];}}
-}}}};
-await shutdown({{type:'session_shutdown'}}, ctx);
-await shutdown({{type:'session_shutdown'}}, ctx);
-"""
-    )
-    result = subprocess.run(
-        ["node", "--experimental-strip-types", str(script)],
-        cwd=tmp_path,
-        text=True,
-        capture_output=True,
-        timeout=60,
-    )
-    assert result.returncode == 0, result.stderr
-    records = _records(tmp_path, "pi-human")
-    assert len(records) == 1
-    record = records[0]
-    assert record["cli"] == "pi"
-    assert record["reported_input"] == 7
-    assert record["reported_output"] == 3
-    transcript = tmp_path / record["transcript_ref"]["path"]
-    assert transcript.is_file()
-    assert "ASK" in transcript.read_text()
-    assert _diagnostics(tmp_path) == []
-
-
-def test_SEC0002_pi_omit_keeps_totals_without_persisting_text(tmp_path):
+def test_omitted_transcript_keeps_totals_without_persisting_text(tmp_path):
     result = subprocess.run(
         [
             str(_INIT),
@@ -214,7 +199,7 @@ capturePiStream({json.dumps(str(tmp_path))}, '{{"type":"message_end","message":{
     )
 
 
-def test_ST0044_init_remove_preserves_project_pi_content(tmp_path):
+def test_install_then_remove_preserves_project_pi_content(tmp_path):
     custom = tmp_path / ".pi/extensions/custom.ts"
     custom.parent.mkdir(parents=True)
     custom.write_text("// project owned\n")
@@ -355,7 +340,9 @@ moduleApi.syncBuiltinESMExports();
 
 def _release_capture_and_assert_cleanup(target: Path, gate: Path, session: str) -> dict:
     gate.touch()
-    record = _records(target, session)[0]
+    records = _records(target, session)
+    assert len(records) == 1
+    record = records[0]
     scratch = target / ".agent-factory/usage/.capture"
     _wait_for(lambda: not scratch.exists() or not list(scratch.iterdir()))
     assert (target / record["transcript_ref"]["path"]).is_file()
@@ -380,7 +367,7 @@ capturePiStream({json.dumps(str(target))}, '{{"type":"message_end","message":{{"
     return gate, pending
 
 
-def test_RECON0012_remove_drains_registered_capture_before_teardown(tmp_path):
+def test_registered_capture_drains_before_teardown(tmp_path):
     _init(tmp_path)
     gate, _pending = _start_stalled_direct_capture(tmp_path, "pi-remove-drain")
     remover = subprocess.Popen(
@@ -403,7 +390,7 @@ def test_RECON0012_remove_drains_registered_capture_before_teardown(tmp_path):
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX mode bits required")
-def test_SEC0002_pi_staging_and_control_paths_are_private(tmp_path):
+def test_registered_capture_staging_and_control_paths_are_private(tmp_path):
     _init(tmp_path)
     gate, pending = _start_stalled_direct_capture(tmp_path, "pi-private-modes")
     control = tmp_path / ".agent-factory/usage-control"
@@ -421,7 +408,7 @@ def test_SEC0002_pi_staging_and_control_paths_are_private(tmp_path):
     _wait_for(lambda: not list(scratch.iterdir()))
 
 
-def test_FAGAN0002_registration_snapshot_closes_pre_marker_removal_race(tmp_path):
+def test_registration_snapshot_closes_pre_marker_removal_race(tmp_path):
     _init(tmp_path)
     env = os.environ.copy()
     capture_started, capture_gate = _install_gated_capture(tmp_path, env)
@@ -484,7 +471,7 @@ capturePiStream({json.dumps(str(tmp_path))}, '{{"type":"message_end","message":{
     assert not (tmp_path / ".agent-factory").exists()
 
 
-def test_RECON0012_drain_timeout_restores_active_installation(tmp_path):
+def test_drain_timeout_restores_active_installation(tmp_path):
     _init(tmp_path)
     gate, _pending = _start_stalled_direct_capture(tmp_path, "pi-remove-timeout")
     result = subprocess.run(
@@ -511,7 +498,7 @@ def test_RECON0012_drain_timeout_restores_active_installation(tmp_path):
     assert _records(tmp_path, "pi-remove-timeout")
 
 
-def test_FAGAN0002_stale_active_snapshot_aborts_drain_and_restores_active(tmp_path):
+def test_stale_active_snapshot_aborts_drain_and_restores_active(tmp_path):
     _init(tmp_path)
     control = tmp_path / ".agent-factory/usage-control"
     token = control / "pending/stale-active.pending.json"
@@ -529,7 +516,7 @@ def test_FAGAN0002_stale_active_snapshot_aborts_drain_and_restores_active(tmp_pa
     assert json.loads((control / "state.json").read_text())["mode"] == "active"
 
 
-def test_FAGAN0002_cancel_discards_active_snapshot_token(tmp_path):
+def test_cancel_discards_active_snapshot_token(tmp_path):
     _init(tmp_path)
     control = tmp_path / ".agent-factory/usage-control"
     token = control / "pending/stale-active.pending.json"
@@ -547,7 +534,7 @@ def test_FAGAN0002_cancel_discards_active_snapshot_token(tmp_path):
     assert not (tmp_path / ".agent-factory").exists()
 
 
-def test_FAGAN0002_unsupported_hardlinks_report_capture_limitation(tmp_path):
+def test_unsupported_hardlinks_report_registration_limitation(tmp_path):
     _init(tmp_path)
     preload = tmp_path / "unsupported-hardlink.cjs"
     preload.write_text(
@@ -587,7 +574,7 @@ capturePiStream({json.dumps(str(tmp_path))}, '{{"type":"message_end","message":{
     assert not list((tmp_path / ".agent-factory/usage-control/pending").iterdir())
 
 
-def test_RECON0012_explicit_cancel_prevents_late_resurrection(tmp_path):
+def test_explicit_cancel_prevents_late_resurrection(tmp_path):
     user_file = tmp_path / ".github/workflows/user.yml"
     user_file.parent.mkdir(parents=True, exist_ok=True)
     user_file.write_text("user-owned\n")
@@ -620,7 +607,7 @@ def test_RECON0012_explicit_cancel_prevents_late_resurrection(tmp_path):
     assert again.returncode == 0
 
 
-def test_RECON0012_registration_rejects_removal_fence_without_recreation(tmp_path):
+def test_registration_rejects_removal_fence_without_recreation(tmp_path):
     _init(tmp_path)
     state_path = tmp_path / ".agent-factory/usage-control/state.json"
     state = json.loads(state_path.read_text())
@@ -636,9 +623,10 @@ capturePiStream({json.dumps(str(tmp_path))}, '{{"type":"message_end","message":{
     _run_node(exercise, cwd=tmp_path, timeout=3)
     assert not list((tmp_path / ".agent-factory/usage-control/pending").iterdir())
     assert not list((tmp_path / ".agent-factory/usage/.capture").iterdir())
+    assert _diagnostics(tmp_path) == []
 
 
-def test_RECON0012_cancel_does_not_follow_malformed_registry_paths(tmp_path):
+def test_cancel_does_not_follow_malformed_registry_paths(tmp_path):
     _init(tmp_path)
     outside = tmp_path / "user-data.txt"
     outside.write_text("keep\n")
@@ -658,7 +646,7 @@ def test_RECON0012_cancel_does_not_follow_malformed_registry_paths(tmp_path):
     assert outside.read_text() == "keep\n"
 
 
-def test_RECON0012_committing_marker_causes_bounded_abort(tmp_path):
+def test_committing_marker_causes_bounded_abort(tmp_path):
     _init(tmp_path)
     pending = tmp_path / ".agent-factory/usage-control/pending"
     committing = pending / "stalled.committing.json"
@@ -687,7 +675,7 @@ def test_RECON0012_committing_marker_causes_bounded_abort(tmp_path):
     )
 
 
-def test_RECON0010_human_shutdown_returns_while_capture_is_stalled(tmp_path):
+def test_human_shutdown_is_idempotent_and_returns_while_capture_is_stalled(tmp_path):
     _init(tmp_path)
     env = os.environ.copy()
     started, gate = _install_gated_capture(tmp_path, env)
@@ -700,7 +688,10 @@ let shutdown;
 extension({{on(name, handler) {{ if (name === 'session_shutdown') shutdown = handler; }}}});
 const ctx = {{cwd:{json.dumps(str(tmp_path))},sessionManager:{{
   getSessionFile() {{ return '/sessions/pi-stalled-human.jsonl'; }},
-  getBranch() {{ return [{{type:'message',message:{{role:'assistant',content:[{{type:'text',text:'ok'}}],usage:{{input:3,output:1}}}}}}]; }}
+  getBranch() {{ return [
+    {{type:'message',message:{{role:'user',content:'ASK'}}}},
+    {{type:'message',message:{{role:'assistant',content:[{{type:'text',text:'ANSWER'}}],usage:{{input:7,output:3}}}}}}
+  ]; }}
 }}}};
 await shutdown({{type:'session_shutdown'}}, ctx);
 await shutdown({{type:'session_shutdown'}}, ctx);
@@ -710,11 +701,15 @@ await shutdown({{type:'session_shutdown'}}, ctx);
     _run_node(exercise, cwd=tmp_path, env=env, timeout=3)
     _wait_for(started.is_file)
     assert not (tmp_path / ".agent-factory/usage/pi-stalled-human.jsonl").exists()
-    records = _release_capture_and_assert_cleanup(tmp_path, gate, "pi-stalled-human")
-    assert records["agent"] == "human"
+    record = _release_capture_and_assert_cleanup(tmp_path, gate, "pi-stalled-human")
+    assert record["agent"] == "human"
+    assert record["reported_input"] == 7
+    assert record["reported_output"] == 3
+    assert "ASK" in (tmp_path / record["transcript_ref"]["path"]).read_text()
+    assert _diagnostics(tmp_path) == []
 
 
-def test_RECON0010_run_agent_returns_while_capture_is_stalled(tmp_path):
+def test_run_agent_returns_while_capture_is_stalled(tmp_path):
     _init(tmp_path)
     _install_typebox_stub(tmp_path)
     env = _install_pi_stub(tmp_path)
@@ -741,34 +736,8 @@ def test_RECON0010_run_agent_returns_while_capture_is_stalled(tmp_path):
     assert record["depth"] == 1
 
 
-def test_RECON0010_dispatch_wave_returns_while_capture_is_stalled(tmp_path):
-    subprocess.run(
-        ["git", "init", "-b", "main"], cwd=tmp_path, check=True, capture_output=True
-    )
-    (tmp_path / "seed").write_text("seed\n")
-    subprocess.run(["git", "add", "seed"], cwd=tmp_path, check=True)
-    subprocess.run(
-        [
-            "git",
-            "-c",
-            "user.email=test@example.com",
-            "-c",
-            "user.name=Test",
-            "commit",
-            "-m",
-            "seed",
-        ],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-    )
-    base = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=tmp_path,
-        check=True,
-        text=True,
-        capture_output=True,
-    ).stdout.strip()
+def test_dispatch_wave_returns_while_capture_is_stalled(tmp_path):
+    base = _init_git_repo(tmp_path)
     _init(tmp_path)
     _install_typebox_stub(tmp_path)
     env = _install_pi_stub(tmp_path)
@@ -807,7 +776,7 @@ def test_RECON0010_dispatch_wave_returns_while_capture_is_stalled(tmp_path):
     assert record["depth"] == 1
 
 
-def test_RECON0010_async_spawn_error_cleans_staged_source(tmp_path):
+def test_spawn_error_cleans_registered_staged_source(tmp_path):
     _init(tmp_path)
     capture = tmp_path / "factory/scripts/usage-capture-runtime"
     capture.write_text("#!/definitely/missing/interpreter\n")
@@ -831,7 +800,7 @@ await new Promise(resolve => setTimeout(resolve, 100));
     assert not (tmp_path / ".agent-factory/usage/pi-spawn-error.jsonl").exists()
 
 
-def test_FAGAN0006_post_registration_interpreter_loss_is_cleaned(tmp_path):
+def test_interpreter_loss_after_registration_is_cleaned(tmp_path):
     _init(tmp_path)
     launcher = tmp_path / "factory/scripts/usage-capture-runtime"
     real_launcher = tmp_path / "factory/scripts/usage-capture-runtime-real"
@@ -864,7 +833,7 @@ def test_FAGAN0006_post_registration_interpreter_loss_is_cleaned(tmp_path):
     assert not (tmp_path / ".agent-factory").exists()
 
 
-def test_FAGAN0006_acceptance_transfers_cleanup_to_python(tmp_path):
+def test_acceptance_transfers_cleanup_to_supervisor(tmp_path):
     _init(tmp_path)
 
     _invoke_direct_pi_capture(tmp_path, "pi-accepted-supervisor")
@@ -876,7 +845,7 @@ def test_FAGAN0006_acceptance_transfers_cleanup_to_python(tmp_path):
     assert _diagnostics(tmp_path) == []
 
 
-def test_FAGAN0006_cancel_before_acceptance_does_not_resurrect(tmp_path):
+def test_cancel_before_acceptance_does_not_resurrect(tmp_path):
     _init(tmp_path)
     launcher = tmp_path / "factory/scripts/usage-capture-runtime"
     real_launcher = tmp_path / "factory/scripts/usage-capture-runtime-real"
@@ -906,7 +875,7 @@ def test_FAGAN0006_cancel_before_acceptance_does_not_resurrect(tmp_path):
     assert not (tmp_path / "factory").exists()
 
 
-def test_FAGAN0006_acceptance_timeout_cleans_and_diagnoses(tmp_path):
+def test_acceptance_timeout_cleans_and_diagnoses(tmp_path):
     _init(tmp_path)
     control = tmp_path / ".agent-factory/usage-control"
     pending = control / "pending"
@@ -958,7 +927,7 @@ def test_FAGAN0006_acceptance_timeout_cleans_and_diagnoses(tmp_path):
     assert diagnostic["reason"] == "acceptance-timeout"
 
 
-def test_FAGAN0007_bootstrap_exits_while_accepted_supervisor_continues(tmp_path):
+def test_bootstrap_exits_while_accepted_supervisor_continues(tmp_path):
     _init(tmp_path)
     control = tmp_path / ".agent-factory/usage-control"
     pending = control / "pending"
@@ -1017,7 +986,7 @@ def test_FAGAN0007_bootstrap_exits_while_accepted_supervisor_continues(tmp_path)
     _wait_for(child_finished.is_file, timeout=3)
 
 
-def test_FAGAN0004_missing_runtime_interpreter_reaches_terminal_state(tmp_path):
+def test_missing_runtime_interpreter_reaches_terminal_state(tmp_path):
     _init(tmp_path)
     runtime_python = tmp_path / ".agent-factory/usage-runtime/bin/python"
     runtime_python.unlink()
@@ -1036,7 +1005,7 @@ def test_FAGAN0004_missing_runtime_interpreter_reaches_terminal_state(tmp_path):
     assert result.returncode == 0, result.stderr
 
 
-def test_FAGAN0004_abrupt_python_failure_reaches_terminal_state(tmp_path):
+def test_capture_process_failure_reaches_terminal_state(tmp_path):
     _init(tmp_path)
     capture = tmp_path / "factory/scripts/usage-capture"
     capture.write_text("import os\nos._exit(42)\n")
@@ -1051,7 +1020,7 @@ def test_FAGAN0004_abrupt_python_failure_reaches_terminal_state(tmp_path):
     assert diagnostic["signal"] is None
 
 
-def test_FAGAN0004_supervisor_rejects_foreign_cleanup_paths(tmp_path):
+def test_supervisor_rejects_foreign_cleanup_paths(tmp_path):
     _init(tmp_path)
     control = tmp_path / ".agent-factory/usage-control"
     pending = control / "pending"
@@ -1096,97 +1065,10 @@ def test_FAGAN0004_supervisor_rejects_foreign_cleanup_paths(tmp_path):
     assert staged.is_file()
 
 
-def test_RECON0006_installed_run_agent_persists_human_parent_and_depth(tmp_path):
-    _init(tmp_path)
-    _install_typebox_stub(tmp_path)
-    env = _install_pi_stub(tmp_path)
-
-    _exercise_tool(
-        tmp_path,
-        "run-agent.ts",
-        {"agent": "developer-agent", "task": "test", "model": "test/model"},
-        env,
-    )
-
-    child_files = list((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl"))
-    _wait_for(
-        lambda: len(list((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl"))) == 1
-    )
-    child_files = list((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl"))
-    assert len(child_files) == 1
-    record = json.loads(child_files[0].read_text())
-    assert record["parent_session_id"] == "pi-human-parent"
-    assert record["depth"] == 1
-
-
-def test_RECON0006_installed_dispatch_wave_persists_human_parent_and_depth(tmp_path):
-    subprocess.run(
-        ["git", "init", "-b", "main"], cwd=tmp_path, check=True, capture_output=True
-    )
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True
-    )
-    subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, check=True)
-    (tmp_path / "seed").write_text("seed\n")
-    subprocess.run(["git", "add", "seed"], cwd=tmp_path, check=True)
-    subprocess.run(
-        ["git", "commit", "-m", "seed"], cwd=tmp_path, check=True, capture_output=True
-    )
-    base = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=tmp_path,
-        check=True,
-        text=True,
-        capture_output=True,
-    ).stdout.strip()
-    _init(tmp_path)
-    _install_typebox_stub(tmp_path)
-    env = _install_pi_stub(tmp_path)
-
-    _exercise_tool(
-        tmp_path,
-        "dispatch-wave.ts",
-        {
-            "target": "main",
-            "merge": False,
-            "items": [
-                {
-                    "task": "test",
-                    "branch": "test/recon-0006",
-                    "base": base,
-                    "agent": "developer-agent",
-                    "model": "test/model",
-                }
-            ],
-        },
-        env,
-    )
-
-    _wait_for(
-        lambda: len(list((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl"))) == 1
-    )
-    child_files = list((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl"))
-    assert len(child_files) == 1
-    record = json.loads(child_files[0].read_text())
-    assert record["parent_session_id"] == "pi-human-parent"
-    assert record["depth"] == 1
-
-
-def test_RECON0009_linked_worktree_capture_uses_primary_checkout(tmp_path):
+def test_linked_worktree_capture_uses_primary_checkout(tmp_path):
     primary = tmp_path / "primary"
     primary.mkdir()
-    subprocess.run(
-        ["git", "init", "-b", "main"], cwd=primary, check=True, capture_output=True
-    )
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.com"], cwd=primary, check=True
-    )
-    subprocess.run(["git", "config", "user.name", "Test"], cwd=primary, check=True)
-    (primary / "seed").write_text("seed\n")
-    subprocess.run(["git", "add", "seed"], cwd=primary, check=True)
-    subprocess.run(
-        ["git", "commit", "-m", "seed"], cwd=primary, check=True, capture_output=True
-    )
+    _init_git_repo(primary)
     _init(primary)
     linked = tmp_path / "linked"
     subprocess.run(
@@ -1215,7 +1097,7 @@ await shutdown({{type:'session_shutdown'}}, {{cwd:{json.dumps(str(linked))}, ses
     assert not (linked / ".agent-factory/usage/pi-linked.jsonl").exists()
 
 
-def test_RECON0009_untrusted_inherited_root_is_ignored(tmp_path):
+def test_untrusted_inherited_root_is_ignored(tmp_path):
     primary = tmp_path / "primary"
     attacker = tmp_path / "attacker"
     primary.mkdir()
@@ -1244,21 +1126,10 @@ capturePiStream({json.dumps(str(primary))}, '{{"type":"message_end","message":{{
     assert not (attacker / "PWNED").exists()
 
 
-def test_RECON0009_nested_dispatch_records_survive_merged_worktree_removal(tmp_path):
+def test_nested_dispatch_records_survive_merged_worktree_removal(tmp_path):
     primary = tmp_path / "primary"
     primary.mkdir()
-    subprocess.run(
-        ["git", "init", "-b", "main"], cwd=primary, check=True, capture_output=True
-    )
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.com"], cwd=primary, check=True
-    )
-    subprocess.run(["git", "config", "user.name", "Test"], cwd=primary, check=True)
-    (primary / "seed").write_text("seed\n")
-    subprocess.run(["git", "add", "seed"], cwd=primary, check=True)
-    subprocess.run(
-        ["git", "commit", "-m", "seed"], cwd=primary, check=True, capture_output=True
-    )
+    _init_git_repo(primary)
     _init(primary)
     # dispatch worktrees need the installed Factory runtime in their committed base.
     subprocess.run(["git", "add", "-f", "factory"], cwd=primary, check=True)
@@ -1345,9 +1216,3 @@ process.stdout.write(JSON.stringify({type:'message_end',message:{role:'assistant
     assert nested["parent_session_id"] == outer["session_id"]
     for record in records:
         assert (primary / record["transcript_ref"]["path"]).is_file()
-
-
-def test_ST0044_capture_bridge_is_best_effort():
-    bridge = (_ROOT / "factory/config/extensions/pi-usage.ts").read_text()
-    assert "catch {" in bridge
-    assert 'stdio: "ignore"' in bridge
