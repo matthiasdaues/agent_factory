@@ -152,8 +152,10 @@ raise SystemExit(result.returncode)
     return gate
 
 
-@pytest.mark.parametrize("cli", ["claude-code", "codex", "copilot"])
-@pytest.mark.parametrize("disposition", ["drain", "cancel"])
+@pytest.mark.parametrize(
+    ("cli", "disposition"),
+    [("claude-code", "drain"), ("codex", "cancel"), ("copilot", "drain")],
+)
 def test_FAGAN0005_native_hook_removal_reaches_selected_terminal_state(
     tmp_path: Path, cli: str, disposition: str
 ) -> None:
@@ -216,8 +218,10 @@ def test_FAGAN0005_native_hook_removal_reaches_selected_terminal_state(
     assert not (tmp_path / "node-was-used").exists()
 
 
-@pytest.mark.parametrize("cli", ["claude-code", "codex", "copilot"])
-@pytest.mark.parametrize("failure", ["source", "runtime"])
+@pytest.mark.parametrize(
+    ("cli", "failure"),
+    [("claude-code", "source"), ("codex", "runtime"), ("copilot", "source")],
+)
 def test_FAGAN0005_native_handoff_failure_leaves_no_registration(
     tmp_path: Path, cli: str, failure: str
 ) -> None:

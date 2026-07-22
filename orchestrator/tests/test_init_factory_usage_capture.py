@@ -365,39 +365,33 @@ class TestReRunIsNoop:
         assert (runtime / ".requirements-sha256").read_text() == digest
         assert not foreign.exists()
 
-    def test_second_run_leaves_symlink_and_settings_unchanged(self, tmp_path):
+    def test_second_run_leaves_native_hook_assets_unchanged(self, tmp_path):
         assert _run_init(tmp_path) == 0
 
         link = _hook_link(tmp_path)
         settings_path = _settings(tmp_path)
-        link_target_before = link.resolve()
-        settings_before = settings_path.read_text(encoding="utf-8")
+        copilot_config = _copilot_hook_config(tmp_path)
+        copilot_script = tmp_path / ".github/hooks/capture-copilot-usage.sh"
+        codex_config = _codex_hook_config(tmp_path)
+        codex_script = tmp_path / ".codex/hooks/capture-codex-usage.sh"
+
+        def snapshot():
+            return (
+                link.resolve(),
+                settings_path.read_bytes(),
+                copilot_config.resolve(),
+                copilot_config.read_bytes(),
+                copilot_script.resolve(),
+                codex_config.read_bytes(),
+                codex_script.resolve(),
+            )
+
+        before = snapshot()
 
         assert _run_init(tmp_path) == 0
 
         assert link.is_symlink()
-        assert link.resolve() == link_target_before
-        assert settings_path.read_text(encoding="utf-8") == settings_before
-
-    def test_second_run_leaves_copilot_hook_assets_unchanged(self, tmp_path):
-        assert _run_init(tmp_path) == 0
-        config = _copilot_hook_config(tmp_path)
-        script = tmp_path / ".github/hooks/capture-copilot-usage.sh"
-        before = (config.resolve(), config.read_bytes(), script.resolve())
-
-        assert _run_init(tmp_path) == 0
-
-        assert (config.resolve(), config.read_bytes(), script.resolve()) == before
-
-    def test_ST0043_second_run_leaves_codex_config_and_asset_unchanged(self, tmp_path):
-        assert _run_init(tmp_path) == 0
-        config = _codex_hook_config(tmp_path)
-        script = tmp_path / ".codex/hooks/capture-codex-usage.sh"
-        before = (config.read_bytes(), script.resolve())
-
-        assert _run_init(tmp_path) == 0
-
-        assert (config.read_bytes(), script.resolve()) == before
+        assert snapshot() == before
 
     def test_RECON0007_codex_rerun_repeats_required_hook_trust(self, tmp_path, capsys):
         assert _run_init(tmp_path) == 0
