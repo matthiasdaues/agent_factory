@@ -245,13 +245,18 @@ the primary checkout's `.agent-factory/usage/` directory rather than a
 disposable worktree. An inherited root is trusted only when it matches the
 independently derived primary checkout and Factory-owned layout.
 
-Pi stages each completed stream durably beneath that root, then starts
-`usage-capture` detached with ignored standard streams and returns immediately.
-The detached process owns staged-source cleanup on both success and failure;
-its deletion option refuses arbitrary, traversed, or symlink paths. Only the
-local staging write is synchronous. Normal parent-process exit does not orphan
-the detached capture, but abrupt host shutdown or forced process-group
-termination remains best-effort and may lose an in-flight record.
+Pi stages each completed stream durably beneath that root, then starts a
+Factory-owned Node supervisor detached with ignored standard streams and
+returns immediately. The supervisor waits for the launcher/Python child outside
+the measured boundary and is the sole owner of pending/committing registration,
+completion-status, and staged-source cleanup. Every path and the registration's
+generation/source pair are validated before use. Python reports `captured` only
+after record/evidence persistence succeeds; all other normal terminal paths
+produce a bounded `0600` diagnostic beneath the existing private lifecycle
+tree. Explicit cancellation is not diagnosed and no failure path recreates
+removed Factory directories. Only the local staging write is synchronous.
+Abrupt supervisor or host termination remains best-effort and may lose an
+in-flight record.
 
 Pi registrations carry the installation generation in a Factory-owned pending
 registry. Uninstall transitions that generation to `drain` or explicit

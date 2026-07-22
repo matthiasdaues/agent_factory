@@ -28,6 +28,7 @@ def _init(target: Path) -> None:
 def _records(target: Path, session: str) -> list[dict]:
     path = target / ".agent-factory/usage" / f"{session}.jsonl"
     _wait_for(path.is_file)
+    _wait_for_terminal_capture(target)
     return [json.loads(line) for line in path.read_text().splitlines()]
 
 
@@ -38,6 +39,36 @@ def _wait_for(predicate, timeout: float = 10) -> None:
             return
         time.sleep(0.02)
     assert predicate(), "condition did not become true before timeout"
+
+
+def _wait_for_terminal_capture(target: Path) -> None:
+    pending = target / ".agent-factory/usage-control/pending"
+    scratch = target / ".agent-factory/usage/.capture"
+    control = target / ".agent-factory/usage-control"
+    _wait_for(
+        lambda: (
+            (not pending.exists() or not list(pending.iterdir()))
+            and (not scratch.exists() or not list(scratch.iterdir()))
+            and not list(control.glob("*.completion.json"))
+        )
+    )
+
+
+def _invoke_direct_pi_capture(target: Path, session: str) -> None:
+    bridge = target / ".pi/extensions/pi-usage.ts"
+    exercise = target / f"exercise-{session}.mjs"
+    exercise.write_text(
+        f"""
+import {{capturePiStream}} from {json.dumps(bridge.as_uri())};
+capturePiStream({json.dumps(str(target))}, '{{"type":"message_end","message":{{"role":"assistant","content":[{{"type":"text","text":"ok"}}],"usage":{{"input":3,"output":1}}}}}}', {{sessionId:{json.dumps(session)}}});
+"""
+    )
+    _run_node(exercise, cwd=target, timeout=3)
+
+
+def _diagnostics(target: Path) -> list[Path]:
+    directory = target / ".agent-factory/usage-control/diagnostics"
+    return list(directory.glob("*.json")) if directory.is_dir() else []
 
 
 def _run_node(
@@ -100,6 +131,7 @@ await shutdown({{type:'session_shutdown'}}, ctx);
     transcript = tmp_path / record["transcript_ref"]["path"]
     assert transcript.is_file()
     assert "ASK" in transcript.read_text()
+    assert _diagnostics(tmp_path) == []
 
 
 def test_SEC0002_pi_omit_keeps_totals_without_persisting_text(tmp_path):
@@ -754,7 +786,92 @@ await new Promise(resolve => setTimeout(resolve, 100));
     _run_node(exercise, cwd=tmp_path, timeout=3)
     scratch = tmp_path / ".agent-factory/usage/.capture"
     _wait_for(lambda: not scratch.exists() or not list(scratch.iterdir()))
+    _wait_for_terminal_capture(tmp_path)
+    diagnostic = json.loads(_diagnostics(tmp_path)[0].read_text())
+    assert diagnostic["reason"] == "launcher-spawn-enoent"
     assert not (tmp_path / ".agent-factory/usage/pi-spawn-error.jsonl").exists()
+
+
+def test_FAGAN0004_missing_runtime_interpreter_reaches_terminal_state(tmp_path):
+    _init(tmp_path)
+    runtime_python = tmp_path / ".agent-factory/usage-runtime/bin/python"
+    runtime_python.unlink()
+
+    _invoke_direct_pi_capture(tmp_path, "pi-missing-interpreter")
+
+    _wait_for_terminal_capture(tmp_path)
+    assert not (tmp_path / ".agent-factory/usage/pi-missing-interpreter.jsonl").exists()
+    diagnostics = _diagnostics(tmp_path)
+    assert len(diagnostics) == 1
+    assert stat.S_IMODE(diagnostics[0].parent.stat().st_mode) == 0o700
+    assert stat.S_IMODE(diagnostics[0].stat().st_mode) == 0o600
+    assert json.loads(diagnostics[0].read_text())["reason"] == "capture-process-failed"
+    result = subprocess.run(
+        [str(_REMOVE), "--target", str(tmp_path), "--pending-timeout", "1"],
+        text=True,
+        capture_output=True,
+        timeout=3,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_FAGAN0004_abrupt_python_failure_reaches_terminal_state(tmp_path):
+    _init(tmp_path)
+    capture = tmp_path / "factory/scripts/usage-capture"
+    capture.write_text("import os\nos._exit(42)\n")
+
+    _invoke_direct_pi_capture(tmp_path, "pi-abrupt-python")
+
+    _wait_for_terminal_capture(tmp_path)
+    assert not (tmp_path / ".agent-factory/usage/pi-abrupt-python.jsonl").exists()
+    diagnostic = json.loads(_diagnostics(tmp_path)[0].read_text())
+    assert diagnostic["reason"] == "capture-process-failed"
+    assert diagnostic["exit_code"] == 42
+    assert diagnostic["signal"] is None
+
+
+def test_FAGAN0004_supervisor_rejects_foreign_cleanup_paths(tmp_path):
+    _init(tmp_path)
+    control = tmp_path / ".agent-factory/usage-control"
+    pending = control / "pending"
+    scratch = tmp_path / ".agent-factory/usage/.capture"
+    generation = json.loads((control / "state.json").read_text())["generation"]
+    staged = scratch / "validated.jsonl"
+    staged.write_text("staged")
+    marker = pending / "validated.pending.json"
+    marker.write_text(
+        json.dumps({"generation": generation, "staged_source": str(staged)}) + "\n"
+    )
+    victim = tmp_path / "victim.jsonl"
+    victim.write_text("do not delete")
+    status = control / "validated.completion.json"
+
+    result = subprocess.run(
+        [
+            "node",
+            str(tmp_path / "factory/scripts/pi-capture-supervisor.mjs"),
+            "--root",
+            str(tmp_path),
+            "--marker",
+            str(marker),
+            "--source",
+            str(victim),
+            "--status",
+            str(status),
+            "--generation",
+            generation,
+            "--capture-command",
+            "/bin/true",
+        ],
+        text=True,
+        capture_output=True,
+        timeout=3,
+    )
+
+    assert result.returncode == 0
+    assert victim.read_text() == "do not delete"
+    assert marker.is_file()
+    assert staged.is_file()
 
 
 def test_RECON0006_installed_run_agent_persists_human_parent_and_depth(tmp_path):

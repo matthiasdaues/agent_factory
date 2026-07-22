@@ -69,11 +69,17 @@ The capture executable is resolved from that independently validated primary
 checkout; an environment value cannot select arbitrary code to execute.
 
 Pi performs the smallest reliable synchronous handoff by writing the completed
-stream to Factory's local capture scratch directory. It then detaches
-`usage-capture` with ignored standard streams, so tokenization and persistence
-cannot delay the measured lifecycle or tool result. The detached process owns
-guarded source cleanup. Normal parent exit permits completion; abrupt host or
-process-group termination remains best-effort.
+stream to Factory's local capture scratch directory. It then detaches a
+Factory-owned Node supervisor with ignored standard streams, so tokenization
+and persistence cannot delay the measured lifecycle or tool result. The
+supervisor waits only outside that measured boundary and solely owns guarded
+registration, status, and staged-source cleanup after the launcher/Python child
+terminates. Python writes a private completion status: `captured` only after
+canonical record persistence succeeds, otherwise `dropped`. Normal launcher
+and Python failures therefore reach a terminal state and retain a bounded,
+owner-private diagnostic. Explicit removal cancellation stays benign and cannot
+be followed by diagnostic path recreation. Abrupt supervisor/host termination
+remains best-effort.
 
 Coordinate Pi uninstall through a generation-fenced pending registry. Default
 removal drains all captures registered before the state transition; explicit

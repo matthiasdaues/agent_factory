@@ -114,6 +114,7 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
   const usageRoot = activeUsageRoot(cwd);
   if (!usageRuntimeReady(usageRoot)) return;
   const captureScript = join(usageRoot, "factory", "scripts", "usage-capture-runtime");
+  const supervisorScript = join(usageRoot, "factory", "scripts", "pi-capture-supervisor.mjs");
   const factoryState = join(usageRoot, ".agent-factory", "usage-control", "state.json");
   const controlDir = join(usageRoot, ".agent-factory", "usage-control");
   const pendingDir = join(usageRoot, ".agent-factory", "usage-control", "pending");
@@ -122,6 +123,7 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
   const registrationId = `${sessionId}-${randomUUID()}`;
   const marker = join(pendingDir, `${registrationId}.pending.json`);
   const metadataTemp = join(controlDir, `${registrationId}.registration.tmp`);
+  const completionStatus = join(controlDir, `${registrationId}.completion.json`);
   try {
     if (canonical(scratch) !== normalize(scratch) || canonical(pendingDir) !== normalize(pendingDir)) {
       throw new Error("usage lifecycle directories are redirected");
@@ -154,23 +156,35 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
     chmodSync(transcript, 0o600);
     requireEligibleState(factoryState, state.generation);
     accessSync(captureScript, constants.X_OK);
+    accessSync(supervisorScript, constants.R_OK);
     const args = [
       "--cli", "pi", "--transcript", transcript, "--session", sessionId,
       "--depth", String(context.depth ?? 0),
-      "--delete-source",
       "--pending-marker", marker,
       "--usage-generation", state.generation,
+      "--cleanup-owner", "supervisor",
+      "--completion-status", completionStatus,
     ];
     if (context.parentSessionId) args.push("--parent-session", context.parentSessionId);
     if (context.agent) args.push("--agent", context.agent);
     if (context.model) args.push("--model", context.model);
     if (context.exitStatus) args.push("--exit-status", context.exitStatus);
-    const child = spawn(captureScript, args, {
+    const child = spawn(process.execPath, [
+      supervisorScript,
+      "--root", usageRoot,
+      "--marker", marker,
+      "--source", transcript,
+      "--status", completionStatus,
+      "--generation", state.generation,
+      "--capture-command",
+      captureScript,
+      ...args,
+    ], {
       cwd: usageRoot,
       stdio: "ignore",
       detached: true,
     });
-    child.once("error", () => removeRegistration(marker, transcript, metadataTemp));
+    child.once("error", () => removeRegistration(marker, transcript, metadataTemp, completionStatus));
     child.unref();
   } catch (error) {
     // Usage telemetry must never affect the measured run.
@@ -180,7 +194,7 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
           "does not support the required same-volume hard-link registration fence.",
       );
     }
-    removeRegistration(marker, transcript, metadataTemp);
+    removeRegistration(marker, transcript, metadataTemp, completionStatus);
   }
 }
 
@@ -213,10 +227,11 @@ function isHardLinkCapabilityError(error: unknown): boolean {
   return ["EACCES", "EPERM", "EXDEV", "ENOTSUP", "EOPNOTSUPP"].includes(code);
 }
 
-function removeRegistration(marker: string, transcript: string, metadataTemp?: string): void {
+function removeRegistration(marker: string, transcript: string, metadataTemp?: string, completionStatus?: string): void {
   removeStagedTranscript(marker);
   removeStagedTranscript(transcript);
   if (metadataTemp) removeStagedTranscript(metadataTemp);
+  if (completionStatus) removeStagedTranscript(completionStatus);
 }
 
 function removeStagedTranscript(transcript: string): void {
