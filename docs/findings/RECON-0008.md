@@ -4,7 +4,7 @@ source: reconcile-spec
 severity: major
 category: defect
 artifact: factory/docs/proposals/token-usage-tracking.md#capture-triggers-per-cli
-status: open
+status: resolved
 traces: [ST-0039, ST-0040, ST-0041]
 ---
 
@@ -45,11 +45,17 @@ no fallback to the parent. Tests prove that the child transcript is persisted,
 misleading result-level usage is ignored, and the conservation rule is the
 latest cumulative root plus each distinct child record once.
 
-## Pending live acceptance
+## Resolution
 
-Keep this finding open until a controlled Claude Code session with exactly one
-foreground subagent proves that the installed hooks create one root and one
-child record in the same session, that the child record persists the nested
-subagent transcript, and that fieldwise totals equal the final root plus child.
-Record metadata and numeric counts only; do not retain prompt or transcript
-content, absolute paths, or session identifiers.
+The adapter now uses the nested transcript supplied by `SubagentStop` and
+conserves Claude usage as the latest cumulative root plus each distinct child
+record once. Automated regression tests cover the transcript boundary and the
+fieldwise aggregation rule.
+
+On 2026-07-22, a controlled Claude Code session with exactly one foreground
+subagent produced one root and one child record in the same session. The child
+was emitted through `SubagentStop`, the root through `Stop`, and their distinct
+transcript references both resolved to persisted artifacts. Their fieldwise
+sum matched the documented conservation rule. The metadata-only acceptance
+record is [Claude root-and-child usage conservation smoke
+test](../reviews/claude-usage-conservation-smoke-2026-07-22.md).
