@@ -3,8 +3,8 @@
 This test drives a Claude Code `.jsonl` transcript fixture THROUGH THE INSTALLED
 HOOK PATH — the way Claude Code itself does at session end. It verifies:
 
-- The Stop/SubagentStop hook script reads JSON from stdin (transcript_path,
-  session_id, hook_event_name; SubagentStop adds agent_type).
+- The Stop/SubagentStop hook script reads JSON from stdin (`transcript_path`
+  for Stop; `agent_transcript_path` and `agent_type` for SubagentStop).
 - The hook resolves `factory/scripts/usage-capture` from CLAUDE_PROJECT_DIR.
 - The hook invokes usage-capture in the BACKGROUND (so the hook exits 0 before
   capture finishes) and always exits 0.
@@ -53,9 +53,7 @@ from pathlib import Path
 
 
 _ROOT = Path(__file__).resolve().parents[2]
-# The hook script lives in the shared checkout (factory/config/hooks/),
-# not the worktree. We reference it via the shared path.
-_FACTORY_ROOT = Path("/home/matthiasdaues/Documents/datenschoenheit/agent_factory")
+_FACTORY_ROOT = _ROOT
 _HOOK_SCRIPT = _FACTORY_ROOT / "factory" / "config" / "hooks" / "capture-usage.sh"
 
 
@@ -69,6 +67,7 @@ def _make_stop_payload(
     session_id: str,
     hook_event_name: str = "Stop",
     agent_type: str | None = None,
+    agent_transcript_path: Path | None = None,
 ) -> str:
     """Build Stop/SubagentStop hook JSON payload."""
     payload = {
@@ -78,6 +77,8 @@ def _make_stop_payload(
     }
     if agent_type and hook_event_name == "SubagentStop":
         payload["agent_type"] = agent_type
+    if agent_transcript_path and hook_event_name == "SubagentStop":
+        payload["agent_transcript_path"] = str(agent_transcript_path)
     return json.dumps(payload)
 
 
@@ -140,6 +141,32 @@ def _make_transcript_with_usage(tmp_path: Path) -> Path:
     path = tmp_path / "transcript.jsonl"
     path.write_text(
         "\n".join(json.dumps(line) for line in lines) + "\n", encoding="utf-8"
+    )
+    return path
+
+
+def _make_single_assistant_transcript(
+    path: Path, marker: str, *, input_tokens: int, output_tokens: int
+) -> Path:
+    """Build a minimal transcript whose text and usage identify its owner."""
+    path.write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": marker}],
+                    "usage": {
+                        "input_tokens": input_tokens,
+                        "output_tokens": output_tokens,
+                        "cache_read_input_tokens": 0,
+                        "cache_creation_input_tokens": 0,
+                    },
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
     )
     return path
 
@@ -235,19 +262,33 @@ class TestHookE2E:
         assert transcript_copy.exists()
         assert transcript_copy.read_text(encoding="utf-8") != ""
 
-    def test_subagent_stop_hook_captures_agent_type(self, tmp_path):
-        """SubagentStop adds agent_type to the hook payload."""
+    def test_RECON0008_subagent_stop_uses_agent_transcript_and_captures_type(
+        self, tmp_path
+    ):
+        """Official payload points at main and child transcripts separately."""
         project_dir = _FACTORY_ROOT
         usage_dir = project_dir / ".agent-factory" / "usage"
 
-        transcript_path = _make_transcript_with_usage(tmp_path)
+        parent_transcript = _make_single_assistant_transcript(
+            tmp_path / "parent.jsonl",
+            "PARENT_ONLY_MARKER",
+            input_tokens=900,
+            output_tokens=90,
+        )
+        child_transcript = _make_single_assistant_transcript(
+            tmp_path / "child.jsonl",
+            "CHILD_ONLY_MARKER",
+            input_tokens=17,
+            output_tokens=5,
+        )
 
         session_id = _make_unique_session_id("test-2")
         payload = _make_stop_payload(
-            transcript_path,
+            parent_transcript,
             session_id,
             hook_event_name="SubagentStop",
             agent_type="developer-agent",
+            agent_transcript_path=child_transcript,
         )
 
         result = subprocess.run(
@@ -264,8 +305,46 @@ class TestHookE2E:
 
         record = _poll_usage_file(session_id, usage_dir)
         assert record is not None
-        # agent_type from SubagentStop payload should land on the record.
         assert record["agent"] == "developer-agent"
+        assert record["reported_input"] == 17
+        assert record["reported_output"] == 5
+
+        transcript_copy = project_dir / record["transcript_ref"]["path"]
+        captured_text = transcript_copy.read_text(encoding="utf-8")
+        assert "CHILD_ONLY_MARKER" in captured_text
+        assert "PARENT_ONLY_MARKER" not in captured_text
+
+    def test_RECON0008_subagent_stop_never_falls_back_to_parent_transcript(
+        self, tmp_path
+    ):
+        project_dir = _FACTORY_ROOT
+        usage_dir = project_dir / ".agent-factory" / "usage"
+        parent_transcript = _make_single_assistant_transcript(
+            tmp_path / "parent-only.jsonl",
+            "PARENT_MUST_NOT_BECOME_CHILD",
+            input_tokens=900,
+            output_tokens=90,
+        )
+        session_id = _make_unique_session_id("test-missing-child-path")
+        payload = _make_stop_payload(
+            parent_transcript,
+            session_id,
+            hook_event_name="SubagentStop",
+            agent_type="developer-agent",
+        )
+
+        result = subprocess.run(
+            [str(_HOOK_SCRIPT)],
+            input=payload,
+            capture_output=True,
+            text=True,
+            cwd=project_dir,
+            env={**os.environ, "CLAUDE_PROJECT_DIR": str(project_dir)},
+        )
+
+        assert result.returncode == 0
+        time.sleep(0.2)
+        assert not (usage_dir / f"{session_id}.jsonl").exists()
 
     def test_failure_in_capture_leaves_hook_unaffected(self, tmp_path):
         """A capture failure (bad transcript) does not fail the hook."""
