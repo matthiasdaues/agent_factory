@@ -10,7 +10,7 @@ failure contract.
 The script is extensionless and, like `openrouter-discover`/`resolve-model`,
 loaded via importlib for the record/record_id tests, which touch no
 third-party dependency. The tokenizer itself needs `tiktoken`, which the
-script's own PEP 723 shebang (`uv run --script`) bootstraps but a bare test
+script's exact-locked offline source shebang bootstraps but a bare test
 interpreter (this suite runs under plain `uvx pytest`) does not have —
 `import tiktoken` is therefore lazy inside `count_tokens()`, never at module
 scope, so importing the module for the record tests never requires it.
@@ -55,8 +55,8 @@ def _count_via_subprocess(text: str) -> int:
     """Run the script's own shebang so tiktoken is really bootstrapped.
 
     Plain `uvx pytest` (the mandated test runner for this suite) has no
-    tiktoken in its own interpreter; `uv run --script` (the script's
-    shebang) does. Going through the executable, not the imported module,
+    tiktoken in its own interpreter; the script's offline, locked source
+    shebang does. Going through the executable, not the imported module,
     is what makes the assertion below a real cl100k_base count rather than
     a stub.
     """
@@ -1257,7 +1257,7 @@ def _normalize_via_subprocess(cli: str, path: Path) -> dict:
     """Run `usage-capture --normalize` through the script's own shebang.
 
     Same rationale as `_count_via_subprocess`: bare `uvx pytest` has no
-    tiktoken, but the script's `uv run --script` shebang does — so the
+    tiktoken, but the script's offline, exact-locked shebang does — so the
     `normalized_*` integers below are real cl100k_base counts, proven to come
     from the *same single read* that yields `reported_*`.
     """
@@ -1350,7 +1350,7 @@ def _run_capture(cwd, extra_args) -> subprocess.CompletedProcess:
     """Invoke `usage-capture` as a subprocess through its own shebang, the
     same rationale as `_count_via_subprocess`/`_normalize_via_subprocess`:
     a bare `uvx pytest` interpreter has no `tiktoken`, but the script's own
-    `uv run --script` shebang bootstraps it, so the real argparse ->
+    exact-locked offline source shebang bootstraps it, so the real argparse ->
     normalize -> tokenize -> persist pipeline runs end to end."""
     return subprocess.run(
         [str(_SCRIPT), *extra_args],

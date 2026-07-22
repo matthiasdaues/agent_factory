@@ -47,7 +47,7 @@ if [ -z "$PROJECT_DIR" ]; then
   fi
 fi
 
-USAGE_CAPTURE="$PROJECT_DIR/factory/scripts/usage-capture"
+USAGE_CAPTURE="$PROJECT_DIR/factory/scripts/usage-capture-runtime"
 
 # If usage-capture doesn't exist, exit quietly (best-effort).
 if [ ! -x "$USAGE_CAPTURE" ]; then

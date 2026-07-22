@@ -33,6 +33,16 @@ copied beneath `.agent-factory/usage/transcripts/` and linked through
 `transcript_ref`. The existing `/.agent-factory/` ignore rule covers the whole
 runtime area.
 
+`init-factory` prepares the tokenizer at its explicit trusted installation
+boundary before wiring capture hooks. It installs exact hash-verified wheels
+into the owner-only `.agent-factory/usage-runtime` with builds and Python
+downloads disabled. Set `UV_OFFLINE=1` for an offline initialization; capture is
+enabled only when every verified artifact is already available. A missing or
+invalid artifact leaves unrelated Factory setup intact and reports capture as
+unavailable. Lifecycle hooks never run uv or consult its cache. Re-running init
+re-verifies the committed dependency set; `remove-factory` deletes the runtime
+after pending Pi captures settle.
+
 Session and record identifiers are opaque data. Existing bounded lowercase
 identifiers retain their familiar filenames; unsafe, platform-specific, Unicode,
 or oversized values use fixed digest-based filesystem keys while their original

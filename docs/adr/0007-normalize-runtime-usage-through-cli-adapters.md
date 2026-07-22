@@ -90,6 +90,18 @@ invisible. This requires same-volume file hard links; initialization probes the
 capability and reports when Pi capture is unavailable without blocking setup for
 the other CLIs.
 
+Provision tokenizer code only at the explicit, user-invoked initialization
+boundary. `init-factory` creates a project-owned private virtual environment
+from committed exact, hashed requirements using hash-required, wheel-only
+installation with Python downloads disabled, then activates lifecycle hooks.
+Offline initialization uses only already cached verified artifacts; if they are
+absent or verification fails, unrelated Factory setup continues but capture
+hooks remain inactive. Automatic capture executes the provisioned interpreter
+through a relocation-safe launcher and never invokes uv, a package resolver,
+the global tool cache, a Python download, or the network. Reinitialization
+rebuilds from the current committed artifact; removal deletes the runtime only
+after the Pi drain/cancel fence settles.
+
 ## Consequences
 
 **Positive**

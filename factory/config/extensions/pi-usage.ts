@@ -112,7 +112,8 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
   if (!stream.trim()) return;
   const sessionId = context.sessionId || newSessionId();
   const usageRoot = activeUsageRoot(cwd);
-  const captureScript = join(usageRoot, "factory", "scripts", "usage-capture");
+  if (!usageRuntimeReady(usageRoot)) return;
+  const captureScript = join(usageRoot, "factory", "scripts", "usage-capture-runtime");
   const factoryState = join(usageRoot, ".agent-factory", "usage-control", "state.json");
   const controlDir = join(usageRoot, ".agent-factory", "usage-control");
   const pendingDir = join(usageRoot, ".agent-factory", "usage-control", "pending");
@@ -181,6 +182,11 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
     }
     removeRegistration(marker, transcript, metadataTemp);
   }
+}
+
+function usageRuntimeReady(root: string): boolean {
+  return existsSync(join(root, ".agent-factory", "usage-runtime", ".requirements-sha256")) &&
+    existsSync(join(root, "factory", "scripts", "usage-capture-runtime"));
 }
 
 interface UsageState {

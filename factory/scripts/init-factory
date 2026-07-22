@@ -69,7 +69,9 @@ Steps
          .github/hooks/.
        - Pi: symlink the project-local extension
          `.pi/extensions/block-dangerous-git.ts`.
-  7. Install usage-capture triggers for Claude Code, Copilot CLI, and Codex.
+  7. Provision the project-owned, hash-verified usage runtime, then install
+     usage-capture triggers for Claude Code, Copilot CLI, and Codex only when
+     that runtime is ready.
      Claude uses merged `Stop`/`SubagentStop` settings; Copilot uses a dedicated
      Factory-owned `.github/hooks/*.json` file for `agentStop`/`subagentStop`;
      Codex uses merged `Stop`/`SubagentStop` entries in `.codex/hooks.json` and
@@ -101,6 +103,7 @@ whole run before touching anything later.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -155,6 +158,8 @@ GITIGNORE_BEGIN = "# >>> agent_factory related >>>"
 GITIGNORE_END = "# <<< agent_factory related <<<"
 
 MANIFEST_PATH = ".agent-factory/factory-install.json"
+USAGE_RUNTIME = Path(".agent-factory/usage-runtime")
+USAGE_REQUIREMENTS = Path("factory/config/usage-runtime-requirements.txt")
 
 
 class Collision(Exception):
@@ -323,6 +328,91 @@ def install_usage_capture(target: Path, install: dict, report: list[str]) -> Non
     _install_copilot_usage_capture(target, install, report)
     _install_codex_usage_capture(target, install, report)
     _install_pi_usage_capture(target, install, report)
+
+
+def _secure_runtime_tree(root: Path) -> None:
+    """Make the project-owned runtime private without following symlinks."""
+    os.chmod(root, 0o700, follow_symlinks=False)
+    for entry in os.scandir(root):
+        info = entry.stat(follow_symlinks=False)
+        path = Path(entry.path)
+        if stat.S_ISLNK(info.st_mode):
+            continue
+        if stat.S_ISDIR(info.st_mode):
+            _secure_runtime_tree(path)
+        elif stat.S_ISREG(info.st_mode):
+            os.chmod(path, 0o700 if info.st_mode & 0o111 else 0o600)
+
+
+def provision_usage_runtime(target: Path, report: list[str]) -> bool:
+    """Install hash-verified tokenizer dependencies before hooks activate.
+
+    Network access, when needed, is confined to this user-invoked init step.
+    ``UV_OFFLINE`` is passed explicitly so an offline init either uses already
+    cached verified artifacts or leaves capture inactive with a clear report.
+    """
+    requirements = target / USAGE_REQUIREMENTS
+    runtime = target / USAGE_RUNTIME
+    ready = runtime / ".requirements-sha256"
+    if runtime.is_symlink() or (runtime.exists() and not runtime.is_dir()):
+        log(report, f"usage capture unavailable: unsafe runtime path {runtime}")
+        return False
+    if runtime.exists() and ready.exists():
+        ready.unlink()
+
+    runtime.parent.mkdir(parents=True, exist_ok=True)
+    os.chmod(runtime.parent, 0o700)
+    stage = runtime.parent / f"usage-runtime-stage-{uuid.uuid4()}"
+    backup = runtime.parent / f"usage-runtime-old-{uuid.uuid4()}"
+    offline = os.environ.get("UV_OFFLINE", "").lower() not in ("", "0", "false", "no")
+    common = ["--offline"] if offline else []
+    try:
+        digest = hashlib.sha256(requirements.read_bytes()).hexdigest()
+        create = subprocess.run(
+            ["uv", "venv", *common, "--no-python-downloads", str(stage)],
+            cwd=target,
+            capture_output=True,
+            text=True,
+        )
+        if create.returncode != 0:
+            raise RuntimeError(create.stderr.strip() or "uv venv failed")
+        python = stage / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        sync = subprocess.run(
+            [
+                "uv",
+                "pip",
+                "sync",
+                *common,
+                "--require-hashes",
+                "--no-build",
+                "--no-python-downloads",
+                "--python",
+                str(python),
+                str(requirements),
+            ],
+            cwd=target,
+            capture_output=True,
+            text=True,
+        )
+        if sync.returncode != 0:
+            raise RuntimeError(sync.stderr.strip() or "uv pip sync failed")
+        marker = stage / ".requirements-sha256"
+        marker.write_text(digest + "\n", encoding="ascii")
+        _secure_runtime_tree(stage)
+        if runtime.exists():
+            runtime.rename(backup)
+        stage.rename(runtime)
+        if backup.exists():
+            shutil.rmtree(backup, ignore_errors=True)
+        log(report, "usage capture runtime: exact hash-verified environment ready")
+        return True
+    except (OSError, RuntimeError) as exc:
+        if stage.exists():
+            shutil.rmtree(stage)
+        if backup.exists() and not runtime.exists():
+            backup.rename(runtime)
+        log(report, f"usage capture unavailable; lifecycle hooks left inactive — {exc}")
+        return False
 
 
 def _install_pi_usage_capture(target: Path, install: dict, report: list[str]) -> None:
@@ -1088,7 +1178,9 @@ def main(argv: list[str] | None = None) -> int:
         ensure_dot_dirs(target, install, report)
         symlink_factory_content(target, install, report)
         install_git_guardrail(target, install, report)
-        install_usage_capture(target, install, report)
+        usage_runtime_ready = provision_usage_runtime(target, report)
+        if usage_runtime_ready:
+            install_usage_capture(target, install, report)
         install_pi_invocation_layer(target, install, report)
         copy_model_matrix(target, install, report)
         handle_precommit(target, install, report)

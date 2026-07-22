@@ -156,10 +156,13 @@ git, and the transcript is persisted separately and linked.
 
 ## The Capture Tool
 
-A single, factory-owned, standalone Python script:
-`factory/scripts/usage-capture` — self-bootstrapping via a PEP 723 shebang
-(`tiktoken`), in the style of `index-lint` and `schema-validate`. Every capture
-site invokes it uniformly:
+A single, factory-owned Python capture program and runtime launcher:
+`factory/scripts/usage-capture` plus `usage-capture-runtime`. Initialization is
+the only dependency-install boundary: it provisions `tiktoken==0.13.0` and
+exact transitives into `.agent-factory/usage-runtime` from committed hashed
+requirements. Every automatic capture site invokes the launcher uniformly;
+the launcher only executes that provisioned interpreter and performs no
+resolution, download, cache lookup, or network access:
 
 ```
 usage-capture --cli pi --transcript <path> --session <id> --agent <name> \

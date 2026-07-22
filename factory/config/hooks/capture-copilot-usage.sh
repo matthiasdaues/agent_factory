@@ -20,7 +20,7 @@ if [ -z "$PROJECT_DIR" ]; then
   exit 0
 fi
 
-USAGE_CAPTURE="$PROJECT_DIR/factory/scripts/usage-capture"
+USAGE_CAPTURE="$PROJECT_DIR/factory/scripts/usage-capture-runtime"
 if [ ! -x "$USAGE_CAPTURE" ]; then
   exit 0
 fi
