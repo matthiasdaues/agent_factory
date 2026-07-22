@@ -427,7 +427,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 1845
+    tokens: 1982
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
@@ -496,6 +496,10 @@ rulebooks:
     category: conventions
     path: rulebooks/conventions/state-machine-notation.md
     tokens: 741
+  - name: testing-strategy
+    category: conventions
+    path: rulebooks/conventions/testing-strategy.md
+    tokens: 709
   - name: todo-format
     category: conventions
     path: rulebooks/conventions/todo-format.md
