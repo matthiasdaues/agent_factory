@@ -34,6 +34,8 @@ import uuid
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 
+import pytest
+
 _ROOT = Path(__file__).resolve().parents[2]
 _SCRIPT = _ROOT / "factory" / "scripts" / "usage-capture"
 
@@ -325,6 +327,143 @@ class TestJsonlLoggingAdapterTranscriptPersistence:
         session_file = tmp_path / ".agent-factory" / "usage" / "sess-5.jsonl"
         payload = json.loads(session_file.read_text().splitlines()[0])
         assert payload["transcript_ref"]["path"] == record.transcript_ref.path
+
+
+class TestSecureOpaqueIdentifierStorageSEC0001:
+    @pytest.mark.parametrize(
+        "opaque_id",
+        [
+            "../../escaped",
+            "/tmp/absolute",
+            r"C:\Windows\escape",
+            r"\\server\share\escape",
+            r"..\escaped",
+            "slash/name",
+            "backslash\\name",
+            "CON",
+            "Com1.txt",
+            "MixedCase",
+            "café",
+            "e\u0301",
+            "x" * 500,
+            "opaque-deadbeef",
+        ],
+    )
+    def test_hostile_session_ids_map_to_one_contained_component(
+        self, tmp_path, opaque_id
+    ):
+        adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
+        record = _make_record(f"{opaque_id}-0001", opaque_id)
+
+        adapter.record(record, "secret transcript")
+
+        key = usage_capture.filesystem_key(opaque_id)
+        record_key = usage_capture.filesystem_key(record.record_id)
+        assert key.startswith("opaque-")
+        assert "/" not in key and "\\" not in key
+        session_file = tmp_path / ".agent-factory/usage" / f"{key}.jsonl"
+        transcript = (
+            tmp_path / ".agent-factory/usage/transcripts" / key / f"{record_key}.jsonl"
+        )
+        payload = json.loads(session_file.read_text())
+        assert payload["session_id"] == opaque_id
+        assert payload["record_id"] == record.record_id
+        assert transcript.read_text() == "secret transcript"
+        assert (
+            Path(record.transcript_ref.path)
+            .resolve()
+            .is_relative_to((tmp_path / ".agent-factory/usage").resolve())
+        )
+
+    def test_benign_lowercase_layout_remains_unchanged(self, tmp_path):
+        adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
+        record = _make_record("sess-safe-0001", "sess-safe")
+        adapter.record(record, "body")
+
+        assert usage_capture.filesystem_key("sess-safe") == "sess-safe"
+        assert (tmp_path / ".agent-factory/usage/sess-safe.jsonl").is_file()
+        assert (
+            tmp_path / ".agent-factory/usage/transcripts/sess-safe/sess-safe-0001.jsonl"
+        ).is_file()
+
+    def test_hostile_record_id_is_mapped_independently(self, tmp_path):
+        adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
+        record = _make_record("../../record-escape", "sess-safe")
+        adapter.record(record, "body")
+
+        transcript = Path(record.transcript_ref.path)
+        assert transcript.parent.name == "sess-safe"
+        assert transcript.name.startswith("opaque-")
+        assert transcript.resolve().is_relative_to(
+            (tmp_path / ".agent-factory/usage").resolve()
+        )
+
+    @pytest.mark.parametrize(
+        "redirect",
+        [".agent-factory", ".agent-factory/usage", ".agent-factory/usage/transcripts"],
+    )
+    def test_symlinked_storage_components_fail_closed(self, tmp_path, capsys, redirect):
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        redirected = tmp_path / redirect
+        redirected.parent.mkdir(parents=True, exist_ok=True)
+        redirected.symlink_to(outside, target_is_directory=True)
+        adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
+        record = _make_record("sess-safe-0001", "sess-safe")
+
+        adapter.record(record, "must not escape")
+
+        assert not list(outside.iterdir())
+        assert record.transcript_ref is None
+        assert "usage-capture" in capsys.readouterr().err
+
+    def test_symlinked_session_targets_and_existing_transcript_are_not_followed(
+        self, tmp_path, capsys
+    ):
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        usage = tmp_path / ".agent-factory/usage"
+        transcript_parent = usage / "transcripts"
+        transcript_parent.mkdir(parents=True)
+        (transcript_parent / "sess-safe").symlink_to(outside, target_is_directory=True)
+        (usage / "sess-safe.jsonl").symlink_to(outside / "records.jsonl")
+        adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
+        record = _make_record("sess-safe-0001", "sess-safe")
+
+        adapter.record(record, "must not escape")
+
+        assert not list(outside.iterdir())
+        assert record.transcript_ref is None
+        assert "usage-capture" in capsys.readouterr().err
+
+    def test_symlinked_session_record_file_is_not_followed(self, tmp_path, capsys):
+        outside = tmp_path / "outside-records.jsonl"
+        usage = tmp_path / ".agent-factory/usage"
+        (usage / "transcripts").mkdir(parents=True)
+        (usage / "sess-safe.jsonl").symlink_to(outside)
+        adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
+        record = _make_record("sess-safe-0001", "sess-safe")
+
+        adapter.record(record, "must not escape")
+
+        assert not outside.exists()
+        assert record.transcript_ref is None
+        assert "usage-capture" in capsys.readouterr().err
+
+    def test_existing_transcript_is_never_overwritten_or_claimed(self, tmp_path):
+        existing = (
+            tmp_path / ".agent-factory/usage/transcripts/sess-safe/sess-safe-0001.jsonl"
+        )
+        existing.parent.mkdir(parents=True)
+        existing.write_text("original evidence")
+        adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
+        record = _make_record("sess-safe-0001", "sess-safe")
+
+        adapter.record(record, "replacement")
+
+        assert existing.read_text() == "original evidence"
+        assert record.transcript_ref is None
+        assert not (tmp_path / ".agent-factory/usage/sess-safe.jsonl").exists()
 
 
 class TestJsonlLoggingAdapterConcurrency:
@@ -1035,6 +1174,31 @@ def _run_capture(cwd, extra_args) -> subprocess.CompletedProcess:
 
 
 class TestCliEntrypointHappyPath:
+    def test_SEC0001_hostile_session_is_mapped_before_sequence_lookup(self, tmp_path):
+        transcript_path = _write_transcript(tmp_path, _claude_transcript_with_usage())
+        session_id = "../../cli-escape"
+
+        result = _run_capture(
+            tmp_path,
+            [
+                "--cli",
+                "claude-code",
+                "--transcript",
+                str(transcript_path),
+                "--session",
+                session_id,
+            ],
+        )
+
+        assert result.returncode == 0, result.stderr
+        key = usage_capture.filesystem_key(session_id)
+        record = json.loads(
+            (tmp_path / ".agent-factory/usage" / f"{key}.jsonl").read_text()
+        )
+        assert record["session_id"] == session_id
+        assert record["record_id"] == f"{session_id}-0001"
+        assert not (tmp_path / "cli-escape.jsonl").exists()
+
     def test_example_invocation_appends_well_formed_record(self, tmp_path):
         transcript_path = _write_transcript(tmp_path, _claude_transcript_with_usage())
 

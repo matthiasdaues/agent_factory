@@ -28,10 +28,16 @@ Codex, and Pi. Every capture site calls the same
 `factory/scripts/usage-capture` pipeline: a CLI-specific transcript normalizer,
 the fixed `tiktoken cl100k_base` comparison tokenizer, and an append-only JSONL
 logging adapter. One record is appended to
-`.agent-factory/usage/<session_id>.jsonl`; the exact text that was tokenized is
+`.agent-factory/usage/<session-key>.jsonl`; the exact text that was tokenized is
 copied beneath `.agent-factory/usage/transcripts/` and linked through
 `transcript_ref`. The existing `/.agent-factory/` ignore rule covers the whole
 runtime area.
+
+Session and record identifiers are opaque data. Existing bounded lowercase
+identifiers retain their familiar filenames; unsafe, platform-specific, Unicode,
+or oversized values use fixed digest-based filesystem keys while their original
+values remain in the JSON record. Capture rejects symlinked storage components
+and never overwrites an existing transcript copy.
 
 `normalized_input`, `normalized_output`, and their derived total are always
 present. Provider `reported_*` fields and `usage_granularity` are nullable when
