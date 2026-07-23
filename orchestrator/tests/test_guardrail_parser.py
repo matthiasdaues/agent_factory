@@ -1,8 +1,8 @@
-"""Tests for the git-guardrail command parser (ST-0046).
+"""Tests for the shared git-guardrail command parser (ST-0046, ST-0056).
 
 Drives `factory/config/hooks/block-dangerous-git.sh` directly — JSON on stdin,
-exit code 2 = deny — proving two parser fixes without weakening real blocking:
-compound-line merge-branch isolation, and git-context-scoped `--no-verify`.
+exit code 2 = deny — proving supported CLI payloads share one policy without
+weakening compound-line merge parsing or git-context-scoped `--no-verify`.
 """
 
 from __future__ import annotations
@@ -11,13 +11,60 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
+
 _ROOT = Path(__file__).resolve().parents[2]
 _HOOK = _ROOT / "factory" / "config" / "hooks" / "block-dangerous-git.sh"
 
 
-def _run(command: str) -> subprocess.CompletedProcess:
-    payload = json.dumps({"tool_input": {"command": command}})
-    return subprocess.run([str(_HOOK)], input=payload, capture_output=True, text=True)
+def _payload(cli: str, command: str) -> dict:
+    if cli == "claude":
+        return {"tool_name": "Bash", "tool_input": {"command": command}}
+    if cli == "copilot":
+        return {"toolName": "bash", "toolArgs": {"command": command}}
+    if cli == "codex":
+        return {
+            "session_id": "test-session",
+            "turn_id": "test-turn",
+            "cwd": str(_ROOT),
+            "hook_event_name": "PreToolUse",
+            "permission_mode": "default",
+            "tool_name": "Bash",
+            "tool_input": {"cmd": command},
+            "tool_use_id": "test-tool-use",
+        }
+    raise ValueError(f"unsupported CLI fixture: {cli}")
+
+
+def _run(command: str, cli: str = "claude") -> subprocess.CompletedProcess:
+    payload = json.dumps(_payload(cli, command))
+    return subprocess.run(
+        [str(_HOOK)], input=payload, capture_output=True, text=True, check=False
+    )
+
+
+@pytest.mark.parametrize("cli", ["claude", "copilot", "codex"])
+def test_supported_cli_payload_allows_safe_command(cli):
+    result = _run("git status", cli)
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize("cli", ["claude", "copilot", "codex"])
+def test_supported_cli_payload_denies_dangerous_command(cli):
+    result = _run("git push origin main", cli)
+    assert result.returncode == 2
+    assert "BLOCKED" in result.stderr
+
+
+def test_codex_denial_has_supported_outcome_and_compatible_copilot_json():
+    result = _run("git reset --hard HEAD", "codex")
+
+    assert result.returncode == 2
+    assert "git reset --hard HEAD" in result.stderr
+    assert json.loads(result.stdout) == {
+        "permissionDecision": "deny",
+        "permissionDecisionReason": result.stderr.strip(),
+    }
 
 
 class TestMergeBranchParse:

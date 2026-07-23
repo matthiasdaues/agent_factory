@@ -21,10 +21,10 @@ and that no new .gitignore entry was needed for `.agent-factory/usage/`.
 
 from __future__ import annotations
 
-import importlib.util
 import errno
-import os
+import importlib.util
 import json
+import os
 import stat
 import subprocess
 import sys
@@ -108,6 +108,7 @@ class TestFreshTarget:
             text=True,
             capture_output=True,
             env=env,
+            check=False,
         )
 
         assert result.returncode == 0, result.stderr
@@ -186,7 +187,11 @@ class TestFreshTarget:
         assert _run_init(tmp_path) == 0
         assert not _hook_link(tmp_path).exists()
         assert not _copilot_hook_config(tmp_path).exists()
-        assert not _codex_hook_config(tmp_path).exists()
+        codex = json.loads(_codex_hook_config(tmp_path).read_text())
+        assert "Stop" not in codex["hooks"]
+        assert "SubagentStop" not in codex["hooks"]
+        assert codex["hooks"]["PreToolUse"]
+        assert not (tmp_path / ".codex/hooks/capture-codex-usage.sh").exists()
         assert not (tmp_path / ".pi/extensions/capture-usage.ts").exists()
         assert (
             "usage capture unavailable; lifecycle hooks left inactive"
