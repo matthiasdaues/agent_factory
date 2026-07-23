@@ -675,8 +675,11 @@ def _load_codex_hooks(target: Path, install: dict) -> tuple[Path, dict, dict, bo
     existed = path.exists()
     if existed:
         install.setdefault("codex_hooks_existed", True)
+        raw = path.read_text(encoding="utf-8")
+        if install.get("codex_hooks_existed", True):
+            install.setdefault("codex_hooks_original", raw)
         try:
-            config = json.loads(path.read_text(encoding="utf-8"))
+            config = json.loads(raw)
         except json.JSONDecodeError as exc:
             raise Collision(f"{path} exists but isn't valid JSON ({exc})")
         if not isinstance(config, dict):
@@ -1212,8 +1215,21 @@ def load_prior_manifest(target: Path, install: dict, report: list[str]) -> None:
 
     if "codex_hooks_existed" in prior:
         install["codex_hooks_existed"] = prior["codex_hooks_existed"]
+    if "codex_hooks_original" in prior:
+        install["codex_hooks_original"] = prior["codex_hooks_original"]
     install["codex_generated_agents"] = set(prior.get("codex_generated_agents", []))
     install["codex_hook_handlers"] = list(prior.get("codex_hook_handlers", []))
+    prior_hooks_hash = prior.get("codex_hooks_installed_sha256")
+    hooks_path = target / ".codex/hooks.json"
+    hooks_unchanged = (
+        isinstance(prior_hooks_hash, str)
+        and hooks_path.is_file()
+        and not hooks_path.is_symlink()
+        and hashlib.sha256(hooks_path.read_bytes()).hexdigest() == prior_hooks_hash
+    )
+    install["codex_hooks_restore_original"] = bool(
+        prior.get("codex_hooks_restore_original", True) and hooks_unchanged
+    )
 
     log(report, f"{MANIFEST_PATH}: prior install found, preserving its records")
 
@@ -1222,6 +1238,12 @@ def write_manifest(target: Path, install: dict, report: list[str]) -> None:
     manifest_path = target / MANIFEST_PATH
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
 
+    hooks_path = target / ".codex/hooks.json"
+    hooks_sha256 = (
+        hashlib.sha256(hooks_path.read_bytes()).hexdigest()
+        if hooks_path.is_file() and not hooks_path.is_symlink()
+        else None
+    )
     payload = {
         "version": 1,
         "git_initialized_by_us": install.get("git_initialized_by_us", False),
@@ -1237,6 +1259,11 @@ def write_manifest(target: Path, install: dict, report: list[str]) -> None:
         "precommit_hook_id_prefix": "agent_factory_hook-",
         "claude_settings_existed": install.get("claude_settings_existed", True),
         "codex_hooks_existed": install.get("codex_hooks_existed", True),
+        "codex_hooks_original": install.get("codex_hooks_original"),
+        "codex_hooks_installed_sha256": hooks_sha256,
+        "codex_hooks_restore_original": install.get(
+            "codex_hooks_restore_original", True
+        ),
         "codex_generated_agents": sorted(install["codex_generated_agents"]),
         "codex_hook_handlers": install["codex_hook_handlers"],
         "orientation": install.get("orientation", {}),
@@ -1430,6 +1457,7 @@ def main(argv: list[str] | None = None) -> int:
         "agents_ignored_entries": set(),
         "codex_generated_agents": set(),
         "codex_hook_handlers": [],
+        "codex_hooks_restore_original": True,
         "ignore_root_agents": False,
     }
 
