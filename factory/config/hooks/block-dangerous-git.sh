@@ -1,11 +1,14 @@
 #!/bin/bash
-# Shared PreToolUse guardrail for both Claude Code and Copilot CLI.
+# Shared PreToolUse guardrail for Claude Code, Copilot CLI, and Codex.
 # Claude Code sends the shell command at .tool_input.command; Copilot CLI
-# sends it at .toolArgs.command. Both treat exit code 2 as "deny" — Claude
-# Code reads the reason from stderr, Copilot CLI from the stdout JSON below.
+# sends it at .toolArgs.command; Codex unified exec sends it at
+# .tool_input.cmd. All three treat exit code 2 with a stderr reason as denial;
+# the stdout JSON below supplies Copilot's CLI-specific reason and is harmless
+# to the other consumers.
 
 INPUT=$(cat)
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // .toolArgs.command // empty')
+COMMAND=$(echo "$INPUT" | jq -r \
+  '.tool_input.command // .toolArgs.command // .tool_input.cmd // empty')
 
 deny() {
   echo "BLOCKED: $1" >&2
