@@ -15,11 +15,33 @@ The full list, grouped by phase, is in [`factory/INDEX.yaml`](../INDEX.yaml). Ea
 The author/reviewer split depends on each agent running in its own session, so the reviewer sees only the artifact, never the author's reasoning. How that separate session is created depends on the CLI:
 
 - **Claude Code and GitHub Copilot CLI** spawn subagents natively: the parent session dispatches an agent and reads back its result.
+- **Codex** generates native custom agents under `.codex/agents/`. Spawn those agents through Codex's subagent mechanism; do not read the canonical Markdown and role-play it in the parent thread.
 - **Pi** has no native subagent. `init-factory` installs a project-local extension, `.pi/extensions/run-agent.ts`, that registers a `run_agent` tool. Calling it spawns a genuinely separate `pi` subprocess with the chosen agent's markdown as its system prompt and returns the child's result. Under Pi, run a factory agent by calling `run_agent` — not by reading the agent file and acting it out in the current session, which would leak the author's reasoning into the review.
 
 `run_agent` resolves the child's model from `config/model.conf` — the `pi.<tier>` row for the agent's declared tier — unless an explicit model id is passed, and it bounds nested spawns with a recursion-depth cap. The git-safety guardrail extension loads in the child too, so a spawned agent stays governed by the same guardrail as its parent. See [ADR-0004](../../docs/adr/0004-pi-subagent-invocation-via-subprocess-spawn.md) and [UC-10](../../docs/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md).
 
 For parallel work, a second Pi extension, `.pi/extensions/dispatch-wave.ts`, registers a `dispatch_wave` tool — the port of `implementation-agent`, which under Claude Code relies on the native Agent tool's `isolation: "worktree"` and simultaneous subagent spawns. Given one caller-planned, file-disjoint wave, `dispatch_wave` cuts a feature branch in its own git worktree per item, spawns each agent there in parallel, and — unless told not to — runs `premerge-check` before merging each finished branch into the target. It does not plan the wave: output-file overlap and dependency ordering stay with the calling agent, exactly as `implementation-agent` documents. `premerge-check` runs against the wave's frozen base, so a sibling merge advancing the target never falsely flags a later branch as stale.
+
+### Codex operation
+
+`init-factory` installs Codex repository skills individually under
+`.agents/skills/`, generates native custom-agent TOML under `.codex/agents/`,
+and links the catalog, playbooks, rulebooks, and scripts under `.codex/`. Read
+`.codex/INDEX.yaml` first. Native subagents run as separate threads, preserving
+the author/reviewer boundary.
+
+Factory-generated agents do not pin a model, reasoning level, sandbox, or
+approval policy. They inherit the parent session's permissions and cannot
+expand them; a narrower custom-agent policy would still take precedence.
+Configure Codex's native parallel-agent limit with
+`agents.max_concurrent_threads_per_session`. Parallelism does not replace the
+Factory's dependency, output-overlap, and worktree-isolation rules.
+
+Project trust and hook activation are deliberate user decisions. After
+initialization, trust the project, open `/hooks`, review the installed
+`PreToolUse`, `Stop`, and `SubagentStop` commands, and approve them. The
+installer reports this step but cannot approve it for you. New or changed hook
+definitions remain inactive until reviewed again.
 
 ## Runtime usage capture
 

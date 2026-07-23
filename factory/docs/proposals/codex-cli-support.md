@@ -1,6 +1,6 @@
 # Feature Request — Codex CLI Support
 
-**Status:** Approved for implementation
+**Status:** Implemented
 **Scope:** Contained to the `factory/` subproject. It adds Codex as a fourth
 supported conversational coding CLI alongside Claude Code, GitHub Copilot CLI,
 and Pi. It does not add a new headless orchestrator backend.
@@ -369,7 +369,26 @@ Add focused tests alongside the existing init/remove coverage:
   Codex CLI, followed by `remove-factory` and byte-level comparison of the
   pre-install tree.
 
-## 10. References
+## 10. Implementation status — 2026-07-24
+
+First-class Codex support is implemented. `init-factory` installs repository
+skills, generated native agents, local aliases, and root-resolved guardrail and
+usage hooks without replacing project-owned content. Re-runs refresh only
+manifest-owned generated agents. `remove-factory` removes only manifest-owned
+paths and appended hook handlers, then prunes shared directories only when
+empty.
+
+The automated consumer smoke validates every generated TOML with `tomllib`,
+skill and alias discovery layout, hook shape, idempotent installation, and
+byte-identical removal. Lower-level adapter suites retain collision, ownership,
+payload, and accounting coverage.
+
+One bounded manual limitation remains: Codex project trust and `/hooks`
+approval are user-owned security decisions and cannot be activated by the
+installer or automated test. The smoke proves the installed on-disk contract;
+an operator must still review and trust current hook definitions in Codex.
+
+## 11. References
 
 - Install/remove precedent: [`factory/scripts/init-factory`](../../scripts/init-factory)
   and [`factory/scripts/remove-factory`](../../scripts/remove-factory).
