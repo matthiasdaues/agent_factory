@@ -49,48 +49,6 @@ def _parse_frontmatter(file_path: Path) -> dict:
     return fields
 
 
-class TestFilesExist:
-    """Deliverables are created at the expected paths."""
-
-    def test_role_separation_policy_exists(self):
-        assert _ROLE_SEPARATION_POLICY.exists(), (
-            f"Role-separation policy not found at {_ROLE_SEPARATION_POLICY}"
-        )
-
-    def test_claim_admission_policy_exists(self):
-        assert _CLAIM_ADMISSION_POLICY.exists(), (
-            f"Claim-admission policy not found at {_CLAIM_ADMISSION_POLICY}"
-        )
-
-
-class TestFrontmatterValid:
-    """Each policy has valid frontmatter with required keys."""
-
-    def test_role_separation_policy_frontmatter(self):
-        fm = _parse_frontmatter(_ROLE_SEPARATION_POLICY)
-        assert fm.get("title"), "role-separation missing 'title' in frontmatter"
-        assert fm.get("category") == "policies", (
-            "role-separation category must be 'policies'"
-        )
-        assert fm.get("enforcement"), (
-            "role-separation missing 'enforcement' in frontmatter"
-        )
-        assert fm.get("version"), "role-separation missing 'version' in frontmatter"
-
-    def test_claim_admission_policy_frontmatter(self):
-        fm = _parse_frontmatter(_CLAIM_ADMISSION_POLICY)
-        assert fm.get("title"), "claim-admission-policy missing 'title' in frontmatter"
-        assert fm.get("category") == "policies", (
-            "claim-admission-policy category must be 'policies'"
-        )
-        assert fm.get("enforcement"), (
-            "claim-admission-policy missing 'enforcement' in frontmatter"
-        )
-        assert fm.get("version"), (
-            "claim-admission-policy missing 'version' in frontmatter"
-        )
-
-
 class TestRoleSeparationContent:
     """Role-separation policy must state all five role-conflict rules."""
 

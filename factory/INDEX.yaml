@@ -56,7 +56,7 @@ agents:
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
     tokens: 447
-    total_tokens: 1407
+    total_tokens: 1429
   - name: implementation-agent
     title: Implementation Agent (Dispatcher)
     phase: 4
@@ -64,8 +64,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints. Each subagent implements one story using TDD on its own feature branch. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 1597
-    total_tokens: 4725
+    tokens: 1686
+    total_tokens: 4959
   - name: reconciliation-agent
     title: Reconciliation Agent
     phase: 4
@@ -74,7 +74,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 884
-    total_tokens: 5219
+    total_tokens: 5364
   - name: qa-agent
     title: QA Agent
     phase: 5
@@ -192,7 +192,7 @@ skills:
     category: planning
     description: Break specification and architecture into a local backlog of markdown stories — EPICs and User Stories with INVEST criteria and MoSCoW priority.
     path: skills/create-backlog/SKILL.md
-    tokens: 960
+    tokens: 982
   - name: implement-issue
     category: implementation
     description: Implement a single backlog story with TDD — analyse, red-green, commit, check docs.
@@ -322,7 +322,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 1583
-    total_tokens: 18575
+    total_tokens: 18720
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -345,7 +345,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 949
-    total_tokens: 17082
+    total_tokens: 17461
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -360,8 +360,8 @@ playbooks:
       - implementation-agent
       - reconciliation-agent
       - qa-agent
-    tokens: 1007
-    total_tokens: 31714
+    tokens: 1253
+    total_tokens: 32361
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -379,7 +379,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 1691
-    total_tokens: 33361
+    total_tokens: 33762
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -427,7 +427,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 1362
+    tokens: 1982
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
@@ -447,7 +447,7 @@ rulebooks:
   - name: dispatch-contract
     category: conventions
     path: rulebooks/conventions/dispatch-contract.md
-    tokens: 940
+    tokens: 1085
   - name: finding-format
     category: conventions
     path: rulebooks/conventions/finding-format.md
@@ -456,6 +456,14 @@ rulebooks:
     category: conventions
     path: rulebooks/conventions/foundational-principles.md
     tokens: 470
+  - name: git-workflow
+    category: conventions
+    path: rulebooks/conventions/git-workflow.md
+    tokens: 1139
+  - name: handoff-format
+    category: conventions
+    path: rulebooks/conventions/handoff-format.md
+    tokens: 378
   - name: markdown-formatting
     category: conventions
     path: rulebooks/conventions/markdown-formatting.md
@@ -488,6 +496,10 @@ rulebooks:
     category: conventions
     path: rulebooks/conventions/state-machine-notation.md
     tokens: 741
+  - name: testing-strategy
+    category: conventions
+    path: rulebooks/conventions/testing-strategy.md
+    tokens: 709
   - name: todo-format
     category: conventions
     path: rulebooks/conventions/todo-format.md

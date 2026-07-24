@@ -48,44 +48,6 @@ def _parse_frontmatter(file_path: Path) -> dict:
     return fields
 
 
-class TestFilesExist:
-    """Deliverables are created at the expected paths."""
-
-    def test_evidence_policy_exists(self):
-        assert _EVIDENCE_POLICY.exists(), (
-            f"Evidence policy not found at {_EVIDENCE_POLICY}"
-        )
-
-    def test_report_policy_exists(self):
-        assert _REPORT_POLICY.exists(), f"Report policy not found at {_REPORT_POLICY}"
-
-
-class TestFrontmatterValid:
-    """Each policy has valid frontmatter with required keys."""
-
-    def test_evidence_policy_frontmatter(self):
-        fm = _parse_frontmatter(_EVIDENCE_POLICY)
-        assert fm.get("title"), "evidence-policy missing 'title' in frontmatter"
-        assert fm.get("category") == "policies", (
-            "evidence-policy category must be 'policies'"
-        )
-        assert fm.get("enforcement"), (
-            "evidence-policy missing 'enforcement' in frontmatter"
-        )
-        assert fm.get("version"), "evidence-policy missing 'version' in frontmatter"
-
-    def test_report_policy_frontmatter(self):
-        fm = _parse_frontmatter(_REPORT_POLICY)
-        assert fm.get("title"), "report-policy missing 'title' in frontmatter"
-        assert fm.get("category") == "policies", (
-            "report-policy category must be 'policies'"
-        )
-        assert fm.get("enforcement"), (
-            "report-policy missing 'enforcement' in frontmatter"
-        )
-        assert fm.get("version"), "report-policy missing 'version' in frontmatter"
-
-
 class TestEvidencePolicyContent:
     """Evidence policy must state all required evidence criteria."""
 

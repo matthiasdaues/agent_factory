@@ -2,12 +2,13 @@
 
 ## Summary
 
-Add runtime token-usage tracking to Agent Factory. Every agent run — whether a
-human started the session or the orchestrator dispatched it — appends one record
-of what that run actually consumed. The record measures spend with a single,
-CLI- and model-independent tokenizer so that runs are directly comparable across
-CLIs and across models. The first release captures and persists these records;
-it does not read, aggregate, or present them.
+Add runtime token-usage tracking to Agent Factory. Every native capture event —
+whether from a human session or an orchestrator-dispatched child — appends one
+record of the usage visible at that event. Root lifecycle events may therefore
+produce cumulative snapshots for the same session. Each record measures spend
+with a single, CLI- and model-independent tokenizer so that runs are directly
+comparable across CLIs and across models. The release captures and persists
+these records; it does not read, aggregate, or present them.
 
 A captured record answers a question the factory cannot answer today: *what did
 this run actually cost, and how does that compare to the same work under a
@@ -54,13 +55,15 @@ budget you do not first measure.
 
 ## The Usage Record
 
-One record is emitted per agent invocation (one LLM session). Fields, grouped:
+One record is emitted per native capture event. A session can have several
+cumulative root snapshots, so aggregation selects the latest applicable root
+rather than summing snapshots. Fields, grouped:
 
 **Correlation**
 
 | Field                  | Meaning                                                      |
 | ---------------------- | ------------------------------------------------------------ |
-| `cli`                  | `claude-code \| pi \| copilot`                               |
+| `cli`                  | `claude-code \| copilot \| codex \| pi`                      |
 | `session_id`           | the CLI session's identifier                                 |
 | `parent_session_id`    | parent run, for building the sub-agent spend tree (nullable) |
 | `depth`                | nesting depth (`PI_RUN_AGENT_DEPTH`)                         |
@@ -90,11 +93,11 @@ loop for X cost across all its iterations."
 
 **Spend**
 
-| Field                                                                              | Meaning                                                                     |
-| ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `normalized_input`, `normalized_output`, `normalized_total`                        | our tokenizer over the run text — **the comparable metric**; always present |
-| `reported_input`, `reported_output`, `reported_cache_read`, `reported_cache_write` | provider-reported; nullable; for real-cost reconciliation only              |
-| `usage_granularity`                                                                | `full \| aggregate` — whether the reported breakdown is trustworthy         |
+| Field                                                                              | Meaning                                                                              |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `normalized_input`, `normalized_output`, `normalized_total`                        | our tokenizer over the run text — **the comparable metric**; always present          |
+| `reported_input`, `reported_output`, `reported_cache_read`, `reported_cache_write` | provider-reported; nullable; for real-cost reconciliation only                       |
+| `usage_granularity`                                                                | `full \| aggregate \| null` — whether a provider breakdown exists and is trustworthy |
 
 **Outcome**
 
@@ -128,15 +131,24 @@ git, and the transcript is persisted separately and linked.
 ## Persistence
 
 - **Append-only JSONL**, one record per line, at
-  `.agent-factory/usage/<session_id>.jsonl`, **git-ignored** (runtime telemetry:
+  `.agent-factory/usage/<session-key>.jsonl`, **git-ignored** (runtime telemetry:
   append-only, unbounded, and noise in history). POSIX `O_APPEND` makes
   concurrent appends atomic, so parallel dispatch — many sub-agents writing at
   once — is safe with no locking.
-- **The tokenized transcript is persisted** as a copy under
-  `.agent-factory/usage/transcripts/<session_id>/<record_id>.jsonl`, and
+- **The tokenized transcript is persisted by default** as a copy under
+  `.agent-factory/usage/transcripts/<session-key>/<record-key>.jsonl`, and
   `transcript_ref` points at it. This keeps the audit link from dangling when a
   CLI cleans up its own scratch transcript. Storage is local, ignored, and
   prunable by session.
+- **Sensitive projects can omit copied text without losing accounting.**
+  Retention resolves CLI option, environment, secure project config, then the
+  compatible `full` default. `omit` still produces every normalized/provider
+  total and context field; its exclusive evidence placeholder is empty and
+  marked `content-omitted`. Invalid settings and platforms unable to enforce
+  owner-only permissions force omission.
+- **Runtime storage is owner-only.** Factory usage/control directories are
+  `0700`; records, evidence, reservations, control state, and Pi scratch files
+  are `0600`, repaired independently of umask without following links.
 - **Behind a logging-adapter seam.** Capture sites hand a record to an adapter;
   the JSONL adapter appends the line and persists the transcript copy. A future
   PostgreSQL adapter, served by a dedicated logging service, replaces the JSONL
@@ -144,10 +156,13 @@ git, and the transcript is persisted separately and linked.
 
 ## The Capture Tool
 
-A single, factory-owned, standalone Python script:
-`factory/scripts/usage-capture` — self-bootstrapping via a PEP 723 shebang
-(`tiktoken`), in the style of `index-lint` and `schema-validate`. Every capture
-site invokes it uniformly:
+A single, factory-owned Python capture program and runtime launcher:
+`factory/scripts/usage-capture` plus `usage-capture-runtime`. Initialization is
+the only dependency-install boundary: it provisions `tiktoken==0.13.0` and
+exact transitives into `.agent-factory/usage-runtime` from committed hashed
+requirements. Every automatic capture site invokes the launcher uniformly;
+the launcher only executes that provisioned interpreter and performs no
+resolution, download, cache lookup, or network access:
 
 ```
 usage-capture --cli pi --transcript <path> --session <id> --agent <name> \
@@ -172,28 +187,124 @@ in-process use.
 The script is uniform; the trigger is necessarily CLI-specific. Each hands
 `usage-capture` a transcript path and context.
 
-| CLI          | Human-started session                      | Sub-agent / dispatched                       |
-| ------------ | ------------------------------------------ | -------------------------------------------- |
-| Claude Code  | `Stop` hook (settings.json)                | `SubagentStop` hook                          |
-| Pi           | session-end / `message_end` extension hook | `run_agent` / `dispatch_wave` call it inline |
-| Orchestrator | —                                          | explicit call after each phase run           |
+| CLI                | Human-started session              | Sub-agent / dispatched                       |
+| ------------------ | ---------------------------------- | -------------------------------------------- |
+| Claude Code        | `Stop` hook (settings.json)        | `SubagentStop` hook                          |
+| GitHub Copilot CLI | `agentStop` hook (`.github/hooks`) | `subagentStop` hook                          |
+| Codex              | `Stop` hook (`.codex/hooks.json`)  | `SubagentStop` hook                          |
+| Pi                 | `session_shutdown` extension hook  | `run_agent` / `dispatch_wave` call it inline |
 
-Both hook kinds receive the transcript path and session id, so both human and
-dispatched sessions are covered within a CLI.
+Each native capture site supplies or derives the transcript and session id, so
+both human and dispatched sessions are covered within a CLI.
 
-**Rollout order:** Claude Code `Stop` + `SubagentStop` first — it is the CLI in
-active human use, and one hook-pair covers human main sessions and every
-sub-agent. Then Pi, then the orchestrator, then Copilot. The script ships
-CLI-agnostic from the start; adding a CLI is a new normalizer, not a rewrite.
+Claude accounting is non-inclusive at the root. `Stop` records are cumulative
+snapshots of the main transcript, which contains the `Agent` request and
+returned summary but excludes the child's internal messages and full
+per-message provider usage. `SubagentStop.transcript_path` also names that main
+transcript, so the adapter must capture the separate `agent_transcript_path`.
+Reporting total spend must select the latest root snapshot and add each
+distinct child record once. Result-level `toolUseResult.usage` metadata in the
+root is not the child's cumulative usage and is not added by the normalizer.
+Boundary task/result text can appear in both normalized records because both
+model invocations consumed it.
+
+Copilot accounting is inclusive at the root. Each `agentStop` appends a
+cumulative snapshot of the parent transcript, which contains child activity, so
+its normalized and reported totals include that activity. An aggregator must
+select the latest root snapshot for the session, not sum earlier turn
+snapshots. `subagentStop` records provide attribution drill-down and must not be
+added again. The built-in `general-purpose` agent emits no `subagentStop`, but
+its spend is still captured inside the inclusive parent record. Repeated-turn
+coverage must prove this snapshot-selection rule.
+
+Codex follows the same conservation rule. A root rollout's final cumulative
+`total_token_usage` and normalized transcript include child activity recorded
+in that rollout. `SubagentStop` records add attribution only; reporting total
+spend must use the inclusive root and must not add child records again. Codex
+emits cumulative token snapshots during a run, so capture uses the latest
+snapshot rather than summing snapshots and double counting earlier activity.
+
+**Rollout order:** Claude Code `Stop` + `SubagentStop` established the shared
+capture core and first adapter. Complete the remaining supported CLIs in this
+priority order: GitHub Copilot CLI, Codex, then Pi. The script remains
+CLI-agnostic: each rollout adds a normalizer and native trigger, not a rewrite.
+The orchestrator is a launch path, not a fifth transcript format; the CLI it
+launches owns capture so the orchestrator must not create duplicate records.
+
+Pi emits a provider-usage breakdown for each assistant `message_end`; the Pi
+normalizer sums those per-response values across the completed stream. Human
+sessions capture once at the documented graceful `session_shutdown` lifecycle
+event. Dispatched subprocesses set an inline-capture marker so their own loaded
+shutdown extension stays silent: `run_agent` or each `dispatch_wave` item owns
+exactly one child record with explicit parent and depth context.
+
+The Pi extension resolves one canonical consumer-project root from Git's
+shared common directory and propagates it through every child process. Human,
+`run_agent`, `dispatch_wave`, and nested descendant records consequently share
+the primary checkout's `.agent-factory/usage/` directory rather than a
+disposable worktree. An inherited root is trusted only when it matches the
+independently derived primary checkout and Factory-owned layout.
+
+Pi stages each completed stream durably beneath that root, then starts the
+Factory-owned capture supervisor through the provisioned Python runtime with
+ignored standard streams and returns immediately. The supervisor waits for the capture child outside
+the measured boundary and is the sole owner of pending/committing registration,
+completion-status, and staged-source cleanup. Every path and the registration's
+generation/source pair are validated before use. Python reports `captured` only
+after record/evidence persistence succeeds; all other normal terminal paths
+produce a bounded `0600` diagnostic beneath the existing private lifecycle
+tree. Explicit cancellation is not diagnosed and no failure path recreates
+removed Factory directories. Only the local staging write is synchronous.
+Abrupt supervisor or host termination remains best-effort and may lose an
+in-flight record.
+
+Claude, Codex, and Copilot hooks use the same capture-specific lifecycle. Each
+hook synchronously registers and makes a private snapshot of its provider
+transcript before returning. This O(transcript-size) local copy is the
+durability cost that lets the original disappear immediately; normalization
+and persistence remain detached. The lifecycle uses no Node runtime, so
+standalone Codex remains supported.
+
+Pi wraps Python startup in a tiny Node bootstrap because the interpreter can
+disappear after Pi's durable registration but before the shared supervisor
+starts. Python explicitly accepts ownership with a private generation-bound
+handshake after validating the registration. The bootstrap exits on acceptance;
+before it, launcher failure or bounded timeout performs only guarded cleanup and
+a transcript-free diagnostic. It never tokenizes, persists, implements removal
+policy, or remains as a second full supervisor.
+
+All registrations carry the installation generation in a Factory-owned pending
+registry. Uninstall transitions that generation to `drain` or explicit
+`cancel`: drain permits every eligible pre-transition worker to commit, while
+cancel rejects workers that have not entered persistence. The remover waits
+with a fixed bound for the registry to empty; timeout restores `active` and
+leaves the installation intact. Successful teardown happens only after the
+commit fence is clear, so late workers cannot resurrect Factory paths. The
+protocol uses atomic filesystem operations and never signals a recorded PID.
+Registration itself is an atomic hard-link snapshot of lifecycle state. A token
+created before the state replacement remains visibly active and must drain; one
+created afterward snapshots drain/cancel and is rejected. Registration metadata
+atomically replaces the token contents without a visibility gap. Same-volume
+file-hardlink support is therefore a Pi capture prerequisite; initialization
+and runtime report its absence while leaving unrelated CLI setup usable.
+
+Pi accounting is non-inclusive across subprocess boundaries. A human or parent
+stream contains the task/result boundary text it consumed, but it does not
+contain the separate model calls made by a `run_agent` or `dispatch_wave`
+descendant. Reporting total Pi spend must therefore add the root record and
+every distinct descendant record exactly once. Boundary text present in both
+records is not aggregation duplication: both model invocations consumed it.
 
 ## Scope
 
-**In the first release:**
+**In the release:**
 
-- The `usage-capture` script: normalizer interface, Claude Code normalizer,
+- The `usage-capture` script: normalizer interface, normalizers for Claude
+  Code, GitHub Copilot CLI, Codex, and Pi,
   `cl100k_base` tokenizer, JSONL logging adapter, transcript persistence.
 - The full usage record as specified.
-- Claude Code `Stop` and `SubagentStop` capture wired up.
+- Native human-session and sub-agent capture wired up for all four supported
+  CLIs.
 
 **Explicitly deferred:**
 
@@ -201,37 +312,62 @@ CLI-agnostic from the start; adding a CLI is a new normalizer, not a rewrite.
 - Dollar-cost math (a later layer over `reported_*` × `model` × a rate table).
 - The PostgreSQL adapter and its logging service.
 - Budget enforcement.
-- Pi, orchestrator, and Copilot capture points (the normalizer/trigger seams
-  exist; wiring them is follow-on).
 
 ## Design Details
 
-- **`record_id`** uniquely identifies a record and names its transcript copy;
-  derived from `session_id` plus a per-session sequence (or a UUID).
-- **Retention** of transcripts is manual and per-session for now; pruning
-  policy is deferred with the rest of the read side.
-- **Failure is silent to the run:** capture errors are logged to stderr and
-  swallowed; the measured run is never affected.
+- **`record_id`** uniquely identifies a record and names its transcript copy.
+  With a session id it is `<session_id>-NNNN`: a zero-padded numeric reservation
+  sequence. Allocation estimates the next number from existing records, then
+  atomically reserves the transcript with exclusive no-follow creation and
+  probes forward on collision. This is inter-process safe without locks; a crash
+  can leave an empty reservation and therefore a valid sequence gap. Numeric
+  reservation order—not JSONL append order—defines snapshot order. A UUID4 is
+  used when no session id exists.
+- **Retention** is explicit and per-session: records and full/omitted evidence
+  remain until manual session deletion or `remove-factory`; there is no
+  automatic TTL. Pi scratch is deleted immediately after processing. Whole-text
+  omission is the supported redaction control; regex redaction is intentionally
+  absent because it cannot reliably find secrets. Accounting cannot be disabled.
+- **Opaque identifiers never become paths directly.** Bounded lowercase ASCII
+  identifiers that were already safe retain their historical layout. All other
+  session and record identifiers map to fixed `opaque-<sha256>` filesystem keys;
+  the original values remain only in the JSON record. Every storage component
+  rejects symlinks, transcripts are created exclusively with no-follow semantics,
+  and session records are appended without following links.
+- **Failure is silent to the run:** direct `usage-capture` invocation reports
+  errors on stderr and returns success. Native lifecycle adapters may suppress
+  that stderr as well as swallowing the failure, so session completion and tool
+  results are never affected.
+- **Pi persistence is detached:** lifecycle and tool boundaries durably stage
+  locally but never wait for normalization or persistence to complete.
 
 ## Open Questions
 
-- Confirm the exact `record_id` scheme (session-sequence vs. UUID).
-- Confirm whether Pi's human-session capture uses a dedicated extension hook or
-  is deferred entirely to the Pi rollout phase.
-- Confirm the `.agent-factory/usage/` path against the existing init-factory
-  ignore manifest (it is already a git-ignored runtime area).
+- ~~Confirm the exact Pi human-session event that provides the completed
+  transcript or event stream without double-counting agent output~~ — resolved
+  (ST-0044): the installed extension captures the completed branch once on
+  Pi's documented `session_shutdown` event.
+- ~~Confirm the `.agent-factory/usage/` path against the existing init-factory
+  ignore manifest~~ — resolved (ST-0040): it already falls under the existing
+  `/.agent-factory/` line, no new ignore entry needed.
 
 ## Completion Criteria
 
-The first release is complete when:
+The release is complete when:
 
 - `factory/scripts/usage-capture` exists and, given a transcript and context,
-  writes a well-formed record to `.agent-factory/usage/<session_id>.jsonl` and
-  persists the linked transcript copy.
+  writes a well-formed record to `.agent-factory/usage/<session-key>.jsonl` and
+  persists linked full evidence or an explicitly marked omitted placeholder.
 - Records carry `normalized_*` counts produced by `cl100k_base` over the full
   transcript, with `reported_*` populated where the transcript provides it.
-- Claude Code `Stop` and `SubagentStop` sessions — human and sub-agent — are
-  captured automatically.
+- Claude Code, GitHub Copilot CLI, Codex, and Pi sessions — human and sub-agent
+  or dispatched — are captured automatically through their native lifecycle
+  surfaces.
+- Codex automatic capture starts only after the user reviews and trusts the
+  installed project hooks through `/hooks`; new or changed definitions require
+  renewed trust.
+- Each CLI has an end-to-end test proving the installed trigger produces the
+  same canonical record and transcript-copy contract.
 - Capture never fails, blocks, or slows the run it measures.
 - The path is git-ignored and concurrent appends from parallel dispatch do not
   corrupt the file.

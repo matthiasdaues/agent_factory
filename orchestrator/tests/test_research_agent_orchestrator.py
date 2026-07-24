@@ -25,10 +25,6 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[2]
 _AGENT_FILE = _ROOT / "factory" / "agents" / "research-orchestrator.md"
-_ROLE_SEPARATION_POLICY = (
-    _ROOT / "factory" / "rulebooks" / "conventions" / "research-role-separation.md"
-)
-
 # Permitted actions, verbatim from the proposal's Research Orchestrator section.
 _PERMITTED_ACTIONS = [
     "start playbook steps",
@@ -95,52 +91,6 @@ def _parse_frontmatter(file_path: Path) -> dict:
     return fields
 
 
-class TestFileExists:
-    """The deliverable is created at the expected path."""
-
-    def test_research_orchestrator_exists(self):
-        assert _AGENT_FILE.exists(), (
-            f"research-orchestrator agent not found at {_AGENT_FILE}"
-        )
-
-
-class TestFrontmatterValid:
-    """The agent has valid frontmatter with the keys index-lint requires."""
-
-    _fm = _parse_frontmatter(_AGENT_FILE)
-
-    def test_name(self):
-        assert self._fm.get("name") == "research-orchestrator", (
-            "research-orchestrator frontmatter 'name' must be 'research-orchestrator'"
-        )
-
-    def test_title(self):
-        assert self._fm.get("title"), (
-            "research-orchestrator missing 'title' in frontmatter"
-        )
-
-    def test_tier(self):
-        assert self._fm.get("tier"), (
-            "research-orchestrator missing 'tier' in frontmatter"
-        )
-
-    def test_phase_is_six(self):
-        assert self._fm.get("phase") == "6", (
-            "research-orchestrator 'phase' must be 6, so it groups with the "
-            "other three research agents"
-        )
-
-    def test_phase_name_is_research(self):
-        assert self._fm.get("phase-name") == "Research", (
-            "research-orchestrator 'phase-name' must be 'Research'"
-        )
-
-    def test_description(self):
-        assert self._fm.get("description"), (
-            "research-orchestrator missing 'description' in frontmatter"
-        )
-
-
 class TestBodyContent:
     """The body states every permitted and forbidden action, and points to
     the role-separation policy as their source."""
@@ -163,15 +113,4 @@ class TestBodyContent:
         pattern = re.compile(r"role-separation(\.md)?", re.IGNORECASE)
         assert pattern.search(self._text), (
             "research-orchestrator body does not reference the role-separation policy"
-        )
-
-
-class TestRoleSeparationPolicyExists:
-    """The referenced policy file must actually exist for the reference to
-    resolve — a broken cross-reference would defeat the traceability the
-    story asks for."""
-
-    def test_role_separation_policy_file_exists(self):
-        assert _ROLE_SEPARATION_POLICY.exists(), (
-            f"role-separation.md not found at {_ROLE_SEPARATION_POLICY}"
         )

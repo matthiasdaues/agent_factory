@@ -16,9 +16,12 @@ these tests are self-contained and stable.
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
+
+import pytest
 
 _ROOT = Path(__file__).resolve().parents[2]
 
@@ -48,6 +51,19 @@ repos:
         language: system
 """
 PROJECT_WORKFLOW = "name: CI\non: [push]\njobs: {}\n"
+PROJECT_CLAUDE_SETTINGS = {
+    "hooks": {
+        "PostToolUse": [
+            {
+                "matcher": "Bash",
+                "hooks": [{"type": "command", "command": "echo project-done"}],
+            }
+        ],
+        "Stop": [
+            {"hooks": [{"type": "command", "command": "echo project-owned-stop"}]}
+        ],
+    }
+}
 
 
 def _make_project(root: Path, with_copilot_instructions: bool = False) -> None:
@@ -159,6 +175,61 @@ class TestTracelessRemoval:
 
         assert _snapshot(tmp_path) == before
 
+    def test_roundtrip_preserves_project_owned_copilot_hook_file(self, tmp_path):
+        _make_project(tmp_path)
+        hooks = tmp_path / ".github/hooks"
+        hooks.mkdir()
+        project_hook = hooks / "project-observability.json"
+        project_hook.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "hooks": {
+                        "agentStop": [{"type": "command", "bash": "./project-hook.sh"}]
+                    },
+                },
+                indent=2,
+            )
+            + "\n"
+        )
+        before = _snapshot(tmp_path)
+
+        assert _run_init(tmp_path) == 0
+        assert _run_remove(tmp_path) == 0
+
+        assert _snapshot(tmp_path) == before
+
+    def test_ST0043_roundtrip_preserves_project_owned_codex_hooks(self, tmp_path):
+        _make_project(tmp_path)
+        codex = tmp_path / ".codex"
+        codex.mkdir()
+        hooks = {
+            "hooks": {
+                "Stop": [{"hooks": [{"type": "command", "command": "project-stop"}]}],
+                "AfterToolUse": [
+                    {"hooks": [{"type": "command", "command": "project-tool"}]}
+                ],
+            },
+            "projectSetting": True,
+        }
+        (codex / "hooks.json").write_text(json.dumps(hooks, indent=2) + "\n")
+        (codex / "project.toml").write_text("approval_policy = 'never'\n")
+        before = _snapshot(tmp_path)
+
+        assert _run_init(tmp_path) == 0
+        assert _run_remove(tmp_path) == 0
+
+        assert _snapshot(tmp_path) == before
+
+    def test_ST0043_fresh_codex_hook_structure_is_removed(self, tmp_path):
+        _make_project(tmp_path)
+
+        assert _run_init(tmp_path) == 0
+        assert (tmp_path / ".codex/hooks.json").is_file()
+        assert _run_remove(tmp_path) == 0
+
+        assert not (tmp_path / ".codex").exists()
+
     def test_double_init_then_single_remove_is_byte_identical(self, tmp_path):
         _make_project(tmp_path)
         before = _snapshot(tmp_path)
@@ -176,3 +247,223 @@ class TestTracelessRemoval:
         assert _run_remove(tmp_path) == 0
 
         assert _snapshot(tmp_path) == before
+
+    def test_roundtrip_with_existing_claude_settings_removes_only_our_hooks(
+        self, tmp_path
+    ):
+        _make_project(tmp_path)
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+        (claude_dir / "settings.json").write_text(
+            json.dumps(PROJECT_CLAUDE_SETTINGS, indent=2) + "\n", encoding="utf-8"
+        )
+        before = _snapshot(tmp_path)
+
+        assert _run_init(tmp_path) == 0
+        settings_after_init = json.loads(
+            (claude_dir / "settings.json").read_text(encoding="utf-8")
+        )
+        assert any(
+            hook.get("command") == init_factory.CLAUDE_CAPTURE_HOOK_COMMAND
+            for event in init_factory.CLAUDE_CAPTURE_HOOK_EVENTS
+            for entry in settings_after_init["hooks"][event]
+            for hook in entry.get("hooks", [])
+        )
+
+        assert _run_remove(tmp_path) == 0
+
+        assert _snapshot(tmp_path) == before
+
+    def test_compact_codex_hooks_without_newline_restore_exact_bytes(self, tmp_path):
+        _make_project(tmp_path)
+        codex = tmp_path / ".codex"
+        codex.mkdir()
+        original = (
+            b'{"hooks":{"Stop":[{"hooks":[{"type":"command",'
+            b'"command":"project-stop"}]}]},"project":true}'
+        )
+        (codex / "hooks.json").write_bytes(original)
+
+        assert _run_init(tmp_path) == 0
+        assert _run_remove(tmp_path) == 0
+
+        assert (codex / "hooks.json").read_bytes() == original
+
+    def test_codex_hooks_added_after_install_survive_structural_removal(self, tmp_path):
+        _make_project(tmp_path)
+        codex = tmp_path / ".codex"
+        codex.mkdir()
+        path = codex / "hooks.json"
+        path.write_text('{"project": true}\n')
+
+        assert _run_init(tmp_path) == 0
+        config = json.loads(path.read_text())
+        project_entry = {
+            "matcher": "^Write$",
+            "hooks": [{"type": "command", "command": "project-after-init"}],
+        }
+        config["hooks"].setdefault("PreToolUse", []).append(project_entry)
+        path.write_text(json.dumps(config, indent=4))
+
+        assert _run_remove(tmp_path) == 0
+
+        restored = json.loads(path.read_text())
+        assert restored["project"] is True
+        assert restored["hooks"] == {"PreToolUse": [project_entry]}
+
+    def test_codex_hooks_edited_before_rerun_are_not_rolled_back(self, tmp_path):
+        _make_project(tmp_path)
+        codex = tmp_path / ".codex"
+        codex.mkdir()
+        path = codex / "hooks.json"
+        path.write_text('{"project": true}\n')
+        assert _run_init(tmp_path) == 0
+        config = json.loads(path.read_text())
+        config["afterInit"] = "keep"
+        path.write_text(json.dumps(config))
+
+        assert _run_init(tmp_path) == 0
+        assert _run_remove(tmp_path) == 0
+
+        assert json.loads(path.read_text()) == {"project": True, "afterInit": "keep"}
+
+    def test_factory_created_hooks_promote_to_project_file_after_project_edit(
+        self, tmp_path
+    ):
+        _make_project(tmp_path)
+        assert _run_init(tmp_path) == 0
+        path = tmp_path / ".codex/hooks.json"
+        config = json.loads(path.read_text())
+        config["project"] = "keep"
+        path.write_text(json.dumps(config))
+
+        assert _run_remove(tmp_path) == 0
+
+        assert json.loads(path.read_text()) == {"project": "keep"}
+
+    def test_preexisting_identical_codex_handlers_are_not_claimed_or_removed(
+        self, tmp_path
+    ):
+        _make_project(tmp_path)
+        codex = tmp_path / ".codex"
+        codex.mkdir()
+        existing = {
+            "hooks": {
+                "PreToolUse": [
+                    {
+                        "matcher": "^Bash$",
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": init_factory.CODEX_GUARDRAIL_HOOK_COMMAND,
+                            }
+                        ],
+                    }
+                ],
+                **{
+                    event: [
+                        {
+                            "hooks": [
+                                {
+                                    "type": "command",
+                                    "command": init_factory.CODEX_CAPTURE_HOOK_COMMAND,
+                                }
+                            ]
+                        }
+                    ]
+                    for event in ("Stop", "SubagentStop")
+                },
+            }
+        }
+        original = json.dumps(existing, separators=(",", ":")).encode()
+        (codex / "hooks.json").write_bytes(original)
+
+        assert _run_init(tmp_path) == 0
+        assert _run_remove(tmp_path) == 0
+
+        assert (codex / "hooks.json").read_bytes() == original
+
+    @pytest.mark.parametrize("kind", ["skill", "agent", "alias", "hook"])
+    def test_project_replacement_at_factory_path_is_preserved(self, tmp_path, kind):
+        _make_project(tmp_path)
+        assert _run_init(tmp_path) == 0
+
+        if kind == "skill":
+            path = next((tmp_path / ".agents/skills").iterdir())
+        elif kind == "agent":
+            path = next((tmp_path / ".codex/agents").glob("*.toml"))
+        elif kind == "alias":
+            path = tmp_path / ".codex/INDEX.yaml"
+        else:
+            path = tmp_path / ".codex/hooks/block-dangerous-git.sh"
+        if path.is_symlink():
+            path.unlink()
+        path.write_text("project replacement\n")
+
+        assert _run_remove(tmp_path) == 0
+
+        assert path.read_text() == "project replacement\n"
+
+    def test_tampered_manifest_parent_escape_aborts_before_removal(self, tmp_path):
+        _make_project(tmp_path)
+        victim = tmp_path.parent / f"{tmp_path.name}-victim"
+        victim.write_text("outside\n")
+        assert _run_init(tmp_path) == 0
+        manifest_path = tmp_path / ".agent-factory/factory-install.json"
+        manifest = json.loads(manifest_path.read_text())
+        manifest["remove_paths"].append(f"../{victim.name}")
+        manifest_path.write_text(json.dumps(manifest))
+
+        assert _run_remove(tmp_path) == 1
+
+        assert victim.read_text() == "outside\n"
+        assert (tmp_path / "factory").is_dir()
+
+    def test_symlinked_codex_container_aborts_without_touching_target(self, tmp_path):
+        _make_project(tmp_path)
+        assert _run_init(tmp_path) == 0
+        codex = tmp_path / ".codex"
+        installed = tmp_path / ".codex-installed"
+        codex.rename(installed)
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        (outside / "owned").write_text("outside\n")
+        codex.symlink_to(outside, target_is_directory=True)
+
+        assert _run_remove(tmp_path) == 1
+
+        assert (outside / "owned").read_text() == "outside\n"
+        assert (tmp_path / "factory").is_dir()
+
+    def test_foreign_symlink_replacing_codex_alias_is_preserved(self, tmp_path):
+        _make_project(tmp_path)
+        assert _run_init(tmp_path) == 0
+        outside = tmp_path / "outside-index"
+        outside.write_text("project\n")
+        alias = tmp_path / ".codex/INDEX.yaml"
+        alias.unlink()
+        alias.symlink_to(outside)
+
+        assert _run_remove(tmp_path) == 0
+
+        assert alias.is_symlink()
+        assert alias.resolve() == outside
+        assert outside.read_text() == "project\n"
+
+    def test_codex_shared_directories_prune_deepest_first_and_only_when_empty(
+        self, tmp_path
+    ):
+        _make_project(tmp_path)
+        (tmp_path / ".agents").mkdir()
+        (tmp_path / ".agents/project.txt").write_text("project\n")
+        (tmp_path / ".codex").mkdir()
+        (tmp_path / ".codex/project.toml").write_text("project\n")
+
+        assert _run_init(tmp_path) == 0
+        assert _run_remove(tmp_path) == 0
+
+        assert (tmp_path / ".agents/project.txt").read_text() == "project\n"
+        assert not (tmp_path / ".agents/skills").exists()
+        assert (tmp_path / ".codex/project.toml").read_text() == "project\n"
+        assert not (tmp_path / ".codex/agents").exists()
+        assert not (tmp_path / ".codex/hooks").exists()

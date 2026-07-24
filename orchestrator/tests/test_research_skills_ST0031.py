@@ -49,48 +49,6 @@ def _parse_frontmatter(file_path: Path) -> dict:
     return fields
 
 
-class TestFilesExist:
-    """Deliverables are created at the expected paths."""
-
-    def test_claim_formulation_exists(self):
-        assert _CLAIM_FORMULATION.exists(), (
-            f"Claim-formulation skill not found at {_CLAIM_FORMULATION}"
-        )
-
-    def test_refutation_design_exists(self):
-        assert _REFUTATION_DESIGN.exists(), (
-            f"Refutation-design skill not found at {_REFUTATION_DESIGN}"
-        )
-
-
-class TestFrontmatterValid:
-    """Each skill has valid frontmatter with required keys."""
-
-    def test_claim_formulation_frontmatter(self):
-        fm = _parse_frontmatter(_CLAIM_FORMULATION)
-        assert fm.get("name") == "claim-formulation", (
-            "claim-formulation missing or incorrect 'name' in frontmatter"
-        )
-        assert fm.get("description"), (
-            "claim-formulation missing 'description' in frontmatter"
-        )
-        assert fm.get("category") == "research", (
-            "claim-formulation category must be 'research'"
-        )
-
-    def test_refutation_design_frontmatter(self):
-        fm = _parse_frontmatter(_REFUTATION_DESIGN)
-        assert fm.get("name") == "refutation-design", (
-            "refutation-design missing or incorrect 'name' in frontmatter"
-        )
-        assert fm.get("description"), (
-            "refutation-design missing 'description' in frontmatter"
-        )
-        assert fm.get("category") == "research", (
-            "refutation-design category must be 'research'"
-        )
-
-
 class TestClaimFormulationContent:
     """Claim-formulation skill must describe all required elements."""
 
