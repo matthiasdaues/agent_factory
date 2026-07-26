@@ -123,3 +123,15 @@ when independent identities cannot be established.
   frozen-register boundary of the Research Report Writer.
 - CLI portability is covered by canonical-artifact tests and installed-consumer
   smoke tests for Claude Code, Copilot, Codex, and Pi.
+
+## Executable evidence
+
+`orchestrator/tests/test_research_survey_e2e.py` exercises one offline,
+mode-defaulted survey fixture through the production schema-validation command.
+It validates the brief, plan, two source records, and report; checks every
+finding resolves to a recorded source; retains distinct source-family values;
+and proves an unknown source reference fails deterministically. The same test
+installs Factory into a temporary target and confirms survey playbook, skills,
+and agents remain discoverable from Claude Code, Copilot, Codex, and Pi. Its
+fixture asserts that no conjecture, test, review, vote, or claim-register
+artifact is emitted.
