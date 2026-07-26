@@ -42,15 +42,17 @@ def _resolve_survey_findings(
 ) -> set[str]:
     """Resolve every report reference to a recorded source artifact.
 
-    Schema validation proves each report reference is non-empty, while this
-    narrowly scoped fixture seam proves the independently stored records exist.
+    Schema validation proves each finding declares a reference list, while this
+    narrowly scoped fixture seam proves the independently stored records exist
+    within this survey run.
     """
     report = json.loads((run_dir / report_name).read_text(encoding="utf-8"))
+    records_dir = (run_dir / "source-records").resolve()
     resolved_families = set()
     for finding in report["findings"]:
         for reference in finding["source_record_refs"]:
-            record_path = run_dir / reference
-            if not record_path.is_file():
+            record_path = (run_dir / reference).resolve()
+            if not record_path.is_relative_to(records_dir) or not record_path.is_file():
                 raise ValueError(f"unsupported source record reference: {reference}")
             record = json.loads(record_path.read_text(encoding="utf-8"))
             resolved_families.add(record["source_family"])
@@ -98,6 +100,45 @@ def _assert_survey_run_semantics(run_dir: Path, installed_factory: Path) -> None
         assert (codex / "agents" / f"{agent}.toml").is_file()
     for skill in ("research-planning", "research-synthesis", "source-research"):
         assert (installed_factory / ".agents" / "skills" / skill / "SKILL.md").is_file()
+
+
+@pytest.mark.parametrize("escape_kind", ("traversal", "absolute", "symlink"))
+def test_BUG0001_survey_source_references_cannot_escape_the_run(tmp_path, escape_kind):
+    """Only source records canonically contained by this survey may resolve."""
+    run_dir = tmp_path / "survey-run"
+    records_dir = run_dir / "source-records"
+    records_dir.mkdir(parents=True)
+    outside_record = tmp_path / "outside.json"
+    outside_record.write_text(
+        json.dumps({"source_family": "outside-survey"}), encoding="utf-8"
+    )
+
+    if escape_kind == "traversal":
+        reference = "../outside.json"
+    elif escape_kind == "absolute":
+        reference = str(outside_record)
+    else:
+        linked_record = records_dir / "linked.json"
+        linked_record.symlink_to(outside_record)
+        reference = "source-records/linked.json"
+
+    (run_dir / "report.json").write_text(
+        json.dumps(
+            {
+                "findings": [
+                    {
+                        "title": "Unsupported",
+                        "summary": "The record does not belong to this survey.",
+                        "source_record_refs": [reference],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="unsupported source record reference"):
+        _resolve_survey_findings(run_dir)
 
 
 @pytest.fixture
