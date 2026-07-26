@@ -14,6 +14,13 @@ claim to the report only after that claim has survived a serious attempt at
 refutation within its stated scope. A surviving claim is never presented as
 proved; it has only withstood the defined tests.
 
+## Mode Selection Front Gate
+
+Read the shared brief's `mode` before applying prerequisites or dispatching
+work. When `mode` is omitted or explicitly `survey`, select the sibling
+[`research-survey.md`](research-survey.md) playbook and stop this playbook.
+Only explicit `falsification` selects the thirteen-step procedure below.
+
 The procedure wires thirteen steps in order. Each step names its agent, its
 skills, its input artifacts, and its output artifacts. Between every step the
 playbook runs a three-stage validation gate, and progression blocks whenever a

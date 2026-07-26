@@ -5,10 +5,8 @@ tier: standard
 phase: 6
 phase-name: Research
 description: >-
-  Runs the falsification-driven research playbook end to end — validates the
-  brief, assigns independent research, tallies votes, freezes the claim
-  register, and starts report generation — without ever authoring, reviewing,
-  or voting on a claim itself.
+  Selects survey or falsification research from the brief, advances the chosen
+  validated playbook, and enforces its role boundaries and release gate.
 inputs:
   - factory/playbooks/research-topic.md
   - factory/playbooks/research-survey.md
@@ -37,7 +35,14 @@ version: 0.2.0
 
 ## Role
 
-Run the falsification-driven research playbook from a validated brief through to a validated final report. The Orchestrator is administrative: it moves the playbook forward, assigns work, checks that gates are met, and counts what other agents produced. It never produces or judges research content itself. This separation is what lets the Claim-Admission Policy's vote mean independent scrutiny rather than the process owner grading its own work.
+Select and run the research mode from a brief through to a validated report.
+When mode is omitted or is `survey`, route to
+[`research-survey.md`](../playbooks/research-survey.md). Only explicit
+`falsification` routes to
+[`research-topic.md`](../playbooks/research-topic.md). The Orchestrator is
+administrative: it moves the selected playbook forward, assigns work, checks
+that gates are met, and counts what other agents produced. It never produces
+or judges research content itself.
 
 ## Permitted Actions
 
@@ -66,18 +71,32 @@ These permitted and forbidden actions, and the role separation they enforce, com
 
 ## Workflow
 
-1. **Preflight portable capabilities** — require source access for every mode.
-   For falsification, also require independent agent identities and block when
-   the active CLI cannot establish them. For survey source gathering, fall
-   back to sequential assignments when bounded fan-out is unavailable.
-2. **Validate the brief** — check the research brief against its schema and required fields; return a validated brief or a blocker.
-3. **Dispatch logical assignments** — follow the [Dispatch Contract](../rulebooks/conventions/dispatch-contract.md#research-assignment-contract). Declare `agent`, Factory `tier`, bounded `task`, unique `output`, and `independent_session` before mapping the request to the active CLI.
-4. **Assign independent research** — turn the research plan into assignments, ensuring each conclusion-critical question receives independent researchers per the plan's design.
-5. **Run validation at each gate** — validate conjectures, refutation-test outputs, and the final report against their schemas and the applicable policies before the next step begins.
-6. **Request another research round** — when a claim is refuted, unresolved, or blocked, route it back for targeted research, revision, retesting, or human escalation, per the playbook's failed-claim handling.
-7. **Tally eligible votes** — count votes per the Claim-Admission Policy's quorum and strict-majority-of-decisive-votes rule; the Orchestrator counts votes, it never casts one.
-8. **Freeze the claim register** — once every claim's disposition is settled, generate and freeze the claim register so the Research Report Writer can build from a fixed input.
-9. **Start report generation** — hand the frozen claim register to the Research Report Writer and validate the resulting final report before release.
+01. **Select the mode** — omitted mode and `survey` select
+    `research-survey.md`; explicit `falsification` selects `research-topic.md`.
+02. **Preflight portable capabilities** — require source access for every mode.
+    For falsification, also require independent agent identities and block when
+    the active CLI cannot establish them. For survey source gathering, fall
+    back to sequential assignments when bounded fan-out is unavailable.
+03. **Validate the brief** — check the research brief against its schema and
+    required fields; return a validated brief or a blocker.
+04. **Dispatch logical assignments** — follow the [Dispatch
+    Contract](../rulebooks/conventions/dispatch-contract.md#research-assignment-contract).
+    Declare `agent`, Factory `tier`, bounded `task`, unique `output`, and
+    `independent_session` before mapping the request to the active CLI.
+05. **Advance the selected gates** — require schema, policy where applicable,
+    and semantic review of every artifact before progression.
+06. **Validate a survey report** — resolve every finding's
+    `source_record_refs` to recorded sources and reject "survived refutation",
+    "admitted", and "validated claim" status language before release.
+07. **Assign independent falsification research** — ensure each
+    conclusion-critical question receives independent researchers per its plan.
+08. **Request another falsification round** — route refuted, unresolved, or
+    blocked claims to research, revision, retesting, or human escalation.
+09. **Tally eligible votes** — apply the Claim-Admission Policy without casting
+    a vote.
+10. **Freeze the claim register** — generate and freeze settled dispositions.
+11. **Start falsification report generation** — hand the frozen register to
+    the Research Report Writer and validate the report before release.
 
 ## Boundaries
 

@@ -98,10 +98,10 @@ agents:
     phase: 6
     phase_name: Research
     tier: standard
-    description: Runs the falsification-driven research playbook end to end — validates the brief, assigns independent research, tallies votes, freezes the claim register, and starts report generation — without ever authoring, reviewing, or voting on a claim itself.
+    description: Selects survey or falsification research from the brief, advances the chosen validated playbook, and enforces its role boundaries and release gate.
     path: agents/research-orchestrator.md
-    tokens: 1223
-    total_tokens: 5032
+    tokens: 1248
+    total_tokens: 5057
   - name: research-report-writer
     title: Research Report Writer
     phase: 6
@@ -413,9 +413,16 @@ playbooks:
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
-    description: Portable dispatch contract for source gathering in survey mode. The mode-specific planning, synthesis, validation, and completion workflow is defined separately by the survey-mode story.
+    description: Operational procedure for source-grounded survey research, from a validated brief to a validated cited synthesis. It gathers what credible recorded sources say without applying the conjecture, refutation, voting, or claim-register machinery of falsification mode.
     path: playbooks/research-survey.md
-    tokens: 214
+    agents:
+      - research-orchestrator
+      - researcher
+      - researcher
+      - research-synthesizer
+      - research-orchestrator
+    tokens: 1018
+    total_tokens: 8576
   - name: research-topic
     title: Research Topic Playbook
     category: orchestration
@@ -435,8 +442,8 @@ playbooks:
       - research-orchestrator
       - research-report-writer
       - research-orchestrator
-    tokens: 2957
-    total_tokens: 13585
+    tokens: 3026
+    total_tokens: 13679
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration
