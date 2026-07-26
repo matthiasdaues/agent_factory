@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agent-factory/rulebooks/schemas/research-survey-plan.schema.json",
+  "title": "Survey Research Plan",
+  "description": "A bounded plan for source-grounded survey research without falsification conjectures or review protocol.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "research_questions",
+    "search_angles",
+    "source_targets",
+    "assignments",
+    "stop_conditions"
+  ],
+  "properties": {
+    "research_questions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "search_angles": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "source_targets": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "assignments": {
+      "description": "Bounded source-search assignments with a declared output path.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "stop_conditions": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

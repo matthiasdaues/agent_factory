@@ -12,6 +12,12 @@
     "completion_criteria"
   ],
   "properties": {
+    "mode": {
+      "type": "string",
+      "enum": ["survey", "falsification"],
+      "default": "survey",
+      "description": "Research workflow mode. Consumers treat an omitted value as survey."
+    },
     "research_question": { "type": "string" },
     "intended_use": { "type": "string" },
     "audience": { "type": "string" },
