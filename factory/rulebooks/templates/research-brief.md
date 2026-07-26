@@ -12,6 +12,11 @@ via `factory/scripts/schema-validate`.
 
 ## Fields
 
+### mode
+
+The research workflow mode: `survey` (the default when omitted) for a cited
+source synthesis, or `falsification` for the existing claim-and-review process.
+
 ### research_question
 
 The single question this research must answer.
@@ -52,6 +57,7 @@ The conditions that mark this research as complete, as a list.
 
 ```json
 {
+  "mode": "survey",
   "research_question": "...",
   "intended_use": "...",
   "audience": "...",
