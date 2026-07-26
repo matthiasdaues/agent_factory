@@ -111,6 +111,15 @@ agents:
     path: agents/research-report-writer.md
     tokens: 634
     total_tokens: 1360
+  - name: research-synthesizer
+    title: Research Synthesizer
+    phase: 6
+    phase_name: Research
+    tier: standard
+    description: Turns recorded survey source records into a cited synthesis while retaining uncertainties, evidence gaps, and limitations.
+    path: agents/research-synthesizer.md
+    tokens: 447
+    total_tokens: 447
   - name: researcher
     title: Researcher
     phase: 6
@@ -287,12 +296,17 @@ skills:
     category: research
     description: Turn a validated brief into research questions, assignments, competing conjectures, and stop conditions.
     path: skills/research-planning/SKILL.md
-    tokens: 599
+    tokens: 832
   - name: research-reporting
     category: research
     description: Build a final report from the frozen claim register without adding new findings, citing surviving claim IDs and preserving qualifications.
     path: skills/research-reporting/SKILL.md
     tokens: 1167
+  - name: research-synthesis
+    category: research
+    description: Build a cited survey report from recorded source records while preserving uncertainty and evidence bounds.
+    path: skills/research-synthesis/SKILL.md
+    tokens: 376
   - name: source-research
     category: research
     description: Find sources for one bounded assignment and record them against the source-record artifact.
