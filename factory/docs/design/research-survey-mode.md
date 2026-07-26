@@ -1,6 +1,6 @@
 # Design Spec: Survey/Synthesis Research Mode
 
-Status: lightweight spec (design, not yet implemented). Derived from the
+Status: implemented by ST-0060 through ST-0064. Derived from the
 [research-workflow-efficiency-and-atomicity](../proposals/research-workflow-efficiency-and-atomicity.md)
 proposal, Change 3.
 
@@ -106,8 +106,10 @@ when independent identities cannot be established.
 
 - Not a replacement for falsification mode; the two coexist and the brief
   chooses.
-- Not a new schema family: survey mode reuses the source-record and (a lighter
-  use of the) final-report schema rather than inventing artifacts.
+- Not a weakening of the falsification artifact contracts: survey uses
+  dedicated plan and report schemas while reusing the shared brief and
+  source-record schemas. The falsification plan and final-report schemas remain
+  unchanged.
 - Not a change to the Claim-Admission or Role-Separation policies, which govern
   falsification mode only.
 

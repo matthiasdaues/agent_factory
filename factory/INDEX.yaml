@@ -100,8 +100,8 @@ agents:
     tier: standard
     description: Selects survey or falsification research from the brief, advances the chosen validated playbook, and enforces its role boundaries and release gate.
     path: agents/research-orchestrator.md
-    tokens: 1248
-    total_tokens: 5057
+    tokens: 1320
+    total_tokens: 5129
   - name: research-report-writer
     title: Research Report Writer
     phase: 6
@@ -294,9 +294,9 @@ skills:
     tokens: 989
   - name: research-planning
     category: research
-    description: Turn a validated brief into research questions, assignments, competing conjectures, and stop conditions.
+    description: Turn a validated brief into the mode-appropriate survey or falsification research plan.
     path: skills/research-planning/SKILL.md
-    tokens: 832
+    tokens: 830
   - name: research-reporting
     category: research
     description: Build a final report from the frozen claim register without adding new findings, citing surviving claim IDs and preserving qualifications.
@@ -422,7 +422,7 @@ playbooks:
       - research-synthesizer
       - research-orchestrator
     tokens: 1018
-    total_tokens: 8576
+    total_tokens: 8648
   - name: research-topic
     title: Research Topic Playbook
     category: orchestration
@@ -443,7 +443,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 3026
-    total_tokens: 13679
+    total_tokens: 13751
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration

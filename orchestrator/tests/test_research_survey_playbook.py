@@ -10,6 +10,7 @@ _SURVEY_PLAYBOOK = _ROOT / "factory" / "playbooks" / "research-survey.md"
 _FALSIFICATION_PLAYBOOK = _ROOT / "factory" / "playbooks" / "research-topic.md"
 _ORCHESTRATOR = _ROOT / "factory" / "agents" / "research-orchestrator.md"
 _FACTORY_GUIDE = _ROOT / "factory" / "docs" / "factory-guide.md"
+_SURVEY_DESIGN = _ROOT / "factory" / "docs" / "design" / "research-survey-mode.md"
 
 
 def _step_headings(path: Path) -> list[str]:
@@ -80,6 +81,20 @@ class TestST0062ModeFrontGate:
         assert len(_step_headings(_FALSIFICATION_PLAYBOOK)) == 13
         assert _step_headings(_FALSIFICATION_PLAYBOOK)[-1] == "Validate the Report"
 
+    def test_FAGAN0008_orchestrator_contract_can_complete_survey_mode(self):
+        """The mode-aware role declares survey outputs, handoff, and completion."""
+        text = " ".join(_ORCHESTRATOR.read_text().split())
+
+        for phrase in (
+            "research-survey-plan.md (validation result)",
+            "survey-report.md (validation result)",
+            "- research-synthesizer",
+            "In survey mode",
+            "report finding resolves to a source record from the run",
+            "survey report passes its release gate",
+        ):
+            assert phrase in text
+
 
 class TestST0062OperatorGuidance:
     """Factory users can select a mode and escalate findings deliberately."""
@@ -97,3 +112,13 @@ class TestST0062OperatorGuidance:
             "candidates_for_deeper_falsification_study",
         ):
             assert phrase in text
+
+    def test_FAGAN0009_design_records_the_implemented_schema_boundary(self):
+        """The design agrees with the dedicated contracts shipped by the stories."""
+        text = _SURVEY_DESIGN.read_text()
+
+        assert "Status: implemented by ST-0060 through ST-0064" in text
+        assert "dedicated plan and report schemas" in text
+        assert "falsification plan and final-report schemas remain" in text
+        assert "design, not yet implemented" not in text
+        assert "lighter use of the) final-report schema" not in text
