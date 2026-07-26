@@ -68,10 +68,10 @@ See [UC-06](../use_cases/UC-06-regenerate-the-catalog.md).
 
 |            |                                                                                                           |
 | ---------- | --------------------------------------------------------------------------------------------------------- |
-| Invocation | `PreToolUse`/`preToolUse` hook, both CLIs; command JSON on stdin                                          |
-| Reads      | `.tool_input.command` (Claude Code) or `.toolArgs.command` (Copilot CLI), via `jq`                        |
+| Invocation | Native `PreToolUse` hook for Claude Code, GitHub Copilot CLI, and Codex; command JSON on stdin            |
+| Reads      | `.tool_input.command`, `.toolArgs.command`, or `.tool_input.cmd`, according to the calling runtime        |
 | Writes     | Deny reason to stderr; `{"permissionDecision":"deny","permissionDecisionReason":"..."}` to stdout on deny |
-| Exit code  | `0` allow; `2` deny (both CLIs' shared convention)                                                        |
+| Exit code  | `0` allow; `2` deny (shared by the three native-hook CLIs)                                                |
 
 See [UC-07](../use_cases/UC-07-block-a-dangerous-git-command.md).
 
@@ -89,13 +89,13 @@ See [UC-10](../use_cases/UC-10-invoke-a-factory-agent-under-pi.md).
 
 ## `factory/scripts/init-factory`
 
-|               |                                                                                                                                                                                                                                             |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage         | `init-factory [--source DIR] [--target DIR]`                                                                                                                                                                                                |
-| Reads         | The source checkout's `factory/`; the target's existing `.gitignore`, `.claude/settings.json`, `.pre-commit-config.yaml`, `config/model.conf`, if present                                                                                   |
-| Writes        | `factory/` (copy, once), `.gitignore` (merge), `.claude/`, `.github/`, `.pi/` (symlinks + settings; `.pi/extensions/` for the guardrail and `run-agent.ts`), `config/model.conf` (copy, once), `.pre-commit-config.yaml` (symlink or merge) |
-| Exit code     | `0` on success, including a clean no-op re-run; `1` on any collision or unsupported existing state                                                                                                                                          |
-| stdout/stderr | One `init-factory: <line>` report line per step; `init-factory: STOPPED — <reason>` on collision                                                                                                                                            |
+|               |                                                                                                                                                                                                           |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage         | `init-factory [--source DIR] [--target DIR]`                                                                                                                                                              |
+| Reads         | The source checkout's `factory/`; the target's existing `.gitignore`, runtime hook/settings files, `.pre-commit-config.yaml`, and `config/model.conf`, if present                                         |
+| Writes        | `factory/` (copy, once), `.gitignore` (merge), `.claude/`, `.github/`, `.codex/`, `.agents/`, and `.pi/` runtime surfaces, `config/model.conf` (copy, once), `.pre-commit-config.yaml` (symlink or merge) |
+| Exit code     | `0` on success, including a clean no-op re-run; `1` on any collision or unsupported existing state                                                                                                        |
+| stdout/stderr | One `init-factory: <line>` report line per step; `init-factory: STOPPED — <reason>` on collision                                                                                                          |
 
 See [UC-08](../use_cases/UC-08-initialize-agent-factory-into-a-project.md).
 

@@ -22,7 +22,7 @@ ______________________________________________________________________
 - **G4** — Dispatch a named agent or one playbook step to a CLI session — interactive or unattended — resolving the model from a tier, under a hardcoded, scoped permission allowlist (`trigger`).
 - **G5** — Resolve "what's next" and "is this a resume" from observable state every time — the marker, gate results, open findings — never from a separately persisted execution status (`run-step` skill).
 - **G6** — Keep the machine-readable catalog of every agent, skill, and playbook (`factory/INDEX.yaml`) generated from source frontmatter, never hand-edited (`index-lint`).
-- **G7** — Block a fixed list of destructive or gate-bypassing git commands before they run, for both supported CLIs (`block-dangerous-git.sh`).
+- **G7** — Block a fixed list of destructive or gate-bypassing git commands before they run across all supported CLIs (`block-dangerous-git.sh` for native-hook runtimes; the equivalent Pi extension).
 - **G8** — Wire all of the above into a new or existing project, idempotently, without disturbing what is already there (`init-factory`).
 - **G9** — Run project tests deterministically via unavoidable hooks (pre-commit, pre-push, phase advance), never via agent-commanded shell execution (`run-tests`).
 
@@ -38,7 +38,7 @@ ______________________________________________________________________
 
 - **Human Operator** (primary) — a person driving Agent Factory directly: running scripts by hand, committing code, approving phase gates.
 - **Orchestrator-as-Trigger** (secondary) — the nested `orchestrator/` Python CLI, a peer of the Human Operator. It invokes the same `factory/scripts/*` mechanisms programmatically instead of a human typing them.
-- **CLI-Invoked Agent** (secondary) — the Claude Code, Copilot CLI, or Pi agent session that `trigger` dispatches, operating under the scoped permission allowlist `trigger` constructs for it. Under Pi, which has no native subagent concept, this actor is also the caller of the `run_agent` tool: it spawns a fresh Pi session to run another factory agent with separate-session semantics (FR-J).
+- **CLI-Invoked Agent** (secondary) — the Claude Code, GitHub Copilot CLI, Codex, or Pi agent session that `trigger` dispatches, operating under the scoped permission controls available in that runtime. Under Pi, which has no native subagent concept, this actor is also the caller of the `run_agent` tool: it spawns a fresh Pi session to run another factory agent with separate-session semantics (FR-J).
 
 ## 4. Functional Requirements
 
@@ -79,12 +79,12 @@ ______________________________________________________________________
 
 ### FR-G — Guardrail hook (`block-dangerous-git.sh`)
 
-- **FR-G1** — Reads the shell command from either CLI's `PreToolUse` JSON shape.
-- **FR-G2** — Denies (exit `2`) a command matching any pattern in a fixed list; both CLIs treat exit `2` as deny.
+- **FR-G1** — Reads the shell command from the Claude Code, GitHub Copilot CLI, or Codex `PreToolUse` JSON shape; Pi's extension reads the equivalent tool call.
+- **FR-G2** — Denies a command matching any pattern in a fixed list; the three native-hook CLIs treat exit `2` as deny, and Pi's extension rejects the tool call.
 
 ### FR-H — Installation (`init-factory`)
 
-- **FR-H1** — Idempotent: copies `factory/`, merges `.gitignore`, symlinks factory content and the guardrail into `.claude/`, `.github/`, and `.pi/` (the last as a project-local extension, since Pi has no native `PreToolUse` hook), copies `config/model.conf` once, merges or symlinks `.pre-commit-config.yaml`. Pi scaffolds in parallel to the other two CLIs.
+- **FR-H1** — Idempotent: copies `factory/`, merges `.gitignore`, and installs Factory surfaces for Claude Code (`.claude/`), GitHub Copilot CLI (`.github/`), Codex (`.codex/` and `.agents/`), and Pi (`.pi/`). The first three receive the native guardrail hook; Pi receives the equivalent project-local extension. It copies `config/model.conf` once and merges or symlinks `.pre-commit-config.yaml`.
 - **FR-H2** — Collision-safe: any step that finds something unexpected at a destination path stops the whole run before touching anything later.
 
 ### FR-I — Test Execution (`run-tests`)
@@ -124,7 +124,9 @@ Pi has no native subagent concept, so a factory agent cannot run in a separate P
 
 ## 7. Assumptions
 
-- Every project using this harness has run `init-factory` at least once, so `factory/` is present, symlinked into `.claude/` and/or `.github/`, and the guardrail hook is wired in.
+- Every project using this harness has run `init-factory` at least once, so
+  `factory/` is present, the selected runtime surfaces are installed, and the
+  corresponding native guardrail hook or Pi extension is wired in.
 - A playbook without a `.fsm.yml` is driven by prose alone; `transition-lint` and `phase advance`/`retry` are no-ops for it (marker absent, or its `playbook` field names a playbook with no `.fsm.yml`).
 
 ## Referenced from

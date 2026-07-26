@@ -11,10 +11,10 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0001 | [Pre-commit monorepo scoping](adr/0001-precommit-monorepo-scoping.md)                                                                                      | accepted | none        |
 | 0002 | [Factory owns flow control; orchestrator is a trigger](adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md)                                    | accepted | pugh-matrix |
 | 0003 | [Test execution via unavoidable hooks only](adr/0003-test-execution-via-hooks.md)                                                                          | accepted | none        |
-| 0004 | [Pi runs a factory agent by spawning a separate `pi` subprocess](adr/0004-pi-subagent-invocation-via-subprocess-spawn.md)                                  | proposed | pugh-matrix |
-| 0005 | [OpenRouter tiers curated into `model.conf`; discovery is a separate offline aid](adr/0005-openrouter-model-discovery-for-model-conf.md)                   | proposed | none        |
-| 0006 | [Research: flat prefixed rulebook storage and a schema → policy → semantic validation pipeline](adr/0006-research-flat-storage-and-validation-pipeline.md) | proposed | none        |
-| 0007 | [Normalize runtime usage through CLI adapters into local append-only records](adr/0007-normalize-runtime-usage-through-cli-adapters.md)                    | proposed | none        |
+| 0004 | [Pi runs a factory agent by spawning a separate `pi` subprocess](adr/0004-pi-subagent-invocation-via-subprocess-spawn.md)                                  | accepted | pugh-matrix |
+| 0005 | [OpenRouter tiers curated into `model.conf`; discovery is a separate offline aid](adr/0005-openrouter-model-discovery-for-model-conf.md)                   | accepted | none        |
+| 0006 | [Research: flat prefixed rulebook storage and a schema → policy → semantic validation pipeline](adr/0006-research-flat-storage-and-validation-pipeline.md) | accepted | none        |
+| 0007 | [Normalize runtime usage through CLI adapters into local append-only records](adr/0007-normalize-runtime-usage-through-cli-adapters.md)                    | accepted | none        |
 
 ## Key Decisions
 

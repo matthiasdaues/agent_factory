@@ -24,7 +24,7 @@ The **Validator** container enforces deterministic gates. Three are hook-trigger
 | Component               | Trigger Point                  | What it validates                                   | Exit codes                           |
 | ----------------------- | ------------------------------ | --------------------------------------------------- | ------------------------------------ |
 | **transition-lint**     | Pre-commit hook (git commit)   | Staged files match current phase's `outputs:` globs | 0 (pass), 1 (findings)               |
-| **block-dangerous-git** | PreToolUse hook (both CLIs)    | Shell command not in deny list                      | 0 (allow), 2 (deny)                  |
+| **block-dangerous-git** | Native hook or Pi extension    | Shell command not in deny list                      | 0 (allow), 2 (deny)                  |
 | **run-tests**           | Pre-commit, pre-push, FSM gate | Project tests pass via auto-detected framework      | 0 (pass), 1 (fail), 2 (no framework) |
 
 Two more — `schema-validate` and `policy-validate` — are on-demand validators invoked by the research skills and agents (and from the CLI) rather than by a hook. They are described in §5.2.2.
@@ -116,22 +116,22 @@ All three read the same marker (`.agent-factory/playbook-state.yml`) and FSM (e.
 
 Every building block's entry point, invoked how, and by whom:
 
-| Script / Component     | Invoked by                              | Entry point                                                         | Exit codes                                    |
-| ---------------------- | --------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------- |
-| transition-lint        | Pre-commit hook                         | `factory/scripts/transition-lint`                                   | 0 (pass), 1 (findings)                        |
-| run-tests              | Pre-commit, pre-push, phase advance     | `factory/scripts/run-tests [--changed-only\|--full]`                | 0 (pass), 1 (fail), 2 (no framework)          |
-| block-dangerous-git.sh | PreToolUse hook (both CLIs)             | stdin: JSON with command, stdout: empty, exit 0 or 2                | 0 (allow), 2 (deny)                           |
-| phase advance          | Human, orchestrator                     | `factory/scripts/phase advance`                                     | 0 (advanced), 1 (conditions unmet), 2 (misc)  |
-| phase retry            | Human, orchestrator                     | `factory/scripts/phase retry [--default-max-iterations]`            | 0 (retried), 2 (cap exceeded)                 |
-| trigger                | Human, orchestrator, run-step skill     | `factory/scripts/trigger agent <name> [--background]`               | 0 (dispatched), 1+ (error)                    |
-| usage-capture          | Native CLI hooks and Pi extensions      | `factory/scripts/usage-capture --cli ... --transcript ...`          | 0 (captured or best-effort no-op)             |
-| index-lint             | Pre-commit hook, CI                     | `factory/scripts/index-lint [--check]`                              | 0 (fresh), 1 (stale)                          |
-| run-step skill         | Claude Code, Copilot CLI (LLM-executed) | Skill markdown invoked by AI                                        | (N/A — skill is prose)                        |
-| run-agent (Pi)         | Pi session (via `run_agent` tool call)  | `.pi/extensions/run-agent.ts` → spawns `pi ... -p <task>`           | (tool result: text + usage, or error)         |
-| dispatch-wave (Pi)     | Pi session (via `dispatch_wave` call)   | `.pi/extensions/dispatch-wave.ts` → worktree + spawn + merge/item   | (tool result: per-item status, or error)      |
-| openrouter-discover    | Human operator, CI (`--check`)          | `factory/scripts/openrouter-discover [--list\|--suggest\|--check]`  | 0 (ok), 1 (drift)                             |
-| schema-validate        | Research skills/agents, CLI             | `factory/scripts/schema-validate <artifact-file> <schema-file>`     | 0 (conforms), 1 (violations), 2 (operational) |
-| policy-validate        | Research skills/agents, CLI             | `factory/scripts/policy-validate [--pipeline] <artifact-or-dir>...` | 0 (pass), 1 (fail), 2 (operational)           |
+| Script / Component     | Invoked by                             | Entry point                                                         | Exit codes                                    |
+| ---------------------- | -------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------- |
+| transition-lint        | Pre-commit hook                        | `factory/scripts/transition-lint`                                   | 0 (pass), 1 (findings)                        |
+| run-tests              | Pre-commit, pre-push, phase advance    | `factory/scripts/run-tests [--changed-only\|--full\|--staged]`      | 0 (pass), 1 (fail), 2 (no framework)          |
+| block-dangerous-git.sh | Claude, Copilot, Codex native hook     | stdin: CLI-specific command JSON, stdout: empty, exit 0 or 2        | 0 (allow), 2 (deny)                           |
+| phase advance          | Human, orchestrator                    | `factory/scripts/phase advance`                                     | 0 (advanced), 1 (conditions unmet), 2 (misc)  |
+| phase retry            | Human, orchestrator                    | `factory/scripts/phase retry [--default-max-iterations]`            | 0 (retried), 2 (cap exceeded)                 |
+| trigger                | Human, orchestrator, run-step skill    | `factory/scripts/trigger agent <name> [--background]`               | 0 (dispatched), 1+ (error)                    |
+| usage-capture          | Native CLI hooks and Pi extensions     | `factory/scripts/usage-capture --cli ... --transcript ...`          | 0 (captured or best-effort no-op)             |
+| index-lint             | Pre-commit hook, CI                    | `factory/scripts/index-lint [--check]`                              | 0 (fresh), 1 (stale)                          |
+| run-step skill         | Any supported CLI (LLM-executed)       | Skill markdown invoked by AI                                        | (N/A — skill is prose)                        |
+| run-agent (Pi)         | Pi session (via `run_agent` tool call) | `.pi/extensions/run-agent.ts` → spawns `pi ... -p <task>`           | (tool result: text + usage, or error)         |
+| dispatch-wave (Pi)     | Pi session (via `dispatch_wave` call)  | `.pi/extensions/dispatch-wave.ts` → worktree + spawn + merge/item   | (tool result: per-item status, or error)      |
+| openrouter-discover    | Human operator, CI (`--check`)         | `factory/scripts/openrouter-discover [--list\|--suggest\|--check]`  | 0 (ok), 1 (drift)                             |
+| schema-validate        | Research skills/agents, CLI            | `factory/scripts/schema-validate <artifact-file> <schema-file>`     | 0 (conforms), 1 (violations), 2 (operational) |
+| policy-validate        | Research skills/agents, CLI            | `factory/scripts/policy-validate [--pipeline] <artifact-or-dir>...` | 0 (pass), 1 (fail), 2 (operational)           |
 
 ## 5.6 Level 2: Runtime Usage Capture
 

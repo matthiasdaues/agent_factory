@@ -349,14 +349,26 @@ Separately, `pre-commit` runs `mdformat` and `ruff` on every commit, formatting 
 
 ## CLI safety guardrails
 
-`init-factory` also installs a git-safety guardrail that blocks a fixed list of dangerous git invocations before they run. For Claude Code and Copilot CLI this is a native `PreToolUse` hook; for Pi it is a project-local extension under `.pi/extensions/` that blocks the same dangerous `bash` commands when loaded. Two groups:
+`init-factory` also installs a git-safety guardrail that blocks a fixed list of dangerous git invocations before they run. Claude Code, GitHub Copilot CLI, and Codex use the shared shell script through their native `PreToolUse` hook paths. Pi uses a project-local extension under `.pi/extensions/` that enforces the same deny list when loaded. Two groups:
 
 - **Commands that discard or overwrite work or history**: `git push`, `git reset --hard`, `git clean -f`/`-fd`, `git branch -D`, `git checkout .`, `git restore .`, and bare `push --force` / `reset --hard` fragments anywhere in a longer command line.
 - **Commands that bypass this repo's own commit gates**: `--no-verify`, `git commit -n`, reassigning `core.hooksPath`, `pre-commit uninstall`, and `SKIP=...` environment overrides on `git commit` or `pre-commit`.
 
-One script serves the hook-based CLIs: it reads the shell command from either CLI's `PreToolUse` JSON shape, and both CLIs treat the hook's exit code 2 as "deny."
+One script serves the three hook-based CLIs: it reads the shell command from
+each runtime's supported `PreToolUse` JSON shape, and Claude Code, GitHub
+Copilot CLI, and Codex treat exit code 2 as "deny."
 
-The guardrail is installed automatically for every project — not opt-in, not a skill you invoke by hand. `init-factory` symlinks the script into both `.claude/hooks/` and `.github/hooks/`, and wires each CLI's own hook-config shape to it: `.claude/settings.json` as a `PreToolUse`/`Bash` hook for Claude Code, `.github/hooks/block-dangerous-git.json` (`matcher: "bash"`) for Copilot CLI. For Pi, `init-factory` symlinks `.pi/extensions/block-dangerous-git.ts` to `factory/config/extensions/block-dangerous-git.ts`; Pi auto-discovers project-local extensions from `.pi/extensions/` once the project is trusted. `.claude/` and `.pi/` are gitignored wholesale; under `.github/`, only the entries Agent Factory adds — including `.github/hooks/` — are gitignored, never your Actions workflows. This is pure local machine state, re-created fresh by `init-factory` in every clone.
+The guardrail is installed automatically for every project — not opt-in, not a
+skill you invoke by hand. `init-factory` symlinks the script into
+`.claude/hooks/`, `.github/hooks/`, and `.codex/hooks/`, then wires each
+runtime's hook configuration: `.claude/settings.json` for Claude Code,
+`.github/hooks/block-dangerous-git.json` for Copilot CLI, and
+`.codex/hooks.json` for Codex. For Pi, `init-factory` symlinks
+`.pi/extensions/block-dangerous-git.ts` to the canonical Factory extension;
+Pi auto-discovers it once the project is trusted. The generated local runtime
+directories and only the Factory-owned GitHub entries are ignored; GitHub
+Actions workflows remain untouched. This state is recreated by `init-factory`
+in every clone.
 
 **Pi caveat:** this is not as strong as the native Claude/Copilot hook path. Pi loads project-local extensions only after project trust resolves, and non-interactive runs may ignore them unless trust is already saved or the run is explicitly approved. For stronger Pi enforcement, install the same extension globally under `~/.pi/agent/extensions/`, pass it via `pi -e`, or run Pi in a sandbox/container. See Pi's own [Extensions](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/docs/extensions.md), [Security](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/docs/security.md), and [Containerization](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/docs/containerization.md) docs for the underlying model.
 
