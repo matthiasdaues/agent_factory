@@ -11,6 +11,8 @@ description: >-
   or voting on a claim itself.
 inputs:
   - factory/playbooks/research-topic.md
+  - factory/playbooks/research-survey.md
+  - factory/rulebooks/conventions/dispatch-contract.md
   - factory/rulebooks/conventions/research-role-separation.md
   - factory/rulebooks/conventions/research-claim-admission-policy.md
   - factory/rulebooks/schemas/research-*.schema.json
@@ -28,7 +30,7 @@ handoff-to:
   - researcher
   - claim-reviewer
   - research-report-writer
-version: 0.1.0
+version: 0.2.0
 ---
 
 # Research Orchestrator
@@ -64,13 +66,18 @@ These permitted and forbidden actions, and the role separation they enforce, com
 
 ## Workflow
 
-1. **Validate the brief** — check the research brief against its schema and required fields; return a validated brief or a blocker.
-2. **Assign independent research** — turn the research plan into assignments, ensuring each conclusion-critical question receives independent researchers per the plan's design.
-3. **Run validation at each gate** — validate conjectures, refutation-test outputs, and the final report against their schemas and the applicable policies before the next step begins.
-4. **Request another research round** — when a claim is refuted, unresolved, or blocked, route it back for targeted research, revision, retesting, or human escalation, per the playbook's failed-claim handling.
-5. **Tally eligible votes** — count votes per the Claim-Admission Policy's quorum and strict-majority-of-decisive-votes rule; the Orchestrator counts votes, it never casts one.
-6. **Freeze the claim register** — once every claim's disposition is settled, generate and freeze the claim register so the Research Report Writer can build from a fixed input.
-7. **Start report generation** — hand the frozen claim register to the Research Report Writer and validate the resulting final report before release.
+1. **Preflight portable capabilities** — require source access for every mode.
+   For falsification, also require independent agent identities and block when
+   the active CLI cannot establish them. For survey source gathering, fall
+   back to sequential assignments when bounded fan-out is unavailable.
+2. **Validate the brief** — check the research brief against its schema and required fields; return a validated brief or a blocker.
+3. **Dispatch logical assignments** — follow the [Dispatch Contract](../rulebooks/conventions/dispatch-contract.md#research-assignment-contract). Declare `agent`, Factory `tier`, bounded `task`, unique `output`, and `independent_session` before mapping the request to the active CLI.
+4. **Assign independent research** — turn the research plan into assignments, ensuring each conclusion-critical question receives independent researchers per the plan's design.
+5. **Run validation at each gate** — validate conjectures, refutation-test outputs, and the final report against their schemas and the applicable policies before the next step begins.
+6. **Request another research round** — when a claim is refuted, unresolved, or blocked, route it back for targeted research, revision, retesting, or human escalation, per the playbook's failed-claim handling.
+7. **Tally eligible votes** — count votes per the Claim-Admission Policy's quorum and strict-majority-of-decisive-votes rule; the Orchestrator counts votes, it never casts one.
+8. **Freeze the claim register** — once every claim's disposition is settled, generate and freeze the claim register so the Research Report Writer can build from a fixed input.
+9. **Start report generation** — hand the frozen claim register to the Research Report Writer and validate the resulting final report before release.
 
 ## Boundaries
 

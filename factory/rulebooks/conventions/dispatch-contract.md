@@ -2,7 +2,7 @@
 title: Dispatch Contract
 category: implementation
 enforcement: dispatch-prompt clause (human/agent-authored discipline) — not mechanically gate-checked
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Dispatch Contract
@@ -12,6 +12,46 @@ Governs how any agent that spawns its own sub-agents must address them, and how 
 ## Project-Specific Rules
 
 Canonical statements: [rules.md § Dispatch](../rules.md#dispatch).
+
+### Research Assignment Contract
+
+Research orchestration dispatches a logical Factory request, never a
+vendor-specific tool call. Every assignment declares:
+
+- `agent` — the Factory agent role that owns the task;
+- `tier` — the Factory model tier (`economy`, `standard`, or `strong`);
+- `task` — one bounded assignment with its inputs and completion conditions;
+- `output` — the assignment's unique output path; and
+- `independent_session` — whether the task must run under a distinct agent
+  identity in a separate session.
+
+Every concurrent assignment has a unique output path. A wave must not dispatch
+two assignments that can write the same artifact.
+
+Before dispatch, the orchestrator preflights the capabilities needed by the
+research mode:
+
+1. Required source access must be available in every mode. If it is
+   unavailable, the research run blocks before planning or source gathering.
+2. Falsification mode must be able to establish the independent agent
+   identities required by the role-separation policy. If separate identities
+   cannot be established, the run blocks; it must not collapse conflicting
+   roles into one session.
+3. Survey mode does not require independent sessions. If bounded parallel
+   fan-out is unavailable, source gathering may fall back from a wave to
+   sequential execution with the same assignments and unique outputs.
+
+The active CLI maps the logical request to its installed invocation surface:
+
+| CLI                | Separate session mechanism    | Bounded fan-out mechanism                 |
+| ------------------ | ----------------------------- | ----------------------------------------- |
+| Claude Code        | native subagent dispatch      | native concurrent subagent dispatch       |
+| GitHub Copilot CLI | native custom-agent dispatch  | native concurrent custom-agent dispatch   |
+| Codex              | generated native custom agent | parallel native-agent threads             |
+| Pi                 | `run_agent` extension         | `dispatch_wave` for file-disjoint outputs |
+
+The mechanism changes by CLI; the assignment fields, capability checks, output
+ownership, and role-separation requirements do not.
 
 ### Sub-Agent Addressing
 
