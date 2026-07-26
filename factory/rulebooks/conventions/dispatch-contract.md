@@ -2,7 +2,7 @@
 title: Dispatch Contract
 category: implementation
 enforcement: dispatch-prompt clause (human/agent-authored discipline) — not mechanically gate-checked
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Dispatch Contract
@@ -12,6 +12,46 @@ Governs how any agent that spawns its own sub-agents must address them, and how 
 ## Project-Specific Rules
 
 Canonical statements: [rules.md § Dispatch](../rules.md#dispatch).
+
+### Research Assignment Contract
+
+Research orchestration dispatches a logical Factory request, never a
+vendor-specific tool call. Every assignment declares:
+
+- `agent` — the Factory agent role that owns the task;
+- `tier` — the Factory model tier (`economy`, `standard`, or `strong`);
+- `task` — one bounded assignment with its inputs and completion conditions;
+- `output` — the assignment's unique output path; and
+- `independent_session` — whether the task must run under a distinct agent
+  identity in a separate session.
+
+Every concurrent assignment has a unique output path. A wave must not dispatch
+two assignments that can write the same artifact.
+
+Before dispatch, the orchestrator preflights the capabilities needed by the
+research mode:
+
+1. Required source access must be available in every mode. If it is
+   unavailable, the research run blocks before planning or source gathering.
+2. Falsification mode must be able to establish the independent agent
+   identities required by the role-separation policy. If separate identities
+   cannot be established, the run blocks; it must not collapse conflicting
+   roles into one session.
+3. Survey mode does not require independent sessions. If bounded parallel
+   fan-out is unavailable, source gathering may fall back from a wave to
+   sequential execution with the same assignments and unique outputs.
+
+The active CLI maps the logical request to its installed invocation surface:
+
+| CLI                | Separate session mechanism    | Bounded fan-out mechanism                 |
+| ------------------ | ----------------------------- | ----------------------------------------- |
+| Claude Code        | native subagent dispatch      | native concurrent subagent dispatch       |
+| GitHub Copilot CLI | native custom-agent dispatch  | native concurrent custom-agent dispatch   |
+| Codex              | generated native custom agent | parallel native-agent threads             |
+| Pi                 | `run_agent` extension         | `dispatch_wave` for file-disjoint outputs |
+
+The mechanism changes by CLI; the assignment fields, capability checks, output
+ownership, and role-separation requirements do not.
 
 ### Sub-Agent Addressing
 
@@ -34,13 +74,13 @@ Motivating example: the 2026-07-12 session's orchestrator-weeding and doc-reconc
 
 ### Model Tier And Wave Size
 
-A sub-agent **inherits the dispatching session's model unless the dispatch sets a tier explicitly**. A high-reasoning session (for example Opus) that fans out dozens of sub-agents without setting a tier pays the top rate on every one — the single largest avoidable cost in a large fan-out, and the fastest route to the org spend limit.
+A sub-agent **inherits the dispatching session's model unless the dispatch sets a tier explicitly**. A strong-tier session that fans out dozens of sub-agents without setting a tier pays the top rate on every one — the single largest avoidable cost in a large fan-out, and the fastest route to the org spend limit.
 
-- **Set the tier per dispatch to the cheapest that fits the work.** Reserve the top tier for the few genuinely hard sessions (deep synthesis, a decisive adversarial judgement). Route mechanical and structured sub-agents — evidence gathering, schema-bound authoring, protocol-driven review — to a mid or low tier (for example Sonnet for reviews, Sonnet or Haiku for authoring). Do not let a fan-out inherit Opus by omission.
+- **Set the tier per dispatch to the cheapest that fits the work.** Reserve the strong tier for the few genuinely hard sessions (deep synthesis, a decisive adversarial judgement). Route mechanical and structured sub-agents — evidence gathering, schema-bound authoring, protocol-driven review — to economy or standard. Do not let a fan-out inherit the strong tier by omission.
 - **Cap a concurrent wave at a small number (default six).** The platform's concurrent-sub-agent limit (e.g. 20) is a *concurrency* ceiling, not a *spend* ceiling: a 20-wide wave can exhaust the monthly spend limit in a single burst, and a limit or infrastructure failure then lands mid-write, losing whole sessions at once. A wave of six degrades cheaply and its deaths cost at most six sessions to re-run.
 - **Estimate before you launch.** Before a wave, state a rough pre-flight cost — sessions × tier × typical tokens — as a spend gate, and split the work across waves if it exceeds the headroom. Combine with the scope cap and inter-round checkpointing above so a resume loses only the last wave.
 
-Motivating example: the binder-to-OCR research run dispatched ~60–80 research and review sub-agents that all inherited Opus, in waves up to 20 wide; it hit the org monthly spend limit repeatedly, and several agents completed their analysis but died at the write step, forcing full re-runs. Routing the fan-out to Sonnet in waves of six would have cut the spend several-fold and made each failure cheap. See [agent-dispatch-token-efficiency.md](../../docs/proposals/agent-dispatch-token-efficiency.md) and [research-workflow-efficiency-and-atomicity.md](../../docs/proposals/research-workflow-efficiency-and-atomicity.md).
+Motivating example: the binder-to-OCR research run dispatched ~60–80 research and review sub-agents that all inherited the strongest tier, in waves up to 20 wide; it hit the org monthly spend limit repeatedly, and several agents completed their analysis but died at the write step, forcing full re-runs. Routing the fan-out to standard or economy in waves of six would have cut the spend several-fold and made each failure cheap. See [agent-dispatch-token-efficiency.md](../../docs/proposals/agent-dispatch-token-efficiency.md) and [research-workflow-efficiency-and-atomicity.md](../../docs/proposals/research-workflow-efficiency-and-atomicity.md).
 
 ### Verify Sub-Agent Reports Against State
 
