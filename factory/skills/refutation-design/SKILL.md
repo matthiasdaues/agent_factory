@@ -72,6 +72,7 @@ Tests cannot be *designed* after the fact to salvage a claim. If a refutation co
 
 - Each refutation condition is mapped to one or more tests.
 - Tests are designed to be severe, not decorative.
+- The number of planned tests equals the review protocol's tests-per-claim for the claim's tier (see `research-planning`). Admission requires an executed test record for every planned test, so do not plan more tests than the protocol will run.
 - The exact success condition for refutation is stated before execution.
 - All test records are recorded, including failed and inconclusive outcomes.
 - Test records are valid against their schema.

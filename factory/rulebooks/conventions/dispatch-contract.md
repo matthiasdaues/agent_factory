@@ -32,6 +32,16 @@ A single dispatch that tries to cover an entire codebase in one pass ("relentles
 
 Motivating example: the 2026-07-12 session's orchestrator-weeding and doc-reconciliation dispatches each hit the org API spend limit multiple times, at 300k–465k tokens per resume cycle; both were single, whole-codebase-scoped dispatches.
 
+### Model Tier And Wave Size
+
+A sub-agent **inherits the dispatching session's model unless the dispatch sets a tier explicitly**. A high-reasoning session (for example Opus) that fans out dozens of sub-agents without setting a tier pays the top rate on every one — the single largest avoidable cost in a large fan-out, and the fastest route to the org spend limit.
+
+- **Set the tier per dispatch to the cheapest that fits the work.** Reserve the top tier for the few genuinely hard sessions (deep synthesis, a decisive adversarial judgement). Route mechanical and structured sub-agents — evidence gathering, schema-bound authoring, protocol-driven review — to a mid or low tier (for example Sonnet for reviews, Sonnet or Haiku for authoring). Do not let a fan-out inherit Opus by omission.
+- **Cap a concurrent wave at a small number (default six).** The platform's concurrent-sub-agent limit (e.g. 20) is a *concurrency* ceiling, not a *spend* ceiling: a 20-wide wave can exhaust the monthly spend limit in a single burst, and a limit or infrastructure failure then lands mid-write, losing whole sessions at once. A wave of six degrades cheaply and its deaths cost at most six sessions to re-run.
+- **Estimate before you launch.** Before a wave, state a rough pre-flight cost — sessions × tier × typical tokens — as a spend gate, and split the work across waves if it exceeds the headroom. Combine with the scope cap and inter-round checkpointing above so a resume loses only the last wave.
+
+Motivating example: the binder-to-OCR research run dispatched ~60–80 research and review sub-agents that all inherited Opus, in waves up to 20 wide; it hit the org monthly spend limit repeatedly, and several agents completed their analysis but died at the write step, forcing full re-runs. Routing the fan-out to Sonnet in waves of six would have cut the spend several-fold and made each failure cheap. See [agent-dispatch-token-efficiency.md](../../docs/proposals/agent-dispatch-token-efficiency.md) and [research-workflow-efficiency-and-atomicity.md](../../docs/proposals/research-workflow-efficiency-and-atomicity.md).
+
 ### Verify Sub-Agent Reports Against State
 
 A sub-agent's success report is a claim, not proof. Before treating a dispatched unit of work as done, verify it against observable state — the branch tip and `git log`, the actual test run, and the mechanical gates ([verify-base](branching-policy.md#verify-base-preamble), [premerge-check](branching-policy.md#pre-merge-diff-check)) — never the self-report alone.
