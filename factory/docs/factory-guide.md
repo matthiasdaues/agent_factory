@@ -240,7 +240,30 @@ Once you're comfortable, these drive some or all of the five-phase chain (requir
 
 ### The research workflow
 
-Separate from the idea → production chain, [`research-topic.md`](../playbooks/research-topic.md) runs a **falsification-driven research** effort — from an approved research brief to a validated final report. It is driven by the phase-6 **Research** agents (`research-orchestrator`, `researcher`, `claim-reviewer`, `research-report-writer`) and their `research-*` skills. A claim reaches the report only after surviving a serious attempt at refutation within its stated scope; a surviving claim is never presented as proved, only as having withstood the defined tests. Every artifact passes the three-stage validation gate (schema → policy → semantic; see [§ Linting and gating](#linting-and-gating)) before the next step begins.
+Separate from the idea → production chain, research has two modes selected by
+the shared brief:
+
+- **Survey** is the default when `mode` is omitted or set to `survey`.
+  [`research-survey.md`](../playbooks/research-survey.md) plans bounded source
+  gathering and produces a cited synthesis. Choose it for landscape,
+  discovery, and "what exists?" questions where coverage and a sourced
+  overview matter more than claim verdicts.
+- **Falsification** is selected only by `mode: falsification`.
+  [`research-topic.md`](../playbooks/research-topic.md) tests a small number of
+  contestable, consequential claims through independent research, refutation,
+  review, and voting. A surviving claim is not proved; it has only withstood
+  the defined tests.
+
+Both modes are driven by the phase-6 **Research** agents and their
+`research-*` skills. Every artifact passes schema validation, policy where
+applicable, then semantic review before the next step begins.
+
+A survey can identify claims that deserve stronger scrutiny, but it does not
+silently change modes. Select entries from
+`candidates_for_deeper_falsification_study`, write a **new research brief** for
+the bounded claims with `mode: falsification`, and start
+`research-topic.md`. The survey report remains source context, not evidence
+that those claims already earned a falsification verdict.
 
 ## Playbook phase gates
 
