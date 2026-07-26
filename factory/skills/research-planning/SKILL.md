@@ -39,6 +39,14 @@ Each plan must contain:
 
 Refer to [`factory/rulebooks/templates/research-plan.md`](../../rulebooks/templates/research-plan.md) for the template structure.
 
+## Review Protocol
+
+The plan fixes the review protocol as explicit numbers, recorded in `review_requirements`, so downstream steps stay consistent and conjectures are admittable by construction:
+
+- State **reviewers-per-claim** and **tests-per-claim** for each tier the plan uses (standard, and high-risk if any). At least three reviewers assess each material claim; high-risk claims may take five.
+- Set **tests-per-claim equal to the number of tests actually executed** under the protocol (typically one severe test per reviewer). Admission requires one executed test record per planned test, so this number is the count conjecture authors must plan to.
+- Conjecture authors read these numbers and plan exactly that many severe tests (see [`claim-formulation`](../claim-formulation/SKILL.md) and [`refutation-design`](../refutation-design/SKILL.md)); planning more tests than the protocol runs makes a claim unadmittable regardless of merit.
+
 ## Responsibility
 
 This skill is **responsible for** planning research work: framing questions, identifying assumptions, specifying what evidence counts, and defining review criteria.
