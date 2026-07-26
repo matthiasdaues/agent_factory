@@ -1,6 +1,6 @@
 # Research Workflow CLI Portability Audit
 
-Status: implementation-preparation audit.
+Status: implemented by ST-0063.
 
 ## Result
 
@@ -17,17 +17,17 @@ changing the research method.
 
 ## Evidence
 
-| Surface                              | Finding                                                                                                                     | Disposition                                                 |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| Briefs, schemas, templates, policies | No CLI-specific fields or tools                                                                                             | Portable                                                    |
-| Research agents and skills           | Roles describe capabilities and artifacts, not vendor tools                                                                 | Portable                                                    |
-| Installed agent surfaces             | All four CLIs receive the canonical research agents; Codex receives generated native-agent adapters and Pi uses `run_agent` | Portable                                                    |
-| Dispatch economy guidance            | Named Opus, Sonnet, and Haiku instead of Factory tiers                                                                      | Corrected to economy, standard, and strong                  |
-| Research playbook dispatch           | Said “independent researchers” without a CLI mechanism or capability preflight                                              | Must use the CLI-portability contract                       |
-| Survey design                        | Assumed cheap waves and a built-in deep-research shape without source-access checks                                         | Corrected to portable capabilities and explicit preflight   |
-| Falsification independence           | Depends on genuinely separate identities, which Pi and Codex implement differently from Claude/Copilot                      | Must stop when the active CLI cannot establish independence |
+| Surface                              | Finding                                                                                                                     | Disposition                                             |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Briefs, schemas, templates, policies | No CLI-specific fields or tools                                                                                             | Portable                                                |
+| Research agents and skills           | Roles describe capabilities and artifacts, not vendor tools                                                                 | Portable                                                |
+| Installed agent surfaces             | All four CLIs receive the canonical research agents; Codex receives generated native-agent adapters and Pi uses `run_agent` | Portable                                                |
+| Dispatch economy guidance            | Named Opus, Sonnet, and Haiku instead of Factory tiers                                                                      | Corrected to economy, standard, and strong              |
+| Research playbook dispatch           | Said “independent researchers” without a CLI mechanism or capability preflight                                              | Uses the CLI-portability contract                       |
+| Survey design                        | Assumed cheap waves and a built-in deep-research shape without source-access checks                                         | Uses portable capabilities and explicit preflight       |
+| Falsification independence           | Depends on genuinely separate identities, which Pi and Codex implement differently from Claude/Copilot                      | Stops when the active CLI cannot establish independence |
 
-## Implementation requirements
+## Implemented contract
 
 1. Dispatch logical requests using `agent`, `tier`, `task`, `output`, and
    `independent_session`; map the request to the active CLI at runtime.
@@ -41,6 +41,9 @@ changing the research method.
 
 ## Conclusion
 
-The bias is real but localized: model names and dispatch assumptions, not the
-research domain model. Survey mode should ship only with the portability
-requirements above, preventing new workflow behavior from deepening that bias.
+The bias was real but localized: model names and dispatch assumptions, not the
+research domain model. The canonical dispatch convention, falsification
+playbook, survey portability shell, and orchestrator now apply the requirements
+above. Acceptance tests also install Factory into a fresh consumer and verify
+that Claude Code, GitHub Copilot CLI, Codex, and Pi expose the same canonical
+research contracts through their supported discovery surfaces.
