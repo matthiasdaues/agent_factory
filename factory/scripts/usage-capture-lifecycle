@@ -132,6 +132,8 @@ def capture_args(args, staged, marker, status_path, generation) -> list[str]:
         ("--model", args.model),
         ("--exit-status", args.exit_status),
         ("--depth", args.depth),
+        ("--branch", args.branch),
+        ("--commit", args.commit_id),
     ):
         if value is not None:
             result.extend((option, str(value)))
@@ -218,7 +220,7 @@ def register(args) -> int:
             start_new_session=True,
             close_fds=True,
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 - registration is a best-effort hook boundary
         if ctx:
             cleanup(ctx)
         if temporary:
@@ -300,7 +302,7 @@ def diagnostic(ctx, reason, exit_code) -> None:
                 else None,
             },
         )
-    except Exception:
+    except Exception:  # noqa: BLE001, S110 - diagnostics must never break cleanup
         pass
 
 
@@ -310,7 +312,7 @@ def outcome(ctx) -> str:
             return "missing-status"
         value = json.loads(ctx["status"].read_text(encoding="utf-8")).get("outcome")
         return value if value in ("captured", "dropped") else "invalid-status"
-    except Exception:
+    except Exception:  # noqa: BLE001 - malformed status is an invalid outcome
         return "invalid-status"
 
 
@@ -343,7 +345,7 @@ def supervise(args) -> int:
         reason = outcome(ctx) if completed.returncode == 0 else "capture-process-failed"
         if reason != "captured":
             diagnostic(ctx, reason, completed.returncode)
-    except Exception:
+    except Exception:  # noqa: BLE001 - supervisor must preserve host CLI behavior
         if ctx:
             diagnostic(ctx, "supervisor-failed", None)
     finally:
@@ -367,6 +369,8 @@ def build_parser() -> argparse.ArgumentParser:
     registration.add_argument("--model")
     registration.add_argument("--exit-status")
     registration.add_argument("--depth", type=int)
+    registration.add_argument("--branch")
+    registration.add_argument("--commit", dest="commit_id")
     supervisor = commands.add_parser("supervise")
     supervisor.add_argument("--root", required=True)
     supervisor.add_argument("--marker", required=True)

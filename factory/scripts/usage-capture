@@ -39,8 +39,8 @@ interpreter, while installed token counting runs through the provisioned
 project runtime, where `tiktoken` is guaranteed present.
 
 The record stores integers and references, never text: `to_dict()` never
-needs to attach a git diff or transcript body, only the paths that link to
-them (`transcript_ref`, `base_commit`/`commit_id`).
+needs to attach a git diff or transcript body, only the paths and commit that
+link to them (`transcript_ref`, `commit_id`).
 """
 
 from __future__ import annotations
@@ -51,10 +51,12 @@ import json
 import os
 import re
 import stat
+import subprocess
 import sys
 import uuid
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Protocol, Union, runtime_checkable
 
@@ -380,19 +382,19 @@ class TranscriptRef:
 class UsageRecord:
     """One usage record per agent invocation (proposal: "The Usage Record").
 
-    Every field defaults to `None` except the three `normalized_*` spend
-    fields, which are the only always-present measurement: produced by
-    `count_tokens()` over the run's own text, so runs are comparable across
-    CLIs and models regardless of what (if anything) a provider reports.
+    Every context field defaults to `None`. `recorded_at` is always produced
+    from this process's UTC clock, while the three `normalized_*` spend fields
+    are always produced by `count_tokens()` over the run's own text, so runs
+    are comparable across CLIs and models regardless of what (if anything) a
+    provider reports.
     `normalized_total` is derived in `__post_init__`, never accepted from a
     caller, so `normalized_total == normalized_input + normalized_output`
     cannot be violated by construction.
 
-    This slice (ST-0035) only defines the shape. Later slices populate the
-    correlation/loop/what-ran/outcome fields from real invocation context:
-    ST-0036 (JSONL adapter) writes records out, ST-0037 (per-CLI
-    normalizer) fills them from a parsed transcript, ST-0038 (CLI
-    entrypoint) wires capture sites to construct them.
+    Optional fields exist only when they have a defined producer: native CLI
+    context, parsed provider usage, explicit orchestration flags, or
+    deterministic git enrichment. Unknown values stay null; fields with no
+    viable producer are not part of the record.
     """
 
     record_id: str
@@ -405,20 +407,10 @@ class UsageRecord:
     session_id: Optional[str] = None
     parent_session_id: Optional[str] = None
     depth: Optional[int] = None
-    run_start: Optional[str] = None
-    run_end: Optional[str] = None
-
-    # Loop
-    loop_id: Optional[str] = None
-    loop_role: Optional[str] = None
-    iteration: Optional[int] = None
+    recorded_at: str = field(init=False)
 
     # What ran
     agent: Optional[str] = None
-    skill: Optional[str] = None
-    phase: Optional[str] = None
-    playbook: Optional[str] = None
-    story_id: Optional[str] = None
     model: Optional[str] = None
 
     # Spend (reported_*, usage_granularity — normalized_* declared above)
@@ -431,18 +423,18 @@ class UsageRecord:
     # Outcome
     exit_status: Optional[str] = None
     branch: Optional[str] = None
-    base_commit: Optional[str] = None
     commit_id: Optional[str] = None
     transcript_ref: Optional[TranscriptRef] = None
 
     def __post_init__(self) -> None:
         self.normalized_total = self.normalized_input + self.normalized_output
+        self.recorded_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def to_dict(self) -> dict:
         """Serialize to a JSON-ready dict (nested `TranscriptRef` included).
 
         Never carries the git diff or transcript body itself — only the
-        references (`transcript_ref`, `base_commit`/`commit_id`) that let a
+        references (`transcript_ref`, `commit_id`) that let a
         reader reconstruct what was written and what happened.
         """
         return asdict(self)
@@ -1119,9 +1111,7 @@ def get_normalizer(cli: str) -> TranscriptNormalizer:
 
 # Context flags (proposal: "The Capture Tool" example invocation), mapped
 # straight onto the `UsageRecord` field of the same name via `dest=`; only
-# `--commit` (-> commit_id) and `--story-id`/`--parent-session`/`--loop-role`
-# (dashes argparse would otherwise fold into non-matching attribute names)
-# need an explicit `dest`.
+# `--commit` (-> commit_id) and `--parent-session` need an explicit `dest`.
 def _build_arg_parser() -> argparse.ArgumentParser:
     """Argument parser for the real CLI: `--cli`/`--transcript` select and
     read the run; every other flag is invocation context that lands on the
@@ -1147,15 +1137,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--parent-session", dest="parent_session_id")
     parser.add_argument("--depth", type=int)
     parser.add_argument("--agent")
-    parser.add_argument("--skill")
     parser.add_argument("--model")
-    parser.add_argument("--phase")
-    parser.add_argument("--playbook")
-    parser.add_argument("--story-id", dest="story_id")
-    parser.add_argument("--loop-role", dest="loop_role")
-    parser.add_argument("--iteration", type=int)
     parser.add_argument("--branch")
-    parser.add_argument("--base-commit", dest="base_commit")
     parser.add_argument("--commit", dest="commit_id")
     parser.add_argument("--exit-status", dest="exit_status")
     parser.add_argument("--transcript-retention")
@@ -1311,6 +1294,34 @@ def _pi_persistence_fence(args: argparse.Namespace, base_dir: Union[str, Path]):
                 pass
 
 
+def _git_context(base_dir: Union[str, Path]) -> tuple[Optional[str], Optional[str]]:
+    """Return the current branch and full HEAD SHA when *base_dir* is a repo.
+
+    Capture is best-effort observability, so missing git, a detached/unborn
+    HEAD, or an inaccessible repository yields nullable context rather than a
+    failed usage record.
+    """
+
+    def query(*git_args: str) -> Optional[str]:
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(base_dir), *git_args],
+                capture_output=True,
+                check=False,
+                text=True,
+                timeout=2,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        value = result.stdout.strip()
+        return value if result.returncode == 0 and value else None
+
+    return (
+        query("symbolic-ref", "--quiet", "--short", "HEAD"),
+        query("rev-parse", "--verify", "HEAD"),
+    )
+
+
 def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> bool:
     """Run one capture end to end: normalize, tokenize, assemble, persist.
 
@@ -1334,6 +1345,7 @@ def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> bool
     retention = resolve_transcript_retention(
         getattr(args, "transcript_retention", None), base_dir
     )
+    detected_branch, detected_commit = _git_context(base_dir)
 
     with _pi_persistence_fence(args, base_dir) as allowed:
         if allowed:
@@ -1350,13 +1362,7 @@ def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> bool
                     session_id=args.session_id,
                     parent_session_id=args.parent_session_id,
                     depth=args.depth,
-                    loop_role=args.loop_role,
-                    iteration=args.iteration,
                     agent=args.agent,
-                    skill=args.skill,
-                    phase=args.phase,
-                    playbook=args.playbook,
-                    story_id=args.story_id,
                     model=args.model,
                     reported_input=transcript.reported_input,
                     reported_output=transcript.reported_output,
@@ -1364,9 +1370,8 @@ def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> bool
                     reported_cache_write=transcript.reported_cache_write,
                     usage_granularity=transcript.usage_granularity,
                     exit_status=args.exit_status,
-                    branch=args.branch,
-                    base_commit=args.base_commit,
-                    commit_id=args.commit_id,
+                    branch=args.branch or detected_branch,
+                    commit_id=args.commit_id or detected_commit,
                 )
             except Exception:
                 reservation.discard()

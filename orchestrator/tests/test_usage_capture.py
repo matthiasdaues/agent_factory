@@ -16,6 +16,7 @@ import stat
 import subprocess
 import sys
 import uuid
+from datetime import datetime, timezone
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 
@@ -48,6 +49,7 @@ def _count_via_subprocess(text: str) -> int:
         input=text,
         capture_output=True,
         text=True,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
     return int(result.stdout.strip())
@@ -85,18 +87,9 @@ _ALL_FIELDS = {
     "session_id",
     "parent_session_id",
     "depth",
-    "run_start",
-    "run_end",
-    # loop
-    "loop_id",
-    "loop_role",
-    "iteration",
+    "recorded_at",
     # what-ran
     "agent",
-    "skill",
-    "phase",
-    "playbook",
-    "story_id",
     "model",
     # spend
     "normalized_input",
@@ -110,7 +103,6 @@ _ALL_FIELDS = {
     # outcome
     "exit_status",
     "branch",
-    "base_commit",
     "commit_id",
     "transcript_ref",
 }
@@ -119,6 +111,7 @@ _NULLABLE_BY_DEFAULT = _ALL_FIELDS - {
     "normalized_input",
     "normalized_output",
     "normalized_total",
+    "recorded_at",
 }
 
 
@@ -131,6 +124,19 @@ class TestUsageRecordFieldPresence:
         missing = _ALL_FIELDS - field_names
         assert not missing, f"UsageRecord is missing fields: {missing}"
         assert record.record_id == "sess-0001"
+        removed = {
+            "run_start",
+            "run_end",
+            "loop_id",
+            "loop_role",
+            "iteration",
+            "skill",
+            "phase",
+            "playbook",
+            "story_id",
+            "base_commit",
+        }
+        assert removed.isdisjoint(field_names)
 
 
 class TestNullability:
@@ -147,13 +153,24 @@ class TestNullability:
             normalized_input=0,
             normalized_output=0,
             cli="claude-code",
-            loop_role="review",
+            agent="developer-agent",
         )
         assert record.normalized_input is not None
         assert record.normalized_output is not None
         assert record.normalized_total is not None
         assert record.cli == "claude-code"
-        assert record.loop_role == "review"
+        assert record.agent == "developer-agent"
+
+    def test_recorded_at_comes_from_script_clock_in_utc(self):
+        before = datetime.now(timezone.utc)
+        record = usage_capture.UsageRecord(
+            record_id="sess-0001", normalized_input=1, normalized_output=2
+        )
+        after = datetime.now(timezone.utc)
+
+        recorded_at = datetime.fromisoformat(record.recorded_at.replace("Z", "+00:00"))
+        assert before.replace(microsecond=0) <= recorded_at <= after
+        assert record.recorded_at.endswith("Z")
 
 
 class TestNormalizedTotalInvariant:
@@ -180,6 +197,12 @@ class TestToDict:
         assert payload["normalized_total"] == 12
         assert payload["transcript_ref"] == {"path": "/tmp/t.jsonl", "span": None}
         assert payload["cli"] is None
+        assert payload["recorded_at"].endswith("Z")
+        assert "run_start" not in payload
+        assert "run_end" not in payload
+        assert "loop_id" not in payload
+        assert "story_id" not in payload
+        assert "base_commit" not in payload
 
 
 # ── record_id ────────────────────────────────────────────────────────────
@@ -214,7 +237,7 @@ class TestRecordIdSequencer:
 # ── LoggingAdapter / JsonlLoggingAdapter (ST-0036) ──────────────────────
 
 
-def _make_record(record_id: str, session_id: str) -> "usage_capture.UsageRecord":
+def _make_record(record_id: str, session_id: str) -> usage_capture.UsageRecord:
     return usage_capture.UsageRecord(
         record_id=record_id,
         normalized_input=1,
@@ -1180,6 +1203,7 @@ def _normalize_via_subprocess(cli: str, path: Path) -> dict:
         [str(_SCRIPT), "--normalize", cli, str(path)],
         capture_output=True,
         text=True,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
     return json.loads(result.stdout)
@@ -1225,8 +1249,8 @@ class TestNormalizerProducesBothCountsFromOneRead:
 # ── CLI entrypoint (ST-0038) ─────────────────────────────────────────────
 
 # The proposal's example invocation (`usage-capture --cli pi --transcript
-# <path> --session <id> --agent <name> --model <m> --loop-role review
-# --iteration 2 --commit <sha> ...`), adapted to the one CLI this slice
+# <path> --session <id> --agent <name> --model <m> --commit <sha> ...`),
+# adapted to the one CLI this slice
 # actually registers a normalizer for (`claude-code`), exercising every
 # context flag ST-0038's acceptance criteria lists.
 _FULL_FLAG_SET = [
@@ -1236,24 +1260,10 @@ _FULL_FLAG_SET = [
     "2",
     "--agent",
     "developer-agent",
-    "--skill",
-    "tdd",
     "--model",
     "claude-sonnet-5",
-    "--phase",
-    "implementation",
-    "--playbook",
-    "feature-addition",
-    "--story-id",
-    "ST-0038",
-    "--loop-role",
-    "create",
-    "--iteration",
-    "1",
     "--branch",
     "story/ST-0038",
-    "--base-commit",
-    "abc123",
     "--commit",
     "def456",
     "--exit-status",
@@ -1272,6 +1282,7 @@ def _run_capture(cwd, extra_args) -> subprocess.CompletedProcess:
         cwd=cwd,
         capture_output=True,
         text=True,
+        check=False,
     )
 
 
@@ -1426,15 +1437,8 @@ class TestCliEntrypointHappyPath:
         assert record["parent_session_id"] == "sess-cli-parent"
         assert record["depth"] == 2
         assert record["agent"] == "developer-agent"
-        assert record["skill"] == "tdd"
         assert record["model"] == "claude-sonnet-5"
-        assert record["phase"] == "implementation"
-        assert record["playbook"] == "feature-addition"
-        assert record["story_id"] == "ST-0038"
-        assert record["loop_role"] == "create"
-        assert record["iteration"] == 1
         assert record["branch"] == "story/ST-0038"
-        assert record["base_commit"] == "abc123"
         assert record["commit_id"] == "def456"
         assert record["exit_status"] == "success"
 
@@ -1457,6 +1461,61 @@ class TestCliEntrypointHappyPath:
         transcript_ref_path = tmp_path / record["transcript_ref"]["path"]
         assert transcript_ref_path.exists()
         assert transcript_ref_path.read_text() != ""
+
+    def test_capture_derives_branch_and_commit_from_git_when_not_supplied(
+        self, tmp_path
+    ):
+        subprocess.run(
+            ["git", "init", "-b", "capture-context"],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.email", "usage@example.invalid"],
+            cwd=tmp_path,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Usage Test"],
+            cwd=tmp_path,
+            check=True,
+        )
+        seed = tmp_path / "seed.txt"
+        seed.write_text("seed\n")
+        subprocess.run(["git", "add", "seed.txt"], cwd=tmp_path, check=True)
+        subprocess.run(
+            ["git", "commit", "-m", "test: seed usage context"],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+        )
+        expected_commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        transcript_path = _write_transcript(tmp_path, _claude_transcript_with_usage())
+
+        result = _run_capture(
+            tmp_path,
+            [
+                "--cli",
+                "claude-code",
+                "--transcript",
+                str(transcript_path),
+                "--session",
+                "sess-git-context",
+            ],
+        )
+        assert result.returncode == 0, result.stderr
+
+        session_file = tmp_path / ".agent-factory" / "usage" / "sess-git-context.jsonl"
+        record = json.loads(session_file.read_text().splitlines()[0])
+        assert record["branch"] == "capture-context"
+        assert record["commit_id"] == expected_commit
 
     def test_repeated_invocations_same_session_do_not_collide_record_ids(
         self, tmp_path
