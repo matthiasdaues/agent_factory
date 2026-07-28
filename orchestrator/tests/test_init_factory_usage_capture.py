@@ -72,6 +72,20 @@ def _has_capture_entry(settings: dict, event: str) -> bool:
 
 
 class TestFreshTarget:
+    def test_all_installed_pi_modules_export_extension_factories(self):
+        for name in (
+            "block-dangerous-git.ts",
+            "capture-usage.ts",
+            "dispatch-wave.ts",
+            "pi-usage.ts",
+            "run-agent.ts",
+        ):
+            source = (_ROOT / "factory/config/extensions" / name).read_text()
+            assert "export default function" in source, (
+                f"{name} is installed into Pi's auto-discovered extensions "
+                "directory but does not export an extension factory"
+            )
+
     def test_SEC0003_all_cli_capture_sites_use_package_manager_free_launcher(self):
         launcher = (_ROOT / "factory/scripts/usage-capture-runtime").read_text()
         assert not any(
