@@ -20,7 +20,7 @@ models/
 
 # >>> agent_factory related >>>
 # Added by init-factory; remove with factory/scripts/remove-factory.
-# /factory/
+/factory/
 /.claude/
 /.pi/
 /.agent-factory/
@@ -47,6 +47,7 @@ models/
 /.codex/agents/requirements-agent.toml
 /.codex/agents/research-orchestrator.toml
 /.codex/agents/research-report-writer.toml
+/.codex/agents/research-synthesizer.toml
 /.codex/agents/researcher.toml
 /.codex/agents/spec-review-agent.toml
 /.codex/hooks.json
@@ -79,6 +80,7 @@ models/
 /.agents/skills/refutation-design
 /.agents/skills/research-planning
 /.agents/skills/research-reporting
+/.agents/skills/research-synthesis
 /.agents/skills/retrospective
 /.agents/skills/run-step
 /.agents/skills/scaffold-arc42
