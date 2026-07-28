@@ -122,6 +122,10 @@ export default function (pi: ExtensionAPI) {
         },
       });
 
+      if (childResult.cancelled) {
+        return cancellationResult(params.agent);
+      }
+
       if (childResult.transcript) capturePiFile(cwd, childResult.transcript, {
         sessionId: childSessionId,
         parentSessionId,
@@ -192,6 +196,8 @@ interface FinalMessage {
 const MAX_JSONL_LINE_BYTES = 4 * 1024 * 1024;
 const MAX_STDERR_TAIL_BYTES = 16 * 1024;
 const PROGRESS_INTERVAL_BYTES = 1024 * 1024;
+const CANCELLATION_GRACE_MS = 250;
+const CANCELLATION_DRAIN_MS = 750;
 
 interface RunPiOptions {
   args: string[];
@@ -214,6 +220,7 @@ interface RunPiResult {
   stderrTail: string;
   transcript?: string;
   bytesRead: number;
+  cancelled: boolean;
 }
 
 /** Run one Pi child while retaining only bounded diagnostic and parser state. */
@@ -234,8 +241,8 @@ async function runPiStreamed(options: RunPiOptions): Promise<RunPiResult> {
     child = spawn("pi", options.args, {
       cwd: options.cwd,
       env: options.env,
-      signal: options.signal,
       stdio: ["ignore", "pipe", "pipe"],
+      detached: process.platform !== "win32",
     });
   } catch (error) {
     output?.destroy();
@@ -246,8 +253,25 @@ async function runPiStreamed(options: RunPiOptions): Promise<RunPiResult> {
       finalMessage: null,
       stderrTail: "",
       bytesRead,
+      cancelled: false,
     };
   }
+
+  let cancelled = false;
+  let forceTimer: ReturnType<typeof setTimeout> | undefined;
+  let drainTimer: ReturnType<typeof setTimeout> | undefined;
+  const cancel = () => {
+    if (cancelled) return;
+    cancelled = true;
+    terminateChild(child, "SIGTERM");
+    forceTimer = setTimeout(() => terminateChild(child, "SIGKILL"), CANCELLATION_GRACE_MS);
+    drainTimer = setTimeout(() => {
+      child.stdout.destroy();
+      child.stderr.destroy();
+    }, CANCELLATION_DRAIN_MS);
+  };
+  options.signal?.addEventListener("abort", cancel, { once: true });
+  if (options.signal?.aborted) cancel();
 
   child.stdout.on("data", (chunk: Buffer) => {
     bytesRead += chunk.length;
@@ -285,10 +309,30 @@ async function runPiStreamed(options: RunPiOptions): Promise<RunPiResult> {
     child.once("error", (error) => finish({ status: null, error: error.message }));
     child.once("close", (code) => finish({ status: code }));
   });
-  const [outcome] = await Promise.all([outcomePromise, stdoutEnded, stderrEnded]);
-  parser.finish();
-  if (output && !captureFailed) {
-    await new Promise<void>((resolve) => output.end(resolve));
+  let outcome: { status: number | null; error?: string };
+  try {
+    [outcome] = await Promise.all([outcomePromise, stdoutEnded, stderrEnded]);
+    parser.finish();
+    if (output && !captureFailed) {
+      await new Promise<void>((resolve) => output.end(resolve));
+    }
+  } finally {
+    options.signal?.removeEventListener("abort", cancel);
+    if (forceTimer) clearTimeout(forceTimer);
+    if (drainTimer) clearTimeout(drainTimer);
+    if (cancelled) {
+      output?.destroy();
+      if (transcript) safeUnlink(transcript);
+    }
+  }
+  if (cancelled) {
+    return {
+      status: outcome.status,
+      finalMessage: parser.last,
+      stderrTail: stderrTail.toString("utf-8"),
+      bytesRead,
+      cancelled: true,
+    };
   }
   if (outcome.error) {
     if (transcript) safeUnlink(transcript);
@@ -297,6 +341,7 @@ async function runPiStreamed(options: RunPiOptions): Promise<RunPiResult> {
       finalMessage: parser.last,
       stderrTail: stderrTail.toString("utf-8"),
       bytesRead,
+      cancelled: false,
     };
   }
   options.onUpdate?.({
@@ -309,7 +354,24 @@ async function runPiStreamed(options: RunPiOptions): Promise<RunPiResult> {
     stderrTail: stderrTail.toString("utf-8"),
     transcript: captureFailed ? undefined : transcript,
     bytesRead,
+    cancelled: false,
   };
+}
+
+/** Signal the complete spawned process tree where process groups are available. */
+function terminateChild(
+  child: ChildProcessWithoutNullStreams,
+  signal: NodeJS.Signals,
+): void {
+  try {
+    if (process.platform !== "win32" && child.pid) {
+      process.kill(-child.pid, signal);
+    } else {
+      child.kill(signal);
+    }
+  } catch {
+    // The process may have exited between cancellation and escalation.
+  }
 }
 
 /** Incrementally decode JSONL across arbitrary byte chunk boundaries. */
@@ -400,5 +462,14 @@ function errorResult(agent: string, reason: string) {
   return {
     content: [{ type: "text" as const, text: `run_agent error (${agent}): ${reason}` }],
     details: { agent, error: true, reason },
+  };
+}
+
+/** A distinct result for an invocation that spawned successfully but was cancelled. */
+function cancellationResult(agent: string) {
+  const reason = "child process tree terminated because invocation was cancelled; task was not retried";
+  return {
+    content: [{ type: "text" as const, text: `run_agent cancelled (${agent}): ${reason}` }],
+    details: { agent, error: true, cancelled: true, reason },
   };
 }

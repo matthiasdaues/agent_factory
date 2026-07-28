@@ -50,8 +50,10 @@ The calling Pi session invokes the model-callable tool `run_agent(agent, task, m
 - **6a. The child exits non-zero or emits no `message_end`**
   - 6a1. The tool returns an error result carrying the child's exit code and the tail of its stderr, never a silent empty string.
 - **6b. The caller cancels the invocation**
-  - 6b1. The extension terminates the one child process, removes its staging
-    file, and returns the abort diagnostic without retrying the ambiguous task.
+  - 6b1. The extension sends `SIGTERM` to the spawned process group, escalates
+    to `SIGKILL` after a fixed grace period, bounds pipe drain, removes its
+    staging file, and returns a distinct cancellation diagnostic without
+    retrying the ambiguous task.
 - **7a. Usage capture staging or registration fails**
   - 7a1. The extension cleans any staging it still owns and returns the child
     result unchanged; telemetry failure never fails or delays the agent result.
@@ -121,7 +123,7 @@ Feature: Invoke a factory agent under Pi via run_agent
   Scenario: The caller cancels a running child
     Given run_agent has spawned a child and staged part of its JSONL stream
     When the caller cancels the tool invocation
-    Then the child is terminated
+    Then the child and descendants holding its pipes are terminated within a bounded interval
     And its staging file is removed
     And run_agent does not retry the task
 

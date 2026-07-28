@@ -80,6 +80,15 @@ def _wait_for(predicate, timeout: float = 10) -> None:
     assert predicate(), "condition did not become true before timeout"
 
 
+def _pid_is_live(pid: int) -> bool:
+    """Treat a reaped process or Linux zombie as terminated."""
+    try:
+        state = Path(f"/proc/{pid}/stat").read_text().split()[2]
+        return state != "Z"
+    except FileNotFoundError:
+        return False
+
+
 def _wait_for_terminal_capture(target: Path) -> None:
     pending = target / ".agent-factory/usage-control/pending"
     scratch = target / ".agent-factory/usage/.capture"
@@ -363,6 +372,13 @@ if (updateCount < 2 || largestUpdate > 4096) throw new Error(JSON.stringify({{up
     assert result.returncode == 0, result.stderr
 
     usage_dir = target / ".agent-factory/usage"
+    runtime = target / ".agent-factory/usage-runtime"
+    if not (runtime / ".requirements-sha256").is_file():
+        # Usage capture is explicitly best-effort when offline initialization
+        # could not provision its runtime; the streamed agent result above
+        # must remain successful in that state.
+        assert not list(usage_dir.glob("pi-*.jsonl"))
+        return
     _wait_for(lambda: len(list(usage_dir.glob("pi-*.jsonl"))) == 1, timeout=30)
     record_path = next(usage_dir.glob("pi-*.jsonl"))
     record = json.loads(record_path.read_text().splitlines()[0])
@@ -379,17 +395,26 @@ def test_BUG_0004_UC_10_run_agent_cancellation_terminates_and_cleans(tmp_path):
     _install_typebox_stub(target)
 
     started = target / "child-started"
-    terminated = target / "child-terminated"
+    child_pid = target / "child-pid"
+    descendant_pid = target / "descendant-pid"
+    spawn_count = target / "spawn-count"
     bin_dir = target / "test-bin"
     bin_dir.mkdir()
     pi = bin_dir / "pi"
     pi.write_text(
         f"""#!/usr/bin/env node
-import {{writeFileSync}} from 'node:fs';
+import {{appendFileSync, writeFileSync}} from 'node:fs';
+import {{spawn}} from 'node:child_process';
+appendFileSync({json.dumps(str(spawn_count))}, 'spawn\\n');
 writeFileSync({json.dumps(str(started))}, '');
+writeFileSync({json.dumps(str(child_pid))}, String(process.pid));
+const descendant = spawn(process.execPath, ['-e', `
+  process.on('SIGTERM', () => {{}});
+  setInterval(() => process.stdout.write('held\\\\n'), 10);
+`], {{stdio:['ignore', process.stdout, process.stderr]}});
+writeFileSync({json.dumps(str(descendant_pid))}, String(descendant.pid));
 process.on('SIGTERM', () => {{
-  writeFileSync({json.dumps(str(terminated))}, '');
-  process.exit(143);
+  // Deliberately non-cooperative: cancellation must escalate.
 }});
 setInterval(() => process.stdout.write('{{"type":"message_update"}}\\n'), 10);
 """
@@ -407,6 +432,7 @@ import extension from {json.dumps(extension.as_uri())};
 let tool;
 extension({{registerTool(value) {{ tool = value; }}}});
 const controller = new AbortController();
+const startedAt = Date.now();
 const timer = setInterval(() => {{
   if (existsSync({json.dumps(str(started))})) {{
     clearInterval(timer);
@@ -421,24 +447,38 @@ const result = await tool.execute(
   {{cwd:{json.dumps(str(target))}}},
 );
 clearInterval(timer);
-if (!result.details?.error || !String(result.details.reason).includes('aborted')) {{
+const elapsedMs = Date.now() - startedAt;
+if (!result.details?.error || !String(result.details.reason).includes('cancelled')) {{
   throw new Error(JSON.stringify(result));
 }}
+if (elapsedMs > 2000) throw new Error(`cancellation took ${{elapsedMs}}ms`);
 """
     )
-    result = subprocess.run(
-        ["node", "--experimental-strip-types", str(script)],
-        cwd=target,
-        env=env,
-        text=True,
-        capture_output=True,
-        timeout=10,
-        check=False,
-    )
-    assert result.returncode == 0, result.stderr
-    _wait_for(terminated.is_file)
-    assert not list((target / ".agent-factory/usage/.capture").iterdir())
-    assert not list((target / ".agent-factory/usage").glob("pi-*.jsonl"))
+    try:
+        result = subprocess.run(
+            ["node", "--experimental-strip-types", str(script)],
+            cwd=target,
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=3,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert spawn_count.read_text().splitlines() == ["spawn"]
+        pids = [int(pid_file.read_text()) for pid_file in (child_pid, descendant_pid)]
+        _wait_for(lambda: not any(_pid_is_live(pid) for pid in pids), timeout=1)
+        assert not list((target / ".agent-factory/usage/.capture").iterdir())
+        assert not list((target / ".agent-factory/usage").glob("pi-*.jsonl"))
+    finally:
+        # A red implementation can orphan both deliberately non-cooperative
+        # processes. Keep the regression itself bounded and self-cleaning.
+        for pid_file in (child_pid, descendant_pid):
+            if pid_file.is_file():
+                try:
+                    os.kill(int(pid_file.read_text()), 9)
+                except ProcessLookupError:
+                    pass
 
 
 def _install_gated_capture(target: Path, env: dict[str, str]) -> tuple[Path, Path]:
