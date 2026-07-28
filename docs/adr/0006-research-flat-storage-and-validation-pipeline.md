@@ -1,6 +1,6 @@
 ---
 id: 0006
-status: proposed
+status: accepted
 evaluation: none
 ---
 

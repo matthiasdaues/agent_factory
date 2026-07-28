@@ -79,6 +79,14 @@ Technical requirements at the system's interfaces, expressed in **EARS** syntax 
 - Where `--target/factory` already exists, `init-factory` shall skip the copy step entirely (UC-08).
 - Re-running `init-factory` against an already-initialized target shall report every step as already satisfied (UC-08).
 
+## Usage capture attribution
+
+- When capture receives an explicit model identifier from its invocation context, it shall persist that identifier (BR-036).
+- Otherwise, where the CLI transcript exposes model identifiers, capture shall persist the latest non-empty identifier from that CLI's native model event (BR-036).
+- Automated contract tests shall exercise model attribution for every CLI in the capture registry—Claude Code, GitHub Copilot CLI, Codex, and Pi (BR-036).
+- The model-attribution fixture set shall equal the capture registry, so adding a supported CLI without a model-bearing fixture fails the contract test (BR-036).
+- Where neither invocation context nor the transcript exposes a model identifier, `model` may remain null (BR-036).
+
 ## Referenced from
 
 - [actor-goal-list.md](../actor-goal-list.md)

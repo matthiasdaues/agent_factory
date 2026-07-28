@@ -10,7 +10,7 @@ Domain vocabulary for Factory Flow Control. Terms in **bold** are the canonical 
 | **Agent Factory**             | The parent system: the `factory/` tooling, playbooks, agents, and skills that govern deterministic AI-assisted development workflows. Factory Flow Control is one subsystem within Agent Factory.                                                                                                                                                |
 | **Agentic Creation**          | The principle that agents and humans author artifacts (specs, code, tests, docs) — inherently non-deterministic, creative work.                                                                                                                                                                                                                  |
 | **Changed-Only Mode**         | Test execution mode (`run-tests --changed-only`) that runs a fast subset of tests for modified files only. Used by pre-commit hook for sub-second feedback. Exact filter is framework-specific (BR-025).                                                                                                                                         |
-| **CLI-Invoked Agent**         | A Claude Code or Copilot CLI agent session that `trigger` dispatches, operating under a scoped tool allowlist. Secondary actor in the system; has no independent goal beyond executing the step it was handed.                                                                                                                                   |
+| **CLI-Invoked Agent**         | An agent session dispatched through a supported CLI — Claude Code, GitHub Copilot CLI, Codex, or Pi — operating under that runtime's scoped tool controls. Secondary actor in the system; has no independent goal beyond executing the step it was handed.                                                                                       |
 | **Deterministic Validation**  | The principle that validation scripts check artifacts against predefined, mechanical rules with no judgment calls. Exit 0/1/2, not LLM-generated "looks good to me."                                                                                                                                                                             |
 | **Entry Condition**           | A gate condition declared in an FSM state's `entry_conditions` list, evaluated by `phase advance` before allowing transition to that state. Types: `file_exists`, `files_exist`, `no_open_findings`, `script_exit_zero`.                                                                                                                         |
 | **Framework Detection**       | The process by which `run-tests` auto-detects the project's test framework from structure markers (BR-023): `pyproject.toml` → pytest, `package.json` → jest, `go.mod` → go test, `Cargo.toml` → cargo test. First match wins.                                                                                                                   |
@@ -29,7 +29,7 @@ Domain vocabulary for Factory Flow Control. Terms in **bold** are the canonical 
 | **Phase Advance**             | The operation (`factory/scripts/phase advance`) that transitions the marker to the next state when the target state's entry conditions are met. Refuses (exit 1) if conditions unmet. Resets `iteration` to 1 on success.                                                                                                                        |
 | **Phase Retry**               | The operation (`factory/scripts/phase retry`) that increments the marker's `iteration` field and allows re-running the current phase's author step, up to the resolved iteration cap. Refuses (exit 2) if cap exceeded.                                                                                                                          |
 | **Playbook**                  | A named sequence of phases (states) driving a whole-workflow AI chain, defined in `factory/playbooks/*.md`. Example: `greenfield-development`, `bug-fix`. Optionally backed by an FSM.                                                                                                                                                           |
-| **PreToolUse Hook**           | A CLI-runtime hook that fires before every shell command execution, giving `block-dangerous-git.sh` a chance to deny the command (exit 2) before it runs. Both Claude Code and Copilot CLI support this.                                                                                                                                         |
+| **PreToolUse Hook**           | A CLI-runtime hook that fires before shell command execution, giving `block-dangerous-git.sh` a chance to deny the command (exit 2) before it runs. Claude Code, GitHub Copilot CLI, and Codex use this native hook path; Pi enforces the same deny list through a project-local extension.                                                      |
 | **run-tests**                 | The framework-agnostic test runner script (`factory/scripts/run-tests`). Auto-detects test framework, runs tests in `--changed-only` or `--full` mode, emits JSON summary. Invoked by hooks and FSM gates only — agents cannot run it.                                                                                                           |
 | **script_exit_zero**          | A gate condition type that runs a named script and treats exit 0 as "condition met." Example: `script_exit_zero: factory/scripts/run-tests --full`. Currently used for test gates in FSM definitions.                                                                                                                                            |
 | **State**                     | A node in a playbook's FSM, representing one phase of the workflow. Has `outputs:` globs, an `agent:`, optional `entry_conditions` and `halt_conditions`, and forward/else transitions.                                                                                                                                                          |
@@ -62,14 +62,14 @@ Terms for the falsification-driven research feature (phase-6 agents and the `res
 
 ## Acronyms and Abbreviations
 
-| Abbreviation | Meaning                                                        |
-| ------------ | -------------------------------------------------------------- |
-| ADR          | Architecture Decision Record (Nygard format)                   |
-| BR-###       | Business Rule (defined in validation-rules.md or use cases)    |
-| CLI          | Command-Line Interface (here: Claude Code, Copilot CLI)        |
-| FSM          | Finite State Machine                                           |
-| UC-##        | Use Case (defined in `docs/spec/use_cases/`)                   |
-| YAGNI        | "You Aren't Gonna Need It" — build only what the spec requires |
+| Abbreviation | Meaning                                                                       |
+| ------------ | ----------------------------------------------------------------------------- |
+| ADR          | Architecture Decision Record (Nygard format)                                  |
+| BR-###       | Business Rule (defined in validation-rules.md or use cases)                   |
+| CLI          | Command-Line Interface (here: Claude Code, GitHub Copilot CLI, Codex, and Pi) |
+| FSM          | Finite State Machine                                                          |
+| UC-##        | Use Case (defined in `docs/spec/use_cases/`)                                  |
+| YAGNI        | "You Aren't Gonna Need It" — build only what the spec requires                |
 
 ## Referenced from
 

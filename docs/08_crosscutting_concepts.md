@@ -55,7 +55,9 @@ Factory Flow Control uses **unavoidable hooks** as the enforcement layer. Three 
 
 Agents do not have unrestricted shell access. Every command passes through a PreToolUse hook (`block-dangerous-git.sh`) before execution. The hook:
 
-1. Receives the command as JSON on stdin (both CLIs use the same schema).
+1. Receives the command through the runtime adapter: Claude Code, Copilot CLI,
+   and Codex provide their native hook JSON shapes; Pi's extension receives the
+   tool call and applies the same deny list.
 2. Matches it against a deny list (destructive git commands, test commands).
 3. Exits 0 (allow) or 2 (deny). Exit 2 surfaces as a denial message to the agent; the command never executes.
 

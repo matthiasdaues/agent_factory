@@ -30,9 +30,9 @@ findings, but at a cost far out of proportion to the question, and it collided
 with the organisation's monthly spend limit several times. A retrospective
 isolated the causes:
 
-- **Wrong tier.** Every subagent inherited the session's Opus model. A landscape
-  survey does not need Opus across ~60–80 sessions; this was a roughly five-fold
-  overspend fixed at the first dispatch.
+- **Wrong tier.** Every subagent inherited the session's strongest model. A
+  landscape survey does not need the strongest tier across ~60–80 sessions;
+  this was a roughly five-fold overspend fixed at the first dispatch.
 - **Wrong instrument.** The falsification playbook was applied to a survey
   question ("which open-source tools exist for these stages"). Most of the
   adversarial machinery confirmed the obvious.
@@ -113,7 +113,8 @@ apparatus is overkill, and its cost is the dominant expense.
     landscape / summarise the options" and the cost of a wrong synthesis is low
     to moderate. Runs a single fan-out of sourced searches, a light
     self-verification pass, and a cited synthesis — no independent voting, no
-    register. This is the built-in deep-research shape.
+    register. This requires only portable source-search and synthesis
+    capabilities.
   - **Falsification mode** (the current playbook) when there are a few contested,
     high-stakes claims and an auditable "survived refutation" trail justifies the
     cost.
@@ -123,15 +124,14 @@ apparatus is overkill, and its cost is the dominant expense.
 
 ## Change 4 — Economical dispatch by default
 
-**Problem.** Subagents inherited the session model (Opus) and were dispatched in
-waves large enough to exhaust the spend limit in one burst.
+**Problem.** Subagents inherited the session's strongest model and were
+dispatched in waves large enough to exhaust the spend limit in one burst.
 
 **Fix.**
 
-- In the dispatch contract (`rulebooks/conventions/dispatch-contract.md`) and the
-  playbook, default research subagents to a mid or low tier (e.g. Sonnet for
-  reviews, Haiku or Sonnet for mechanical authoring), and reserve the top tier
-  for explicitly flagged hard sessions.
+- In the dispatch contract (`rulebooks/conventions/dispatch-contract.md`) and
+  the playbook, default research subagents to the economy or standard tier and
+  reserve the strong tier for explicitly flagged hard sessions.
 - Cap concurrent fan-out to a small batch (default six) and dispatch in waves,
   so a spend-limit or infrastructure failure degrades gracefully rather than
   losing a twenty-wide burst mid-write.

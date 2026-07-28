@@ -25,6 +25,14 @@ if [ ! -x "$USAGE_CAPTURE" ]; then
 fi
 
 CMD=("$USAGE_CAPTURE" --lifecycle register --root "$PROJECT_DIR" --cli codex --transcript "$TRANSCRIPT_PATH" --session "$SESSION_ID")
+BRANCH=$(git -C "$PROJECT_DIR" symbolic-ref --quiet --short HEAD 2>/dev/null)
+COMMIT_ID=$(git -C "$PROJECT_DIR" rev-parse --verify HEAD 2>/dev/null)
+if [ -n "$BRANCH" ]; then
+  CMD+=(--branch "$BRANCH")
+fi
+if [ -n "$COMMIT_ID" ]; then
+  CMD+=(--commit "$COMMIT_ID")
+fi
 if [ -n "$PARENT_SESSION_ID" ]; then
   CMD+=(--parent-session "$PARENT_SESSION_ID")
 fi

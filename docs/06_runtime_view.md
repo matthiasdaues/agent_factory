@@ -140,7 +140,7 @@ sequenceDiagram
 sequenceDiagram
     participant A as CLI-Invoked Agent
     participant BDG as block-dangerous-git.sh
-    participant CLI as Claude Code / Copilot CLI
+    participant CLI as Claude Code / Copilot CLI / Codex
 
     A->>CLI: Attempt: pytest .
     CLI->>BDG: PreToolUse hook fires (command JSON on stdin)
@@ -153,10 +153,15 @@ sequenceDiagram
 **Key Points**:
 
 - **Preventive**: Command blocked *before* execution (PreToolUse hook, not post-facto)
-- **Both CLIs**: Works identically for Claude Code and Copilot CLI
+- **Three native-hook CLIs**: Claude Code, Copilot CLI, and Codex invoke the
+  shared shell guardrail; Pi enforces the same deny list through its
+  project-local extension
 - **No workaround**: Agent has no shell access that bypasses PreToolUse; bare test commands are unavailable
 - **Allowed alternative**: `factory/scripts/run-tests --staged` is permitted for agent iteration
-- **Deny patterns (BR-024)**: `pytest`, `npm test`, `go test`, `cargo test`, `python -m pytest`, `uv run pytest`, `yarn test`
+- **Deny patterns (BR-024)**: The canonical list is maintained in
+  `factory/config/hooks/block-dangerous-git.sh`; representative entries include
+  `pytest`, package-manager test scripts, `jest`, `vitest`, `mocha`, `go test`,
+  `cargo test`, and Python/uv pytest invocations.
 
 ## 6.3 Other Runtime Scenarios (Summary)
 

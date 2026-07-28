@@ -1,4 +1,5 @@
 /** Best-effort bridge from Pi JSON streams to the shared usage-capture CLI. */
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { execFileSync, spawn } from "node:child_process";
 import {
   accessSync,
@@ -99,6 +100,19 @@ function gitPrimaryRoot(cwd: string): string | undefined {
   }
 }
 
+function gitContext(cwd: string, args: string[]): string | undefined {
+  try {
+    const value = execFileSync("git", args, {
+      cwd,
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    return value || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function canonical(path: string): string {
   try {
     return realpathSync(path);
@@ -166,6 +180,10 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
       "--cleanup-owner", "supervisor",
       "--completion-status", completionStatus,
     ];
+    const branch = gitContext(cwd, ["symbolic-ref", "--quiet", "--short", "HEAD"]);
+    const commitId = gitContext(cwd, ["rev-parse", "--verify", "HEAD"]);
+    if (branch) args.push("--branch", branch);
+    if (commitId) args.push("--commit", commitId);
     if (context.parentSessionId) args.push("--parent-session", context.parentSessionId);
     if (context.agent) args.push("--agent", context.agent);
     if (context.model) args.push("--model", context.model);
@@ -255,3 +273,11 @@ function removeStagedTranscript(transcript: string): void {
     // Absent/unwritable scratch is harmless at the best-effort boundary.
   }
 }
+
+/**
+ * Pi auto-loads every top-level module in `.pi/extensions`.
+ *
+ * This module primarily provides shared helpers to the capture and invocation
+ * extensions, but it must still satisfy Pi's extension-factory contract.
+ */
+export default function (_pi: ExtensionAPI): void {}

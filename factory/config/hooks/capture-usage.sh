@@ -56,6 +56,14 @@ fi
 
 # Build the command. Start with required args.
 USAGE_CAPTURE_CMD=("$USAGE_CAPTURE" --lifecycle register --root "$PROJECT_DIR" --cli claude-code --transcript "$TRANSCRIPT_PATH" --session "$SESSION_ID")
+BRANCH=$(git -C "$PROJECT_DIR" symbolic-ref --quiet --short HEAD 2>/dev/null)
+COMMIT_ID=$(git -C "$PROJECT_DIR" rev-parse --verify HEAD 2>/dev/null)
+if [ -n "$BRANCH" ]; then
+  USAGE_CAPTURE_CMD+=(--branch "$BRANCH")
+fi
+if [ -n "$COMMIT_ID" ]; then
+  USAGE_CAPTURE_CMD+=(--commit "$COMMIT_ID")
+fi
 
 # For SubagentStop, add agent_type as --agent.
 if [ "$HOOK_EVENT" = "SubagentStop" ]; then

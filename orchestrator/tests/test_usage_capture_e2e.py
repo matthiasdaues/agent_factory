@@ -44,19 +44,18 @@ rollout phases.)
 
 from __future__ import annotations
 
-import json
 import importlib.util
+import json
 import os
 import shutil
 import subprocess
 import sys
 import time
 import uuid
-from pathlib import Path
 from importlib.machinery import SourceFileLoader
+from pathlib import Path
 
 import pytest
-
 
 _ROOT = Path(__file__).resolve().parents[2]
 _FACTORY_ROOT = _ROOT
@@ -244,6 +243,7 @@ class TestHookE2E:
             text=True,
             cwd=project_dir,
             env={**os.environ, "CLAUDE_PROJECT_DIR": str(project_dir)},
+            check=False,
         )
 
         # Hook must exit 0 and produce no stdout (best-effort contract).
@@ -259,6 +259,35 @@ class TestHookE2E:
         assert record["record_id"].endswith("-0001")  # First record in this session
         assert record["session_id"] == session_id
         assert record["cli"] == "claude-code"
+        assert record["recorded_at"].endswith("Z")
+        expected_branch = subprocess.run(
+            ["git", "branch", "--show-current"],
+            cwd=project_dir,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        expected_commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=project_dir,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        assert record["branch"] == expected_branch
+        assert record["commit_id"] == expected_commit
+        assert {
+            "run_start",
+            "run_end",
+            "loop_id",
+            "loop_role",
+            "iteration",
+            "skill",
+            "phase",
+            "playbook",
+            "story_id",
+            "base_commit",
+        }.isdisjoint(record)
 
         # Assert normalized_* are present and non-zero.
         assert record["normalized_input"] > 0
@@ -321,6 +350,7 @@ class TestHookE2E:
             text=True,
             cwd=project_dir,
             env={**os.environ, "CLAUDE_PROJECT_DIR": str(project_dir)},
+            check=False,
         )
 
         assert result.returncode == 0
@@ -354,6 +384,7 @@ class TestHookE2E:
             text=True,
             cwd=project_dir,
             env={**os.environ, "CLAUDE_PROJECT_DIR": str(project_dir)},
+            check=False,
         )
 
         # Hook must exit 0 even though capture failed.

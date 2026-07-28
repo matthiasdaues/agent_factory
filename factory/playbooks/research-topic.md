@@ -3,7 +3,7 @@ title: Research Topic Playbook
 category: orchestration
 type: runbook
 scenario: research-topic
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Research Topic Playbook
@@ -13,6 +13,13 @@ approved research brief to a validated final report. The playbook admits a
 claim to the report only after that claim has survived a serious attempt at
 refutation within its stated scope. A surviving claim is never presented as
 proved; it has only withstood the defined tests.
+
+## Mode Selection Front Gate
+
+Read the shared brief's `mode` before applying prerequisites or dispatching
+work. When `mode` is omitted or explicitly `survey`, select the sibling
+[`research-survey.md`](research-survey.md) playbook and stop this playbook.
+Only explicit `falsification` selects the thirteen-step procedure below.
 
 The procedure wires thirteen steps in order. Each step names its agent, its
 skills, its input artifacts, and its output artifacts. Between every step the
@@ -25,6 +32,19 @@ stage fails.
 - [ ] The research templates, schemas, and policies are present under
   `factory/rulebooks/`.
 - [ ] The research agents and skills are indexed in `factory/INDEX.yaml`.
+
+### Research Capability Preflight
+
+Before Step 1, apply the
+[research assignment contract](../rulebooks/conventions/dispatch-contract.md#research-assignment-contract).
+Required source access must be available. The active CLI must also be able to
+create the independent agent identities required by the role-separation
+policy. If either capability is unavailable, block the falsification run; do
+not substitute one session for conflicting research roles.
+
+Each assignment declares the contract's `agent`, Factory `tier`, bounded
+`task`, unique `output` path, and `independent_session` requirement before it
+is dispatched.
 
 ## Inputs
 

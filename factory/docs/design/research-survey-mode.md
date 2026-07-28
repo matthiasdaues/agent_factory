@@ -1,6 +1,6 @@
 # Design Spec: Survey/Synthesis Research Mode
 
-Status: lightweight spec (design, not yet implemented). Derived from the
+Status: implemented by ST-0060 through ST-0064. Derived from the
 [research-workflow-efficiency-and-atomicity](../proposals/research-workflow-efficiency-and-atomicity.md)
 proposal, Change 3.
 
@@ -15,9 +15,9 @@ not have contested claims to refute; running them through independent
 researchers, three-reviewer voting, a claim register, and resolution loops pays
 a large cost for rigor the question never asked for.
 
-Survey mode produces a **cited synthesis** cheaply. It is the shape of the
-built-in deep-research capability, expressed within the factory's brief-and-report
-framing.
+Survey mode produces a **cited synthesis** cheaply. It uses only portable
+Factory capabilities: bounded source searches, source records, synthesis, and
+deterministic validation.
 
 ## Mode selection
 
@@ -39,29 +39,54 @@ three claims that actually merit escalation to falsification mode afterwards.
 
 Five steps, no conjectures/tests/reviews/votes/register:
 
-1. **Validate the brief** — same brief schema, `mode: survey`. Orchestrator.
+1. **Validate the brief** — shared brief schema, `mode: survey`.
+   Research Orchestrator.
 2. **Plan** — research questions and the search angles per question (reuses
-   `research-planning`, but produces questions + source targets, not competing
-   conjectures or a review protocol).
+   `research-planning`, but validates against the survey-plan schema:
+   questions, search angles, source targets, assignments, and stop conditions.
 3. **Gather sources** — a bounded fan-out of sourced searches; each material
    source is recorded with `source-research` against the existing
    source-record schema (provenance is still required).
-4. **Synthesise** — one writer produces a cited report: per-question findings,
-   each citing the source records it rests on, plus an explicit
-   uncertainties/gaps section and a "what would merit deeper (falsification)
-   study" note. Reuses `research-reporting`.
+4. **Synthesise** — a Research Synthesizer produces a cited report:
+   per-question findings, each citing the source records it rests on, plus
+   uncertainties/gaps and a "what would merit falsification study" note. It
+   uses the dedicated `research-synthesis` skill; the existing
+   `research-reporting` skill remains restricted to frozen claim registers.
 5. **Validate the report** — orchestrator checks every finding cites at least
    one recorded source and that no finding overstates its support.
 
 Dispatch follows the [dispatch-contract](../../rulebooks/conventions/dispatch-contract.md):
-cheap tier by default, waves of six, pre-flight estimate.
+economy tier by default, waves of at most six, and a pre-flight estimate.
+Every assignment declares a unique output path before dispatch.
 
 ## Reuse and drop
 
 - **Reuses:** the brief schema (+ `mode`), `research-planning`,
-  `source-research`, the source-record schema, `research-reporting`.
+  `source-research`, and the source-record schema.
+- **Adds:** a survey-plan schema and template, a survey-report schema and
+  template, a `research-synthesis` skill, and a Research Synthesizer agent.
 - **Drops:** `claim-formulation`, `refutation-design`, conjectures, test
   records, adversarial review, votes, the claim register, and resolution loops.
+
+## CLI portability
+
+Research semantics do not depend on a CLI. The orchestrator dispatches a
+logical request containing `agent`, `tier`, `task`, `output`, and whether an
+independent session is required. The active CLI maps that request to its
+supported mechanism:
+
+| CLI                | Separate agent session           | Bounded fan-out                            |
+| ------------------ | -------------------------------- | ------------------------------------------ |
+| Claude Code        | Native agent dispatch            | Native concurrent dispatch                 |
+| GitHub Copilot CLI | Native custom-agent dispatch     | Native concurrent dispatch                 |
+| Codex              | Generated native custom agent    | Native parallel-agent threads              |
+| Pi                 | `run_agent` subprocess extension | `dispatch_wave` with file-disjoint outputs |
+
+Before planning a run, the orchestrator verifies that the active environment
+can access required sources and, for falsification mode, create independent
+agent sessions. Survey mode may gather sequentially when parallel fan-out is
+unavailable; lack of source access is a blocker. Falsification mode must stop
+when independent identities cannot be established.
 
 ## Guardrails
 
@@ -81,14 +106,34 @@ cheap tier by default, waves of six, pre-flight estimate.
 
 - Not a replacement for falsification mode; the two coexist and the brief
   chooses.
-- Not a new schema family: survey mode reuses the source-record and (a lighter
-  use of the) final-report schema rather than inventing artifacts.
+- Not a weakening of the falsification artifact contracts: survey uses
+  dedicated plan and report schemas while reusing the shared brief and
+  source-record schemas. The falsification plan and final-report schemas remain
+  unchanged.
 - Not a change to the Claim-Admission or Role-Separation policies, which govern
   falsification mode only.
 
-## Open questions for implementation
+## Implementation decisions
 
-- Whether survey mode is a branch inside `research-topic.md` or a sibling
-  `research-survey.md` playbook (the proposal leans sibling for clarity).
-- Whether the final-report schema needs a lighter survey variant or can be
-  reused as-is with `refuted_conjectures`/`unresolved_alternatives` left empty.
+- Survey is a sibling `research-survey.md` playbook. `research-topic.md` remains
+  the falsification playbook and routes `mode: survey` briefs to its sibling at
+  the front gate.
+- The shared research brief gains optional `mode` with default `survey`.
+- Survey uses dedicated plan and report schemas. The falsification plan and
+  final-report schemas retain their stronger claim/test/register contracts.
+- Survey synthesis uses a dedicated agent and skill rather than weakening the
+  frozen-register boundary of the Research Report Writer.
+- CLI portability is covered by canonical-artifact tests and installed-consumer
+  smoke tests for Claude Code, Copilot, Codex, and Pi.
+
+## Executable evidence
+
+`orchestrator/tests/test_research_survey_e2e.py` exercises one offline,
+mode-defaulted survey fixture through the production schema-validation command.
+It validates the brief, plan, two source records, and report; checks every
+finding resolves to a recorded source; retains distinct source-family values;
+and proves an unknown source reference fails deterministically. The same test
+installs Factory into a temporary target and confirms survey playbook, skills,
+and agents remain discoverable from Claude Code, Copilot, Codex, and Pi. Its
+fixture asserts that no conjecture, test, review, vote, or claim-register
+artifact is emitted.

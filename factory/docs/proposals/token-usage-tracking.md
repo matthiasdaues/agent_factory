@@ -61,35 +61,20 @@ rather than summing snapshots. Fields, grouped:
 
 **Correlation**
 
-| Field                  | Meaning                                                      |
-| ---------------------- | ------------------------------------------------------------ |
-| `cli`                  | `claude-code \| copilot \| codex \| pi`                      |
-| `session_id`           | the CLI session's identifier                                 |
-| `parent_session_id`    | parent run, for building the sub-agent spend tree (nullable) |
-| `depth`                | nesting depth (`PI_RUN_AGENT_DEPTH`)                         |
-| `run_start`, `run_end` | ISO-8601 bounds; duration is derivable                       |
-
-**Loop**
-
-| Field       | Meaning                                                                          |
-| ----------- | -------------------------------------------------------------------------------- |
-| `loop_id`   | groups every run — create plus each review iteration — for one target (nullable) |
-| `loop_role` | `create \| review \| null` (null = one-shot, not in a loop)                      |
-| `iteration` | pass number through the loop (nullable)                                          |
-
-Assigned by the orchestrator from the phase-gate and findings state. Aligns with
-the `review-loop-discipline` convention. Answers "what did the create-review
-loop for X cost across all its iterations."
+| Field               | Meaning                                                      |
+| ------------------- | ------------------------------------------------------------ |
+| `cli`               | `claude-code \| copilot \| codex \| pi`                      |
+| `session_id`        | the CLI session's identifier                                 |
+| `parent_session_id` | parent run, for building the sub-agent spend tree (nullable) |
+| `depth`             | nesting depth (`PI_RUN_AGENT_DEPTH`)                         |
+| `recorded_at`       | capture time from the script's UTC clock; always present     |
 
 **What ran**
 
-| Field               | Meaning                                                                                                         |
-| ------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `agent`             | agent / persona name                                                                                            |
-| `skill`             | skill(s) the session ran — a context field, nullable; tokens are attributed to the session, not split per skill |
-| `phase`, `playbook` | workflow position (nullable)                                                                                    |
-| `story_id`          | unit of work (e.g. `ST-0018`)                                                                                   |
-| `model`             | resolved model id                                                                                               |
+| Field   | Meaning              |
+| ------- | -------------------- |
+| `agent` | agent / persona name |
+| `model` | resolved model id    |
 
 **Spend**
 
@@ -101,15 +86,25 @@ loop for X cost across all its iterations."
 
 **Outcome**
 
-| Field                      | Meaning                                                                                       |
-| -------------------------- | --------------------------------------------------------------------------------------------- |
-| `exit_status`              | did we pay for a failed run                                                                   |
-| `branch`                   | work branch                                                                                   |
-| `base_commit`, `commit_id` | `git diff base_commit..commit_id` reconstructs **what was written** (nullable when no commit) |
-| `transcript_ref`           | `{ path, span? }` — link to **what happened** (reasoning and tool trace)                      |
+| Field            | Meaning                                                                  |
+| ---------------- | ------------------------------------------------------------------------ |
+| `exit_status`    | did we pay for a failed run                                              |
+| `branch`         | work branch; derived from Git when the caller omits it                   |
+| `commit_id`      | capture-time Git HEAD, or an explicit caller-supplied commit             |
+| `transcript_ref` | `{ path, span? }` — link to **what happened** (reasoning and tool trace) |
 
 The record stores integers and references, never text: the git diff stays in
 git, and the transcript is persisted separately and linked.
+
+Fields are admitted only when they have a defined producer. Native hooks and
+orchestrated invocations may leave valid optional context null when their
+source does not expose it. The script always writes `recorded_at` and, inside a
+Git repository, fills `branch` and `commit_id` unless the caller supplied
+explicit values. Earlier draft fields with no raw-capture producer
+(`run_start`, `run_end`, `loop_id`, `loop_role`, `iteration`, `skill`, `phase`,
+`playbook`, `story_id`, and `base_commit`) are intentionally absent. A
+transformation layer may later enrich raw records with orchestration metadata
+from a separate authoritative source.
 
 ## Tokenization Strategy
 
@@ -166,7 +161,7 @@ resolution, download, cache lookup, or network access:
 
 ```
 usage-capture --cli pi --transcript <path> --session <id> --agent <name> \
-              --model <m> --loop-role review --iteration 2 --commit <sha> ...
+              --model <m> --branch <branch> --commit <sha> ...
 ```
 
 It has two swappable internal seams around a fixed tokenizer:
