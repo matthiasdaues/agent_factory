@@ -1,5 +1,9 @@
 """Pi lifecycle transition and installed-entry smoke tests."""
 
+# Existing result-inspection tests intentionally assert return codes after
+# subprocess completion; new calls state check=False explicitly.
+# ruff: noqa: PLW1510
+
 from __future__ import annotations
 
 import json
@@ -276,6 +280,165 @@ if (result.details?.error) throw new Error(JSON.stringify(result));
         timeout=timeout,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_BUG_0004_UC_10_run_agent_streams_more_than_64_mib(tmp_path):
+    target = tmp_path / "consumer"
+    target.mkdir()
+    _init_git_repo(target)
+    _init(target)
+    _install_typebox_stub(target)
+    capture_runtime = target / "factory/scripts/usage-capture-runtime"
+    real_capture_runtime = capture_runtime.with_name("usage-capture-runtime-real")
+    capture_runtime.rename(real_capture_runtime)
+    captured_size = target / "captured-raw-size"
+    capture_runtime.write_text(
+        "#!/usr/bin/env python3\n"
+        "import os, pathlib, sys\n"
+        "source = pathlib.Path(sys.argv[sys.argv.index('--transcript') + 1])\n"
+        f"pathlib.Path({str(captured_size)!r}).write_text(str(source.stat().st_size))\n"
+        f"os.execv({str(real_capture_runtime)!r}, [{str(real_capture_runtime)!r}, *sys.argv[1:]])\n"
+    )
+    capture_runtime.chmod(0o755)
+
+    bin_dir = target / "test-bin"
+    bin_dir.mkdir()
+    pi = bin_dir / "pi"
+    pi.write_text(
+        """#!/usr/bin/env node
+import {writeSync} from 'node:fs';
+const payload = JSON.stringify({type:'message_update',delta:'x'.repeat(32 * 1024)}) + '\\n';
+for (let i = 0; i < 2100; i++) {
+  writeSync(1, payload);
+}
+const final = JSON.stringify({type:'message_end',message:{role:'assistant',content:[{type:'text',text:'streamed result'}],usage:{input:11,output:5}}}) + '\\n';
+for (let offset = 0; offset < final.length; offset += 7) {
+  writeSync(1, final.slice(offset, offset + 7));
+}
+"""
+    )
+    pi.chmod(0o755)
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}:{env['PATH']}"
+    env.pop("PI_AGENT_FACTORY_SESSION_ID", None)
+    env.pop("PI_RUN_AGENT_DEPTH", None)
+    env.pop("PI_AGENT_FACTORY_USAGE_ROOT", None)
+
+    extension = target / ".pi/extensions/run-agent.ts"
+    script = target / "exercise-large-run-agent.mjs"
+    script.write_text(
+        f"""
+import extension from {json.dumps(extension.as_uri())};
+let tool;
+extension({{registerTool(value) {{ tool = value; }}}});
+let updateCount = 0;
+let largestUpdate = 0;
+const result = await tool.execute(
+  'call-large',
+  {{agent:'developer-agent', task:'large', model:'test/model'}},
+  undefined,
+  update => {{
+    updateCount++;
+    largestUpdate = Math.max(largestUpdate, JSON.stringify(update).length);
+  }},
+  {{
+    cwd:{json.dumps(str(target))},
+    sessionManager:{{getSessionFile() {{ return '/sessions/pi-human-parent.jsonl'; }}}},
+  }},
+);
+if (result.details?.error) throw new Error(JSON.stringify(result));
+if (result.content[0].text !== 'streamed result') throw new Error(JSON.stringify(result));
+if (updateCount < 2 || largestUpdate > 4096) throw new Error(JSON.stringify({{updateCount, largestUpdate}}));
+"""
+    )
+    result = subprocess.run(
+        ["node", "--experimental-strip-types", str(script)],
+        cwd=target,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=90,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+    usage_dir = target / ".agent-factory/usage"
+    _wait_for(lambda: len(list(usage_dir.glob("pi-*.jsonl"))) == 1, timeout=30)
+    record_path = next(usage_dir.glob("pi-*.jsonl"))
+    record = json.loads(record_path.read_text().splitlines()[0])
+    assert record["reported_input"] == 11
+    _wait_for(captured_size.is_file)
+    assert int(captured_size.read_text()) > 64 * 1024 * 1024
+
+
+def test_BUG_0004_UC_10_run_agent_cancellation_terminates_and_cleans(tmp_path):
+    target = tmp_path / "consumer"
+    target.mkdir()
+    _init_git_repo(target)
+    _init(target)
+    _install_typebox_stub(target)
+
+    started = target / "child-started"
+    terminated = target / "child-terminated"
+    bin_dir = target / "test-bin"
+    bin_dir.mkdir()
+    pi = bin_dir / "pi"
+    pi.write_text(
+        f"""#!/usr/bin/env node
+import {{writeFileSync}} from 'node:fs';
+writeFileSync({json.dumps(str(started))}, '');
+process.on('SIGTERM', () => {{
+  writeFileSync({json.dumps(str(terminated))}, '');
+  process.exit(143);
+}});
+setInterval(() => process.stdout.write('{{"type":"message_update"}}\\n'), 10);
+"""
+    )
+    pi.chmod(0o755)
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}:{env['PATH']}"
+
+    extension = target / ".pi/extensions/run-agent.ts"
+    script = target / "exercise-cancelled-run-agent.mjs"
+    script.write_text(
+        f"""
+import {{existsSync}} from 'node:fs';
+import extension from {json.dumps(extension.as_uri())};
+let tool;
+extension({{registerTool(value) {{ tool = value; }}}});
+const controller = new AbortController();
+const timer = setInterval(() => {{
+  if (existsSync({json.dumps(str(started))})) {{
+    clearInterval(timer);
+    controller.abort();
+  }}
+}}, 10);
+const result = await tool.execute(
+  'call-cancel',
+  {{agent:'developer-agent', task:'cancel', model:'test/model'}},
+  controller.signal,
+  undefined,
+  {{cwd:{json.dumps(str(target))}}},
+);
+clearInterval(timer);
+if (!result.details?.error || !String(result.details.reason).includes('aborted')) {{
+  throw new Error(JSON.stringify(result));
+}}
+"""
+    )
+    result = subprocess.run(
+        ["node", "--experimental-strip-types", str(script)],
+        cwd=target,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=10,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    _wait_for(terminated.is_file)
+    assert not list((target / ".agent-factory/usage/.capture").iterdir())
+    assert not list((target / ".agent-factory/usage").glob("pi-*.jsonl"))
 
 
 def _install_gated_capture(target: Path, env: dict[str, str]) -> tuple[Path, Path]:

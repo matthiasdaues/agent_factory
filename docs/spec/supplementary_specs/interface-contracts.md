@@ -77,13 +77,15 @@ See [UC-07](../use_cases/UC-07-block-a-dangerous-git-command.md).
 
 ## `factory/config/extensions/run-agent.ts` — the `run_agent` tool
 
-|            |                                                                                                                                                                |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Invocation | Pi model-callable tool `run_agent(agent: string, task: string, model?: string)`, registered by the project-local extension when Pi trusts the project          |
-| Reads      | `factory/agents/<agent>.md` (persona and `tier` frontmatter); `config/model.conf` `pi.<tier>` (via the shared tier resolver); the `PI_RUN_AGENT_DEPTH` env var |
-| Spawns     | `pi --no-session -a --mode json --model <m> --append-system-prompt <agent.md> -p <task>` in the project directory, with `PI_RUN_AGENT_DEPTH` incremented       |
-| Returns    | `{ text, usage, exitCode }` parsed from the child's `message_end` event; an error result (no spawn) on unknown agent, unresolved model, or exceeded depth      |
-| Guardrail  | The child loads `.pi/extensions/`, so the git-safety guardrail binds it too; the one sanctioned `factory/scripts/run-tests --staged` remains permitted         |
+|            |                                                                                                                                                                                                                |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Invocation | Pi model-callable tool `run_agent(agent: string, task: string, model?: string)`, registered by the project-local extension when Pi trusts the project                                                          |
+| Reads      | `factory/agents/<agent>.md` (persona and `tier` frontmatter); `config/model.conf` `pi.<tier>` (via the shared tier resolver); the `PI_RUN_AGENT_DEPTH` env var                                                 |
+| Spawns     | `pi --no-session -a --mode json --model <m> --append-system-prompt <agent.md> -p <task>` in the project directory, with `PI_RUN_AGENT_DEPTH` incremented                                                       |
+| Streaming  | Asynchronously spools complete stdout to protected capture staging, incrementally parses arbitrarily chunked JSONL with bounded non-result state, and emits bounded progress updates                           |
+| Returns    | `{ text, usage, exitCode }` parsed from the child's final assistant `message_end`; an error result on unknown agent, unresolved model, exceeded depth, spawn failure, non-zero/no-result exit, or cancellation |
+| Capture    | Hands the complete raw staging file to detached best-effort usage capture; capture failure leaves the agent result unchanged, and cancellation terminates the child and cleans staging without retry           |
+| Guardrail  | The child loads `.pi/extensions/`, so the git-safety guardrail binds it too; the one sanctioned `factory/scripts/run-tests --staged` remains permitted                                                         |
 
 See [UC-10](../use_cases/UC-10-invoke-a-factory-agent-under-pi.md).
 

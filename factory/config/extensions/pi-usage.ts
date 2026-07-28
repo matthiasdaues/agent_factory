@@ -5,7 +5,9 @@ import {
   accessSync,
   chmodSync,
   constants,
+  closeSync,
   existsSync,
+  openSync,
   linkSync,
   readFileSync,
   realpathSync,
@@ -125,15 +127,62 @@ function canonical(path: string): string {
 export function capturePiStream(cwd: string, stream: string, context: PiCaptureContext): void {
   if (!stream.trim()) return;
   const sessionId = context.sessionId || newSessionId();
+  const transcript = createPiCaptureFile(cwd, sessionId);
+  if (!transcript) return;
+  try {
+    writeFileSync(transcript, stream.endsWith("\n") ? stream : `${stream}\n`, {
+      encoding: "utf-8",
+      flag: "w",
+      mode: 0o600,
+    });
+    capturePiFile(cwd, transcript, context);
+  } catch {
+    removeRegistration("", transcript);
+  }
+}
+
+/** Allocate a protected raw-stream handoff owned by the Pi capture bridge. */
+export function createPiCaptureFile(cwd: string, sessionId: string): string | undefined {
   const usageRoot = activeUsageRoot(cwd);
-  if (!usageRuntimeReady(usageRoot)) return;
+  if (!usageRuntimeReady(usageRoot)) return undefined;
+  const scratch = join(usageRoot, ".agent-factory", "usage", ".capture");
+  const transcript = join(scratch, `${sessionId}-${randomUUID()}.jsonl`);
+  try {
+    if (canonical(scratch) !== normalize(scratch)) {
+      throw new Error("usage lifecycle directory is redirected");
+    }
+    closeSync(openSync(transcript, "wx", 0o600));
+    chmodSync(transcript, 0o600);
+    return transcript;
+  } catch {
+    removeRegistration("", transcript);
+    return undefined;
+  }
+}
+
+/**
+ * Register a complete protected JSONL file for detached, best-effort capture.
+ *
+ * The caller relinquishes ownership regardless of whether registration
+ * succeeds; failures remove the staged file and never affect the measured run.
+ */
+export function capturePiFile(
+  cwd: string,
+  transcript: string,
+  context: PiCaptureContext,
+): void {
+  const sessionId = context.sessionId || newSessionId();
+  const usageRoot = activeUsageRoot(cwd);
+  if (!usageRuntimeReady(usageRoot)) {
+    removeRegistration("", transcript);
+    return;
+  }
   const captureScript = join(usageRoot, "factory", "scripts", "usage-capture-runtime");
   const bootstrapScript = join(usageRoot, "factory", "scripts", "pi-capture-bootstrap.mjs");
   const factoryState = join(usageRoot, ".agent-factory", "usage-control", "state.json");
   const controlDir = join(usageRoot, ".agent-factory", "usage-control");
   const pendingDir = join(usageRoot, ".agent-factory", "usage-control", "pending");
   const scratch = join(usageRoot, ".agent-factory", "usage", ".capture");
-  const transcript = join(scratch, `${sessionId}-${randomUUID()}.jsonl`);
   const registrationId = `${sessionId}-${randomUUID()}`;
   const marker = join(pendingDir, `${registrationId}.pending.json`);
   const metadataTemp = join(controlDir, `${registrationId}.registration.tmp`);
@@ -142,6 +191,9 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
   try {
     if (canonical(scratch) !== normalize(scratch) || canonical(pendingDir) !== normalize(pendingDir)) {
       throw new Error("usage lifecycle directories are redirected");
+    }
+    if (dirname(transcript) !== scratch || canonical(transcript) !== normalize(transcript)) {
+      throw new Error("capture source is outside the protected staging directory");
     }
     // The hard link atomically snapshots the state inode and makes this
     // registration visible in one filesystem operation. It therefore orders
@@ -163,11 +215,6 @@ export function capturePiStream(cwd: string, stream: string, context: PiCaptureC
     // pending registry.
     renameSync(metadataTemp, marker);
     requireEligibleState(factoryState, state.generation);
-    writeFileSync(transcript, stream.endsWith("\n") ? stream : `${stream}\n`, {
-      encoding: "utf-8",
-      flag: "wx",
-      mode: 0o600,
-    });
     chmodSync(transcript, 0o600);
     requireEligibleState(factoryState, state.generation);
     accessSync(captureScript, constants.X_OK);
