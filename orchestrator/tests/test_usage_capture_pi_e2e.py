@@ -481,6 +481,84 @@ if (elapsedMs > 2000) throw new Error(`cancellation took ${{elapsedMs}}ms`);
                     pass
 
 
+def test_FAGAN_0010_UC_10_cancellation_destroy_fallback_settles_pipes(tmp_path):
+    target = tmp_path / "consumer"
+    target.mkdir()
+    _init_git_repo(target)
+    _init(target)
+    _install_typebox_stub(target)
+
+    started = target / "child-started"
+    escaped_pid = target / "escaped-descendant-pid"
+    bin_dir = target / "test-bin"
+    bin_dir.mkdir()
+    pi = bin_dir / "pi"
+    pi.write_text(
+        f"""#!/usr/bin/env node
+import {{writeFileSync}} from 'node:fs';
+import {{spawn}} from 'node:child_process';
+const escaped = spawn(process.execPath, ['-e', `
+  process.on('SIGTERM', () => {{}});
+  setInterval(() => process.stdout.write('held\\\\n'), 10);
+`], {{detached:true, stdio:['ignore', process.stdout, process.stderr]}});
+writeFileSync({json.dumps(str(escaped_pid))}, String(escaped.pid));
+writeFileSync({json.dumps(str(started))}, '');
+process.on('SIGTERM', () => {{}});
+setInterval(() => process.stdout.write('{{"type":"message_update"}}\\n'), 10);
+"""
+    )
+    pi.chmod(0o755)
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}:{env['PATH']}"
+
+    extension = target / ".pi/extensions/run-agent.ts"
+    script = target / "exercise-destroy-fallback.mjs"
+    script.write_text(
+        f"""
+import {{existsSync}} from 'node:fs';
+import extension from {json.dumps(extension.as_uri())};
+let tool;
+extension({{registerTool(value) {{ tool = value; }}}});
+const controller = new AbortController();
+const timer = setInterval(() => {{
+  if (existsSync({json.dumps(str(started))})) {{
+    clearInterval(timer);
+    controller.abort();
+  }}
+}}, 10);
+const startedAt = Date.now();
+const result = await tool.execute(
+  'call-destroy-fallback',
+  {{agent:'developer-agent', task:'cancel', model:'test/model'}},
+  controller.signal,
+  undefined,
+  {{cwd:{json.dumps(str(target))}}},
+);
+clearInterval(timer);
+if (!result.details?.cancelled) throw new Error(JSON.stringify(result));
+if (Date.now() - startedAt > 1500) throw new Error('pipe fallback exceeded bound');
+"""
+    )
+    try:
+        result = subprocess.run(
+            ["node", "--experimental-strip-types", str(script)],
+            cwd=target,
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=2,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert not list((target / ".agent-factory/usage/.capture").iterdir())
+    finally:
+        if escaped_pid.is_file():
+            try:
+                os.kill(int(escaped_pid.read_text()), 9)
+            except ProcessLookupError:
+                pass
+
+
 def _install_gated_capture(target: Path, env: dict[str, str]) -> tuple[Path, Path]:
     script = target / "factory/scripts/usage-capture-runtime"
     real = script.with_name("usage-capture-real")

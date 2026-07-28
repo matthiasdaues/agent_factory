@@ -41,3 +41,19 @@ stdout-holding descendant that both ignore `SIGTERM`; the red implementation
 exceeded the three-second test bound, while the fix returns within the
 two-second contract bound, proves both PIDs terminated, staging is empty, and
 the spawn count is exactly one.
+
+**Repeat-pass result:** Still open. The process-group regression passes, but
+the claimed pipe-drain bound is ineffective: `stdoutEnded` and `stderrEnded`
+resolve only on `end`, while `destroy()` emits `close` without necessarily
+emitting `end`. Therefore the 750-millisecond timer can destroy an undrained
+pipe yet leave `Promise.all([outcomePromise, stdoutEnded, stderrEnded])`
+pending forever. Resolve each pipe wait on `end`, `close`, or `error` (once),
+and add a focused regression that exercises the destroy fallback rather than
+letting process-group termination naturally close both pipes.
+
+**Repeat-pass resolution:** Each pipe wait now settles exactly once on `end`,
+`close`, or `error` and removes its remaining listeners. A focused tracer
+starts a descendant in a separate process group so it continues holding the
+parent's stdout after normal group escalation; the 750-millisecond fallback
+destroys the local pipes, the tool returns within its bound, and staging is
+clean. The prior non-cooperative process-group tracer remains green.

@@ -18,6 +18,7 @@ import { execFileSync, spawn } from "node:child_process";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { createWriteStream, existsSync, readFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
+import type { Readable } from "node:stream";
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
@@ -297,8 +298,8 @@ async function runPiStreamed(options: RunPiOptions): Promise<RunPiResult> {
         : Buffer.concat([stderrTail, chunk]).subarray(-MAX_STDERR_TAIL_BYTES);
   });
 
-  const stdoutEnded = new Promise<void>((resolve) => child.stdout.once("end", resolve));
-  const stderrEnded = new Promise<void>((resolve) => child.stderr.once("end", resolve));
+  const stdoutEnded = waitForPipeSettlement(child.stdout);
+  const stderrEnded = waitForPipeSettlement(child.stderr);
   const outcomePromise = new Promise<{ status: number | null; error?: string }>((resolve) => {
     let settled = false;
     const finish = (value: { status: number | null; error?: string }) => {
@@ -356,6 +357,25 @@ async function runPiStreamed(options: RunPiOptions): Promise<RunPiResult> {
     bytesRead,
     cancelled: false,
   };
+}
+
+/** Settle exactly once whether a pipe drains, closes, or fails. */
+function waitForPipeSettlement(pipe: Readable): Promise<void> {
+  if (pipe.readableEnded || pipe.destroyed) return Promise.resolve();
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      pipe.removeListener("end", finish);
+      pipe.removeListener("close", finish);
+      pipe.removeListener("error", finish);
+      resolve();
+    };
+    pipe.once("end", finish);
+    pipe.once("close", finish);
+    pipe.once("error", finish);
+  });
 }
 
 /** Signal the complete spawned process tree where process groups are available. */
