@@ -1112,6 +1112,79 @@ class TestPiNormalizer:
         assert result.usage_granularity == "full"
 
 
+def test_every_supported_cli_extracts_latest_transcript_model(tmp_path):
+    fixtures = {
+        "claude-code": (
+            [
+                {
+                    "type": "assistant",
+                    "message": {
+                        "role": "assistant",
+                        "model": "claude-first",
+                        "content": "FIRST",
+                    },
+                },
+                {
+                    "type": "assistant",
+                    "message": {
+                        "role": "assistant",
+                        "model": "claude-latest",
+                        "content": "LATEST",
+                    },
+                },
+            ],
+            "claude-latest",
+        ),
+        "copilot": (
+            [
+                {"type": "session.model_change", "data": {"newModel": "copilot-first"}},
+                {
+                    "type": "session.model_change",
+                    "data": {"newModel": "copilot-latest"},
+                },
+            ],
+            "copilot-latest",
+        ),
+        "codex": (
+            [
+                {"type": "turn_context", "payload": {"model": "codex-first"}},
+                {"type": "turn_context", "payload": {"model": "codex-latest"}},
+            ],
+            "codex-latest",
+        ),
+        "pi": (
+            [
+                {
+                    "type": "message_end",
+                    "message": {
+                        "role": "assistant",
+                        "model": "pi-first",
+                        "content": "FIRST",
+                    },
+                },
+                {
+                    "type": "message_end",
+                    "message": {
+                        "role": "assistant",
+                        "model": "pi-latest",
+                        "content": "LATEST",
+                    },
+                },
+            ],
+            "pi-latest",
+        ),
+    }
+    assert set(fixtures) == set(usage_capture.SUPPORTED_CLIS)
+
+    for cli, (events, expected_model) in fixtures.items():
+        fixture_dir = tmp_path / cli
+        fixture_dir.mkdir()
+        result = usage_capture.get_normalizer(cli).parse(
+            _write_transcript(fixture_dir, events)
+        )
+        assert result.model == expected_model
+
+
 def test_all_normalizers_preserve_totals_when_text_is_omitted(tmp_path):
     secret = "ALL_CLI_SECRET_TEXT"
     fixtures = {
@@ -1287,6 +1360,80 @@ def _run_capture(cwd, extra_args) -> subprocess.CompletedProcess:
 
 
 class TestCliEntrypointHappyPath:
+    def test_capture_persists_transcript_model_when_not_explicit(self, tmp_path):
+        transcript_path = _write_transcript(
+            tmp_path,
+            [
+                {"type": "turn_context", "payload": {"model": "gpt-5.6-sol"}},
+                {
+                    "type": "response_item",
+                    "payload": {
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "ANSWER"}],
+                    },
+                },
+            ],
+        )
+
+        result = _run_capture(
+            tmp_path,
+            [
+                "--cli",
+                "codex",
+                "--transcript",
+                str(transcript_path),
+                "--session",
+                "sess-transcript-model",
+            ],
+        )
+        assert result.returncode == 0, result.stderr
+
+        record = json.loads(
+            (tmp_path / ".agent-factory" / "usage" / "sess-transcript-model.jsonl")
+            .read_text()
+            .splitlines()[-1]
+        )
+        assert record["model"] == "gpt-5.6-sol"
+
+    def test_explicit_model_overrides_transcript_model(self, tmp_path):
+        transcript_path = _write_transcript(
+            tmp_path,
+            [
+                {"type": "turn_context", "payload": {"model": "gpt-5.6-sol"}},
+                {
+                    "type": "response_item",
+                    "payload": {
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "ANSWER"}],
+                    },
+                },
+            ],
+        )
+
+        result = _run_capture(
+            tmp_path,
+            [
+                "--cli",
+                "codex",
+                "--transcript",
+                str(transcript_path),
+                "--session",
+                "sess-explicit-model",
+                "--model",
+                "operator-selected-model",
+            ],
+        )
+        assert result.returncode == 0, result.stderr
+
+        record = json.loads(
+            (tmp_path / ".agent-factory" / "usage" / "sess-explicit-model.jsonl")
+            .read_text()
+            .splitlines()[-1]
+        )
+        assert record["model"] == "operator-selected-model"
+
     def test_concurrent_processes_reserve_distinct_evidence(self, tmp_path):
         session_id = "sess-process-race"
         gate = tmp_path / "start-gate"

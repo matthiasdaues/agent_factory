@@ -87,6 +87,22 @@ See [UC-07](../use_cases/UC-07-block-a-dangerous-git-command.md).
 
 See [UC-10](../use_cases/UC-10-invoke-a-factory-agent-under-pi.md).
 
+## `factory/scripts/usage-capture`
+
+|                   |                                                                                                              |
+| ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| Invocation        | `usage-capture --cli <claude-code\|copilot\|codex\|pi> --transcript PATH --session ID [--model MODEL] [...]` |
+| Reads             | One CLI-native transcript plus explicit invocation context                                                   |
+| Writes            | One normalized JSONL usage record and its configured transcript evidence                                     |
+| Model attribution | Explicit `--model` first; otherwise the latest non-empty native transcript model; otherwise null             |
+| Required coverage | A model-bearing contract fixture for every CLI registered in `SUPPORTED_CLIS`                                |
+
+See [system-use-cases.md § Usage capture attribution](../use_cases/system-use-cases.md#usage-capture-attribution).
+
+## Business Rules
+
+- **BR-036**: usage capture applies model attribution in this order: explicit invocation context, latest non-empty CLI-native transcript model, then null; registry-complete contract coverage is mandatory.
+
 ## `factory/scripts/init-factory`
 
 |               |                                                                                                                                                                                                           |

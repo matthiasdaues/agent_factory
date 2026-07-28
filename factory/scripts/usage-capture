@@ -613,9 +613,11 @@ class NormalizedTranscript:
     `normalized_input` / `normalized_output` counts are taken over. `text` is
     the full run in original order — system prompt, every turn, tool inputs
     and results, and thinking — for whole-run tokenizing and the persisted
-    transcript copy. The four `reported_*` totals and `usage_granularity` are
-    `full` when any per-message `usage` was seen and left `None` (the "none"
-    case: no reported breakdown exists to characterize) when none was.
+    transcript copy. `model` is the latest non-empty model identifier exposed
+    by the CLI-native stream. The four `reported_*` totals and
+    `usage_granularity` are `full` when any per-message `usage` was seen and
+    left `None` (the "none" case: no reported breakdown exists to
+    characterize) when none was.
     """
 
     input_text: str
@@ -626,6 +628,7 @@ class NormalizedTranscript:
     reported_cache_read: Optional[int] = None
     reported_cache_write: Optional[int] = None
     usage_granularity: Optional[str] = None
+    model: Optional[str] = None
 
     @property
     def text(self) -> str:
@@ -729,6 +732,7 @@ class ClaudeCodeNormalizer:
         outputs: list = []
         reported = {name: 0 for name in _USAGE_KEYS.values()}
         saw_usage = False
+        model: Optional[str] = None
 
         raw = Path(transcript_path).read_text(encoding="utf-8")
         for line in raw.splitlines():
@@ -747,6 +751,9 @@ class ClaudeCodeNormalizer:
             if not isinstance(message, dict):
                 message = obj  # tolerate a top-level shape (e.g. system lines)
             role = message.get("role") or obj.get("type")
+            value = message.get("model")
+            if role == "assistant" and isinstance(value, str) and value:
+                model = value
 
             content = message.get("content")
             blocks = content if isinstance(content, list) else [content]
@@ -776,6 +783,7 @@ class ClaudeCodeNormalizer:
             input_text="\n".join(inputs),
             output_text="\n".join(outputs),
             ordered_segments=ordered,
+            model=model,
         )
         if saw_usage:
             result.reported_input = reported["reported_input"]
@@ -833,6 +841,7 @@ class CopilotNormalizer:
         outputs: list[str] = []
         reported = {field_name: 0 for field_name in self._USAGE_FIELDS.values()}
         saw_usage = False
+        model: Optional[str] = None
 
         raw = Path(transcript_path).read_text(encoding="utf-8")
         for line in raw.splitlines():
@@ -846,6 +855,10 @@ class CopilotNormalizer:
             data = event.get("data")
             if not isinstance(event_type, str) or not isinstance(data, dict):
                 continue
+            if event_type == "session.model_change":
+                value = data.get("newModel")
+                if isinstance(value, str) and value:
+                    model = value
 
             segments = self._event_segments(event_type, data)
             ordered.extend(segments)
@@ -865,6 +878,7 @@ class CopilotNormalizer:
             input_text="\n".join(inputs),
             output_text="\n".join(outputs),
             ordered_segments=ordered,
+            model=model,
         )
         if saw_usage:
             result.reported_input = reported["reported_input"]
@@ -936,6 +950,7 @@ class CodexNormalizer:
         inputs: list[str] = []
         outputs: list[str] = []
         latest_usage: Optional[dict] = None
+        model: Optional[str] = None
 
         for line in Path(transcript_path).read_text(encoding="utf-8").splitlines():
             try:
@@ -948,7 +963,11 @@ class CodexNormalizer:
             if not isinstance(payload, dict):
                 continue
 
-            if event.get("type") == "response_item":
+            if event.get("type") == "turn_context":
+                value = payload.get("model")
+                if isinstance(value, str) and value:
+                    model = value
+            elif event.get("type") == "response_item":
                 direction, segments = self._response_segments(payload)
                 ordered.extend(segments)
                 (outputs if direction == _OUTPUT else inputs).extend(segments)
@@ -967,6 +986,7 @@ class CodexNormalizer:
             input_text="\n".join(inputs),
             output_text="\n".join(outputs),
             ordered_segments=ordered,
+            model=model,
         )
         if latest_usage is not None:
             for key, field_name in self._USAGE_FIELDS.items():
@@ -1032,6 +1052,7 @@ class PiNormalizer:
         outputs: list[str] = []
         reported = {field_name: 0 for field_name in self._USAGE_FIELDS.values()}
         saw_usage = False
+        model: Optional[str] = None
 
         for line in Path(transcript_path).read_text(encoding="utf-8").splitlines():
             try:
@@ -1047,6 +1068,9 @@ class PiNormalizer:
             if isinstance(message, dict):
                 segments = self._message_segments(message)
                 direction = _OUTPUT if message.get("role") == "assistant" else _INPUT
+                value = message.get("model")
+                if direction == _OUTPUT and isinstance(value, str) and value:
+                    model = value
                 usage = message.get("usage")
                 if event_type == "message_end" and isinstance(usage, dict):
                     saw_usage = True
@@ -1071,6 +1095,7 @@ class PiNormalizer:
             input_text="\n".join(inputs),
             output_text="\n".join(outputs),
             ordered_segments=ordered,
+            model=model,
         )
         if saw_usage:
             for field_name, value in reported.items():
@@ -1363,7 +1388,7 @@ def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> bool
                     parent_session_id=args.parent_session_id,
                     depth=args.depth,
                     agent=args.agent,
-                    model=args.model,
+                    model=args.model or transcript.model,
                     reported_input=transcript.reported_input,
                     reported_output=transcript.reported_output,
                     reported_cache_read=transcript.reported_cache_read,
