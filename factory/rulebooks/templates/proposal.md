@@ -1,6 +1,6 @@
 ---
 title: Feature Proposal Template
-version: 1.1.0
+version: 2.0.0
 ---
 
 # Feature Proposal Template
@@ -11,20 +11,36 @@ Skeleton for a single `factory/docs/proposals/<name>.md` file.
 
 ```yaml
 ---
+schema_version: 2
 title: <Feature Name>
 status: open                       # draft | open | accepted | implemented | cancelled | superseded
-size:
-  class: medium                    # small | medium | large | epic
-  effort: 5-10 person-days         # range plus an explicit unit, or unknown
-  ramifications: cross-cutting     # local | cross-cutting | architectural | ecosystem
-  prognosed_spend:
-    engineering: 5-10 person-days  # range plus an explicit unit, or unknown
-    agent: 1-2 million tokens       # range plus an explicit unit, or unknown
-    external: EUR 0-100             # currency and range, none, or unknown
 owner: <person-or-team>
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 supersedes: null                   # proposal path, or null
+
+impact:
+  scope: cross_component           # local | cross_component | cross_project
+  architecture_change: false
+  external_contract_change: true
+  boundaries:                      # tracked path with optional Markdown anchor
+    - docs/spec/supplementary_specs/interface-contracts.md#usage-record
+
+governance:
+  assurance: high                  # routine | elevated | high | critical
+  risk_domains:                    # security | privacy | data_integrity |
+    - reliability                  # compatibility | reliability | operations
+
+estimate:
+  as_of: YYYY-MM-DD
+  basis: analogous_change          # analogous_change | decomposition | judgment
+  confidence: medium               # low | medium | high
+  human_review_hours:              # or: unknown
+    min: 0.5
+    max: 1.0
+  normalized_tokens:               # or: unknown; fixed tokenizer from ADR-0007
+    min: 10000
+    max: 25000
 ---
 ```
 
@@ -38,10 +54,22 @@ Status meanings:
 - `superseded`: replaced by the proposal named in the body; use `supersedes` on
   the replacement to point back to this proposal.
 
-`size` is a forecast, not an accounting record. Update it when material new
-information changes the estimate. Use explicit units and ranges; use `unknown`
-instead of false precision. `ramifications` describes the expected blast radius,
-not implementation difficulty.
+`impact` describes reach and contract risk, not effort. `architecture_change`
+and `external_contract_change` are independent of scope. Boundary references
+use tracked paths until the project has evidence that a separate boundary
+registry is needed.
+
+`governance` classifies the assurance and risk policy that planning and review
+must apply. Feature-specific proof remains in Completion Criteria, specifications,
+story acceptance criteria, tests, findings, and review reports; proposal
+frontmatter does not introduce a parallel evidence entity.
+
+`estimate` is a dated forecast, not an accounting record or enforceable budget.
+Ranges use numeric values and satisfy `0 <= min <= max`. Human-review hours
+cover active human review, approval, and manual validation—not elapsed waiting
+time. Normalized tokens use the fixed cross-CLI tokenizer from ADR-0007 and do
+not predict provider billing. Use `unknown` instead of retrospective invention
+or false precision.
 
 # Feature Request: <Feature Name>
 

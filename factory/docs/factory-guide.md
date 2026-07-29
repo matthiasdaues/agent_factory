@@ -287,7 +287,7 @@ See [Structured Playbooks as a Deterministic Harness](proposals/playbook-structu
 
 ## Proposals
 
-A proposal is the seed brief that opens a feature-addition — the design origin the Planning phase turns into a backlog. Proposals live in `factory/docs/proposals/`, one markdown file per feature, written to the [proposal template](../rulebooks/templates/proposal.md). Its frontmatter records lifecycle status, ownership, dates, and a structured size forecast covering effort, ramifications, and prognosed engineering, agent, and external spend. Its body records the summary, motivation, design, explicit in-scope / deferred split, open questions, and completion criteria. A proposal is a design *origin*, not a runtime artifact — a shipped agent's `inputs:` must never reference it. See [feature-addition.md](../playbooks/feature-addition.md) for where a proposal enters the workflow.
+A proposal is the seed brief that opens a feature-addition — the design origin the Planning phase turns into a backlog. Proposals live in `factory/docs/proposals/`, one markdown file per feature, written to the [proposal template](../rulebooks/templates/proposal.md). Its versioned frontmatter records lifecycle, impact, governance, and dated forecasts for active human-review hours and normalized AI tokens. Forecasts remain distinct from append-only actuals and provider billing. Its body records the summary, motivation, design, explicit in-scope / deferred split, open questions, and completion criteria. A proposal is a design *origin*, not a runtime artifact — a shipped agent's `inputs:` must never reference it. See [feature-addition.md](../playbooks/feature-addition.md) for where a proposal enters the workflow.
 
 ## Rulebooks
 
