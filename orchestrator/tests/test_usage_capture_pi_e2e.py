@@ -1124,6 +1124,77 @@ await shutdown({{type:'session_shutdown'}}, ctx);
     assert _diagnostics(tmp_path) == []
 
 
+def test_BUG_0006_UC_10_root_record_uses_model_conf_canonical_id(tmp_path):
+    _init(tmp_path)
+    env = os.environ.copy()
+    started, gate = _install_gated_capture(tmp_path, env)
+    # Pi's session file reports the provider-native model id (e.g.
+    # `z-ai/glm-5.2`), but model.conf stores the canonical row value with the
+    # OpenRouter prefix (`openrouter/z-ai/glm-5.2`). The subagent path passes
+    # the model.conf id via --model, so its record carries the canonical id;
+    # the root path must attribute the same canonical id so usage can be grouped
+    # by `model` across both paths instead of splitting one model in two.
+    model_conf = tmp_path / "config" / "model.conf"
+    model_conf.parent.mkdir(parents=True, exist_ok=True)
+    model_conf.write_text(
+        "[facts]\npi.strong = openrouter/z-ai/glm-5.2\non_missing = halt\n"
+    )
+    session_file = tmp_path / "sessions" / "pi-root-canonical.jsonl"
+    session_file.parent.mkdir(parents=True)
+    session_file.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {"type": "session", "version": 3, "id": "pi-root-canonical"}
+                ),
+                json.dumps(
+                    {
+                        "type": "message",
+                        "message": {
+                            "role": "assistant",
+                            "content": [{"type": "text", "text": "done"}],
+                            # Pi reports the bare provider id, not the
+                            # model.conf row value.
+                            "model": "z-ai/glm-5.2",
+                            "usage": {
+                                "input": 10,
+                                "output": 2,
+                                "cacheRead": 0,
+                                "cacheWrite": 0,
+                            },
+                        },
+                    }
+                ),
+            ]
+        )
+        + "\n"
+    )
+    extension = tmp_path / ".pi/extensions/capture-usage.ts"
+    exercise = tmp_path / "exercise-bug-0006-human.mjs"
+    exercise.write_text(
+        f"""
+import extension from {json.dumps(extension.as_uri())};
+let shutdown;
+extension({{on(name, handler) {{ if (name === 'session_shutdown') shutdown = handler;}}}});
+const ctx = {{cwd:{json.dumps(str(tmp_path))},sessionManager:{{
+  getSessionFile() {{ return {json.dumps(str(session_file))}; }},
+  getBranch() {{ return [
+    {{type:'message',message:{{role:'assistant',content:[{{type:'text',text:'done'}}],model:'z-ai/glm-5.2',usage:{{input:10,output:2}}}}}}
+  ]; }}
+}}}};
+await shutdown({{type:'session_shutdown'}}, ctx);
+"""
+    )
+    _run_node(exercise, cwd=tmp_path, env=env, timeout=3)
+    _wait_for(started.is_file)
+    record = _release_capture_and_assert_cleanup(tmp_path, gate, "pi-root-canonical")
+    # The root record must carry the model.conf canonical id, matching what a
+    # subagent run_agent record would emit for the same pi.strong tier — not
+    # the bare provider id Pi reports in the transcript.
+    assert record["model"] == "openrouter/z-ai/glm-5.2", record
+    assert _diagnostics(tmp_path) == []
+
+
 def test_run_agent_returns_while_capture_is_stalled(tmp_path):
     _init(tmp_path)
     _install_typebox_stub(tmp_path)
