@@ -1,3 +1,20 @@
+---
+title: "Run Playbook"
+status: open
+size:
+  class: large
+  effort: 10-30 person-days
+  ramifications: architectural
+  prognosed_spend:
+    engineering: 10-30 person-days
+    agent: unknown
+    external: none
+owner: agent-factory
+created: 2026-07-12
+updated: 2026-07-29
+supersedes:
+---
+
 # Proposal: `run-playbook` — step-at-a-time playbook execution along FSM rails
 
 ## The mental model

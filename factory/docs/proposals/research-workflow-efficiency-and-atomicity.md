@@ -1,3 +1,20 @@
+---
+title: "Research Workflow Efficiency and Atomicity"
+status: implemented
+size:
+  class: large
+  effort: 10-30 person-days
+  ramifications: cross-cutting
+  prognosed_spend:
+    engineering: 10-30 person-days
+    agent: unknown
+    external: none
+owner: agent-factory
+created: 2026-07-26
+updated: 2026-07-29
+supersedes:
+---
+
 # Feature Request: Research Workflow — Early Atomicity, Test-Count Alignment, Survey Mode, and Dispatch Economy
 
 ## Summary

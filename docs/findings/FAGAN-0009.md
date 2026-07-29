@@ -3,7 +3,7 @@ id: FAGAN-0009
 source: fagan-review
 severity: major
 category: defect
-artifact: factory/docs/design/research-survey-mode.md:3
+artifact: factory/docs/proposals/research-survey-mode.md:3
 status: resolved
 traces: [ST-0060, ST-0061, ST-0062, ST-0064, Survey Mode]
 ---

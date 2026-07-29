@@ -24,8 +24,8 @@ Clean Architecture, SOLID, maintainability, and consistency:
   `factory/agents/research-orchestrator.md`, and
   `factory/agents/research-synthesizer.md`.
 - Design and guidance:
-  `factory/docs/design/research-cli-portability-audit.md`,
-  `factory/docs/design/research-survey-mode.md`,
+  `factory/docs/proposals/research-cli-portability-audit.md`,
+  `factory/docs/proposals/research-survey-mode.md`,
   `factory/docs/factory-guide.md`, and
   `factory/docs/proposals/research-workflow-efficiency-and-atomicity.md`.
 - Workflow contracts: `factory/playbooks/research-survey.md`,
@@ -40,11 +40,11 @@ Clean Architecture, SOLID, maintainability, and consistency:
 
 ## Finding table
 
-| Finding                                                                                                                                                                                                                 | Artifact                                         | Category | Severity |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------- | -------- |
-| The mode-aware Orchestrator omitted survey outputs, the synthesizer handoff, and survey completion criteria; declare those contracts while preserving the falsification-only register requirements.                     | `factory/agents/research-orchestrator.md:17`     | Defect   | Major    |
-| The implemented survey design still said "not yet implemented" and claimed reuse of the falsification final-report schema; record the dedicated survey contracts and unchanged falsification boundary.                  | `factory/docs/design/research-survey-mode.md:3`  | Defect   | Major    |
-| The end-to-end resolver accepted traversal, absolute, and symlink references outside the survey run; canonically contain every reference below this run's `source-records/` directory and cover all three escape forms. | `orchestrator/tests/test_research_survey_e2e.py` | Defect   | Major    |
+| Finding                                                                                                                                                                                                                 | Artifact                                           | Category | Severity |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- | -------- | -------- |
+| The mode-aware Orchestrator omitted survey outputs, the synthesizer handoff, and survey completion criteria; declare those contracts while preserving the falsification-only register requirements.                     | `factory/agents/research-orchestrator.md:17`       | Defect   | Major    |
+| The implemented survey design still said "not yet implemented" and claimed reuse of the falsification final-report schema; record the dedicated survey contracts and unchanged falsification boundary.                  | `factory/docs/proposals/research-survey-mode.md:3` | Defect   | Major    |
+| The end-to-end resolver accepted traversal, absolute, and symlink references outside the survey run; canonically contain every reference below this run's `source-records/` directory and cover all three escape forms. | `orchestrator/tests/test_research_survey_e2e.py`   | Defect   | Major    |
 
 Filed as `FAGAN-0008`, `FAGAN-0009`, and `BUG-0001`; all are resolved and
 verified.

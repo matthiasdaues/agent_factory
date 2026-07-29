@@ -1,3 +1,20 @@
+---
+title: "Research Workflow CLI Portability Audit"
+status: implemented
+size:
+  class: medium
+  effort: 3-10 person-days
+  ramifications: cross-cutting
+  prognosed_spend:
+    engineering: 3-10 person-days
+    agent: unknown
+    external: none
+owner: agent-factory
+created: 2026-07-26
+updated: 2026-07-29
+supersedes:
+---
+
 # Research Workflow CLI Portability Audit
 
 Status: implemented by ST-0063.

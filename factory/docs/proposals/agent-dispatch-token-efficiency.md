@@ -1,3 +1,20 @@
+---
+title: "Agent Dispatch Token Efficiency"
+status: open
+size:
+  class: medium
+  effort: 3-10 person-days
+  ramifications: cross-cutting
+  prognosed_spend:
+    engineering: 3-10 person-days
+    agent: unknown
+    external: none
+owner: agent-factory
+created: 2026-07-12
+updated: 2026-07-29
+supersedes:
+---
+
 # Agent Dispatch Token Efficiency
 
 **Status: proposal, not adopted.** No proof-of-concept exists yet. Every mechanism below is grounded in a specific incident from the 2026-07-12 session; see [`docs/reviews/retro-2026-07-12.md`](../../../docs/reviews/retro-2026-07-12.md).

@@ -1,3 +1,20 @@
+---
+title: "Session Log Addendum"
+status: open
+size:
+  class: medium
+  effort: 3-10 person-days
+  ramifications: cross-cutting
+  prognosed_spend:
+    engineering: 3-10 person-days
+    agent: unknown
+    external: none
+owner: agent-factory
+created: 2026-07-11
+updated: 2026-07-29
+supersedes:
+---
+
 # Session Log Addendum
 
 **Status: proposal, not adopted — a proof-of-concept now exists.** The §5 first slice (instrument `spec-lint` only) is built and tested; see [§6 Proof-of-concept](#6-proof-of-concept). The mechanism is still not adopted as a default-on gate: it stays inert unless a session exports `AF_SESSION_LOG`, and no gate other than `spec-lint` is instrumented.

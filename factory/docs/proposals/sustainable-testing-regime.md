@@ -1,3 +1,20 @@
+---
+title: "Sustainable Testing Regime"
+status: open
+size:
+  class: large
+  effort: 10-30 person-days
+  ramifications: cross-cutting
+  prognosed_spend:
+    engineering: 10-30 person-days
+    agent: unknown
+    external: none
+owner: agent-factory
+created: 2026-07-22
+updated: 2026-07-29
+supersedes:
+---
+
 # Feature Request: Sustainable Testing Regime
 
 ## Summary

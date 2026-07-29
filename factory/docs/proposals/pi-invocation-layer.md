@@ -1,3 +1,20 @@
+---
+title: "Pi Invocation Layer"
+status: implemented
+size:
+  class: large
+  effort: 10-30 person-days
+  ramifications: architectural
+  prognosed_spend:
+    engineering: 10-30 person-days
+    agent: unknown
+    external: none
+owner: agent-factory
+created: 2026-07-18
+updated: 2026-07-29
+supersedes:
+---
+
 # Feature Request — Pi Invocation Layer
 
 **Status:** Input to the `feature-addition` playbook (Phase 1, Requirements)

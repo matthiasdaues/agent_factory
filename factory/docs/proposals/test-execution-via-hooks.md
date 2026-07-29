@@ -1,3 +1,20 @@
+---
+title: "Test Execution via Hooks"
+status: implemented
+size:
+  class: medium
+  effort: 3-10 person-days
+  ramifications: cross-cutting
+  prognosed_spend:
+    engineering: 3-10 person-days
+    agent: unknown
+    external: none
+owner: agent-factory
+created: 2026-07-12
+updated: 2026-07-29
+supersedes:
+---
+
 # Implementation Strategy: Test Execution via Hooks
 
 **Principle**: Creation is agentic, validation is deterministic and MUST be triggered mechanically through unavoidable hooks.

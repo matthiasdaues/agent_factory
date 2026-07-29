@@ -1,3 +1,20 @@
+---
+title: "Factory CLI Security Hardening"
+status: open
+size:
+  class: epic
+  effort: 30+ person-days
+  ramifications: ecosystem
+  prognosed_spend:
+    engineering: 30+ person-days
+    agent: unknown
+    external: unknown
+owner: agent-factory
+created: 2026-07-28
+updated: 2026-07-29
+supersedes:
+---
+
 # Proposal: Factory CLI Security Hardening
 
 ## Summary

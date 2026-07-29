@@ -1,3 +1,20 @@
+---
+title: "Structured Playbooks as a Deterministic Harness"
+status: open
+size:
+  class: large
+  effort: 10-30 person-days
+  ramifications: architectural
+  prognosed_spend:
+    engineering: 10-30 person-days
+    agent: unknown
+    external: none
+owner: agent-factory
+created: 2026-07-11
+updated: 2026-07-29
+supersedes:
+---
+
 # Structured Playbooks as a Deterministic Harness
 
 **Status: proposal, not adopted; a proof of concept now exists.** Recommends a direction and a first step; decides nothing. The [Proof of concept](#proof-of-concept) below implements the smallest viable slice — it proves the mechanism but does not turn the gate chain on for every project.

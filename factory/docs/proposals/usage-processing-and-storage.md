@@ -1,3 +1,20 @@
+---
+title: "Usage Processing and Persistent Storage"
+status: open
+size:
+  class: epic
+  effort: 30+ person-days
+  ramifications: architectural
+  prognosed_spend:
+    engineering: 30+ person-days
+    agent: unknown
+    external: unknown
+owner: agent-factory
+created: 2026-07-28
+updated: 2026-07-29
+supersedes:
+---
+
 # Feature Request: Usage Processing and Persistent Storage
 
 ## Summary

@@ -1,7 +1,24 @@
+---
+title: "Survey/Synthesis Research Mode"
+status: implemented
+size:
+  class: large
+  effort: 10-30 person-days
+  ramifications: cross-cutting
+  prognosed_spend:
+    engineering: 10-30 person-days
+    agent: unknown
+    external: none
+owner: agent-factory
+created: 2026-07-26
+updated: 2026-07-29
+supersedes:
+---
+
 # Design Spec: Survey/Synthesis Research Mode
 
 Status: implemented by ST-0060 through ST-0064. Derived from the
-[research-workflow-efficiency-and-atomicity](../proposals/research-workflow-efficiency-and-atomicity.md)
+[research-workflow-efficiency-and-atomicity](research-workflow-efficiency-and-atomicity.md)
 proposal, Change 3.
 
 ## Purpose
