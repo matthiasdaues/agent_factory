@@ -1,3 +1,48 @@
+---
+title: Feature Proposal Template
+version: 1.1.0
+---
+
+# Feature Proposal Template
+
+Skeleton for a single `factory/docs/proposals/<name>.md` file.
+
+## Frontmatter
+
+```yaml
+---
+title: <Feature Name>
+status: open                       # draft | open | accepted | implemented | cancelled | superseded
+size:
+  class: medium                    # small | medium | large | epic
+  effort: 5-10 person-days         # range plus an explicit unit, or unknown
+  ramifications: cross-cutting     # local | cross-cutting | architectural | ecosystem
+  prognosed_spend:
+    engineering: 5-10 person-days  # range plus an explicit unit, or unknown
+    agent: 1-2 million tokens       # range plus an explicit unit, or unknown
+    external: EUR 0-100             # currency and range, none, or unknown
+owner: <person-or-team>
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+supersedes: null                   # proposal path, or null
+---
+```
+
+Status meanings:
+
+- `draft`: incomplete and not yet ready for review.
+- `open`: ready for review; no implementation commitment has been made.
+- `accepted`: approved as an input to planning and implementation.
+- `implemented`: its accepted scope and completion criteria have been delivered.
+- `cancelled`: intentionally closed without implementation.
+- `superseded`: replaced by the proposal named in the body; use `supersedes` on
+  the replacement to point back to this proposal.
+
+`size` is a forecast, not an accounting record. Update it when material new
+information changes the estimate. Use explicit units and ranges; use `unknown`
+instead of false precision. `ramifications` describes the expected blast radius,
+not implementation difficulty.
+
 # Feature Request: <Feature Name>
 
 <!--
