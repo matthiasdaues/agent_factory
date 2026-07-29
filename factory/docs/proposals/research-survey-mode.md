@@ -1,18 +1,34 @@
 ---
+schema_version: 2
 title: "Survey/Synthesis Research Mode"
 status: implemented
-size:
-  class: large
-  effort: 10-30 person-days
-  ramifications: cross-cutting
-  prognosed_spend:
-    engineering: 10-30 person-days
-    agent: unknown
-    external: none
 owner: agent-factory
 created: 2026-07-26
 updated: 2026-07-29
 supersedes:
+
+impact:
+  scope: cross_component
+  architecture_change: false
+  external_contract_change: true
+  boundaries:
+    - factory/playbooks/research-survey.md
+    - factory/rulebooks/schemas/research-survey-plan.schema.json
+    - factory/rulebooks/schemas/research-survey-report.schema.json
+
+governance:
+  assurance: high
+  risk_domains:
+    - compatibility
+    - data_integrity
+    - reliability
+
+estimate:
+  as_of: 2026-07-29
+  basis: judgment
+  confidence: low
+  human_review_hours: unknown
+  normalized_tokens: unknown
 ---
 
 # Design Spec: Survey/Synthesis Research Mode

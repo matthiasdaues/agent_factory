@@ -1,18 +1,32 @@
 ---
+schema_version: 2
 title: "Falsification-Driven Research Playbook"
 status: implemented
-size:
-  class: large
-  effort: 10-30 person-days
-  ramifications: cross-cutting
-  prognosed_spend:
-    engineering: 10-30 person-days
-    agent: unknown
-    external: none
 owner: agent-factory
 created: 2026-07-21
 updated: 2026-07-29
 supersedes:
+
+impact:
+  scope: cross_component
+  architecture_change: true
+  external_contract_change: true
+  boundaries:
+    - factory/playbooks/research-topic.md
+    - factory/rulebooks/schemas/research-brief.schema.json
+
+governance:
+  assurance: high
+  risk_domains:
+    - data_integrity
+    - reliability
+
+estimate:
+  as_of: 2026-07-29
+  basis: judgment
+  confidence: low
+  human_review_hours: unknown
+  normalized_tokens: unknown
 ---
 
 # Feature Request: Falsification-Driven Research Playbook

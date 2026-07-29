@@ -1,18 +1,35 @@
 ---
+schema_version: 2
 title: "Token Usage Tracking"
 status: implemented
-size:
-  class: large
-  effort: 10-30 person-days
-  ramifications: architectural
-  prognosed_spend:
-    engineering: 10-30 person-days
-    agent: unknown
-    external: none
 owner: agent-factory
 created: 2026-07-21
 updated: 2026-07-29
 supersedes:
+
+impact:
+  scope: cross_project
+  architecture_change: true
+  external_contract_change: true
+  boundaries:
+    - factory/scripts/usage-capture
+    - docs/spec/supplementary_specs/interface-contracts.md
+
+governance:
+  assurance: critical
+  risk_domains:
+    - compatibility
+    - data_integrity
+    - privacy
+    - reliability
+    - security
+
+estimate:
+  as_of: 2026-07-29
+  basis: judgment
+  confidence: low
+  human_review_hours: unknown
+  normalized_tokens: unknown
 ---
 
 # Feature Request: Token Usage Tracking

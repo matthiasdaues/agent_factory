@@ -1,18 +1,34 @@
 ---
+schema_version: 2
 title: "Research Workflow Efficiency and Atomicity"
 status: implemented
-size:
-  class: large
-  effort: 10-30 person-days
-  ramifications: cross-cutting
-  prognosed_spend:
-    engineering: 10-30 person-days
-    agent: unknown
-    external: none
 owner: agent-factory
 created: 2026-07-26
 updated: 2026-07-29
 supersedes:
+
+impact:
+  scope: cross_component
+  architecture_change: false
+  external_contract_change: true
+  boundaries:
+    - factory/rulebooks/conventions/dispatch-contract.md
+    - factory/playbooks/research-topic.md
+    - factory/playbooks/research-survey.md
+
+governance:
+  assurance: high
+  risk_domains:
+    - data_integrity
+    - reliability
+    - operations
+
+estimate:
+  as_of: 2026-07-29
+  basis: judgment
+  confidence: low
+  human_review_hours: unknown
+  normalized_tokens: unknown
 ---
 
 # Feature Request: Research Workflow — Early Atomicity, Test-Count Alignment, Survey Mode, and Dispatch Economy

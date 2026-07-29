@@ -1,18 +1,35 @@
 ---
+schema_version: 2
 title: "Usage Processing and Persistent Storage"
 status: open
-size:
-  class: epic
-  effort: 30+ person-days
-  ramifications: architectural
-  prognosed_spend:
-    engineering: 30+ person-days
-    agent: unknown
-    external: unknown
 owner: agent-factory
 created: 2026-07-28
 updated: 2026-07-29
 supersedes:
+
+impact:
+  scope: cross_project
+  architecture_change: true
+  external_contract_change: true
+  boundaries:
+    - factory/scripts/usage-capture
+    - docs/spec/supplementary_specs/interface-contracts.md
+
+governance:
+  assurance: critical
+  risk_domains:
+    - data_integrity
+    - operations
+    - privacy
+    - reliability
+    - security
+
+estimate:
+  as_of: 2026-07-29
+  basis: judgment
+  confidence: low
+  human_review_hours: unknown
+  normalized_tokens: unknown
 ---
 
 # Feature Request: Usage Processing and Persistent Storage

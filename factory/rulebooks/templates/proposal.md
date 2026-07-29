@@ -24,7 +24,7 @@ impact:
   architecture_change: false
   external_contract_change: true
   boundaries:                      # tracked path with optional Markdown anchor
-    - docs/spec/supplementary_specs/interface-contracts.md#usage-record
+    - docs/spec/supplementary_specs/interface-contracts.md
 
 governance:
   assurance: high                  # routine | elevated | high | critical

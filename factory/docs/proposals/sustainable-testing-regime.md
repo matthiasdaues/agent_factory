@@ -1,18 +1,32 @@
 ---
+schema_version: 2
 title: "Sustainable Testing Regime"
 status: open
-size:
-  class: large
-  effort: 10-30 person-days
-  ramifications: cross-cutting
-  prognosed_spend:
-    engineering: 10-30 person-days
-    agent: unknown
-    external: none
 owner: agent-factory
 created: 2026-07-22
 updated: 2026-07-29
 supersedes:
+
+impact:
+  scope: cross_component
+  architecture_change: false
+  external_contract_change: false
+  boundaries:
+    - factory/rulebooks/conventions/testing-strategy.md
+    - factory/scripts/run-tests
+
+governance:
+  assurance: elevated
+  risk_domains:
+    - reliability
+    - operations
+
+estimate:
+  as_of: 2026-07-29
+  basis: judgment
+  confidence: low
+  human_review_hours: unknown
+  normalized_tokens: unknown
 ---
 
 # Feature Request: Sustainable Testing Regime

@@ -1,18 +1,32 @@
 ---
+schema_version: 2
 title: "Session Log Addendum"
 status: open
-size:
-  class: medium
-  effort: 3-10 person-days
-  ramifications: cross-cutting
-  prognosed_spend:
-    engineering: 3-10 person-days
-    agent: unknown
-    external: none
 owner: agent-factory
 created: 2026-07-11
 updated: 2026-07-29
 supersedes:
+
+impact:
+  scope: cross_component
+  architecture_change: false
+  external_contract_change: true
+  boundaries:
+    - factory/scripts/_session_log.py
+    - factory/scripts/spec-lint
+
+governance:
+  assurance: high
+  risk_domains:
+    - data_integrity
+    - reliability
+
+estimate:
+  as_of: 2026-07-29
+  basis: judgment
+  confidence: low
+  human_review_hours: unknown
+  normalized_tokens: unknown
 ---
 
 # Session Log Addendum

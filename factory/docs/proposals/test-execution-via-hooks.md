@@ -1,18 +1,32 @@
 ---
+schema_version: 2
 title: "Test Execution via Hooks"
 status: implemented
-size:
-  class: medium
-  effort: 3-10 person-days
-  ramifications: cross-cutting
-  prognosed_spend:
-    engineering: 3-10 person-days
-    agent: unknown
-    external: none
 owner: agent-factory
 created: 2026-07-12
 updated: 2026-07-29
 supersedes:
+
+impact:
+  scope: cross_component
+  architecture_change: true
+  external_contract_change: false
+  boundaries:
+    - factory/scripts/run-tests
+    - factory/config/pre-commit-config.yaml
+
+governance:
+  assurance: high
+  risk_domains:
+    - reliability
+    - operations
+
+estimate:
+  as_of: 2026-07-29
+  basis: judgment
+  confidence: low
+  human_review_hours: unknown
+  normalized_tokens: unknown
 ---
 
 # Implementation Strategy: Test Execution via Hooks
