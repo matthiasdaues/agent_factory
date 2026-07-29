@@ -8,7 +8,7 @@ evaluation: none
 
 ## Context
 
-`config/model.conf` is an operator-curated, per-CLI tier router: a tier (`economy`, `standard`, `strong`) either has a concrete model configured for the active CLI or it does not, and `on_missing = halt` stops a run rather than guess. Only `copilot.*` rows exist today. Adding Pi means adding `pi.economy`, `pi.standard`, and `pi.strong`.
+`config/model.conf` is an operator-curated, per-CLI tier router: a tier (`economy`, `standard`, `strong`) either has a concrete model configured for the active CLI or it does not, and `on_missing = halt` stops a run rather than guess. It currently carries three CLI tier blocks: `copilot.*` and `codex.*` resolved directly by their native runtimes, and `pi.*` routed through OpenRouter per this decision (`pi.economy`, `pi.standard`, `pi.strong`).
 
 Pi is being pointed at OpenRouter, which exposes hundreds of models across many providers through one endpoint, `https://openrouter.ai/api/v1/models`, each row carrying an ID, context length, and per-token pricing. Two questions follow: what concrete model does each Pi tier resolve to, and how does an operator discover and keep those choices current as OpenRouter's catalog churns?
 
