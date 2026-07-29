@@ -1072,7 +1072,7 @@ class PiNormalizer:
                 if direction == _OUTPUT and isinstance(value, str) and value:
                     model = value
                 usage = message.get("usage")
-                if event_type == "message_end" and isinstance(usage, dict):
+                if event_type in ("message_end", "message") and isinstance(usage, dict):
                     saw_usage = True
                     for key, field_name in self._USAGE_FIELDS.items():
                         value = usage.get(key)
