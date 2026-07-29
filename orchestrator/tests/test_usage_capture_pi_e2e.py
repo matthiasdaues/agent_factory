@@ -1,5 +1,9 @@
 """Pi lifecycle transition and installed-entry smoke tests."""
 
+# Existing result-inspection tests intentionally assert return codes after
+# subprocess completion; new calls state check=False explicitly.
+# ruff: noqa: PLW1510
+
 from __future__ import annotations
 
 import json
@@ -74,6 +78,15 @@ def _wait_for(predicate, timeout: float = 10) -> None:
             return
         time.sleep(0.02)
     assert predicate(), "condition did not become true before timeout"
+
+
+def _pid_is_live(pid: int) -> bool:
+    """Treat a reaped process or Linux zombie as terminated."""
+    try:
+        state = Path(f"/proc/{pid}/stat").read_text().split()[2]
+        return state != "Z"
+    except FileNotFoundError:
+        return False
 
 
 def _wait_for_terminal_capture(target: Path) -> None:
@@ -276,6 +289,274 @@ if (result.details?.error) throw new Error(JSON.stringify(result));
         timeout=timeout,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_BUG_0004_UC_10_run_agent_streams_more_than_64_mib(tmp_path):
+    target = tmp_path / "consumer"
+    target.mkdir()
+    _init_git_repo(target)
+    _init(target)
+    _install_typebox_stub(target)
+    capture_runtime = target / "factory/scripts/usage-capture-runtime"
+    real_capture_runtime = capture_runtime.with_name("usage-capture-runtime-real")
+    capture_runtime.rename(real_capture_runtime)
+    captured_size = target / "captured-raw-size"
+    capture_runtime.write_text(
+        "#!/usr/bin/env python3\n"
+        "import os, pathlib, sys\n"
+        "source = pathlib.Path(sys.argv[sys.argv.index('--transcript') + 1])\n"
+        f"pathlib.Path({str(captured_size)!r}).write_text(str(source.stat().st_size))\n"
+        f"os.execv({str(real_capture_runtime)!r}, [{str(real_capture_runtime)!r}, *sys.argv[1:]])\n"
+    )
+    capture_runtime.chmod(0o755)
+
+    bin_dir = target / "test-bin"
+    bin_dir.mkdir()
+    pi = bin_dir / "pi"
+    pi.write_text(
+        """#!/usr/bin/env node
+import {writeSync} from 'node:fs';
+const payload = JSON.stringify({type:'message_update',delta:'x'.repeat(32 * 1024)}) + '\\n';
+for (let i = 0; i < 2100; i++) {
+  writeSync(1, payload);
+}
+const final = JSON.stringify({type:'message_end',message:{role:'assistant',content:[{type:'text',text:'streamed result'}],usage:{input:11,output:5}}}) + '\\n';
+for (let offset = 0; offset < final.length; offset += 7) {
+  writeSync(1, final.slice(offset, offset + 7));
+}
+"""
+    )
+    pi.chmod(0o755)
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}:{env['PATH']}"
+    env.pop("PI_AGENT_FACTORY_SESSION_ID", None)
+    env.pop("PI_RUN_AGENT_DEPTH", None)
+    env.pop("PI_AGENT_FACTORY_USAGE_ROOT", None)
+
+    extension = target / ".pi/extensions/run-agent.ts"
+    script = target / "exercise-large-run-agent.mjs"
+    script.write_text(
+        f"""
+import extension from {json.dumps(extension.as_uri())};
+let tool;
+extension({{registerTool(value) {{ tool = value; }}}});
+let updateCount = 0;
+let largestUpdate = 0;
+const result = await tool.execute(
+  'call-large',
+  {{agent:'developer-agent', task:'large', model:'test/model'}},
+  undefined,
+  update => {{
+    updateCount++;
+    largestUpdate = Math.max(largestUpdate, JSON.stringify(update).length);
+  }},
+  {{
+    cwd:{json.dumps(str(target))},
+    sessionManager:{{getSessionFile() {{ return '/sessions/pi-human-parent.jsonl'; }}}},
+  }},
+);
+if (result.details?.error) throw new Error(JSON.stringify(result));
+if (result.content[0].text !== 'streamed result') throw new Error(JSON.stringify(result));
+if (updateCount < 2 || largestUpdate > 4096) throw new Error(JSON.stringify({{updateCount, largestUpdate}}));
+"""
+    )
+    result = subprocess.run(
+        ["node", "--experimental-strip-types", str(script)],
+        cwd=target,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=90,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+    usage_dir = target / ".agent-factory/usage"
+    runtime = target / ".agent-factory/usage-runtime"
+    if not (runtime / ".requirements-sha256").is_file():
+        # Usage capture is explicitly best-effort when offline initialization
+        # could not provision its runtime; the streamed agent result above
+        # must remain successful in that state.
+        assert not list(usage_dir.glob("pi-*.jsonl"))
+        return
+    _wait_for(lambda: len(list(usage_dir.glob("pi-*.jsonl"))) == 1, timeout=30)
+    record_path = next(usage_dir.glob("pi-*.jsonl"))
+    record = json.loads(record_path.read_text().splitlines()[0])
+    assert record["reported_input"] == 11
+    _wait_for(captured_size.is_file)
+    assert int(captured_size.read_text()) > 64 * 1024 * 1024
+
+
+def test_BUG_0004_UC_10_run_agent_cancellation_terminates_and_cleans(tmp_path):
+    target = tmp_path / "consumer"
+    target.mkdir()
+    _init_git_repo(target)
+    _init(target)
+    _install_typebox_stub(target)
+
+    started = target / "child-started"
+    child_pid = target / "child-pid"
+    descendant_pid = target / "descendant-pid"
+    spawn_count = target / "spawn-count"
+    bin_dir = target / "test-bin"
+    bin_dir.mkdir()
+    pi = bin_dir / "pi"
+    pi.write_text(
+        f"""#!/usr/bin/env node
+import {{appendFileSync, writeFileSync}} from 'node:fs';
+import {{spawn}} from 'node:child_process';
+appendFileSync({json.dumps(str(spawn_count))}, 'spawn\\n');
+writeFileSync({json.dumps(str(started))}, '');
+writeFileSync({json.dumps(str(child_pid))}, String(process.pid));
+const descendant = spawn(process.execPath, ['-e', `
+  process.on('SIGTERM', () => {{}});
+  setInterval(() => process.stdout.write('held\\\\n'), 10);
+`], {{stdio:['ignore', process.stdout, process.stderr]}});
+writeFileSync({json.dumps(str(descendant_pid))}, String(descendant.pid));
+process.on('SIGTERM', () => {{
+  // Deliberately non-cooperative: cancellation must escalate.
+}});
+setInterval(() => process.stdout.write('{{"type":"message_update"}}\\n'), 10);
+"""
+    )
+    pi.chmod(0o755)
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}:{env['PATH']}"
+
+    extension = target / ".pi/extensions/run-agent.ts"
+    script = target / "exercise-cancelled-run-agent.mjs"
+    script.write_text(
+        f"""
+import {{existsSync}} from 'node:fs';
+import extension from {json.dumps(extension.as_uri())};
+let tool;
+extension({{registerTool(value) {{ tool = value; }}}});
+const controller = new AbortController();
+const startedAt = Date.now();
+const timer = setInterval(() => {{
+  if (existsSync({json.dumps(str(started))})) {{
+    clearInterval(timer);
+    controller.abort();
+  }}
+}}, 10);
+const result = await tool.execute(
+  'call-cancel',
+  {{agent:'developer-agent', task:'cancel', model:'test/model'}},
+  controller.signal,
+  undefined,
+  {{cwd:{json.dumps(str(target))}}},
+);
+clearInterval(timer);
+const elapsedMs = Date.now() - startedAt;
+if (!result.details?.error || !String(result.details.reason).includes('cancelled')) {{
+  throw new Error(JSON.stringify(result));
+}}
+if (elapsedMs > 2000) throw new Error(`cancellation took ${{elapsedMs}}ms`);
+"""
+    )
+    try:
+        result = subprocess.run(
+            ["node", "--experimental-strip-types", str(script)],
+            cwd=target,
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=3,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert spawn_count.read_text().splitlines() == ["spawn"]
+        pids = [int(pid_file.read_text()) for pid_file in (child_pid, descendant_pid)]
+        _wait_for(lambda: not any(_pid_is_live(pid) for pid in pids), timeout=1)
+        assert not list((target / ".agent-factory/usage/.capture").iterdir())
+        assert not list((target / ".agent-factory/usage").glob("pi-*.jsonl"))
+    finally:
+        # A red implementation can orphan both deliberately non-cooperative
+        # processes. Keep the regression itself bounded and self-cleaning.
+        for pid_file in (child_pid, descendant_pid):
+            if pid_file.is_file():
+                try:
+                    os.kill(int(pid_file.read_text()), 9)
+                except ProcessLookupError:
+                    pass
+
+
+def test_FAGAN_0010_UC_10_cancellation_destroy_fallback_settles_pipes(tmp_path):
+    target = tmp_path / "consumer"
+    target.mkdir()
+    _init_git_repo(target)
+    _init(target)
+    _install_typebox_stub(target)
+
+    started = target / "child-started"
+    escaped_pid = target / "escaped-descendant-pid"
+    bin_dir = target / "test-bin"
+    bin_dir.mkdir()
+    pi = bin_dir / "pi"
+    pi.write_text(
+        f"""#!/usr/bin/env node
+import {{writeFileSync}} from 'node:fs';
+import {{spawn}} from 'node:child_process';
+const escaped = spawn(process.execPath, ['-e', `
+  process.on('SIGTERM', () => {{}});
+  setInterval(() => process.stdout.write('held\\\\n'), 10);
+`], {{detached:true, stdio:['ignore', process.stdout, process.stderr]}});
+writeFileSync({json.dumps(str(escaped_pid))}, String(escaped.pid));
+writeFileSync({json.dumps(str(started))}, '');
+process.on('SIGTERM', () => {{}});
+setInterval(() => process.stdout.write('{{"type":"message_update"}}\\n'), 10);
+"""
+    )
+    pi.chmod(0o755)
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}:{env['PATH']}"
+
+    extension = target / ".pi/extensions/run-agent.ts"
+    script = target / "exercise-destroy-fallback.mjs"
+    script.write_text(
+        f"""
+import {{existsSync}} from 'node:fs';
+import extension from {json.dumps(extension.as_uri())};
+let tool;
+extension({{registerTool(value) {{ tool = value; }}}});
+const controller = new AbortController();
+const timer = setInterval(() => {{
+  if (existsSync({json.dumps(str(started))})) {{
+    clearInterval(timer);
+    controller.abort();
+  }}
+}}, 10);
+const startedAt = Date.now();
+const result = await tool.execute(
+  'call-destroy-fallback',
+  {{agent:'developer-agent', task:'cancel', model:'test/model'}},
+  controller.signal,
+  undefined,
+  {{cwd:{json.dumps(str(target))}}},
+);
+clearInterval(timer);
+if (!result.details?.cancelled) throw new Error(JSON.stringify(result));
+if (Date.now() - startedAt > 1500) throw new Error('pipe fallback exceeded bound');
+"""
+    )
+    try:
+        result = subprocess.run(
+            ["node", "--experimental-strip-types", str(script)],
+            cwd=target,
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=2,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert not list((target / ".agent-factory/usage/.capture").iterdir())
+    finally:
+        if escaped_pid.is_file():
+            try:
+                os.kill(int(escaped_pid.read_text()), 9)
+            except ProcessLookupError:
+                pass
 
 
 def _install_gated_capture(target: Path, env: dict[str, str]) -> tuple[Path, Path]:

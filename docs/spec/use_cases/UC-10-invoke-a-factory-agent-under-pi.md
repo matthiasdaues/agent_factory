@@ -30,7 +30,14 @@ The calling Pi session invokes the model-callable tool `run_agent(agent, task, m
 3. The extension resolves the model: the `model` argument if given, else `config/model.conf` `pi.<agent-tier>` (the tier read from the agent's own frontmatter), honoring `on_missing`.
 4. The extension spawns a separate `pi` subprocess in the project directory — ephemeral (`--no-session`), project trust granted (`-a`), JSON event stream (`--mode json`), the resolved `--model`, the agent file appended as the system prompt (`--append-system-prompt`), and the `task` as the single prompt (`-p`).
 5. The child loads the project `AGENTS.md`, the factory skills, and the guardrail extension — a full factory citizen in a context that never received the caller's conversation.
-6. The child runs to completion; the extension reads its `message_end` event, extracts the final text and token usage, and returns them as the tool result.
+6. While the child runs, the extension streams its JSONL stdout to a protected
+   capture file, parses complete events incrementally across arbitrary byte
+   chunks, retains bounded parser and stderr-tail state, and reports bounded
+   progress updates to the caller.
+7. The child runs to completion; the extension reads its final assistant
+   `message_end` event, extracts the final text and token usage, hands the
+   complete raw file to best-effort usage capture, and returns the result
+   without waiting for capture persistence.
 
 ## Extensions
 
@@ -42,11 +49,21 @@ The calling Pi session invokes the model-callable tool `run_agent(agent, task, m
   - 4a1. The extension reads the spawn-depth environment variable it sets on each child; beyond the fixed bound it refuses to spawn and returns an error, so a child cannot fan out unbounded nested subagents (BR-035).
 - **6a. The child exits non-zero or emits no `message_end`**
   - 6a1. The tool returns an error result carrying the child's exit code and the tail of its stderr, never a silent empty string.
+- **6b. The caller cancels the invocation**
+  - 6b1. The extension sends `SIGTERM` to the spawned process group, escalates
+    to `SIGKILL` after a fixed grace period, bounds pipe drain, removes its
+    staging file, and returns a distinct cancellation diagnostic without
+    retrying the ambiguous task.
+- **7a. Usage capture staging or registration fails**
+  - 7a1. The extension cleans any staging it still owns and returns the child
+    result unchanged; telemetry failure never fails or delays the agent result.
 
 ## Postconditions
 
 - **Success Guarantee**: the caller receives the subagent's final text and token usage from a `pi` session that never received the caller's conversation; the child saved no session state.
-- **Minimal Guarantee**: on any resolution, recursion, or spawn error, no partial session is left running and the tool returns a diagnostic result.
+- **Minimal Guarantee**: on any resolution, recursion, spawn, or cancellation
+  error, no partial child session or bridge-owned staging file is left running,
+  and the tool returns a diagnostic result.
 
 ## Business Rules
 
@@ -55,6 +72,10 @@ The calling Pi session invokes the model-callable tool `run_agent(agent, task, m
 - **BR-032**: the child layers the agent persona with `--append-system-prompt`, not `--system-prompt`, keeping Pi's own tool guidance and the project `AGENTS.md`.
 - **BR-033**: the child inherits the git-safety guardrail, since it loads `.pi/extensions/`; subagents are bound by the same dangerous-command block and the single sanctioned `factory/scripts/run-tests --staged` allow.
 - **BR-034**: `run_agent` returns structured JSON parsed from `--mode json` `message_end`, exposing token usage and tool-call detail, not only final text.
+- **BR-034a**: `run_agent` consumes the JSON event stream asynchronously and
+  incrementally, reports bounded progress, retains bounded non-result state,
+  and gives the complete raw stream to best-effort usage capture without
+  assembling it in memory.
 - **BR-035**: a fixed recursion-depth bound caps nested `run_agent` spawns; the parent records depth in an environment variable the child reads.
 
 ## Activity Diagram
@@ -69,9 +90,12 @@ flowchart TD
     E -->|yes| G{depth within bound?}
     G -->|no| H[Error result, no spawn — BR-035]
     G -->|yes| I[Spawn pi --no-session -a --mode json --model m --append-system-prompt agent -p task]
-    I --> J{child exits 0 with message_end?}
-    J -->|no| K[Error result: exit code + stderr tail]
-    J -->|yes| L[Return final text + token usage]
+    I --> J[Stream raw JSONL to protected staging; parse events and report progress]
+    J --> K{cancelled?}
+    K -->|yes| L[Terminate child; clean staging; return abort diagnostic]
+    K -->|no| M{child exits 0 with message_end?}
+    M -->|no| N[Error result: exit code + bounded stderr tail]
+    M -->|yes| O[Hand raw file to best-effort capture; return final text + token usage]
 ```
 
 ## Acceptance Criteria
@@ -87,6 +111,21 @@ Feature: Invoke a factory agent under Pi via run_agent
     Then a separate pi subprocess runs the agent persona over the task
     And the child session never received the caller's conversation
     And run_agent returns the child's final text and token usage
+
+  Scenario: A verbose child streams more than 64 MiB
+    Given the child emits a valid JSONL stream larger than 64 MiB
+    And JSON events can cross arbitrary stdout chunk boundaries
+    When the caller invokes run_agent
+    Then run_agent reports bounded progress while the child runs
+    And returns the final assistant message without a buffer overflow
+    And hands the complete raw JSONL stream to best-effort usage capture
+
+  Scenario: The caller cancels a running child
+    Given run_agent has spawned a child and staged part of its JSONL stream
+    When the caller cancels the tool invocation
+    Then the child and descendants holding its pipes are terminated within a bounded interval
+    And its staging file is removed
+    And run_agent does not retry the task
 
   Scenario: An unknown agent is rejected before any subprocess spawns
     When the caller invokes run_agent with agent "does-not-exist"
