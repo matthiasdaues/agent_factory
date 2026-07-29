@@ -9,6 +9,9 @@ disable-model-invocation: true
 
 Resolve ambiguity through an adversarial interview. This skill is a **branch selector** — pick the style, then run it.
 
+For a feature-addition, the target is its proposal in
+`factory/docs/proposals/`. All branches amend that proposal in place.
+
 ## Select the branch
 
 | Context                                        | Branch              | Action                                                       |
@@ -25,7 +28,12 @@ Use the **Socratic Method** with **MECE**. Ask at most 3 questions at a time. Ke
 
 ## Rules (all branches)
 
-- Collect every open item in `docs/spec/todo.md`.
+- During proposal clarification, collect open items in the proposal's Open
+  Questions section. Use `docs/spec/todo.md` only for unresolved work discovered
+  while maintaining an existing specification.
 - Match `docs/CONTEXT.md` domain vocabulary.
 - Never accept "it should just work" — demand specifics.
 - Every question gets a recommended answer, even lightweight ones.
+- Do not create a parallel interview record or design brief.
+- A decision-complete `draft` becomes `open`; only a stakeholder can make it
+  `accepted`.

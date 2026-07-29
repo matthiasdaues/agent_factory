@@ -20,7 +20,7 @@ agents:
     description: Capture a project vision, clarify requirements through adversarial interview, and produce a complete specification.
     path: agents/requirements-agent.md
     tokens: 590
-    total_tokens: 3441
+    total_tokens: 3595
   - name: spec-review-agent
     title: Specification Review Agent
     phase: 1
@@ -146,7 +146,7 @@ skills:
     category: requirements
     description: Selects and runs the right requirements-clarification interview — Socratic (inline), grill-me (greenfield), or grill-with-docs (brownfield).
     path: skills/clarify-requirements/SKILL.md
-    tokens: 337
+    tokens: 427
   - name: derive-spec
     category: requirements
     description: Derive the full specification chain from a PRD — actor-goal list, persona use cases, system use cases, supplementary specs.
@@ -156,12 +156,12 @@ skills:
     category: requirements
     description: Interview the user relentlessly about a plan or design until reaching shared understanding, resolving each branch of the decision tree. Use when user wants to stress-test a plan, get grilled on their design, or mentions "grill me".
     path: skills/grill-me/SKILL.md
-    tokens: 79
+    tokens: 100
   - name: grill-with-docs
     category: requirements
     description: Grilling session that challenges your plan against the existing domain model, sharpens terminology, and updates documentation (docs/CONTEXT.md, ADRs) inline as decisions crystallise. Use when user wants to stress-test a plan against their project's language and documented decisions.
     path: skills/grill-with-docs/SKILL.md
-    tokens: 99
+    tokens: 142
   - name: inspect-spec
     category: requirements
     description: Two-pass specification review — deterministic spec-lint then LLM semantic inspection. Files findings as local markdown files.
@@ -251,7 +251,7 @@ skills:
     category: utility
     description: Relentless interview to sharpen a plan or design until reaching shared understanding. Use when the user wants to stress-test a plan, get grilled on their design, or mentions "grill me".
     path: skills/grilling/SKILL.md
-    tokens: 190
+    tokens: 382
   - name: init-factory
     category: utility
     description: Wire Agent Factory into a project — new or existing — by running the deterministic init-factory script and relaying its result. Invoked explicitly, never automatically.
@@ -374,8 +374,8 @@ playbooks:
       - implementation-agent
       - reconciliation-agent
       - qa-agent
-    tokens: 1253
-    total_tokens: 34097
+    tokens: 1706
+    total_tokens: 34704
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -393,7 +393,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 1691
-    total_tokens: 35498
+    total_tokens: 35652
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -454,7 +454,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 1982
+    tokens: 2057
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md

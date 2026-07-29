@@ -80,6 +80,11 @@ agent (an agent's `inputs:` must point at tracked, shipped artifacts, not at a
 proposal). Keep it decision-complete: a reader should be able to plan a backlog
 from it without re-deriving the design.
 
+Clarification and grilling amend this file directly. They may move a
+decision-complete proposal from `draft` to `open`, but stakeholder acceptance is
+the only transition to `accepted`. Material changes after acceptance return it
+to `open` for reacceptance.
+
 Fill every section; delete a section only if it genuinely does not apply, and
 say why. Delete these comments in the finished proposal.
 -->
