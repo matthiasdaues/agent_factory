@@ -15,6 +15,7 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0005 | [OpenRouter tiers curated into `model.conf`; discovery is a separate offline aid](adr/0005-openrouter-model-discovery-for-model-conf.md)                   | accepted | none        |
 | 0006 | [Research: flat prefixed rulebook storage and a schema → policy → semantic validation pipeline](adr/0006-research-flat-storage-and-validation-pipeline.md) | accepted | none        |
 | 0007 | [Normalize runtime usage through CLI adapters into local append-only records](adr/0007-normalize-runtime-usage-through-cli-adapters.md)                    | accepted | none        |
+| 0008 | [Separate proposal impact, governance, estimates, and actuals](adr/0008-separate-proposal-impact-governance-estimates-and-actuals.md)                      | accepted | none        |
 
 ## Key Decisions
 
@@ -54,6 +55,15 @@ provider counts support cost reconciliation. Append-only local JSONL and linked
 transcript copies are the MVP backend; the orchestrator does not duplicate
 CLI-owned capture. Root and child records follow each platform's conservation
 semantics so attribution is not added twice to an inclusive root.
+
+### Proposal Effort Forecasting and Calibration
+
+**ADR-0008** separates proposal impact, governance, and dated forecasts from
+append-only actual accounting. Human-review hours represent active human
+attention rather than elapsed time; normalized tokens remain ADR-0007's
+cross-CLI comparison metric rather than a provider-cost estimate. Future
+actuals reference the proposal path and accepted full Git SHA outside the
+proposal, preserving the original forecast for calibration.
 
 ## Superseded Decisions
 

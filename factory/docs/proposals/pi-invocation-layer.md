@@ -1,3 +1,35 @@
+---
+schema_version: 2
+title: "Pi Invocation Layer"
+status: implemented
+owner: agent-factory
+created: 2026-07-18
+updated: 2026-07-29
+supersedes:
+
+impact:
+  scope: cross_project
+  architecture_change: true
+  external_contract_change: true
+  boundaries:
+    - factory/config/extensions/run-agent.ts
+    - factory/config/extensions/dispatch-wave.ts
+
+governance:
+  assurance: high
+  risk_domains:
+    - compatibility
+    - reliability
+    - operations
+
+estimate:
+  as_of: 2026-07-29
+  basis: judgment
+  confidence: low
+  human_review_hours: unknown
+  normalized_tokens: unknown
+---
+
 # Feature Request — Pi Invocation Layer
 
 **Status:** Input to the `feature-addition` playbook (Phase 1, Requirements)

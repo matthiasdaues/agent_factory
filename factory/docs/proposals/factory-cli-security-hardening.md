@@ -1,3 +1,36 @@
+---
+schema_version: 2
+title: "Factory CLI Security Hardening"
+status: open
+owner: agent-factory
+created: 2026-07-28
+updated: 2026-07-29
+supersedes:
+
+impact:
+  scope: cross_project
+  architecture_change: true
+  external_contract_change: true
+  boundaries:
+    - factory/config/hooks/block-dangerous-git.sh
+    - factory/scripts/commit-safe
+
+governance:
+  assurance: critical
+  risk_domains:
+    - security
+    - privacy
+    - data_integrity
+    - operations
+
+estimate:
+  as_of: 2026-07-29
+  basis: judgment
+  confidence: low
+  human_review_hours: unknown
+  normalized_tokens: unknown
+---
+
 # Proposal: Factory CLI Security Hardening
 
 ## Summary

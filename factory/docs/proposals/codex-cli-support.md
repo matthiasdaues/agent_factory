@@ -1,3 +1,35 @@
+---
+schema_version: 2
+title: "Codex CLI Support"
+status: implemented
+owner: agent-factory
+created: 2026-07-24
+updated: 2026-07-29
+supersedes:
+
+impact:
+  scope: cross_project
+  architecture_change: true
+  external_contract_change: true
+  boundaries:
+    - factory/scripts/init-factory
+    - factory/config/hooks/capture-codex-usage.sh
+
+governance:
+  assurance: high
+  risk_domains:
+    - compatibility
+    - reliability
+    - security
+
+estimate:
+  as_of: 2026-07-29
+  basis: judgment
+  confidence: low
+  human_review_hours: unknown
+  normalized_tokens: unknown
+---
+
 # Feature Request — Codex CLI Support
 
 **Status:** Implemented

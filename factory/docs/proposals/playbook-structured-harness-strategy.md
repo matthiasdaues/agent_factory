@@ -1,3 +1,36 @@
+---
+schema_version: 2
+title: "Structured Playbooks as a Deterministic Harness"
+status: open
+owner: agent-factory
+created: 2026-07-11
+updated: 2026-07-29
+supersedes:
+
+impact:
+  scope: cross_component
+  architecture_change: true
+  external_contract_change: false
+  boundaries:
+    - factory/playbooks/greenfield-development.fsm.yml
+    - factory/scripts/phase
+    - factory/scripts/transition-lint
+
+governance:
+  assurance: high
+  risk_domains:
+    - data_integrity
+    - reliability
+    - operations
+
+estimate:
+  as_of: 2026-07-29
+  basis: judgment
+  confidence: low
+  human_review_hours: unknown
+  normalized_tokens: unknown
+---
+
 # Structured Playbooks as a Deterministic Harness
 
 **Status: proposal, not adopted; a proof of concept now exists.** Recommends a direction and a first step; decides nothing. The [Proof of concept](#proof-of-concept) below implements the smallest viable slice — it proves the mechanism but does not turn the gate chain on for every project.

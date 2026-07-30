@@ -52,6 +52,52 @@ export function activeSessionId(sessionManager?: PiSessionManager): string {
   return fallbackSessionId;
 }
 
+/** Map a Pi-reported model id to its canonical model.conf row value.
+ *
+ * Pi's session file and live stream report the provider-native model id
+ * (e.g. `z-ai/glm-5.2`), which may or may not carry the OpenRouter prefix
+ * that model.conf stores as the row value (`openrouter/z-ai/glm-5.2`). The
+ * subagent path passes the model.conf id via `--model`, so its record carries
+ * the canonical id; the root path must attribute the same canonical id so
+ * usage can be grouped by `model` across both paths instead of splitting one
+ * model in two.
+ *
+ * Reads `config/model.conf` under *root* and returns the `pi.*` row value
+ * whose configured id matches *reported* exactly, or whose configured id
+ * shares the same final path segment (the part after the last `/`) as
+ * *reported*. Returns *reported* unchanged when no `pi.*` row matches, so
+ * attribution never goes null for a model configured outside model.conf.
+ */
+export function canonicalPiModel(root: string, reported: string | undefined): string | undefined {
+  if (!reported) return reported;
+  const confPath = join(root, "config", "model.conf");
+  let text: string;
+  try {
+    text = readFileSync(confPath, "utf-8");
+  } catch {
+    return reported;
+  }
+  const reportedSuffix = reported.split("/").pop() ?? reported;
+  let exact: string | undefined;
+  let suffix: string | undefined;
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("pi.") || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq < 0) continue;
+    const value = trimmed.slice(eq + 1).trim();
+    if (!value) continue;
+    if (value === reported) {
+      exact = value;
+      break;
+    }
+    if (!suffix && (value.split("/").pop() ?? value) === reportedSuffix) {
+      suffix = value;
+    }
+  }
+  return exact ?? suffix ?? reported;
+}
+
 /**
  * Resolve one persistent consumer root for the complete Pi process tree.
  *

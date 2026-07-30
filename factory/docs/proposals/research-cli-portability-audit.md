@@ -1,3 +1,35 @@
+---
+schema_version: 2
+title: "Research Workflow CLI Portability Audit"
+status: implemented
+owner: agent-factory
+created: 2026-07-26
+updated: 2026-07-29
+supersedes:
+
+impact:
+  scope: cross_project
+  architecture_change: false
+  external_contract_change: true
+  boundaries:
+    - factory/rulebooks/conventions/dispatch-contract.md
+    - factory/playbooks/research-topic.md
+    - factory/playbooks/research-survey.md
+
+governance:
+  assurance: elevated
+  risk_domains:
+    - compatibility
+    - reliability
+
+estimate:
+  as_of: 2026-07-29
+  basis: judgment
+  confidence: low
+  human_review_hours: unknown
+  normalized_tokens: unknown
+---
+
 # Research Workflow CLI Portability Audit
 
 Status: implemented by ST-0063.

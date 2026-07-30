@@ -44,39 +44,16 @@ rollout phases.)
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import os
-import shutil
 import subprocess
-import sys
 import time
 import uuid
-from importlib.machinery import SourceFileLoader
 from pathlib import Path
 
-import pytest
-
 _ROOT = Path(__file__).resolve().parents[2]
-_FACTORY_ROOT = _ROOT
-_HOOK_SCRIPT = _FACTORY_ROOT / "factory" / "config" / "hooks" / "capture-usage.sh"
+_HOOK_SCRIPT = _ROOT / "factory" / "config" / "hooks" / "capture-usage.sh"
 _INIT = _ROOT / "factory/scripts/init-factory"
-_loader = SourceFileLoader("init_factory_claude_e2e", str(_INIT))
-_spec = importlib.util.spec_from_loader(_loader.name, _loader)
-init_factory = importlib.util.module_from_spec(_spec)
-sys.modules[_loader.name] = init_factory
-_loader.exec_module(init_factory)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def _provision_source_checkout_runtime():
-    """The source-hook tests still exercise the production offline launcher."""
-    runtime = _ROOT / init_factory.USAGE_RUNTIME
-    assert init_factory.provision_usage_runtime(_ROOT, [])
-    init_factory.initialize_usage_lifecycle(_ROOT, [])
-    yield
-    shutil.rmtree(runtime, ignore_errors=True)
-    shutil.rmtree(_ROOT / ".agent-factory/usage-control", ignore_errors=True)
 
 
 def _make_unique_session_id(base: str = "session") -> str:
@@ -215,15 +192,53 @@ def _poll_usage_file(
     return None
 
 
+def _hermetic_project(tmp_path: Path) -> tuple[Path, Path]:
+    """Build a throwaway git project with Factory installed for hook tests.
+
+    The Stop/SubagentStop hook resolves ``factory/scripts/usage-capture-runtime``
+    from ``CLAUDE_PROJECT_DIR`` and runs the project-owned runtime venv, so the
+    target must have Factory installed (``init-factory``) and a git repo for the
+    hook's branch/commit enrichment. Writing into ``tmp_path`` keeps the test
+    hermetic: no records land in the real checkout's ``.agent-factory/usage/``.
+    """
+    project = tmp_path / "project"
+    project.mkdir()
+    subprocess.run(
+        ["git", "init", "-b", "main"], cwd=project, check=True, capture_output=True
+    )
+    (project / "seed").write_text("seed\n")
+    subprocess.run(["git", "add", "seed"], cwd=project, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "user.name=Test",
+            "commit",
+            "-m",
+            "seed",
+        ],
+        cwd=project,
+        check=True,
+        capture_output=True,
+    )
+    result = subprocess.run(
+        [str(_INIT), "--target", str(project), "--source", str(_ROOT)],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    return project, project / ".agent-factory" / "usage"
+
+
 class TestHookE2E:
     """End-to-end hook tests: feed Stop/SubagentStop JSON to the hook script."""
 
     def test_stop_hook_appends_well_formed_record_and_transcript_copy(self, tmp_path):
         """Drive a transcript through the hook path and assert record + copy."""
-        # Use factory root as project dir. .agent-factory/ is git-ignored, so this
-        # test remains hermetic (doesn't pollute tracked files).
-        project_dir = _FACTORY_ROOT
-        usage_dir = project_dir / ".agent-factory" / "usage"
+        project_dir, usage_dir = _hermetic_project(tmp_path)
 
         # Create a fixture transcript with per-message usage.
         transcript_path = _make_transcript_with_usage(tmp_path)
@@ -234,8 +249,8 @@ class TestHookE2E:
             transcript_path, session_id, hook_event_name="Stop"
         )
 
-        # Invoke the hook with CLAUDE_PROJECT_DIR set to factory root.
-        # Also set cwd to project_dir so usage-capture writes to the right place.
+        # Invoke the hook against the throwaway project so capture writes only
+        # into its .agent-factory/usage/, never the real checkout.
         result = subprocess.run(
             [str(_HOOK_SCRIPT)],
             input=payload,
@@ -318,8 +333,7 @@ class TestHookE2E:
         self, tmp_path
     ):
         """Official payload points at main and child transcripts separately."""
-        project_dir = _FACTORY_ROOT
-        usage_dir = project_dir / ".agent-factory" / "usage"
+        project_dir, usage_dir = _hermetic_project(tmp_path)
 
         parent_transcript = _make_single_assistant_transcript(
             tmp_path / "parent.jsonl",

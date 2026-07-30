@@ -1,3 +1,34 @@
+---
+schema_version: 2
+title: "Session Log Addendum"
+status: open
+owner: agent-factory
+created: 2026-07-11
+updated: 2026-07-29
+supersedes:
+
+impact:
+  scope: cross_component
+  architecture_change: false
+  external_contract_change: true
+  boundaries:
+    - factory/scripts/_session_log.py
+    - factory/scripts/spec-lint
+
+governance:
+  assurance: high
+  risk_domains:
+    - data_integrity
+    - reliability
+
+estimate:
+  as_of: 2026-07-29
+  basis: judgment
+  confidence: low
+  human_review_hours: unknown
+  normalized_tokens: unknown
+---
+
 # Session Log Addendum
 
 **Status: proposal, not adopted — a proof-of-concept now exists.** The §5 first slice (instrument `spec-lint` only) is built and tested; see [§6 Proof-of-concept](#6-proof-of-concept). The mechanism is still not adopted as a default-on gate: it stays inert unless a session exports `AF_SESSION_LOG`, and no gate other than `spec-lint` is instrumented.

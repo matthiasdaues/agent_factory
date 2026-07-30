@@ -1,3 +1,36 @@
+---
+schema_version: 2
+title: "Run Playbook"
+status: open
+owner: agent-factory
+created: 2026-07-12
+updated: 2026-07-29
+supersedes:
+
+impact:
+  scope: cross_component
+  architecture_change: true
+  external_contract_change: false
+  boundaries:
+    - factory/playbooks/greenfield-development.fsm.yml
+    - factory/scripts/phase
+    - factory/scripts/trigger
+
+governance:
+  assurance: high
+  risk_domains:
+    - data_integrity
+    - reliability
+    - operations
+
+estimate:
+  as_of: 2026-07-29
+  basis: judgment
+  confidence: low
+  human_review_hours: unknown
+  normalized_tokens: unknown
+---
+
 # Proposal: `run-playbook` — step-at-a-time playbook execution along FSM rails
 
 ## The mental model
