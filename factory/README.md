@@ -96,6 +96,27 @@ Once the CLI greets you, pick a playbook from `factory/playbooks/` — a step-by
 
 For every other situation — a new project, an existing codebase, a bug, a feature — see the [factory guide § Playbooks](docs/factory-guide.md#playbooks) for which one fits.
 
+### Running a playbook automatically
+
+After completing the human-driven requirements phase, let the installed
+orchestrator drive the remaining agent sessions and deterministic gates:
+
+```bash
+factory/scripts/run-playbook \
+  --playbook greenfield-development \
+  --from-state PHASE_2_ARCHITECTURE \
+  --cli claude
+```
+
+It stops at human gates and records progress in
+`.agent-factory/playbook-state.yml`; re-run the same command without
+`--from-state` to resume. The launcher runs the pinned
+`agent-factory-orchestrator` package through `uvx`, without changing the
+project environment or installing a global tool. The default source is the
+exact `orchestrator-v0.1.0` Git tag. Override `AF_ORCHESTRATOR_SOURCE` with
+another exact version, a pinned Git source, or a local package path when
+testing a release. Claude and Copilot are supported dispatch backends.
+
 ## Test execution hooks
 
 Agent Factory runs tests through unavoidable hooks, not by asking agents to run them. This enforces the core principle: **creation is agentic, validation is deterministic**. Tests run automatically at three points:

@@ -1,6 +1,7 @@
 # Orchestrator
 
-The orchestrator replaces you pressing "enter" between agent sessions. Nothing more.
+The `agent-factory-orchestrator` package replaces you pressing "enter" between
+agent sessions. Nothing more.
 
 Part of [Agent Factory](../README.md). See also: [factory](../factory/README.md), [architecture docs](../docs/README.md).
 
@@ -41,7 +42,7 @@ You need a project that already has Agent Factory set up (`factory/` exists, `.p
 The requirements phase is always human-driven — the requirements agent interviews you, and the specs exist because you participated. Once specs are written and reviewed (no open `SPEC-*.md` findings), start the orchestrator from Phase 2:
 
 ```bash
-python3 orchestrator/src/run_playbook.py \
+factory/scripts/run-playbook \
   --playbook greenfield-development \
   --from-state PHASE_2_ARCHITECTURE \
   --cli claude
@@ -54,7 +55,7 @@ It will dispatch the architecture agent, wait, check the gate, dispatch the arch
 File the bug first (`docs/findings/BUG-NNNN.md`), then:
 
 ```bash
-python3 orchestrator/src/run_playbook.py \
+factory/scripts/run-playbook \
   --playbook bug-fix \
   --from-state IMPLEMENT_FIX \
   --cli claude
@@ -65,7 +66,7 @@ python3 orchestrator/src/run_playbook.py \
 Just re-run the same command without `--from-state`. The orchestrator reads the marker (`.agent-factory/playbook-state.yml`) and picks up where it left off:
 
 ```bash
-python3 orchestrator/src/run_playbook.py --playbook greenfield-development --cli claude
+factory/scripts/run-playbook --playbook greenfield-development --cli claude
 ```
 
 Kill the process at any point — the marker is the only truth, and it was written by `phase advance` before the orchestrator moved on. Nothing is lost.
@@ -98,8 +99,11 @@ uvx pytest orchestrator/tests/test_run_playbook.py -v
 
 ```
 orchestrator/
+├── pyproject.toml             # agent-factory-orchestrator package metadata
 ├── src/
-│   └── run_playbook.py       # the orchestrator (~220 lines)
+│   ├── agent_factory_orchestrator/
+│   │   └── cli.py            # canonical packaged implementation
+│   └── run_playbook.py       # compatibility launcher for authoring checkouts
 ├── tests/
 │   └── test_run_playbook.py  # 18 tests
 ├── docs/

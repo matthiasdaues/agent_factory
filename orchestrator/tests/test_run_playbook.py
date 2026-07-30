@@ -13,8 +13,16 @@ from unittest.mock import patch
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from run_playbook import main, read_marker, read_fsm_state, bootstrap_marker
+_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_ROOT / "orchestrator/src"))
+from agent_factory_orchestrator import cli as run_playbook
+
+sys.modules["run_playbook"] = run_playbook
+
+bootstrap_marker = run_playbook.bootstrap_marker
+main = run_playbook.main
+read_fsm_state = run_playbook.read_fsm_state
+read_marker = run_playbook.read_marker
 
 
 @pytest.fixture

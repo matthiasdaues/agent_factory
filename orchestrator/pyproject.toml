@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agent-factory-orchestrator"
+version = "0.1.0"
+description = "Drive Agent Factory playbooks through deterministic project gates"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+  { name = "Agent Factory contributors" },
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Build Tools",
+]
+
+[project.scripts]
+agent-factory-orchestrate = "agent_factory_orchestrator.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent_factory_orchestrator"]

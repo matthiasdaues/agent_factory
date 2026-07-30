@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+"""Invoke the versioned Agent Factory orchestrator through uvx."""
+
+from __future__ import annotations
+
+import os
+import sys
+
+DEFAULT_SOURCE = (
+    "git+https://github.com/matthiasdaues/agent_factory.git"
+    "@orchestrator-v0.1.0#subdirectory=orchestrator"
+)
+
+
+def main() -> None:
+    source = os.environ.get("AF_ORCHESTRATOR_SOURCE", DEFAULT_SOURCE)
+    os.execvp(
+        "uvx",
+        [
+            "uvx",
+            "--from",
+            source,
+            "agent-factory-orchestrate",
+            *sys.argv[1:],
+        ],
+    )
+
+
+if __name__ == "__main__":
+    main()
