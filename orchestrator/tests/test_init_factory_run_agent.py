@@ -32,7 +32,16 @@ _loader.exec_module(init_factory)
 
 
 def _run_init(target: Path) -> int:
-    return init_factory.main(["--target", str(target), "--source", str(_ROOT)])
+    return init_factory.main(
+        [
+            "--target",
+            str(target),
+            "--source",
+            str(_ROOT),
+            "--project-name",
+            "Test Project",
+        ]
+    )
 
 
 # The invocation-layer extensions init-factory symlinks into .pi/extensions/.

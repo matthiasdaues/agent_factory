@@ -57,9 +57,11 @@ mkdir my-project && cd my-project
    - `.pi/extensions/run-agent.ts` → `factory/config/extensions/run-agent.ts` (Pi's subagent mechanism — see the note below)
    - `.pi/extensions/dispatch-wave.ts` → `factory/config/extensions/dispatch-wave.ts` (Pi's parallel worktree dispatch — see the note below)
 3. **`.claude/settings.json`** — created or updated with the git-safety guardrail PreToolUse hook
-4. **`config/model.conf`** — copied (not symlinked) as a starter; you customize this per project
+4. **Project configuration** — `config/model.conf` is copied as a starter, and
+   `config/project.json` stores the stable generated project UUID plus the
+   project name explicitly requested during initialization
 5. **`.pre-commit-config.yaml`** — the one tracked change. Agent Factory's gates are added as a `- repo: local` block whose hook ids are all prefixed `agent_factory_hook-`, spliced in at the top of your `repos:` list (or written as a fresh file if you had none). Your own hooks are never touched, and the prefix makes the block extricable. An inert `.pre-commit-config.yml` is left alone — pre-commit only auto-reads `.yaml`.
-6. **`.gitignore`** — a single marker-delimited block headed `agent_factory related`, listing exactly the footprint Agent Factory adds (`factory/`, `.claude/`, `.pi/`, `.agent-factory/`, `config/model.conf`, `AGENTS.md` when init-factory created it, session ephemera, and the specific `.github/*` entries). Note it ignores those `.github` entries **individually** — never all of `.github`, so your Actions workflows stay tracked.
+6. **`.gitignore`** — a single marker-delimited block headed `agent_factory related`, listing exactly the footprint Agent Factory adds (`factory/`, `.claude/`, `.pi/`, `.agent-factory/`, `config/model.conf`, `config/project.json`, `AGENTS.md` when init-factory created it, session ephemera, and the specific `.github/*` entries). Note it ignores those `.github` entries **individually** — never all of `.github`, so your Actions workflows stay tracked.
 7. **`.agent-factory/factory-install.json`** — a removal manifest recording exactly what this run did, so `remove-factory` can reverse it precisely
 8. Runs `git init` if your target isn't already a git repo, then `uvx pre-commit install` to wire the hooks into git
 

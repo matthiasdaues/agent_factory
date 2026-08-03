@@ -36,7 +36,19 @@ def _isolate_external_installers(monkeypatch):
 
 
 def test_fresh_install_ships_runnable_orchestrator(tmp_path):
-    assert init_factory.main(["--target", str(tmp_path), "--source", str(_ROOT)]) == 0
+    assert (
+        init_factory.main(
+            [
+                "--target",
+                str(tmp_path),
+                "--source",
+                str(_ROOT),
+                "--project-name",
+                "Test Project",
+            ]
+        )
+        == 0
+    )
 
     command = tmp_path / "factory" / "scripts" / "run-playbook"
     assert command.is_file()

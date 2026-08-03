@@ -44,7 +44,16 @@ CAPTURE_EVENTS = init_factory.CLAUDE_CAPTURE_HOOK_EVENTS
 
 
 def _run_init(target: Path) -> int:
-    return init_factory.main(["--target", str(target), "--source", str(_ROOT)])
+    return init_factory.main(
+        [
+            "--target",
+            str(target),
+            "--source",
+            str(_ROOT),
+            "--project-name",
+            "Test Project",
+        ]
+    )
 
 
 def _hook_link(target: Path) -> Path:
@@ -244,6 +253,8 @@ class TestFreshTarget:
                     str(tmp_path),
                     "--source",
                     str(_ROOT),
+                    "--project-name",
+                    "Test Project",
                     "--usage-transcript-retention",
                     "omit",
                 ]
