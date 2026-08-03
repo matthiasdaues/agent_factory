@@ -94,8 +94,8 @@ See [UC-10](../use_cases/UC-10-invoke-a-factory-agent-under-pi.md).
 |                   |                                                                                                              |
 | ----------------- | ------------------------------------------------------------------------------------------------------------ |
 | Invocation        | `usage-capture --cli <claude-code\|copilot\|codex\|pi> --transcript PATH --session ID [--model MODEL] [...]` |
-| Reads             | One CLI-native transcript plus explicit invocation context                                                   |
-| Writes            | One normalized JSONL usage record and its configured transcript evidence                                     |
+| Reads             | One CLI-native transcript, explicit invocation context, and `config/project.json`                            |
+| Writes            | One normalized JSONL usage record with non-null `project_id` and `project_name`, plus configured evidence    |
 | Model attribution | Explicit `--model` first; otherwise the latest non-empty native transcript model; otherwise null             |
 | Required coverage | A model-bearing contract fixture for every CLI registered in `SUPPORTED_CLIS`                                |
 

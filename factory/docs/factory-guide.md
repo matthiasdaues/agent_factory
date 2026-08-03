@@ -55,6 +55,12 @@ copied beneath `.agent-factory/usage/transcripts/` and linked through
 `transcript_ref`. The existing `/.agent-factory/` ignore rule covers the whole
 runtime area.
 
+Initialization explicitly asks for a project name; non-interactive automation
+passes `--project-name`. The installer generates a stable UUID and writes both
+values to the git-ignored `config/project.json`. Every usage record contains
+the non-null `project_id` and `project_name`; rerunning initialization preserves
+them.
+
 `init-factory` prepares the tokenizer at its explicit trusted installation
 boundary before wiring capture hooks. It installs exact hash-verified wheels
 into the owner-only `.agent-factory/usage-runtime` with builds and Python
@@ -91,9 +97,10 @@ probe forward when another process already owns a candidate. Record IDs can
 therefore contain gaps after a crashed capture. Their numeric reservation
 sequence, rather than JSONL line order, determines cumulative snapshot order.
 
-`normalized_input`, `normalized_output`, and their derived total are always
-present. Provider `reported_*` fields and `usage_granularity` are nullable when
-the transcript contains no provider breakdown. Capture is best-effort: direct
+`project_id`, `project_name`, `normalized_input`, `normalized_output`, and the
+derived total are always present. Provider `reported_*` fields and
+`usage_granularity` are nullable when the transcript contains no provider
+breakdown. Capture is best-effort: direct
 invocation reports errors on stderr and returns success, while native lifecycle
 adapters may suppress those errors too. Capture failure never changes session
 completion or a tool result. `remove-factory` removes Factory-owned hook assets

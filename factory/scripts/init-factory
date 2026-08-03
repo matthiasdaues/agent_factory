@@ -77,7 +77,8 @@ Steps
      Codex uses merged `Stop`/`SubagentStop` entries in `.codex/hooks.json` and
      reports the separate `/hooks` review-and-trust activation step.
   8. Copy factory/config/model.conf to --target/config/model.conf, only if
-     absent (meant to diverge per project).
+     absent, then ask for the project name and create config/project.json with
+     that name and a stable generated UUID. Automation may pass --project-name.
   9. Pre-commit: the ONLY tracked change. If --target/.pre-commit-config.yaml
      exists, splice Agent Factory's `agent_factory_hook-*` block in beside the
      project's own hooks (merge-precommit-config). If it doesn't exist, create
@@ -167,6 +168,7 @@ GITIGNORE_END = "# <<< agent_factory related <<<"
 MANIFEST_PATH = ".agent-factory/factory-install.json"
 USAGE_RUNTIME = Path(".agent-factory/usage-runtime")
 USAGE_REQUIREMENTS = Path("factory/config/usage-runtime-requirements.txt")
+PROJECT_IDENTITY = Path("config/project.json")
 
 
 class Collision(Exception):
@@ -1028,6 +1030,48 @@ def copy_model_matrix(target: Path, install: dict, report: list[str]) -> None:
     log(report, "config/model.conf: copied in as a starter")
 
 
+def ensure_project_identity(
+    target: Path, project_name: str | None, install: dict, report: list[str]
+) -> None:
+    """Create the stable, project-local identity consumed by usage capture."""
+    path = target / PROJECT_IDENTITY
+    if path.exists():
+        try:
+            identity = json.loads(path.read_text(encoding="utf-8"))
+            uuid.UUID(identity["project_id"])
+            if (
+                not isinstance(identity["project_name"], str)
+                or not identity["project_name"].strip()
+            ):
+                raise ValueError("project_name must be a non-empty string")
+        except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+            raise Collision(f"{PROJECT_IDENTITY}: invalid project identity: {exc}")
+        log(report, f"{PROJECT_IDENTITY}: already present, identity preserved")
+        return
+
+    if project_name is None:
+        try:
+            project_name = input("Project name: ").strip()
+        except (EOFError, OSError) as exc:
+            raise Collision(
+                "project name is required; pass --project-name for non-interactive init"
+            ) from exc
+    else:
+        project_name = project_name.strip()
+    if not project_name:
+        raise Collision("project name must not be empty")
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    identity = {
+        "project_id": str(uuid.uuid4()),
+        "project_name": project_name,
+    }
+    path.write_text(json.dumps(identity, indent=2) + "\n", encoding="utf-8")
+    install["remove_paths"].append(str(PROJECT_IDENTITY))
+    install["ignore_project_identity"] = True
+    log(report, f"{PROJECT_IDENTITY}: created project identity")
+
+
 def handle_precommit(target: Path, install: dict, report: list[str]) -> None:
     dest = target / ".pre-commit-config.yaml"
     template = target / "factory" / "config" / "pre-commit-config.yaml"
@@ -1121,6 +1165,8 @@ def write_gitignore_block(target: Path, install: dict, report: list[str]) -> Non
     ]
     if install.get("ignore_model_conf"):
         entries.append("/config/model.conf")
+    if install.get("ignore_project_identity"):
+        entries.append(f"/{PROJECT_IDENTITY}")
     if install.get("ignore_root_agents"):
         entries.append("/AGENTS.md")
     for entry in sorted(install["github_ignored_entries"]):
@@ -1204,6 +1250,8 @@ def load_prior_manifest(target: Path, install: dict, report: list[str]) -> None:
     for p in prior.get("ignored_paths", []):
         if p == "/config/model.conf":
             install["ignore_model_conf"] = True
+        elif p == f"/{PROJECT_IDENTITY}":
+            install["ignore_project_identity"] = True
         elif p == "/AGENTS.md":
             install["ignore_root_agents"] = True
         elif p.startswith("/.github/"):
@@ -1433,6 +1481,11 @@ def main(argv: list[str] | None = None) -> int:
         choices=("full", "omit"),
         default=None,
     )
+    ap.add_argument(
+        "--project-name",
+        default=None,
+        help="non-empty project name (prompted for on a fresh interactive install)",
+    )
     args = ap.parse_args(argv)
 
     source_root = (args.source or Path(__file__).resolve().parents[2]).resolve()
@@ -1476,6 +1529,7 @@ def main(argv: list[str] | None = None) -> int:
             install_usage_capture(target, install, report)
         install_pi_invocation_layer(target, install, report)
         copy_model_matrix(target, install, report)
+        ensure_project_identity(target, args.project_name, install, report)
         handle_precommit(target, install, report)
         write_gitignore_block(target, install, report)
         write_manifest(target, install, report)

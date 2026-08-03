@@ -32,6 +32,27 @@ sys.modules["usage_capture"] = usage_capture
 _loader.exec_module(usage_capture)
 
 
+def _usage_record(**kwargs):
+    kwargs.setdefault("project_id", "687cf46a-25f6-4e98-9c62-278612aafd9f")
+    kwargs.setdefault("project_name", "Test Project")
+    return usage_capture.UsageRecord(**kwargs)
+
+
+@pytest.fixture(autouse=True)
+def _project_identity_config(tmp_path):
+    config = tmp_path / "config"
+    config.mkdir(exist_ok=True)
+    (config / "project.json").write_text(
+        json.dumps(
+            {
+                "project_id": "687cf46a-25f6-4e98-9c62-278612aafd9f",
+                "project_name": "Test Project",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 # ── Tokenizer ────────────────────────────────────────────────────────────
 
 
@@ -82,6 +103,8 @@ class TestTokenizer:
 # ── UsageRecord ──────────────────────────────────────────────────────────
 
 _ALL_FIELDS = {
+    "project_id",
+    "project_name",
     # correlation
     "cli",
     "session_id",
@@ -108,6 +131,8 @@ _ALL_FIELDS = {
 }
 
 _NULLABLE_BY_DEFAULT = _ALL_FIELDS - {
+    "project_id",
+    "project_name",
     "normalized_input",
     "normalized_output",
     "normalized_total",
@@ -117,7 +142,7 @@ _NULLABLE_BY_DEFAULT = _ALL_FIELDS - {
 
 class TestUsageRecordFieldPresence:
     def test_schema_contains_contract_fields_and_record_id(self):
-        record = usage_capture.UsageRecord(
+        record = _usage_record(
             record_id="sess-0001", normalized_input=3, normalized_output=5
         )
         field_names = {f.name for f in dataclasses.fields(record)}
@@ -138,17 +163,27 @@ class TestUsageRecordFieldPresence:
         }
         assert removed.isdisjoint(field_names)
 
+    def test_project_identity_is_non_nullable(self):
+        with pytest.raises((TypeError, ValueError)):
+            usage_capture.UsageRecord(
+                record_id="sess-0001",
+                project_id="",
+                project_name="",
+                normalized_input=1,
+                normalized_output=2,
+            )
+
 
 class TestNullability:
     def test_reported_and_nullable_fields_default_to_none(self):
-        record = usage_capture.UsageRecord(
+        record = _usage_record(
             record_id="sess-0001", normalized_input=1, normalized_output=2
         )
         for name in _NULLABLE_BY_DEFAULT:
             assert getattr(record, name) is None, f"{name} did not default to None"
 
     def test_normalized_defaults_are_non_null_and_nullable_values_override(self):
-        record = usage_capture.UsageRecord(
+        record = _usage_record(
             record_id="sess-0001",
             normalized_input=0,
             normalized_output=0,
@@ -163,7 +198,7 @@ class TestNullability:
 
     def test_recorded_at_comes_from_script_clock_in_utc(self):
         before = datetime.now(timezone.utc)
-        record = usage_capture.UsageRecord(
+        record = _usage_record(
             record_id="sess-0001", normalized_input=1, normalized_output=2
         )
         after = datetime.now(timezone.utc)
@@ -175,7 +210,7 @@ class TestNullability:
 
 class TestNormalizedTotalInvariant:
     def test_total_is_derived_from_input_and_output(self):
-        record = usage_capture.UsageRecord(
+        record = _usage_record(
             record_id="sess-0001", normalized_input=120, normalized_output=45
         )
         assert record.normalized_total == 165
@@ -187,7 +222,7 @@ class TestNormalizedTotalInvariant:
 
 class TestToDict:
     def test_to_dict_is_json_ready(self):
-        record = usage_capture.UsageRecord(
+        record = _usage_record(
             record_id="sess-0001",
             normalized_input=10,
             normalized_output=2,
@@ -238,7 +273,7 @@ class TestRecordIdSequencer:
 
 
 def _make_record(record_id: str, session_id: str) -> usage_capture.UsageRecord:
-    return usage_capture.UsageRecord(
+    return _usage_record(
         record_id=record_id,
         normalized_input=1,
         normalized_output=1,
@@ -1234,7 +1269,7 @@ def test_all_normalizers_preserve_totals_when_text_is_omitted(tmp_path):
         normalized = usage_capture.get_normalizer(cli).parse(
             _write_transcript(fixture_dir, events)
         )
-        record = usage_capture.UsageRecord(
+        record = _usage_record(
             record_id=f"{cli}-session-0001",
             session_id=f"{cli}-session",
             cli=cli,

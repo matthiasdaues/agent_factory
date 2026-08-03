@@ -94,7 +94,16 @@ def _snapshot(root: Path) -> dict[str, bytes]:
 
 
 def _run_init(target: Path) -> int:
-    return init_factory.main(["--target", str(target), "--source", str(_ROOT)])
+    return init_factory.main(
+        [
+            "--target",
+            str(target),
+            "--source",
+            str(_ROOT),
+            "--project-name",
+            "Test Project",
+        ]
+    )
 
 
 def _run_remove(target: Path) -> int:

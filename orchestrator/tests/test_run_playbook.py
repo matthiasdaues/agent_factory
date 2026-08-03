@@ -6,6 +6,7 @@ dispatch-check-advance loop without launching real CLI sessions.
 
 from __future__ import annotations
 
+import importlib
 import json
 import sys
 from pathlib import Path
@@ -15,7 +16,7 @@ import pytest
 
 _ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_ROOT / "orchestrator/src"))
-from agent_factory_orchestrator import cli as run_playbook
+run_playbook = importlib.import_module("agent_factory_orchestrator.cli")
 
 sys.modules["run_playbook"] = run_playbook
 

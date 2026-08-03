@@ -24,7 +24,19 @@ _loader.exec_module(init_factory)
 
 
 def _install(project: Path) -> Path:
-    assert init_factory.main(["--target", str(project), "--source", str(_ROOT)]) == 0
+    assert (
+        init_factory.main(
+            [
+                "--target",
+                str(project),
+                "--source",
+                str(_ROOT),
+                "--project-name",
+                "Test Project",
+            ]
+        )
+        == 0
+    )
     return project / ".github/hooks/capture-copilot-usage.sh"
 
 
@@ -43,7 +55,11 @@ def _transcript(path: Path, marker: str) -> Path:
 
 def _invoke(hook: Path, payload: dict) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [str(hook)], input=json.dumps(payload), text=True, capture_output=True
+        [str(hook)],
+        input=json.dumps(payload),
+        text=True,
+        capture_output=True,
+        check=False,
     )
 
 

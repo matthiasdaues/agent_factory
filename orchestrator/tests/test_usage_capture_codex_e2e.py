@@ -24,7 +24,19 @@ _loader.exec_module(init_factory)
 
 
 def _install(project: Path) -> tuple[Path, dict]:
-    assert init_factory.main(["--target", str(project), "--source", str(_ROOT)]) == 0
+    assert (
+        init_factory.main(
+            [
+                "--target",
+                str(project),
+                "--source",
+                str(_ROOT),
+                "--project-name",
+                "Test Project",
+            ]
+        )
+        == 0
+    )
     config = json.loads((project / ".codex/hooks.json").read_text())
     return project / ".codex/hooks/capture-codex-usage.sh", config
 
@@ -91,7 +103,11 @@ def _transcript(path: Path, marker: str, include_child: bool = False) -> Path:
 
 def _invoke(hook: Path, payload: dict) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [str(hook)], input=json.dumps(payload), text=True, capture_output=True
+        [str(hook)],
+        input=json.dumps(payload),
+        text=True,
+        capture_output=True,
+        check=False,
     )
 
 
