@@ -29,7 +29,7 @@
  * docs/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md.
  */
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -58,6 +58,8 @@ const DEPTH_ENV = "PI_RUN_AGENT_DEPTH";
 const DEFAULT_AGENT = "developer-agent";
 /** Where per-item worktrees are cut, under the project's git-ignored dir. */
 const WORKTREE_DIR = join(".agent-factory", "worktrees");
+/** Canonical tracked report that closes blocked waves under BR-040. */
+const BLOCKED_WAVE_REPORT = "factory/reports/dispatch-wave-blocked.md";
 
 interface ItemResult {
   branch: string;
@@ -286,6 +288,10 @@ export default function (pi: ExtensionAPI) {
         }
       }
 
+      if (results.some((result) => result.error !== null)) {
+        persistBlockedWaveReport(cwd, results);
+      }
+
       return {
         content: [
           {
@@ -456,6 +462,9 @@ function aggregateEnvelope(results: ItemResult[], doMerge: boolean): ChildResult
   }
 
   const blocked = results.some((result) => result.error !== null);
+  if (blocked && !artifactPaths.includes(BLOCKED_WAVE_REPORT)) {
+    artifactPaths.push(BLOCKED_WAVE_REPORT);
+  }
   const disposition = blocked
     ? "block"
     : envelopes.some((envelope) => envelope.disposition === "block")
@@ -479,6 +488,30 @@ function aggregateEnvelope(results: ItemResult[], doMerge: boolean): ChildResult
     artifact_paths: artifactPaths,
     next_action: nextAction,
   };
+}
+
+/** Persist bounded blocked-item diagnostics at the tracked aggregate artifact. */
+function persistBlockedWaveReport(cwd: string, results: ItemResult[]): void {
+  const blockedItems = results.filter((result) => result.error !== null);
+  const sections = blockedItems.map(
+    (result) =>
+      `## ${result.branch}\n\n` +
+      `- Agent: \`${result.agent}\`\n` +
+      `- Spawn exit: ${result.spawnExit ?? "not spawned"}\n` +
+      `- Premerge exit: ${result.premergeExit ?? "not run"}\n\n` +
+      `### Diagnostic\n\n${result.error}\n`,
+  );
+  writeFileSync(
+    join(cwd, BLOCKED_WAVE_REPORT),
+    `# Blocked dispatch wave\n\n${sections.join("\n")}\n`,
+    { encoding: "utf-8", mode: 0o600 },
+  );
+  const tracked = gitResult(cwd, ["add", "-f", "--", BLOCKED_WAVE_REPORT]);
+  if (tracked.status !== 0) {
+    throw new Error(
+      `failed to track blocked wave report: ${tracked.stderr.trim() || `exit ${tracked.status}`}`,
+    );
+  }
 }
 
 /** Keep runtime and lifecycle metadata outside the four-field envelope. */
