@@ -16,7 +16,7 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0006 | [Research: flat prefixed rulebook storage and a schema → policy → semantic validation pipeline](adr/0006-research-flat-storage-and-validation-pipeline.md) | accepted               | none        |
 | 0007 | [Normalize runtime usage through CLI adapters into local append-only records](adr/0007-normalize-runtime-usage-through-cli-adapters.md)                    | superseded by ADR-0009 | none        |
 | 0008 | [Separate proposal impact, governance, estimates, and actuals](adr/0008-separate-proposal-impact-governance-estimates-and-actuals.md)                      | accepted               | none        |
-| 0009 | [Verbatim session id as the usage-record filename when filesystem-safe](adr/0009-verbatim-usage-record-filenames-when-filesystem-safe.md)                  | accepted               | none        |
+| 0009 | [CLI-prefixed usage record filenames when filesystem-safe](adr/0009-cli-prefixed-usage-record-filenames-when-filesystem-safe.md)                           | accepted               | none        |
 
 ## Key Decisions
 
@@ -57,9 +57,10 @@ support cost reconciliation. Append-only local JSONL and linked transcript
 copies are the MVP backend; the orchestrator does not duplicate CLI-owned
 capture. Root and child records follow each platform's conservation
 semantics so attribution is not added twice to an inclusive root. **ADR-0009**
-revises the storage-naming decision: a verbatim session id is the filename
-when it is a single filesystem-safe component (mixed case allowed, so Pi root
-ids stay readable), and the `opaque-<sha256>` digest is reserved for
+revises the storage-naming decision: the session-level key is
+`<cli>_<session_id>` (record file and transcript directory), so a directory
+listing identifies which CLI produced a run; the CLI token is itself passed
+through `filesystem_key`, and the `opaque-<sha256>` digest is reserved for
 identifiers that are genuinely unsafe as a filename — the SEC-0001
 containment property is unchanged. The rest of ADR-0007's pipeline design
 remains in force.

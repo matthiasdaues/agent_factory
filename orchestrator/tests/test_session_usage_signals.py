@@ -194,7 +194,7 @@ def test_UC_11_BR_042_capture_derives_and_persists_session_signals(
     assert usage_capture._capture(args, tmp_path)
 
     record = json.loads(
-        (tmp_path / ".agent-factory/usage/session-signals.jsonl").read_text(
+        (tmp_path / ".agent-factory/usage/claude-code_session-signals.jsonl").read_text(
             encoding="utf-8"
         )
     )

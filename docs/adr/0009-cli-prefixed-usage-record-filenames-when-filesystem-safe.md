@@ -4,7 +4,7 @@ status: accepted
 evaluation: none
 ---
 
-# Verbatim session id as the usage-record filename when filesystem-safe
+# `<cli>_<session_id>` as the usage-record filename when filesystem-safe
 
 ## Context
 
@@ -41,15 +41,31 @@ verbatim, which this rule defines directly.
 
 ## Decision
 
-`filesystem_key` keeps a verbatim identifier as the filename component when
+The session-level storage key is `<cli>_<session_id>`: the record file
+is `.agent-factory/usage/<cli>_<session_id>.jsonl` and the transcript
+directory is
+`.agent-factory/usage/transcripts/<cli>_<session_id>/`. A directory listing
+therefore identifies which CLI produced a run at a glance. The CLI token is
+itself passed through `filesystem_key`, so a hypothetical hostile CLI value
+cannot redirect writes; in practice the four supported CLIs (`pi`,
+`claude-code`, `copilot`, `codex`) are all filesystem-safe and pass through
+verbatim. The `_` separator is chosen because no supported CLI id contains an
+underscore, so the CLI prefix is unambiguous and recoverable by splitting on
+the first `_`.
+
+`filesystem_key` keeps a verbatim identifier as a filename component when
 the identifier is a single **filesystem-safe** component, and digests it to
 `opaque-<sha256>` only when it is genuinely unsafe as a filename. The
 safe-component rule is `[A-Za-z0-9][A-Za-z0-9._-]{0,99}`, excluding `.`/`..`,
-the `opaque-` prefix, oversized values, and Windows device stems
-(`con`, `prn`, `aux`, `nul`, `com1-9`, `lpt1-9`) matched case-insensitively
-so allowing uppercase does not let `Com1.txt` slip through verbatim. Mixed
-case is permitted, so Pi root ids (`2026-…T…Z…`), Pi subagent ids
-(`pi-<uuid>`), and bare UUIDs all keep their readable name on disk.
+the `opaque-` prefix, oversized values, and Windows device stems (`con`,
+`prn`, `aux`, `nul`, `com1-9`, `lpt1-9`) matched case-insensitively so
+allowing uppercase does not let `Com1.txt` slip through verbatim. Mixed case
+is permitted, so Pi root ids (`2026-…T…Z…`), Pi subagent ids (`pi-<uuid>`),
+and bare UUIDs all keep their readable name on disk.
+
+The transcript leaf inside the session directory stays keyed by `record_id`
+alone (no CLI prefix): the directory already carries the CLI, and `record_id`
+is per-record (`<session_id>-NNNN`, or a UUID when no session id exists).
 
 Identifiers that are unsafe as a filename component — path separators,
 `.`/`..`, Windows device names, oversized, or non-ASCII — still map to a
@@ -57,29 +73,28 @@ fixed `opaque-<sha256>` digest, preserving the SEC-0001 containment property
 unchanged. The original identifier is retained inside the JSON record body
 regardless of which branch the path took.
 
-Existing on-disk records written under the old lowercase-only rule were
-renamed forward to verbatim names (session file, transcript directory, and
-transcript leaf), and each record's `transcript_ref.path` was rewritten to
-the new path so evidence links stay valid. The change is forward-only:
-renamed session ids are unique, so no record duplicates or collides with an
-existing file.
+Existing on-disk records were renamed forward to the `<cli>_<session_id>`
+layout (session file, transcript directory, and transcript leaf), and each
+record's `transcript_ref.path` was rewritten to the new path so evidence
+links stay valid. The change is forward-only: renamed session ids are
+unique, so no record duplicates or collides with an existing file.
 
 ## Consequences
 
 **Positive**
 
-- A directory listing of `.agent-factory/usage/` is readable: every Pi root
-  run shows its real session id, matching the subagent and bare-UUID layout.
+- A directory listing of `.agent-factory/usage/` is readable and names the
+  CLI: every record file is `<cli>_<session_id>.jsonl`, so a glance identifies
+  which CLI produced which run.
 - The cross-path model attribution from ADR-0007 (BUG-0006) is no longer
-  obscured — a glance at the filename identifies the session.
+  obscured — the filename identifies both the CLI and the session.
 - Existing evidence links remain valid after the one-time rename.
 
 **Negative / risks**
 
 - The usage directory listing is invertible: anyone who can list it sees
-  session ids and (by extension) which CLI ran. This is accepted: the
-  directory is gitignored and owner-only, and the ids were already present
-  in the record bodies.
-- Containment depends on the safe-component rule staying strict. Any
-  future loosening (e.g. admitting path separators) would reopen SEC-0001;
-  the regression suite pins the current boundary.
+  session ids and which CLI ran. This is accepted: the directory is gitignored
+  and owner-only, and the ids were already present in the record bodies.
+- Containment depends on the safe-component rule staying strict. Any future
+  loosening (e.g. admitting path separators) would reopen SEC-0001; the
+  regression suite pins the current boundary.

@@ -64,7 +64,7 @@ def _invoke(hook: Path, payload: dict) -> subprocess.CompletedProcess:
 
 
 def _wait_for_records(project: Path, session: str, count: int) -> list[dict]:
-    path = project / f".agent-factory/usage/{session}.jsonl"
+    path = project / f".agent-factory/usage/copilot_{session}.jsonl"
     for _ in range(100):
         if path.exists() and path.stat().st_size:
             records = [json.loads(line) for line in path.read_text().splitlines()]

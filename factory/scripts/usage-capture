@@ -116,13 +116,30 @@ def _write_all(fd: int, data: bytes) -> None:
 
 
 class UsageStoragePaths:
-    """Central, contained filesystem layout for opaque usage identifiers."""
+    """Central, contained filesystem layout for usage identifiers.
 
-    def __init__(self, base_dir: Union[str, Path] = ".") -> None:
+    The session-level storage key is ``<cli>_<session_id>`` so a directory
+    listing identifies which CLI produced a run; the CLI token is itself passed
+    through ``filesystem_key`` so a hypothetical hostile value cannot redirect
+    writes. When no CLI is supplied (direct/test use) the key falls back to the
+    bare ``<session_id>``.
+    """
+
+    def __init__(
+        self, base_dir: Union[str, Path] = ".", *, cli: Optional[str] = None
+    ) -> None:
         self.base_dir = Path(base_dir).resolve()
         self.agent_dir = self.base_dir / ".agent-factory"
         self.usage_dir = self.agent_dir / "usage"
         self.transcripts_dir = self.usage_dir / "transcripts"
+        self._cli = cli
+
+    def _session_key(self, session_id: object) -> str:
+        """Composite storage key: ``<cli>_<session_id>`` when a CLI is set."""
+        session_component = filesystem_key(session_id)
+        if not self._cli:
+            return session_component
+        return f"{filesystem_key(self._cli)}_{session_component}"
 
     @staticmethod
     def _ensure_directory(path: Path, *, repair: bool = True) -> None:
@@ -170,10 +187,10 @@ class UsageStoragePaths:
         self._ensure_directory(self.transcripts_dir)
 
     def session_path(self, session_id: object) -> Path:
-        return self.usage_dir / f"{filesystem_key(session_id)}.jsonl"
+        return self.usage_dir / f"{self._session_key(session_id)}.jsonl"
 
     def transcript_directory(self, session_id: object) -> Path:
-        return self.transcripts_dir / filesystem_key(session_id)
+        return self.transcripts_dir / self._session_key(session_id)
 
     def transcript_path(self, session_id: object, record_id: object) -> Path:
         return (
@@ -587,9 +604,13 @@ class JsonlLoggingAdapter:
     """
 
     def __init__(
-        self, base_dir: Union[str, Path] = ".", retention: str = "full"
+        self,
+        base_dir: Union[str, Path] = ".",
+        retention: str = "full",
+        *,
+        cli: Optional[str] = None,
     ) -> None:
-        self._storage = UsageStoragePaths(base_dir)
+        self._storage = UsageStoragePaths(base_dir, cli=cli)
         self._usage_dir = self._storage.usage_dir
         self._retention = retention
 
@@ -1541,7 +1562,7 @@ def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> bool
 
     with _pi_persistence_fence(args, base_dir) as allowed:
         if allowed:
-            storage = UsageStoragePaths(base_dir)
+            storage = UsageStoragePaths(base_dir, cli=args.cli)
             session_id = args.session_id or "unknown"
             fallback_id = None if args.session_id else str(uuid.uuid4())
             reservation = storage.reserve_transcript(session_id, fallback_id)
@@ -1576,7 +1597,7 @@ def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> bool
                 reservation.discard()
                 raise
             return JsonlLoggingAdapter(
-                base_dir=base_dir, retention=retention
+                base_dir=base_dir, retention=retention, cli=args.cli
             ).record_reserved(
                 record,
                 transcript.text,

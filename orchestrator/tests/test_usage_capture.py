@@ -407,6 +407,40 @@ class TestSecureOpaqueIdentifierStorage:
             .is_relative_to((tmp_path / ".agent-factory/usage").resolve())
         )
 
+    @pytest.mark.parametrize(
+        "cli,session_id",
+        [
+            ("pi", "2026-08-04T07-40-23-289Z_019fcbb7-6b79-746c-ab3b-f6543decb564"),
+            ("claude-code", "sess-cli-1"),
+            ("copilot", "sess-copilot"),
+            ("codex", "sess-codex"),
+        ],
+    )
+    def test_session_key_prefixes_cli_before_session_id(
+        self, tmp_path, cli, session_id
+    ):
+        # The real capture path attributes the record to a CLI, so the
+        # session file and transcript directory are `<cli>_<session_id>` —
+        # a directory listing identifies which CLI produced a run. The
+        # transcript leaf stays keyed by the record_id (no CLI prefix).
+        adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path, cli=cli)
+        record = _make_record(f"{session_id}-0001", session_id)
+        adapter.record(record, "body")
+
+        expected_key = f"{cli}_{session_id}"
+        assert (tmp_path / ".agent-factory/usage" / f"{expected_key}.jsonl").is_file()
+        assert (
+            tmp_path
+            / ".agent-factory/usage/transcripts"
+            / expected_key
+            / f"{session_id}-0001.jsonl"
+        ).is_file()
+        assert (
+            Path(record.transcript_ref.path)
+            .resolve()
+            .is_relative_to((tmp_path / ".agent-factory/usage").resolve())
+        )
+
     def test_hostile_record_id_is_mapped_independently(self, tmp_path):
         adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
         record = _make_record("../../record-escape", "sess-safe")
@@ -1455,7 +1489,12 @@ class TestCliEntrypointHappyPath:
         assert result.returncode == 0, result.stderr
 
         record = json.loads(
-            (tmp_path / ".agent-factory" / "usage" / "sess-transcript-model.jsonl")
+            (
+                tmp_path
+                / ".agent-factory"
+                / "usage"
+                / "codex_sess-transcript-model.jsonl"
+            )
             .read_text()
             .splitlines()[-1]
         )
@@ -1493,7 +1532,7 @@ class TestCliEntrypointHappyPath:
         assert result.returncode == 0, result.stderr
 
         record = json.loads(
-            (tmp_path / ".agent-factory" / "usage" / "sess-explicit-model.jsonl")
+            (tmp_path / ".agent-factory" / "usage" / "codex_sess-explicit-model.jsonl")
             .read_text()
             .splitlines()[-1]
         )
@@ -1549,7 +1588,9 @@ class TestCliEntrypointHappyPath:
 
         assert [process.returncode for process in processes] == [0] * len(processes)
         assert all(not stderr for _, stderr in results)
-        session_file = tmp_path / ".agent-factory/usage" / f"{session_id}.jsonl"
+        session_file = (
+            tmp_path / ".agent-factory/usage" / "claude-code_sess-process-race.jsonl"
+        )
         records = [json.loads(line) for line in session_file.read_text().splitlines()]
         assert len(records) == len(markers)
         assert len({record["record_id"] for record in records}) == len(markers)
@@ -1565,7 +1606,7 @@ class TestCliEntrypointHappyPath:
         reserved = (
             tmp_path
             / ".agent-factory/usage/transcripts"
-            / session_id
+            / "claude-code_sess-orphan"
             / f"{session_id}-0001.jsonl"
         )
         reserved.parent.mkdir(parents=True)
@@ -1591,7 +1632,9 @@ class TestCliEntrypointHappyPath:
         assert result.returncode == 0, result.stderr
         assert reserved.read_text() == ""
         record = json.loads(
-            (tmp_path / ".agent-factory/usage" / f"{session_id}.jsonl").read_text()
+            (
+                tmp_path / ".agent-factory/usage" / "claude-code_sess-orphan.jsonl"
+            ).read_text()
         )
         assert record["record_id"] == f"{session_id}-0002"
         assert Path(record["transcript_ref"]["path"]).read_text() == "FRESH"
@@ -1615,7 +1658,7 @@ class TestCliEntrypointHappyPath:
         assert result.returncode == 0, result.stderr
         key = usage_capture.filesystem_key(session_id)
         record = json.loads(
-            (tmp_path / ".agent-factory/usage" / f"{key}.jsonl").read_text()
+            (tmp_path / ".agent-factory/usage" / f"claude-code_{key}.jsonl").read_text()
         )
         assert record["session_id"] == session_id
         assert record["record_id"] == f"{session_id}-0001"
@@ -1638,7 +1681,9 @@ class TestCliEntrypointHappyPath:
         )
         assert result.returncode == 0, result.stderr
 
-        session_file = tmp_path / ".agent-factory" / "usage" / "sess-cli-1.jsonl"
+        session_file = (
+            tmp_path / ".agent-factory" / "usage" / "claude-code_sess-cli-1.jsonl"
+        )
         lines = session_file.read_text().splitlines()
         assert len(lines) == 1  # exactly one record per call
         record = json.loads(lines[0])
@@ -1724,7 +1769,9 @@ class TestCliEntrypointHappyPath:
         )
         assert result.returncode == 0, result.stderr
 
-        session_file = tmp_path / ".agent-factory" / "usage" / "sess-git-context.jsonl"
+        session_file = (
+            tmp_path / ".agent-factory" / "usage" / "claude-code_sess-git-context.jsonl"
+        )
         record = json.loads(session_file.read_text().splitlines()[0])
         assert record["branch"] == "capture-context"
         assert record["commit_id"] == expected_commit
@@ -1750,14 +1797,20 @@ class TestCliEntrypointHappyPath:
         assert first.returncode == 0, first.stderr
         assert second.returncode == 0, second.stderr
 
-        session_file = tmp_path / ".agent-factory" / "usage" / "sess-repeat.jsonl"
+        session_file = (
+            tmp_path / ".agent-factory" / "usage" / "claude-code_sess-repeat.jsonl"
+        )
         lines = session_file.read_text().splitlines()
         assert len(lines) == 2
         record_ids = [json.loads(line)["record_id"] for line in lines]
         assert record_ids == ["sess-repeat-0001", "sess-repeat-0002"]
 
         transcripts_dir = (
-            tmp_path / ".agent-factory" / "usage" / "transcripts" / "sess-repeat"
+            tmp_path
+            / ".agent-factory"
+            / "usage"
+            / "transcripts"
+            / "claude-code_sess-repeat"
         )
         assert len(list(transcripts_dir.iterdir())) == 2  # neither copy overwritten
 
@@ -1783,7 +1836,7 @@ class TestCliEntrypointBestEffort:
         )
         status = control / "pi-status.completion.json"
         # Force the final record append to fail after transcript reservation.
-        (tmp_path / ".agent-factory/usage/pi-status.jsonl").mkdir()
+        (tmp_path / ".agent-factory/usage/pi_pi-status.jsonl").mkdir()
 
         result = _run_capture(
             tmp_path,
