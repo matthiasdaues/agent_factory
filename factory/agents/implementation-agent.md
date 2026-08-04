@@ -10,7 +10,8 @@ description: >-
   implements one story using TDD on its own feature branch. The dispatcher
   owns wave scheduling, overlap-aware branch/merge ordering, model selection
   per story tier, and completion tracking.
-skills: []
+skills:
+  - handoff
 inputs:
   - backlog/ST-*.md
   - config/model.conf
@@ -33,7 +34,7 @@ triggers:
   - "dispatch stories"
 handoff-to:
   - reconciliation-agent
-version: 0.3.0
+version: 0.4.0
 ---
 
 # Implementation Agent (Dispatcher)
@@ -41,6 +42,29 @@ version: 0.3.0
 ## Role
 
 Resolve dependency graph and dispatch stories to **parallel developer-agent subagents** — one per story, each on its own feature branch, maximum concurrency within dependency AND file-overlap constraints. Do not implement stories directly.
+
+## Phase entry
+
+When arriving from a workflow boundary, begin in a fresh session. Read the
+handoff first and verify its Git claims. Read referenced artifacts through
+initial bounded chunks, expanding further only on demand for the current
+task. Do not replay the prior transcript. Use no in-place transcript compaction
+and no prose-only cache-restabilisation turn.
+
+## Child return
+
+When this agent runs as a child, persist its complete result in canonical
+tracked artifacts before returning. The parent-facing envelope contains only
+disposition, severity counts, and every artifact path. Include a
+one-to-three-sentence next action. Do not include verbatim finding detail or
+full reasoning.
+
+## Phase exit
+
+If the next action crosses a workflow phase boundary, invoke `handoff`. Require
+a clean `handoff-lint` result and independent semantic review, then stop the
+outgoing session without entering the next phase. Work remaining in the same
+phase is exempt and may continue in the current session.
 
 ## Branching model
 

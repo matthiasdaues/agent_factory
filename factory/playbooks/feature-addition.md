@@ -3,7 +3,7 @@ title: Feature Addition Playbook
 category: orchestration
 type: runbook
 scenario: feature-addition
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Feature Addition Playbook
@@ -18,6 +18,47 @@ Operational procedure for **adding features to existing system**.
 
 The proposal is the feature's authoritative design origin. Do not maintain a
 parallel feature request, interview record, or design brief.
+
+## Phase Boundary Contract
+
+Every transition in the table below is a Factory workflow phase boundary. The
+outgoing participant must invoke `handoff`, obtain a clean `handoff-lint`
+result and independent semantic review, then make a hard stop before doing any
+work from the next row. The incoming participant starts a fresh session and
+must read the handoff first, verify its Git state, and read referenced artifacts
+through an initial bounded chunk, expanding further only on demand. Do not
+replay a prior transcript.
+
+Before any child returns, it persists its complete reports and findings in
+canonical tracked artifacts. Its parent receives only disposition, severity
+counts, every artifact path, and a one-to-three-sentence next action; finding
+detail and full reasoning remain in the artifacts. No in-place transcript
+compaction, prose-only cache-restabilisation ritual, or live cache control is
+introduced.
+
+| Transition                                     | Route                                                 |
+| ---------------------------------------------- | ----------------------------------------------------- |
+| proposal intake → requirements-agent           | Declared impact requires specification work           |
+| proposal intake → architecture-agent           | Specification is skipped; architecture change is true |
+| proposal intake → planning-agent               | Specification and architecture are both skipped       |
+| requirements-agent → spec-review-agent         | Specification update completes                        |
+| spec-review-agent → requirements-agent         | Open specification findings require remedies          |
+| spec-review-agent → architecture-agent         | Review is clean; architecture change is true          |
+| spec-review-agent → planning-agent             | Review is clean; architecture change is false         |
+| architecture-agent → architecture-review-agent | Architecture update completes                         |
+| architecture-review-agent → architecture-agent | Open architecture findings require remedies           |
+| architecture-review-agent → planning-agent     | Architecture review is clean                          |
+| planning-agent → implementation-agent          | Backlog is approved                                   |
+| implementation-agent → reconciliation-agent    | Implementation wave completes                         |
+| reconciliation-agent → implementation-agent    | Reconciliation finds code defects                     |
+| reconciliation-agent → qa-agent                | Reconciliation is clean                               |
+| qa-agent → implementation-agent                | Quality review finds defects                          |
+| implementation-agent → qa-agent                | Quality remedies are ready for retest                 |
+
+Each listed route requires the reviewed handoff and restart even where agent
+frontmatter groups author and reviewer roles under one broader phase name.
+Work that remains inside one route's outgoing phase is exempt under
+[handoff-format.md](../rulebooks/conventions/handoff-format.md).
 
 ## Proposal Intake
 

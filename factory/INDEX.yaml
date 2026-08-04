@@ -19,8 +19,8 @@ agents:
     tier: strong
     description: Capture a project vision, clarify requirements through adversarial interview, and produce a complete specification.
     path: agents/requirements-agent.md
-    tokens: 590
-    total_tokens: 3594
+    tokens: 799
+    total_tokens: 4423
   - name: spec-review-agent
     title: Specification Review Agent
     phase: 1
@@ -28,8 +28,8 @@ agents:
     tier: strong
     description: Review the specification for consistency, completeness, and traceability using spec-lint plus semantic inspection, in a separate session from the author.
     path: agents/spec-review-agent.md
-    tokens: 607
-    total_tokens: 3056
+    tokens: 816
+    total_tokens: 3885
   - name: architecture-agent
     title: Architecture Agent
     phase: 2
@@ -37,8 +37,8 @@ agents:
     tier: strong
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
-    tokens: 865
-    total_tokens: 5584
+    tokens: 1074
+    total_tokens: 6413
   - name: architecture-review-agent
     title: Architecture Review Agent
     phase: 2
@@ -46,8 +46,8 @@ agents:
     tier: strong
     description: Review architecture against quality attributes using ATAM in a separate session from the architecture author.
     path: agents/architecture-review-agent.md
-    tokens: 589
-    total_tokens: 3133
+    tokens: 798
+    total_tokens: 3962
   - name: planning-agent
     title: Planning Agent
     phase: 3
@@ -64,8 +64,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints. Each subagent implements one story using TDD on its own feature branch. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 1686
-    total_tokens: 5829
+    tokens: 1894
+    total_tokens: 6657
   - name: reconciliation-agent
     title: Reconciliation Agent
     phase: 4
@@ -73,8 +73,8 @@ agents:
     tier: strong
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
-    tokens: 884
-    total_tokens: 6234
+    tokens: 1093
+    total_tokens: 7063
   - name: qa-agent
     title: QA Agent
     phase: 5
@@ -82,8 +82,8 @@ agents:
     tier: strong
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
-    tokens: 614
-    total_tokens: 4142
+    tokens: 823
+    total_tokens: 4971
   - name: claim-reviewer
     title: Claim Reviewer
     phase: 6
@@ -133,8 +133,8 @@ agents:
     title: Developer Agent
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
-    tokens: 495
-    total_tokens: 2327
+    tokens: 704
+    total_tokens: 3156
 
 skills:
   - name: capture-vision
@@ -329,7 +329,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1063
-    total_tokens: 9780
+    total_tokens: 11438
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -341,7 +341,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 1583
-    total_tokens: 19590
+    total_tokens: 22906
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -352,7 +352,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 777
-    total_tokens: 7246
+    total_tokens: 8904
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -364,7 +364,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 949
-    total_tokens: 19201
+    total_tokens: 22516
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -379,8 +379,8 @@ playbooks:
       - implementation-agent
       - reconciliation-agent
       - qa-agent
-    tokens: 1705
-    total_tokens: 34706
+    tokens: 2207
+    total_tokens: 41010
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -397,8 +397,8 @@ playbooks:
       - reconciliation-agent
       - qa-agent
       - coaching-agent
-    tokens: 1691
-    total_tokens: 35655
+    tokens: 2122
+    total_tokens: 41888
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -414,7 +414,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1281
-    total_tokens: 7750
+    total_tokens: 9408
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
