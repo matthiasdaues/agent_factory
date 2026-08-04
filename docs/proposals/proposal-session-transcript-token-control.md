@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: Session-transcript token control — phase-gating, cache hygiene, and agent-result compression
-status: accepted
+status: implemented
 owner: matthias
 created: 2026-08-03
 updated: 2026-08-04
@@ -75,7 +75,7 @@ Three structural facts emerge from the data, none of which the factory currently
 2. **Input per turn tracks transcript length, not task complexity.** Phase-9 turns doing similar work to phase-1 turns cost 11× more, solely because the conversation was longer. The transcript only grows; nothing in the factory's workflow compacts or truncates it between phases.
 3. **Cache misses are the single largest waste.** 21 of 189 turns had no cache hit and carried 3.32M full-rate input tokens. The session log establishes the cost but not one universal cause. The controlled follow-up experiment found different behavior for same-process tool continuations and process resumes, so cache findings must retain CLI/provider/lifecycle context.
 
-The factory already has a `token-usage-tracking` proposal (implemented) for *capturing* usage and an `agent-dispatch-token-efficiency` proposal (open) for *dispatch-side* waste (stale bases, stranded replies). Neither addresses *in-session transcript-driven waste*. This proposal fills that gap. It is complementary, not overlapping: dispatch efficiency prevents wasted *child runs*; this proposal prevents wasted *parent-session turns*.
+The factory already has a `token-usage-tracking` proposal (implemented) for *capturing* usage and an `agent-dispatch-token-efficiency` proposal (implemented) for *dispatch-side* waste (stale bases, stranded replies). Neither addresses *in-session transcript-driven waste*. This proposal fills that gap. It is complementary, not overlapping: dispatch efficiency prevents wasted *child runs*; this proposal prevents wasted *parent-session turns*.
 
 **Why now.** The retrospective that produced this data was itself the session that paid the cost. The mechanisms proposed here are not speculative — every one is evidenced by a specific turn or phase in the measured session. The cost will recur on every future multi-phase session until the factory adopts them.
 
@@ -202,3 +202,10 @@ None. Phase gating is a hard workflow contract; the first release owns a cross-C
 ## Guiding Rule
 
 A long agent session's per-turn input cost should track the work being done, not the length of the conversation that preceded it — and the factory's workflow, not the model's context window, is what keeps it that way.
+
+## Implementation Evidence
+
+[`docs/reviews/token-efficiency-completion.md`](../reviews/token-efficiency-completion.md)
+maps every accepted completion criterion exactly once to passing observable
+evidence, including the provider-qualified post-adoption retrospective that
+supports `implemented` status.
