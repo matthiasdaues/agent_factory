@@ -252,6 +252,11 @@ skills:
     description: Relentless interview to sharpen a plan or design until reaching shared understanding. Use when the user wants to stress-test a plan, get grilled on their design, or mentions "grill me".
     path: skills/grilling/SKILL.md
     tokens: 382
+  - name: handoff
+    category: utility
+    description: Create and validate a dense phase-boundary restart contract before ending the outgoing session.
+    path: skills/handoff/SKILL.md
+    tokens: 620
   - name: init-factory
     category: utility
     description: Wire Agent Factory into a project — new or existing — by running the deterministic init-factory script and relaying its result. Invoked explicitly, never automatically.
@@ -490,7 +495,7 @@ rulebooks:
   - name: handoff-format
     category: conventions
     path: rulebooks/conventions/handoff-format.md
-    tokens: 378
+    tokens: 1054
   - name: markdown-formatting
     category: conventions
     path: rulebooks/conventions/markdown-formatting.md
