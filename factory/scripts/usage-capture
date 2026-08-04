@@ -64,7 +64,11 @@ _DIRECTORY_MODE = 0o700
 _FILE_MODE = 0o600
 _RETENTION_ENV = "AGENT_FACTORY_USAGE_TRANSCRIPT_RETENTION"
 _OPAQUE_PREFIX = "opaque-"
-_LEGACY_SAFE_COMPONENT = re.compile(r"^[a-z0-9][a-z0-9._-]{0,99}$")
+# A filesystem-safe identifier keeps its verbatim name. Mixed case is allowed
+# (Pi root session ids carry uppercase ISO-8601 separators, e.g. "...T...Z");
+# only genuinely unsafe components — path separators, traversal, Windows device
+# names, oversized or non-ASCII values — fall back to a fixed digest.
+_SAFE_PATH_COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
 _WINDOWS_DEVICE_STEMS = {
     "con",
     "prn",
@@ -78,20 +82,25 @@ _WINDOWS_DEVICE_STEMS = {
 def filesystem_key(opaque_id: object) -> str:
     """Map an opaque external identifier to one safe filesystem component.
 
-    Existing bounded lowercase identifiers retain their historical layout.
-    Everything else gets a fixed-size digest name; the original value stays
-    in the JSON record and is never recovered from the pathname.
+    Filesystem-safe identifiers keep their verbatim name — mixed case is
+    allowed, so Pi's uppercase ``...T...Z...`` session ids stay readable on
+    disk (the usage directory is gitignored, so the pathname carries no
+    privacy cost); the original value is also retained inside the JSON
+    record. Identifiers that are unsafe as a filename component — path
+    separators, ``.``/``..``, Windows device names, oversized, or non-ASCII —
+    map to a fixed ``opaque-<sha256>`` digest so storage stays contained
+    beneath the usage root regardless of the input.
     """
     raw = str(opaque_id)
     stem = raw.split(".", 1)[0]
-    legacy_safe = (
-        bool(_LEGACY_SAFE_COMPONENT.fullmatch(raw))
+    safe = (
+        bool(_SAFE_PATH_COMPONENT.fullmatch(raw))
         and raw not in (".", "..")
         and not raw.startswith(_OPAQUE_PREFIX)
-        and stem not in _WINDOWS_DEVICE_STEMS
+        and stem.lower() not in _WINDOWS_DEVICE_STEMS
         and not raw.endswith((".", " "))
     )
-    if legacy_safe:
+    if safe:
         return raw
     digest = hashlib.sha256(raw.encode("utf-8", errors="surrogatepass")).hexdigest()
     return f"{_OPAQUE_PREFIX}{digest}"

@@ -333,7 +333,6 @@ class TestSecureOpaqueIdentifierStorage:
             "backslash\\name",
             "CON",
             "Com1.txt",
-            "MixedCase",
             "café",
             "e\u0301",
             "x" * 500,
@@ -376,6 +375,37 @@ class TestSecureOpaqueIdentifierStorage:
         assert (
             tmp_path / ".agent-factory/usage/transcripts/sess-safe/sess-safe-0001.jsonl"
         ).is_file()
+
+    @pytest.mark.parametrize(
+        "session_id",
+        [
+            "MixedCase",
+            # Pi root session ids carry uppercase ISO-8601 separators
+            # ("...T...Z..."); they stay verbatim so the usage directory
+            # is readable, not opaque-<sha256> digests.
+            "2026-08-04T07-40-23-289Z_019fcbb7-6b79-746c-ab3b-f6543decb564",
+        ],
+    )
+    def test_safe_mixed_case_identifiers_keep_verbatim_layout(
+        self, tmp_path, session_id
+    ):
+        adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
+        record = _make_record(f"{session_id}-0001", session_id)
+        adapter.record(record, "body")
+
+        assert usage_capture.filesystem_key(session_id) == session_id
+        assert (tmp_path / ".agent-factory/usage" / f"{session_id}.jsonl").is_file()
+        assert (
+            tmp_path
+            / ".agent-factory/usage/transcripts"
+            / session_id
+            / f"{session_id}-0001.jsonl"
+        ).is_file()
+        assert (
+            Path(record.transcript_ref.path)
+            .resolve()
+            .is_relative_to((tmp_path / ".agent-factory/usage").resolve())
+        )
 
     def test_hostile_record_id_is_mapped_independently(self, tmp_path):
         adapter = usage_capture.JsonlLoggingAdapter(base_dir=tmp_path)
