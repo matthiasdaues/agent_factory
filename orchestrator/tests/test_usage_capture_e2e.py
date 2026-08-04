@@ -16,7 +16,7 @@ lifecycle contracts are owned by `test_usage_capture.py` and
 `test_usage_capture_native_lifecycle_e2e.py`.
 
 COVERAGE CHECKLIST: Completion Criteria from the proposal
-(factory/docs/proposals/token-usage-tracking.md) map to the stories below:
+(docs/proposals/implemented/token-usage-tracking.md) map to the stories below:
 
 | Criterion | Story |
 |-----------|-------|
@@ -224,7 +224,15 @@ def _hermetic_project(tmp_path: Path) -> tuple[Path, Path]:
         capture_output=True,
     )
     result = subprocess.run(
-        [str(_INIT), "--target", str(project), "--source", str(_ROOT)],
+        [
+            str(_INIT),
+            "--target",
+            str(project),
+            "--source",
+            str(_ROOT),
+            "--project-name",
+            "Hook Test Project",
+        ],
         text=True,
         capture_output=True,
         check=False,
@@ -272,6 +280,8 @@ class TestHookE2E:
         # Assert the record is well-formed: has all required fields.
         assert record["record_id"].startswith(f"{session_id}-")
         assert record["record_id"].endswith("-0001")  # First record in this session
+        assert uuid.UUID(record["project_id"])
+        assert record["project_name"] == "Hook Test Project"
         assert record["session_id"] == session_id
         assert record["cli"] == "claude-code"
         assert record["recorded_at"].endswith("Z")

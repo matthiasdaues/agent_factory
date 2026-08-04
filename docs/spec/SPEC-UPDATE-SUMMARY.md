@@ -74,7 +74,7 @@ PRD G9 → AG-09 → UC-09
 
 ## Next Steps (Implementation)
 
-Per factory/docs/proposals/test-execution-via-hooks.md:
+Per docs/proposals/implemented/test-execution-via-hooks.md:
 
 1. Create factory/scripts/run-tests with framework detection
 2. Add pre-commit hook to factory/config/pre-commit-config.yaml
@@ -84,4 +84,4 @@ Per factory/docs/proposals/test-execution-via-hooks.md:
 
 ## Referenced Proposal
 
-- factory/docs/proposals/test-execution-via-hooks.md (implementation strategy)
+- docs/proposals/implemented/test-execution-via-hooks.md (implementation strategy)

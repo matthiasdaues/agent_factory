@@ -6,7 +6,7 @@ Terse by design (caveman). Exact names/paths/SHAs kept. Git-ignored (local hando
 
 - **All retro action items implemented and MERGED to `dev`** (merge commit `f8ca1ab`): ST-0045 `commit-safe`, ST-0046 guardrail parser, ST-0047 verify-base marker enforcement, the `git-workflow` convention, and the official proposal format. `chore/retro-improvements` was squashed → rebased → merged clean. **448 tests pass**, index-lint/backlog-lint clean.
 - **RESOLVED since the sections below were written:** the "rebase chore onto dev" step and ST-0047 are DONE; the remove-factory gap was already fixed on dev (FAGAN-0005).
-- **Still open (operator):** push `dev` (~85 ahead of origin, unpushed); branch cleanup — `chore/retro-improvements` is now merged/deletable plus the 5 leftovers; `config/model.conf` skew (uncommitted drift, yours); `factory/docs/proposals/codex-cli-support.md` (untracked, yours). See the (mostly still-accurate) "Environment gotchas" + "Open issues #3–6" below; ignore issues #1–2 (done).
+- **Still open (operator):** push `dev` (~85 ahead of origin, unpushed); branch cleanup — `chore/retro-improvements` is now merged/deletable plus the 5 leftovers; `config/model.conf` skew (uncommitted drift, yours); `docs/proposals/implemented/codex-cli-support.md` (untracked, yours). See the (mostly still-accurate) "Environment gotchas" + "Open issues #3–6" below; ignore issues #1–2 (done).
 
 ______________________________________________________________________
 

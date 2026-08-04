@@ -7,7 +7,7 @@ session-scratchpad.md
 
 # Agent Factory local run state — playbook-state.yml (harness PoC),
 # session-log.jsonl (session-log PoC). Neither is portable across
-# machines or meant to be reviewed; see factory/docs/proposals/.
+# machines or meant to be reviewed; see docs/proposals/.
 .agent-factory/
 
 # Python specific folders and files
@@ -25,6 +25,7 @@ models/
 /.pi/
 /.agent-factory/
 /session-scratchpad.md
+/config/project.json
 /AGENTS.md
 /.github/INDEX.yaml
 /.github/agents

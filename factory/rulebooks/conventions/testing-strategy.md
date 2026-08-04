@@ -77,5 +77,5 @@ identifies the revision used for this evidence, it MUST use the full
 
 ## References
 
-- [sustainable-testing-regime.md](../../docs/proposals/sustainable-testing-regime.md)
+- [sustainable-testing-regime.md](../../../docs/proposals/sustainable-testing-regime.md)
 - [rules.md § Testing](../rules.md#testing)

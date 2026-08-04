@@ -24,7 +24,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 → [proposal.md template](templates/proposal.md), [feature-addition.md](../playbooks/feature-addition.md)
 
-- **MUST** open a feature-addition from a proposal written to the [proposal template](templates/proposal.md) at `factory/docs/proposals/<name>.md` — the design origin the Planning phase consumes.
+- **MUST** open a feature-addition from a proposal written to the [proposal template](templates/proposal.md) at `docs/proposals/<name>.md` — the design origin the Planning phase consumes.
 - **MUST** clarify or grill a feature proposal in place; a decision-complete
   interview may move it from `draft` to `open`, but only stakeholder approval
   may move it to `accepted`.

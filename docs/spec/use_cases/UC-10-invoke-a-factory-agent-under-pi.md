@@ -156,4 +156,4 @@ Feature: Invoke a factory agent under Pi via run_agent
 - [actor-goal-list.md](../actor-goal-list.md)
 - [factory/config/extensions/run-agent.ts](../../../factory/config/extensions/run-agent.ts)
 - [supplementary_specs/interface-contracts.md](../supplementary_specs/interface-contracts.md)
-- [factory/docs/proposals/pi-invocation-layer.md](../../../factory/docs/proposals/pi-invocation-layer.md)
+- [docs/proposals/implemented/pi-invocation-layer.md](../../proposals/implemented/pi-invocation-layer.md)

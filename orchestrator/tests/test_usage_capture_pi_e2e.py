@@ -27,7 +27,15 @@ _REGISTRATION_ARTIFACT = re.compile(
 
 def _init(target: Path) -> None:
     result = subprocess.run(
-        [str(_INIT), "--target", str(target), "--source", str(_ROOT)],
+        [
+            str(_INIT),
+            "--target",
+            str(target),
+            "--source",
+            str(_ROOT),
+            "--project-name",
+            "Test Project",
+        ],
         text=True,
         capture_output=True,
     )
@@ -179,6 +187,8 @@ def test_omitted_transcript_keeps_totals_without_persisting_text(tmp_path):
             str(tmp_path),
             "--source",
             str(_ROOT),
+            "--project-name",
+            "Test Project",
             "--usage-transcript-retention",
             "omit",
         ],

@@ -10,7 +10,7 @@ disable-model-invocation: true
 Resolve ambiguity through an adversarial interview. This skill is a **branch selector** — pick the style, then run it.
 
 For a feature-addition, the target is its proposal in
-`factory/docs/proposals/`. All branches amend that proposal in place.
+`docs/proposals/`. All branches amend that proposal in place.
 
 ## Select the branch
 

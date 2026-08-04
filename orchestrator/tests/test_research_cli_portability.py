@@ -45,7 +45,19 @@ def installed_factory(tmp_path, monkeypatch):
         init_factory, "pre_commit_install", lambda _target, _report: None
     )
 
-    assert init_factory.main(["--target", str(tmp_path), "--source", str(_ROOT)]) == 0
+    assert (
+        init_factory.main(
+            [
+                "--target",
+                str(tmp_path),
+                "--source",
+                str(_ROOT),
+                "--project-name",
+                "Test Project",
+            ]
+        )
+        == 0
+    )
     return tmp_path
 
 

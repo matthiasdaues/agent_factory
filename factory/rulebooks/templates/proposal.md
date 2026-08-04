@@ -5,7 +5,7 @@ version: 2.0.0
 
 # Feature Proposal Template
 
-Skeleton for a single `factory/docs/proposals/<name>.md` file.
+Skeleton for a single `docs/proposals/<name>.md` file.
 
 ## Frontmatter
 

@@ -3,7 +3,7 @@ id: RECON-0008
 source: reconcile-spec
 severity: major
 category: defect
-artifact: factory/docs/proposals/token-usage-tracking.md#capture-triggers-per-cli
+artifact: docs/proposals/implemented/token-usage-tracking.md#capture-triggers-per-cli
 status: resolved
 traces: [ST-0039, ST-0040, ST-0041]
 ---

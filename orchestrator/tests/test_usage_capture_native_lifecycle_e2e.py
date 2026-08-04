@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import json
 import importlib.util
+import json
 import os
 import subprocess
 import sys
@@ -36,9 +36,18 @@ def _wait_for(predicate, timeout: float = 10) -> None:
 
 def _install(target: Path) -> None:
     result = subprocess.run(
-        [str(_INIT), "--target", str(target), "--source", str(_ROOT)],
+        [
+            str(_INIT),
+            "--target",
+            str(target),
+            "--source",
+            str(_ROOT),
+            "--project-name",
+            "Test Project",
+        ],
         text=True,
         capture_output=True,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
 
@@ -179,6 +188,7 @@ def test_FAGAN0005_native_hook_removal_reaches_selected_terminal_state(
         cwd=tmp_path,
         env=environment,
         timeout=10,
+        check=False,
     )
     assert hook_result.returncode == 0
     pending = tmp_path / ".agent-factory/usage-control/pending"
@@ -239,6 +249,7 @@ def test_FAGAN0005_native_handoff_failure_leaves_no_registration(
         capture_output=True,
         cwd=tmp_path,
         env=environment,
+        check=False,
     )
 
     assert result.returncode == 0

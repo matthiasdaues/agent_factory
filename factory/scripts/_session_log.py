@@ -8,7 +8,7 @@ By:   imported by gate scripts (e.g. spec-lint) — not run directly.
 Records one JSON Lines entry per wrapped gate run: what actually moved on disk
 (a ``git status --porcelain`` diff taken around the run), the run's own exit
 code, and — where the gate emits it — its structured summary. See
-factory/docs/proposals/session-log-addendum.md.
+docs/proposals/session-log-addendum.md.
 
 Transparency guarantee. ``record()`` is a no-op unless the ``AF_SESSION_LOG``
 environment variable names a log-file path. A session that has not opted in

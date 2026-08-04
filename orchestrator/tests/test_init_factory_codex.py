@@ -50,7 +50,16 @@ def _isolate_unrelated_installers(monkeypatch):
 
 
 def _run_init(target: Path) -> int:
-    return init_factory.main(["--target", str(target), "--source", str(_ROOT)])
+    return init_factory.main(
+        [
+            "--target",
+            str(target),
+            "--source",
+            str(_ROOT),
+            "--project-name",
+            "Test Project",
+        ]
+    )
 
 
 def _hook_commands(config: dict, event: str) -> list[str]:

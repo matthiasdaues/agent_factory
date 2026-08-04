@@ -43,9 +43,9 @@
   factory/config/hooks/capture-copilot-usage.sh
   factory/config/hooks/capture-usage.sh
   factory/docs/factory-guide.md
-  factory/docs/proposals/factory-cli-security-hardening.md
-  factory/docs/proposals/token-usage-tracking.md
-  factory/docs/proposals/usage-processing-and-storage.md
+  docs/proposals/factory-cli-security-hardening.md
+  docs/proposals/implemented/token-usage-tracking.md
+  docs/proposals/usage-processing-and-storage.md
   factory/scripts/usage-capture
   factory/scripts/usage-capture-lifecycle
   orchestrator/tests/test_init_factory_usage_capture.py

@@ -20,7 +20,7 @@ When: Invoked directly, via its own PEP 723 shebang, by each capture site —
       a Claude Code hook, a Pi extension, the orchestrator — once per agent
       invocation. The underlying module may also be `import`ed in-process
       (proposal: "The Capture Tool").
-By:   `factory/docs/proposals/token-usage-tracking.md` ("The Usage Record",
+By:   `docs/proposals/implemented/token-usage-tracking.md` ("The Usage Record",
       "Tokenization Strategy", "Persistence", "The Capture Tool", "Design
       Details"); backlog ST-0035, ST-0036, ST-0037, ST-0038.
 
@@ -398,6 +398,8 @@ class UsageRecord:
     """
 
     record_id: str
+    project_id: str
+    project_name: str
     normalized_input: int
     normalized_output: int
     normalized_total: int = field(init=False)
@@ -427,6 +429,9 @@ class UsageRecord:
     transcript_ref: Optional[TranscriptRef] = None
 
     def __post_init__(self) -> None:
+        uuid.UUID(self.project_id)
+        if not self.project_name.strip():
+            raise ValueError("project_name must be a non-empty string")
         self.normalized_total = self.normalized_input + self.normalized_output
         self.recorded_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -490,7 +495,7 @@ class JsonlLoggingAdapter:
           application-level lock is needed.
     When: Constructed directly today; ST-0038's CLI entrypoint will
           instantiate one per invocation once the argparse layer exists.
-    By:   `factory/docs/proposals/token-usage-tracking.md` ("Persistence",
+    By:   `docs/proposals/implemented/token-usage-tracking.md` ("Persistence",
           "The Capture Tool"); backlog ST-0036.
 
     Any failure inside `record()` — an unwritable path, a directory that
@@ -718,7 +723,7 @@ class ClaudeCodeNormalizer:
           usage leaves them null.
     When: Selected by `get_normalizer("claude-code")` from a capture site
           (ST-0038 wires the Claude Code `Stop`/`SubagentStop` hooks to it).
-    By:   `factory/docs/proposals/token-usage-tracking.md` ("The Capture
+    By:   `docs/proposals/implemented/token-usage-tracking.md` ("The Capture
           Tool", "Tokenization Strategy", "The Usage Record"); backlog
           ST-0037.
 
@@ -1347,6 +1352,20 @@ def _git_context(base_dir: Union[str, Path]) -> tuple[Optional[str], Optional[st
     )
 
 
+def _project_identity(base_dir: Union[str, Path]) -> tuple[str, str]:
+    """Load the non-null project identity established by init-factory."""
+    path = Path(base_dir).resolve() / "config" / "project.json"
+    identity = json.loads(path.read_text(encoding="utf-8"))
+    project_id = identity["project_id"]
+    project_name = identity["project_name"]
+    if not isinstance(project_id, str):
+        raise TypeError("project_id must be a UUID string")
+    uuid.UUID(project_id)
+    if not isinstance(project_name, str) or not project_name.strip():
+        raise ValueError("project_name must be a non-empty string")
+    return project_id, project_name
+
+
 def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> bool:
     """Run one capture end to end: normalize, tokenize, assemble, persist.
 
@@ -1371,6 +1390,7 @@ def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> bool
         getattr(args, "transcript_retention", None), base_dir
     )
     detected_branch, detected_commit = _git_context(base_dir)
+    project_id, project_name = _project_identity(base_dir)
 
     with _pi_persistence_fence(args, base_dir) as allowed:
         if allowed:
@@ -1381,6 +1401,8 @@ def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> bool
             try:
                 record = UsageRecord(
                     record_id=reservation.record_id,
+                    project_id=project_id,
+                    project_name=project_name,
                     normalized_input=normalized_input,
                     normalized_output=normalized_output,
                     cli=args.cli,
