@@ -239,14 +239,38 @@ def test_install_then_remove_preserves_project_pi_content(tmp_path):
 
 
 def _install_pi_stub(target: Path) -> dict[str, str]:
+    if (
+        subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree"],
+            cwd=target,
+            capture_output=True,
+            check=False,
+        ).returncode
+        != 0
+    ):
+        subprocess.run(
+            ["git", "init", "-b", "main"], cwd=target, check=True, capture_output=True
+        )
+    artifact = (
+        "seed" if (target / "seed").is_file() else "docs/reviews/pi-child-result.md"
+    )
+    if artifact != "seed":
+        result_path = target / artifact
+        result_path.parent.mkdir(parents=True, exist_ok=True)
+        result_path.write_text("# Complete Pi child result\n")
+        subprocess.run(["git", "add", "-f", artifact], cwd=target, check=True)
     bin_dir = target / "test-bin"
     bin_dir.mkdir()
     pi = bin_dir / "pi"
     pi.write_text(
-        "#!/bin/sh\n"
-        'printf \'%s\\n\' \'{"type":"message_end","message":{"role":"assistant",'
-        '"content":[{"type":"text","text":"done"}],'
-        '"usage":{"input":11,"output":5,"cacheRead":2,"cacheWrite":0}}}\'\n'
+        "#!/usr/bin/env python3\n"
+        "import json\n"
+        f"artifact = {artifact!r}\n"
+        "envelope = {'disposition':'pass','finding_counts':{'critical':0,'major':0,'minor':0},"
+        "'artifact_paths':[artifact],'next_action':'Continue with the validated result.'}\n"
+        "print(json.dumps({'type':'message_end','message':{'role':'assistant',"
+        "'content':[{'type':'text','text':json.dumps(envelope)}],"
+        "'usage':{'input':11,'output':5,'cacheRead':2,'cacheWrite':0}}}))\n"
     )
     pi.chmod(0o755)
     env = os.environ.copy()
@@ -320,6 +344,15 @@ def test_BUG_0004_UC_10_run_agent_streams_more_than_64_mib(tmp_path):
     )
     capture_runtime.chmod(0o755)
 
+    streamed_artifact = target / "docs/reviews/streamed-child-result.md"
+    streamed_artifact.parent.mkdir(parents=True, exist_ok=True)
+    streamed_artifact.write_text("# Complete streamed child result\n")
+    subprocess.run(
+        ["git", "add", "-f", "docs/reviews/streamed-child-result.md"],
+        cwd=target,
+        check=True,
+    )
+
     bin_dir = target / "test-bin"
     bin_dir.mkdir()
     pi = bin_dir / "pi"
@@ -330,7 +363,9 @@ const payload = JSON.stringify({type:'message_update',delta:'x'.repeat(32 * 1024
 for (let i = 0; i < 2100; i++) {
   writeSync(1, payload);
 }
-const final = JSON.stringify({type:'message_end',message:{role:'assistant',content:[{type:'text',text:'streamed result'}],usage:{input:11,output:5}}}) + '\\n';
+const artifact = 'docs/reviews/streamed-child-result.md';
+const envelope = {disposition:'pass',finding_counts:{critical:0,major:0,minor:0},artifact_paths:[artifact],next_action:'Continue with the streamed result.'};
+const final = JSON.stringify({type:'message_end',message:{role:'assistant',content:[{type:'text',text:JSON.stringify(envelope)}],usage:{input:11,output:5}}}) + '\\n';
 for (let offset = 0; offset < final.length; offset += 7) {
   writeSync(1, final.slice(offset, offset + 7));
 }
@@ -366,7 +401,8 @@ const result = await tool.execute(
   }},
 );
 if (result.details?.error) throw new Error(JSON.stringify(result));
-if (result.content[0].text !== 'streamed result') throw new Error(JSON.stringify(result));
+const envelope = JSON.parse(result.content[0].text);
+if (envelope.artifact_paths[0] !== 'docs/reviews/streamed-child-result.md') throw new Error(JSON.stringify(result));
 if (updateCount < 2 || largestUpdate > 4096) throw new Error(JSON.stringify({{updateCount, largestUpdate}}));
 """
     )
@@ -1628,7 +1664,12 @@ def test_nested_dispatch_records_survive_merged_worktree_removal(tmp_path):
     _init_git_repo(primary)
     _init(primary)
     # dispatch worktrees need the installed Factory runtime in their committed base.
-    subprocess.run(["git", "add", "-f", "factory"], cwd=primary, check=True)
+    (primary / "nested-child-result.txt").write_text("complete nested child result\n")
+    subprocess.run(
+        ["git", "add", "-f", "factory", "nested-child-result.txt"],
+        cwd=primary,
+        check=True,
+    )
     subprocess.run(
         ["git", "commit", "--no-verify", "-m", "install factory"],
         cwd=primary,
@@ -1667,7 +1708,9 @@ if (depth === 1) {
   execFileSync('git', ['add', 'nested-result.txt']);
   execFileSync('git', ['-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'fix: nested result (RECON-0009)']);
 }
-process.stdout.write(JSON.stringify({type:'message_end',message:{role:'assistant',content:[{type:'text',text:'done'}],usage:{input:11,output:5,cacheRead:2,cacheWrite:0}}}) + '\\n');
+const artifact = depth === 1 ? 'nested-result.txt' : 'nested-child-result.txt';
+const envelope = {disposition:'pass',finding_counts:{critical:0,major:0,minor:0},artifact_paths:[artifact],next_action:'Continue with the nested result.'};
+process.stdout.write(JSON.stringify({type:'message_end',message:{role:'assistant',content:[{type:'text',text:JSON.stringify(envelope)}],usage:{input:11,output:5,cacheRead:2,cacheWrite:0}}}) + '\\n');
 """
     )
     bin_dir = primary / "test-bin"
