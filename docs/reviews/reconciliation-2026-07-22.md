@@ -48,7 +48,7 @@
 
 ## Specification and architecture files updated
 
-- `factory/docs/proposals/token-usage-tracking.md` — defined native capture
+- `docs/proposals/implemented/token-usage-tracking.md` — defined native capture
   records as snapshots, latest-root Copilot selection, and Pi
   root-plus-descendants conservation.
 - `factory/docs/factory-guide.md` — removed stale RECON-0006 wording and aligned

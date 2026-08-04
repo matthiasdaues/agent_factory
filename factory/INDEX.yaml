@@ -20,7 +20,7 @@ agents:
     description: Capture a project vision, clarify requirements through adversarial interview, and produce a complete specification.
     path: agents/requirements-agent.md
     tokens: 590
-    total_tokens: 3595
+    total_tokens: 3594
   - name: spec-review-agent
     title: Specification Review Agent
     phase: 1
@@ -65,7 +65,7 @@ agents:
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints. Each subagent implements one story using TDD on its own feature branch. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
     tokens: 1686
-    total_tokens: 5827
+    total_tokens: 5829
   - name: reconciliation-agent
     title: Reconciliation Agent
     phase: 4
@@ -74,7 +74,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 884
-    total_tokens: 6232
+    total_tokens: 6234
   - name: qa-agent
     title: QA Agent
     phase: 5
@@ -101,7 +101,7 @@ agents:
     description: Selects survey or falsification research from the brief, advances the chosen validated playbook, and enforces its role boundaries and release gate.
     path: agents/research-orchestrator.md
     tokens: 1320
-    total_tokens: 5129
+    total_tokens: 5131
   - name: research-report-writer
     title: Research Report Writer
     phase: 6
@@ -146,7 +146,7 @@ skills:
     category: requirements
     description: Selects and runs the right requirements-clarification interview — Socratic (inline), grill-me (greenfield), or grill-with-docs (brownfield).
     path: skills/clarify-requirements/SKILL.md
-    tokens: 427
+    tokens: 426
   - name: derive-spec
     category: requirements
     description: Derive the full specification chain from a PRD — actor-goal list, persona use cases, system use cases, supplementary specs.
@@ -336,7 +336,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 1583
-    total_tokens: 19588
+    total_tokens: 19590
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -359,7 +359,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 949
-    total_tokens: 19197
+    total_tokens: 19201
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -374,8 +374,8 @@ playbooks:
       - implementation-agent
       - reconciliation-agent
       - qa-agent
-    tokens: 1706
-    total_tokens: 34704
+    tokens: 1705
+    total_tokens: 34706
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -393,7 +393,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 1691
-    total_tokens: 35652
+    total_tokens: 35655
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -422,7 +422,7 @@ playbooks:
       - research-synthesizer
       - research-orchestrator
     tokens: 1018
-    total_tokens: 8648
+    total_tokens: 8650
   - name: research-topic
     title: Research Topic Playbook
     category: orchestration
@@ -443,7 +443,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 3026
-    total_tokens: 13751
+    total_tokens: 13753
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration
@@ -454,7 +454,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 2057
+    tokens: 2056
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
@@ -474,7 +474,7 @@ rulebooks:
   - name: dispatch-contract
     category: conventions
     path: rulebooks/conventions/dispatch-contract.md
-    tokens: 1953
+    tokens: 1955
   - name: finding-format
     category: conventions
     path: rulebooks/conventions/finding-format.md

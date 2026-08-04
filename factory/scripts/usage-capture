@@ -20,7 +20,7 @@ When: Invoked directly, via its own PEP 723 shebang, by each capture site —
       a Claude Code hook, a Pi extension, the orchestrator — once per agent
       invocation. The underlying module may also be `import`ed in-process
       (proposal: "The Capture Tool").
-By:   `factory/docs/proposals/token-usage-tracking.md` ("The Usage Record",
+By:   `docs/proposals/implemented/token-usage-tracking.md` ("The Usage Record",
       "Tokenization Strategy", "Persistence", "The Capture Tool", "Design
       Details"); backlog ST-0035, ST-0036, ST-0037, ST-0038.
 
@@ -495,7 +495,7 @@ class JsonlLoggingAdapter:
           application-level lock is needed.
     When: Constructed directly today; ST-0038's CLI entrypoint will
           instantiate one per invocation once the argparse layer exists.
-    By:   `factory/docs/proposals/token-usage-tracking.md` ("Persistence",
+    By:   `docs/proposals/implemented/token-usage-tracking.md` ("Persistence",
           "The Capture Tool"); backlog ST-0036.
 
     Any failure inside `record()` — an unwritable path, a directory that
@@ -723,7 +723,7 @@ class ClaudeCodeNormalizer:
           usage leaves them null.
     When: Selected by `get_normalizer("claude-code")` from a capture site
           (ST-0038 wires the Claude Code `Stop`/`SubagentStop` hooks to it).
-    By:   `factory/docs/proposals/token-usage-tracking.md` ("The Capture
+    By:   `docs/proposals/implemented/token-usage-tracking.md` ("The Capture
           Tool", "Tokenization Strategy", "The Usage Record"); backlog
           ST-0037.
 

@@ -14,7 +14,7 @@ Operational procedure for **adding features to existing system**.
 
 - [ ] Existing project with spec and architecture
 - [ ] `CONTEXT.md` exists
-- [ ] A proposal at `factory/docs/proposals/<name>.md`, written to the [proposal template](../rulebooks/templates/proposal.md)
+- [ ] A proposal at `docs/proposals/<name>.md`, written to the [proposal template](../rulebooks/templates/proposal.md)
 
 The proposal is the feature's authoritative design origin. Do not maintain a
 parallel feature request, interview record, or design brief.

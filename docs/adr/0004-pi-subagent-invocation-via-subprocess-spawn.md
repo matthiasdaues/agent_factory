@@ -75,4 +75,4 @@ in the project directory, returning the child's final text and token usage parse
 - [09_architecture_decisions.md](../09_architecture_decisions.md)
 - [docs/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md](../spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md)
 - [docs/spec/prd.md § FR-J](../spec/prd.md#4-functional-requirements)
-- [factory/docs/proposals/pi-invocation-layer.md](../../factory/docs/proposals/pi-invocation-layer.md)
+- [docs/proposals/implemented/pi-invocation-layer.md](../proposals/implemented/pi-invocation-layer.md)

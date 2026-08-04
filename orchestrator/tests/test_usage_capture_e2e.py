@@ -16,7 +16,7 @@ lifecycle contracts are owned by `test_usage_capture.py` and
 `test_usage_capture_native_lifecycle_e2e.py`.
 
 COVERAGE CHECKLIST: Completion Criteria from the proposal
-(factory/docs/proposals/token-usage-tracking.md) map to the stories below:
+(docs/proposals/implemented/token-usage-tracking.md) map to the stories below:
 
 | Criterion | Story |
 |-----------|-------|

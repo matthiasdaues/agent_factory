@@ -177,4 +177,4 @@ Feature: Run tests via unavoidable hooks
 
 - [actor-goal-list.md](../actor-goal-list.md)
 - [prd.md § FR-I](../prd.md#fr-i--test-execution-run-tests)
-- [factory/docs/proposals/test-execution-via-hooks.md](../../../factory/docs/proposals/test-execution-via-hooks.md)
+- [docs/proposals/implemented/test-execution-via-hooks.md](../../proposals/implemented/test-execution-via-hooks.md)

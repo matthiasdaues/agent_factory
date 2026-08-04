@@ -290,11 +290,11 @@ A playbook can ship a `.fsm.yml` alongside its `.md` in `factory/playbooks/` —
 
 If the marker file is absent, both tools are no-ops — a project not using the harness sees no behavior change.
 
-See [Structured Playbooks as a Deterministic Harness](proposals/playbook-structured-harness-strategy.md) for the full design rationale and the proof of concept's scope. The harness now has its own full specification — actors, use cases, entity model, and business rules — at [docs/spec/prd.md](../../docs/spec/prd.md).
+See [Structured Playbooks as a Deterministic Harness](../../docs/proposals/playbook-structured-harness-strategy.md) for the full design rationale and the proof of concept's scope. The harness now has its own full specification — actors, use cases, entity model, and business rules — at [docs/spec/prd.md](../../docs/spec/prd.md).
 
 ## Proposals
 
-A proposal is the seed brief that opens a feature-addition — the design origin the Planning phase turns into a backlog. Proposals live in `factory/docs/proposals/`, one markdown file per feature, written to the [proposal template](../rulebooks/templates/proposal.md). Its versioned frontmatter records lifecycle, impact, governance, and dated forecasts for active human-review hours and normalized AI tokens. Forecasts remain distinct from append-only actuals and provider billing. Its body records the summary, motivation, design, explicit in-scope / deferred split, open questions, and completion criteria. Clarification and grilling amend this artifact directly: `draft` becomes reviewable `open`, stakeholder acceptance authorizes downstream work, and material planning changes require reacceptance. A proposal is a design *origin*, not a runtime artifact — a shipped agent's `inputs:` must never reference it. See [feature-addition.md](../playbooks/feature-addition.md) for the lifecycle and routing gates.
+A proposal is the seed brief that opens a feature-addition — the design origin the Planning phase turns into a backlog. Proposals live in the repository-root `docs/proposals/`, one markdown file per feature, written to the [proposal template](../rulebooks/templates/proposal.md). Its versioned frontmatter records lifecycle, impact, governance, and dated forecasts for active human-review hours and normalized AI tokens. Forecasts remain distinct from append-only actuals and provider billing. Its body records the summary, motivation, design, explicit in-scope / deferred split, open questions, and completion criteria. Clarification and grilling amend this artifact directly: `draft` becomes reviewable `open`, stakeholder acceptance authorizes downstream work, and material planning changes require reacceptance. A proposal is a design *origin*, not a runtime artifact — a shipped agent's `inputs:` must never reference it. See [feature-addition.md](../playbooks/feature-addition.md) for the lifecycle and routing gates.
 
 ## Rulebooks
 
@@ -395,7 +395,7 @@ Session logging is an opt-in, append-only audit trail of gate-script runs. It ex
 
 The log file lives under `.agent-factory/`, which is gitignored — local machine state, not portable, not meant to be reviewed.
 
-See [factory/docs/proposals/session-log-addendum.md](proposals/session-log-addendum.md) for the full design rationale.
+See [docs/proposals/session-log-addendum.md](../../docs/proposals/session-log-addendum.md) for the full design rationale.
 
 ## Using this in an existing repo
 

@@ -13,8 +13,8 @@
   `06_runtime_view.md`, `08_crosscutting_concepts.md`,
   `09_architecture_decisions.md`, `12_glossary.md`, `README.md`,
   `beginner-intro.md`, `concepts.md`; ADRs `0001`–`0007`;
-  `factory/docs/factory-guide.md` and the `factory/docs/proposals/` and
-  `factory/docs/proposals/` guides; repo-root `README.md` and `AGENTS.md`; and the
+  `factory/docs/factory-guide.md` and the `docs/proposals/` and
+  `docs/proposals/implemented/` guides; repo-root `README.md` and `AGENTS.md`; and the
   `backlog/` stories referenced by docs.
 - **Repeat pass.** This is a fresh full truth-map rebuild, not only a check of
   the prior findings list. All fourteen prior RECON findings were re-verified
