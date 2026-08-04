@@ -25,6 +25,8 @@ ______________________________________________________________________
 - **G7** — Block a fixed list of destructive or gate-bypassing git commands before they run across all supported CLIs (`block-dangerous-git.sh` for native-hook runtimes; the equivalent Pi extension).
 - **G8** — Wire all of the above into a new or existing project, idempotently, without disturbing what is already there (`init-factory`).
 - **G9** — Run project tests deterministically via unavoidable hooks (pre-commit, pre-push, phase advance), never via agent-commanded shell execution (`run-tests`).
+- **G10** — Keep multi-phase workflow input cost bounded by ending the session at every phase transition and restarting from a complete, validated handoff and canonical tracked artifacts.
+- **G11** — Prevent avoidable child-dispatch spend by maintaining auditable evidence that each delivered dispatch safeguard has a contract, implementation point, and automated coverage, without reimplementing proven baseline behavior.
 
 ### Non-Goals
 
@@ -33,12 +35,17 @@ ______________________________________________________________________
 - **NG3** — No CLI-failure classification (auth vs. config vs. task failure) at the dispatch layer — a known, named gap. See [T-01](todos.md#t-01-no-cli-failure-classification-in-trigger).
 - **NG4** — No state machine for every playbook. Only `greenfield-development.fsm.yml` exists today; the harness is opt-in per playbook (see [UC-01 § Preconditions](use_cases/UC-01-advance-a-playbook-phase.md#preconditions)).
 - **NG5** — No run lock or single-active-run invariant across concurrent operators. The marker is a single flat file; two operators racing the same marker is out of scope. See [T-02](todos.md#t-02-no-concurrent-operator-lock-on-the-marker).
+- **NG6** — No in-place transcript compaction, live token-budget stop, universal cache-miss detector, prose-only cache-restabilisation ritual, or unified cross-CLI transcript format.
+- **NG7** — No retrospective reimplementation of dispatch safeguards already proven by the baseline audit; only verified gaps, missing tests, and contradictory documentation are remediated.
 
 ## 3. Target Actors
 
 - **Human Operator** (primary) — a person driving Agent Factory directly: running scripts by hand, committing code, approving phase gates.
 - **Orchestrator-as-Trigger** (secondary) — the nested `orchestrator/` Python CLI, a peer of the Human Operator. It invokes the same `factory/scripts/*` mechanisms programmatically instead of a human typing them.
 - **CLI-Invoked Agent** (secondary) — the Claude Code, GitHub Copilot CLI, Codex, or Pi agent session that `trigger` dispatches, operating under the scoped permission controls available in that runtime. Under Pi, which has no native subagent concept, this actor is also the caller of the `run_agent` tool: it spawns a fresh Pi session to run another factory agent with separate-session semantics (FR-J).
+- **Phase Participant** (primary) — a human or factory agent completing one workflow phase and handing the next phase to a fresh CLI session without replaying the prior transcript.
+- **Assurance Auditor** (primary) — a requirements, planning, or quality participant who maps accepted dispatch safeguards to observable delivery evidence and files only verified gaps.
+- **Handoff Semantic Reviewer** (secondary) — a designated human or agent who compares the handoff with the outgoing phase's artifacts and decisions for omissions that structural validation cannot infer.
 
 ## 4. Functional Requirements
 
@@ -109,11 +116,28 @@ Pi has no native subagent concept, so a factory agent cannot run in a separate P
 - **FR-J4** — The dispatcher tool `dispatch_wave`, layered on the `run_agent` primitive, spawns several agents in parallel — each in its own git worktree, each under a per-story model tier — and integrates `premerge-check`; it ports `implementation-agent`, whose current prose depends on Claude Code's native Agent-tool worktree isolation.
 - **FR-J5** — `run-agent.ts` lives in `factory/config/extensions/`, is symlinked into the git-ignored `.pi/extensions/` by `init-factory`, and is reversed by `remove-factory` to a clean `git status`; it adds no tracked project state.
 
+### FR-K — Session-transcript token control
+
+- **FR-K1** — Every transition between Factory workflow phases is a hard session boundary: the outgoing session creates a handoff and stops; a fresh session begins the next phase. Work that remains within one phase is exempt.
+- **FR-K2** — A Factory-owned, CLI-agnostic `handoff` skill writes dense, unambiguous prose without dropping any decision, open item, artifact path, exact 40-character SHA, branch/upstream state, gate result, verification evidence, or next action.
+- **FR-K3** — `handoff-lint` deterministically blocks phase closure for mechanically observable defects in required structure, declared referenced paths, full SHA syntax, declared repository-state fields, declared verification fields, and next-action presence. A designated semantic reviewer separately checks that the handoff did not omit or distort material decisions, open items, evidence, or artifact references.
+- **FR-K4** — Before a child agent returns, it persists its complete result in canonical tracked report and finding artifacts. The parent receives only a bounded envelope containing disposition, finding counts by severity, the complete artifact-path list, and a one-to-three-sentence next action.
+- **FR-K5** — Agents read large artifacts in bounded chunks and request further chunks only when needed for the current task.
+- **FR-K6** — At session end, usage capture derives cache-miss turn count and cache-miss input-token total only when the provider exposes input and cache-read tokens for every eligible assistant-response turn. It independently derives the late-versus-early input ratio when per-turn input is complete, using the deterministic BR-042 partition and formula, and records CLI/provider identity and capability class with nullable results.
+- **FR-K7** — Retrospectives consume the derived usage signals as evidence of friction; the signals never act as live controls in the first release.
+
+### FR-L — Dispatch safeguard assurance audit
+
+- **FR-L1** — The audit maps each accepted dispatch mechanism—base verification before work, declared base SHA, resolvable nested-agent addressing, pre-merge diff checking, evidence-derived unattended permissions, and bounded/checkpointed scope—to its shipped contract, implementation point, and automated evidence or to a gap requiring remediation.
+- **FR-L2** — Machine-consumed base and dispatch state uses exact 40-character Git SHAs. Automated evidence covers wrong or stale bases, stale/out-of-scope/file-blowout/target-reverting diffs, nested reply routing, background permission argv and deny lists, and enforceable scope/checkpoint rules where feasible.
+- **FR-L3** — The audit amends stale documentation only when it contradicts observable behavior and creates no implementation work for a safeguard whose contract, implementation, and automated evidence are complete.
+
 ## 5. Constraints
 
 - Every `factory/scripts/*.py` gate has zero third-party dependencies — Python 3.8+ stdlib only — so gates run without a virtualenv.
 - macOS and Linux only. `init-factory` relies on native, git-tracked symlinks, which Windows does not support the same way.
 - The marker (`.agent-factory/playbook-state.yml`) is git-ignored, local, single-file state — not a distributed or multi-operator lock.
+- Dispatch safeguard assurance interprets the accepted design from immutable proposal baseline `5219c64b6586b7606df346cac668d128bd3c21fe`; later observable implementation evidence may prove a mechanism complete but may not rewrite that design origin.
 
 ## 6. Success Criteria
 
@@ -121,6 +145,9 @@ Pi has no native subagent concept, so a factory agent cannot run in a separate P
 - `orchestrator/` can drive the identical playbook run through the same four mechanisms, adding no flow-control logic of its own.
 - `factory/INDEX.yaml` always matches what `index-lint` would generate from current frontmatter (`index-lint --check` exits `0`) — no hand-edit drift.
 - A conversational Pi session can invoke a factory agent by name via `run_agent` and receive its result from a separate `pi` session that never saw the caller's context, and `dispatch_wave` can run at least two `developer-agent` sessions in parallel worktrees merged through `premerge-check`.
+- Every cross-phase continuation restarts from a `handoff-lint`-clean handoff and canonical artifacts, while child results enter parent transcripts only through bounded envelopes.
+- A retrospective on a phase-gated multi-phase session reports a lower late-phase versus early-phase input ratio than the measured 11.3× baseline, qualified by CLI/provider.
+- Every accepted dispatch safeguard has a traceable contract, implementation point, and passing automated evidence, or a verified gap explicitly identified for remediation.
 
 ## 7. Assumptions
 
@@ -133,3 +160,5 @@ Pi has no native subagent concept, so a factory agent cannot run in a separate P
 
 - [actor-goal-list.md](actor-goal-list.md)
 - [../README.md § Table of Contents](../README.md#table-of-contents) — the arc42 architecture documentation and Structurizr C4 model built from this specification.
+- [Accepted dispatch-efficiency proposal](../proposals/agent-dispatch-token-efficiency.md) — design origin for FR-L's assurance audit.
+- [Accepted session-control proposal](../proposals/proposal-session-transcript-token-control.md) — design origin for FR-K's external workflow contract.
