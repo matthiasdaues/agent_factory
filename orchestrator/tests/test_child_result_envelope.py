@@ -153,6 +153,22 @@ def _content_envelope(result: dict[str, object]) -> dict[str, object]:
     return json.loads(content[0]["text"])
 
 
+def _assert_canonical_tracked_artifacts(
+    repo: Path, envelope: dict[str, object]
+) -> None:
+    """Prove every envelope artifact is canonical, present, and Git-tracked."""
+    paths = envelope["artifact_paths"]
+    assert isinstance(paths, list) and paths
+    for artifact_path in paths:
+        assert isinstance(artifact_path, str)
+        path = Path(artifact_path)
+        assert not path.is_absolute()
+        assert path.as_posix() == artifact_path
+        assert ".." not in path.parts
+        assert (repo / path).is_file()
+        _git(repo, "ls-files", "--error-unmatch", "--", artifact_path)
+
+
 def test_report_convention_defines_exact_bounded_json_envelope():
     """The canonical convention names the serialization and forbidden detail."""
     text = (_ROOT / "factory/rulebooks/conventions/report-format.md").read_text()
@@ -247,7 +263,7 @@ def test_dispatch_wave_returns_aggregate_envelope_and_item_runtime_metadata(tmp_
     assert "usage" not in actual and "exitCode" not in actual
 
 
-def test_dispatch_wave_blocks_exit_zero_child_without_persisted_result(tmp_path):
+def test_UC_10_dispatch_wave_blocks_child_with_canonical_tracked_report(tmp_path):
     """An invalid child envelope cannot advance to premerge or merge."""
     target, base = _consumer(tmp_path)
     result = _execute(
@@ -270,6 +286,10 @@ def test_dispatch_wave_blocks_exit_zero_child_without_persisted_result(tmp_path)
 
     actual = _content_envelope(result)
     assert actual["disposition"] == "block"
-    assert actual["artifact_paths"] == []
+    assert set(actual) == _FIELDS
+    _assert_canonical_tracked_artifacts(target, actual)
+    report = (target / actual["artifact_paths"][-1]).read_text()
+    assert "test/missing-wave-result" in report
+    assert "does not exist" in report
     assert result["details"]["items"][0]["error"]
     assert result["details"]["items"][0]["premergeExit"] is None
