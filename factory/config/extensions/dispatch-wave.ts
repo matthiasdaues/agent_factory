@@ -43,6 +43,13 @@ import {
   SESSION_ENV,
   USAGE_ROOT_ENV,
 } from "./pi-usage.ts";
+import {
+  childTask,
+  type ChildResultEnvelope,
+  parseChildResultEnvelope,
+  serializeChildResultEnvelope,
+  validateChildResultArtifacts,
+} from "./run-agent.ts";
 
 /** Cap on nested agent spawns, shared with run_agent (BR-035). */
 const MAX_DEPTH = 3;
@@ -61,7 +68,8 @@ interface ItemResult {
   spawnExit: number | null;
   merged: boolean;
   premergeExit: number | null;
-  text: string;
+  envelope: ChildResultEnvelope | null;
+  usage: unknown;
   error: string | null;
 }
 
@@ -147,7 +155,8 @@ export default function (pi: ExtensionAPI) {
         spawnExit: null,
         merged: false,
         premergeExit: null,
-        text: "",
+        envelope: null,
+        usage: null,
         error: null,
       }));
 
@@ -186,7 +195,7 @@ export default function (pi: ExtensionAPI) {
           if (!r.worktree) return; // Phase A errored for this item.
 
           const persona = readFileSync(join(cwd, "factory", "agents", `${r.agent}.md`), "utf-8");
-          const task = verifyBasePreamble(params.target, item.base) + item.task;
+          const task = childTask(verifyBasePreamble(params.target, item.base) + item.task);
           const resolved = resolveModel(cwd, item.model, item.tier, r.agent);
           const model = resolved.model; // already validated in Phase A
 
@@ -227,7 +236,18 @@ export default function (pi: ExtensionAPI) {
             r.error = `child pi exited ${child.status} without a usable message_end.\n${tail}`;
             return;
           }
-          r.text = parsed.text;
+          r.usage = parsed.usage;
+          const decoded = parseChildResultEnvelope(parsed.text);
+          if (decoded.error) {
+            r.error = decoded.error;
+            return;
+          }
+          const artifactError = validateChildResultArtifacts(r.worktree, decoded.envelope);
+          if (artifactError) {
+            r.error = artifactError;
+            return;
+          }
+          r.envelope = decoded.envelope;
         }),
       );
 
@@ -267,8 +287,17 @@ export default function (pi: ExtensionAPI) {
       }
 
       return {
-        content: [{ type: "text" as const, text: summarize(results, doMerge) }],
-        details: { target: params.target, merge: doMerge, items: results },
+        content: [
+          {
+            type: "text" as const,
+            text: serializeChildResultEnvelope(aggregateEnvelope(results, doMerge)),
+          },
+        ],
+        details: {
+          target: params.target,
+          merge: doMerge,
+          items: results.map(itemMetadata),
+        },
       };
     },
   });
@@ -409,22 +438,64 @@ function sanitizeBranch(branch: string): string {
   return branch.replace(/[^A-Za-z0-9._-]/g, "-");
 }
 
-/** A model-legible one-line-per-item summary. */
-function summarize(results: ItemResult[], doMerge: boolean): string {
-  const lines = results.map((r) => {
-    const state = r.error
-      ? `ERROR ${r.error.split("\n")[0]}`
-      : doMerge
-        ? r.merged
-          ? "merged"
-          : "spawned, not merged"
-        : "spawned";
-    return `${r.branch} [${r.agent} @ ${r.model}]: ${state}`;
-  });
-  const merged = results.filter((r) => r.merged).length;
-  const errored = results.filter((r) => r.error).length;
-  const header = `dispatch_wave: ${results.length} item(s), ${merged} merged, ${errored} errored.`;
-  return [header, ...lines].join("\n");
+/** Combine a wave without copying any raw child response into the parent. */
+function aggregateEnvelope(results: ItemResult[], doMerge: boolean): ChildResultEnvelope {
+  const envelopes = results.flatMap((result) => (result.envelope ? [result.envelope] : []));
+  const findingCounts: Record<string, number> = {};
+  const artifactPaths: string[] = [];
+  for (const envelope of envelopes) {
+    for (const [severity, count] of Object.entries(envelope.finding_counts)) {
+      findingCounts[severity] = (findingCounts[severity] ?? 0) + count;
+    }
+    for (const path of envelope.artifact_paths) {
+      if (!artifactPaths.includes(path)) artifactPaths.push(path);
+    }
+  }
+  if (Object.keys(findingCounts).length === 0) {
+    Object.assign(findingCounts, { critical: 0, major: 0, minor: 0 });
+  }
+
+  const blocked = results.some((result) => result.error !== null);
+  const disposition = blocked
+    ? "block"
+    : envelopes.some((envelope) => envelope.disposition === "block")
+      ? "block"
+      : envelopes.some((envelope) => envelope.disposition === "fail")
+        ? "fail"
+        : "pass";
+  let nextAction: string;
+  if (blocked) {
+    nextAction = "Resolve the blocked wave items reported in transport metadata, then dispatch them again.";
+  } else if (envelopes.length === 1) {
+    nextAction = envelopes[0].next_action;
+  } else if (doMerge) {
+    nextAction = "Review the merged child results at the listed artifact paths, then continue with the next dependency-ready wave.";
+  } else {
+    nextAction = "Review the child results at the listed artifact paths before deciding whether to merge their branches.";
+  }
+  return {
+    disposition,
+    finding_counts: findingCounts,
+    artifact_paths: artifactPaths,
+    next_action: nextAction,
+  };
+}
+
+/** Keep runtime and lifecycle metadata outside the four-field envelope. */
+function itemMetadata(result: ItemResult) {
+  return {
+    branch: result.branch,
+    agent: result.agent,
+    worktree: result.worktree,
+    model: result.model,
+    spawned: result.spawned,
+    spawnExit: result.spawnExit,
+    exitCode: result.spawnExit,
+    merged: result.merged,
+    premergeExit: result.premergeExit,
+    usage: result.usage,
+    error: result.error,
+  };
 }
 
 /** A fatal, whole-wave error result (no isError field exists on tool results). */

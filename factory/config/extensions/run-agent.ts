@@ -16,8 +16,8 @@
  */
 import { execFileSync, spawn } from "node:child_process";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
-import { createWriteStream, existsSync, readFileSync, unlinkSync } from "node:fs";
-import { join } from "node:path";
+import { createWriteStream, existsSync, lstatSync, readFileSync, unlinkSync } from "node:fs";
+import { isAbsolute, join, posix } from "node:path";
 import type { Readable } from "node:stream";
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -36,6 +36,15 @@ import {
 /** Cap on nested run_agent spawns (BR-035). */
 const MAX_DEPTH = 3;
 const DEPTH_ENV = "PI_RUN_AGENT_DEPTH";
+const ENVELOPE_FIELDS = ["artifact_paths", "disposition", "finding_counts", "next_action"];
+
+/** The only child result content allowed into an orchestrating transcript. */
+export interface ChildResultEnvelope {
+  disposition: "pass" | "fail" | "block";
+  finding_counts: Record<string, number>;
+  artifact_paths: string[];
+  next_action: string;
+}
 
 export default function (pi: ExtensionAPI) {
   pi.registerTool({
@@ -100,7 +109,7 @@ export default function (pi: ExtensionAPI) {
       if (model) {
         args.push("--model", model);
       }
-      args.push("--append-system-prompt", persona, "-p", params.task);
+      args.push("--append-system-prompt", persona, "-p", childTask(params.task));
 
       const childSessionId = newSessionId();
       const usageRoot = activeUsageRoot(cwd);
@@ -150,17 +159,137 @@ export default function (pi: ExtensionAPI) {
         );
       }
 
+      const decoded = parseChildResultEnvelope(parsed.text);
+      const metadata = {
+        model: model || "(pi default)",
+        usage: parsed.usage,
+        exitCode: childResult.status,
+      };
+      if (decoded.error) {
+        return errorResult(params.agent, decoded.error, metadata);
+      }
+      const artifactError = validateChildResultArtifacts(cwd, decoded.envelope);
+      if (artifactError) {
+        return errorResult(params.agent, artifactError, metadata);
+      }
+
       return {
-        content: [{ type: "text" as const, text: parsed.text }],
+        content: [{ type: "text" as const, text: serializeChildResultEnvelope(decoded.envelope) }],
         details: {
           agent: params.agent,
-          model: model || "(pi default)",
-          usage: parsed.usage,
-          exitCode: childResult.status,
+          ...metadata,
         },
       };
     },
   });
+}
+
+/** Append the cross-CLI persistence and exact serialization obligation. */
+export function childTask(task: string): string {
+  return (
+    `${task}\n\nBefore returning, persist the complete result in canonical Git-tracked ` +
+    "report and finding artifacts. Your final assistant message must be exactly one JSON object " +
+    "with only `disposition`, `finding_counts`, `artifact_paths`, and `next_action`, as defined " +
+    "by factory/rulebooks/conventions/report-format.md; include no Markdown fence or other prose."
+  );
+}
+
+/** Decode and structurally validate one exact four-field child envelope. */
+export function parseChildResultEnvelope(
+  text: string,
+): { envelope: ChildResultEnvelope; error?: undefined } | { envelope?: undefined; error: string } {
+  let value: unknown;
+  try {
+    value = JSON.parse(text.trim());
+  } catch {
+    return { error: "child result envelope invalid: expected one exact JSON object" };
+  }
+  if (!isRecord(value) || Object.keys(value).sort().join("|") !== ENVELOPE_FIELDS.join("|")) {
+    return { error: "child result envelope invalid: expected exactly four canonical fields" };
+  }
+  if (!(["pass", "fail", "block"] as unknown[]).includes(value.disposition)) {
+    return { error: "child result envelope invalid: disposition must be pass, fail, or block" };
+  }
+  if (!isRecord(value.finding_counts) || Object.keys(value.finding_counts).length === 0) {
+    return { error: "child result envelope invalid: finding_counts must name every severity" };
+  }
+  for (const [severity, count] of Object.entries(value.finding_counts)) {
+    if (
+      !/^[a-z][a-z0-9_-]*$/.test(severity) ||
+      !Number.isInteger(count) ||
+      (count as number) < 0
+    ) {
+      return {
+        error: "child result envelope invalid: severity counts must be named non-negative integers",
+      };
+    }
+  }
+  if (
+    !Array.isArray(value.artifact_paths) ||
+    value.artifact_paths.length === 0 ||
+    value.artifact_paths.some((path) => typeof path !== "string" || path.length === 0) ||
+    new Set(value.artifact_paths).size !== value.artifact_paths.length
+  ) {
+    return {
+      error: "child result envelope invalid: artifact_paths must be a non-empty unique string list",
+    };
+  }
+  if (typeof value.next_action !== "string" || !hasOneToThreeSentences(value.next_action)) {
+    return { error: "child result envelope invalid: next_action must contain one to three sentences" };
+  }
+  return { envelope: value as unknown as ChildResultEnvelope };
+}
+
+/** Require every declared result artifact to be a canonical tracked file. */
+export function validateChildResultArtifacts(
+  cwd: string,
+  envelope: ChildResultEnvelope | undefined,
+): string | null {
+  if (!envelope) return "child result envelope invalid: no envelope to validate";
+  for (const path of envelope.artifact_paths) {
+    if (
+      isAbsolute(path) ||
+      path.includes("\\") ||
+      posix.normalize(path) !== path ||
+      path === "." ||
+      path.startsWith("../")
+    ) {
+      return `child result artifact '${path}' is not a canonical repository-relative path`;
+    }
+    const absolute = join(cwd, path);
+    if (!existsSync(absolute) || !lstatSync(absolute).isFile()) {
+      return `child result artifact '${path}' does not exist as a file`;
+    }
+    try {
+      execFileSync("git", ["ls-files", "--error-unmatch", "--", path], {
+        cwd,
+        stdio: ["ignore", "ignore", "ignore"],
+      });
+    } catch {
+      return `child result artifact '${path}' is not tracked by Git`;
+    }
+  }
+  return null;
+}
+
+/** Serialize without retaining any raw child response. */
+export function serializeChildResultEnvelope(envelope: ChildResultEnvelope): string {
+  return JSON.stringify(envelope);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasOneToThreeSentences(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed || !/[.!?]$/.test(trimmed)) return false;
+  const sentences = trimmed.split(/(?<=[.!?])\s+/);
+  return (
+    sentences.length >= 1 &&
+    sentences.length <= 3 &&
+    sentences.every((sentence) => sentence.trim())
+  );
 }
 
 /** Shell the shared Python tier resolver. Returns {model} or {error}. */
@@ -478,10 +607,10 @@ function parseFinalMessage(stdout: string): FinalMessage | null {
 }
 
 /** A model-legible error result (no isError field exists on tool results). */
-function errorResult(agent: string, reason: string) {
+function errorResult(agent: string, reason: string, metadata: Record<string, unknown> = {}) {
   return {
     content: [{ type: "text" as const, text: `run_agent error (${agent}): ${reason}` }],
-    details: { agent, error: true, reason },
+    details: { agent, error: true, reason, ...metadata },
   };
 }
 
