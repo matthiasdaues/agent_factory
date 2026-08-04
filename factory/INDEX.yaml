@@ -11,7 +11,7 @@ agents:
     description: Run retrospectives, extract action items, and track process improvements across sessions.
     path: agents/coaching-agent.md
     tokens: 406
-    total_tokens: 963
+    total_tokens: 1068
   - name: requirements-agent
     title: Requirements Agent
     phase: 1
@@ -266,7 +266,7 @@ skills:
     category: utility
     description: Run a structured session retrospective across five categories. Produces a timestamped report in docs/reviews/.
     path: skills/retrospective/SKILL.md
-    tokens: 557
+    tokens: 662
   - name: run-step
     category: utility
     description: Resolve and run the next agent or playbook step, deciding what "resume" means from observable state (the phase-gate marker, gate results, open findings) rather than a separately persisted execution status.
@@ -398,7 +398,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2122
-    total_tokens: 41888
+    total_tokens: 41993
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -464,6 +464,10 @@ rulebooks:
     category: conventions
     path: rulebooks/conventions/branching-policy.md
     tokens: 2188
+  - name: cache-hygiene
+    category: conventions
+    path: rulebooks/conventions/cache-hygiene.md
+    tokens: 207
   - name: commit-conventions
     category: conventions
     path: rulebooks/conventions/commit-conventions.md
