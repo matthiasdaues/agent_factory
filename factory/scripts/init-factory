@@ -53,7 +53,7 @@ Steps
   2. `git init` if --target isn't already a repo.
   3. Copy factory/ from --source into --target, UNLESS --target/factory
      already exists — in that case this step is skipped (not diffed, not
-     refreshed; that's the still-unbuilt update script's job).
+     refreshed; that's the update script's job, factory/scripts/update-factory).
   4. Create --target/.claude, --target/.github, and --target/.pi (if missing).
   5. Symlink factory/{agents,skills,playbooks,rulebooks,scripts,INDEX.yaml}
      and the orientation file into each CLI's local directory. NON-INTERFERENCE:
@@ -220,7 +220,8 @@ def copy_factory(
         log(
             report,
             "factory/: already present, skipped — refreshing an existing "
-            "factory/ is the (not yet built) update script's job, not init's",
+            "factory/ is the update script's job (factory/scripts/update-factory), "
+            "not init's",
         )
         return
 
@@ -1317,6 +1318,7 @@ def write_manifest(target: Path, install: dict, report: list[str]) -> None:
         "orientation": install.get("orientation", {}),
         "ignored_paths": install.get("ignored_paths", []),
         "remove_paths": _dedup(install["remove_paths"]),
+        "factory_source": install.get("factory_source"),
     }
     manifest_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     log(report, f"{MANIFEST_PATH}: wrote removal manifest")
@@ -1512,6 +1514,7 @@ def main(argv: list[str] | None = None) -> int:
         "codex_hook_handlers": [],
         "codex_hooks_restore_original": True,
         "ignore_root_agents": False,
+        "factory_source": str(source_root),
     }
 
     try:

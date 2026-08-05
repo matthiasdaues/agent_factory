@@ -51,7 +51,7 @@ The actor runs `factory/scripts/init-factory`, optionally with `--target` and `-
   - 9a1. `init-factory` hands off to `factory/scripts/merge-precommit-config`, which splices Agent Factory's hooks into the existing `repos:` list without disturbing what was already there.
   - 9a2. If the merge script cannot handle the existing file's structure, `init-factory` raises a `Collision` and exits `1`, naming the path.
 - **3a. `--target/factory` already exists**
-  - 3a1. `init-factory` skips the copy entirely and reports so — refreshing an existing `factory/` is a separate, not-yet-built update script's job, not `init-factory`'s.
+  - 3a1. `init-factory` skips the copy entirely and reports so — refreshing an existing `factory/` is the update script's job (`factory/scripts/update-factory`), not `init-factory`'s.
 - **7a. `--target/.claude/settings.json` exists but is not valid JSON, or its top-level value is not an object, or `hooks`/`hooks.PreToolUse` is not the expected shape**
   - 7a1. `init-factory` raises a `Collision`, names the exact path, and asks the actor to wire the guardrail hook in by hand.
 

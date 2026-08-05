@@ -17,6 +17,7 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0007 | [Normalize runtime usage through CLI adapters into local append-only records](adr/0007-normalize-runtime-usage-through-cli-adapters.md)                    | superseded by ADR-0009 | none        |
 | 0008 | [Separate proposal impact, governance, estimates, and actuals](adr/0008-separate-proposal-impact-governance-estimates-and-actuals.md)                      | accepted               | none        |
 | 0009 | [CLI-prefixed usage record filenames when filesystem-safe](adr/0009-cli-prefixed-usage-record-filenames-when-filesystem-safe.md)                           | accepted               | none        |
+| 0010 | [Refresh an installed factory/ by remove-and-reinstall](adr/0010-refresh-installed-factory-by-remove-and-reinstall.md)                                     | accepted               | none        |
 
 ## Key Decisions
 
@@ -73,6 +74,18 @@ attention rather than elapsed time; normalized tokens remain ADR-0007's
 cross-CLI comparison metric rather than a provider-cost estimate. Future
 actuals reference the proposal path and accepted full Git SHA outside the
 proposal, preserving the original forecast for calibration.
+
+## Factory Install, Update, and Removal
+
+**ADR-0010** gives the one-time install a forward path: `update-factory`
+refreshes an installed `factory/` to the current checkout by remove-and-
+reinstall — a byte-exact replacement followed by a re-run of the sourced
+`init-factory` — rather than a recency-based diff-and-merge, which is
+nondeterministic and rests on unreliable file mtimes. `init-factory` records
+the checkout it copied from (`factory_source`) in the install manifest so
+`update-factory` knows which repo to pull from by default, `--source`
+overriding. `update-factory` replaces only `factory/`; `.agent-factory/` usage
+transcripts and lifecycle state survive an update.
 
 ## Superseded Decisions
 
