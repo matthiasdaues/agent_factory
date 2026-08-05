@@ -30,6 +30,13 @@ control/` — are all preserved. init-factory only rewrites the removal manifest
 (`.agent-factory/factory-install.json`) and initializes the lifecycle
 if-absent; it never deletes usage data.
 
+On failure, the install is rolled back: the old `factory/` is moved aside
+(not deleted) before the refresh, and if the sourced init-factory returns
+non-zero — a `Collision`, the only non-graceful failure — the previous
+`factory/` is restored in place. The project is never left without a
+`factory/` and dangling runtime symlinks; resolve the reported collision and
+re-run `update-factory` to finish.
+
 The one decision update-factory cannot infer is WHICH checkout to pull from.
 init-factory records the source it copied from in the install manifest
 (`factory_source`); update-factory reads that as its default and `--source`
@@ -49,12 +56,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
 MANIFEST_PATH = ".agent-factory/factory-install.json"
+
+
+class ManifestUnreadable(Exception):
+    """The install manifest exists but cannot be read as valid JSON."""
 
 
 def log(line: str) -> None:
@@ -62,13 +75,16 @@ def log(line: str) -> None:
 
 
 def load_manifest(target: Path) -> dict | None:
+    """Return the install manifest, None if it is absent, or raise
+    `ManifestUnreadable` if it exists but is malformed — so callers can
+    distinguish "not an install" from "an install whose manifest is corrupt"."""
     path = target / MANIFEST_PATH
     if not path.exists():
         return None
     try:
         manifest = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return None
+    except (json.JSONDecodeError, OSError) as exc:
+        raise ManifestUnreadable(str(exc)) from exc
     return manifest if isinstance(manifest, dict) else None
 
 
@@ -105,7 +121,14 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     target = args.target.resolve()
-    manifest = load_manifest(target)
+    try:
+        manifest = load_manifest(target)
+    except ManifestUnreadable as exc:
+        print(
+            f"update-factory: {MANIFEST_PATH} exists but is not valid JSON ({exc})",
+            file=sys.stderr,
+        )
+        return 1
     if manifest is None:
         print(
             f"update-factory: {target} is not an init-factory'd project — "
@@ -146,23 +169,38 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    # Only factory/ is removed. .agent-factory/ (usage transcripts + lifecycle
-    # state) and the project's own files are deliberately left in place.
+    # Only factory/ is replaced. .agent-factory/ (usage transcripts + lifecycle
+    # state) and the project's own files are deliberately left in place. Move
+    # the old factory/ aside (rather than deleting it) so a failed reinstall can
+    # restore it and the project is never left without a factory/ and dangling
+    # runtime symlinks.
+    backup: Path | None = None
     if target_factory.is_dir():
-        shutil.rmtree(target_factory)
-        log(f"removed existing factory/ ({target_factory})")
+        backup_dir = target / ".agent-factory"
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        backup = backup_dir / f"factory-backup-{uuid.uuid4()}"
+        os.rename(target_factory, backup)
+        log(f"moved existing factory/ aside ({target_factory})")
     else:
         log("no existing factory/ to remove — installing fresh")
 
     log(f"refreshing factory/ from {source_factory}")
     code = _run_init(source, target)
     if code != 0:
+        if backup is not None and backup.is_dir() and not target_factory.exists():
+            os.rename(backup, target_factory)
+            log("restored the previous factory/ after the failed reinstall")
         print(
             "update-factory: the sourced init-factory did not complete — "
-            "see its output above",
+            "see its output above; resolve the reported collision and re-run "
+            "update-factory to finish the refresh",
             file=sys.stderr,
         )
         return code
+
+    if backup is not None and backup.is_dir():
+        shutil.rmtree(backup)
+        log("removed the update backup")
 
     log("done, factory/ is now current")
     return 0

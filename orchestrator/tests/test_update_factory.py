@@ -44,6 +44,10 @@ def _load(name: str):
 init_factory = _load("init-factory")
 update_factory = _load("update-factory")
 
+# The real subprocess delegation, captured before the autouse fixture replaces it
+# with a fast mirror-copy stub; tests that must drive the real reinstall restore it.
+REAL_RUN_INIT = update_factory._run_init
+
 MANIFEST = ".agent-factory/factory-install.json"
 
 
@@ -165,6 +169,52 @@ class TestUpdateRefresh:
         assert update_factory.main(["--target", str(target), "--source", str(src)]) == 0
         assert calls == [(src.resolve(), target.resolve())]
 
+    def test_real_run_init_builds_correct_argv_and_propagates_returncode(
+        self, tmp_path, monkeypatch
+    ):
+        """FAGAN-0013: the real `_run_init` subprocess wiring (argv shape +
+        return-code propagation) is exercised, not just the patched seam."""
+        src = _make_source(tmp_path)
+        target = tmp_path / "proj"
+        assert _install(target, src) == 0
+
+        captured = {}
+
+        def fake_run(argv, check=False):
+            captured["argv"] = argv
+            captured["check"] = check
+
+            class Result:
+                returncode = 7
+
+            return Result()
+
+        monkeypatch.setattr(update_factory.subprocess, "run", fake_run)
+        monkeypatch.setattr(update_factory, "_run_init", REAL_RUN_INIT)
+        assert update_factory._run_init(src, target) == 7
+        assert captured["check"] is False
+        assert captured["argv"][0] == sys.executable
+        assert captured["argv"][1] == str(src / "factory/scripts/init-factory")
+        assert captured["argv"][2:4] == ["--source", str(src)]
+        assert captured["argv"][4:6] == ["--target", str(target)]
+
+    def test_failed_reinstall_restores_previous_factory(self, tmp_path, monkeypatch):
+        """FAGAN-0014: a non-zero reinstall restores the previous factory/ so
+        the project is never left without one (no dangling runtime symlinks)."""
+        src = _make_source(tmp_path)
+        target = tmp_path / "proj"
+        assert _install(target, src) == 0
+
+        marker = target / "factory" / "scripts" / "custom-marker"
+        marker.write_text("keep-me\n")
+
+        monkeypatch.setattr(update_factory, "_run_init", lambda _s, _t: 1)
+        assert update_factory.main(["--target", str(target), "--source", str(src)]) == 1
+
+        assert (target / "factory").is_dir()
+        assert marker.read_text(encoding="utf-8") == "keep-me\n"
+        assert not list((target / ".agent-factory").glob("factory-backup-*"))
+
     def test_update_without_existing_factory_reinstalls(self, tmp_path):
         src = _make_source(tmp_path)
         target = tmp_path / "proj"
@@ -200,6 +250,36 @@ class TestUpdatePreservesMachineState:
         assert transcript.read_text(encoding="utf-8") == '{"seq": 1}\n'
         assert state.read_text(encoding="utf-8") == '{"mode": "active"}\n'
 
+    def test_update_preserves_usage_state_through_real_reinstall(
+        self, tmp_path, monkeypatch
+    ):
+        """FAGAN-0012: the guarantee holds through the REAL sourced
+        init-factory reinstall (only the initial install's heavy steps were
+        stubbed; this update drives the real subprocess delegation)."""
+        src = _make_source(tmp_path)
+        target = tmp_path / "proj"
+        assert _install(target, src) == 0
+
+        usage_dir = target / ".agent-factory" / "usage" / "transcripts"
+        usage_dir.mkdir(parents=True)
+        transcript = usage_dir / "record.jsonl"
+        transcript.write_text('{"seq": 1}\n', encoding="utf-8")
+        state = target / ".agent-factory/usage-control/state.json"
+        state.parent.mkdir(parents=True)
+        state.write_text('{"mode": "active"}\n', encoding="utf-8")
+
+        monkeypatch.setattr(update_factory, "_run_init", REAL_RUN_INIT)
+        (src / "factory" / "scripts" / "real-path-marker").write_text(
+            "real\n", encoding="utf-8"
+        )
+        assert update_factory.main(["--target", str(target), "--source", str(src)]) == 0
+
+        assert transcript.read_text(encoding="utf-8") == '{"seq": 1}\n'
+        assert state.read_text(encoding="utf-8") == '{"mode": "active"}\n'
+        assert (target / "factory/scripts/real-path-marker").read_text(
+            encoding="utf-8"
+        ) == "real\n"
+
 
 class TestUpdateErrors:
     def test_non_install_target_fails(self, tmp_path):
@@ -230,3 +310,14 @@ class TestUpdateErrors:
             )
             == 1
         )
+
+    def test_corrupt_manifest_fails_with_distinct_message(self, tmp_path, capsys):
+        """FAGAN-0015: a present-but-malformed manifest is reported as corrupt,
+        not confused with a missing manifest."""
+        src = _make_source(tmp_path)
+        target = tmp_path / "proj"
+        assert _install(target, src) == 0
+
+        (target / MANIFEST).write_text("{ this is not json", encoding="utf-8")
+        assert update_factory.main(["--target", str(target)]) == 1
+        assert "not valid JSON" in capsys.readouterr().err

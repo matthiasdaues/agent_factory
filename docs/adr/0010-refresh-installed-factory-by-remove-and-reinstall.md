@@ -44,6 +44,10 @@ an installed project up to date with a factory checkout.
   permissions, never deletes usage data. The manifest
   `.agent-factory/factory-install.json` is rewritten by the re-run — expected,
   it is the removal manifest — but usage data survives.
+- **The refresh is rollback-safe.** The old `factory/` is moved aside (not
+  deleted) before the reinstall and restored in place if the sourced
+  `init-factory` returns non-zero, so a collision never leaves the project
+  without a `factory/` and dangling runtime symlinks.
 
 `evaluation: none` because remove-and-reinstall is the obvious path (it is the
 shape the existing design already carved out for "the update script's job"),

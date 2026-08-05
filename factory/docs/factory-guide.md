@@ -426,6 +426,8 @@ The script is idempotent: run it again any time, and anything already correctly 
 
 `--source` is optional on installs created after the field was recorded: `init-factory` stores the checkout it copied from (`factory_source`) in `.agent-factory/factory-install.json`, and `update-factory` reads that as its default. Only `factory/` is replaced — the project's own files, the `.gitignore`/`.pre-commit-config.yaml` edits, and the `.agent-factory/` usage-tracking transcripts and lifecycle state are all preserved. You can also run the installed copy from inside the project with `--source` if you no longer have the original checkout path in the manifest.
 
+If the sourced `init-factory` stops on a collision, `update-factory` rolls the refresh back: the old `factory/` is moved aside (not deleted) and restored in place, so the project is never left without a `factory/` and dangling runtime symlinks. Resolve the reported collision and re-run `update-factory` to finish.
+
 To trigger the install conversationally instead of from a shell, use the `init-factory` skill (`factory/skills/init-factory/SKILL.md`): it confirms the target with you, runs the script, and relays its output.
 
 ## Troubleshooting
