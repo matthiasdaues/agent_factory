@@ -20,7 +20,7 @@ models/
 
 # >>> agent_factory related >>>
 # Added by init-factory; remove with factory/scripts/remove-factory.
-# /factory/
+#/factory/
 /.claude/
 /.pi/
 /.agent-factory/
@@ -72,6 +72,7 @@ models/
 /.agents/skills/grill-me
 /.agents/skills/grill-with-docs
 /.agents/skills/grilling
+/.agents/skills/handoff
 /.agents/skills/implement-issue
 /.agents/skills/init-factory
 /.agents/skills/inspect-spec
