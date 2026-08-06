@@ -1,6 +1,6 @@
 # Factory
 
-`factory/` is the Agent Factory toolset itself — agents, skills, playbooks, and checks. `init-factory` copies it wholesale into your own project. You never hand-edit the copy; you re-run `init-factory` to update it.
+`factory/` is the Agent Factory toolset itself — agents, skills, playbooks, and checks. `init-factory` copies it wholesale into your own project. You never hand-edit the copy; run `update-factory` to bring it up to date when your `agent_factory` checkout moves forward.
 
 Part of [Agent Factory](../README.md). See also: [orchestrator](../orchestrator/README.md), [architecture docs](../docs/README.md).
 

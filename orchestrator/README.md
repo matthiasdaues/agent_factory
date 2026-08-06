@@ -102,10 +102,12 @@ orchestrator/
 ├── pyproject.toml             # agent-factory-orchestrator package metadata
 ├── src/
 │   ├── agent_factory_orchestrator/
+│   │   ├── __init__.py
 │   │   └── cli.py            # canonical packaged implementation
 │   └── run_playbook.py       # compatibility launcher for authoring checkouts
-├── tests/
-│   └── test_run_playbook.py  # 18 tests
+├── tests/                    # 50 test files: run-playbook, trigger, usage capture,
+│                             # research, init/remove/update-factory, guards, schemas
+│   └── test_run_playbook.py  # 18 tests covering the five orchestrator use cases
 ├── docs/
 │   ├── spec/                 # PRD, use cases, entity model
 │   ├── adr/                  # ADR-0001: pure delegation

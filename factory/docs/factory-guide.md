@@ -327,10 +327,10 @@ A gate is a deterministic script — no LLM judgement involved — that catches 
 In manual mode (driving each agent by hand, one session at a time), the reviewer agent for that phase runs its gate as its first step. Run any gate yourself the same way:
 
 ```bash
-factory/scripts/spec-lint docs/spec/
+factory/scripts/spec-lint --spec-dir docs/spec/
 factory/scripts/arch-lint --docs-dir docs/
-factory/scripts/backlog-lint backlog/
-factory/scripts/matrix-lint config/model.conf
+factory/scripts/backlog-lint --backlog-dir backlog/
+factory/scripts/matrix-lint --matrix config/model.conf
 ```
 
 These scripts are stdlib-only Python — no install needed to run them.
