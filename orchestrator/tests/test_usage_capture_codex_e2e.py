@@ -112,7 +112,7 @@ def _invoke(hook: Path, payload: dict) -> subprocess.CompletedProcess:
 
 
 def _wait_for_record(project: Path, session: str) -> dict:
-    path = project / f".agent-factory/usage/{session}.jsonl"
+    path = project / f".agent-factory/usage/codex_{session}.jsonl"
     for _ in range(100):
         if path.exists() and path.stat().st_size:
             return json.loads(path.read_text().splitlines()[-1])
@@ -175,7 +175,7 @@ class TestInstalledCodexHooksST0043:
         assert (tmp_path / child["transcript_ref"]["path"]).is_file()
         assert (
             len(
-                (tmp_path / ".agent-factory/usage/codex-root.jsonl")
+                (tmp_path / ".agent-factory/usage/codex_codex-root.jsonl")
                 .read_text()
                 .splitlines()
             )
@@ -183,7 +183,7 @@ class TestInstalledCodexHooksST0043:
         )
         assert (
             len(
-                (tmp_path / ".agent-factory/usage/codex-child.jsonl")
+                (tmp_path / ".agent-factory/usage/codex_codex-child.jsonl")
                 .read_text()
                 .splitlines()
             )

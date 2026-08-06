@@ -173,7 +173,7 @@ def _make_single_assistant_transcript(
 def _poll_usage_file(
     session_id: str, usage_dir: Path, timeout_secs: float = 5.0
 ) -> dict | None:
-    """Poll for a record in `.agent-factory/usage/<session_id>.jsonl`.
+    """Poll for a record in `.agent-factory/usage/claude-code_<session_id>.jsonl`.
 
     The hook runs `usage-capture` in the background, so the file may not exist
     immediately. This function polls up to `timeout_secs` to let the background
@@ -181,7 +181,7 @@ def _poll_usage_file(
     timeout expires).
     """
     start = time.time()
-    session_file = usage_dir / f"{session_id}.jsonl"
+    session_file = usage_dir / f"claude-code_{session_id}.jsonl"
     while time.time() - start < timeout_secs:
         if session_file.exists():
             lines = session_file.read_text(encoding="utf-8").splitlines()

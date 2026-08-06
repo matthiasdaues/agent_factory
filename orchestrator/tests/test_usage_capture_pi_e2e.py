@@ -43,7 +43,7 @@ def _init(target: Path) -> None:
 
 
 def _records(target: Path, session: str) -> list[dict]:
-    path = target / ".agent-factory/usage" / f"{session}.jsonl"
+    path = target / ".agent-factory/usage" / f"pi_{session}.jsonl"
     _wait_for(path.is_file)
     _wait_for_terminal_capture(target)
     return [json.loads(line) for line in path.read_text().splitlines()]
@@ -239,14 +239,38 @@ def test_install_then_remove_preserves_project_pi_content(tmp_path):
 
 
 def _install_pi_stub(target: Path) -> dict[str, str]:
+    if (
+        subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree"],
+            cwd=target,
+            capture_output=True,
+            check=False,
+        ).returncode
+        != 0
+    ):
+        subprocess.run(
+            ["git", "init", "-b", "main"], cwd=target, check=True, capture_output=True
+        )
+    artifact = (
+        "seed" if (target / "seed").is_file() else "docs/reviews/pi-child-result.md"
+    )
+    if artifact != "seed":
+        result_path = target / artifact
+        result_path.parent.mkdir(parents=True, exist_ok=True)
+        result_path.write_text("# Complete Pi child result\n")
+        subprocess.run(["git", "add", "-f", artifact], cwd=target, check=True)
     bin_dir = target / "test-bin"
     bin_dir.mkdir()
     pi = bin_dir / "pi"
     pi.write_text(
-        "#!/bin/sh\n"
-        'printf \'%s\\n\' \'{"type":"message_end","message":{"role":"assistant",'
-        '"content":[{"type":"text","text":"done"}],'
-        '"usage":{"input":11,"output":5,"cacheRead":2,"cacheWrite":0}}}\'\n'
+        "#!/usr/bin/env python3\n"
+        "import json\n"
+        f"artifact = {artifact!r}\n"
+        "envelope = {'disposition':'pass','finding_counts':{'critical':0,'major':0,'minor':0},"
+        "'artifact_paths':[artifact],'next_action':'Continue with the validated result.'}\n"
+        "print(json.dumps({'type':'message_end','message':{'role':'assistant',"
+        "'content':[{'type':'text','text':json.dumps(envelope)}],"
+        "'usage':{'input':11,'output':5,'cacheRead':2,'cacheWrite':0}}}))\n"
     )
     pi.chmod(0o755)
     env = os.environ.copy()
@@ -320,6 +344,15 @@ def test_BUG_0004_UC_10_run_agent_streams_more_than_64_mib(tmp_path):
     )
     capture_runtime.chmod(0o755)
 
+    streamed_artifact = target / "docs/reviews/streamed-child-result.md"
+    streamed_artifact.parent.mkdir(parents=True, exist_ok=True)
+    streamed_artifact.write_text("# Complete streamed child result\n")
+    subprocess.run(
+        ["git", "add", "-f", "docs/reviews/streamed-child-result.md"],
+        cwd=target,
+        check=True,
+    )
+
     bin_dir = target / "test-bin"
     bin_dir.mkdir()
     pi = bin_dir / "pi"
@@ -330,7 +363,9 @@ const payload = JSON.stringify({type:'message_update',delta:'x'.repeat(32 * 1024
 for (let i = 0; i < 2100; i++) {
   writeSync(1, payload);
 }
-const final = JSON.stringify({type:'message_end',message:{role:'assistant',content:[{type:'text',text:'streamed result'}],usage:{input:11,output:5}}}) + '\\n';
+const artifact = 'docs/reviews/streamed-child-result.md';
+const envelope = {disposition:'pass',finding_counts:{critical:0,major:0,minor:0},artifact_paths:[artifact],next_action:'Continue with the streamed result.'};
+const final = JSON.stringify({type:'message_end',message:{role:'assistant',content:[{type:'text',text:JSON.stringify(envelope)}],usage:{input:11,output:5}}}) + '\\n';
 for (let offset = 0; offset < final.length; offset += 7) {
   writeSync(1, final.slice(offset, offset + 7));
 }
@@ -366,7 +401,8 @@ const result = await tool.execute(
   }},
 );
 if (result.details?.error) throw new Error(JSON.stringify(result));
-if (result.content[0].text !== 'streamed result') throw new Error(JSON.stringify(result));
+const envelope = JSON.parse(result.content[0].text);
+if (envelope.artifact_paths[0] !== 'docs/reviews/streamed-child-result.md') throw new Error(JSON.stringify(result));
 if (updateCount < 2 || largestUpdate > 4096) throw new Error(JSON.stringify({{updateCount, largestUpdate}}));
 """
     )
@@ -387,10 +423,10 @@ if (updateCount < 2 || largestUpdate > 4096) throw new Error(JSON.stringify({{up
         # Usage capture is explicitly best-effort when offline initialization
         # could not provision its runtime; the streamed agent result above
         # must remain successful in that state.
-        assert not list(usage_dir.glob("pi-*.jsonl"))
+        assert not list(usage_dir.glob("pi_*.jsonl"))
         return
-    _wait_for(lambda: len(list(usage_dir.glob("pi-*.jsonl"))) == 1, timeout=30)
-    record_path = next(usage_dir.glob("pi-*.jsonl"))
+    _wait_for(lambda: len(list(usage_dir.glob("pi_*.jsonl"))) == 1, timeout=30)
+    record_path = next(usage_dir.glob("pi_*.jsonl"))
     record = json.loads(record_path.read_text().splitlines()[0])
     assert record["reported_input"] == 11
     _wait_for(captured_size.is_file)
@@ -479,7 +515,7 @@ if (elapsedMs > 2000) throw new Error(`cancellation took ${{elapsedMs}}ms`);
         pids = [int(pid_file.read_text()) for pid_file in (child_pid, descendant_pid)]
         _wait_for(lambda: not any(_pid_is_live(pid) for pid in pids), timeout=1)
         assert not list((target / ".agent-factory/usage/.capture").iterdir())
-        assert not list((target / ".agent-factory/usage").glob("pi-*.jsonl"))
+        assert not list((target / ".agent-factory/usage").glob("pi_*.jsonl"))
     finally:
         # A red implementation can orphan both deliberately non-cooperative
         # processes. Keep the regression itself bounded and self-cleaning.
@@ -991,7 +1027,7 @@ await shutdown({{type:'session_shutdown'}}, ctx);
 
     _run_node(exercise, cwd=tmp_path, env=env, timeout=3)
     _wait_for(started.is_file)
-    assert not (tmp_path / ".agent-factory/usage/pi-stalled-human.jsonl").exists()
+    assert not (tmp_path / ".agent-factory/usage/pi_pi-stalled-human.jsonl").exists()
     record = _release_capture_and_assert_cleanup(tmp_path, gate, "pi-stalled-human")
     assert record["agent"] == "human"
     assert record["reported_input"] == 7
@@ -1219,13 +1255,13 @@ def test_run_agent_returns_while_capture_is_stalled(tmp_path):
         timeout=3,
     )
     _wait_for(started.is_file)
-    assert not list((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl"))
+    assert not list((tmp_path / ".agent-factory/usage").glob("pi_*.jsonl"))
     gate.touch()
     _wait_for(
-        lambda: len(list((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl"))) == 1
+        lambda: len(list((tmp_path / ".agent-factory/usage").glob("pi_*.jsonl"))) == 1
     )
     record = json.loads(
-        next((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl")).read_text()
+        next((tmp_path / ".agent-factory/usage").glob("pi_*.jsonl")).read_text()
     )
     _wait_for(lambda: not list((tmp_path / ".agent-factory/usage/.capture").iterdir()))
     assert record["parent_session_id"] == "pi-human-parent"
@@ -1259,13 +1295,13 @@ def test_dispatch_wave_returns_while_capture_is_stalled(tmp_path):
         timeout=3,
     )
     _wait_for(started.is_file)
-    assert not list((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl"))
+    assert not list((tmp_path / ".agent-factory/usage").glob("pi_*.jsonl"))
     gate.touch()
     _wait_for(
-        lambda: len(list((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl"))) == 1
+        lambda: len(list((tmp_path / ".agent-factory/usage").glob("pi_*.jsonl"))) == 1
     )
     record = json.loads(
-        next((tmp_path / ".agent-factory/usage").glob("pi-*.jsonl")).read_text()
+        next((tmp_path / ".agent-factory/usage").glob("pi_*.jsonl")).read_text()
     )
     _wait_for(lambda: not list((tmp_path / ".agent-factory/usage/.capture").iterdir()))
     assert record["parent_session_id"] == "pi-human-parent"
@@ -1293,7 +1329,7 @@ await new Promise(resolve => setTimeout(resolve, 100));
     _wait_for_terminal_capture(tmp_path)
     diagnostic = json.loads(_diagnostics(tmp_path)[0].read_text())
     assert diagnostic["reason"] == "launcher-spawn-enoent"
-    assert not (tmp_path / ".agent-factory/usage/pi-spawn-error.jsonl").exists()
+    assert not (tmp_path / ".agent-factory/usage/pi_pi-spawn-error.jsonl").exists()
 
 
 def test_interpreter_loss_after_registration_is_cleaned(tmp_path):
@@ -1490,7 +1526,9 @@ def test_missing_runtime_interpreter_reaches_terminal_state(tmp_path):
     _invoke_direct_pi_capture(tmp_path, "pi-missing-interpreter")
 
     _wait_for_terminal_capture(tmp_path)
-    assert not (tmp_path / ".agent-factory/usage/pi-missing-interpreter.jsonl").exists()
+    assert not (
+        tmp_path / ".agent-factory/usage/pi_pi-missing-interpreter.jsonl"
+    ).exists()
     assert _diagnostics(tmp_path) == []
     result = subprocess.run(
         [str(_REMOVE), "--target", str(tmp_path), "--pending-timeout", "1"],
@@ -1509,7 +1547,7 @@ def test_capture_process_failure_reaches_terminal_state(tmp_path):
     _invoke_direct_pi_capture(tmp_path, "pi-abrupt-python")
 
     _wait_for_terminal_capture(tmp_path)
-    assert not (tmp_path / ".agent-factory/usage/pi-abrupt-python.jsonl").exists()
+    assert not (tmp_path / ".agent-factory/usage/pi_pi-abrupt-python.jsonl").exists()
     diagnostic = json.loads(_diagnostics(tmp_path)[0].read_text())
     assert diagnostic["reason"] == "capture-process-failed"
     assert diagnostic["exit_code"] == 42
@@ -1590,7 +1628,7 @@ await shutdown({{type:'session_shutdown'}}, {{cwd:{json.dumps(str(linked))}, ses
     _run_node(script, cwd=linked)
 
     assert _records(primary, "pi-linked")[0]["depth"] == 0
-    assert not (linked / ".agent-factory/usage/pi-linked.jsonl").exists()
+    assert not (linked / ".agent-factory/usage/pi_pi-linked.jsonl").exists()
 
 
 def test_untrusted_inherited_root_is_ignored(tmp_path):
@@ -1618,7 +1656,7 @@ capturePiStream({json.dumps(str(primary))}, '{{"type":"message_end","message":{{
     env["PI_AGENT_FACTORY_USAGE_ROOT"] = str(attacker)
     _run_node(script, cwd=primary, env=env)
 
-    _wait_for((primary / ".agent-factory/usage/pi-safe.jsonl").is_file)
+    _wait_for((primary / ".agent-factory/usage/pi_pi-safe.jsonl").is_file)
     assert not (attacker / "PWNED").exists()
 
 
@@ -1628,7 +1666,12 @@ def test_nested_dispatch_records_survive_merged_worktree_removal(tmp_path):
     _init_git_repo(primary)
     _init(primary)
     # dispatch worktrees need the installed Factory runtime in their committed base.
-    subprocess.run(["git", "add", "-f", "factory"], cwd=primary, check=True)
+    (primary / "nested-child-result.txt").write_text("complete nested child result\n")
+    subprocess.run(
+        ["git", "add", "-f", "factory", "nested-child-result.txt"],
+        cwd=primary,
+        check=True,
+    )
     subprocess.run(
         ["git", "commit", "--no-verify", "-m", "install factory"],
         cwd=primary,
@@ -1667,7 +1710,9 @@ if (depth === 1) {
   execFileSync('git', ['add', 'nested-result.txt']);
   execFileSync('git', ['-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'fix: nested result (RECON-0009)']);
 }
-process.stdout.write(JSON.stringify({type:'message_end',message:{role:'assistant',content:[{type:'text',text:'done'}],usage:{input:11,output:5,cacheRead:2,cacheWrite:0}}}) + '\\n');
+const artifact = depth === 1 ? 'nested-result.txt' : 'nested-child-result.txt';
+const envelope = {disposition:'pass',finding_counts:{critical:0,major:0,minor:0},artifact_paths:[artifact],next_action:'Continue with the nested result.'};
+process.stdout.write(JSON.stringify({type:'message_end',message:{role:'assistant',content:[{type:'text',text:JSON.stringify(envelope)}],usage:{input:11,output:5,cacheRead:2,cacheWrite:0}}}) + '\\n');
 """
     )
     bin_dir = primary / "test-bin"
@@ -1703,8 +1748,8 @@ process.stdout.write(JSON.stringify({type:'message_end',message:{role:'assistant
 
     assert not (primary / ".agent-factory/worktrees/test-recon-0009").exists()
     usage = primary / ".agent-factory/usage"
-    _wait_for(lambda: len(list(usage.glob("pi-*.jsonl"))) == 2)
-    records = [json.loads(path.read_text()) for path in usage.glob("pi-*.jsonl")]
+    _wait_for(lambda: len(list(usage.glob("pi_*.jsonl"))) == 2)
+    records = [json.loads(path.read_text()) for path in usage.glob("pi_*.jsonl")]
     assert sorted(record["depth"] for record in records) == [1, 2]
     outer = next(record for record in records if record["depth"] == 1)
     nested = next(record for record in records if record["depth"] == 2)

@@ -4,7 +4,7 @@ title: "Token Usage Tracking"
 status: implemented
 owner: agent-factory
 created: 2026-07-21
-updated: 2026-08-03
+updated: 2026-08-04
 supersedes:
 
 impact:
@@ -365,12 +365,15 @@ records is not aggregation duplication: both model invocations consumed it.
   automatic TTL. Pi scratch is deleted immediately after processing. Whole-text
   omission is the supported redaction control; regex redaction is intentionally
   absent because it cannot reliably find secrets. Accounting cannot be disabled.
-- **Opaque identifiers never become paths directly.** Bounded lowercase ASCII
-  identifiers that were already safe retain their historical layout. All other
-  session and record identifiers map to fixed `opaque-<sha256>` filesystem keys;
-  the original values remain only in the JSON record. Every storage component
-  rejects symlinks, transcripts are created exclusively with no-follow semantics,
-  and session records are appended without following links.
+- **Identifiers never become paths unsafely.** Filesystem-safe identifiers —
+  bounded ASCII, mixed case allowed so Pi's uppercase `...T...Z...` session ids
+  stay readable on disk (the usage directory is gitignored, so the pathname
+  carries no privacy cost) — keep their verbatim name. Identifiers that are
+  unsafe as a filename component (path separators, `.`/`..`, Windows device
+  names, oversized, or non-ASCII) map to fixed `opaque-<sha256>` filesystem
+  keys; the original values remain only in the JSON record. Every storage
+  component rejects symlinks, transcripts are created exclusively with no-follow
+  semantics, and session records are appended without following links.
 - **Failure is silent to the run:** direct `usage-capture` invocation reports
   errors on stderr and returns success. Native lifecycle adapters may suppress
   that stderr as well as swallowing the failure, so session completion and tool

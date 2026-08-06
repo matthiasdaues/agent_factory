@@ -1,6 +1,6 @@
 ---
 id: 0007
-status: accepted
+status: superseded by ADR-0009
 evaluation: none
 ---
 

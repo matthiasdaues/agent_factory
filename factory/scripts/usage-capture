@@ -64,7 +64,11 @@ _DIRECTORY_MODE = 0o700
 _FILE_MODE = 0o600
 _RETENTION_ENV = "AGENT_FACTORY_USAGE_TRANSCRIPT_RETENTION"
 _OPAQUE_PREFIX = "opaque-"
-_LEGACY_SAFE_COMPONENT = re.compile(r"^[a-z0-9][a-z0-9._-]{0,99}$")
+# A filesystem-safe identifier keeps its verbatim name. Mixed case is allowed
+# (Pi root session ids carry uppercase ISO-8601 separators, e.g. "...T...Z");
+# only genuinely unsafe components — path separators, traversal, Windows device
+# names, oversized or non-ASCII values — fall back to a fixed digest.
+_SAFE_PATH_COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
 _WINDOWS_DEVICE_STEMS = {
     "con",
     "prn",
@@ -78,20 +82,25 @@ _WINDOWS_DEVICE_STEMS = {
 def filesystem_key(opaque_id: object) -> str:
     """Map an opaque external identifier to one safe filesystem component.
 
-    Existing bounded lowercase identifiers retain their historical layout.
-    Everything else gets a fixed-size digest name; the original value stays
-    in the JSON record and is never recovered from the pathname.
+    Filesystem-safe identifiers keep their verbatim name — mixed case is
+    allowed, so Pi's uppercase ``...T...Z...`` session ids stay readable on
+    disk (the usage directory is gitignored, so the pathname carries no
+    privacy cost); the original value is also retained inside the JSON
+    record. Identifiers that are unsafe as a filename component — path
+    separators, ``.``/``..``, Windows device names, oversized, or non-ASCII —
+    map to a fixed ``opaque-<sha256>`` digest so storage stays contained
+    beneath the usage root regardless of the input.
     """
     raw = str(opaque_id)
     stem = raw.split(".", 1)[0]
-    legacy_safe = (
-        bool(_LEGACY_SAFE_COMPONENT.fullmatch(raw))
+    safe = (
+        bool(_SAFE_PATH_COMPONENT.fullmatch(raw))
         and raw not in (".", "..")
         and not raw.startswith(_OPAQUE_PREFIX)
-        and stem not in _WINDOWS_DEVICE_STEMS
+        and stem.lower() not in _WINDOWS_DEVICE_STEMS
         and not raw.endswith((".", " "))
     )
-    if legacy_safe:
+    if safe:
         return raw
     digest = hashlib.sha256(raw.encode("utf-8", errors="surrogatepass")).hexdigest()
     return f"{_OPAQUE_PREFIX}{digest}"
@@ -107,13 +116,30 @@ def _write_all(fd: int, data: bytes) -> None:
 
 
 class UsageStoragePaths:
-    """Central, contained filesystem layout for opaque usage identifiers."""
+    """Central, contained filesystem layout for usage identifiers.
 
-    def __init__(self, base_dir: Union[str, Path] = ".") -> None:
+    The session-level storage key is ``<cli>_<session_id>`` so a directory
+    listing identifies which CLI produced a run; the CLI token is itself passed
+    through ``filesystem_key`` so a hypothetical hostile value cannot redirect
+    writes. When no CLI is supplied (direct/test use) the key falls back to the
+    bare ``<session_id>``.
+    """
+
+    def __init__(
+        self, base_dir: Union[str, Path] = ".", *, cli: Optional[str] = None
+    ) -> None:
         self.base_dir = Path(base_dir).resolve()
         self.agent_dir = self.base_dir / ".agent-factory"
         self.usage_dir = self.agent_dir / "usage"
         self.transcripts_dir = self.usage_dir / "transcripts"
+        self._cli = cli
+
+    def _session_key(self, session_id: object) -> str:
+        """Composite storage key: ``<cli>_<session_id>`` when a CLI is set."""
+        session_component = filesystem_key(session_id)
+        if not self._cli:
+            return session_component
+        return f"{filesystem_key(self._cli)}_{session_component}"
 
     @staticmethod
     def _ensure_directory(path: Path, *, repair: bool = True) -> None:
@@ -161,10 +187,10 @@ class UsageStoragePaths:
         self._ensure_directory(self.transcripts_dir)
 
     def session_path(self, session_id: object) -> Path:
-        return self.usage_dir / f"{filesystem_key(session_id)}.jsonl"
+        return self.usage_dir / f"{self._session_key(session_id)}.jsonl"
 
     def transcript_directory(self, session_id: object) -> Path:
-        return self.transcripts_dir / filesystem_key(session_id)
+        return self.transcripts_dir / self._session_key(session_id)
 
     def transcript_path(self, session_id: object, record_id: object) -> Path:
         return (
@@ -378,6 +404,74 @@ class TranscriptRef:
     span: Optional[str] = None
 
 
+@dataclass(frozen=True)
+class ProviderUsageTurn:
+    """Native provider usage for one eligible assistant response turn.
+
+    Missing provider fields stay ``None``.  Normalized token estimates never
+    enter this evidence type because BR-042 permits no inferred substitute.
+    """
+
+    input_tokens: Optional[int]
+    cache_read_tokens: Optional[int]
+
+
+@dataclass(frozen=True)
+class SessionUsageSignals:
+    """Provider-qualified retrospective values derived under BR-042."""
+
+    cli: str
+    provider: Optional[str]
+    usage_capability: str
+    cache_miss_turns: Optional[int]
+    cache_miss_input_tokens: Optional[int]
+    late_early_input_ratio: Optional[float]
+
+    def to_record_fields(self) -> dict:
+        """Return exactly the fields persisted on ``UsageRecord``."""
+        return asdict(self)
+
+
+def derive_session_usage_signals(
+    turns: list[ProviderUsageTurn], *, cli: str, provider: Optional[str]
+) -> SessionUsageSignals:
+    """Derive the deterministic, session-end-only signals from BR-042."""
+    if not turns or any(turn.input_tokens is None for turn in turns):
+        return SessionUsageSignals(cli, provider, "unavailable", None, None, None)
+
+    inputs = [
+        int(turn.input_tokens)
+        for turn in turns
+        if turn.input_tokens is not None
+    ]
+    ratio: Optional[float] = None
+    if len(inputs) >= 2:
+        partition_size = max(1, len(inputs) // 3)
+        early_mean = sum(inputs[:partition_size]) / partition_size
+        late_mean = sum(inputs[-partition_size:]) / partition_size
+        if early_mean != 0:
+            ratio = late_mean / early_mean
+
+    if any(turn.cache_read_tokens is None for turn in turns):
+        return SessionUsageSignals(cli, provider, "input-only", None, None, ratio)
+
+    misses = [
+        turn
+        for turn in turns
+        if turn.input_tokens is not None
+        and turn.input_tokens > 0
+        and turn.cache_read_tokens == 0
+    ]
+    return SessionUsageSignals(
+        cli,
+        provider,
+        "full-cache",
+        len(misses),
+        sum(turn.input_tokens for turn in misses if turn.input_tokens is not None),
+        ratio,
+    )
+
+
 @dataclass
 class UsageRecord:
     """One usage record per agent invocation (proposal: "The Usage Record").
@@ -414,6 +508,7 @@ class UsageRecord:
     # What ran
     agent: Optional[str] = None
     model: Optional[str] = None
+    provider: Optional[str] = None
 
     # Spend (reported_*, usage_granularity — normalized_* declared above)
     reported_input: Optional[int] = None
@@ -421,6 +516,10 @@ class UsageRecord:
     reported_cache_read: Optional[int] = None
     reported_cache_write: Optional[int] = None
     usage_granularity: Optional[str] = None
+    usage_capability: Optional[str] = None
+    cache_miss_turns: Optional[int] = None
+    cache_miss_input_tokens: Optional[int] = None
+    late_early_input_ratio: Optional[float] = None
 
     # Outcome
     exit_status: Optional[str] = None
@@ -505,9 +604,13 @@ class JsonlLoggingAdapter:
     """
 
     def __init__(
-        self, base_dir: Union[str, Path] = ".", retention: str = "full"
+        self,
+        base_dir: Union[str, Path] = ".",
+        retention: str = "full",
+        *,
+        cli: Optional[str] = None,
     ) -> None:
-        self._storage = UsageStoragePaths(base_dir)
+        self._storage = UsageStoragePaths(base_dir, cli=cli)
         self._usage_dir = self._storage.usage_dir
         self._retention = retention
 
@@ -605,6 +708,16 @@ _USAGE_KEYS = {
 }
 
 
+def _optional_usage_int(usage: object, key: str) -> Optional[int]:
+    """Return one native numeric usage field without filling a missing key."""
+    if not isinstance(usage, dict):
+        return None
+    value = usage.get(key)
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return int(value)
+    return None
+
+
 @dataclass
 class NormalizedTranscript:
     """One transcript read, reduced to what the record needs (ST-0037).
@@ -634,6 +747,7 @@ class NormalizedTranscript:
     reported_cache_write: Optional[int] = None
     usage_granularity: Optional[str] = None
     model: Optional[str] = None
+    eligible_turns: list[ProviderUsageTurn] = field(default_factory=list)
 
     @property
     def text(self) -> str:
@@ -738,6 +852,7 @@ class ClaudeCodeNormalizer:
         reported = {name: 0 for name in _USAGE_KEYS.values()}
         saw_usage = False
         model: Optional[str] = None
+        eligible_turns: list[ProviderUsageTurn] = []
 
         raw = Path(transcript_path).read_text(encoding="utf-8")
         for line in raw.splitlines():
@@ -777,6 +892,13 @@ class ClaudeCodeNormalizer:
             usage = message.get("usage")
             if usage is None:
                 usage = obj.get("usage")
+            if role == "assistant" and not obj.get("isSidechain", False):
+                eligible_turns.append(
+                    ProviderUsageTurn(
+                        _optional_usage_int(usage, "input_tokens"),
+                        _optional_usage_int(usage, "cache_read_input_tokens"),
+                    )
+                )
             if isinstance(usage, dict):
                 saw_usage = True
                 for key, field_name in _USAGE_KEYS.items():
@@ -789,6 +911,7 @@ class ClaudeCodeNormalizer:
             output_text="\n".join(outputs),
             ordered_segments=ordered,
             model=model,
+            eligible_turns=eligible_turns,
         )
         if saw_usage:
             result.reported_input = reported["reported_input"]
@@ -847,6 +970,7 @@ class CopilotNormalizer:
         reported = {field_name: 0 for field_name in self._USAGE_FIELDS.values()}
         saw_usage = False
         model: Optional[str] = None
+        eligible_turns: list[ProviderUsageTurn] = []
 
         raw = Path(transcript_path).read_text(encoding="utf-8")
         for line in raw.splitlines():
@@ -873,6 +997,16 @@ class CopilotNormalizer:
                 outputs.extend(segments)
 
             if event_type == "assistant.usage":
+                if (
+                    not data.get("parentToolCallId")
+                    and data.get("initiator") != "sub-agent"
+                ):
+                    eligible_turns.append(
+                        ProviderUsageTurn(
+                            _optional_usage_int(data, "inputTokens"),
+                            _optional_usage_int(data, "cacheReadTokens"),
+                        )
+                    )
                 saw_usage = True
                 for key, field_name in self._USAGE_FIELDS.items():
                     value = data.get(key)
@@ -884,6 +1018,7 @@ class CopilotNormalizer:
             output_text="\n".join(outputs),
             ordered_segments=ordered,
             model=model,
+            eligible_turns=eligible_turns,
         )
         if saw_usage:
             result.reported_input = reported["reported_input"]
@@ -956,6 +1091,7 @@ class CodexNormalizer:
         outputs: list[str] = []
         latest_usage: Optional[dict] = None
         model: Optional[str] = None
+        eligible_turns: list[ProviderUsageTurn] = []
 
         for line in Path(transcript_path).read_text(encoding="utf-8").splitlines():
             try:
@@ -986,12 +1122,23 @@ class CodexNormalizer:
                 )
                 if isinstance(usage, dict):
                     latest_usage = usage
+                per_turn = (
+                    info.get("last_token_usage") if isinstance(info, dict) else None
+                )
+                if isinstance(per_turn, dict):
+                    eligible_turns.append(
+                        ProviderUsageTurn(
+                            _optional_usage_int(per_turn, "input_tokens"),
+                            _optional_usage_int(per_turn, "cached_input_tokens"),
+                        )
+                    )
 
         result = NormalizedTranscript(
             input_text="\n".join(inputs),
             output_text="\n".join(outputs),
             ordered_segments=ordered,
             model=model,
+            eligible_turns=eligible_turns,
         )
         if latest_usage is not None:
             for key, field_name in self._USAGE_FIELDS.items():
@@ -1058,6 +1205,7 @@ class PiNormalizer:
         reported = {field_name: 0 for field_name in self._USAGE_FIELDS.values()}
         saw_usage = False
         model: Optional[str] = None
+        eligible_turns: list[ProviderUsageTurn] = []
 
         for line in Path(transcript_path).read_text(encoding="utf-8").splitlines():
             try:
@@ -1077,6 +1225,16 @@ class PiNormalizer:
                 if direction == _OUTPUT and isinstance(value, str) and value:
                     model = value
                 usage = message.get("usage")
+                if (
+                    direction == _OUTPUT
+                    and event_type in ("message_end", "message")
+                ):
+                    eligible_turns.append(
+                        ProviderUsageTurn(
+                            _optional_usage_int(usage, "input"),
+                            _optional_usage_int(usage, "cacheRead"),
+                        )
+                    )
                 if event_type in ("message_end", "message") and isinstance(usage, dict):
                     saw_usage = True
                     for key, field_name in self._USAGE_FIELDS.items():
@@ -1101,6 +1259,7 @@ class PiNormalizer:
             output_text="\n".join(outputs),
             ordered_segments=ordered,
             model=model,
+            eligible_turns=eligible_turns,
         )
         if saw_usage:
             for field_name, value in reported.items():
@@ -1168,6 +1327,10 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--depth", type=int)
     parser.add_argument("--agent")
     parser.add_argument("--model")
+    parser.add_argument(
+        "--provider",
+        help="provider identity qualifying native per-turn usage semantics",
+    )
     parser.add_argument("--branch")
     parser.add_argument("--commit", dest="commit_id")
     parser.add_argument("--exit-status", dest="exit_status")
@@ -1383,6 +1546,11 @@ def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> bool
     """
     normalizer = get_normalizer(args.cli)  # raises ValueError for unknown cli
     transcript = normalizer.parse(args.transcript)
+    signals = derive_session_usage_signals(
+        transcript.eligible_turns,
+        cli=args.cli,
+        provider=args.provider,
+    )
 
     normalized_input = count_tokens(transcript.input_text)
     normalized_output = count_tokens(transcript.output_text)
@@ -1394,7 +1562,7 @@ def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> bool
 
     with _pi_persistence_fence(args, base_dir) as allowed:
         if allowed:
-            storage = UsageStoragePaths(base_dir)
+            storage = UsageStoragePaths(base_dir, cli=args.cli)
             session_id = args.session_id or "unknown"
             fallback_id = None if args.session_id else str(uuid.uuid4())
             reservation = storage.reserve_transcript(session_id, fallback_id)
@@ -1411,11 +1579,16 @@ def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> bool
                     depth=args.depth,
                     agent=args.agent,
                     model=args.model or transcript.model,
+                    provider=signals.provider,
                     reported_input=transcript.reported_input,
                     reported_output=transcript.reported_output,
                     reported_cache_read=transcript.reported_cache_read,
                     reported_cache_write=transcript.reported_cache_write,
                     usage_granularity=transcript.usage_granularity,
+                    usage_capability=signals.usage_capability,
+                    cache_miss_turns=signals.cache_miss_turns,
+                    cache_miss_input_tokens=signals.cache_miss_input_tokens,
+                    late_early_input_ratio=signals.late_early_input_ratio,
                     exit_status=args.exit_status,
                     branch=args.branch or detected_branch,
                     commit_id=args.commit_id or detected_commit,
@@ -1424,7 +1597,7 @@ def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> bool
                 reservation.discard()
                 raise
             return JsonlLoggingAdapter(
-                base_dir=base_dir, retention=retention
+                base_dir=base_dir, retention=retention, cli=args.cli
             ).record_reserved(
                 record,
                 transcript.text,

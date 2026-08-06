@@ -417,6 +417,17 @@ The script is idempotent: run it again any time, and anything already correctly 
 
 **Removing it again.** `factory/scripts/remove-factory` reverses the whole install from the manifest — deleting the git-ignored footprint, stripping the `agent_factory related` `.gitignore` block, and removing the `agent_factory_hook-` pre-commit block while leaving your own hooks in place — back to a clean `git status`. A repo that had its own `.gitignore`, pre-commit config, orientation file, or workflows gets them all back byte-for-byte.
 
+**Updating it again.** When your `agent_factory` checkout gets newer and you want the installed project to match, run `factory/scripts/update-factory`. It replaces the installed `factory/` with a fresh copy of the current checkout, then re-runs the *sourced* `init-factory` so every derived step comes up to date too — regenerated Codex adapters, re-verified symlinks, re-merged guardrail/usage hook wiring, and a re-run `pre-commit install`:
+
+```bash
+/path/to/agent_factory/factory/scripts/update-factory --target /path/to/existing-project \
+    --source /path/to/agent_factory
+```
+
+`--source` is optional on installs created after the field was recorded: `init-factory` stores the checkout it copied from (`factory_source`) in `.agent-factory/factory-install.json`, and `update-factory` reads that as its default. Only `factory/` is replaced — the project's own files, the `.gitignore`/`.pre-commit-config.yaml` edits, and the `.agent-factory/` usage-tracking transcripts and lifecycle state are all preserved. You can also run the installed copy from inside the project with `--source` if you no longer have the original checkout path in the manifest.
+
+If the sourced `init-factory` stops on a collision, `update-factory` rolls the refresh back: the old `factory/` is moved aside (not deleted) and restored in place, so the project is never left without a `factory/` and dangling runtime symlinks. Resolve the reported collision and re-run `update-factory` to finish.
+
 To trigger the install conversationally instead of from a shell, use the `init-factory` skill (`factory/skills/init-factory/SKILL.md`): it confirms the target with you, runs the script, and relays its output.
 
 ## Troubleshooting
@@ -442,7 +453,7 @@ git commit -m "<same message>"
 ```
 
 **`factory/` looks out of date after you update your `agent_factory` checkout**
-`init-factory` only copies `factory/` in once. There's no update script yet — delete your project's `factory/` directory and re-run `init-factory` to refresh it.
+`init-factory` only copies `factory/` in once. To bring an installed project up to date, run `factory/scripts/update-factory` (see “Updating it again” above) instead of re-running `init-factory`.
 
 **Symlinks don't work on Windows**
 Agent Factory targets macOS and Linux only. Both rely on native, git-tracked symlinks, which Windows doesn't support the same way.

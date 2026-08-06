@@ -35,9 +35,11 @@ The calling Pi session invokes the model-callable tool `run_agent(agent, task, m
    chunks, retains bounded parser and stderr-tail state, and reports bounded
    progress updates to the caller.
 7. The child runs to completion; the extension reads its final assistant
-   `message_end` event, extracts the final text and token usage, hands the
-   complete raw file to best-effort usage capture, and returns the result
-   without waiting for capture persistence.
+   `message_end` event, extracts token usage, hands the complete raw file to
+   best-effort usage capture, and returns only after the child's complete
+   result is persisted in canonical tracked artifacts.
+8. The caller receives the bounded child-result envelope defined by BR-040,
+   plus the runtime token usage, without waiting for capture persistence.
 
 ## Extensions
 
@@ -60,7 +62,7 @@ The calling Pi session invokes the model-callable tool `run_agent(agent, task, m
 
 ## Postconditions
 
-- **Success Guarantee**: the caller receives the subagent's final text and token usage from a `pi` session that never received the caller's conversation; the child saved no session state.
+- **Success Guarantee**: the caller receives a bounded envelope and token usage from a `pi` session that never received the caller's conversation; the complete result is available through the envelope's canonical tracked artifact paths and the child saved no session state.
 - **Minimal Guarantee**: on any resolution, recursion, spawn, or cancellation
   error, no partial child session or bridge-owned staging file is left running,
   and the tool returns a diagnostic result.
@@ -71,7 +73,7 @@ The calling Pi session invokes the model-callable tool `run_agent(agent, task, m
 - **BR-031**: the child is granted project trust per spawn with `-a`, for determinism, rather than relying on saved trust in `~/.pi/agent/trust.json`.
 - **BR-032**: the child layers the agent persona with `--append-system-prompt`, not `--system-prompt`, keeping Pi's own tool guidance and the project `AGENTS.md`.
 - **BR-033**: the child inherits the git-safety guardrail, since it loads `.pi/extensions/`; subagents are bound by the same dangerous-command block and the single sanctioned `factory/scripts/run-tests --staged` allow.
-- **BR-034**: `run_agent` returns structured JSON parsed from `--mode json` `message_end`, exposing token usage and tool-call detail, not only final text.
+- **BR-034**: `run_agent` parses structured JSON from `--mode json` `message_end` and exposes token usage; parent-facing result content follows BR-040's bounded envelope rather than injecting the full final text.
 - **BR-034a**: `run_agent` consumes the JSON event stream asynchronously and
   incrementally, reports bounded progress, retains bounded non-result state,
   and gives the complete raw stream to best-effort usage capture without
@@ -95,7 +97,7 @@ flowchart TD
     K -->|yes| L[Terminate child; clean staging; return abort diagnostic]
     K -->|no| M{child exits 0 with message_end?}
     M -->|no| N[Error result: exit code + bounded stderr tail]
-    M -->|yes| O[Hand raw file to best-effort capture; return final text + token usage]
+    M -->|yes| O[Persist complete result; hand raw file to capture; return bounded envelope + usage]
 ```
 
 ## Acceptance Criteria
@@ -110,7 +112,8 @@ Feature: Invoke a factory agent under Pi via run_agent
     When the caller invokes run_agent with agent "spec-review-agent" and a task
     Then a separate pi subprocess runs the agent persona over the task
     And the child session never received the caller's conversation
-    And run_agent returns the child's final text and token usage
+    And the child's complete result is persisted in canonical tracked artifacts
+    And run_agent returns the bounded result envelope and token usage
 
   Scenario: A verbose child streams more than 64 MiB
     Given the child emits a valid JSONL stream larger than 64 MiB
