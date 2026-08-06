@@ -125,7 +125,7 @@ Agent Factory runs tests through unavoidable hooks, not by asking agents to run 
 
 1. **Pre-commit hook** (bypassable with `--no-verify`) — runs tests on changed files only, fast feedback during development
 2. **Pre-push hook** (no bypass) — runs full test suite before sharing your work, blocks push if tests fail
-3. **Phase advance gates** — FSM entry conditions check `tests_pass` before advancing to QA or DONE states
+3. **Phase advance gates** — FSM entry conditions check `tests_pass` before advancing to the QA phase
 
 ### Framework detection
 
