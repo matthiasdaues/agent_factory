@@ -86,6 +86,29 @@ Motivating example: the binder-to-OCR research run dispatched ~60–80 research 
 
 A sub-agent's success report is a claim, not proof. Before treating a dispatched unit of work as done, verify it against observable state — the branch tip and `git log`, the actual test run, and the mechanical gates ([verify-base](branching-policy.md#verify-base-preamble), [premerge-check](branching-policy.md#pre-merge-diff-check)) — never the self-report alone.
 
+### `run_agent` Envelope Error Is Not Proof Of Failure
+
+A `run_agent`/`dispatch_wave` result reported as `child result envelope invalid` is a final-message *handshake* failure, not proof the child failed.
+The child persists and commits its canonical artifacts *before* emitting its
+final message, so the envelope-parse error can surface while the work is
+already complete and committed (BUG-0008). Before re-dispatching after any
+such error:
+
+```bash
+git log --oneline -5     # fresh commit from the child = work completed
+factory/scripts/verify-base <target> [--expect-base <sha>]
+# check the child's declared artifact_paths exist
+```
+
+If the child committed its outputs, do **not** retry — treat the dispatch as
+complete, review the committed artifacts, and only loop if the artifacts are
+truly deficient. Retrying blindly wastes a full agent run and risks the
+spend-limit death pattern above.
+
+Motivating example: the 2026-08-06 session saw `run_agent` report this
+envelope error on 8 of 9 reconciliation/planning dispatches, yet the child had
+committed real work in each case (`50b307f`, `8abf5cd`, `04ba170`, `35229f2`).
+
 Motivating example: in the 2026-07-21 session a developer-agent committed on a stale worktree base missing 144 commits and reported "7 passed"; `premerge-check` blocked the merge, and a direct git check exposed the false report.
 
 ## Enforcement
