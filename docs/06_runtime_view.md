@@ -10,7 +10,7 @@ This chapter describes key interaction sequences, focusing on **test execution**
 
 Derived from dynamic view `TestExecutionFlow` in [`architecture.dsl`](architecture.dsl).
 
-Test execution happens via three unavoidable hook integration points, never via agent-commanded shell execution. Agents can write test files; they cannot run them.
+Test execution happens via three mechanically triggered integration points, never via bare agent-commanded shell execution. Agents can write test files; Factory guardrails require them to use the staged test runner for iteration.
 
 ### 6.2.1 Sequence: Pre-Commit Hook (Changed Files Only)
 
@@ -58,16 +58,16 @@ sequenceDiagram
     alt Tests pass
         G->>H: Push succeeds
     else Tests fail
-        G-->>H: Push blocked (no bypass available)
-        Note over H: Must fix tests locally before push can proceed
+        G-->>H: Ordinary push blocked
+        Note over H: Fix tests, or explicitly use git push --no-verify
     end
 ```
 
 **Key Points**:
 
 - **Complete validation**: `--full` mode runs entire test suite, no filtering
-- **No bypass**: Pre-push is the "ready to share" boundary; `--no-verify` doesn't apply
-- **Unavoidable**: Work cannot leave the local machine with failing tests
+- **Default ready-to-share gate**: Ordinary pushes run the full suite and stop on failure
+- **Client-side boundary**: A human can bypass the hook with `git push --no-verify`; repository-wide enforcement requires a server-side or required-CI gate
 
 ### 6.2.3 Sequence: Phase Advance Gate Evaluation
 

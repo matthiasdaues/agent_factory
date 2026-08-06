@@ -21,7 +21,7 @@ Keep each skill/agent transmission short and independently verifiable. An LLM is
 
 ## Agentic Creation, Deterministic Validation
 
-**Creation is agentic** — agents and humans write specs, code, architecture, tests, and ADRs. **Validation is deterministic** — unavoidable hooks trigger scripts that check artifacts against predefined, state-dependent criteria. Agents create; hooks validate. No agent self-validation, no trust-based checking. Tests run via `script_exit_zero` gate conditions, not agent commands. Commits block via `transition-lint` pre-commit hooks, not agent restraint. Git safety enforced by `PreToolUse` hooks, not agent judgment. This separation of concerns is the foundation of reliable AI-assisted output: agentic creation paired with mechanical validation produces artifacts you can ship.
+**Creation is agentic** — agents and humans write specs, code, architecture, tests, and ADRs. **Validation is deterministic** — mechanically triggered gates run scripts that check artifacts against predefined, state-dependent criteria. Agents create; gates validate. No agent self-validation, no trust-based checking. Tests run through Factory test gates, not bare agent commands. Commits block via `transition-lint` pre-commit hooks, not agent restraint. Git safety is enforced by `PreToolUse` hooks, not agent judgment. Human operators can explicitly bypass client-side Git hooks with `--no-verify`; organization-wide enforcement requires server-side controls. This separation of concerns is the foundation of reliable AI-assisted output: agentic creation paired with mechanical validation produces artifacts you can ship.
 
 ## YAGNI
 

@@ -4,11 +4,19 @@ source: reconcile
 severity: major
 category: defect
 artifact: factory/config/pre-commit-config.yaml
-status: open
+status: resolved
 traces: [UC-09, ADR-0003]
 ---
 
 # Pre-push full-suite test gate is documented but never wired
+
+**Resolution:** ST-0073 added `agent_factory_hook-run-tests-full` to the
+canonical pre-commit configuration and covered fresh installation, merge, and
+idempotence. `init-factory` now explicitly installs both the `pre-commit` and
+`pre-push` Git hook types, so the configured stage actually fires. The
+implementation pass also corrected the prior claim that a client-side pre-push
+hook has no bypass: human operators can use `git push --no-verify`; managed
+agents remain subject to Factory guardrails.
 
 **What is wrong:** ADR-0003 (status: accepted, unsuperseded) and
 `factory/README.md` § "Test execution hooks" both document a pre-push hook that

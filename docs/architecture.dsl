@@ -117,7 +117,7 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
             
             humanOperator -> git "5. git push fires pre-push hook"
             git -> runTests "6. Pre-push hook executes run-tests --full"
-            runTests -> git "7. Exits 0/1, no bypass available"
+            runTests -> git "7. Exits 0/1; ordinary push proceeds or blocks"
             
             humanOperator -> phaseAdvance "8. phase advance evaluates entry conditions"
             phaseAdvance -> runTests "9. Evaluates script_exit_zero gate"

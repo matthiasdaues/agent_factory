@@ -9,7 +9,7 @@ Factory Flow Control consists of three primary containers:
 | Container         | Responsibility                                                                                   | Technology                |
 | ----------------- | ------------------------------------------------------------------------------------------------ | ------------------------- |
 | **State Manager** | Reads/writes playbook state marker, resolves FSM transitions, drives phases                      | Bash, Python              |
-| **Validator**     | Enforces gates, permissions, test execution via unavoidable hooks                                | Bash, Python              |
+| **Validator**     | Enforces gates, permissions, and mechanically triggered test execution                           | Bash, Python              |
 | **Dispatcher**    | Resolves agents/models from catalog, spawns CLI sessions with scoped permits                     | Bash, Python              |
 | **Usage Capture** | Normalizes CLI transcripts and appends canonical runtime usage records                           | Python, shell, TypeScript |
 | State Files       | Local git-ignored marker (`.agent-factory/playbook-state.yml`) and FSM defs                      | YAML (storage)            |
@@ -31,7 +31,7 @@ Two more — `schema-validate` and `policy-validate` — are on-demand validator
 
 ### 5.2.1 run-tests — Test Execution Component
 
-**Purpose**: Framework-agnostic test runner invoked by unavoidable hooks. Agents cannot run tests; only hooks can.
+**Purpose**: Framework-agnostic test runner invoked by mechanical gates. Agents use the Factory runner rather than bare test commands.
 
 **Interfaces**:
 
