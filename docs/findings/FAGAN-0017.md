@@ -42,3 +42,19 @@ regression test for the envelope-then-larger-sibling case.
   `"expected exactly four canonical fields"` — the valid envelope is lost.
 - The reverse order (smaller sibling then envelope, case 3b) correctly returns
   the envelope (it is the rightmost record).
+
+## Re-validation Evidence (2026-08-06)
+
+**Verdict: PASS — status confirmed `resolved`.** Fix commit `14a6d19` rewrites
+the balanced-brace scan to collect all records, then return the first with
+exactly the four canonical fields (`ENVELOPE_FIELDS` is pre-sorted, so
+`Object.keys(value).sort().join("|")` compares correctly), else fall back to the
+largest by raw-slice length. The doc comment matches the behaviour. The
+envelope-then-larger-sibling case now returns the envelope; the throwaway probe
+`__qa_probe.mjs` is removed and the case is folded into `envelope.test.ts`.
+
+- Envelope suite: **19 pass, 0 fail**, incl.
+  `extractEnvelopeObject prefers envelope over larger sibling (FAGAN-0017)`,
+  `…finds envelope when it is the rightmost`, and
+  `…falls back to largest when no envelope-shaped`.
+- Full report: `docs/reviews/qa-revalidation-2026-08-06-bug-run-agent-envelope.md`.

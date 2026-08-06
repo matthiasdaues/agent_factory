@@ -46,3 +46,18 @@ commits.
   `status !== 0 || !parsed` and `cancelled` branches do not.
 - `git show 477518d -- factory/config/extensions/run-agent.ts` confirms the
   BUG-0008 delta adds disclosure to the `decoded.error` branch only.
+
+## Re-validation Evidence (2026-08-06)
+
+**Verdict: PASS — status confirmed `resolved`.** Fix commit `14a6d19` adds
+`enrichWithChildCommits(cwd, headBefore, base)` (calls `childCommitsSince`,
+spreads `freshChildCommits` + "do not blindly re-dispatch" `note` when non-null)
+and wires it into the `childResult.cancelled` and `childResult.status !== 0 || !parsed` branches; the `childResult.error` (spawn/process-failure) branch is
+left undisclosed as required. `errorResult`/`cancellationResult` spread the
+metadata into `details` so disclosure reaches the caller; `childCommitsSince`/
+`gitLocalHead` are best-effort (try/catch → null) so disclosure never throws.
+
+- Envelope suite
+  (`node --experimental-strip-types --import ./envelope-loader.mjs --test ./envelope.test.ts`): **19 pass, 0 fail**, incl. the three new
+  `enrichWithChildCommits` cases.
+- Full report: `docs/reviews/qa-revalidation-2026-08-06-bug-run-agent-envelope.md`.
