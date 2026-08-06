@@ -402,7 +402,15 @@ export async function spawnPi(
     const child = _spawn("pi", args, {
       cwd,
       env,
+      stdio: ["ignore", "pipe", "pipe"],
+      detached: process.platform !== "win32",
     }) as ChildProcessWithoutNullStreams;
+
+    // Detached children on non-win32 must be unref'd so they don't keep the
+    // parent event loop alive after the pipes are destroyed (mirrors runPiStreamed).
+    if (process.platform !== "win32") {
+      child.unref();
+    }
 
     let stdout = "";
     let stderr = "";

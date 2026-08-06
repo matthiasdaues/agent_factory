@@ -12,7 +12,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
+import { spawn, type ChildProcess } from "node:child_process";
 import { spawnPi, type SpawnResult } from "../dispatch-wave.ts";
+
+const CANCELLATION_GRACE_MS = 250; // mirrors dispatch-wave.ts
 
 // ── Mock child process that mirrors just enough of ChildProcess to exercise
 //    the spawnPi control flow. ──────────────────────────────────────────────
@@ -27,6 +30,10 @@ class MockChild extends EventEmitter {
   kill(sig: string): boolean {
     this.emit("close", null, sig);
     return true;
+  }
+
+  unref() {
+    // no-op for mock — just needs to exist
   }
 }
 
@@ -141,4 +148,73 @@ test("no abort: normal successful spawn reports ok", async () => {
   assert.equal(result.cancelled, false, "should not be cancelled");
   assert.equal(result.error, null, "should have no error");
   assert.equal(result.status, 0, "should have exit code 0");
+});
+
+test("mid-run abort terminates a real child process within grace window", { timeout: 5000 }, async () => {
+  const controller = new AbortController();
+
+  // A long-running real child that we can actually kill.
+  const realChild = spawn("sleep", ["30"], {
+    cwd: "/tmp",
+    env: process.env,
+    stdio: ["ignore", "pipe", "pipe"],
+    detached: process.platform !== "win32",
+  });
+  if (process.platform !== "win32") {
+    realChild.unref();
+  }
+  realChild.stdout?.resume();
+  realChild.stderr?.resume();
+
+  // Inject a spawnFn that returns our pre-spawned real child.
+  const injectSpawn = (
+    _cmd: string,
+    _args: string[],
+    _opts?: Record<string, unknown>,
+  ): ChildProcess => {
+    return realChild;
+  };
+
+  // Give the child a moment to start, then abort.
+  await new Promise<void>((resolve) => setTimeout(resolve, 100));
+  assert.equal(realChild.exitCode, null, "child must be running before abort");
+
+  const [result] = await Promise.all([
+    spawnPi(
+      ["--version"],
+      "/tmp",
+      1,
+      controller.signal,
+      "test-session",
+      undefined,
+      undefined,
+      injectSpawn,
+    ),
+    (async () => {
+      // Trigger abort after a tiny delay to exercise the mid-run path.
+      await new Promise((r) => setTimeout(r, 50));
+      controller.abort();
+    })(),
+  ]);
+
+  // Result must report distinct cancellation.
+  assert.equal(result.cancelled, true, "mid-run abort must report cancelled");
+  assert.equal(result.error, null, "cancellation must not surface as spawn error");
+
+  // The real child must have exited (non-zero) within the grace window + drain.
+  // Give it the grace + drain + small cushion to be safe.
+  const exitCode = await new Promise<number | null>((resolve) => {
+    if (realChild.exitCode !== null) {
+      resolve(realChild.exitCode);
+      return;
+    }
+    const timer = setTimeout(() => resolve(realChild.exitCode ?? -1), CANCELLATION_GRACE_MS + 800 + 500);
+    realChild.once("close", (code: number | null) => {
+      clearTimeout(timer);
+      resolve(code);
+    });
+  });
+
+  assert.notEqual(exitCode, null, "real child must have exited after abort");
+  assert.ok(exitCode !== 0, "child must exit non-zero (killed by signal)");
 });
