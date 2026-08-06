@@ -62,8 +62,8 @@ One of three mechanical hooks fires:
   - 1b3. Operator can use `git commit --no-verify` to bypass (discouraged but available for WIP).
 - **1c. Human operator pushes with failing tests**
   - 1c1. Pre-push hook runs `--full` mode, fails (extension 5a).
-  - 1c2. Push is blocked; no bypass flag available — pre-push is the "ready to share" boundary.
-  - 1c3. Operator must fix tests locally before push succeeds.
+  - 1c2. An ordinary push is blocked; pre-push is the default "ready to share" boundary.
+  - 1c3. The operator fixes the tests locally and retries, or explicitly bypasses the client-side hook with `git push --no-verify`.
 - **1d. Human operator commits only documentation changes**
   - 1d1. Pre-commit hook inspects staged files.
   - 1d2. No files in `src/` or `test/`/`tests/` directories are present.
@@ -118,7 +118,7 @@ flowchart TD
 ## Acceptance Criteria
 
 ```gherkin
-Feature: Run tests via unavoidable hooks
+Feature: Run tests via mechanically triggered gates
 
   Scenario: Pre-commit runs changed-file tests and passes
     Given a project with pytest configured

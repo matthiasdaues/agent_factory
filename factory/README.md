@@ -1,6 +1,6 @@
 # Factory
 
-`factory/` is the Agent Factory toolset itself — agents, skills, playbooks, and checks. `init-factory` copies it wholesale into your own project. You never hand-edit the copy; you re-run `init-factory` to update it.
+`factory/` is the Agent Factory toolset itself — agents, skills, playbooks, and checks. `init-factory` copies it wholesale into your own project. You never hand-edit the copy; run `update-factory` to bring it up to date when your `agent_factory` checkout moves forward.
 
 Part of [Agent Factory](../README.md). See also: [orchestrator](../orchestrator/README.md), [architecture docs](../docs/README.md).
 
@@ -121,11 +121,16 @@ testing a release. Claude and Copilot are supported dispatch backends.
 
 ## Test execution hooks
 
-Agent Factory runs tests through unavoidable hooks, not by asking agents to run them. This enforces the core principle: **creation is agentic, validation is deterministic**. Tests run automatically at three points:
+Agent Factory runs tests through mechanically triggered gates, not by asking agents to run them. This enforces the core principle: **creation is agentic, validation is deterministic**. Tests run automatically at three points:
 
 1. **Pre-commit hook** (bypassable with `--no-verify`) — runs tests on changed files only, fast feedback during development
-2. **Pre-push hook** (no bypass) — runs full test suite before sharing your work, blocks push if tests fail
-3. **Phase advance gates** — FSM entry conditions check `tests_pass` before advancing to QA or DONE states
+2. **Pre-push hook** (human bypass: `git push --no-verify`) — runs the full test suite before an ordinary push and blocks that push if tests fail
+3. **Phase advance gates** — FSM entry conditions check `tests_pass` before advancing to the QA phase
+
+The canonical template does not yet install point 1 into consumer projects;
+that remaining configuration drift is tracked as
+[`RECON-0018`](../docs/findings/RECON-0018.md). This repository's own merged
+configuration already contains the changed-only hook.
 
 ### Framework detection
 

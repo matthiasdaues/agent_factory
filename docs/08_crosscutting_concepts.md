@@ -4,7 +4,7 @@
 
 ## 8.1 Agentic Creation, Deterministic Validation
 
-**Principle**: Creation is agentic; validation is deterministic. Where a check must be *unavoidable* — tests, phase-order gates, dangerous commands — it is triggered mechanically through hooks an agent cannot skip. Other deterministic validators run *on demand*, invoked by a playbook, agent, or operator; they trade unavoidability for reproducibility, and are trustworthy because their result is a mechanical exit code, not an agent's word.
+**Principle**: Creation is agentic; validation is deterministic. Tests, phase-order gates, and dangerous-command checks are triggered mechanically rather than left to agent judgment. Agent guardrails prevent bypass in the managed workflow; human operators who control the Git client retain Git's standard `--no-verify` escape hatch. Other deterministic validators run *on demand*, invoked by a playbook, agent, or operator; their result remains trustworthy because it is a mechanical exit code, not an agent's word.
 
 Derived from [`factory/rulebooks/conventions/foundational-principles.md`](../factory/rulebooks/conventions/foundational-principles.md).
 
@@ -22,7 +22,7 @@ Derived from [`factory/rulebooks/conventions/foundational-principles.md`](../fac
 
 ### Why It Matters
 
-**Trust boundary**: Agents are noisy channels. You cannot trust an agent to validate its own work correctly, report test failures honestly, or obey soft guidelines ("please don't push"). Validation must be external, unavoidable, and mechanical.
+**Trust boundary**: Agents are noisy channels. You cannot trust an agent to validate its own work correctly, report test failures honestly, or obey soft guidelines ("please don't push"). Validation must be external and mechanical. Client-side Git hooks enforce the managed agent workflow and ordinary human operations; they are not a security boundary against a human who controls the client.
 
 **Separation of concerns**: Agents are excellent at generation (specs, code, tests). They are poor at discipline (running the right tests, not bypassing gates). Hooks enforce discipline; agents create value. This separation makes AI-assisted output shippable.
 
@@ -38,16 +38,16 @@ Test execution exemplifies this principle end-to-end:
 4. **Pass/fail mechanical** — exit 0 or 1 determines commit success. No agent judgment involved.
 5. **Agent blocked from running tests directly** — `block-dangerous-git.sh` denies `pytest`, `npm test`, etc. at PreToolUse. Agent cannot bypass or "double-check" — only the hook's result is trustworthy.
 
-**Result**: Tests always run. Test results are always trustworthy. Agents cannot skip them, misinterpret them, or fake them.
+**Result**: Tests run automatically in the managed workflow. Their mechanical exit codes are trustworthy. Agents cannot replace them with self-reported validation.
 
 ## 8.2 Hook-Triggered Validation Pattern
 
-Factory Flow Control uses **unavoidable hooks** as the enforcement layer. Three hook types:
+Factory Flow Control uses **mechanically triggered gates** as the enforcement layer. Four trigger types participate:
 
 | Hook Type             | Fires When                 | Runs What                      | Cannot Be Bypassed By           | Exit Codes           |
 | --------------------- | -------------------------- | ------------------------------ | ------------------------------- | -------------------- |
 | **Pre-commit**        | `git commit`               | `transition-lint`, `run-tests` | Agent (human can `--no-verify`) | 0 (allow), 1 (block) |
-| **Pre-push**          | `git push`                 | `run-tests --full`             | Anyone (no `--no-verify`)       | 0 (allow), 1 (block) |
+| **Pre-push**          | `git push`                 | `run-tests --full`             | Agent (human can `--no-verify`) | 0 (allow), 1 (block) |
 | **PreToolUse**        | Before every shell command | `block-dangerous-git.sh`       | Agent or human (CLI enforces)   | 0 (allow), 2 (deny)  |
 | **FSM gate** (pseudo) | `phase advance` invocation | `script_exit_zero` condition   | Manual invocation required      | 0 (met), 1 (unmet)   |
 
@@ -133,7 +133,7 @@ The falsification-driven research feature validates its JSON artifacts through a
 
 The order is fixed: an artifact must pass stage 1, then stage 2, then stage 3 before the next playbook step begins, and progression blocks on the first failing stage (`policy-validate --pipeline` chains stages 1 and 2 and stops at the first failure). This is the same "Agentic Creation, Deterministic Validation" principle applied to a new domain: mechanise every check that can be mechanised (stages 1–2, stdlib-only exit-code validators, exactly like `spec-lint` and `arch-lint`), and name honestly the residue that a script cannot settle (stage 3).
 
-Two distinctions from §8.2 matter. First, these validators are **on demand, not hook-enforced**: the research playbook and agents invoke them, so they are deterministic and reproducible but not *unavoidable* the way a pre-commit gate is. Second, the schemas they check against are **data, not prose** — JSON-Schema files under `factory/rulebooks/schemas/`, a rulebook category deliberately outside `INDEX.yaml`. See [ADR-0006](09_architecture_decisions.md) and [`research-topic.md` § The Validation Gate](../factory/playbooks/research-topic.md).
+Two distinctions from §8.2 matter. First, these validators are **on demand, not hook-enforced**: the research playbook and agents invoke them, so they are deterministic and reproducible but do not run automatically at an operation boundary the way a pre-commit gate does. Second, the schemas they check against are **data, not prose** — JSON-Schema files under `factory/rulebooks/schemas/`, a rulebook category deliberately outside `INDEX.yaml`. See [ADR-0006](09_architecture_decisions.md) and [`research-topic.md` § The Validation Gate](../factory/playbooks/research-topic.md).
 
 ## Referenced from
 

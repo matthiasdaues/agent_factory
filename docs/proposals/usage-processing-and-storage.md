@@ -1,10 +1,10 @@
 ---
 schema_version: 2
 title: "Usage Processing and Persistent Storage"
-status: open
+status: accepted
 owner: agent-factory
 created: 2026-07-28
-updated: 2026-07-29
+updated: 2026-08-06
 supersedes:
 
 impact:
@@ -110,14 +110,17 @@ for this subproject.
 
 - A `usage/` subproject with its own context documentation, source, tests, and
   architecture.
-- A versioned raw-spool contract owned by Factory and consumed by Usage
-  Accounting.
+- A versioned raw-spool domain contract, published by Factory as its owning
+  publisher and consumed by Usage Accounting as a range-accepting consumer,
+  living in a root-level `contracts/` folder (JSON Schema + version field +
+  compatibility policy, enforced by a deterministic gate).
 - PostgreSQL schema and migrations, transactional projector, retry-safe
   cleanup, checkpoints, and per-CLI accounting views.
 - Docker Compose service with a named persistent volume, health check, and
   local development defaults.
-- Environment-based connection configuration for local, remote, and existing
-  PostgreSQL deployments.
+- Exchangeable connection, schema, and table configuration sourced from an
+  `.env` file, GitHub secrets, or AWS Secrets Manager behind one interface,
+  for local, remote, and existing PostgreSQL deployments.
 - Optional Grafana Compose profile with provisioned read-only data source and
   version-controlled starter dashboards.
 - Version-controlled Marimo notebooks for exploratory analysis and accounting
@@ -130,16 +133,51 @@ for this subproject.
 - Jupyter notebooks and self-service BI deployments such as Apache Superset or
   Metabase.
 
-## Open Questions
+## Decisions (resolved at intake, 2026-07-29)
 
-- Should successfully processed spool files be deleted immediately or retained
-  for a short configurable grace period?
-- Is owner-only filesystem protection sufficient, or should transcript content
-  also be encrypted at rest?
-- Which TLS modes must the first release support for remote connections?
-- Should an existing cluster use a dedicated database, a dedicated schema, or
-  support both?
-- Which Grafana authentication modes are required beyond local development?
+- **Domain boundary**: the `usage/` subproject is an isolated bounded domain
+  with its own full requirement-generation phase (own PRD, actor-goal list,
+  use cases, and supplementary specs). The raw spool file format is the
+  versioned domain contract between Factory (capture) and `usage/` (storage +
+  analysis); so long as the spool contract does not break, storage and
+  analysis are an independent use case and decouple from Factory's evolution.
+  The implementation stack (language, dependency model) is an architecture-
+  phase decision, deferred.
+
+- **Contract home**: cross-context machine-consumed contracts live in a
+  versioned `contracts/` folder at the repo root (artifact class distinct from
+  `docs/spec/` prose and `docs/adr/` decisions). The spool contract is a
+  published, single-owner artifact — Factory is the owning publisher, `usage/`
+  the range-accepting consumer — so `contracts/` is a set of owned published
+  artifacts, not a no-man's land. Each contract carries its own frontmatter
+  (owner context, version, compatibility policy) and is enforced by a
+  deterministic gate (schema validity, producer conformance, consumer major-
+  range acceptance). Prose explanation stays in `docs/`.
+
+- **Spool retention**: successfully processed spool files are deleted
+  immediately after durable commit. Recorded `record_id` / source-hash
+  metadata is the audit trail; failures go to the configurable quarantine.
+
+- **Transcript encryption at rest**: owner-only filesystem protection
+  (capture already enforces `0700`/`0600`) is sufficient for release 1.
+  Explicit transcript encryption-at-rest is deferred.
+
+- **TLS modes**: release 1 supports `disable` (local container) and
+  `verify-full` (cert-verifying safe default for remote/existing clusters),
+  with libpq `sslmode` pass-through so `require` / `verify-ca` work without
+  code changes.
+
+- **Existing-cluster layout**: support both a dedicated database and a
+  dedicated schema. The projector connects with a dedicated role that
+  `CREATE SCHEMA` in a configurable database (default a dedicated
+  `factory_usage` database, with an option to point at an existing DB's
+  dedicated schema). Connection, schema, and table configuration are
+  exchangeable parameters sourced from an `.env` file, GitHub secrets, or AWS
+  Secrets Manager behind one interface.
+
+- **Grafana authentication**: local dev uses anonymous/`admin` for the optional
+  Compose profile. SSO/OAuth is deferred; Grafana is provisioned so auth comes
+  from its own configuration.
 
 ## Completion Criteria
 

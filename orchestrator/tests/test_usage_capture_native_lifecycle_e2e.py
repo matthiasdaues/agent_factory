@@ -219,7 +219,7 @@ def test_FAGAN0005_native_hook_removal_reaches_selected_terminal_state(
 
     session = f"{cli}-removal-race"
     if disposition == "drain":
-        record = json.loads((observed / f"{session}.jsonl").read_text())
+        record = json.loads((observed / f"{cli}_{session}.jsonl").read_text())
         assert record["cli"] == cli
     else:
         assert not observed.exists()
