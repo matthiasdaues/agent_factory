@@ -10,7 +10,9 @@ _SURVEY_PLAYBOOK = _ROOT / "factory" / "playbooks" / "research-survey.md"
 _FALSIFICATION_PLAYBOOK = _ROOT / "factory" / "playbooks" / "research-topic.md"
 _ORCHESTRATOR = _ROOT / "factory" / "agents" / "research-orchestrator.md"
 _FACTORY_GUIDE = _ROOT / "factory" / "docs" / "factory-guide.md"
-_SURVEY_DESIGN = _ROOT / "factory" / "docs" / "design" / "research-survey-mode.md"
+_SURVEY_DESIGN = (
+    _ROOT / "docs" / "proposals" / "implemented" / "research-survey-mode.md"
+)
 
 
 def _step_headings(path: Path) -> list[str]:
