@@ -4,7 +4,7 @@ source: fagan-review
 severity: minor
 category: suggestion
 artifact: orchestrator/tests/test_update_factory.py:46
-status: open
+status: resolved
 traces: [ADR-0010]
 ---
 
@@ -24,3 +24,12 @@ construction (wrong script path, dropped flag) would not be caught.
 init-factory's networked steps) to assert a true end-to-end update round trip,
 or assert the exact argv the subprocess receives by intercepting
 `subprocess.run` and checking the command list and return-code mapping.
+
+## Resolution
+
+Verified on `798d95b`. `test_real_run_init_builds_correct_argv_and_propagates_returncode`
+restores `REAL_RUN_INIT`, intercepts `update_factory.subprocess.run`, and
+asserts the argv is exactly
+`[sys.executable, str(src/factory/scripts/init-factory), "--source", str(src), "--target", str(target)]`, that `check=False`, and that a `returncode` of 7
+propagates straight through `_run_init`. A regression in argv construction or
+return-code handling would now fail the suite.

@@ -4,7 +4,7 @@ source: fagan-review
 severity: major
 category: defect
 artifact: orchestrator/tests/test_update_factory.py:191
-status: open
+status: resolved
 traces: [ADR-0010]
 ---
 
@@ -29,3 +29,18 @@ init-factory's heavy/networked steps (`provision_usage_runtime`,
 `initialize_usage_lifecycle`, `pre_commit_install`) at the init-factory
 module level, then assert `.agent-factory/usage/` transcripts and
 `usage-control/state.json` survive a full update round trip.
+
+## Resolution
+
+Verified on `798d95b`. `test_update_preserves_usage_state_through_real_reinstall`
+restores the real `_run_init` (captured as `REAL_RUN_INIT` before the autouse
+stub replaces it) and runs a full update, then asserts the
+`.agent-factory/usage/` transcript and `usage-control/state.json` survive. It
+also writes a source-only `real-path-marker` into the synthetic source and
+asserts it lands in `target/factory/scripts/` afterwards, proving the real
+sourced init-factory `copy_factory` subprocess actually ran (not the mirror
+stub). The heavy steps need no module-level stubbing because
+`provision_usage_runtime` fails gracefully on a missing/offline `uv`
+(returns `False`, leaves capture inactive), so the round trip stays hermetic
+and fast — `python3 -m pytest orchestrator/tests/test_update_factory.py -q`
+reports 15 passed in ~3 s.

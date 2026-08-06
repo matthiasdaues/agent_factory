@@ -4,7 +4,7 @@ source: fagan-review
 severity: minor
 category: suggestion
 artifact: factory/scripts/update-factory:140
-status: open
+status: resolved
 traces: [ADR-0010]
 ---
 
@@ -26,3 +26,16 @@ init returns non-zero (copy-then-swap rather than remove-then-reinstall), or
 add an explicit recovery note to the docstring and the factory-guide
 "Updating it again" section: resolve the reported collision and re-run
 `update-factory` to finish the refresh.
+
+## Resolution
+
+Verified on `798d95b`. update-factory now `os.rename`s `target/factory/` to
+`.agent-factory/factory-backup-<uuid>` (no `rmtree`) before the reinstall, and
+on a non-zero `_run_init` return restores it in place (guarded by
+`backup.is_dir() and not target_factory.exists()`), so the project is never
+left without a `factory/`. On success the backup is `rmtree`'d. The rollback
+is documented in the script docstring, ADR-0010 (new "refresh is
+rollback-safe" consequence), and the factory-guide "Updating it again"
+section. `test_failed_reinstall_restores_previous_factory` asserts the prior
+`factory/` (with a custom marker) reappears after a failed reinstall and that
+no `factory-backup-*` dir lingers.
