@@ -40,7 +40,7 @@ agent_factory/
 │   ├── skills/                       # One folder per skill, each holding a SKILL.md
 │   ├── playbooks/                    # End-to-end flows for common scenarios (bug fix, feature addition, ...)
 │   ├── rulebooks/                    # conventions/ (prose rules + research policies), templates/ (artifact skeletons), schemas/ (JSON-Schema data contracts)
-│   ├── scripts/                      # Deterministic gates (*-lint, plus schema-validate/policy-validate) and setup tooling (init-factory, mdformat, ...)
+│   ├── scripts/                      # Deterministic gates (*-lint, plus schema-validate/policy-validate) and setup tooling (init-factory, update-factory, remove-factory, mdformat, ...)
 │   ├── config/                       # Templates: AGENTS.md, pre-commit-config.yaml, model.conf
 │   └── INDEX.yaml                     # Generated catalog of every agent, skill, playbook, and rulebook with token counts — regenerate with index-lint
 ├── orchestrator/                     # Versioned Python tool package; invoked from consumer projects through factory/scripts/run-playbook and uvx
