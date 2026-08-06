@@ -28,6 +28,7 @@
  * See docs/adr/0004-pi-subagent-invocation-via-subprocess-spawn.md and
  * docs/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md.
  */
+import type { ChildProcess, ChildProcessWithoutNullStreams } from "node:child_process";
 import { execFileSync, spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -54,6 +55,8 @@ import {
 /** Cap on nested agent spawns, shared with run_agent (BR-035). */
 const MAX_DEPTH = 3;
 const DEPTH_ENV = "PI_RUN_AGENT_DEPTH";
+const CANCELLATION_GRACE_MS = 250;
+const CANCELLATION_DRAIN_MS = 750;
 /** The agent each wave item runs unless it names another. */
 const DEFAULT_AGENT = "developer-agent";
 /** Where per-item worktrees are cut, under the project's git-ignored dir. */
@@ -228,6 +231,10 @@ export default function (pi: ExtensionAPI) {
           });
           r.spawned = true;
           r.spawnExit = child.status;
+          if (child.cancelled) {
+            r.error = "child process tree terminated because invocation was cancelled; task was not retried";
+            return;
+          }
           if (child.error) {
             r.error = `failed to spawn pi: ${child.error}`;
             return;
@@ -341,15 +348,27 @@ function resolveModel(
   }
 }
 
-interface SpawnResult {
+export interface SpawnResult {
   status: number | null;
   stdout: string;
   stderr: string;
   error: string | null;
+  /** true when the parent abort signal cancelled a running (or birth) child. */
+  cancelled: boolean;
 }
 
-/** Spawn a child `pi` asynchronously, capturing stdout/stderr. */
-function spawnPi(
+/** Spawn a child `pi` asynchronously, capturing stdout/stderr.
+ *
+ * BUG-0011 fix: Do NOT pass the parent agent-turn `signal` into `spawn()`
+ * options. Instead, spawn without the signal and listen for abort separately.
+ * An already-aborted or mid-run abort cancels the running child with SIGTERM
+ * (escalating to SIGKILL after a grace period), yielding a distinct
+ * `cancelled: true` result rather than the misleading
+ * `failed to spawn pi: The operation was aborted`.
+ *
+ * The `spawnFn` parameter is injectable for deterministic testing.
+ */
+export async function spawnPi(
   args: string[],
   cwd: string,
   childDepth: number,
@@ -357,26 +376,98 @@ function spawnPi(
   sessionId: string,
   parentSessionId?: string,
   usageRoot?: string,
+  spawnFn?: (
+    cmd: string,
+    spawnArgs: string[],
+    opts?: Record<string, unknown>,
+  ) => ChildProcess,
 ): Promise<SpawnResult> {
+  const _spawn = spawnFn ?? spawn;
+  const env = {
+    ...process.env,
+    [DEPTH_ENV]: String(childDepth),
+    [SESSION_ENV]: sessionId,
+    PI_AGENT_FACTORY_PARENT_SESSION_ID: parentSessionId || "",
+    [INLINE_CAPTURE_ENV]: "1",
+    [USAGE_ROOT_ENV]: usageRoot || "",
+  };
+
+  // Early cancellation: if the parent signal is already aborted, return a
+  // distinct cancellation result without ever touching spawn.
+  if (signal.aborted) {
+    return { status: null, stdout: "", stderr: "", error: null, cancelled: true };
+  }
+
   return new Promise((resolve) => {
-    const child = spawn("pi", args, {
+    const child = _spawn("pi", args, {
       cwd,
-      signal,
-      env: {
-        ...process.env,
-        [DEPTH_ENV]: String(childDepth),
-        [SESSION_ENV]: sessionId,
-        PI_AGENT_FACTORY_PARENT_SESSION_ID: parentSessionId || "",
-        [INLINE_CAPTURE_ENV]: "1",
-        [USAGE_ROOT_ENV]: usageRoot || "",
-      },
-    });
+      env,
+    }) as ChildProcessWithoutNullStreams;
+
     let stdout = "";
     let stderr = "";
+    let cancelled = false;
+
+    const terminate = () => {
+      if (cancelled) return;
+      cancelled = true;
+      try {
+        if (process.platform !== "win32" && child.pid) {
+          process.kill(-child.pid, "SIGTERM");
+        } else {
+          child.kill("SIGTERM");
+        }
+      } catch {
+        // Process may have already exited.
+      }
+      const forceTimer = setTimeout(() => {
+        try {
+          if (process.platform !== "win32" && child.pid) {
+            process.kill(-child.pid, "SIGKILL");
+          } else {
+            child.kill("SIGKILL");
+          }
+        } catch {
+          // Already gone.
+        }
+      }, CANCELLATION_GRACE_MS);
+      const drainTimer = setTimeout(() => {
+        child.stdout.destroy();
+        child.stderr.destroy();
+      }, CANCELLATION_DRAIN_MS);
+      child.once("close", () => {
+        clearTimeout(forceTimer);
+        clearTimeout(drainTimer);
+      });
+    };
+
+    // Listen to the parent signal and cancel the running child.
+    signal.addEventListener("abort", terminate, { once: true });
+
     child.stdout.on("data", (d) => (stdout += d.toString()));
     child.stderr.on("data", (d) => (stderr += d.toString()));
-    child.on("error", (err) => resolve({ status: null, stdout, stderr, error: err.message }));
-    child.on("close", (code) => resolve({ status: code, stdout, stderr, error: null }));
+
+    let settled = false;
+    const finish = (result: SpawnResult) => {
+      if (settled) return;
+      settled = true;
+      signal.removeEventListener("abort", terminate);
+      resolve(result);
+    };
+
+    child.on("error", (err) => {
+      // If we already cancelled the child, report cancellation, not the
+      // generic AbortError message (BUG-0011).
+      if (cancelled) {
+        finish({ status: null, stdout, stderr, error: null, cancelled: true });
+        return;
+      }
+      // Genuine spawn failures (ENOENT, bad cwd, etc.) still surface as errors.
+      finish({ status: null, stdout, stderr, error: err.message, cancelled: false });
+    });
+    child.on("close", (code) => {
+      finish({ status: code, stdout, stderr, error: null, cancelled });
+    });
   });
 }
 

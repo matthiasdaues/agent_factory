@@ -12,6 +12,7 @@ export function activeUsageRoot() { return null; }
 export function newSessionId() { return "test"; }
 export function createPiCaptureFile() { return null; }
 export function capturePiFile() {}
+export function capturePiStream() {}
 export const INLINE_CAPTURE_ENV = {};
 export const SESSION_ENV = {};
 export const USAGE_ROOT_ENV = "USAGE_ROOT";
