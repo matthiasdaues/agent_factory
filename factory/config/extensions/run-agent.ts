@@ -111,6 +111,13 @@ export default function (pi: ExtensionAPI) {
       }
       args.push("--append-system-prompt", persona, "-p", childTask(params.task));
 
+      /**
+       * Record the parent repo's HEAD before dispatching, so we can later
+       * disclose commits the child made even when its final envelope does not
+       * parse (BUG-0008).
+       */
+      const headBefore = gitLocalHead(cwd);
+
       const childSessionId = newSessionId();
       const usageRoot = activeUsageRoot(cwd);
       const parentSessionId = activeSessionId(
@@ -132,6 +139,11 @@ export default function (pi: ExtensionAPI) {
         },
       });
 
+      /**
+       * The child may have persisted and committed canonical artifacts before
+       * its final message was judged, so any subsequent parse error can still
+       * disclose those commits (BUG-0008).
+       */
       if (childResult.cancelled) {
         return cancellationResult(params.agent);
       }
@@ -148,7 +160,6 @@ export default function (pi: ExtensionAPI) {
       if (childResult.error) {
         return errorResult(params.agent, `failed to spawn pi: ${childResult.error}`);
       }
-
       const parsed = childResult.finalMessage;
       if (childResult.status !== 0 || !parsed) {
         return errorResult(
@@ -166,7 +177,21 @@ export default function (pi: ExtensionAPI) {
         exitCode: childResult.status,
       };
       if (decoded.error) {
-        return errorResult(params.agent, decoded.error, metadata);
+        // BUG-0008: the child may have committed canonical artifacts even when
+        // its final message does not parse. Disclose any fresh commits the
+        // child made between dispatch and return, so a spurious parse error
+        // cannot hide completed work.
+        const freshCommits = childCommitsSince(cwd, headBefore);
+        return errorResult(params.agent, decoded.error, {
+          ...metadata,
+          ...(freshCommits
+            ? {
+                freshChildCommits: freshCommits,
+                note: "child committed work despite the envelope parse failure — " +
+                  "verify the listed commits/artifacts before retrying; do not blindly re-dispatch",
+              }
+            : {}),
+        });
       }
       const artifactError = validateChildResultArtifacts(cwd, decoded.envelope);
       if (artifactError) {
@@ -198,10 +223,8 @@ export function childTask(task: string): string {
 export function parseChildResultEnvelope(
   text: string,
 ): { envelope: ChildResultEnvelope; error?: undefined } | { envelope?: undefined; error: string } {
-  let value: unknown;
-  try {
-    value = JSON.parse(text.trim());
-  } catch {
+  const value = extractEnvelopeObject(text);
+  if (value === undefined) {
     return { error: "child result envelope invalid: expected one exact JSON object" };
   }
   if (!isRecord(value) || Object.keys(value).sort().join("|") !== ENVELOPE_FIELDS.join("|")) {
@@ -281,6 +304,85 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * Locate a JSON object inside a child's final message. The child is told to
+ * emit exactly one JSON object, but agents sometimes wrap it in a Markdown
+ * fence or leave trailing prose. Recovery tries, in order:
+ *  1. the whole trimmed message,
+ *  2. each fenced code block),
+ *  3. heuristically scanning for a balanced `{...}` region.
+ * Structural validation (exactly four canonical fields) still applies in
+ * `parseChildResultEnvelope` — this only finds the object, it does not relax
+ * the schema. Returns undefined if no JSON object can be recovered.
+ */
+export function extractEnvelopeObject(text: string): unknown {
+  const candidates: string[] = [];
+  const trimmed = text.trim();
+  if (trimmed) candidates.push(trimmed);
+
+  // Recover from fenced code blocks: strip the fence markers and any
+  // info-string, and treat the enclosed text as candidates.
+  const fenceRe = /```(?:[a-zA-Z0-9_-]*)?\s*\n?([\s\S]*?)```/g;
+  let m: RegExpExecArray | null;
+  while ((m = fenceRe.exec(text)) !== null) {
+    if (m[1].trim()) candidates.push(m[1].trim());
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const value = JSON.parse(candidate);
+      if (isRecord(value)) return value;
+    } catch {
+      // try the next candidate
+    }
+  }
+
+  // Last resort: scan forward from each `{` for a run of balanced braces,
+  // parse each well-formed region, and keep the LARGEST decoded object. An
+  // envelope embedding smaller nested JSON (e.g. an example or a nested field)
+  // dwarfs those fragments, so the outer object is the child's real result.
+  let start = -1;
+  let recovered: unknown = undefined;
+  let recoveredEnd = -1;
+  while ((start = text.indexOf("{", start + 1)) !== -1) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let i = start; i < text.length; i++) {
+      const ch = text[i];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === "\\") escaped = true;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') {
+        inString = true;
+        continue;
+      }
+      if (ch === "{") depth++;
+      else if (ch === "}") {
+        depth--;
+        if (depth === 0) {
+          if (i > recoveredEnd) {
+            try {
+              const value = JSON.parse(text.slice(start, i + 1));
+              if (isRecord(value)) {
+                recovered = value;
+                recoveredEnd = i;
+              }
+            } catch {
+              // keep scanning
+            }
+          }
+          break;
+        }
+      }
+    }
+  }
+  return recovered;
+}
+
 function hasOneToThreeSentences(value: string): boolean {
   const trimmed = value.trim();
   if (!trimmed || !/[.!?]$/.test(trimmed)) return false;
@@ -315,6 +417,43 @@ function resolveModel(cwd: string, agent: string): { model?: string; error?: str
     const e = err as { stderr?: string; message?: string };
     const reason = (e.stderr ?? e.message ?? "resolve-model failed").trim();
     return { error: reason.replace(/^resolve-model:\s*/, "") };
+  }
+}
+
+/** Current local HEAD SHA of the repo at `cwd`, or null if not a git repo. */
+export function gitLocalHead(cwd: string): string | null {
+  try {
+    const out = execFileSync("git", ["rev-parse", "--short=12", "HEAD"], {
+      cwd,
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    return out.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Commits the child added above `headBefore`, as short-ish lines. Returns null
+ * when the repo is absent or no new commits are present. Best-effort only:
+ * failures yield null, never a hard error (BUG-0008 disclosure, not a gate).
+ */
+export function childCommitsSince(cwd: string, headBefore: string | null): string[] | null {
+  if (!headBefore) return null;
+  try {
+    const out = execFileSync(
+      "git",
+      ["log", "--oneline", "--no-decorate", `${headBefore}..HEAD`],
+      { cwd, encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] },
+    );
+    const lines = out
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+    return lines.length ? lines.slice(0, 10) : null;
+  } catch {
+    return null;
   }
 }
 
