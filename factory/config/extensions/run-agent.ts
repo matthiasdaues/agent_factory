@@ -142,10 +142,13 @@ export default function (pi: ExtensionAPI) {
       /**
        * The child may have persisted and committed canonical artifacts before
        * its final message was judged, so any subsequent parse error can still
-       * disclose those commits (BUG-0008).
+       * disclose those commits (BUG-0008 / FAGAN-0016).
        */
       if (childResult.cancelled) {
-        return cancellationResult(params.agent);
+        return cancellationResult(
+          params.agent,
+          enrichWithChildCommits(cwd, headBefore, {}),
+        );
       }
 
       if (childResult.transcript) capturePiFile(cwd, childResult.transcript, {
@@ -167,6 +170,7 @@ export default function (pi: ExtensionAPI) {
           `child pi exited ${childResult.status} without a usable message_end.\n` +
             `stdout bytes: ${childResult.bytesRead}.\n` +
             `stderr tail:\n${childResult.stderrTail}`,
+          enrichWithChildCommits(cwd, headBefore, { exitCode: childResult.status }),
         );
       }
 
@@ -309,8 +313,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * emit exactly one JSON object, but agents sometimes wrap it in a Markdown
  * fence or leave trailing prose. Recovery tries, in order:
  *  1. the whole trimmed message,
- *  2. each fenced code block),
- *  3. heuristically scanning for a balanced `{...}` region.
+ *  2. each fenced code block,
+ *  3. heuristically scanning for balanced `{...}` regions, preferring the
+ *     first object with exactly the four canonical envelope fields, then
+ *     falling back to the largest by serialized length (FAGAN-0017).
  * Structural validation (exactly four canonical fields) still applies in
  * `parseChildResultEnvelope` — this only finds the object, it does not relax
  * the schema. Returns undefined if no JSON object can be recovered.
@@ -338,12 +344,11 @@ export function extractEnvelopeObject(text: string): unknown {
   }
 
   // Last resort: scan forward from each `{` for a run of balanced braces,
-  // parse each well-formed region, and keep the LARGEST decoded object. An
-  // envelope embedding smaller nested JSON (e.g. an example or a nested field)
-  // dwarfs those fragments, so the outer object is the child's real result.
+  // parse each well-formed region, and prefer an envelope-shaped object
+  // (exactly the four canonical fields); otherwise keep the largest by
+  // serialized length (FAGAN-0017).
+  const parsed: { value: Record<string, unknown>; str: string }[] = [];
   let start = -1;
-  let recovered: unknown = undefined;
-  let recoveredEnd = -1;
   while ((start = text.indexOf("{", start + 1)) !== -1) {
     let depth = 0;
     let inString = false;
@@ -364,23 +369,37 @@ export function extractEnvelopeObject(text: string): unknown {
       else if (ch === "}") {
         depth--;
         if (depth === 0) {
-          if (i > recoveredEnd) {
-            try {
-              const value = JSON.parse(text.slice(start, i + 1));
-              if (isRecord(value)) {
-                recovered = value;
-                recoveredEnd = i;
-              }
-            } catch {
-              // keep scanning
+          try {
+            const value = JSON.parse(text.slice(start, i + 1));
+            if (isRecord(value)) {
+              parsed.push({ value, str: text.slice(start, i + 1) });
             }
+          } catch {
+            // keep scanning
           }
           break;
         }
       }
     }
   }
-  return recovered;
+  if (parsed.length === 0) return undefined;
+
+  // Prefer the first envelope-shaped object (exactly four canonical fields)
+  const canonicalFields = ENVELOPE_FIELDS.join("|");
+  for (const { value } of parsed) {
+    if (Object.keys(value).sort().join("|") === canonicalFields) {
+      return value;
+    }
+  }
+
+  // Otherwise, keep the largest by serialized length
+  let best = parsed[0];
+  for (let i = 1; i < parsed.length; i++) {
+    if (parsed[i].str.length > best.str.length) {
+      best = parsed[i];
+    }
+  }
+  return best.value;
 }
 
 function hasOneToThreeSentences(value: string): boolean {
@@ -455,6 +474,26 @@ export function childCommitsSince(cwd: string, headBefore: string | null): strin
   } catch {
     return null;
   }
+}
+
+/**
+ * Enrich error metadata with child commit disclosure when the child made
+ * commits between dispatch and failure (BUG-0008 / FAGAN-0016).
+ */
+export function enrichWithChildCommits(
+  cwd: string,
+  headBefore: string | null,
+  base: Record<string, unknown>,
+): Record<string, unknown> {
+  const freshCommits = childCommitsSince(cwd, headBefore);
+  if (!freshCommits) return base;
+  return {
+    ...base,
+    freshChildCommits: freshCommits,
+    note:
+      "child committed work despite the error — " +
+      "verify the listed commits/artifacts before retrying; do not blindly re-dispatch",
+  };
 }
 
 interface FinalMessage {
@@ -754,10 +793,10 @@ function errorResult(agent: string, reason: string, metadata: Record<string, unk
 }
 
 /** A distinct result for an invocation that spawned successfully but was cancelled. */
-function cancellationResult(agent: string) {
+function cancellationResult(agent: string, metadata: Record<string, unknown> = {}) {
   const reason = "child process tree terminated because invocation was cancelled; task was not retried";
   return {
     content: [{ type: "text" as const, text: `run_agent cancelled (${agent}): ${reason}` }],
-    details: { agent, error: true, cancelled: true, reason },
+    details: { agent, error: true, cancelled: true, reason, ...metadata },
   };
 }

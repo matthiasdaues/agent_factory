@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   childCommitsSince,
+  enrichWithChildCommits,
   extractEnvelopeObject,
   gitLocalHead,
   parseChildResultEnvelope,
@@ -118,4 +119,57 @@ test("childCommitsSince returns null when no new commits", () => {
   const base = gitLocalHead(dir) as string;
   assert.equal(childCommitsSince(dir, base), null);
   execSync("rm -rf " + dir);
+});
+
+// --- FAGAN-0016: commit disclosure on all error paths ---
+
+test("enrichWithChildCommits adds commit disclosure when commits exist (FAGAN-0016)", () => {
+  const dir = makeRepo();
+  commit(dir, "a.txt", "base");
+  const base = gitLocalHead(dir) as string;
+  commit(dir, "b.txt", "child-work");
+  const result = enrichWithChildCommits(dir, base, { agent: "test", error: true });
+  assert.ok(Array.isArray((result as any).freshChildCommits));
+  assert.equal((result as any).freshChildCommits.length, 1);
+  assert.ok((result as any).note.includes("do not blindly re-dispatch"));
+  assert.equal((result as any).agent, "test");
+  execSync("rm -rf " + dir);
+});
+
+test("enrichWithChildCommits returns base when no new commits (FAGAN-0016)", () => {
+  const dir = makeRepo();
+  commit(dir, "a.txt", "base");
+  const base = gitLocalHead(dir) as string;
+  const result = enrichWithChildCommits(dir, base, { agent: "test", error: true });
+  assert.deepEqual(result, { agent: "test", error: true });
+  execSync("rm -rf " + dir);
+});
+
+test("enrichWithChildCommits returns base when headBefore is null (FAGAN-0016)", () => {
+  const result = enrichWithChildCommits(tmpdir(), null, { agent: "test" });
+  assert.deepEqual(result, { agent: "test" });
+});
+
+// --- FAGAN-0017: envelope preference over larger sibling ---
+
+test("extractEnvelopeObject prefers envelope over larger sibling (FAGAN-0017)", () => {
+  const larger = JSON.stringify({ a: { b: 1, c: 2, d: 3, e: 4, f: 5 } });
+  const text = goodText + " example: " + larger;
+  const v = extractEnvelopeObject(text);
+  assert.deepEqual(v, good);
+});
+
+test("extractEnvelopeObject finds envelope when it is the rightmost (FAGAN-0017)", () => {
+  const smaller = JSON.stringify({ a: 1 });
+  const text = smaller + " " + goodText;
+  const v = extractEnvelopeObject(text);
+  assert.deepEqual(v, good);
+});
+
+test("extractEnvelopeObject falls back to largest when no envelope-shaped (FAGAN-0017)", () => {
+  const small = JSON.stringify({ x: 1 });
+  const big = JSON.stringify({ x: 1, y: 2, z: 3, w: 4 });
+  const text = small + " " + big;
+  const v = extractEnvelopeObject(text);
+  assert.deepEqual(v, { x: 1, y: 2, z: 3, w: 4 });
 });
