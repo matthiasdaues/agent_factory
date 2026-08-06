@@ -459,7 +459,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 2056
+    tokens: 2057
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
@@ -491,7 +491,7 @@ rulebooks:
   - name: foundational-principles
     category: conventions
     path: rulebooks/conventions/foundational-principles.md
-    tokens: 470
+    tokens: 493
   - name: git-workflow
     category: conventions
     path: rulebooks/conventions/git-workflow.md

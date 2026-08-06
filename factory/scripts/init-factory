@@ -1450,7 +1450,15 @@ def _dedup(paths: list[str]) -> list[str]:
 
 def pre_commit_install(target: Path, report: list[str]) -> None:
     result = subprocess.run(
-        ["uvx", "pre-commit", "install"],
+        [
+            "uvx",
+            "pre-commit",
+            "install",
+            "--hook-type",
+            "pre-commit",
+            "--hook-type",
+            "pre-push",
+        ],
         cwd=target,
         capture_output=True,
         text=True,
@@ -1461,7 +1469,7 @@ def pre_commit_install(target: Path, report: list[str]) -> None:
         log(report, f"uvx pre-commit install: FAILED — {result.stderr.strip()}")
         return
 
-    log(report, "uvx pre-commit install: done")
+    log(report, "uvx pre-commit install (pre-commit, pre-push): done")
 
 
 def main(argv: list[str] | None = None) -> int:

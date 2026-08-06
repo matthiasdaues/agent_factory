@@ -24,7 +24,7 @@ ______________________________________________________________________
 - **G6** — Keep the machine-readable catalog of every agent, skill, and playbook (`factory/INDEX.yaml`) generated from source frontmatter, never hand-edited (`index-lint`).
 - **G7** — Block a fixed list of destructive or gate-bypassing git commands before they run across all supported CLIs (`block-dangerous-git.sh` for native-hook runtimes; the equivalent Pi extension).
 - **G8** — Wire all of the above into a new or existing project, idempotently, without disturbing what is already there (`init-factory`).
-- **G9** — Run project tests deterministically via unavoidable hooks (pre-commit, pre-push, phase advance), never via agent-commanded shell execution (`run-tests`).
+- **G9** — Run project tests deterministically via mechanically triggered gates (pre-commit, pre-push, phase advance), never via agent-commanded shell execution (`run-tests`).
 - **G10** — Keep multi-phase workflow input cost bounded by ending the session at every phase transition and restarting from a complete, validated handoff and canonical tracked artifacts.
 - **G11** — Prevent avoidable child-dispatch spend by maintaining auditable evidence that each delivered dispatch safeguard has a contract, implementation point, and automated coverage, without reimplementing proven baseline behavior.
 
@@ -100,7 +100,7 @@ ______________________________________________________________________
 - **FR-I2** — `--changed-only` mode runs tests for modified files only (fast subset, for pre-commit); `--full` mode runs the complete suite (for pre-push and phase advance gates).
 - **FR-I3** — Exits `0` on pass, `1` on test failures, `2` on framework detection failure or inability to run.
 - **FR-I4** — Emits a JSON summary (`{"passed": N, "failed": M, "skipped": K, "duration_ms": T}`) on stdout and human-readable progress/errors on stderr.
-- **FR-I5** — Invoked by three unavoidable hooks:
+- **FR-I5** — Invoked by three mechanically triggered gates; human operators can bypass the client-side Git hooks with `--no-verify`, while agents remain subject to command guardrails:
   - Pre-commit hook (`--changed-only`) for fast feedback
   - Pre-push hook (`--full`) as the "ready to share" gate
   - Phase advance via FSM `script_exit_zero: factory/scripts/run-tests --full` condition

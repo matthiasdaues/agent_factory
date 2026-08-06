@@ -121,11 +121,16 @@ testing a release. Claude and Copilot are supported dispatch backends.
 
 ## Test execution hooks
 
-Agent Factory runs tests through unavoidable hooks, not by asking agents to run them. This enforces the core principle: **creation is agentic, validation is deterministic**. Tests run automatically at three points:
+Agent Factory runs tests through mechanically triggered gates, not by asking agents to run them. This enforces the core principle: **creation is agentic, validation is deterministic**. Tests run automatically at three points:
 
 1. **Pre-commit hook** (bypassable with `--no-verify`) — runs tests on changed files only, fast feedback during development
-2. **Pre-push hook** (no bypass) — runs full test suite before sharing your work, blocks push if tests fail
+2. **Pre-push hook** (human bypass: `git push --no-verify`) — runs the full test suite before an ordinary push and blocks that push if tests fail
 3. **Phase advance gates** — FSM entry conditions check `tests_pass` before advancing to the QA phase
+
+The canonical template does not yet install point 1 into consumer projects;
+that remaining configuration drift is tracked as
+[`RECON-0018`](../docs/findings/RECON-0018.md). This repository's own merged
+configuration already contains the changed-only hook.
 
 ### Framework detection
 
