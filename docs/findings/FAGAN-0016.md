@@ -4,7 +4,7 @@ source: fagan-review
 severity: major
 category: defect
 artifact: factory/config/extensions/run-agent.ts:160
-status: open
+status: resolved
 traces: [BUG-0008, UC-10, BR-040]
 ---
 

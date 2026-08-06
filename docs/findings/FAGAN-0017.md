@@ -4,7 +4,7 @@ source: fagan-review
 severity: minor
 category: defect
 artifact: factory/config/extensions/run-agent.ts:336
-status: open
+status: resolved
 traces: [BUG-0008, UC-10, BR-040]
 ---
 
