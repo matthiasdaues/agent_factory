@@ -288,12 +288,16 @@ export function validateChildResultArtifacts(
       return `child result artifact '${path}' does not exist as a file`;
     }
     try {
+      execFileSync("git", ["add", "--", path], {
+        cwd,
+        stdio: ["ignore", "ignore", "ignore"],
+      });
       execFileSync("git", ["ls-files", "--error-unmatch", "--", path], {
         cwd,
         stdio: ["ignore", "ignore", "ignore"],
       });
     } catch {
-      return `child result artifact '${path}' is not tracked by Git`;
+      return `child result artifact '${path}' is not a stageable tracked file`;
     }
   }
   return null;
