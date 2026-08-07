@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-title: "Matrix Project Channel and Spoken Grilling"
+title: "Matrix Project Channel and Spoken Clarification"
 status: open
 owner: agent-factory
 created: 2026-08-07
@@ -14,7 +14,7 @@ impact:
   boundaries:
     - factory/scripts/init-factory
     - factory/scripts/run-playbook
-    - factory/scripts/run-step
+    - factory/skills/run-step/SKILL.md
     - factory/scripts/phase
     - factory/skills/grilling/SKILL.md
     - factory/docs/factory-guide.md
@@ -38,7 +38,7 @@ estimate:
   normalized_tokens: unknown
 ---
 
-# Feature Request: Matrix Project Channel and Spoken Grilling
+# Feature Request: Matrix Project Channel and Spoken Clarification
 
 ## Summary
 
@@ -46,7 +46,7 @@ Give each Agent Factory project one encrypted Matrix room as its remote
 operational interface. A human establishes the room, credentials, project
 binding, runtime backend, and persistent services from a local terminal; after
 a successful two-way verification and explicit activation, the human may exit
-the terminal and use Element for text, voice-message grilling, artifacts,
+the terminal and use Element for text, spoken clarification, artifacts,
 notifications, and bounded Factory commands.
 
 The Matrix edge remains a message switchboard, not a workflow authority. A
@@ -72,9 +72,10 @@ Matrix and Element provide encrypted project rooms, text, threads, voice
 messages, and file transport. The required assistant is therefore not a
 general autonomous personal agent. It is a narrow Matrix edge plus a
 project-aware Factory conversational session. The edge transports and renders;
-the conversational session can run a capable project-local skill such as
-[`grilling`](../../factory/skills/grilling/SKILL.md); the Factory validates and
-records durable results.
+the conversational session supports clarifying discussion in text or voice
+messages and may run a suitable project-local workflow, such as
+[`grilling`](../../factory/skills/grilling/SKILL.md), when the operator asks for
+that interview style. The Factory validates and records durable results.
 
 The system must remain optional and independently deployable. Projects that
 continue to run Factory host-native must receive the same Matrix behavior as
@@ -157,8 +158,8 @@ Example:
 
 Changing the room, project root, runtime backend, image trust, or operator set
 is a terminal-only administrative action. Rebinding is forbidden while a run,
-human gate, or grilling session is active. A room upgrade creates a new room
-ID and requires an explicit migration; it never inherits project authority
+human gate, or clarification session is active. A room upgrade creates a new
+room ID and requires an explicit migration; it never inherits project authority
 automatically.
 
 The room lifecycle is:
@@ -201,20 +202,21 @@ The Session Controller is the explicit third operator peer. It owns lifecycle
 and routing that neither the Matrix Edge nor Factory scripts should own:
 
 - load host-controlled room/project/runtime bindings;
-- maintain a single active controller lease per Factory run;
+- maintain the single fenced controller lease for the project room;
 - start, resume, stop, and recover the selected Factory runtime;
 - start or resume project-bound conversational sessions;
 - deliver typed task messages, admitted artifacts, and candidate decisions;
 - observe structured Factory events and enqueue Matrix notifications;
 - create single-use decision challenges;
 - reconcile ambiguous outcomes after crashes; and
-- persist grilling-session state across terminal and process restarts.
+- persist clarification-session state across terminal and process restarts.
 
 It invokes only the public Factory CLI surface. It never writes FSM markers,
 declares a gate passed, or treats an agent response as deterministic evidence.
-Factory scripts such as [`phase`](../../factory/scripts/phase),
-[`run-step`](../../factory/scripts/run-step), and
+Factory scripts such as [`phase`](../../factory/scripts/phase) and
 [`run-playbook`](../../factory/scripts/run-playbook) remain authoritative.
+[`run-step`](../../factory/skills/run-step/SKILL.md) is a dispatching skill over
+that public surface, not an additional workflow authority.
 
 ### Factory Runtime Port
 
@@ -283,6 +285,16 @@ validation, atomic rename, immutable record IDs, one writer per path, separate
 acknowledgements, and duplicate detection. A database is deferred until
 concurrency or query requirements justify it.
 
+Controller ownership is local and fenced. Release 1 permits at most one active
+Factory run per project room. A controller must hold an operating-system file
+lock before it can allocate a monotonically increasing lease epoch. Every
+runtime session and every state-changing Factory command carries that epoch;
+the Factory command boundary rejects an epoch other than the current durable
+epoch. Process exit releases the file lock. Recovery allocates a new epoch,
+which fences a paused or stale controller, and reconciles durable Factory state
+before resuming work or retrying an operation with an unknown outcome. The
+filesystem inbox's one-writer rule is not treated as a lease mechanism.
+
 Every record includes a schema version, UUID, project ID, creation time,
 content hash, and source or destination. Run, session, gate, Matrix room,
 event, thread, sender, and artifact identifiers are present when applicable.
@@ -326,6 +338,15 @@ Activate this Matrix channel? [y/N]
 
 A Matrix event cannot activate, bind, or expand its own authority.
 
+For a host-native backend, activation additionally states that remote Factory
+operations run as the configured host identity with that identity's filesystem,
+credential, and network access. The operator must explicitly accept that risk;
+the host-native adapter runs under a dedicated restricted operating-system
+identity where the platform supports it. Setup fails if the configured identity
+has broader access than the diagnostics and the operator has not explicitly
+accepted the reported access profile. This is a security-policy distinction,
+not merely a different status label.
+
 Activation records the configuration atomically and hands the long-running
 processes to a persistent user service. Setup succeeds only after the service
 manager owns the processes and a post-handover health check passes. The human
@@ -350,7 +371,7 @@ Matrix is the operational interface for:
 
 ```text
 status                 project notes
-spoken grilling        artifact submission
+spoken clarification   artifact submission
 artifact listing       bounded Factory decisions
 notification ack       cancellation request
 ```
@@ -359,50 +380,69 @@ Matrix cannot bind projects, authorize users, rotate devices, select runtimes,
 change mounts, approve image digests, enable external speech/model services,
 disable controls, update software, or remove the integration.
 
-### Turn-based spoken grilling
+### Turn-based spoken clarification
 
-Release 1 provides turn-based voice-message grilling, not a live MatrixRTC
-call. A grilling session is bound to one project room, one Matrix thread, one
-target document, and one Factory conversational session. One project has at
-most one active grilling session.
+Release 1 provides turn-based clarifying discussion with text and voice
+messages, not a live MatrixRTC call. A clarification session is bound to one
+project room, one Matrix thread, one subject, and one Factory conversational
+session. The subject may be a project topic, active run, human gate, artifact,
+or target document. One project has at most one active clarification session.
+
+Spoken clarification is the capability; grilling is one optional interview
+style. Starting a session selects a suitable conversational workflow and does
+not change that workflow's own contract. In particular, the stock `grilling`
+skill continues to amend a proposal in place when it is deliberately selected.
+The general clarification session does not imply that behavior.
 
 ```text
-!grill start docs/proposals/example.md
-!grill pause
-!grill resume
-!grill repeat
-!grill slower
-!grill text-only
-!grill voice-only
-!grill correction <event-id> <text>
-!grill summary
-!grill finish
-!grill discard
+!clarify start topic "deployment boundary"
+!clarify start document docs/proposals/example.md
+!clarify start run <run-id>
+!clarify pause
+!clarify resume
+!clarify repeat
+!clarify slower
+!clarify text-only
+!clarify voice-only
+!clarify correction <event-id> <text>
+!clarify summary
+!clarify finish
+!clarify discard
 ```
 
-Only messages in the registered grilling thread become conversational input.
-Unthreaded audio becomes a project note; voice messages in other threads remain
-unrouted until explicitly attached to a session. Turns are sequential. A new
-message may cancel an unsent synthesized response but cannot create concurrent
-reasoning turns against the same session.
+Only messages in the registered clarification thread become conversational
+input. Unthreaded audio becomes a project note; voice messages in other threads
+remain unrouted until explicitly attached to a session. Turns are sequential. A
+new message may cancel an unsent synthesized response but cannot create
+concurrent reasoning turns against the same session.
 
-The project-local conversational agent runs the
-[`grilling`](../../factory/skills/grilling/SKILL.md) workflow. The Matrix Edge
-does not perform requirements reasoning. Each response contains complete text
-and, unless text-only mode is selected, synthesized audio. Code, paths,
-commands, identifiers, decisions, and proposed document wording always appear
-as text even when summarized in speech.
+The project-local conversational agent runs the workflow selected for the
+session; [`grilling`](../../factory/skills/grilling/SKILL.md) is one available
+example. The Matrix Edge does not perform requirements reasoning. Each response
+contains complete text and, unless text-only mode is selected, synthesized
+audio. Code, paths, commands, identifiers, decisions, and proposed document
+wording always appear as text even when summarized in speech.
 
 The system publishes what it transcribed. Corrections create append-only
-transcript revisions rather than rewriting the source event. It does not rely
-on a supposedly calibrated speech-model confidence score; detectable
-ambiguity, terminology mismatch, or an operator correction triggers
-clarification.
+transcript revisions rather than rewriting the source event. A correction
+invalidates every derived summary, working decision, candidate command, or
+document diff that depended on the corrected turn. Those outputs are re-derived
+and remain unconfirmed until the operator confirms them again. It does not rely
+on a supposedly calibrated speech-model confidence score; detectable ambiguity,
+terminology mismatch, or an operator correction triggers clarification.
 
-The conversational agent gathers confirmed working decisions and proposes a
-summary and document diff at `finish`. It does not silently rewrite the target
-after each turn. Applying the diff requires an explicit textual challenge
-response.
+At `finish`, the conversational agent produces a summary and any outputs
+appropriate to the selected workflow. A document-bound workflow may amend its
+target during the session if that is part of its declared contract, or propose
+a document diff at the end. Applying a proposed diff requires an explicit
+textual challenge response.
+
+A document-bound session records the target's canonical path and content hash
+when it starts and before every write or proposed diff. A move, deletion, or
+conflicting content change suspends document mutation and finish until the
+operator explicitly restarts against the new target or accepts a conflict-aware
+rebase. Unrelated changes that rebase cleanly do not force the discussion to be
+discarded.
 
 ### Audio and attachment processing
 
@@ -433,7 +473,10 @@ If speech suggests such an action, the system renders the exact textual command
 and requires the human to send it.
 
 Raw-audio, transcript, TTS-output, quarantine, and admitted-artifact retention
-are separate project policies. Local STT and TTS are defaults. A project that
+are separate host-controlled project policies. Setup must present and record a
+choice for every surface; it must not silently invent retention periods.
+Terminal `repair` or `update` is required to change them. Local STT and TTS are
+defaults. A project that
 uses an external reasoning model still transmits the transcript to that model;
 the setup and status output disclose the full selected processing profile
 rather than calling the conversation local merely because STT is local.
@@ -449,6 +492,10 @@ Consequential commands use exact syntax and a versioned external protocol:
 !factory/v1 ack <notification-id>
 ```
 
+Setup pins the accepted protocol major version. The Matrix Edge rejects unknown
+versions and exact-syntax violations; there is no implicit downgrade or
+best-effort interpretation.
+
 Free-form prose and reactions are non-authoritative. A nonce binds a response
 to a transaction; it does not protect against a compromised authorized Matrix
 account or device and is not represented as strong identity proof.
@@ -457,6 +504,9 @@ The Factory-side command atomically validates project, run, gate, expected
 state and revision, actor, allowed decision, nonce, expiry, and unused status
 while performing the accepted operation. A stale, duplicate, expired,
 wrong-room, wrong-actor, or wrong-state decision fails without mutation.
+Challenge expiry is measured from receipt by the trusted controller using the
+host monotonic clock, never a Matrix event timestamp. Outstanding challenges
+are bound to the current host boot identifier and become invalid after reboot.
 
 ### Artifact admission
 
@@ -473,10 +523,12 @@ candidate records and never mutate consumed commands. Redactions affect Matrix
 presentation and retention processing but do not erase an immutable Factory
 audit record.
 
-Every run has one controller lease. On restart, the controller reconciles
-Factory state before retrying a command whose outcome is unknown. It does not
-blindly replay consequential operations. Matrix outages queue outbound events;
-missing E2EE keys suspend the channel rather than falling back to plaintext.
+Every project room has at most one active run in Release 1, protected by the
+fenced controller lease. On restart, the controller acquires a new epoch and
+reconciles Factory state before retrying a command whose outcome is unknown. It
+does not blindly replay consequential operations. Matrix outages queue outbound
+events; missing E2EE keys suspend the channel rather than falling back to
+plaintext.
 
 Room migration, bot-device rotation, credential compromise, runtime-backend
 change, project-path change, or operator revocation suspends active remote
@@ -486,10 +538,12 @@ before reactivation.
 ### Health and observability
 
 `!factory status` reports project identity, channel lifecycle, bot/E2EE health,
-runtime backend, Factory security posture, active run, active grilling session,
-audio availability, processing profile, pending action, and last successful
-health check. A host-native backend is labeled host-native and never presented
-as container-isolated.
+runtime backend, Factory security posture, active run, active clarification
+session, audio availability, processing profile, pending action, and last
+successful health check. A host-native backend is labeled host-native and
+states that remote operations use the configured host identity and its reported
+filesystem, credential, and network access; it is never presented as
+container-isolated.
 
 Metrics and structured logs cover Matrix sync, E2EE failures, queue depth,
 duplicate suppression, delivery attempts, media validation, transcription and
@@ -508,12 +562,14 @@ transcript bodies by default.
 - Standard shared-bot and hardened per-project-bot deployment profiles.
 - Local terminal setup, two-way verification, explicit activation, persistent
   user services, reboot recovery, suspension, repair, migration, and removal.
-- A Factory Session Controller with one active lease per run.
+- A Factory Session Controller with one fenced lease and at most one active run
+  per project room.
 - Host-native and containerized Factory runtime adapters with equivalent
   external behavior.
 - Typed directional inbox/outbox records and idempotent processing.
 - Text, threads, voice messages, and quarantined file submission.
-- One turn-based spoken grilling session per project room.
+- One turn-based spoken clarification session per project room, with grilling
+  available as one optional interview style.
 - Local audio validation, STT, and TTS, with text always available.
 - Transcript correction, decision summaries, proposed document diffs, and
   explicit diff application.
@@ -532,7 +588,7 @@ transcript bodies by default.
 - Audio-authorized proposal acceptance, workflow transitions, destructive
   operations, cancellation, or artifact admission.
 - Matrix application-service privileges.
-- Multiple active grilling sessions in one project.
+- Multiple active clarification sessions in one project.
 - Rooms controlling multiple projects or projects with multiple active rooms.
 - Multi-operator consensus and quorum decisions.
 - Automatic room-upgrade inheritance.
@@ -578,7 +634,10 @@ The owning automated or integration-test layer must cover:
 | Bot device state lost or rotated                            | Channel suspended pending verification                             |
 | Operator revoked with outstanding challenges                | Challenges invalidated                                             |
 | Unauthorized user invited to room                           | No operator authority gained                                       |
-| Voice event outside active grilling thread                  | Stored as note, not routed as answer                               |
+| Voice event outside active clarification thread             | Stored as note, not routed as answer                               |
+| Stale controller submits an old lease epoch                 | Factory command rejects it without mutation                        |
+| Corrected turn fed a derived decision or diff               | Derived output invalidated pending reconfirmation                  |
+| Document target changes during clarification                | Clean rebase or explicit suspension; no blind overwrite            |
 | Critical technical term mistranscribed                      | Transcript visible and correctable                                 |
 | Malformed, oversized, disguised, or explosive media         | Sandbox rejects without cross-boundary effect                      |
 | Matrix unavailable during a Factory run                     | Durable events delivered after recovery                            |
@@ -596,7 +655,8 @@ Implementation proceeds in authority-increasing slices:
 1. Terminal setup, room binding, E2EE verification, persistent service, status,
    and outbound notifications.
 2. Inbound project notes and quarantined artifacts without workflow authority.
-3. Turn-based spoken grilling, correction, summaries, and proposed diffs.
+3. Turn-based spoken clarification, correction, summaries, and optional
+   workflow-specific outputs such as proposed diffs.
 4. Explicit diff application through an atomic Factory command.
 5. Bounded human-gate decisions and cancellation only after lifecycle, replay,
    and stale-state proof cases pass.
@@ -625,15 +685,16 @@ returns this proposal to `open`.
   or runtime socket.
 - The Factory runtime has no Matrix credentials, E2EE state, or unquarantined
   media access.
-- The Session Controller provides one recoverable lifecycle and lease owner for
-  every run and conversational session.
+- The Session Controller provides one recoverable lifecycle and fenced lease
+  owner, serializing runs per project room in Release 1.
 - Host-native and container runtime adapters pass the same protocol-level
   conformance suite while reporting their different security postures.
 - Matrix events and broker records are idempotent, directional, versioned, and
   recoverable after process failure.
-- A project room supports threaded text and turn-based voice-message grilling
+- A project room supports threaded text and turn-based spoken clarification
   with complete text responses, optional synthesized speech, transcript
-  correction, a decision summary, and a proposed diff.
+  correction, and a decision summary. The selected workflow may additionally
+  produce a proposed diff or another typed output.
 - Spoken input, free-form prose, and reactions cannot directly authorize a
   consequential Factory operation.
 - Every consequential decision is textual, actor/project/run/gate/state-bound,
@@ -661,135 +722,3 @@ returns this proposal to `open`.
 The terminal establishes trust, Matrix carries project conversation, the
 Session Controller operates the selected runtime, and Factory scripts alone
 decide and record workflow state.
-
-## Review (2026-08-07, adversarial)
-
-Adversarial review of this proposal in the spirit of the `adversarial-review`
-skill (the ten checks, applied to a design seed rather than a falsifiable
-research claim). No BLOCKER found. Five MAJOR defects must be resolved before
-this moves from `open` to `accepted` and before the authority-granting
-delivery slices (3-5) are planned. Each finding is distilled as an amendment.
-
-### Verdict by check
-
-| #   | Check                      | Verdict                                                                                               |
-| --- | -------------------------- | ----------------------------------------------------------------------------------------------------- |
-| 01  | Testable                   | PASS — severe proof matrix is genuinely severe                                                        |
-| 02  | Alternatives considered    | WEAK — host-native remote-control risk asymmetry unexamined                                           |
-| 03  | Tests severe               | PASS — cases would actually refute                                                                    |
-| 04  | Survives unchanged         | N/A (design, not a claim)                                                                             |
-| 05  | Sources/exact wording      | WEAK — cites `run-step` as a script; no such script exists                                            |
-| 06  | Independence               | N/A                                                                                                   |
-| 07  | Assumptions explicit       | FAIL — lease/concurrency, correction invalidation, retention defaults, concurrent runs underspecified |
-| 08  | Scope creep                | WEAK — host-native treated as equivalent beyond its safety                                            |
-| 09  | Contrary evidence          | MINOR                                                                                                 |
-| 10  | Surviving refutation paths | PASS — deferred items listed honestly                                                                 |
-
-### Defect register + amendments
-
-**MAJOR A1 — grilling-skill contract contradiction (Ch.07, 09).** The cited
-`grilling/SKILL.md` amends the target document in place as decisions settle,
-but this Design forbids exactly that ("does not silently rewrite the target
-after each turn" + diff-at-finish). Reusing the stock skill as-is is
-impossible without acknowledging the drift.
-
-Amend "Turn-based spoken grilling": the conversational agent runs `grilling`
-**as adapted for voice grilling — see grilling skill amendment G1**. The stock
-skill's in-place target mutation is replaced by an explicit terminal-of-session
-diff challenge; every confirmed decision is staged as a transcript revision,
-not a document mutation. `impact.boundaries` must also name
-`factory/skills/grilling/SKILL.md` (the design's real dependency), not only
-script paths.
-
-**MAJOR A2 — lease/concurrency model underspecified (Ch.07, 08).** "Exactly one
-controller holds the run lease" and the severe case "Two controllers resume
-one run → one lease wins" are unenforceable on the described single-writer
-*filesystem* broker, which has no distributed-lease primitive. No lease TTL,
-fencing/epoch, or concurrent-run policy is defined.
-
-Amend "Factory Session Controller": the controller lease is a **single
-exclusive-create lock record in the broker, stamped with an epoch and a bounded
-TTL**. A live contender that cannot acquire the lock stops before launching a
-runtime. On crash or TTL expiry the surviving controller re-acquires and runs
-reconciliation **before** retrying any command whose outcome is unknown.
-**Release 1 serializes runs: at most one active run per project room.**
-Concurrent runs are deferred.
-
-**MAJOR A3 — `run-step` is a skill, not an authoritative script (Ch.05).** Cited
-as a script in `impact.boundaries` (`factory/scripts/run-step`) and in Design
-("Factory scripts such as `phase`, `run-step`, and `run-playbook` remain
-authoritative"). No `factory/scripts/run-step` exists; `run-step` is
-`factory/skills/run-step/SKILL.md` (a dispatcher over `trigger`). The
-authoritative scripts are `phase` and `run-playbook`.
-
-Amend `impact.boundaries`: `factory/scripts/run-step` →
-`factory/skills/run-step/SKILL.md`. Amend Design: "Factory scripts such as
-`phase`, `run-step`, and `run-playbook` remain authoritative" → "Factory
-scripts such as `phase` and `run-playbook` remain authoritative; `run-step` is
-a skill that dispatches them, never a workflow authority."
-
-**MAJOR A4 — correction doesn't invalidate downstream decisions (Ch.07, 09;
-data integrity).** "Corrections create append-only transcript revisions," but a
-confirmed working decision and the proposed summary/diff may have been built
-from a turn a later correction retracts. Append-only revision of the source
-event does not re-derive the downstream artifact.
-
-Amend "Turn-based spoken grilling": a correction to any turn that contributed
-to a confirmed working decision or to the proposed summary/diff **invalidates
-that decision and the pending diff**, marks them `UNCONFIRMED`, and requires
-the human to reconfirm the affected item before it enters the summary or is
-applied. Corrections are append-only for the transcript; they are
-**re-deriving triggers** for every downstream artifact that cited the corrected
-turn.
-
-**MAJOR A5 — host-native remote-control risk asymmetry (Ch.02; security).**
-"Making container distribution mandatory" is deferred, so remote Matrix
-control over a host-native backend is enabled by default with the same OS
-identity, host credentials, and network as the human, while treated as
-equivalent to the containerized profile. Worst case: compromised or greedy
-authorized operator + host-native = remote Factory execution as host identity.
-Disclosure alone is not a compensating control.
-
-Amend "Administrative versus operational authority": enabling Matrix remote
-control for a **host-native** backend requires an explicit elevated confirmation
-at `activate` distinct from the containerized path, and the `!factory status`
-security-posture line for host-native must state "remote control runs with full
-host identity and network." This asymmetry is intentional: host-native remote
-control is higher risk and never presented as sandboxed. Backend equivalence
-applies only to the runtime *port protocol*, not to security posture.
-
-**MINOR A6 — retention defaults unnamed (Ch.07).** Retention surfaces are
-"separate project policies" with no record and no default.
-
-Amend "Audio and attachment processing": each retention surface (raw audio,
-transcript, TTS output, quarantine, admitted artifacts) is recorded in
-host-controlled project policy with a **default of: transcripts 90d, admitted
-artifacts indefinitely, raw audio/quarantine/TTS 7d**, adjustable only via
-terminal `repair`/`update`.
-
-**MINOR A7 — concurrent-run + grilling-target lifecycle (Ch.07, 08).** (a)
-Whether multiple runs may be active in one room is untested (see A2); (b)
-`!grill start docs/...` target binding — behavior on rename/move/removal
-mid-session is undefined.
-
-Amend "Turn-based spoken grilling": the grilling target is bound by canonical
-path at `start`. A missing, renamed, or rewritten target suspends
-`resume`/`finish` (the summary/diff cannot be proposed against an unverifiable
-target) and requires a new `!grill start`. One run at a time per room in
-Release 1 (see lease note).
-
-**NOTE A8 — nonce-expiry clock trust & protocol version negotiation.** Nonce
-expiry depends on a clock; Matrix event timestamps are server-controlled, and
-the `!factory/v1` "versioned" protocol has no negotiation defined. Suggest:
-controller monotonic-time expiry vs. server timestamp, and exact-syntax version
-pin in setup. No edit required for Release 1.
-
-### Recommendation
-
-No BLOCKER, so the proposal survives review and can enter planning, but only
-Slices 1 (setup/verification/status/notifications) and 2 (notes + quarantined
-artifacts) are safe to plan today. Slices 3-5 depend on A1 (grilling
-adaptation), A2 (lease), A4 (correction invalidation), and A5 (host-native
-control); resolve those MAJORs before planning authority-granting slices and
-before moving `open → accepted`. Concrete-correctness fix A3 should be applied
-regardless.
