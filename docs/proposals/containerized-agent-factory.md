@@ -4,7 +4,7 @@ title: "Containerized Agent Factory Distribution"
 status: open
 owner: agent-factory
 created: 2026-08-07
-updated: 2026-08-07
+updated: 2026-08-09
 supersedes:
 
 impact:
@@ -47,10 +47,12 @@ mounts the project read-write, and exposes no other host-writable path.
 
 The image becomes the canonical environment for Factory initialization,
 playbook execution, Git operations, deterministic gates, and an attached
-shell. The first release supports rootless Docker Engine on native Linux and
-rootless Podman; it does not claim that their user-namespace mappings are
-equivalent or that arbitrary project hooks are reproducible without a prepared
-project toolchain image.
+shell. Host Git and host project tooling are excluded once a project is
+delegated because repository-controlled hooks and configuration are untrusted.
+The first release supports rootless Docker Engine on native Linux and rootless
+Podman; it does not claim that their user-namespace mappings are equivalent or
+that arbitrary project hooks are reproducible without a prepared project
+toolchain image.
 
 ## Motivation
 
@@ -98,6 +100,32 @@ implementations.
 - Scope every security claim to the tested runtime, mount set, and network
   posture.
 
+### Threat model and trust boundary
+
+The delegated agent and every file below the approved project path are
+untrusted. This includes `.git/config`, hook programs, hook-manager
+configuration, tool configuration, generated files, and persistent Factory
+state. A repository-controlled program must never be executed directly by a
+host Git process or the host launcher.
+
+The trusted computing base is limited to:
+
+- the human-operated launcher binary and its installation directory;
+- an owner-only host installation record;
+- the selected rootless container runtime and host kernel;
+- the approved image identified by digest; and
+- explicit credential and network grants for one invocation.
+
+The launcher protects the host outside approved mounts. It does not protect
+the delegated project from its agent, defend against a compromised host
+kernel or container runtime, or make network-visible credentials safe from a
+process deliberately granted both those credentials and network access.
+
+Plain host commands executed inside an agent-writable repository are outside
+the boundary: host Git may execute repository-selected hooks, and project
+build tools may execute repository code. The supported workflow therefore
+does not use host Git or host project tooling after delegation.
+
 ## Design
 
 ### Distribution
@@ -121,10 +149,12 @@ The image contains:
 - the internal `init`, `update`, `run`, `shell`, `git`, `gate`, `prepare`, and
   `doctor` commands.
 
-The image filesystem is read-only at runtime. `/tmp` and `/run` are ephemeral
-`tmpfs` mounts. The approved project is mounted at `/workspace`; project-owned
-runtime state and reusable caches live under the already ignored
-`/workspace/.agent-factory/` namespace.
+The image filesystem is read-only at runtime. `/tmp`, `/run`, and the default
+runtime home and caches are ephemeral `tmpfs` mounts. The approved project is
+mounted at `/workspace`. Durable Factory artifacts live below the already
+ignored `/workspace/.agent-factory/state/` namespace, but deterministic gates
+do not consume executable code, configuration, plugins, or tool caches from
+that agent-writable location.
 
 ### Trusted host launcher
 
@@ -158,6 +188,14 @@ The launcher:
 8. Uses no network for hooks and gates; commands that require network use a
    separate explicit posture.
 
+The launcher starts from a sanitized environment. It ignores project-local
+runtime selection and caller-controlled Docker or Podman context, host,
+connection, configuration, and plugin variables. It invokes an
+installation-pinned runtime executable and an owner-controlled rootless Unix
+socket. It verifies the socket and trusted configuration are regular or
+expected socket types, owned by the invoking user, not group/world writable,
+and reached without a symlink through an untrusted directory.
+
 Trusted installation metadata lives outside the project, keyed by a stable
 project identifier and canonical path, for example:
 
@@ -165,10 +203,16 @@ project identifier and canonical path, for example:
 $XDG_CONFIG_HOME/agent-factory/installations/<project-id>.json
 ```
 
-It records the approved image digest, runtime kind, canonical project path,
-and network policy. A project-local manifest may report the same values for
-diagnosis, but it cannot select an image to execute. Changing the trusted
-digest requires an explicit human launcher command.
+It records the approved image digest, runtime kind and endpoint, canonical
+project path, project directory device/inode identity, and network policy. The
+record and every parent below the user's configuration directory must be owned
+by the invoking user and not group/world writable. Records are created and
+replaced atomically without following symlinks. Immediately before the mount,
+the launcher reopens the project path, rejects symlink traversal, and verifies
+that its device/inode identity still matches the approved record. A
+project-local manifest may report the same values for diagnosis, but it cannot
+select an image, runtime, endpoint, mount, credential, or network posture.
+Changing trusted values requires an explicit human launcher command.
 
 ### Runtime-specific identity
 
@@ -200,22 +244,42 @@ assertion fails. Docker Desktop, rootful Docker, group-only writable projects,
 and other user-namespace modes are not inferred from these profiles and are
 deferred until independently tested.
 
-### Project permissions
+### Project preflight and permissions
 
-`doctor` tests effective operations rather than only inspecting mode bits:
+Preflight has three explicit stages:
+
+1. The runtime identity probe uses only a launcher-created temporary directory;
+   failure prevents any project mount.
+2. The project is mounted read-only. `doctor` validates canonical identity,
+   repository topology, symlinks, hook ownership, mount flags, and trusted
+   installation metadata without running project code.
+3. The project is remounted in a fresh container read-write. A bounded
+   capability probe operates only in a launcher-created
+   `.agent-factory/probe/<nonce>/` directory, records its intended changes,
+   removes them, and verifies that cleanup completed before workflow execution.
+
+The read-write capability probe tests effective operations rather than only
+inspecting mode bits:
 
 - create, atomically rename, and remove a regular file under
   `.agent-factory/`;
-- create a directory and Git lock file;
+- create a directory and a representative lock file;
 - set and execute a file's executable bit;
 - write every approved in-project worktree;
-- run `git status` without a global `safe.directory=*` exception; and
+- run image-owned `git status` with an invocation-local, exact
+  `safe.directory=/workspace` value; and
 - confirm that a newly created file has the expected host ownership.
 
 Image-owned and generated scripts are packaged or created with their intended
 modes. Unexpected mode drift fails validation. The runtime never repairs a
 project through recursive ownership or permission changes and never uses
 world-writable mode as a fallback.
+
+Failure at stage 1 prevents a project mount. Failure at stage 2 prevents a
+read-write mount. Failure at stage 3 may have created only the declared probe
+directory; an incomplete cleanup is reported as a bounded mutation requiring
+manual inspection. The proposal does not describe stage-3 failures as
+occurring before all project mutation.
 
 The default umask is `0022`. Shared-group operation and `0002` are deferred
 until supplementary-group behavior is proven for each runtime. A project that
@@ -307,37 +371,45 @@ agent-factory git push ...
 
 Agent-created commits, attached-shell commits, hooks, phase gates, and
 playbook-driven Git operations therefore share the same image, mounts,
-environment, dependency state, and network policy. This is the deterministic
-path.
+environment, dependency state, and network policy. This is the only supported
+Git path after a project is delegated to an agent.
 
-Plain host `git commit` and `git push` are supported through a compatibility
-bridge. A host-side dispatcher locates the Git common directory and worktree,
-loads trusted installation metadata, verifies that the approved image already
-exists locally, and invokes the fixed internal hook command without a TTY. It
-forwards hook arguments, standard input, output, signals, and exit status. A
-hook never pulls an image or enables network access.
+Plain host `git commit`, `git push`, and other host commands that may execute
+repository-controlled programs are deliberately not bridged. Git selects and
+starts a hook before any proposed hook dispatcher could establish the
+container boundary; an agent-writable hook or local Git configuration could
+therefore execute with the invoking host user's authority. No repository hook
+can safely repair that ordering.
 
-An image-owned runtime marker plus a bounded hook-depth value prevents
-recursive dispatch. An environment variable alone is not accepted as proof
-that the command runs in the approved image.
+For human ergonomics, the launcher accepts Git-compatible arguments and
+forwards terminal input, standard input, output, signals, and exit status to
+Git inside the approved image. Shell completion and an optional, separately
+installed `af-git` launcher symlink may abbreviate `agent-factory git`; a Git
+alias is not used because repository-local configuration can override it.
+Documentation warns humans not to use plain host Git in a delegated repository.
+Factory phase gates remain authoritative even if a human ignores that warning
+and creates a host-side commit with hooks disabled.
 
 ### Git-hook integration
 
-Initialization detects `core.hooksPath`, existing hook files, pre-commit,
+Initialization detects configured hook paths, existing hook files, pre-commit,
 Husky, and recognized hook managers before changing hook configuration. It
 selects exactly one recorded strategy:
 
-1. **Factory-owned:** install thin dispatchers where no hook owner exists.
+1. **Factory-owned:** install thin in-container adapters where no hook owner
+   exists.
 2. **Pre-commit adapter:** add prefixed local Factory gate entries to the
    existing `.pre-commit-config.yaml` through the established merge contract.
 3. **Recognized manager adapter:** add or document that manager's supported
-   invocation of `agent-factory hook <stage>`.
+   invocation of `af-internal gate <scope>` inside the container.
 4. **Manual:** stop before mutation and provide exact wiring instructions when
    safe composition cannot be proven.
 
-The Factory never splices arbitrary shell hook bodies. `doctor` verifies that
-the recorded strategy remains active. Git's explicit `--no-verify` bypass
-still exists, but bypassing a local hook does not bypass a phase gate.
+The Factory never splices arbitrary shell hook bodies. All retained project
+hooks execute inside the project toolchain image, never directly on the host.
+`doctor` verifies the recorded strategy before each Git mutation rather than
+assuming an earlier result is still current. Git's explicit `--no-verify`
+bypass still exists, but bypassing a local hook does not bypass a phase gate.
 
 The adapters map as follows:
 
@@ -364,21 +436,44 @@ an explicit network posture, it builds a project toolchain image `FROM` the
 approved Factory digest. That image contains the environments implied by
 project lockfiles and supported local hook declarations.
 
-The preparation manifest binds the derived image digest to hashes of every
-dependency input, including applicable lockfiles and
-`.pre-commit-config.yaml`. Before an offline gate runs, it recomputes those
-hashes. A changed or missing input fails with an instruction to run
-`agent-factory prepare`; the gate never silently enables networking or trusts
-a mutable cache as proof of reproducibility.
+Preparation is adapter-driven and fail-closed. Each supported ecosystem
+adapter declares a closed input set: manifests, lockfiles, tool-version and
+package-manager configuration, patches, local path dependencies, submodule
+identities, referenced hook files, and the subset of environment values that
+can affect resolution or installation. Inputs outside the adapter's declared
+model, lifecycle scripts requiring undeclared services, and dependencies that
+escape `/workspace` are unsupported rather than silently omitted.
+
+The build uses a generated context containing only the declared dependency
+inputs. It pins the base by digest, records the builder and target-platform
+identity, and grants build secrets only to steps that declare them. The
+preparation manifest binds the derived image digest to the ordered input
+inventory, each content hash, adapter version, Factory digest, platform, and
+resolution parameters. Registry publication and signing remain deferred, but
+local consumption verifies the resulting image's digest and manifest labels
+before execution.
+
+Before an offline gate runs, it recomputes the complete adapter inventory and
+hashes. An added, changed, missing, or newly unsupported input fails with an
+instruction to run `agent-factory prepare`; the gate never silently enables
+networking or trusts mutable cache contents as proof of reproducibility.
 
 ### Home, caches, credentials, and network
 
-Runtime home and caches live under ignored project state:
+Interactive agent sessions may opt into durable, ignored project state:
 
 ```text
-/workspace/.agent-factory/home
-/workspace/.agent-factory/cache
+/workspace/.agent-factory/state/agent-home
+/workspace/.agent-factory/state/agent-cache
 ```
+
+That state is untrusted and is never mounted as the home, configuration,
+plugin, executable, or dependency cache for `doctor`, `git`, hooks, or gates.
+Those commands receive a fresh tmpfs home and cache, a fixed image-owned
+`PATH`, a sanitized environment, and no user/site plugin discovery. Prepared
+dependencies come only from the verified project toolchain image. Commands
+that intentionally consume durable agent state are outside the deterministic
+gate claim and report that fact.
 
 The host home, `.ssh`, cloud configuration, password stores, browser profiles,
 and container-runtime socket are not mounted. Credentials enter only through
@@ -399,11 +494,11 @@ boundary under rootless slirp networking.
 
 ### Failure behavior
 
-The launcher and internal entrypoint fail before project mutation when:
+The launcher and internal entrypoint fail before workflow mutation when:
 
 - the runtime is not a supported, verified rootless profile;
 - the UID-mapping probe does not preserve host ownership;
-- the approved image digest is absent locally during a hook;
+- the approved image digest is absent locally during Git, a hook, or a gate;
 - the project is read-only, `noexec`, group-only writable, or has unsupported
   Git topology;
 - existing hooks cannot be composed safely;
@@ -411,6 +506,9 @@ The launcher and internal entrypoint fail before project mutation when:
 - a hook is host-bound or unclassifiable; or
 - the requested operation needs a host mount or network capability outside its
   declared posture.
+
+The bounded read-write capability probe is the sole exception: it may create
+only its nonce-scoped probe directory and must remove it before continuing.
 
 Errors name the failed assertion, affected path or runtime, and one supported
 remediation. The implementation does not fall back to rootful execution,
@@ -435,7 +533,8 @@ implicit networking.
   project-local ignored runtime state.
 - An image-owned staged/full/phase gate runner used by Git, pre-commit,
   pre-push, and playbook phase transitions.
-- Canonical containerized Git execution plus a fail-closed host-hook bridge.
+- Container-only Git execution with Git-compatible launcher argument and
+  terminal forwarding.
 - Hook ownership detection with Factory, pre-commit, recognized-manager, and
   manual integration outcomes.
 - Project toolchain image preparation bound to dependency-input hashes.
@@ -456,6 +555,7 @@ implicit networking.
 - Nested Docker-based project hooks or exposure of Docker/Podman sockets.
 - Automatic support for unrecognized hook managers and arbitrary remote
   pre-commit environments.
+- Plain host Git or host project tooling as part of the secured workflow.
 - Managed registry publication, image signing infrastructure, SBOM policy, and
   vulnerability-remediation service levels beyond emitting build artifacts
   needed for later adoption.
@@ -469,9 +569,12 @@ implicit networking.
 The release may claim:
 
 > On a verified supported rootless runtime, Agent Factory confines host
-> filesystem mutation to explicitly approved bind mounts, executes Factory
-> gates in a pinned image, and preserves host ownership through a
-> runtime-specific, mechanically tested identity mapping.
+> filesystem mutation by agent-executed processes to the approved project bind
+> mount, executes Factory gates in a pinned Factory-and-toolchain image pair
+> with fresh runtime state, and preserves host ownership through a
+> runtime-specific, mechanically tested identity mapping. This claim excludes
+> runtime or kernel compromise and any host command a human runs directly in
+> the agent-writable repository.
 
 It must not claim that arbitrary project hooks are deterministic, mutable
 caches are reproducible, Git hooks are unbypassable, an in-container proxy
@@ -482,29 +585,34 @@ enforces selective egress, or Docker and Podman share one UID strategy.
 The owning automated test layer must cover each distinct contract without
 duplicating deterministic linter rules:
 
-| Case                                            | Required result                                             |
-| ----------------------------------------------- | ----------------------------------------------------------- |
-| Rootless Docker, ordinary user-owned repository | Writes retain invoking host ownership                       |
-| Rootless Podman with `keep-id`                  | Writes retain invoking host ownership                       |
-| Host UID other than `1000`                      | Probe, initialization, gates, and Git succeed               |
-| Rootful or unrecognized runtime                 | Refused before the project is mounted read-write            |
-| Group-only writable repository                  | Refused with an explicit deferred-capability message        |
-| New project                                     | Directory and Git repository initialize as the host user    |
-| Existing project                                | Existing files, history, hooks, and configuration survive   |
-| Read-only or `noexec` project                   | Refused before workflow execution                           |
-| Existing `core.hooksPath`                       | Preserved through a supported adapter or stopped safely     |
-| Existing pre-commit or recognized hook manager  | One recorded integration strategy remains active            |
-| Unrecognized hook manager                       | No mutation; exact manual wiring guidance                   |
-| In-project Factory worktree                     | Git operations and gates succeed                            |
-| External worktree or object alternate           | Rejected without mounting a broader parent                  |
-| Missing prepared dependency offline             | Gate fails and requests `prepare`                           |
-| Changed lockfile after preparation              | Gate fails before tests execute                             |
-| Formatter detects changes                       | Check fails without staging files                           |
-| Pre-push bridge                                 | Arguments, standard input, signals, output, and status pass |
-| Approved image absent during host hook          | Hook fails without pulling or enabling network              |
-| Modified project-local image manifest           | Trusted host-selected digest remains unchanged              |
-| Host home and container-runtime socket          | Not visible inside the container                            |
-| `deny` network posture                          | Local-host and internet egress fail                         |
+| Case                                             | Required result                                             |
+| ------------------------------------------------ | ----------------------------------------------------------- |
+| Rootless Docker, ordinary user-owned repository  | Writes retain invoking host ownership                       |
+| Rootless Podman with `keep-id`                   | Writes retain invoking host ownership                       |
+| Host UID other than `1000`                       | Probe, initialization, gates, and Git succeed               |
+| Rootful or unrecognized runtime                  | Refused before the project is mounted read-write            |
+| Group-only writable repository                   | Refused with an explicit deferred-capability message        |
+| New project                                      | Directory and Git repository initialize as the host user    |
+| Existing project                                 | Existing files, history, hooks, and configuration survive   |
+| Read-only or `noexec` project                    | Refused before workflow execution; probe effects bounded    |
+| Existing `core.hooksPath`                        | Preserved through a supported adapter or stopped safely     |
+| Existing pre-commit or recognized hook manager   | One recorded integration strategy remains active            |
+| Unrecognized hook manager                        | No mutation; exact manual wiring guidance                   |
+| In-project Factory worktree                      | Git operations and gates succeed                            |
+| External worktree or object alternate            | Rejected without mounting a broader parent                  |
+| Missing prepared dependency offline              | Gate fails and requests `prepare`                           |
+| Changed lockfile after preparation               | Gate fails before tests execute                             |
+| Formatter detects changes                        | Check fails without staging files                           |
+| Containerized pre-push                           | Arguments, standard input, signals, output, and status pass |
+| Approved image absent during Git command         | Command fails without pulling or enabling network           |
+| Modified project-local image manifest            | Trusted host-selected digest remains unchanged              |
+| Replaced project hook or local Git configuration | Executes only inside the approved image                     |
+| Tampered host installation record or symlink     | Refused before the project is mounted                       |
+| Caller-supplied runtime endpoint or config       | Ignored; only the trusted endpoint is contacted             |
+| Changed or newly added dependency input          | Offline gate refuses the prepared image                     |
+| Poisoned durable agent home or cache             | Deterministic Git and gates remain unaffected               |
+| Host home and container-runtime socket           | Not visible inside the container                            |
+| `deny` network posture                           | Local-host and internet egress fail                         |
 
 ### Operational sequence
 
@@ -513,8 +621,9 @@ human chooses project and approved image digest
   → launcher verifies trusted installation record
   → launcher verifies rootless runtime
   → temporary UID/write/execute probe succeeds
-  → project is mounted at /workspace
-  → doctor validates repository topology and hook ownership
+  → project is mounted read-only at /workspace
+  → doctor validates repository topology and hook ownership without project code
+  → fresh container mounts project read-write and runs bounded capability probe
   → init or update wires Factory-owned resources
   → prepare builds a dependency-input-bound project image
   → Git hooks and phase transitions call the same offline gate runner
@@ -534,8 +643,9 @@ material revision that returns this proposal to `open`.
   host-controlled trusted installation metadata.
 - Rootless Docker and Podman use separate identity strategies, and both pass
   the pre-mount ownership probe for supported cases.
-- A failed identity or permission probe prevents the real project from being
-  mounted read-write.
+- A failed identity probe prevents any project mount; a failed read-only
+  preflight prevents a read-write mount; a failed read-write capability probe
+  leaves no change outside its declared nonce-scoped probe directory.
 - New and existing projects initialize idempotently without recursive ownership
   or broad mode changes.
 - The only ordinary host-writable mount is the approved project, and tests
@@ -545,12 +655,17 @@ material revision that returns this proposal to `open`.
 - Staged, full, and phase validation use one image-owned gate implementation.
 - Pre-commit, pre-push, and phase adapters preserve their declared scope and
   exact exit behavior.
-- Canonical containerized Git and the host-hook bridge run the same approved
-  image and internal gate command.
+- All supported Git and hook execution occurs inside the approved image and
+  uses the same internal gate command; repository-controlled hooks are never
+  executed directly by a host process.
 - Existing hook ownership is detected before mutation, and no arbitrary hook
   body is automatically rewritten.
-- `prepare` produces a project toolchain image and manifest bound to all
-  supported dependency inputs; offline gates reject stale preparation.
+- `prepare` produces a project toolchain image and manifest bound to the closed
+  input inventory declared by a versioned ecosystem adapter; offline gates
+  reject changed, added, missing, or unsupported inputs.
+- Deterministic Git, hook, and gate commands use fresh home and cache mounts,
+  fixed tool discovery, and no executable or configuration state from the
+  agent-writable project state directory.
 - Formatting gates do not stage changes, and check-only modes do not modify
   files.
 - Hooks and deterministic gates run with networking disabled and never pull a
