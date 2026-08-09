@@ -683,3 +683,242 @@ material revision that returns this proposal to `open`.
 
 Prove the runtime boundary first, then run every Factory operation and gate
 inside the one pinned environment that boundary admits.
+
+## Review (2026-08-09, adversarial)
+
+Adversarial review of this proposal in the spirit of the `adversarial-review`
+skill: the ten checks applied to a design seed rather than to a falsifiable
+research claim. The review reads this proposal against the security objective
+and acceptance criteria of
+[Factory CLI Security Hardening](factory-cli-security-hardening.md), against
+the [sandboxed Factory PoC](../../poc/sandboxed-factory/README.md) that
+supplies its only evidence, and against the controls this repository already
+ships.
+
+One BLOCKER and six MAJOR defects were found. The BLOCKER must be resolved
+before this proposal moves from `open` to `accepted`. A1 through A3 must be
+resolved before any story is planned; A4 through A6 must be resolved before the
+first release is declared complete. Each finding is distilled as an amendment.
+
+### Verdict by check
+
+| #   | Check                      | Verdict                                                                               |
+| --- | -------------------------- | ------------------------------------------------------------------------------------- |
+| 01  | Testable                   | PASS — the acceptance matrix states results that could genuinely fail                 |
+| 02  | Alternatives considered    | FAIL — the hardening proposal's three deployment profiles are never compared          |
+| 03  | Tests severe               | WEAK — severe where present; no case exercises authority held inside the container    |
+| 04  | Survives unchanged         | N/A (design seed, not a claim)                                                        |
+| 05  | Sources / exact wording    | WEAK — the cited initializer requires network access the proposal never grants it     |
+| 06  | Independence               | FAIL — one evidence family (Podman); the Docker profile ships on no evidence          |
+| 07  | Assumptions explicit       | FAIL — identity model, push authority, audit, marker trust, and cost are all unstated |
+| 08  | Scope creep                | FAIL — the first release bundles work that the security claim does not require        |
+| 09  | Contrary evidence          | WEAK — the PoC limitation is carried honestly; the hardening exclusions are not cited |
+| 10  | Surviving refutation paths | FAIL — "Open Questions: None for the first release" is not sustainable                |
+
+### Coverage of the hardening security objective
+
+The hardening proposal states six outcomes that compromise inside a Factory CLI
+must not produce. Measured against them, this proposal is a strong control for
+three and silent on three.
+
+| Hardening objective                            | Status here                                                          |
+| ---------------------------------------------- | -------------------------------------------------------------------- |
+| 1. Become the operator or gain admin privilege | PARTIAL — host root is denied, but the agent acts as the human's UID |
+| 2. Change the policy that constrains it        | MET — trusted installation record, host-controlled digest            |
+| 3. Read unrelated user data or credentials     | MET — the host home, `.ssh`, and cloud configuration are unmounted   |
+| 4. Execute arbitrary programs                  | NOT ADDRESSED — no command broker, no executable allowlist           |
+| 5. Mutate protected Git refs or hide damage    | REGRESSED — see BLOCKER B1                                           |
+| 6. Publish or contact services unapproved      | NOT ADDRESSED — `standard` posture is unrestricted egress            |
+
+Objectives 4 and 6 are legitimately a different layer of defense, and the
+proposal is honest about the egress limit inside its threat model. The defect
+is that the Scope section never defers the hardening controls by name, so a
+reader of this proposal alone would reasonably conclude the security work is
+finished.
+
+### Defect register + amendments
+
+**BLOCKER B1 — the first release promotes `git push` to a supported command
+and retires an active control without replacing it.** The shipped guardrail
+`factory/config/hooks/block-dangerous-git.sh` (lines 68-76) currently denies
+agent-issued `git push`, `push --force`, `reset --hard`, `clean -fd`, and
+`branch -D` outright. This proposal lists `agent-factory git push` in the
+launcher synopsis as ordinary usage and declares container Git "the only
+supported Git path after a project is delegated," without stating what becomes
+of that guardrail. Hardening §6 and §7 require publication under a separate
+`factory-publisher` identity, remote branch protection, and explicit human
+approval for reference deletion and forced movement. As written, the first
+release could satisfy every Completion Criterion in this document while an
+agent gained an unmediated, credentialed push it does not have today. A
+security proposal must not regress a security control by omission.
+
+*Amendment.* State the fate of every control listed in the hardening
+proposal's `boundaries` — `block-dangerous-git.sh` and `commit-safe` — under
+the containerized model. Reimplement dangerous-operation denial image-side,
+where it is outside agent-writable content, rather than relying on a
+repository-local CLI hook the new threat model declares untrusted. Split push
+authority from ordinary Git: `agent-factory git push` requires an explicit
+per-invocation human grant naming the remote and refspec, and push credentials
+are never present in an ordinary agent session. Add matrix cases for *agent
+attempts push without a grant* and *agent attempts forced update of a
+protected ref*.
+
+**MAJOR A1 — the identity model contradicts the hardening proposal, and
+neither document defers to the other.** Hardening §1 requires a dedicated
+`agent-factory` operating-system account that "must not share the human
+operator's identity," and states that direct execution under the human account
+is unsupported because it defeats identity separation. This proposal's central
+probe asserts the opposite invariant: writes must "retain invoking host
+ownership," Podman uses `keep-id`, and Docker maps container UID 0 to the
+daemon-owning user — who is the human. Both documents are `status: open`, both
+declare `assurance: critical`, both claim boundaries over agent execution, and
+`supersedes:` is empty in each. A reader cannot determine which identity model
+governs.
+
+*Amendment.* Resolve the contradiction in writing. Either this proposal
+supersedes hardening §1 for the containerized profile, and says why bounding
+the mount is an adequate substitute for identity separation; or the mount
+identity becomes a dedicated non-human host account and the ownership
+invariant is restated in those terms. Record the choice in both documents and
+populate `supersedes:`.
+
+**MAJOR A2 — gate authority still rests on agent-writable marker files.** The
+Distribution section states that deterministic gates "do not consume
+executable code, configuration, plugins, or tool caches" from the
+agent-writable state directory, and the threat model declares "persistent
+Factory state" untrusted. Both statements are refuted by the current design:
+`block-dangerous-git.sh` gates commits on `.agent-factory/verify-base-ok` and
+merges on `.agent-factory/premerge-check-ok` (lines 33, 41, and 61-63). Those
+markers are ordinary files inside the agent-writable mount, consumed as
+authorization. Under this proposal's own threat model an agent forges them by
+writing a file. The proposal does not notice that its trust boundary
+invalidates an existing mechanism.
+
+*Amendment.* Move gate-authorization state out of `/workspace` into
+host-controlled state keyed by the project identifier, written only by the
+launcher after an image-owned gate run and read only by the launcher — the
+same trust root as the installation record. Marker content must bind the full
+40-character SHA the gate actually validated. Add a matrix case: *agent
+fabricates a gate marker* must not authorize the gated operation.
+
+**MAJOR A3 — the Docker profile ships in the first release on no evidence, and
+its privilege model is untested.** The Motivation section correctly says the
+Podman `keep-id` result "must not be generalized to rootless Docker." The
+Scope section then supports both runtimes in release 1. The PoC tested Podman
+only. Worse, the Docker profile runs the agent as namespace UID 0, which
+carries `CAP_CHOWN` inside the namespace: the agent can chown files under
+`/workspace` into subordinate UID space that the invoking user cannot restore
+without `newuidmap` or `podman unshare`. The probe verifies ownership of
+*newly created* files and says nothing about ownership the agent changes
+later. The deferral list excuses damage the agent does to files inside the
+project, but this produces host-side state the owner cannot repair with
+ordinary tools.
+
+*Amendment.* Narrow release 1 to rootless Podman, and gate the Docker profile
+behind a spike that reproduces the PoC's evidence for Docker. If Docker
+remains in release 1, drop `CAP_CHOWN` in that profile, and add two matrix
+cases: *agent chowns inside `/workspace`* must leave a documented host
+recovery path, and *agent sets a setuid or subordinate-owned file* must be
+refused or recoverable.
+
+**MAJOR A4 — no audit record exists, and the launcher is the obvious place for
+one.** Hardening §8 requires recorded execution identity, capability grants,
+full commit SHAs, and policy decisions sent to append-only storage outside the
+workspace, and its acceptance criteria require every privileged operation to
+be attributable to an external record. This proposal records nothing. The
+launcher already resolves the image digest, project identity, network posture,
+and credential grants for every invocation; it is the natural choke point and
+the record would cost little.
+
+*Amendment.* The launcher appends one record per invocation to owner-only
+host storage outside the project: timestamp, resolved image digest, canonical
+project path with device and inode, runtime profile, network posture,
+credential grants, command, and exit status. Add a Completion Criterion and a
+matrix case proving the record is not writable from inside the container.
+
+**MAJOR A5 — the first release exceeds the scope its security claim
+requires.** Release 1 bundles the image, the launcher, two runtime profiles, a
+gate-runner rewrite, hook-manager adapters, and a versioned ecosystem-adapter
+framework for `prepare` with a closed input model covering manifests,
+lockfiles, tool-version configuration, patches, local path dependencies,
+submodule identities, and resolution-affecting environment values. The
+preparation framework is a product in its own right and is not load-bearing
+for the security claim: confinement of host filesystem mutation holds whether
+or not foreign project hooks can be gated offline.
+
+*Amendment.* Split the release. R1 delivers the image, launcher, identity
+probe, staged preflight, and `init`, `update`, `doctor`, `shell`, `run`,
+`git`, `format`, and `gate` over Factory-owned gates only, with hook classes B,
+C, and D all resolving to the `manual` outcome. R2 delivers `prepare`, the
+ecosystem adapters, and classes A and B. The security claim is unchanged by
+the split; only offline gating of foreign project hooks is deferred.
+
+**MAJOR A6 — `init` has no declared network posture, and the initializer this
+proposal cites needs one.** The proposal declares `deny` for hooks and
+prepared deterministic gates and `standard` for provider access and `prepare`.
+It assigns no posture to `init`, `update`, or `doctor`. The cited
+[`init-factory`](../../factory/scripts/init-factory) runs
+`uvx pre-commit install` (line 1472), which requires network access on a cold
+cache. Under `deny`, initialization of a fresh project fails; under
+`standard`, the first command run against an untrusted project has network
+access. The `--source` and `--target` contract the proposal cites is otherwise
+accurate (lines 1477-1499 and 1501).
+
+*Amendment.* Publish a table assigning an explicit network posture to every
+launcher command. Pin pre-commit and its hook environments into the image so
+that `init` and `update` complete under `deny`. Where a command cannot run
+offline, say so and state why the exposure is acceptable.
+
+**MINOR A7 — derived toolchain images have no lifecycle.** Every lockfile
+change invalidates the preparation manifest and produces a new image, per
+project and per branch, indefinitely. There is no pruning command, no disk
+bound, and no Completion Criterion. *Amendment:* add a retention and pruning
+contract, or accept it as resolved by the A5 split and defer it to R2 with the
+rest of `prepare`.
+
+**MINOR A8 — `doctor` before every Git mutation is an unpriced cost.** The
+Git-hook integration section requires `doctor` to verify the recorded strategy
+"before each Git mutation," which implies a container start and topology
+validation on every commit. The entire security model depends on humans not
+reaching for host Git; if a commit takes several seconds, they will, and the
+proposal itself concedes that a human-created host commit cannot be prevented.
+*Amendment:* state a latency budget, or define a session-scoped validation
+cache with an explicit invalidation rule, and add it to the matrix.
+
+**NOTE A9 — the residual risk belongs in the Motivation, not only in the
+threat model.** Normal interactive operation is the `standard` posture: a full
+shell, provider credentials, and unrestricted egress with no enforced
+selective egress. The practical gain over the host-native model is
+host-filesystem confinement. The Security-claim section says this correctly;
+the Motivation still reads as general isolation. One sentence up front
+prevents the reader forming the wrong expectation.
+
+**NOTE A10 — recoverability is a stated precondition, not an assumption.**
+Hardening requires that deletion or corruption of local workspace state be
+recoverable from authoritative remote refs and backups. This proposal grants
+the agent read-write access to the whole mount, `.git` included, and defers
+protecting the project from its agent. That deferral is only tolerable when
+the remote is protected. *Amendment:* name remote branch protection and
+backup as documented deployment prerequisites in the operator documentation
+Completion Criterion.
+
+### Recommendation
+
+Status remains `open`. Resolve B1 and A1 through A3 before `accepted`; resolve
+A4 through A6 before stories are planned. Adopt the A5 split so that the first
+release delivers the boundary this proposal proves and nothing else.
+
+Replace "Open Questions: None for the first release" with the questions this
+review surfaces: which identity model governs (A1), where gate-authorization
+state lives (A2), whether Docker is in release 1 at all (A3), and which
+ecosystems receive `prepare` adapters in R2 (A5). The last of these moves the
+estimate by a large factor and is the reason `human_review_hours` is still
+`unknown`.
+
+The proposal's strongest section is the trusted installation record — device
+and inode re-verification immediately before mount, atomic symlink-free
+replacement, and the refusal to accept project-local values for image,
+runtime, endpoint, mount, credential, or network selection. That reasoning is
+the standard the rest of the document should meet: it is also the correct
+place to anchor the fixes for B1, A2, and A4, all three of which are failures
+to keep authority out of agent-writable space.
