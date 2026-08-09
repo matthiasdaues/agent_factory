@@ -1124,3 +1124,186 @@ re-review, but every design defect above now has an explicit disposition:
 “Resolved in design” does not mean proven. The acceptance matrix must exercise
 the amended contracts, after which an independent architecture and security
 review decides whether the proposal may move to `accepted`.
+
+## Review 2 (2026-08-09, adversarial — remediation `6d2cc1d`)
+
+Adversarial re-review of the remediation recorded in commit
+`6d2cc1d0c3492d6dad9e8c40542577e6922dd949`, which amends this proposal and
+[Factory CLI Security Hardening](factory-cli-security-hardening.md). The
+review verifies each claimed disposition against the amended text and the
+artifacts both documents cite, and then looks for defects the remediation
+itself introduced.
+
+The BLOCKER is cleared. No BLOCKER is raised in this pass. Three MAJOR defects
+are new or unaddressed, all of them consistency failures rather than design
+failures: the remediation added a strong Git policy without retiring the
+sentences the old design left behind. The verdict table in the review above is
+superseded by the table here; the defect register above is retained as an
+audit record and must not be edited.
+
+### Disposition of prior findings
+
+| Finding  | Verified disposition                                                                                                                        |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| B1       | ACCEPTED — structured operations, `publish` broker, credential absence, four new matrix cases, two new criteria; residue in A13             |
+| A1       | ACCEPTED — both documents now state the specialization and its limits; residue in A16                                                       |
+| A2       | ACCEPTED — host-owned, SHA-bound, one-time, atomically consumed authorizations; markers demoted; residue in A19                             |
+| A3       | ACCEPTED — release 1 is Podman only, and the Docker spike must test `CAP_CHOWN`, subordinate-UID attack, setuid, and ordinary-user recovery |
+| A4       | ACCEPTED — external append-only sink, denied operations recorded, fail-closed on sink failure; residue in A18                               |
+| A5       | ACCEPTED — release split; `prepare` is a reserved unavailable command in release 1; residue in A15                                          |
+| A6       | ACCEPTED — posture table, packaged pre-commit replacing `uvx`, cold-host criterion and matrix case; residue in A14                          |
+| A7       | ACCEPTED — reference counting, dry-run default, retention window, quota; correctly deferred with `prepare`                                  |
+| A8       | ACCEPTED — 500 ms p95 budget and a bounded validation cache; residue in A17                                                                 |
+| A9       | ACCEPTED — the narrower gain is stated in the Motivation                                                                                    |
+| A10      | ACCEPTED — prerequisites stated in the design and in the operator-documentation criterion                                                   |
+| Check 02 | NOT ADDRESSED — see A20                                                                                                                     |
+
+The remediation resolution table above covers the eleven lettered findings but
+omits check 02, which was recorded as a check-level failure rather than a
+lettered defect. It remains the only substantive process gap.
+
+### Verdict by check (re-run)
+
+| #   | Check                      | Verdict                                                                              |
+| --- | -------------------------- | ------------------------------------------------------------------------------------ |
+| 01  | Testable                   | PASS — the matrix now exercises authority, audit, offline, and latency contracts     |
+| 02  | Alternatives considered    | FAIL — unchanged; see A20                                                            |
+| 03  | Tests severe               | PASS — fabricated marker, stale SHA, audit-write, and denied-push cases would refute |
+| 04  | Survives unchanged         | N/A (design seed, not a claim)                                                       |
+| 05  | Sources / exact wording    | PASS — the `uvx` defect is fixed at its source and both controls are now boundaries  |
+| 06  | Independence               | PASS — release 1 now rests only on the runtime the PoC actually tested               |
+| 07  | Assumptions explicit       | WEAK — enforcement mechanism per denial is still implicit; see A13 and A18           |
+| 08  | Scope creep                | WEAK — the split is clean, but stale scope text and one undeclared command remain    |
+| 09  | Contrary evidence          | WEAK — the proxy limit is restated, then contradicted for `publish`; see A12         |
+| 10  | Surviving refutation paths | PASS — Open Questions now names what release 2 must settle                           |
+
+### New defect register + amendments
+
+**MAJOR A11 — the Scope section still promises the pass-through the new policy
+forbids.** The Git policy section opens with "The launcher exposes structured
+Git operations, not an unrestricted argument pass-through." The Scope section
+still lists "Container-only Git execution with Git-compatible launcher argument
+and terminal forwarding," and the Canonical Git execution section still states
+that the launcher "accepts Git-compatible arguments." Argument compatibility
+and structured operations are opposite contracts. A story planned from the
+Scope section would build the interface the policy section rejects.
+
+*Amendment.* Enumerate the structured operations release 1 exposes and state
+which arguments each accepts. Replace the Scope bullet and the Canonical Git
+paragraph with that enumeration, keeping terminal, signal, and exit-status
+forwarding, which is compatible with either interface.
+
+**MAJOR A12 — the `publish` posture offers a proxy as an alternative to
+server-side credential scoping.** The posture table's explanatory paragraph
+says `publish` "permits only the resolved Git remote through an external
+control or a credential whose server-side policy makes other destinations and
+refs unusable." Two paragraphs later the same section repeats that a proxy is
+not a security boundary under rootless slirp networking, and the Security-claim
+section forbids claiming otherwise. The disjunction makes an unenforced control
+interchangeable with an enforced one, and it does so for the single command
+that holds a live credential.
+
+*Amendment.* Make server-side credential scoping mandatory: the publisher
+credential must be unusable for any other remote, ref class, or operation
+regardless of what the container attempts. State plainly that the publication
+container has unrestricted rootless networking, that the credential is the only
+enforced restriction, and that an external egress control is optional
+observability. Add a matrix case: *publisher credential used against a
+different remote or ref* must fail at the server.
+
+**MAJOR A13 — the policy's denials are stated without naming what enforces
+them.** "The policy denies push, forced reference movement, reference deletion,
+destructive reset and clean operations, protected-ref mutation, remote changes,
+hook-path changes, and gate bypasses" reads as command mediation. The Scope
+section explicitly defers "structured command allowlisting," `shell` and `run`
+grant an interactive session inside an image that contains Git, and the same
+paragraph concedes that "an interactive shell can bypass a local wrapper and
+damage `.git`." Only two of the listed denials are actually enforced against an
+in-container shell: push and remote publication, because no credential is
+present. The rest are enforced only on the launcher path.
+
+*Amendment.* Split the list in two. State which denials hold against any
+process inside the container and why — credential absence for publication,
+host-owned state for gate authorization, mount scope for everything outside
+`/workspace` — and which hold only for launcher-mediated invocations and are
+therefore accident prevention. This distinction is the difference between a
+boundary and a wrapper, and this proposal has been careful about it everywhere
+else.
+
+**MINOR A14 — which copy of `commit-safe` runs is ambiguous.** The policy
+section names `factory/scripts/commit-safe` as the implementation behind the
+structured commit operation. Initialization copies Factory content into the
+project, so a writable `/workspace/factory/scripts/commit-safe` also exists and
+the threat model declares it untrusted. *Amendment:* cite the image-owned path
+under `/opt/agent-factory/factory` explicitly, and add the project copy to the
+list of paths gates never execute.
+
+**MINOR A15 — `image fetch <digest>` is introduced only in the posture
+table.** It appears nowhere in the image's internal command list, the launcher
+synopsis, the Scope section, or the Completion Criteria, yet it is the one
+release-1 command that contacts a registry. *Amendment:* declare it with the
+other commands, or fold registry acquisition into an explicit `update` step.
+
+**MINOR A16 — `supersedes` is used for a relationship it does not express.**
+`factory/rulebooks/templates/proposal.md` defines `supersedes` as a single
+proposal path, and states that the superseded proposal takes status
+`superseded`. Here it holds a list whose entry carries a section anchor, and
+the hardening proposal remains `open` and amended rather than replaced. The
+anchor style belongs to `boundaries`, which the template documents as "tracked
+path with optional Markdown anchor." *Amendment:* return `supersedes` to
+`null`. The prose cross-reference both documents now carry already expresses
+the specialization correctly, and it is the stronger record.
+
+**MINOR A17 — the 30-second validation cache is a time window unless its
+inputs are re-read.** The record binds the Git configuration hash and hook
+inventory hash, but a cache is only sound if those hashes are recomputed at
+each use; otherwise an agent that edits `.git/config` inside the window meets a
+stale verdict. The bound "current full SHA" also does not cover the index,
+which is what a staged gate validates. *Amendment:* state that the launcher
+re-reads and rehashes the bound inputs on every use, that reading never
+executes project content, and that the cache covers topology and hook strategy
+only, never gate results.
+
+**NOTE A18 — "append-only" is a property against the container, not the
+operator.** The invoking user owns the sink and can rewrite it; true
+append-only storage needs privilege this design does not claim. The trust model
+makes this acceptable, since the human is trusted, but the word should be
+qualified so that a later reader does not treat the sink as evidence against
+the operator.
+
+**NOTE A19 — the marker migration has no ordering rule.** The proposal states
+that `.agent-factory/verify-base-ok` and `.agent-factory/premerge-check-ok`
+"grant no authority," but `factory/config/hooks/block-dangerous-git.sh` still
+reads them as authorization today. Until the broker ships, both mechanisms
+exist and the weaker one decides. *Amendment:* require that the same release
+which introduces host-owned authorizations removes the marker-reading logic
+from the shipped hook, and add it to the Completion Criteria.
+
+**NOTE A20 — the alternatives gap is unchanged.** The hardening proposal
+describes three deployment profiles, and its Baseline profile — a dedicated
+`agent-factory` account with an operating-system sandbox — reaches hardening
+objectives 1 and 3 without an image, a launcher, a policy broker, or a gate
+runner rewrite. This proposal now positions itself as a specialization of that
+document but still never compares itself to its sibling profiles. With
+`architecture_change: true` and `assurance: critical`, a Pugh matrix over
+Baseline, Hardened Workstation, and the containerized profile is the
+project's own documented expectation.
+
+### Recommendation
+
+The remediation is substantive and the design is close. A11 through A13 are
+wording and enumeration work on text the remediation left behind; they are
+cheap and they matter, because each one currently promises a stronger or
+different contract than the design delivers. Resolve them, then A14 through
+A17, before this proposal moves to `accepted`.
+
+A20 is the remaining judgment call and it belongs to the human owner, not to a
+reviewer: whether to justify the containerized profile against the cheaper
+sibling profile in the hardening proposal, or to record that the comparison was
+made and the outcome accepted without a formal matrix.
+
+The strongest addition in this revision is the gate-authorization transaction —
+host-owned records binding full SHAs and image identity, atomically consumed
+with the operation they authorize, with in-project markers demoted to
+diagnostics. It removes the last place where agent-writable content decided
+whether a gate had passed.
