@@ -1,10 +1,10 @@
 ---
 schema_version: 2
 title: "Factory CLI Security Hardening"
-status: open
+status: superseded
 owner: agent-factory
 created: 2026-07-28
-updated: 2026-08-09
+updated: 2026-08-10
 supersedes:
 
 impact:
@@ -32,6 +32,13 @@ estimate:
 ---
 
 # Proposal: Factory CLI Security Hardening
+
+> **Superseded on 2026-08-10.** This proposal is retained as design history.
+> Its scope is replaced by
+> [Agent Execution Isolation and Optional Container Distribution](agent-execution-isolation-and-distribution.md),
+> which makes multi-path host filesystem delegation the primary security goal,
+> treats containers as an optional pinned environment, and assigns privileged
+> Git authorization and publication to the orchestrator subproject.
 
 ## Summary
 

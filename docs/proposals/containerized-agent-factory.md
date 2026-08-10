@@ -1,12 +1,11 @@
 ---
 schema_version: 2
 title: "Containerized Agent Factory Distribution"
-status: open
+status: superseded
 owner: agent-factory
 created: 2026-08-07
-updated: 2026-08-09
-supersedes:
-  - factory-cli-security-hardening.md#1-user-management-and-execution-identity
+updated: 2026-08-10
+supersedes: factory-cli-security-hardening.md
 
 impact:
   scope: cross_project
@@ -40,6 +39,13 @@ estimate:
 ---
 
 # Feature Request: Containerized Agent Factory Distribution
+
+> **Superseded on 2026-08-10.** This proposal is retained as design history.
+> Its scope is replaced by
+> [Agent Execution Isolation and Optional Container Distribution](agent-execution-isolation-and-distribution.md),
+> which makes multi-path host filesystem delegation the primary security goal,
+> treats containers as an optional pinned environment, and assigns privileged
+> Git authorization and publication to the orchestrator subproject.
 
 ## Summary
 
