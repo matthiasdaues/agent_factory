@@ -904,3 +904,167 @@ remediations; the original review remains unchanged as an audit trail.
 | A13     | Open: alternatives analysis is still required before acceptance.                                                                                                                               |
 | A14     | Open: the future orchestrator proposal must enumerate privileged Git operations. No current orchestrator authority is claimed.                                                                 |
 | A15     | Open: estimate remains unknown until the reference implementation is decomposed.                                                                                                               |
+
+## Review 2 (2026-08-10, adversarial — remediation)
+
+Adversarial re-review of the remediation recorded in the Review Response above.
+The review verifies each claimed disposition against the amended text and
+against the artifacts the proposal cites, then looks for defects the
+remediation itself introduced. The verdict table in the first review is
+superseded by the table here; its defect register is retained as an audit
+record and must not be edited.
+
+The BLOCKER is cleared, and no BLOCKER is raised in this pass. The remediation
+is substantive: it replaces a declared authority with an enforced one, and the
+enforcement model it now names — a dedicated UID with POSIX ACLs beneath a
+private mount namespace — is a stronger and more honest design than the
+delegation-record abstraction it replaces. Two MAJOR defects are new, both
+introduced by that shift, and both concern the boundary between what the ACLs
+grant and what the namespace scopes.
+
+### Verification of claimed dispositions
+
+| Finding | Verified disposition                                                                                                                      |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| B1      | ACCEPTED — four control paths restored to `boundaries`, a no-regression transition rule, and a matching Completion Criterion              |
+| A1      | ACCEPTED — the current orchestrator is named non-authoritative; the future path requires separate identity, location, and pinned artifact |
+| A2      | ACCEPTED at boundary level — project-local gates now make no security claim, which is consistent with the B1 rule                         |
+| A3      | ACCEPTED — human ownership, access and default ACLs, documented umask, bidirectional edit cases; the PoC citation is correctly narrowed   |
+| A4      | ACCEPTED — activity posture table, and the access-versus-disclosure limit reaches the Security Claims, not only the prose                 |
+| A5      | ACCEPTED — mount namespace named as the release-1 reference, Landlock demoted to defense in depth, kernel and ABI recorded per result     |
+| A6      | ACCEPTED — owner-only per-invocation record, fail-closed, matrix case, and the earlier "against the agent, not the owner" qualification   |
+| A7      | ACCEPTED — the dropped controls appear in Non-goals by name, and recovery prerequisites are restored                                      |
+| A8      | ACCEPTED — authoritative agent configuration is immutable, writable state is non-authoritative, with a matrix case                        |
+| A9      | ACCEPTED — hardlinks, nested mounts, and inherited descriptors each have a rule and a case; residue in A18                                |
+| A10     | ACCEPTED — broad roots refused unconditionally, the stale open question removed, and the decoy named                                      |
+| A11     | ACCEPTED — the chain on disk is this proposal, then `containerized-agent-factory.md`, then the hardening proposal, all single-valued      |
+| A12     | PARTIAL, as claimed — the response table is not the twenty-one-finding carry-forward                                                      |
+| A13–A15 | OPEN, as claimed                                                                                                                          |
+
+### Verdict by check (re-run)
+
+| #   | Check                      | Verdict                                                                                                  |
+| --- | -------------------------- | -------------------------------------------------------------------------------------------------------- |
+| 01  | Testable                   | PASS — the matrix now tests the mechanism this release ships, not a deferred component                   |
+| 02  | Alternatives considered    | FAIL — unchanged; acknowledged as open in the response                                                   |
+| 03  | Tests severe               | PASS — ownership interoperability, hardlinks, nested mounts, descriptors, and decoys refute              |
+| 04  | Survives unchanged         | N/A (design seed, not a claim)                                                                           |
+| 05  | Sources / exact wording    | PASS — the PoC now supports only what it demonstrated                                                    |
+| 06  | Independence               | WEAK — one PoC and one runtime remain, but release 1 no longer rests on them                             |
+| 07  | Assumptions explicit       | WEAK — the privilege that builds the namespace and the lifetime of ACL grants are implicit               |
+| 08  | Scope creep                | PASS — release 1 now claims only what its own mechanisms enforce                                         |
+| 09  | Contrary evidence          | PASS — bypassable guardrails, disclosure through the provider channel, and backend limits are all stated |
+| 10  | Surviving refutation paths | PASS — three open questions, each genuinely undecided                                                    |
+
+### New defect register + amendments
+
+**MAJOR A16 — ACL grants are persistent host state, while the document
+describes them as session grants.** The Summary says the policy grants "each
+agent session" access, and Goal 4 speaks of policy the agent cannot broaden.
+Enforcement steps 1 through 4, however, install access and default ACLs on
+disk. Those entries outlive the session, and they accumulate: after three
+projects have been delegated, the `agent-factory` UID holds standing read-write
+authority over all three, reachable by absolute path from any process running
+under that UID, including a stale background process from an earlier session.
+Only the mount namespace scopes a session to its own grants. This inverts the
+document's own summary of the layering — "DAC and ACLs bind authority to the
+dedicated UID; the mount namespace limits visibility" — because visibility is
+what confines one session's authority to one delegation. No de-provisioning,
+expiry, or revocation step is defined anywhere.
+
+*Amendment.* State that ACL grants are persistent host state with a lifecycle,
+and define the revocation step and who performs it. Reclassify the mount
+namespace as enforcement for session scoping rather than visibility, or install
+and remove ACLs per session and state what happens when teardown fails or two
+sessions run concurrently. Add matrix cases: *a second concurrent session with
+a different policy* cannot reach the first session's grants, and *a process
+surviving session end* has no path into a revoked grant.
+
+**MAJOR A17 — the privilege that constructs the mount namespace, and the
+agent's own namespace authority, are unstated.** A read-only bind mount
+prevents writes only while the agent cannot remount it read-write. That holds
+when the namespace is created at higher privilege and the mounts propagate
+locked to any namespace the agent can create; it does not hold if the agent
+shares the user namespace that owns the mounts. The proposal never says who
+creates the namespace, at what privilege, whether unprivileged user namespaces
+are available to the session, or whether subordinate UID ranges are mapped.
+`no-new-privileges` does not prevent user-namespace creation, and a nested user
+namespace grants `CAP_SYS_ADMIN` and `CAP_CHOWN` within itself — the same
+capability that produced the unrecoverable-ownership finding against the Docker
+profile in the superseded proposal.
+
+*Amendment.* State the launcher's privilege and the ordering of namespace
+construction against the UID transition. Require that read-only mounts are
+locked against the session's namespaces. Decide explicitly whether the session
+may create nested user namespaces and whether subordinate UID ranges are mapped
+for it. Add matrix cases: *agent attempts to remount a read-only grant
+read-write*, and *agent creates a nested user namespace and attempts to reach an
+undelegated path or to chown grant content into subordinate UID space*.
+
+**MINOR A18 — the hardlink rule refuses ordinary Git and package layouts, and
+its cost is unbounded.** `git clone --local` hardlinks object files into the
+source repository's store, `git worktree` setups and content-addressed package
+stores do the same, and `cp -l` is common in fixtures. Under "provisioning
+detects and rejects cross-boundary hardlinks where it cannot prove that this is
+intended," those ordinary topologies fail provisioning, and the detection scan
+is a full walk of every grant with no stated bound. *Amendment:* define
+detection as entries with a link count above one whose other links resolve
+outside the grant, state the expected failure for `--local` clones and shared
+package stores, give an explicit human accept mechanism, and bound or budget
+the scan for large trees.
+
+**MINOR A19 — the ACL interoperability tests prove the initial state, not the
+steady state.** Default ACLs are inherited on creation, but ordinary tools
+overwrite them: `rsync`, `tar`, `unzip`, `install -m`, and a `git checkout`
+that carries a mode change can clear the group mask and drop the effective
+access of one UID or the other in the middle of a session. The two matrix rows
+run immediately after provisioning. *Amendment:* add a case that runs the
+project's ordinary toolchain — checkout, formatter, dependency install — and
+then re-verifies that both UIDs can still edit, and document the repair path
+when a tool strips an ACL.
+
+**MINOR A20 — the supersede banners on both predecessors are stale by one
+revision.** Each says the replacement "assigns privileged Git authorization and
+publication to the orchestrator subproject," which is the claim this revision
+deliberately walks back. A reader arriving through either predecessor is told
+the opposite of what this document now says. *Amendment:* update both banners
+to state that privileged Git authorization is future work requiring a separate
+proposal, and that existing guardrails remain in force meanwhile.
+
+**NOTE A21 — "default-deny filesystem enforcement" no longer describes the
+model.** DAC is default-allow for world-readable content; default-deny is a
+property of the mount namespace, as the delegation section correctly explains.
+The Scope bullet still carries the older phrase, which points an implementer at
+the wrong property to test. *Amendment:* restate it as default-deny visibility
+through the private mount namespace, layered on UID and ACL authority.
+
+**NOTE A22 — provider-credential provisioning is now load-bearing and remains
+open.** Open Question 1 asks how provider credentials reach the dedicated
+identity. Under this design that credential must live in agent-readable state
+in a home whose authoritative parts are immutable, while the interactive
+session runs the `standard` posture with unrestricted egress. Until the
+question is answered, the credential is the one secret deliberately placed
+inside the agent's reach. *Amendment:* name it in the Security Claims
+exclusions, so the claim is not read as covering the credential the design
+hands over.
+
+### Recommendation
+
+Status remains `open`, and the path to `accepted` is short. A16 and A17 are the
+two places where the remediation's stronger mechanism outran its description:
+both are specification work on the layering the design already chose, and
+neither implies a different design. A18 and A19 are matrix and provisioning
+detail. A20 and A21 are wording. A12 through A15 remain the owner's, and A13 —
+the alternatives comparison — is now the only finding that has survived three
+consecutive reviews.
+
+The strongest change in this revision is the replacement of a policy record
+with kernel-enforced mechanisms. The first version described grants that a
+launcher would honor; this one describes ownership, ACLs, mounts, capability
+drops, and probes that fail closed, and it says plainly which layer enforces
+what. The same honesty appears in the Git section, where the current
+orchestrator is described as early-stage and non-authoritative rather than
+promoted to a trusted base by assertion. That correction — refusing to claim a
+boundary the code does not have, while keeping the imperfect controls that
+exist — is the right instinct, and it is what makes the remaining findings
+small.
