@@ -46,11 +46,12 @@ estimate:
 
 Run Factory-enabled agents under a dedicated, unprivileged operating-system
 UID. Ordinary filesystem ownership, mode bits, and POSIX ACLs grant that UID
-access to explicitly related paths while denying access to unrelated user
-files. Removal of `sudo`, privileged groups, credential agents, and
+standing access to registered project paths while denying access to unrelated
+user files. Removal of `sudo`, privileged groups, credential agents, and
 container-management authority prevents the agent from escaping that UID. A
-mount namespace or equivalent sandbox narrows the visible filesystem further
-and enforces mount-level read-only grants.
+private mount namespace or equivalent sandbox is the per-session enforcement
+boundary: it exposes only that session's grants and enforces mount-level
+read-only access.
 
 Offer a versioned OCI image as an optional, pinned execution environment. The
 container receives the same delegated paths and access modes as a host-native
@@ -239,18 +240,37 @@ a grant as follows:
    administrative repair.
 4. Parent directories receive traversal-only ACLs where needed. They do not
    receive list or read access merely because a descendant is delegated.
-5. A private mount namespace exposes each canonical grant separately. A
-   read-only grant is additionally a read-only bind mount. The namespace hides
+5. A root-owned launcher constructs a private mount namespace before changing
+   to the agent UID. It exposes each canonical grant separately, makes
+   read-only bind mounts recursively read-only, and locks mount attributes
+   against remount by namespaces available to the session. The namespace hides
    unrelated host trees that DAC would otherwise expose, including
    world-readable files outside the minimum runtime filesystem.
-6. The launcher drops capabilities and enables `no-new-privileges` before any
-   agent-controlled program runs. The session cannot invoke the privileged
-   provisioning step.
+6. The launcher then drops supplementary groups and every capability, changes
+   to the agent UID, enables `no-new-privileges`, and applies a syscall policy
+   that denies creation or entry of user and mount namespaces. No subordinate
+   UID or GID ranges are assigned to `agent-factory`. Only after verifying this
+   final state does it start agent-controlled code. The session cannot invoke
+   the privileged provisioning step.
 
-DAC and ACLs bind authority to the dedicated UID; the mount namespace limits
-visibility and strengthens read-only semantics. Both layers must agree. A
-session fails closed if the effective UID, ACL probe, or mount probe differs
-from policy.
+DAC and ACLs are persistent project-registration state bound to the dedicated
+UID. The private mount namespace enforces which subset of that standing
+authority a particular session can exercise and strengthens read-only
+semantics. Both layers must agree. The agent UID has no login or unsandboxed
+execution path. A session fails closed if the effective UID, ACL probe,
+namespace restrictions, or mount probe differs from policy.
+
+ACL grants have an explicit administrative lifecycle. Provisioning records
+each installed access/default ACL and traversal entry in owner-controlled
+state. A privileged revocation first prevents new launches, terminates and
+reaps every launcher cgroup whose policy references the grant, dismantles its
+namespaces, removes only the recorded ACL entries, and verifies denial under
+the agent UID. Failure at any step leaves the grant marked `revoking`, blocks
+new sessions, and requires operator repair; it never reports successful
+revocation. Concurrent sessions with different policies remain confined to
+their own namespaces. Persistent project registration avoids racing ACL
+removal between concurrent sessions; revocation applies to all sessions that
+reference the revoked grant.
 
 The launcher writes an owner-only invocation record outside every delegated
 path. It records the effective UID, canonical paths and stable identities,
@@ -280,11 +300,27 @@ Before launch, the trusted launcher:
 
 Symlinks inside a delegated tree do not confer access to an undelegated target.
 Pre-existing hardlinks are inode aliases and therefore make their target part
-of the grant; provisioning detects and rejects cross-boundary hardlinks where
-it cannot prove that this is intended. Nested mounts are hidden or rejected
-unless explicitly granted. All nonessential inherited descriptors are closed
-before the sandbox transition. These properties are tested for each supported
-backend rather than inferred from lexical path checks.
+of the grant. Provisioning inspects entries whose link count exceeds one and
+accounts for their other same-filesystem links within configured, owner-chosen
+scan roots. An unaccounted link fails closed. `git clone --local`, shared
+content-addressed package stores, `cp -l` fixtures, and similar layouts are
+therefore expected to fail unless the human records an explicit acceptance of
+the inode identities and all affected paths in protected policy. Each scan has
+an owner-configured entry and elapsed-time budget; exhausting either refuses
+provisioning rather than silently accepting the topology. Nested mounts are
+hidden or rejected unless explicitly granted. All nonessential inherited
+descriptors are closed before the sandbox transition. These properties are
+tested for each supported backend rather than inferred from lexical path
+checks.
+
+Default ACLs do not guarantee that every project tool preserves effective ACL
+masks. After checkout, formatting, archive extraction, dependency installation,
+or another ordinary workflow step, the launcher re-runs the bidirectional ACL
+probe before a subsequent session. If a tool strips an ACL during a session,
+the affected operation may make the tree temporarily unusable to one identity;
+the session must not broaden permissions itself. The operator runs the
+privileged reconciliation command, which restores only ACL entries recorded by
+provisioning and re-runs both UID probes before work resumes.
 
 ### Access modes
 
@@ -310,8 +346,11 @@ identity and exposes the delegated paths with their declared modes. Approved
 host toolchains may be used. This is the baseline profile and must support
 ordinary development without requiring container-specific repository layouts.
 
-The release-1 Linux reference is a private mount namespace with separate bind
-mounts for each grant, layered on the dedicated UID and provisioned ACLs.
+The release-1 Linux reference is a root-constructed private mount namespace
+with separate bind mounts for each grant, layered on the dedicated UID and
+provisioned ACLs. Namespace construction and mount locking precede the UID
+transition; the final session has no capabilities, subordinate-ID mapping, or
+permission to create or enter user or mount namespaces.
 Landlock, AppArmor, SELinux, or systemd sandboxing may add defense in depth but
 does not replace the UID/DAC contract. Each supported backend records kernel
 version and relevant ABI and proves multi-tree grants, mount-level read-only
@@ -448,7 +487,8 @@ evidence and acceptance.
 - POSIX ACL provisioning, including default ACLs that make human-created and
   agent-created files mutually editable within read-write grants.
 - At least one supported host-native operating-system sandbox backend.
-- Default-deny filesystem enforcement and symlink-escape tests.
+- Default-deny visibility through the private mount namespace, layered on UID
+  and ACL authority, plus symlink-escape tests.
 - Explicit `standard` and `deny` network postures where the backend supports
   them.
 - A common launcher contract from which host-native sandboxes and optional
@@ -488,7 +528,8 @@ For a tested backend, the release may claim:
 > obtain the human operator's protected unrelated files and credentials
 > through the supported launcher. This is an access-control claim, not a
 > confidentiality claim for readable grants: interactive sessions may disclose
-> readable content through their model-provider connection.
+> readable content, including the provider credential deliberately provisioned
+> to the agent identity, through their unrestricted model-provider connection.
 
 For the containerized profile it may additionally claim:
 
@@ -524,10 +565,16 @@ exclude kernel, runtime, sandbox, launcher, and orchestrator compromise.
 | Human edits agent-created file                | Succeeds without administrative ownership repair                      |
 | Agent edits human-created file in RW grant    | Succeeds without administrative ownership repair                      |
 | Agent edits human-created file in RO grant    | Fails                                                                 |
+| Ordinary toolchain mutates tree and modes     | Both UIDs still edit, or reconciliation restores recorded ACLs        |
 | Agent edits writable CLI state                | Next launch's grants and trusted hooks are unchanged                  |
-| Cross-boundary hardlink                       | Rejected unless explicitly accepted as part of the grant              |
+| Cross-boundary hardlink                       | Accounted within budget; rejected unless explicitly accepted          |
+| Local clone or shared package-store hardlinks | Expected refusal unless protected policy accepts all affected paths   |
 | Undeclared nested mount                       | Hidden or launch refused                                              |
 | Inherited host descriptor                     | Closed before agent-controlled execution                              |
+| Concurrent session with a different policy    | Cannot reach the other session's grants                               |
+| Process attempts to survive session end       | Reaped before namespace teardown; revoked grant then becomes denied   |
+| Agent remounts a read-only grant read-write   | Remount fails and grant remains read-only                             |
+| Agent creates a nested user namespace         | Creation denied; no undelegated access or subordinate-ID `chown`      |
 | Agent edits in-project delegation decoy       | Host-controlled effective grants do not change                        |
 | Agent edits `run-playbook` or sets source env | Future privileged path is unchanged; current path claims no authority |
 | Agent edits a gate or fabricates approval     | Future privileged operation is not authorized                         |
@@ -568,6 +615,12 @@ human selects project and related paths
   implicitly exposing their parents.
 - Human and agent UIDs can edit each other's files in read-write grants without
   administrative ownership repair.
+- ACL provisioning has a recorded lifecycle; revocation blocks new launches,
+  reaps affected sessions, removes recorded entries, and verifies denial.
+- Read-only mounts remain locked against session-created namespaces; nested
+  user/mount namespaces and subordinate UID/GID mappings are unavailable.
+- The ordinary checkout, formatter, dependency-install, and archive workflows
+  preserve bidirectional editing or exercise the privileged ACL repair path.
 - Delegation records and effective policy cannot be modified by the agent.
 - Authoritative agent configuration is immutable; writable home state cannot
   change later grants, hooks, or launcher policy.
@@ -1068,3 +1121,23 @@ promoted to a trusted base by assertion. That correction — refusing to claim a
 boundary the code does not have, while keeping the imperfect controls that
 exist — is the right instinct, and it is what makes the remaining findings
 small.
+
+## Review 2 Response (2026-08-10)
+
+The proposal remains `open`. The design body above incorporates the Review 2
+remediations; the review itself remains unchanged as an audit trail.
+
+| Finding | Disposition                                                                                                                                                                                                                                                                       |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A16     | Addressed: ACLs are persistent project-registration state; namespaces scope sessions; privileged revocation blocks launches, reaps affected cgroups, removes recorded ACLs, verifies denial, and fails closed in `revoking`. Concurrent sessions have an explicit isolation case. |
+| A17     | Addressed: a root-owned launcher constructs and locks mounts before the UID transition; the final session has no capabilities, subordinate-ID mappings, or ability to create or enter user/mount namespaces. Remount and nested-user-namespace cases were added.                  |
+| A18     | Addressed: scanning targets multiply linked entries, accounts for other links within protected scan roots, has entry/time budgets, fails closed, documents expected failures, and requires explicit inode/path acceptance in protected policy.                                    |
+| A19     | Addressed: ordinary checkout, formatting, archive, and dependency workflows re-test bidirectional editing; a privileged reconciliation command restores only recorded ACLs and verifies both UIDs.                                                                                |
+| A20     | Addressed: both predecessor banners now describe Git authorization as future work under a separate proposal and retain existing guardrails meanwhile.                                                                                                                             |
+| A21     | Addressed: release-1 scope now claims default-deny namespace visibility layered on UID and ACL authority.                                                                                                                                                                         |
+| A22     | Addressed: the Security Claims explicitly exclude confidentiality of the deliberately provisioned provider credential under unrestricted provider connectivity.                                                                                                                   |
+
+Earlier findings A12 through A15 retain their recorded partial/open
+dispositions. In particular, the carry-forward register, alternatives analysis,
+future privileged-Git enumeration, and release estimate remain prerequisites
+to acceptance rather than being silently closed by this remediation.

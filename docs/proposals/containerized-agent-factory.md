@@ -44,8 +44,9 @@ estimate:
 > Its scope is replaced by
 > [Agent Execution Isolation and Optional Container Distribution](agent-execution-isolation-and-distribution.md),
 > which makes multi-path host filesystem delegation the primary security goal,
-> treats containers as an optional pinned environment, and assigns privileged
-> Git authorization and publication to the orchestrator subproject.
+> treats containers as an optional pinned environment, and leaves privileged
+> Git authorization and publication to a future, separately accepted
+> orchestrator security proposal. Existing guardrails remain in force meanwhile.
 
 ## Summary
 
