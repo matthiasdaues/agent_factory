@@ -55,7 +55,9 @@ read-only access.
 
 Offer a versioned OCI image as an optional, pinned execution environment. The
 container receives the same delegated paths and access modes as a host-native
-session; it neither defines nor broadens filesystem authority.
+session; it neither defines nor broadens filesystem authority. That profile is
+designed here and deferred beyond release 1, which ships host-native execution
+only.
 
 Agent-proof Git authorization and publication are intended to become a
 separate privileged capability in the orchestrator subproject. The
@@ -114,7 +116,8 @@ obtaining the first security improvement.
    changes. Host-native execution remains supported.
 6. **Provide an optional pinned environment.** Projects may select a versioned
    container image to obtain reproducible Factory and toolchain versions
-   without changing the filesystem authority model.
+   without changing the filesystem authority model. The profile is specified
+   here and deferred beyond release 1.
 7. **Develop agent-proof Git authorization and publication separately.** A
    future privileged orchestrator capability will mediate protected Git
    mutations and publication. Until then, existing guardrails remain active
@@ -357,14 +360,24 @@ version and relevant ABI and proves multi-tree grants, mount-level read-only
 enforcement, symlink and nested-mount handling, inherited-descriptor closure,
 and absence of the human home and credentials.
 
-### Containerized profile
+### Containerized profile (deferred)
 
 The optional containerized profile publishes Agent Factory and supported
 toolchains as versioned, digest-addressable OCI images. Its purpose is pinned,
 portable execution—not a different authorization model.
 
-The trusted launcher derives bind mounts from the already validated delegation
-policy:
+This profile is deferred beyond release 1. A rootless runtime executing as
+`agent-factory` requires subordinate UID and GID ranges for that account, which
+the release-1 identity model refuses in enforcement step 6. Release 1 therefore
+ships one identity model rather than two. The profile may ship once one of the
+following is evidenced: a runtime that needs no subordinate ranges, a
+root-constructed capability-free container session that reuses the host-native
+ordering, or an accepted and recorded residual risk. Its user namespace and
+mounts must in every case be constructed and locked before agent-controlled
+code runs, under the same ordering the host-native reference uses.
+
+When it ships, the trusted launcher derives bind mounts from the already
+validated delegation policy:
 
 - every delegated path is mounted separately with its declared access mode;
 - no common parent, host home, credential directory, or container-runtime
@@ -491,10 +504,8 @@ evidence and acceptance.
   and ACL authority, plus symlink-escape tests.
 - Explicit `standard` and `deny` network postures where the backend supports
   them.
-- A common launcher contract from which host-native sandboxes and optional
+- A common launcher contract from which host-native sandboxes and later
   container mounts are derived.
-- A versioned OCI image for a pinned Factory environment on one evidenced
-  rootless Linux runtime.
 - Preservation of existing Git guardrails with an explicit no-regression
   transition contract for later orchestrator-owned capabilities.
 - An owner-only launcher audit record outside delegated paths for every
@@ -505,6 +516,9 @@ evidence and acceptance.
 
 ### Deferred
 
+- The containerized profile and its versioned OCI image, until a runtime is
+  evidenced that satisfies the release-1 identity model — in particular its
+  refusal of subordinate UID and GID ranges for `agent-factory`.
 - Additional operating-system sandbox and container-runtime backends until
   independently tested.
 - macOS and Windows enforcement where their filesystem and container semantics
@@ -531,7 +545,7 @@ For a tested backend, the release may claim:
 > readable content, including the provider credential deliberately provisioned
 > to the agent identity, through their unrestricted model-provider connection.
 
-For the containerized profile it may additionally claim:
+When the deferred containerized profile ships, it may additionally claim:
 
 > The selected digest identifies the Factory and bundled tool environment, and
 > container mounts are derived from—not authoritative over—the same validated
@@ -556,10 +570,7 @@ exclude kernel, runtime, sandbox, launcher, and orchestrator compromise.
 | Agent edits project-local policy              | Effective grants do not change                                        |
 | Broad root or human-home grant                | Refused unconditionally in release 1                                  |
 | Host-native profile                           | Uses the dedicated identity and passes all filesystem cases           |
-| Containerized profile                         | Derives separate mounts and modes from the same grants                |
-| Container requests an extra mount             | Request has no effect and launch fails closed where applicable        |
 | Container-runtime socket                      | Absent from the ordinary session                                      |
-| Pinned image missing under offline posture    | Fails without pulling or enabling network                             |
 | `deny` network posture                        | Local-host and internet egress fail                                   |
 | `standard` network posture                    | Report states that selective egress is not enforced                   |
 | Human edits agent-created file                | Succeeds without administrative ownership repair                      |
@@ -586,6 +597,17 @@ special characters, nested repositories, path replacement races, and every
 supported backend. Each result records kernel version, sandbox backend, and
 relevant ABI. Full 40-character Git SHAs are required in machine-consumed
 authorization and audit records.
+
+The following cases belong to the deferred containerized profile and are
+prerequisites of its own release, not of release 1.
+
+| Case                                       | Required result                                                                             |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| Containerized profile                      | Derives separate mounts and modes from the same grants                                      |
+| Container requests an extra mount          | Request has no effect and launch fails closed where applicable                              |
+| Pinned image missing under offline posture | Fails without pulling or enabling network                                                   |
+| Container session identity                 | No subordinate UID or GID range is required or mapped, or the accepted residual is recorded |
+| Container mount and namespace ordering     | Constructed and locked before agent-controlled code runs                                    |
 
 ## Operational Sequence
 
@@ -625,8 +647,11 @@ human selects project and related paths
 - Authoritative agent configuration is immutable; writable home state cannot
   change later grants, hooks, or launcher policy.
 - Host-native development remains usable for ordinary project workflows.
-- The optional pinned image consumes the common delegation model and passes
-  the same filesystem proof for its supported runtime.
+- Release 1 ships one identity model. When the deferred containerized profile
+  ships, its pinned image consumes the common delegation model, passes the same
+  filesystem proof for its supported runtime, and satisfies the identity model
+  without subordinate UID or GID ranges unless a residual risk is recorded and
+  accepted.
 - Container-specific limitations are documented as profile limitations, not
   restrictions on the general authorization model.
 - Existing Git guardrails remain active until the same release ships and tests
@@ -645,7 +670,8 @@ human selects project and related paths
 1. How are provider credentials provisioned to the dedicated identity without
    exposing unrelated credential stores?
 2. Which OCI runtime is the first supported container profile after testing
-   the dedicated-user ownership model?
+   the dedicated-user ownership model, and can it satisfy the identity model
+   without subordinate UID and GID ranges for `agent-factory`?
 3. Which orchestrator proposal defines the authorization protocol and its
    integration contract with Factory gates?
 
@@ -1141,3 +1167,173 @@ Earlier findings A12 through A15 retain their recorded partial/open
 dispositions. In particular, the carry-forward register, alternatives analysis,
 future privileged-Git enumeration, and release estimate remain prerequisites
 to acceptance rather than being silently closed by this remediation.
+
+## Review 3 (2026-08-10, adversarial — remediation)
+
+Adversarial re-review of the remediation recorded in the Review 2 Response
+above. The review verifies each claimed disposition against the amended text
+and against the artifacts the proposal cites, then looks for defects the
+remediation itself introduced. The defect registers and verdict tables of the
+two earlier reviews are retained as audit records and must not be edited.
+
+No BLOCKER is raised. Every disposition claimed in the Review 2 Response is
+truthful: each one is supported by text that exists, and no claim overstates
+what the body contains. One MAJOR defect was found in the claimed scope of the
+A17 disposition, and it has been resolved by deferral during this review. Three
+further MAJOR defects and three lesser ones remain, and they share a single
+cause: each Review 2 fix was written into the section that raised it and not
+carried to the sections that depend on it.
+
+### Verification of claimed dispositions
+
+| Finding | Verified disposition                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A16     | ACCEPTED — DAC and ACLs reclassified as persistent project-registration state, the namespace as session enforcement, with a revocation lifecycle that blocks launches, reaps cgroups, removes only recorded entries, verifies denial, and fails closed in `revoking`. The Summary was corrected to "standing access," which the response table did not claim. Two matrix cases and a completion criterion. Residue in A24 and A25 |
+| A17     | ACCEPTED for the host-native profile — namespace construction and mount locking precede the UID transition, capabilities and supplementary groups are dropped, a syscall policy denies namespace creation and entry, and no subordinate ID ranges are assigned. Two matrix cases and a completion criterion. The disposition was claimed unconditionally; see A23                                                                 |
+| A18     | ACCEPTED — detection targets entries with a link count above one, accounts for other same-filesystem links within owner-chosen scan roots, fails closed on an unaccounted link, names the expected failures, budgets the scan, and requires explicit inode and path acceptance in protected policy. Residue in A26                                                                                                                |
+| A19     | ACCEPTED — the post-workflow bidirectional probe, the prohibition on self-widening, and a privileged reconciliation restoring only recorded entries. Residue in A27                                                                                                                                                                                                                                                               |
+| A20     | ACCEPTED — verified in both predecessor files, not merely asserted. Each banner now reads that privileged Git authorization is left to a future, separately accepted orchestrator proposal, with existing guardrails in force meanwhile                                                                                                                                                                                           |
+| A21     | ACCEPTED — the Scope bullet states default-deny visibility through the private mount namespace, layered on UID and ACL authority. No stale phrasing survives outside the frozen review text                                                                                                                                                                                                                                       |
+| A22     | ACCEPTED — the exclusion names the provisioned provider credential inside the Security Claims themselves, not only in the surrounding prose                                                                                                                                                                                                                                                                                       |
+| A12–A15 | PARTIAL and OPEN as claimed. A13 is now four reviews old                                                                                                                                                                                                                                                                                                                                                                          |
+
+The audit trail is intact. Both earlier reviews are unedited, including
+passages the body has since overtaken — Review 2's A18 still quotes wording
+that no longer exists, which is correct behavior for a frozen record.
+
+### Verdict by check (re-run)
+
+| #   | Check                      | Verdict                                                                                                                                                                   |
+| --- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 01  | Testable                   | PASS — improved; the container cases have left the release-1 matrix for the deferred profile's own table                                                                  |
+| 02  | Alternatives considered    | FAIL — unchanged through four reviews; acknowledged as open                                                                                                               |
+| 03  | Tests severe               | WEAK — a downgrade; the assertions carrying A16 and A19 have no cases of their own (A25, A27)                                                                             |
+| 04  | Survives unchanged         | N/A (design seed, not a claim)                                                                                                                                            |
+| 05  | Sources / exact wording    | PASS — the PoC still supports only what it demonstrated                                                                                                                   |
+| 06  | Independence               | WEAK — improved; deferring the container profile removes the one place where release 1 rested on a single runtime's evidence, but one reference implementation remains    |
+| 07  | Assumptions explicit       | WEAK — the load-bearing assumptions moved rather than disappearing: cgroup confinement, the absence of an unsandboxed execution path, and scan freshness are now implicit |
+| 08  | Scope creep                | PASS — release 1 ships one identity model and claims only what its own mechanisms enforce                                                                                 |
+| 09  | Contrary evidence          | PASS — bypassable guardrails, disclosure through the provider channel, and backend limits remain stated                                                                   |
+| 10  | Surviving refutation paths | PASS — three open questions, each genuinely undecided                                                                                                                     |
+
+### New defect register + amendments
+
+**MAJOR A23 — the A17 disposition was claimed for a profile the remediation did
+not amend. Resolved during this review.** The disposition stated
+unconditionally that the final session has no subordinate-ID mappings and
+cannot create or enter namespaces. Those rules sit in the profile-general
+enforcement enumeration, and the identity section binds them to both profiles.
+The containerized profile, then in release-1 scope, still specified a rootless
+runtime; a rootless runtime executing as `agent-factory` requires subordinate
+UID and GID ranges for that account, which enforcement step 6 refuses outright.
+Release 1 would have shipped two identity models while claiming one. The
+namespace-creation denial was a weaker objection, since the runtime creates its
+namespace before agent-controlled code runs, and that is an ordering
+requirement rather than a contradiction.
+
+*Disposition.* The owner deferred the containerized profile beyond release 1.
+The profile section records the conflict and the three conditions under which
+it may ship, its cases moved to a separate deferred acceptance table, the
+Security Claim and completion criterion are now conditional on its own release,
+and Open Question 2 asks whether a candidate runtime can satisfy the identity
+model without subordinate ranges. Release 1 now ships one identity model.
+
+**MAJOR A24 — revocation depends on cgroup confinement the design leaves
+optional.** The revocation step terminates and reaps "every launcher cgroup
+whose policy references the grant," and the matrix tests a process surviving
+session end. Nothing requires a session to run in a launcher-owned cgroup it
+cannot leave. The only other mention is permissive: the launcher "may add CPU,
+memory, process, and network constraints." A16 was accepted on the strength of
+a revocation that reliably reaps, and that reaping has no required mechanism in
+Scope or the Completion Criteria.
+
+*Amendment.* Make a per-session cgroup a required release-1 mechanism, state
+that the session can neither write the cgroup hierarchy nor migrate out of it,
+and add it to Scope beside the existing revocation criterion.
+
+**MAJOR A25 — persistent grants make the absence of an unsandboxed execution
+path load-bearing, and nothing tests it.** A16 was answered by keeping ACLs
+persistent and confining sessions with namespaces. That answer holds only while
+no code can run as `agent-factory` outside the launcher, because standing
+authority is reachable by absolute path from any process under that UID. The
+proposal asserts this in one clause — "The agent UID has no login or
+unsandboxed execution path" — and never returns to it. There is no case and no
+criterion for a `nologin` shell, absent SSH `authorized_keys`, absent user cron
+or `at` jobs, no per-user systemd manager or D-Bus activation, and no setuid or
+sudo entry point. That sentence now carries as much weight as the namespace
+does. Relatedly, revocation "verifies denial under the agent UID," which
+requires privileged tooling to execute as that UID; the design should say how
+that probe runs without being the execution path it forbids.
+
+*Amendment.* Promote the assertion to a specified property with its own
+acceptance cases and completion criterion, and state how the privileged
+verification probe executes as the agent UID.
+
+**MINOR A26 — the hardlink scan runs at provisioning while grants persist
+across sessions.** The A18 fix is provisioning-time. The A16 fix makes grants
+standing state that outlives any session. The launcher's pre-launch validation
+records stable path identity but does not re-scan link counts. Between
+provisioning and a later session, a `git worktree`, a local clone, or a
+restored backup can introduce a link from grant content to an undelegated file,
+and the launch will proceed. The two fixes were written against each other's
+assumptions.
+
+*Amendment.* State when the scan re-runs — every launch, on a recorded
+provisioning generation, or never — and if never, record the residual risk
+explicitly rather than leaving it implied by the provisioning-time framing.
+
+**MINOR A27 — the post-toolchain ACL probe has no stated failure behavior, and
+its case can pass on the happy path.** Elsewhere the document is precise about
+failing closed. The A19 paragraph says only that the launcher re-runs the
+bidirectional probe "before a subsequent session" and that the operator runs
+reconciliation "before work resumes"; it never says a failed probe refuses the
+launch. The matrix row reads "Both UIDs still edit, or reconciliation restores
+recorded ACLs," a disjunction satisfied by a run in which no tool stripped
+anything, so the repair path can ship untested.
+
+*Amendment.* State that a failed pre-launch ACL probe refuses the launch, and
+split the row into two cases: the probe detects a stripped ACL, and
+reconciliation restores it and passes both UID probes.
+
+**NOTE A28 — denying user namespaces to the session has an unacknowledged cost
+against Goal 5.** The syscall policy forbids the session from creating any
+nested sandbox. That rules out container-based test suites, tooling built on
+`bwrap`, and the sandboxing features some AI CLIs use for their own tool
+execution. This may be the right trade, but Goal 5 promises that agents can run
+project tools and test, and neither Non-goals nor Deferred records the loss.
+
+*Amendment.* Name it in Non-goals or Deferred, so an implementer meets it in
+the design rather than in a failing test suite.
+
+**NOTE A29 — supporting sections did not follow the remediation.** The grant
+lifecycle is new authority with a new actor, and it appears in neither the
+Responsibility Boundaries table nor the Operational Sequence, which still runs
+from provisioning to publication with no de-provisioning step. Separately, scan
+roots and budgets are "configured, owner-chosen" without a statement that they
+live in the same protected storage as the delegation policy, which is what
+keeps them beyond the agent's reach.
+
+*Amendment.* Add a revocation row and a de-provisioning step, and state where
+scan roots and budgets are stored.
+
+### Recommendation
+
+Status remains `open`. The Review 2 Response is an honest record, and the
+remediation behind it is mechanism rather than relabeling: the revocation
+lifecycle, the privilege ordering, and the link-count accounting are all things
+an implementer can build and a test can refute. A16 and A17 are closed for the
+profile release 1 ships.
+
+The pattern worth naming is the one that produced this register. Each fix
+landed in the section that raised it and stopped there. The namespace rules did
+not reach the container profile, which is A23 and is now resolved by deferral.
+The revocation step assumed a cgroup that Scope leaves optional, which is A24.
+The decision to make grants persistent did not reach the hardlink scan or the
+execution-path assertion, which are A26 and A25. A carry-forward register — the
+A12 amendment, still outstanding — would catch this class before the next
+review does, because it forces each disposition to name the sections it touches.
+
+A24 and A25 should be resolved before `accepted`: each leaves a mechanism that
+the accepted findings depend on either optional or untested. A26 through A29
+are specification work on decisions already made. A13 remains the finding that
+has survived four consecutive reviews, and it remains the owner's call.
