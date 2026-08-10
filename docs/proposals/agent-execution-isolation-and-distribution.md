@@ -95,6 +95,35 @@ and its toolchains. Future orchestrator work answers a third: how to mediate
 privileged Git integration and publication. Neither is a prerequisite for
 obtaining the first security improvement.
 
+## Alternatives Analysis
+
+The status quo is the baseline. Scores are relative (`-1`, `0`, `+1`) and
+weights reflect this proposal's critical security assurance and secondary
+usability and operations goals.
+
+| Criterion                                     | Weight | Human UID + remote protection (baseline) | Dedicated UID + ACL + namespace + cgroup | Landlock-only under human UID | Per-project VM |
+| --------------------------------------------- | -----: | ---------------------------------------: | ---------------------------------------: | ----------------------------: | -------------: |
+| Deny unrelated filesystem access              |      3 |                                        0 |                                       +1 |                            +1 |             +1 |
+| Prevent identity or credential escalation     |      3 |                                        0 |                                       +1 |                            -1 |             +1 |
+| Support unrelated multi-tree grants           |      2 |                                        0 |                                       +1 |                            +1 |              0 |
+| Enforce per-path read-only access             |      3 |                                        0 |                                       +1 |                            +1 |             +1 |
+| Preserve ordinary development usability       |      2 |                                        0 |                                        0 |                            +1 |             -1 |
+| Operational and deployment simplicity         |      2 |                                        0 |                                       -1 |                            +1 |             -1 |
+| Evidence available for release-1 backend      |      2 |                                        0 |                                        0 |                            -1 |             -1 |
+| Reuse contract for a future container profile |      1 |                                        0 |                                       +1 |                             0 |             +1 |
+| Clear authorization boundary                  |      2 |                                        0 |                                       +1 |                             0 |             +1 |
+| **Weighted total**                            |        |                                    **0** |                                  **+12** |                        **+7** |         **+6** |
+
+The dedicated-UID design wins because it changes operating-system identity as
+well as path visibility while retaining explicit multi-tree grants. Landlock
+remains defense in depth: under the human UID it does not remove inherited
+credential and process authority. A VM provides a strong outer boundary but
+adds lifecycle, file-sharing, and toolchain costs and does not by itself define
+fine-grained related-path grants. The result is not close: changing any single
+weight within the stated 1–3 range does not displace the selected option. The
+null option remains the comparison baseline and retains remote protection as a
+deployment prerequisite, not as local isolation.
+
 ## Goals
 
 1. **Separate identity and prevent escalation.** An agent runs under a
@@ -142,6 +171,10 @@ obtaining the first security improvement.
 - Preventing execution of arbitrary programs within delegated paths in the
   first release. Executable allowlisting, dependency trust, interpreter
   mediation, and scoped command approval remain separate hardening work.
+- Preserving project tools that require the ordinary session to create user or
+  mount namespaces. Container-based test suites, `bwrap`-based tools, and
+  nested AI-CLI sandboxes are unsupported in release 1 unless adapted to a
+  launcher-created, capability-free sandbox profile.
 - Replacing protected remote refs, independent CI, backups, or tested
   restoration. Those remain deployment prerequisites because a writable
   project can be damaged by its agent.
@@ -171,6 +204,8 @@ credential that a human deliberately places inside a readable delegated path.
 | Effective file access                 | UID, DAC, POSIX ACLs, and mount permissions         |
 | Visible host paths and mount access   | Host launcher and operating-system sandbox          |
 | Delegation-policy storage             | Human-controlled state outside delegated paths      |
+| Grant provisioning and revocation     | Privileged human-operated administration path       |
+| Session lifetime and process reaping  | Launcher-owned, agent-inaccessible cgroup           |
 | Factory and toolchain versions        | Host environment or optional pinned container image |
 | Current local workflow gates          | Project-local Factory scripts                       |
 | Current dangerous-Git prevention      | Existing hooks and wrappers; bypassable guardrails  |
@@ -201,6 +236,20 @@ the agent. A separate writable state directory contains only caches, logs, and
 provider state classified as non-authoritative. The launcher reconstructs or
 validates authoritative configuration on every session; editing writable state
 cannot change later grants or trusted hooks.
+
+Every release-1 session runs in a launcher-owned cgroup created before any
+agent-controlled code starts. The agent UID has no write access to the cgroup
+hierarchy and cannot migrate itself or descendants out of that cgroup. The
+launcher treats complete cgroup reaping as a prerequisite for namespace
+teardown, revocation, and a successful session-end audit record.
+
+The dedicated account has a `nologin` shell, no password, SSH keys, user cron
+or `at` jobs, per-user systemd manager, or D-Bus activation path. No service
+starts programs as that UID except the protected launcher. Provisioning and
+revocation probes use a root-owned helper that enters the target cgroup and
+sandbox, drops to the agent UID only for the access check, reports the result
+through a launcher-owned descriptor, and exits; it cannot accept an arbitrary
+command or create a persistent execution path.
 
 The identity boundary and sandbox apply equally to host-native and
 containerized execution. A container must run from the dedicated identity and
@@ -312,14 +361,19 @@ the inode identities and all affected paths in protected policy. Each scan has
 an owner-configured entry and elapsed-time budget; exhausting either refuses
 provisioning rather than silently accepting the topology. Nested mounts are
 hidden or rejected unless explicitly granted. All nonessential inherited
-descriptors are closed before the sandbox transition. These properties are
-tested for each supported backend rather than inferred from lexical path
-checks.
+descriptors are closed before the sandbox transition. Scan roots, budgets, and
+accepted inode identities live with the protected delegation policy outside
+every delegated path. The launcher checks recorded filesystem generations and
+stable identities at every launch; a changed identity or link count triggers a
+complete bounded rescan, and budget exhaustion or an unaccounted link refuses
+launch. These properties are tested for each supported backend rather than
+inferred from lexical path checks.
 
 Default ACLs do not guarantee that every project tool preserves effective ACL
 masks. After checkout, formatting, archive extraction, dependency installation,
 or another ordinary workflow step, the launcher re-runs the bidirectional ACL
-probe before a subsequent session. If a tool strips an ACL during a session,
+probe before a subsequent session. A failed probe refuses launch. If a tool
+strips an ACL during a session,
 the affected operation may make the tree temporarily unusable to one identity;
 the session must not broaden permissions itself. The operator runs the
 privileged reconciliation command, which restores only ACL entries recorded by
@@ -449,6 +503,14 @@ A future privileged orchestrator capability:
 - revalidates state at the point of use and rejects stale approvals; and
 - records decisions in an audit sink the ordinary agent cannot modify.
 
+For that future proposal, privileged Git operations mean publication to any
+remote; creation, update, force-update, or deletion of protected local or
+remote refs; changing configured remotes; and merging or rebasing into a
+protected integration branch such as `dev` or `main`. Ordinary commits,
+temporary branches, index changes, and merges among unprotected per-story
+branches remain available inside a read-write grant. Protected refs are
+declared per project; branch names alone never establish trust.
+
 Repository hooks and Factory gates may report evidence to the orchestrator,
 but only the orchestrator decides whether that evidence authorizes a privileged
 operation. Detailed protocols, state machines, storage, and credential
@@ -506,6 +568,8 @@ evidence and acceptance.
   them.
 - A common launcher contract from which host-native sandboxes and later
   container mounts are derived.
+- A launcher-owned cgroup for every session, inaccessible to the agent UID,
+  from which the session and all descendants cannot migrate.
 - Preservation of existing Git guardrails with an explicit no-regression
   transition contract for later orchestrator-owned capabilities.
 - An owner-only launcher audit record outside delegated paths for every
@@ -576,14 +640,18 @@ exclude kernel, runtime, sandbox, launcher, and orchestrator compromise.
 | Human edits agent-created file                | Succeeds without administrative ownership repair                      |
 | Agent edits human-created file in RW grant    | Succeeds without administrative ownership repair                      |
 | Agent edits human-created file in RO grant    | Fails                                                                 |
-| Ordinary toolchain mutates tree and modes     | Both UIDs still edit, or reconciliation restores recorded ACLs        |
+| Ordinary toolchain strips a recorded ACL      | Next launch detects the failed bidirectional probe and refuses        |
+| Privileged ACL reconciliation                 | Restores only recorded entries and both UID probes then pass          |
 | Agent edits writable CLI state                | Next launch's grants and trusted hooks are unchanged                  |
-| Cross-boundary hardlink                       | Accounted within budget; rejected unless explicitly accepted          |
+| Cross-boundary hardlink                       | Re-scanned at launch; rejected unless explicitly accepted             |
 | Local clone or shared package-store hardlinks | Expected refusal unless protected policy accepts all affected paths   |
 | Undeclared nested mount                       | Hidden or launch refused                                              |
 | Inherited host descriptor                     | Closed before agent-controlled execution                              |
 | Concurrent session with a different policy    | Cannot reach the other session's grants                               |
 | Process attempts to survive session end       | Reaped before namespace teardown; revoked grant then becomes denied   |
+| Agent attempts to leave its session cgroup    | Migration and cgroup-hierarchy writes fail                            |
+| Direct execution as the agent UID             | No shell, SSH, scheduler, user-service, or D-Bus path starts code     |
+| Privileged access-verification probe          | Runs only the fixed probe in its sandbox and leaves no process        |
 | Agent remounts a read-only grant read-write   | Remount fails and grant remains read-only                             |
 | Agent creates a nested user namespace         | Creation denied; no undelegated access or subordinate-ID `chown`      |
 | Agent edits in-project delegation decoy       | Host-controlled effective grants do not change                        |
@@ -616,12 +684,22 @@ human selects project and related paths
   -> trusted launcher loads host-controlled delegation policy
   -> privileged provisioning verifies UID-owned DAC and ACL grants
   -> launcher canonicalizes and validates every path and access mode
+  -> launcher revalidates hardlinks and refuses stale or over-budget topology
   -> launcher selects host-native or pinned-container execution profile
+  -> launcher creates an agent-inaccessible per-session cgroup
   -> launcher constructs and verifies the private mount namespace
   -> ordinary agent works only within delegated capabilities
+  -> launcher reaps the cgroup and tears down the namespace
   -> current Factory hooks and wrappers reduce accidental Git damage
   -> future protected orchestrator independently authorizes integration
   -> future separate capability performs and audits publication
+
+human revokes a grant
+  -> privileged administration blocks launches referencing the grant
+  -> launcher reaps every affected cgroup and dismantles its namespaces
+  -> administration removes only recorded ACL entries
+  -> fixed sandboxed probe verifies denial under the agent UID
+  -> grant becomes revoked, or remains revoking on any failure
 ```
 
 ## Completion Criteria
@@ -633,6 +711,11 @@ human selects project and related paths
   unrelated credentials, or container-runtime authority.
 - UID transition, environment sanitization, inherited-descriptor closure,
   privileged-group absence, and `no-new-privileges` are mechanically tested.
+- Every session is confined to a launcher-owned cgroup that the agent cannot
+  modify or leave, and session completion reaps all descendants.
+- The dedicated UID has no login, SSH, scheduler, user-service, D-Bus, sudo,
+  setuid, or other unsandboxed execution path; the fixed privileged access
+  probe cannot execute arbitrary commands or persist.
 - Read-only and read-write grants work across unrelated directory trees without
   implicitly exposing their parents.
 - Human and agent UIDs can edit each other's files in read-write grants without
@@ -642,7 +725,10 @@ human selects project and related paths
 - Read-only mounts remain locked against session-created namespaces; nested
   user/mount namespaces and subordinate UID/GID mappings are unavailable.
 - The ordinary checkout, formatter, dependency-install, and archive workflows
-  preserve bidirectional editing or exercise the privileged ACL repair path.
+  include a negative test that strips a recorded ACL, proves the next launch
+  fails closed, and proves privileged reconciliation restores both UID probes.
+- Hardlink identity and link counts are revalidated at every launch; changed
+  topology is fully rescanned within protected budgets or launch is refused.
 - Delegation records and effective policy cannot be modified by the agent.
 - Authoritative agent configuration is immutable; writable home state cannot
   change later grants, hooks, or launcher policy.
@@ -1337,3 +1423,23 @@ A24 and A25 should be resolved before `accepted`: each leaves a mechanism that
 the accepted findings depend on either optional or untested. A26 through A29
 are specification work on decisions already made. A13 remains the finding that
 has survived four consecutive reviews, and it remains the owner's call.
+
+## Review 3 Response (2026-08-10)
+
+The proposal remains `open`. The normative body above incorporates the Review
+3 remediations; the review remains unchanged as an audit trail.
+
+| Finding | Disposition                                                                                                                                                                                                                                                                  |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A24     | Addressed: every session now requires a launcher-owned, agent-inaccessible cgroup; migration, hierarchy writes, descendant reaping, scope, sequence, tests, and completion criteria are explicit.                                                                            |
+| A25     | Addressed: direct execution paths are enumerated and denied; a fixed-command, sandboxed privileged probe performs UID verification without creating a general execution path; both properties have acceptance cases and completion criteria.                                 |
+| A26     | Addressed: protected policy owns scan roots and budgets; every launch checks identities and link counts, triggers a bounded full rescan on change, and refuses stale, unaccounted, or over-budget topology.                                                                  |
+| A27     | Addressed: a failed pre-launch ACL probe refuses launch; detection and privileged reconciliation are separate negative acceptance cases and completion criteria.                                                                                                             |
+| A28     | Addressed: release-1 incompatibility with tools that create user or mount namespaces is explicit in Non-goals.                                                                                                                                                               |
+| A29     | Addressed: responsibility boundaries name provisioning, revocation, and cgroup ownership; the operational sequence includes de-provisioning; protected policy owns hardlink scan configuration.                                                                              |
+| A13     | Proposed resolution: the Alternatives Analysis supplies a weighted Pugh matrix including the null option, Landlock-only, and a VM. Owner confirmation of its criteria and scores remains required.                                                                           |
+| A14     | Addressed for this proposal's boundary: protected local/remote ref mutations, remote changes, publication, and integration into protected branches are enumerated; unprotected story-branch work remains ordinary. The future orchestrator proposal still owns the protocol. |
+
+A12's complete predecessor-finding carry-forward register, A15's release
+estimate, provider-credential provisioning, the deferred container runtime,
+and the future orchestrator protocol remain prerequisites to acceptance.
