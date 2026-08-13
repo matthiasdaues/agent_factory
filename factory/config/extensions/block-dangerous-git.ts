@@ -48,6 +48,12 @@ export default function (pi: ExtensionAPI) {
     const gitDir = git(ctx.cwd, ["rev-parse", "--git-dir"]);
     const gitCommonDir = git(ctx.cwd, ["rev-parse", "--git-common-dir"]);
 
+    if (createsStandaloneBranch(command)) {
+      return blocked(
+        "standalone branch creation is forbidden. Create the branch and its linked worktree atomically with: git worktree add -b <branch> <worktree-path> <base>.",
+      );
+    }
+
     if (/^git\s+commit(\s|$)/.test(command)) {
       const marker = top && join(top, ".agent-factory", "verify-base-ok");
       if (
@@ -115,4 +121,12 @@ function firstMergeBranch(command: string) {
     return token;
   }
   return null;
+}
+
+function createsStandaloneBranch(command: string) {
+  return (
+    /^git\s+switch\s+.*(?:^|\s)-[cC](?:\s|$)/.test(command) ||
+    /^git\s+checkout\s+.*(?:^|\s)-[bB](?:\s|$)/.test(command) ||
+    /^git\s+branch\s+(?:(?:--track|--copy|-c|-C)\s+)?[^-\s]\S*(?:\s+\S+)?\s*$/.test(command)
+  );
 }

@@ -4,6 +4,8 @@ Canonical orientation content for any AI coding CLI working in a project that us
 
 ## Rules
 
+- **MUST — TOP-LEVEL SESSION INSTRUCTION**: At the start of every session, before answering the first prompt or taking any project action, read and ingest [`factory/rulebooks/rules.md`](../rulebooks/rules.md) in full. Treat every `MUST` and `MUST NOT` there as binding for the entire session. If the file is missing or unreadable, stop and tell the user; do not continue with partial Factory guidance.
+
 - **MUST**: before ANY Skill/Agent call, check this project's own local skill/agent directory first. Exists locally → use it, ignore any global copy of the same name. No exceptions, no trusting tool default resolution. Local directory, by CLI:
 
   - Claude Code: `.claude/skills/<name>/SKILL.md`, `.claude/agents/<name>.md`
@@ -19,4 +21,4 @@ Canonical orientation content for any AI coding CLI working in a project that us
 
 - **MUST**: Machine-consumed gates, markers, dispatch records, and handoffs use full 40-character Git SHAs. Abbreviated SHAs are display-only.
 
-- **MUST**: Before you answer the first prompt, greet the user and acknowledge that you have read and understood the local first rule.
+- **MUST**: Before you answer the first prompt, greet the user and acknowledge that you have ingested `factory/rulebooks/rules.md` and understood the local-first rule.

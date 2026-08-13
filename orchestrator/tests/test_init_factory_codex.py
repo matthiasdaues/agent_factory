@@ -107,6 +107,11 @@ def test_fresh_install_creates_codex_discovery_layout_and_native_agents(tmp_path
     assert (tmp_path / "AGENTS.md").resolve() == (
         tmp_path / "factory/config/AGENTS.md"
     ).resolve()
+    orientation = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    ingestion = "read and ingest [`factory/rulebooks/rules.md`]"
+    local_first = "before ANY Skill/Agent call"
+    assert ingestion in orientation
+    assert orientation.index(ingestion) < orientation.index(local_first)
 
 
 def test_hooks_merge_guardrail_and_capture_with_git_root_resolution(tmp_path):

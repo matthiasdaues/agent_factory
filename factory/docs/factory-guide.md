@@ -359,6 +359,7 @@ Separately, `pre-commit` runs `mdformat`, `ruff`, and the stdlib-only `factory/s
 `init-factory` also installs a git-safety guardrail that blocks a fixed list of dangerous git invocations before they run. Claude Code, GitHub Copilot CLI, and Codex use the shared shell script through their native `PreToolUse` hook paths. Pi uses a project-local extension under `.pi/extensions/` that enforces the same deny list when loaded. Two groups:
 
 - **Commands that discard or overwrite work or history**: `git push`, `git reset --hard`, `git clean -f`/`-fd`, `git branch -D`, `git checkout .`, `git restore .`, and bare `push --force` / `reset --hard` fragments anywhere in a longer command line.
+- **Standalone branch creation**: `git branch <name>`, `git switch -c/-C`, and `git checkout -b/-B`. Every new branch is created atomically with its linked worktree via `git worktree add -b <branch> <path> <base>`, then verified with `git worktree list --porcelain`.
 - **Commands that bypass this repo's own commit gates**: `--no-verify`, `git commit -n`, reassigning `core.hooksPath`, `pre-commit uninstall`, and `SKIP=...` environment overrides on `git commit` or `pre-commit`.
 
 One script serves the three hook-based CLIs: it reads the shell command from

@@ -17,6 +17,17 @@ Run one git operation per shell invocation, never chained after `cd` or another 
 - The guardrail parses a command line to find the operative git argument. A compound line confuses it: `cd repo; git merge feat/x` was read as `git merge cd` and blocked. Running `git merge feat/x` alone parses correctly.
 - A benign substring can also trip it — a `grep --no-verify` inside a larger command matches the blocked pattern. Keep such strings out of shell commands; put them in files instead.
 
+## Create branches only with worktrees
+
+Every new branch must be created atomically with its linked worktree:
+
+```bash
+git worktree add -b <branch> <worktree-path> <base>
+git worktree list --porcelain
+```
+
+The second command verifies the path and branch before work begins. Standalone branch creation through `git branch <name>`, `git switch -c/-C`, or `git checkout -b/-B` is blocked. Do not switch the current checkout as an intermediate step. To resume an existing unattached branch, use `git worktree add <worktree-path> <branch>`.
+
 ## Merging requires the pre-merge marker
 
 `git merge <branch>` is blocked unless a passing `.agent-factory/premerge-check-ok` marker exists for that branch's current head.
@@ -30,6 +41,7 @@ The guardrail blocks these in every session, including the operator's own:
 
 | Blocked                                             | Use instead                                                       |
 | --------------------------------------------------- | ----------------------------------------------------------------- |
+| Standalone branch creation                          | `git worktree add -b <branch> <path> <base>`                      |
 | `git checkout .` / `git checkout -- .`              | `git checkout HEAD -- <path>`                                     |
 | `git branch -D` (force delete)                      | `git branch -d` (merged only); ask the operator for force deletes |
 | `git commit --no-verify`, `git ... --no-verify`     | Fix the failing hook; never bypass                                |

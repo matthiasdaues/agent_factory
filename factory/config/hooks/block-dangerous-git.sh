@@ -43,6 +43,16 @@ if echo "$COMMAND" | grep -qE '^git[[:space:]]+commit([[:space:]]|$)'; then
   fi
 fi
 
+# Branch creation must be atomic with linked-worktree creation.  Deny the
+# standalone creation forms; `git worktree add -b/-B ...` is the only allowed
+# branch-creation path. Listing, safe deletion, rename, and show-current remain
+# available because they do not create a new branch.
+if echo "$COMMAND" | grep -qE '^git[[:space:]]+switch[[:space:]]+([^|&;]*[[:space:]])?-[cC]([[:space:]]|$)' \
+   || echo "$COMMAND" | grep -qE '^git[[:space:]]+checkout[[:space:]]+([^|&;]*[[:space:]])?-[bB]([[:space:]]|$)' \
+   || echo "$COMMAND" | grep -qE '^git[[:space:]]+branch[[:space:]]+(--track[[:space:]]+|--copy[[:space:]]+|-c[[:space:]]+|-C[[:space:]]+)?[^-[:space:]][^[:space:]|&;]*([[:space:]]+[^[:space:]|&;]+)?([[:space:]]*[|&;]|[[:space:]]*$)'; then
+  deny "standalone branch creation is forbidden. Create the branch and its linked worktree atomically with: git worktree add -b <branch> <worktree-path> <base>."
+fi
+
 if echo "$COMMAND" | grep -qE '^git[[:space:]]+merge[[:space:]]'; then
   # Isolate the `git merge …` invocation (up to a shell separator) before
   # parsing the branch, so a compound line like `cd repo; git merge feat/x`
