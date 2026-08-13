@@ -2,8 +2,8 @@
 
 The doorway to Agent Factory for a first-time user — of the factory, or of any AI
 coding workflow. Read it start to finish, once, before you touch a single
-command. The [`factory/README.md`](../factory/README.md) and
-[factory guide](../factory/docs/factory-guide.md) are references you return to
+command. The [`factory/README.md`](../../factory/README.md) and
+[factory guide](../../factory/docs/factory-guide.md) are references you return to
 afterward; this page is the one you walk through first.
 
 ## Who this is for
@@ -40,7 +40,7 @@ and the rest of the documentation stops feeling foreign.
 | **Gate**     | An *automatic check* that catches mistakes before you waste time reviewing them. | The quality inspector who won't let bad work pass. |
 
 You never memorise the full list. Your assistant reads a catalogue —
-[`INDEX.yaml`](../factory/INDEX.yaml) — and picks the right agent or skill for
+[`INDEX.yaml`](../../factory/INDEX.yaml) — and picks the right agent or skill for
 what you asked. Your job is to know *that these things exist* so you understand
 what the assistant is doing when it says "I'll use the requirements agent now."
 
@@ -85,7 +85,7 @@ mode, a fresh window between the two.
 
 ## Your very first session
 
-Do the setup once, following [`factory/README.md`](../factory/README.md) — it
+Do the setup once, following [`factory/README.md`](../../factory/README.md) — it
 lists the handful of tools you need and the one script that wires everything up.
 When it is done, open your AI assistant in your project folder and say hello. It
 should greet you back and confirm it has read the project's rules. That handshake
@@ -150,7 +150,7 @@ choose the playbook.
 | Add a feature to a project the factory already manages | `feature-addition`       |
 
 The full list, with a sentence on each, lives in the
-[factory guide § Playbooks](../factory/docs/factory-guide.md#playbooks).
+[factory guide § Playbooks](../../factory/docs/factory-guide.md#playbooks).
 
 ## Graduating to automatic mode
 
@@ -159,7 +159,7 @@ like a chore rather than a decision. You check the artifacts, you open the next
 session, you check the gate, you advance — the same turns, every time. That
 feeling is the signal you are ready for the orchestrator.
 
-The [orchestrator](../orchestrator/README.md) replaces exactly that manual
+The [orchestrator](../../orchestrator/README.md) replaces exactly that manual
 crank-turning and nothing more. It reads the playbook, dispatches the next agent,
 waits, checks the gate, and steps forward — the same scripts you were running by
 hand, run for you. It still stops where a human genuinely belongs: the
@@ -192,10 +192,10 @@ Two things worth knowing before you rely on it:
 
 ## Where to go next
 
-- Set up the tooling: [`factory/README.md`](../factory/README.md)
-- Understand each piece in depth: [factory guide](../factory/docs/factory-guide.md)
-- Hand over the crank: [orchestrator](../orchestrator/README.md)
-- The ideas underneath it all: [`docs/concepts.md`](concepts.md)
+- Set up the tooling: [`factory/README.md`](../../factory/README.md)
+- Understand each piece in depth: [factory guide](../../factory/docs/factory-guide.md)
+- Hand over the crank: [orchestrator](../../orchestrator/README.md)
+- The ideas underneath it all: [`docs/arc42/concepts.md`](concepts.md)
 
 You do not need any of these to start. Run one `poc-spike`, watch the loop, and
 come back for the rest when you are curious. The factory rewards learning by

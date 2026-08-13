@@ -51,7 +51,7 @@
 - `docs/adr/0007-normalize-runtime-usage-through-cli-adapters.md` — recorded
   normalization, adapter, lifecycle-ownership, persistence, privacy, and
   conservation decisions.
-- `docs/09_architecture_decisions.md` and `docs/05_building_block_view.md` —
+- `docs/arc42/09_architecture_decisions.md` and `docs/arc42/05_building_block_view.md` —
   indexed ADR-0007 and described the runtime usage component.
 
 ## Code defects filed

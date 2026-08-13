@@ -5,7 +5,7 @@ version: 1.0.0
 
 # CONTEXT-MAP.md Template
 
-Skeleton for `docs/CONTEXT-MAP.md` in a multi-context repo. Governed by [context-format.md](../conventions/context-format.md).
+Skeleton for `docs/arc42/CONTEXT-MAP.md` in a multi-context repo. Governed by [context-format.md](../conventions/context-format.md).
 
 ```md
 # Context Map

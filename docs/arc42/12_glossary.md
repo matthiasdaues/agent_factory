@@ -1,4 +1,4 @@
-[back to index](README.md)
+[back to index](../README.md)
 
 # 12. Glossary
 
@@ -75,4 +75,4 @@ Terms for the falsification-driven research feature (phase-6 agents and the `res
 
 - All arc42 chapters use this vocabulary consistently.
 - [CONTEXT-MAP.md](CONTEXT-MAP.md) — bounded context glossaries
-- [spec/prd.md](spec/prd.md) — PRD uses the same terms
+- [spec/prd.md](../spec/prd.md) — PRD uses the same terms

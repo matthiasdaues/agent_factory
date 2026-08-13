@@ -1,4 +1,4 @@
-[back to index](README.md)
+[back to index](../README.md)
 
 # 5. Building Block View
 
@@ -15,7 +15,7 @@ Factory Flow Control consists of three primary containers:
 | State Files       | Local git-ignored marker (`.agent-factory/playbook-state.yml`) and FSM defs                      | YAML (storage)            |
 | Catalog           | Generated `factory/INDEX.yaml` from agent/skill/playbook/rulebook frontmatter, with token counts | YAML (storage)            |
 
-![Containers](assets/images/Containers.png)
+![Containers](../assets/images/Containers.png)
 
 ## 5.2 Level 2: Component View — Validator
 
@@ -66,9 +66,9 @@ Two more — `schema-validate` and `policy-validate` — are on-demand validator
 
 **Referenced Specifications**:
 
-- [UC-09 — Run Tests via Hook](spec/use_cases/UC-09-run-tests-via-hook.md)
-- [PRD § FR-I — Test Execution](spec/prd.md#fr-i--test-execution-run-tests)
-- [validation-rules.md § Test execution (BR-023..BR-027)](spec/supplementary_specs/validation-rules.md#test-execution-run-tests-br-023-br-024-br-025-br-026-br-027)
+- [UC-09 — Run Tests via Hook](../spec/use_cases/UC-09-run-tests-via-hook.md)
+- [PRD § FR-I — Test Execution](../spec/prd.md#fr-i--test-execution-run-tests)
+- [validation-rules.md § Test execution (BR-023..BR-027)](../spec/supplementary_specs/validation-rules.md#test-execution-run-tests-br-023-br-024-br-025-br-026-br-027)
 
 ### 5.2.2 Research artifact validators (schema-validate, policy-validate)
 
@@ -89,8 +89,8 @@ The falsification-driven research feature validates its JSON artifacts through a
 
 **Referenced Specifications**:
 
-- [ADR-0006 — Research: flat storage and validation pipeline](adr/0006-research-flat-storage-and-validation-pipeline.md)
-- [factory/playbooks/research-topic.md § The Validation Gate](../factory/playbooks/research-topic.md)
+- [ADR-0006 — Research: flat storage and validation pipeline](../adr/0006-research-flat-storage-and-validation-pipeline.md)
+- [factory/playbooks/research-topic.md § The Validation Gate](../../factory/playbooks/research-topic.md)
 
 ## 5.3 Level 2: Component View — State Manager
 
@@ -146,7 +146,7 @@ Native lifecycle adapters own invocation: Claude `Stop`/`SubagentStop`,
 Copilot `agentStop`/`subagentStop`, Codex `Stop`/`SubagentStop`, and Pi
 `session_shutdown` plus inline child capture. The orchestrator never writes a
 second record. See
-[ADR-0007](adr/0007-normalize-runtime-usage-through-cli-adapters.md).
+[ADR-0007](../adr/0007-normalize-runtime-usage-through-cli-adapters.md).
 
 ## Referenced from
 

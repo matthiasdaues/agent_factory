@@ -18,7 +18,7 @@ impact:
     - factory/scripts/phase
     - factory/skills/grilling/SKILL.md
     - factory/docs/factory-guide.md
-    - docs/architecture.dsl
+    - docs/arc42/architecture.dsl
 
 governance:
   assurance: critical

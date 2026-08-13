@@ -1,6 +1,6 @@
 # Factory Guide
 
-What's inside `factory/`, and how its pieces fit together. If you are brand new, start with the [beginner's introduction](../../docs/beginner-intro.md); if you just want to get running, go to [factory/README.md](../README.md) instead. This page is background — read it once you're set up.
+What's inside `factory/`, and how its pieces fit together. If you are brand new, start with the [beginner's introduction](../../docs/arc42/beginner-intro.md); if you just want to get running, go to [factory/README.md](../README.md) instead. This page is background — read it once you're set up.
 
 ## Agents
 
@@ -234,7 +234,7 @@ Start with these. Small blast radius, few steps, nothing to set up first:
 
 ### Full-chain playbooks
 
-Once you're comfortable, these drive some or all of the five-phase chain (requirements → architecture → planning → implementation → quality — see [docs/concepts.md § The phase chain](../../docs/concepts.md#the-phase-chain)):
+Once you're comfortable, these drive some or all of the five-phase chain (requirements → architecture → planning → implementation → quality — see [docs/arc42/concepts.md § The phase chain](../../docs/arc42/concepts.md#the-phase-chain)):
 
 | Playbook                                                              | For                                                                                                                                                              |
 | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -328,7 +328,7 @@ In manual mode (driving each agent by hand, one session at a time), the reviewer
 
 ```bash
 factory/scripts/spec-lint --spec-dir docs/spec/
-factory/scripts/arch-lint --docs-dir docs/
+factory/scripts/arch-lint --docs-dir docs/arc42
 factory/scripts/backlog-lint --backlog-dir backlog/
 factory/scripts/matrix-lint --matrix config/model.conf
 ```
@@ -352,7 +352,7 @@ factory/scripts/policy-validate --pipeline <artifact-or-dir>...   # runs stage 1
 
 An artifact must pass stage 1, then stage 2, then stage 3 before the next playbook step begins. The schemas live in [`factory/rulebooks/schemas/`](../rulebooks/schemas/). See [ADR-0006](../../docs/adr/0006-research-flat-storage-and-validation-pipeline.md) and [`research-topic.md` § The Validation Gate](../playbooks/research-topic.md).
 
-Separately, `pre-commit` runs `mdformat` and `ruff` on every commit, formatting markdown and Python automatically. Both run through `uvx`, so nothing needs installing locally beyond `uv` itself — the same zero-local-install pattern `factory/scripts/structurizr` uses for its Docker dependency.
+Separately, `pre-commit` runs `mdformat`, `ruff`, and the stdlib-only `factory/scripts/link-check` on every commit. The link gate is a fast offline counterpart to lychee: it validates repository-local Markdown files and images, while remote URLs remain the responsibility of an online crawler. The formatters run through `uvx`, so nothing needs installing locally beyond `uv` itself — the same zero-local-install pattern `factory/scripts/structurizr` uses for its Docker dependency.
 
 ## CLI safety guardrails
 

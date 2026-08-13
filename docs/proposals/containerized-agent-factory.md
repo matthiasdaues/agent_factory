@@ -19,7 +19,7 @@ impact:
     - factory/config/hooks/block-dangerous-git.sh
     - factory/scripts/commit-safe
     - factory/docs/factory-guide.md
-    - docs/architecture.dsl
+    - docs/arc42/architecture.dsl
 
 governance:
   assurance: critical

@@ -17,7 +17,7 @@ inputs:
   - docs/spec/supplementary_specs/*.md
   - docs/*.md
   - docs/adr/*.md
-  - docs/CONTEXT.md
+  - docs/arc42/CONTEXT.md
   - factory/rulebooks/conventions/report-format.md
   - factory/rulebooks/conventions/finding-format.md
   - factory/rulebooks/conventions/commit-conventions.md

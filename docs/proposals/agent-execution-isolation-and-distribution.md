@@ -20,7 +20,7 @@ impact:
     - factory/scripts/verify-base
     - factory/scripts/premerge-check
     - factory/docs/factory-guide.md
-    - docs/architecture.dsl
+    - docs/arc42/architecture.dsl
 
 governance:
   assurance: critical

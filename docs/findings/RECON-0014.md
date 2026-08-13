@@ -3,7 +3,7 @@ id: RECON-0014
 source: reconcile-spec
 severity: major
 category: defect
-artifact: docs/adr/0004-pi-subagent-invocation-via-subprocess-spawn.md; docs/adr/0005-openrouter-model-discovery-for-model-conf.md; docs/adr/0006-research-flat-storage-and-validation-pipeline.md; docs/adr/0007-normalize-runtime-usage-through-cli-adapters.md; docs/09_architecture_decisions.md#decision-index
+artifact: docs/adr/0004-pi-subagent-invocation-via-subprocess-spawn.md; docs/adr/0005-openrouter-model-discovery-for-model-conf.md; docs/adr/0006-research-flat-storage-and-validation-pipeline.md; docs/adr/0007-normalize-runtime-usage-through-cli-adapters.md; docs/arc42/09_architecture_decisions.md#decision-index
 status: resolved
 traces: [ADR-0004, ADR-0005, ADR-0006, ADR-0007]
 ---
@@ -11,7 +11,7 @@ traces: [ADR-0004, ADR-0005, ADR-0006, ADR-0007]
 # ADRs 0004–0007 are marked `proposed` but the code fully implements and depends on them
 
 **What is wrong:** Four ADRs carry `status: proposed` in their own frontmatter
-and in the `docs/09_architecture_decisions.md` Decision Index, yet the
+and in the `docs/arc42/09_architecture_decisions.md` Decision Index, yet the
 code-as-built ships, exercises, and depends on every decision they record. In
 Nygard's status model "proposed" means a decision has not yet been adopted; a
 decision that is implemented and load-bearing for the running system is
@@ -36,7 +36,7 @@ codebase.
   Codex, and Pi adapters are installed and tested (RECON-0006 through
   RECON-0012, all resolved).
 
-The Decision Index in `docs/09_architecture_decisions.md` mirrors the same
+The Decision Index in `docs/arc42/09_architecture_decisions.md` mirrors the same
 four `proposed` statuses (lines 14–17), and the § Key Decisions prose already
 describes them as established ("ADR-0004 establishes…", "ADR-0007 establishes
 one CLI-agnostic runtime usage pipeline…") — the prose and the code say
@@ -44,7 +44,7 @@ one CLI-agnostic runtime usage pipeline…") — the prose and the code say
 
 **Fix:** Set `status: accepted` in the frontmatter of
 `docs/adr/0004-…`, `0005-…`, `0006-…`, and `0007-…`, and update the Status
-column for those four rows in `docs/09_architecture_decisions.md`'s Decision
+column for those four rows in `docs/arc42/09_architecture_decisions.md`'s Decision
 Index from `proposed` to `accepted`. If any decision is genuinely still
 contingent (e.g. awaiting a ratification the team has not held), annotate the
 ADR body with that contingency rather than leaving the status field

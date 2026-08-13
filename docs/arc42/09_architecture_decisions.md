@@ -1,4 +1,4 @@
-[back to index](README.md)
+[back to index](../README.md)
 
 # 9. Architecture Decisions
 
@@ -6,18 +6,18 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 
 ## Decision Index
 
-| ID   | Title                                                                                                                                                      | Status                 | Evaluation  |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------- |
-| 0001 | [Pre-commit monorepo scoping](adr/0001-precommit-monorepo-scoping.md)                                                                                      | accepted               | none        |
-| 0002 | [Factory owns flow control; orchestrator is a trigger](adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md)                                    | accepted               | pugh-matrix |
-| 0003 | [Test execution via mechanically triggered gates](adr/0003-test-execution-via-hooks.md)                                                                    | accepted               | none        |
-| 0004 | [Pi runs a factory agent by spawning a separate `pi` subprocess](adr/0004-pi-subagent-invocation-via-subprocess-spawn.md)                                  | accepted               | pugh-matrix |
-| 0005 | [OpenRouter tiers curated into `model.conf`; discovery is a separate offline aid](adr/0005-openrouter-model-discovery-for-model-conf.md)                   | accepted               | none        |
-| 0006 | [Research: flat prefixed rulebook storage and a schema → policy → semantic validation pipeline](adr/0006-research-flat-storage-and-validation-pipeline.md) | accepted               | none        |
-| 0007 | [Normalize runtime usage through CLI adapters into local append-only records](adr/0007-normalize-runtime-usage-through-cli-adapters.md)                    | superseded by ADR-0009 | none        |
-| 0008 | [Separate proposal impact, governance, estimates, and actuals](adr/0008-separate-proposal-impact-governance-estimates-and-actuals.md)                      | accepted               | none        |
-| 0009 | [CLI-prefixed usage record filenames when filesystem-safe](adr/0009-cli-prefixed-usage-record-filenames-when-filesystem-safe.md)                           | accepted               | none        |
-| 0010 | [Refresh an installed factory/ by remove-and-reinstall](adr/0010-refresh-installed-factory-by-remove-and-reinstall.md)                                     | accepted               | none        |
+| ID   | Title                                                                                                                                                         | Status                 | Evaluation  |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------- |
+| 0001 | [Pre-commit monorepo scoping](../adr/0001-precommit-monorepo-scoping.md)                                                                                      | accepted               | none        |
+| 0002 | [Factory owns flow control; orchestrator is a trigger](../adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md)                                    | accepted               | pugh-matrix |
+| 0003 | [Test execution via mechanically triggered gates](../adr/0003-test-execution-via-hooks.md)                                                                    | accepted               | none        |
+| 0004 | [Pi runs a factory agent by spawning a separate `pi` subprocess](../adr/0004-pi-subagent-invocation-via-subprocess-spawn.md)                                  | accepted               | pugh-matrix |
+| 0005 | [OpenRouter tiers curated into `model.conf`; discovery is a separate offline aid](../adr/0005-openrouter-model-discovery-for-model-conf.md)                   | accepted               | none        |
+| 0006 | [Research: flat prefixed rulebook storage and a schema → policy → semantic validation pipeline](../adr/0006-research-flat-storage-and-validation-pipeline.md) | accepted               | none        |
+| 0007 | [Normalize runtime usage through CLI adapters into local append-only records](../adr/0007-normalize-runtime-usage-through-cli-adapters.md)                    | superseded by ADR-0009 | none        |
+| 0008 | [Separate proposal impact, governance, estimates, and actuals](../adr/0008-separate-proposal-impact-governance-estimates-and-actuals.md)                      | accepted               | none        |
+| 0009 | [CLI-prefixed usage record filenames when filesystem-safe](../adr/0009-cli-prefixed-usage-record-filenames-when-filesystem-safe.md)                           | accepted               | none        |
+| 0010 | [Refresh an installed factory/ by remove-and-reinstall](../adr/0010-refresh-installed-factory-by-remove-and-reinstall.md)                                     | accepted               | none        |
 
 ## Key Decisions
 
@@ -93,6 +93,5 @@ None yet.
 
 ## Referenced from
 
-- [04_solution_strategy.md](04_solution_strategy.md) — solution strategy derives from these decisions
 - [05_building_block_view.md](05_building_block_view.md) — building blocks implement these decisions
 - [08_crosscutting_concepts.md](08_crosscutting_concepts.md) — principles codified here

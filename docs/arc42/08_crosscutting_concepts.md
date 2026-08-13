@@ -1,4 +1,4 @@
-[back to index](README.md)
+[back to index](../README.md)
 
 # 8. Cross-cutting Concepts
 
@@ -6,7 +6,7 @@
 
 **Principle**: Creation is agentic; validation is deterministic. Tests, phase-order gates, and dangerous-command checks are triggered mechanically rather than left to agent judgment. Agent guardrails prevent bypass in the managed workflow; human operators who control the Git client retain Git's standard `--no-verify` escape hatch. Other deterministic validators run *on demand*, invoked by a playbook, agent, or operator; their result remains trustworthy because it is a mechanical exit code, not an agent's word.
 
-Derived from [`factory/rulebooks/conventions/foundational-principles.md`](../factory/rulebooks/conventions/foundational-principles.md).
+Derived from [`factory/rulebooks/conventions/foundational-principles.md`](../../factory/rulebooks/conventions/foundational-principles.md).
 
 ### What It Means
 
@@ -133,11 +133,11 @@ The falsification-driven research feature validates its JSON artifacts through a
 
 The order is fixed: an artifact must pass stage 1, then stage 2, then stage 3 before the next playbook step begins, and progression blocks on the first failing stage (`policy-validate --pipeline` chains stages 1 and 2 and stops at the first failure). This is the same "Agentic Creation, Deterministic Validation" principle applied to a new domain: mechanise every check that can be mechanised (stages 1–2, stdlib-only exit-code validators, exactly like `spec-lint` and `arch-lint`), and name honestly the residue that a script cannot settle (stage 3).
 
-Two distinctions from §8.2 matter. First, these validators are **on demand, not hook-enforced**: the research playbook and agents invoke them, so they are deterministic and reproducible but do not run automatically at an operation boundary the way a pre-commit gate does. Second, the schemas they check against are **data, not prose** — JSON-Schema files under `factory/rulebooks/schemas/`, a rulebook category deliberately outside `INDEX.yaml`. See [ADR-0006](09_architecture_decisions.md) and [`research-topic.md` § The Validation Gate](../factory/playbooks/research-topic.md).
+Two distinctions from §8.2 matter. First, these validators are **on demand, not hook-enforced**: the research playbook and agents invoke them, so they are deterministic and reproducible but do not run automatically at an operation boundary the way a pre-commit gate does. Second, the schemas they check against are **data, not prose** — JSON-Schema files under `factory/rulebooks/schemas/`, a rulebook category deliberately outside `INDEX.yaml`. See [ADR-0006](09_architecture_decisions.md) and [`research-topic.md` § The Validation Gate](../../factory/playbooks/research-topic.md).
 
 ## Referenced from
 
-- [foundational-principles.md](../factory/rulebooks/conventions/foundational-principles.md)
+- [foundational-principles.md](../../factory/rulebooks/conventions/foundational-principles.md)
 - [05_building_block_view.md § 5.2.1](05_building_block_view.md#521-run-tests--test-execution-component)
 - [06_runtime_view.md § 6.2](06_runtime_view.md#62-test-execution-flow)
 - [09_architecture_decisions.md](09_architecture_decisions.md)

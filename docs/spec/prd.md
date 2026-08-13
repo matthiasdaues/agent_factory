@@ -10,7 +10,7 @@ ______________________________________________________________________
 
 `factory/` began as a library of agents, skills, and playbooks — prose read by a human or an AI CLI, with no enforcement. Nothing stopped a file from a later phase being staged before its predecessor's gate cleared. Nothing capped a review loop, so a stuck gate could churn forever. `factory/` has since grown its own deterministic state-machine harness, a CLI-agnostic dispatch mechanism, and a generated catalog to close both gaps — without requiring the `orchestrator/` Python CLI that used to own this job.
 
-`orchestrator/` used to run its own `PhaseRunner`, an independent state machine for driving the agent chain. That ownership has inverted. `orchestrator/` is now one possible trigger of `factory/`'s mechanisms — a stand-in for a human manually running `factory/scripts/trigger`, `phase advance`, and `phase retry` by hand. A human typing commands and the orchestrator CLI are peers; both only invoke `factory/` tooling. This PRD documents `factory/` as the flow-control owner it has become, superseding the informal descriptions in [docs/concepts.md § The phase chain](../concepts.md#the-phase-chain) and [factory/docs/factory-guide.md § Playbook phase gates](../../factory/docs/factory-guide.md#playbook-phase-gates) with a rigorous specification.
+`orchestrator/` used to run its own `PhaseRunner`, an independent state machine for driving the agent chain. That ownership has inverted. `orchestrator/` is now one possible trigger of `factory/`'s mechanisms — a stand-in for a human manually running `factory/scripts/trigger`, `phase advance`, and `phase retry` by hand. A human typing commands and the orchestrator CLI are peers; both only invoke `factory/` tooling. This PRD documents `factory/` as the flow-control owner it has become, superseding the informal descriptions in [docs/arc42/concepts.md § The phase chain](../arc42/concepts.md#the-phase-chain) and [factory/docs/factory-guide.md § Playbook phase gates](../../factory/docs/factory-guide.md#playbook-phase-gates) with a rigorous specification.
 
 ## 2. Goals and Non-Goals
 
@@ -160,5 +160,5 @@ Pi has no native subagent concept, so a factory agent cannot run in a separate P
 
 - [actor-goal-list.md](actor-goal-list.md)
 - [../README.md § Table of Contents](../README.md#table-of-contents) — the arc42 architecture documentation and Structurizr C4 model built from this specification.
-- [Accepted dispatch-efficiency proposal](../proposals/agent-dispatch-token-efficiency.md) — design origin for FR-L's assurance audit.
-- [Accepted session-control proposal](../proposals/proposal-session-transcript-token-control.md) — design origin for FR-K's external workflow contract.
+- [Accepted dispatch-efficiency proposal](../proposals/implemented/agent-dispatch-token-efficiency.md) — design origin for FR-L's assurance audit.
+- [Accepted session-control proposal](../proposals/implemented/proposal-session-transcript-token-control.md) — design origin for FR-K's external workflow contract.

@@ -13,8 +13,8 @@ reviewer: reconciliation-agent (separate session)
 `docs/adr` flow-control specification surface (left alone unless a genuine
 contradiction forced it). Targets reconciled against the code-as-built:
 
-1. Root `README.md` and root-level docs it references (`docs/concepts.md`,
-   `docs/beginner-intro.md`, `docs/CONTEXT-MAP.md`, `docs/README.md`).
+1. Root `README.md` and root-level docs it references (`docs/arc42/concepts.md`,
+   `docs/arc42/beginner-intro.md`, `docs/arc42/CONTEXT-MAP.md`, `docs/README.md`).
 2. `factory/` self-documentation (`factory/README.md`, `factory/docs/`).
 3. `orchestrator/` self-documentation (`orchestrator/README.md`,
    `orchestrator/docs/**`, `orchestrator/docs/adr/`).
@@ -35,7 +35,7 @@ documented invocation forms.
 
 | #   | Finding                                                                                                                                                                                                                                                                                     | Artifact                                | Category | Severity | Disposition                                                                                                                                 |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- | -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | CONTEXT-MAP links to `../orchestrator/CONTEXT.md` (removed) and calls the orchestrator "the `ai_tooling` agent chain" — a dead term two generations stale.                                                                                                                                  | `docs/CONTEXT-MAP.md:7`                 | Defect   | Major    | **Fixed** — entry now links `orchestrator/README.md` + `orchestrator/docs/adr/` and drops `ai_tooling`.                                     |
+| 1   | CONTEXT-MAP links to `../orchestrator/CONTEXT.md` (removed) and calls the orchestrator "the `ai_tooling` agent chain" — a dead term two generations stale.                                                                                                                                  | `docs/arc42/CONTEXT-MAP.md:7`           | Defect   | Major    | **Fixed** — entry now links `orchestrator/README.md` + `orchestrator/docs/adr/` and drops `ai_tooling`.                                     |
 | 2   | `factory/README.md` top line says "you re-run `init-factory` to update it," contradicting ADR-0010 and the README's own "use the update script instead."                                                                                                                                    | `factory/README.md:3`                   | Defect   | Minor    | **Fixed** — now says run `update-factory`.                                                                                                  |
 | 3   | `factory/docs/factory-guide.md` § Linting and gating gives manual-mode examples for 3 of 4 gates as bare positionals (`spec-lint docs/spec/`, `backlog-lint backlog/`, `matrix-lint config/model.conf`) that the scripts reject — they require `--spec-dir`/`--backlog-dir`/`--matrix`.     | `factory/docs/factory-guide.md`         | Defect   | Major    | **Fixed** — examples corrected to the flag forms, all verified to run.                                                                      |
 | 4   | `orchestrator/README.md` Files tree implies a single test file (`tests/ └── test_run_playbook.py # 18 tests`) and omits `__init__.py` from `src/`. The suite is now 50 files; `src/` has `__init__.py`.                                                                                     | `orchestrator/README.md` (Files)        | Defect   | Minor    | **Fixed** — tree now notes the 50-file suite and lists `__init__.py`.                                                                       |
@@ -66,13 +66,13 @@ documented invocation forms.
 ## Verified accurate (no change)
 
 - Root `README.md` — repo-layout claims, links to `factory/`, `orchestrator/`,
-  `docs/concepts.md`, `docs/beginner-intro.md`, the workflow-diagram asset
+  `docs/arc42/concepts.md`, `docs/arc42/beginner-intro.md`, the workflow-diagram asset
   (`docs/assets/images/workflow-diagram.svg` exists).
-- `docs/concepts.md` — project directory tree, phase chain, research-workflow
+- `docs/arc42/concepts.md` — project directory tree, phase chain, research-workflow
   description, `update-factory` mention, `factory/config/` template labelling.
-- `docs/beginner-intro.md` — all six playbook references resolve; orchestrator
+- `docs/arc42/beginner-intro.md` — all six playbook references resolve; orchestrator
   `.fsm.yml` description; two-modes framing.
-- `docs/CONTEXT-MAP.md` — Usage Accounting (`usage/` absent, no code) and
+- `docs/arc42/CONTEXT-MAP.md` — Usage Accounting (`usage/` absent, no code) and
   Factory API ("vision-stub only") claims still accurate.
 - `factory/README.md` — `init-factory` footprint, `run-playbook`
   `AF_ORCHESTRATOR_SOURCE` / `orchestrator-v0.1.0` tag (tag exists), `--cli claude|copilot` backends, `run-tests --staged` agent loop, framework

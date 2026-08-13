@@ -22,12 +22,12 @@
 
 ## Discrepancy table
 
-| Finding                                                                                    | Artifact                                | Classification                 | Severity | Action                                                                         |
-| ------------------------------------------------------------------------------------------ | --------------------------------------- | ------------------------------ | -------- | ------------------------------------------------------------------------------ |
-| PreToolUse guardrail and `run-step` described as a two-CLI surface, omitting Codex and Pi. | [RECON-0013](../findings/RECON-0013.md) | Spec stale / terminology drift | Major    | Resolved across arc42, Factory guide, PRD, use cases, and interface contracts. |
-| ADRs 0004–0007 marked `proposed` though fully implemented and load-bearing.                | [RECON-0014](../findings/RECON-0014.md) | Spec stale                     | Major    | Resolved; ADR frontmatter and decision index now say `accepted`.               |
-| `05_building_block_view.md` §5.5 run-tests entry point omitted `--staged`.                 | `docs/05_building_block_view.md` §5.5   | Spec stale                     | Minor    | Resolved; interface row now lists all three modes.                             |
-| `06_runtime_view.md` §6.2.5 deny-pattern list was an incomplete normative subset.          | `docs/06_runtime_view.md` §6.2.5        | Spec stale                     | Minor    | Resolved; the script is canonical and the prose list is explicitly exemplary.  |
+| Finding                                                                                    | Artifact                                    | Classification                 | Severity | Action                                                                         |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------- | ------------------------------ | -------- | ------------------------------------------------------------------------------ |
+| PreToolUse guardrail and `run-step` described as a two-CLI surface, omitting Codex and Pi. | [RECON-0013](../findings/RECON-0013.md)     | Spec stale / terminology drift | Major    | Resolved across arc42, Factory guide, PRD, use cases, and interface contracts. |
+| ADRs 0004–0007 marked `proposed` though fully implemented and load-bearing.                | [RECON-0014](../findings/RECON-0014.md)     | Spec stale                     | Major    | Resolved; ADR frontmatter and decision index now say `accepted`.               |
+| `05_building_block_view.md` §5.5 run-tests entry point omitted `--staged`.                 | `docs/arc42/05_building_block_view.md` §5.5 | Spec stale                     | Minor    | Resolved; interface row now lists all three modes.                             |
+| `06_runtime_view.md` §6.2.5 deny-pattern list was an incomplete normative subset.          | `docs/arc42/06_runtime_view.md` §6.2.5      | Spec stale                     | Minor    | Resolved; the script is canonical and the prose list is explicitly exemplary.  |
 
 ## Prior finding verification (repeat pass)
 
@@ -67,17 +67,17 @@ fixes that closed them.
 
 ## Specification and architecture files updated
 
-- `docs/05_building_block_view.md` — four-CLI guardrail and complete run-tests
+- `docs/arc42/05_building_block_view.md` — four-CLI guardrail and complete run-tests
   interface.
-- `docs/06_runtime_view.md` — native-hook/Pi-extension split and exemplary
+- `docs/arc42/06_runtime_view.md` — native-hook/Pi-extension split and exemplary
   deny-list wording.
-- `docs/08_crosscutting_concepts.md` and `docs/12_glossary.md` — runtime input
+- `docs/arc42/08_crosscutting_concepts.md` and `docs/arc42/12_glossary.md` — runtime input
   shapes and canonical four-CLI vocabulary.
 - `factory/docs/factory-guide.md` — installation and guardrail wiring for all
   four runtimes.
 - `docs/spec/prd.md`, UC-07, UC-08, and `interface-contracts.md` — aligned the
   normative installation and guardrail contracts.
-- ADR-0004 through ADR-0007 and `docs/09_architecture_decisions.md` — status
+- ADR-0004 through ADR-0007 and `docs/arc42/09_architecture_decisions.md` — status
   changed from `proposed` to `accepted`.
 
 ## Code defects filed
