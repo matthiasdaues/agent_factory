@@ -10,6 +10,7 @@ description: >-
   where the docs drifted from reality and brings them back into alignment.
 skills:
   - reconcile-spec
+  - model-structurizr-slice
   - handoff
 inputs:
   - docs/CONTEXT.md

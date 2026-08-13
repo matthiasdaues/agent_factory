@@ -11,6 +11,7 @@ skills:
   - pugh-matrix
   - write-adr
   - maintain-architecture
+  - model-structurizr-slice
   - handoff
 inputs:
   - docs/CONTEXT.md

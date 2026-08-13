@@ -37,8 +37,8 @@ agents:
     tier: strong
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
-    tokens: 1074
-    total_tokens: 6413
+    tokens: 1084
+    total_tokens: 7707
   - name: architecture-review-agent
     title: Architecture Review Agent
     phase: 2
@@ -46,8 +46,8 @@ agents:
     tier: strong
     description: Review architecture against quality attributes using ATAM in a separate session from the architecture author.
     path: agents/architecture-review-agent.md
-    tokens: 798
-    total_tokens: 4248
+    tokens: 808
+    total_tokens: 5542
   - name: planning-agent
     title: Planning Agent
     phase: 3
@@ -73,8 +73,8 @@ agents:
     tier: strong
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
-    tokens: 1093
-    total_tokens: 7624
+    tokens: 1103
+    total_tokens: 8918
   - name: qa-agent
     title: QA Agent
     phase: 5
@@ -182,6 +182,11 @@ skills:
     description: Maintain arc42 architecture docs with architecture.dsl as the single source of truth. Covers DSL-first workflow, image export, Mermaid derivation, and state machine pseudocode.
     path: skills/maintain-architecture/SKILL.md
     tokens: 1156
+  - name: model-structurizr-slice
+    category: architecture
+    description: Model an increment, MVP, or release in a canonical Structurizr DSL workspace. Use to tag and style a component subset, map runtime deployment, create static and dynamic slice views, separate data models from C4 views, or fix diagrams that mix structure, deployment, behavior, and data.
+    path: skills/model-structurizr-slice/SKILL.md
+    tokens: 1284
   - name: pugh-matrix
     category: architecture
     description: Evaluate multiple alternatives against weighted criteria in a Pugh Matrix, present for confirmation, return the completed matrix. Use when a decision has genuine alternatives worth formally comparing — not every decision needs this.
@@ -329,7 +334,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1063
-    total_tokens: 11724
+    total_tokens: 14312
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -341,7 +346,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 1583
-    total_tokens: 24039
+    total_tokens: 27921
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -364,7 +369,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 949
-    total_tokens: 23924
+    total_tokens: 26512
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -380,7 +385,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 2207
-    total_tokens: 42704
+    total_tokens: 46586
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -398,7 +403,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2122
-    total_tokens: 43687
+    total_tokens: 47569
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration

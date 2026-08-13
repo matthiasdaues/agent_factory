@@ -2,7 +2,7 @@
 name: pugh-matrix
 description: Evaluate multiple alternatives against weighted criteria in a Pugh Matrix, present for confirmation, return the completed matrix. Use when a decision has genuine alternatives worth formally comparing — not every decision needs this.
 category: architecture
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Pugh Matrix

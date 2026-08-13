@@ -8,6 +8,7 @@ description: >-
   Review architecture against quality attributes using ATAM in a separate session from the architecture author.
 skills:
   - atam-review
+  - model-structurizr-slice
   - handoff
 inputs:
   - docs/CONTEXT.md
