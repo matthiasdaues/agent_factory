@@ -6,6 +6,8 @@ Canonical orientation content for any AI coding CLI working in a project that us
 
 - **MUST — TOP-LEVEL SESSION INSTRUCTION**: At the start of every session, before answering the first prompt or taking any project action, read and ingest [`factory/rulebooks/rules.md`](../rulebooks/rules.md) in full. Treat every `MUST` and `MUST NOT` there as binding for the entire session. If the file is missing or unreadable, stop and tell the user; do not continue with partial Factory guidance.
 
+- **MUST** use `rg` with an explicit hidden-file search, or `bash` ( `find`, `fd`, etc.), when the target may live under a hidden directory or file.
+
 - **MUST**: before ANY Skill/Agent call, check this project's own local skill/agent directory first. Exists locally → use it, ignore any global copy of the same name. No exceptions, no trusting tool default resolution. Local directory, by CLI:
 
   - Claude Code: `.claude/skills/<name>/SKILL.md`, `.claude/agents/<name>.md`
