@@ -108,7 +108,7 @@ erDiagram
         int    tokens "tiktoken cl100k_base body count"
     }
     MODEL_MATRIX_ENTRY {
-        string cli "copilot | codex | pi (model.conf row keys; Claude Code resolves its model outside model.conf)"
+        string cli "copilot | codex | pi (model.conf row keys. Claude Code resolves its model outside model.conf)"
         string tier "economy | standard | strong"
         string model_id
     }

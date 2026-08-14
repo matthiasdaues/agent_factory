@@ -92,12 +92,12 @@ flowchart TD
     E -->|yes| G{depth within bound?}
     G -->|no| H[Error result, no spawn — BR-035]
     G -->|yes| I[Spawn pi --no-session -a --mode json --model m --append-system-prompt agent -p task]
-    I --> J[Stream raw JSONL to protected staging; parse events and report progress]
+    I --> J[Stream raw JSONL to protected staging, parse events, and report progress]
     J --> K{cancelled?}
-    K -->|yes| L[Terminate child; clean staging; return abort diagnostic]
+    K -->|yes| L[Terminate child, clean staging, and return abort diagnostic]
     K -->|no| M{child exits 0 with message_end?}
     M -->|no| N[Error result: exit code + bounded stderr tail]
-    M -->|yes| O[Persist complete result; hand raw file to capture; return bounded envelope + usage]
+    M -->|yes| O[Persist complete result, hand raw file to capture, and return bounded envelope + usage]
 ```
 
 ## Acceptance Criteria

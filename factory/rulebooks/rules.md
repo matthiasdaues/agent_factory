@@ -115,6 +115,12 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 - **MUST** run `scripts/mdformat --number <path>` immediately after writing any markdown file — not deferred to `validate` or the pre-commit hook.
 
+## Mermaid notation
+
+→ [mermaid-notation.md](conventions/mermaid-notation.md)
+
+- **MUST NOT** put raw semicolons in Mermaid blocks; use one statement per line and encode an essential literal semicolon as `#59;`.
+
 ## Review loop discipline
 
 → [review-loop-discipline.md](conventions/review-loop-discipline.md)
@@ -152,6 +158,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - [cross-reference-format.md § Rule](conventions/cross-reference-format.md#rule)
 - [finding-format.md § When to file](conventions/finding-format.md#when-to-file)
 - [markdown-formatting.md § Rule](conventions/markdown-formatting.md#rule)
+- [mermaid-notation.md § Rule](conventions/mermaid-notation.md#rule)
 - [review-loop-discipline.md § Rule](conventions/review-loop-discipline.md#rule)
 - [state-machine-notation.md § Canonical Format](conventions/state-machine-notation.md#canonical-format)
 - [versioning-policy.md § Git Tag Must Match Version File](conventions/versioning-policy.md#git-tag-must-match-version-file)

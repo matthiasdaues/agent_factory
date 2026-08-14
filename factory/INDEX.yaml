@@ -286,7 +286,7 @@ skills:
     category: utility
     description: Run every applicable deterministic gate on demand, mid-session — the custom lint scripts plus ruff and mdformat — without needing a git commit.
     path: skills/validate/SKILL.md
-    tokens: 985
+    tokens: 1037
   - name: adversarial-review
     category: research
     description: Test a claim, its evidence, and refutation attempts against ten review checks, classify defects, and produce a vote tied to exact claim hash.
@@ -464,7 +464,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 2170
+    tokens: 2247
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
@@ -509,6 +509,10 @@ rulebooks:
     category: conventions
     path: rulebooks/conventions/markdown-formatting.md
     tokens: 325
+  - name: mermaid-notation
+    category: conventions
+    path: rulebooks/conventions/mermaid-notation.md
+    tokens: 291
   - name: report-format
     category: conventions
     path: rulebooks/conventions/report-format.md
