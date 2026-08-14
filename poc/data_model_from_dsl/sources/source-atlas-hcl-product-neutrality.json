@@ -1,0 +1,67 @@
+{
+  "source_identity": "Atlas HCL Column Types Reference: 'HCL Types' (atlasgo.io/atlas-schema/hcl-types), per-dialect sections for MySQL, PostgreSQL, SQLite, ClickHouse, SQL Server",
+  "author_or_issuing_body": "Ariga, Inc. (maintainer of the Atlas project)",
+  "publisher": "atlasgo.io (Ariga, Inc.)",
+  "publication_date": "2026-08-14T00:00:00Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "atlasgo.io official documentation (Ariga)",
+  "precise_evidence_location": "atlasgo.io/atlas-schema/hcl-types, per-database sections: §MySQL, §PostgreSQL, §SQLite, §ClickHouse, §SQL Server, §Redshift",
+  "method": "Live retrieval of the public documentation page via automated web-fetch, directed to list per-dialect column types and quote verbatim text distinguishing shared vs. dialect-specific types, plus a targeted follow-up fetch of the PostgreSQL enum/domain examples.",
+  "limitations": "The page organizes types strictly by database engine with separate sections per engine rather than a single unified type table, which is itself evidence toward the finding below, but also means no single passage states 'these types are shared across all dialects' — the shared-vs-specific determination here is inferred by comparing section contents across engines, not quoted from one summary sentence. SQL Server and Redshift enum support was reported as 'not documented' by the fetch, which could mean either genuine absence or that the fetch did not surface it; recorded as an evidence gap, not a confirmed absence.",
+  "provenance": "Retrieved via the WebFetch tool against https://atlasgo.io/atlas-schema/hcl-types and https://atlasgo.io/atlas-schema/hcl-types#postgresql on 2026-08-14. Re-verify by visiting the URL directly and comparing the §MySQL, §PostgreSQL, §SQLite, §ClickHouse, and §SQL Server sections.",
+  "raw_evidence": [
+    {
+      "quote": "The json type allows storing JSON objects.",
+      "locator": "§MySQL",
+      "url": "https://atlasgo.io/atlas-schema/hcl-types"
+    },
+    {
+      "quote": "The json and jsonb types allow creating columns for storing JSON objects.",
+      "locator": "§PostgreSQL",
+      "url": "https://atlasgo.io/atlas-schema/hcl-types"
+    },
+    {
+      "quote": "The JSON type allows creating columns for storing JSON objects.",
+      "locator": "§ClickHouse",
+      "url": "https://atlasgo.io/atlas-schema/hcl-types"
+    },
+    {
+      "quote": "The enum type allows storing a set of enumerated values.",
+      "locator": "§MySQL",
+      "url": "https://atlasgo.io/atlas-schema/hcl-types"
+    },
+    {
+      "quote": "enum \"status\" {\n  schema = schema.test\n  values = [\"on\", \"off\"]\n}\n\ntable \"t1\" {\n  schema = schema.test\n  column \"c1\" {\n    type = enum.status\n  }\n}",
+      "locator": "§PostgreSQL (enum defined as a separate schema object, referenced via `type = enum.status`)",
+      "url": "https://atlasgo.io/atlas-schema/hcl-types#postgresql"
+    },
+    {
+      "quote": "PostgreSQL has `uuid`, `bytea`, `inet`, `tsrange`; MySQL doesn't. SQL Server includes `money`, `smallmoney`, `nvarchar`, `identity`. ClickHouse features `IPv4`, `IPv6`, `FixedString`.",
+      "locator": "§PostgreSQL / §SQL Server / §ClickHouse (dialect-exclusive type lists)",
+      "url": "https://atlasgo.io/atlas-schema/hcl-types"
+    },
+    {
+      "quote": "domain \"us_postal_code\" {\n  schema = schema.public\n  type   = text\n  null   = true\n  check \"us_postal_code_check\" {\n    expr = \"((VALUE ~ '^\\\\d{5}$'::text) OR (VALUE ~ '^\\\\d{5}-\\\\d{4}$'::text))\"\n  }\n}",
+      "locator": "§PostgreSQL (domain with CHECK expression using Postgres-specific `~` regex operator and `VALUE` keyword)",
+      "url": "https://atlasgo.io/atlas-schema/hcl-types#postgresql"
+    }
+  ],
+  "interpretation": {
+    "product_neutrality_finding": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "atlasgo.io/atlas-schema/hcl-types, compared across §MySQL, §PostgreSQL, §SQLite, §ClickHouse, §SQL Server",
+      "rationale": "The structural HCL keywords (`schema`, `table`, `column`, `primary_key`, `foreign_key`, `index`, `check`) are dialect-neutral and reused identically across every engine section observed. The dialect leak enters at the column-type and check-expression level, not the structural level: (1) type names diverge per engine — e.g. PostgreSQL-only `uuid`/`bytea`/`inet`, SQL-Server-only `money`/`nvarchar`, ClickHouse-only `IPv4`/`FixedString` — so a column's `type = ...` attribute is written differently per target database even when the intent (e.g. 'a JSON payload column') is the same; (2) the `enum` construct is not one construct but two incompatible ones — an inline `enum` type in MySQL versus a separately declared top-level `enum` schema object bound via `type = enum.<name>` in PostgreSQL — meaning an enum column's HCL differs by dialect, not just its emitted DDL; (3) the `check.expr` attribute holds a raw SQL boolean expression string in the target dialect's own syntax (the PostgreSQL domain example uses the Postgres-only `~` regex operator and the Postgres-only `VALUE` keyword), so any value constraint beyond type is authored in dialect SQL text embedded inside otherwise-neutral HCL, not in a dialect-neutral expression language. A schema author can keep table/column/key/index STRUCTURE product-neutral, but cannot keep TYPE NAMES, ENUM DECLARATION SHAPE, or CHECK EXPRESSION SYNTAX product-neutral once a dialect is chosen — the leak is real and appears at exactly the seams the brief's advanced constructs touch (json payload columns, enumerated domains, and the resource_task_weight value-constraint-beyond-type)."
+    },
+    "value_constraint_beyond_type_resource_task_weight": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "§Check (atlasgo.io/atlas-schema/hcl) combined with §PostgreSQL domain/check example (atlasgo.io/atlas-schema/hcl-types#postgresql)",
+      "rationale": "A constraint such as 'a decimal positive integer OR the literal ALL' can be written as a single `check { expr = \"...\" }` boolean SQL expression, per the documented `check` block mechanism. But `expr` is raw dialect SQL text (evidenced by the Postgres-specific `~`/`VALUE` syntax in the domain example), so the exact expression string is not portable across database engines without rewriting — hence workaround, not a native dialect-neutral value-constraint construct."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": ["atlas hcl dialect-neutral types", "atlas hcl portable schema across databases", "atlas hcl check constraint mysql version support", "atlas hcl enum sqlite sql server support"],
+    "where_searched": ["atlasgo.io/atlas-schema/hcl-types (this page and its #postgresql anchor, via fetch prompts)", "general web search (WebSearch tool)"],
+    "search_date": "2026-08-14",
+    "result": "No statement claiming or documenting a dialect-neutral/portable subset of Atlas HCL types was found. No page found confirming or denying MySQL's version-gated CHECK-constraint enforcement (CHECK is parsed but was historically not enforced before MySQL 8.0.16) in the context of Atlas specifically — recorded as an unresolved gap, not answered from a primary Atlas source in this pass."
+  }
+}

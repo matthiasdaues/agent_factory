@@ -1,0 +1,121 @@
+{
+  "source_identity": "Mermaid official documentation — Entity Relationship Diagrams syntax reference (entityRelationshipDiagram.md)",
+  "author_or_issuing_body": "Mermaid project (mermaid-js organisation, maintainer knsv/Knut Sveidqvist and active maintainers)",
+  "publisher": "mermaid-js / GitHub Pages (docs published from packages/mermaid/src/docs/syntax/entityRelationshipDiagram.md, rendered at mermaid.js.org)",
+  "publication_date": "2026-08-14T00:00:00Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "mermaid-js official documentation (docs.mermaid.js.org / packages/mermaid/src/docs tree)",
+  "precise_evidence_location": "docs/syntax/entityRelationshipDiagram.md, sections: 'Syntax > Entities and Relationships', 'Syntax > Relationship Syntax', 'Syntax > Identification', 'Syntax > Attributes', 'Syntax > Attributes > Optional attribute types (v11.16.0+)', 'Syntax > Attributes > Attribute Keys and Comments'",
+  "method": "Retrieved the raw markdown source of the develop-branch documentation file via raw.githubusercontent.com and the rendered docs page via mermaid.js.org; extracted verbatim section headings and sentences.",
+  "limitations": "Reflects the 'develop' branch documentation as retrieved 2026-08-14, which mirrors the shipped 11.16.1 release per the CHANGELOG note on the Optional attribute types section (v11.16.0+). Documentation prose, not a formal specification; some behaviours (e.g. composite-key grouping, multi-column UNIQUE) are absent from the page by omission rather than by an explicit 'not supported' statement, so absence-of-mention is treated as evidence of no dedicated syntax, corroborated separately in source-mermaid-erd-grammar.json and source-mermaid-erd-contrary-evidence.json. Does not cover the CLI/validator/Docker/generation facets, which are recorded in other source records under this prefix.",
+  "provenance": "Fetched directly from https://raw.githubusercontent.com/mermaid-js/mermaid/develop/packages/mermaid/src/docs/syntax/entityRelationshipDiagram.md and https://mermaid.js.org/syntax/entityRelationshipDiagram.html on 2026-08-14 via automated web retrieval. Re-verify by fetching the same URLs; the raw GitHub URL is stable to the 'develop' branch HEAD and will drift with future commits, so a specific commit SHA should be pinned for exact reproduction (not captured in this pass — recorded as a limitation).",
+  "raw_evidence": [
+    {
+      "quote": "Each statement consists of the following parts: <first-entity> [<relationship> <second-entity> : <relationship-label>]",
+      "locator": "Syntax > Entities and Relationships",
+      "url": "https://mermaid.js.org/syntax/entityRelationshipDiagram.html"
+    },
+    {
+      "quote": "In each cardinality marker there are two characters. The outermost character represents a maximum value, and the innermost character represents a minimum value.",
+      "locator": "Syntax > Relationship Syntax",
+      "url": "https://mermaid.js.org/syntax/entityRelationshipDiagram.html"
+    },
+    {
+      "quote": "Relationships may be classified as either identifying or non-identifying and these are rendered with either solid or dashed lines respectively.",
+      "locator": "Syntax > Identification",
+      "url": "https://mermaid.js.org/syntax/entityRelationshipDiagram.html"
+    },
+    {
+      "quote": "The type values must begin with an alphabetic character and may contain digits, hyphens, underscores, parentheses and square brackets.",
+      "locator": "Syntax > Attributes",
+      "url": "https://mermaid.js.org/syntax/entityRelationshipDiagram.html"
+    },
+    {
+      "quote": "Attribute type values may end with ? to indicate an optional or nullable type.",
+      "locator": "Syntax > Attributes > Optional attribute types (v11.16.0+)",
+      "url": "https://mermaid.js.org/syntax/entityRelationshipDiagram.html"
+    },
+    {
+      "quote": "Keys can be PK, FK or UK, for Primary Key, Foreign Key or Unique Key.",
+      "locator": "Syntax > Attributes > Attribute Keys and Comments",
+      "url": "https://mermaid.js.org/syntax/entityRelationshipDiagram.html"
+    },
+    {
+      "quote": "To specify multiple key constraints on a single attribute, separate them with a comma (e.g., PK, FK).",
+      "locator": "Syntax > Attributes > Attribute Keys and Comments",
+      "url": "https://mermaid.js.org/syntax/entityRelationshipDiagram.html"
+    },
+    {
+      "quote": "A comment is defined by double quotes at the end of an attribute.",
+      "locator": "Syntax > Attributes > Attribute Keys and Comments",
+      "url": "https://mermaid.js.org/syntax/entityRelationshipDiagram.html"
+    }
+  ],
+  "interpretation": {
+    "composite_primary_keys": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "Syntax > Attributes > Attribute Keys and Comments ('Keys can be PK, FK or UK... separate them with a comma')",
+      "rationale": "PK is documented purely as a per-attribute key label, one keyword attached to one attribute row. The comma-separated form documented is for stacking multiple key types on ONE attribute (e.g. 'PK, FK'), not for grouping several attributes into one composite key. Marking two separate attribute rows both PK, as the incumbent entity-model.md does for OUTCOME_RULE, NAMED_RESOURCE_LINK, and CONDITION_POST, is visually suggestive but the documentation attaches no composite-key semantics to it — see source-mermaid-erd-grammar.json for the grammar-level confirmation that no grouping construct exists."
+    },
+    "json_payload_columns": {
+      "classification": "expressible",
+      "citation": "Syntax > Attributes ('The type values must begin with an alphabetic character and may contain digits, hyphens, underscores, parentheses and square brackets.')",
+      "rationale": "The type field is an unstructured free-text label matching a permissive regex; writing 'json schedule_spec' (as the incumbent already does) is syntactically valid. This is expressible only as a display label — Mermaid attaches no JSON-schema or structural validation to the word 'json'; it is indistinguishable from any other type string."
+    },
+    "enumerated_string_domains": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "Syntax > Attributes > Attribute Keys and Comments (comment syntax) — no enum/domain keyword documented anywhere on the page",
+      "rationale": "No enum or constrained-domain type exists in the documented syntax. The only mechanism that could carry the value set is the free-text double-quoted attribute comment (e.g. string execution_context \"SCHEDULED or MANUAL\"), which is unparsed and unenforced — pure documentation, not a domain constraint. The incumbent entity-model.md does not even use this workaround; it states the domain only in prose constraint 20."
+    },
+    "self_referencing_foreign_keys_multiple": {
+      "classification": "expressible",
+      "citation": "Syntax > Entities and Relationships (relationship-statement grammar places no restriction that <first-entity> and <second-entity> differ)",
+      "rationale": "Nothing in the documented statement grammar forbids the same entity name appearing on both sides of a relationship, nor limits how many such self-referencing relationship statements may be written for one entity. See source-mermaid-erd-grammar.json for the grammar/DB-layer confirmation. Note a real limitation, independent of multiplicity: relationship statements bind two entity names and a label, never a specific attribute/column name, so a relationship line cannot itself say which FK column it represents — that association is only implicit via the FK attribute's row position and the relationship label chosen."
+    },
+    "nullable_foreign_keys": {
+      "classification": "expressible",
+      "citation": "Syntax > Attributes > Optional attribute types (v11.16.0+)",
+      "rationale": "As of Mermaid v11.16.0, appending '?' to the type token (e.g. 'uuid? folder_run_id FK') documents the attribute as optional/nullable. This is a recent addition (dated to the 11.16.0 release, 2026-06-29 per source-mermaid-erd-licence-governance.json) and post-dates the incumbent entity-model.md, which predates this feature and marks no FK as nullable in the diagram itself, pushing that fact to prose constraint 6."
+    },
+    "multi_column_unique_constraints": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "Syntax > Attributes > Attribute Keys and Comments (UK key label; comment syntax)",
+      "rationale": "UK is documented only as a per-attribute label, exactly like PK — no grouping mechanism. Marking two independent columns UK would misstate the semantics (asserting each individually unique rather than jointly unique), so the only non-misleading workaround is a free-text comment on one or both columns explaining the joint constraint; this is unparsed and unenforced. The incumbent entity-model.md uses neither the UK label nor a comment for this and instead states both multi-column UNIQUE constraints (PLAN on domain_id+odate; NAMED_RESOURCE on domain_id+name) only in prose constraints 4 and 15."
+    },
+    "one_to_zero_or_one_relationships": {
+      "classification": "expressible",
+      "citation": "Syntax > Relationship Syntax (two-character cardinality markers, outer = max, inner = min)",
+      "rationale": "The documented cardinality-marker system directly supports one-to-zero-or-one via '||--o|' (exactly-one on one side, zero-or-one on the other). The incumbent entity-model.md already uses this exact notation at 'ATTEMPT ||--o| ATTEMPT_RESULT : accepts', demonstrating it is not merely theoretically expressible but already in active use in the artifact under replacement."
+    },
+    "value_constraint_beyond_type": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "Syntax > Attributes > Attribute Keys and Comments (comment syntax); Syntax > Attributes (type-token regex, which has no facility for a disjunctive literal-or-numeric-range constraint)",
+      "rationale": "No constraint-expression syntax exists beyond the type-token regex. A rule like 'decimal positive integer OR literal ALL' could only be recorded as free text in the double-quoted attribute comment, unparsed and unenforced. The incumbent entity-model.md does not use even this workaround, pushing the constraint entirely to prose constraint 16."
+    },
+    "several_logical_schemas_in_one_database": {
+      "classification": "not-expressible",
+      "citation": "Entire entityRelationshipDiagram.md page — no schema, namespace, or grouping keyword is documented for erDiagram (contrast with the separate 'namespace' keyword documented only for class diagrams)",
+      "rationale": "The ER diagram syntax reference has no construct for grouping entities into named logical schemas or namespaces. See source-mermaid-erd-contrary-evidence.json for confirmation that Mermaid's 'namespace' keyword is a class-diagram-only feature, not available in erDiagram, and is itself reported buggy where it exists."
+    },
+    "cross_cutting_validator_convention": {
+      "classification": "not-expressible",
+      "citation": "Entire entityRelationshipDiagram.md page and mermaid-cli README (source-mermaid-erd-tooling.json) — neither documents any rule/lint/assertion facility",
+      "rationale": "No built-in rule engine, lint step, or custom-assertion mechanism is documented for erDiagram or for mmdc. Asserting a cross-cutting convention such as domain_id-on-every-Domain-owned-table would require a bespoke external script parsing the .mmd source text outside of Mermaid's own toolchain entirely — not a workaround within the DSL, but a separate tool built against it."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "mermaid erDiagram composite key",
+      "mermaid erDiagram enum",
+      "mermaid erDiagram schema namespace",
+      "mermaid erDiagram unique constraint",
+      "mermaid attribute type json"
+    ],
+    "where_searched": [
+      "https://mermaid.js.org/syntax/entityRelationshipDiagram.html (rendered docs)",
+      "https://raw.githubusercontent.com/mermaid-js/mermaid/develop/packages/mermaid/src/docs/syntax/entityRelationshipDiagram.md (source markdown)"
+    ],
+    "search_date": "2026-08-14",
+    "result": "No mention of composite-key grouping, enum/domain types, schema/namespace grouping, or multi-column unique constraints anywhere on the syntax reference page. The page documents PK/FK/UK as per-attribute labels only and offers no construct beyond the free-text type token and free-text double-quoted comment for anything richer. Confirmed independently via open GitHub issues in source-mermaid-erd-contrary-evidence.json (issue #3582 for composite keys, issue #4429 for NOT NULL)."
+  }
+}

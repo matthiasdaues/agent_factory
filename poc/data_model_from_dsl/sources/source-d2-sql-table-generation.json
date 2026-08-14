@@ -1,0 +1,88 @@
+{
+  "source_identity": "D2 Documentation — Exports (docs/tour/exports.md), Layers/Scenarios/Steps (docs/tour/layers.md, scenarios.md, steps.md), FAQ (docs/tour/faq.md); plus a GitHub issue-tracker search for code-generation and DDL-derivation features",
+  "author_or_issuing_body": "d2lang (D2 language maintainers, Terrastruct Inc.)",
+  "publisher": "d2lang.com (docs site) and github.com/d2lang/d2 (issue tracker), both maintained by the same org",
+  "publication_date": "2026-08-02T03:04:34Z",
+  "relevant_event_date": "2026-08-02",
+  "source_family": "d2lang/d2-docs repository docs/tour/ pages (exports.md, faq.md most recently modified 2026-08-02; layers.md/scenarios.md/steps.md last modified 2024-02-01) plus a separate but same-org GitHub issue-tracker search over d2lang/d2 — the docs pages are one source family (a single documentation site), the issue-tracker search is a distinct source family (primary evidence of absence via searchable public records, not documentation prose)",
+  "precise_evidence_location": "docs/tour/exports.md \"PNG\" section, lines 46-62; docs/tour/faq.md \"Does D2 need a browser to run?\" (line 38-40); docs/tour/layers.md line 4-5 (\"A Layer represents...\"); docs/tour/scenarios.md line 5-6 (\"A Scenario represents...\"); docs/tour/steps.md line 5-8 (\"A Step represents...\"); GitHub issue-search API queries against repo:d2lang/d2 for pydantic/sqlalchemy/dataclass/DDL terms",
+  "method": "Direct retrieval of raw markdown for each docs page via raw.githubusercontent.com, read in full. Absence of code-generation and DDL features established via GitHub's search/issues API (`gh api search/issues -f q='repo:d2lang/d2 <terms>'`), which searches issue titles and bodies across the whole repository — a documented, reproducible negative-evidence method distinct from documentation-page silence.",
+  "limitations": "The layers/scenarios/steps pages are markdown source with minimal prose (short definitional sentences plus code examples); the interpretation of whether they constitute 'named subset views over one model' required inference from that short prose plus the example structure, not an explicit doc statement answering the question in those terms. The GitHub issue search is bounded by GitHub's search index and query syntax; a true negative (feature genuinely absent) is indistinguishable from a false negative (feature discussed under different terminology not covered by the search terms tried) without exhaustively reading the issue tracker, which was not done. The exports.md PNG section describes intended/documented behavior; it was not independently verified by running an export inside a container (out of scope per task boundaries).",
+  "provenance": "All docs pages fetched via raw.githubusercontent.com/d2lang/d2-docs/master/docs/tour/{exports,faq,layers,scenarios,steps}.md on 2026-08-14. Last-modified dates obtained via `gh api repos/d2lang/d2-docs/commits?path=<file>`. Issue-tracker searches run via `gh api -X GET search/issues -f q='repo:d2lang/d2 ...'` on 2026-08-14, output captured directly from the GitHub API response.",
+  "raw_evidence": [
+    {
+      "quote": "PNG exports work by [Playwright](https://github.com/microsoft/playwright) spinning up a headless browser, putting the SVG onto it, and taking a screenshot. The first invocation of Playwright will download its dependencies, if they don't already exist on the machine.\n\nIf you get a message like `err: failed to launch Chromium`, you can try installing Playwright dependencies outside of D2 on your machine.",
+      "locator": "docs/tour/exports.md, \"PNG\" section, lines 52-58",
+      "url": "https://raw.githubusercontent.com/d2lang/d2-docs/master/docs/tour/exports.md"
+    },
+    {
+      "quote": "PDF exports are the result of taking PNG exports and placing them on PDF pages, along with headers and fonts. As such, dependencies needed for PNG exports are also needed for PDF.",
+      "locator": "docs/tour/exports.md, \"PDF\" section, lines 74-76",
+      "url": "https://raw.githubusercontent.com/d2lang/d2-docs/master/docs/tour/exports.md"
+    },
+    {
+      "quote": "Does D2 need a browser to run?\n\nNo, D2 can run entirely server-side.",
+      "locator": "docs/tour/faq.md, \"General\" section, lines 38-40",
+      "url": "https://raw.githubusercontent.com/d2lang/d2-docs/master/docs/tour/faq.md"
+    },
+    {
+      "quote": "A \"Layer\" represents \"a layer of abstraction\". Each Layer starts off as a blank board, since you're representing different objects at every level of abstraction.",
+      "locator": "docs/tour/layers.md, lines 4-5",
+      "url": "https://raw.githubusercontent.com/d2lang/d2-docs/master/docs/tour/layers.md"
+    },
+    {
+      "quote": "A \"Scenario\" represents a different view of the base Layer.\n\nEach Scenario inherits from its base Layer. Any new objects are added onto all objects in the base Layer, and you can reference any objects from the base Layer to update them.",
+      "locator": "docs/tour/scenarios.md, lines 5-8",
+      "url": "https://raw.githubusercontent.com/d2lang/d2-docs/master/docs/tour/scenarios.md"
+    },
+    {
+      "quote": "A \"Step\" represents a step in a sequence of events.\n\nEach Step inherits from its the Step before it. The first step inherits from its parent, whether that's a Scenario or Layer.",
+      "locator": "docs/tour/steps.md, lines 5-8",
+      "url": "https://raw.githubusercontent.com/d2lang/d2-docs/master/docs/tour/steps.md"
+    },
+    {
+      "quote": "Zero results for query repo:d2lang/d2 pydantic OR sqlalchemy OR \"generate types\" OR dataclass; zero results for repo:d2lang/d2 DDL",
+      "locator": "GitHub search/issues API responses, queried 2026-08-14",
+      "url": "https://api.github.com/search/issues?q=repo:d2lang/d2+pydantic+OR+sqlalchemy+OR+%22generate+types%22+OR+dataclass"
+    }
+  ],
+  "interpretation": {
+    "named_subset_views_over_one_model": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "docs/tour/layers.md line 4-5, scenarios.md line 5-8, steps.md line 5-8",
+      "rationale": "D2 does provide three composition mechanisms (Layers, Scenarios, Steps) that produce multiple named 'boards' from one .d2 source file, which is a genuine strength worth recording. But their documented purpose differs materially from Structurizr's named views: a Layer starts as a BLANK board representing 'a different level of abstraction' — it does not automatically inherit or subset the base model's shapes, so showing a readable slice of one large model (e.g. just the TASK_INSTANCE/FOLDER_RUN/PLAN tables out of 25 entities) would require manually re-declaring or re-referencing the relevant shapes inside that Layer, not selecting a named subset of the existing model the way a Structurizr view does. Scenarios and Steps DO inherit from a base Layer, so they are closer to overlays than to subset selection — a Scenario shows the base plus/minus explicit modifications, not a chosen subset. None of the three primitives is documented as 'pick N of M existing shapes and render just those' — achieving a 25-entity model split into readable focused sub-diagrams would require restructuring the model into multiple Layers with duplicated or re-referenced shape declarations, which is a workaround, not a first-class subset-view mechanism."
+    },
+    "png_export_dependency": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "docs/tour/exports.md \"PNG\" section, lines 52-58",
+      "rationale": "SVG export is native and dependency-free (the CLI's default output format, produced by D2's own renderer). PNG (and PDF/PPTX, which are built from PNG) export is NOT native — it depends on Playwright spinning up a headless Chromium browser, and 'the first invocation of Playwright will download its dependencies, if they don't already exist on the machine.' This has a direct, material consequence for the zero-local-install requirement: whether an official Docker image bundles Playwright/Chromium pre-installed (making PNG export genuinely zero-install inside the container) versus triggering an on-the-fly download at first PNG-export time was NOT confirmed by any source consulted — no Dockerfile or image-contents documentation was found describing this. Recorded as an open gap: SVG export is a clean, dependency-free capability; PNG export carries a headless-browser dependency whose packaging inside the official Docker image is undocumented and unverified."
+    },
+    "application_type_generation": {
+      "classification": "not-expressible",
+      "citation": "GitHub issue-tracker search (repo:d2lang/d2, terms pydantic/sqlalchemy/dataclass/generate types) — zero results",
+      "rationale": "D2 is a diagram scripting language with no documented code-generation target of any kind, consistent with its purpose (visual diagramming, not schema authoring). No documentation page under docs/tour/ mentions Pydantic, SQLAlchemy, dataclasses, or any application-type generator, and an issue-tracker search for these terms returned zero results — not even a feature request. Recorded as a definite negative rather than an evidence gap: the absence is corroborated by both silence in official docs and silence in the issue tracker."
+    },
+    "ddl_derivation": {
+      "classification": "not-applicable",
+      "citation": "GitHub issue-tracker search (repo:d2lang/d2, term DDL) — zero results; consistent with application_type_generation finding above",
+      "rationale": "Per the brief's own instruction, DDL derivation is recorded as not-applicable rather than not-expressible because no type-generation pipeline exists in D2 to derive DDL from in the first place — there is nothing for a DDL-derivation feature to sit on top of. The issue-tracker search for 'DDL' returned zero results, consistent with this never having been requested or discussed."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "pydantic",
+      "sqlalchemy",
+      "\"generate types\"",
+      "dataclass",
+      "DDL",
+      "layers subset view",
+      "named view d2"
+    ],
+    "where_searched": [
+      "docs/tour/exports.md, faq.md, layers.md, scenarios.md, steps.md (direct read of official docs)",
+      "GitHub issue-tracker full-text search scoped to repo:d2lang/d2 via GitHub's search/issues API"
+    ],
+    "search_date": "2026-08-14",
+    "result": "No documentation page or issue mentions application-type generation or DDL derivation in any form — a clean, corroborated negative. No documentation page explicitly frames Layers/Scenarios/Steps as answering a 'named subset view of one large model' need; the closest framing found is 'a layer of abstraction' (layers.md) and 'a different view of the base Layer' (scenarios.md), which describe overlay/abstraction-level semantics rather than subset selection — recorded as a workaround-level match to the survey's named-subset-view question, not a clean match."
+  }
+}

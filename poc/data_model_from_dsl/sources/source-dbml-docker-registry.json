@@ -1,0 +1,64 @@
+{
+  "source_identity": "Docker Hub public registry search API (hub.docker.com/v2/search/repositories) for query 'dbml', plus tag listings for the two most-pulled unofficial results, plus GitHub Container Registry (ghcr.io) packages page for the softwaretechnik-berlin org",
+  "author_or_issuing_body": "Docker, Inc. (registry index and API); individual third-party Docker Hub users tgrivel and smoulder (image publishers, unaffiliated with Holistics or with softwaretechnik-berlin)",
+  "publisher": "Docker, Inc. (hub.docker.com); GitHub, Inc. (ghcr.io / github.com/orgs/softwaretechnik-berlin/packages)",
+  "publication_date": "2026-08-14T08:22:25Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "public-container-registry-listing (Docker Hub v2 API and GitHub Packages UI) — an independent source family from the holistics/dbml source-code and docs families; registry listings are queried live, not copies of a README claim",
+  "precise_evidence_location": "https://hub.docker.com/v2/search/repositories/?query=dbml&page_size=25 (JSON response, 'results' array, 20 total matches, none owned by 'holistics' or officially flagged); https://hub.docker.com/v2/repositories/tgrivel/dbml-renderer/tags (single 'latest' tag row); https://hub.docker.com/v2/repositories/smoulder/dbml-cli/tags (single 'latest' tag row); https://github.com/orgs/softwaretechnik-berlin/packages (empty packages listing)",
+  "method": "Direct unauthenticated HTTP GET against the Docker Hub v2 public search and tags API endpoints via curl, and WebFetch of the GitHub Packages UI page for the org that owns the dbml-renderer source repository — not a README or blog claim standing in for registry verification",
+  "limitations": "The Docker Hub v2 search endpoint returns at most page_size results per call (25 used here; total count reported as 20, so all matches for the literal query 'dbml' were retrieved) and only covers Docker Hub, not every possible third-party registry (e.g. Quay.io or a private GitLab registry were not checked) — however ghcr.io was checked for the one org (softwaretechnik-berlin) that owns the DBML-adjacent open-source renderer project, and holistics/dbml's own GitHub repository was confirmed (via a 404 on github.com/holistics/dbml/pkgs) to publish no GitHub Packages at all. Query was for the literal string 'dbml'; an image published under an unrelated name (e.g. a generic 'db-diagram-tool') would not surface and was not otherwise searched for.",
+  "provenance": "Retrieved 2026-08-14 via `curl -s 'https://hub.docker.com/v2/search/repositories/?query=dbml&page_size=25'`, `curl -s 'https://hub.docker.com/v2/repositories/tgrivel/dbml-renderer/tags?page_size=25'`, `curl -s 'https://hub.docker.com/v2/repositories/smoulder/dbml-cli/tags?page_size=25'`, `curl -s -o /dev/null -w '%{http_code}' 'https://github.com/holistics/dbml/pkgs'` (returned 404), and WebFetch of https://github.com/orgs/softwaretechnik-berlin/packages. Re-verify by re-issuing the same curl commands, which hit the live public registry API directly.",
+  "raw_evidence": [
+    {
+      "quote": "{\"repo_name\": \"tgrivel/dbml-renderer\", \"short_description\": \"dbml-renderer\", \"star_count\": 0, \"pull_count\": 855, \"repo_owner\": \"\", \"is_automated\": false, \"is_official\": false}",
+      "locator": "hub.docker.com/v2/search/repositories/?query=dbml, results[0]",
+      "url": "https://hub.docker.com/v2/search/repositories/?query=dbml&page_size=25"
+    },
+    {
+      "quote": "{\"repo_name\": \"smoulder/dbml-cli\", \"short_description\": \"Dockerized version of dbml-cli (https://www.dbml.org/cli)\", \"star_count\": 0, \"pull_count\": 174, \"repo_owner\": \"\", \"is_automated\": false, \"is_official\": false}",
+      "locator": "hub.docker.com/v2/search/repositories/?query=dbml, results[1]",
+      "url": "https://hub.docker.com/v2/search/repositories/?query=dbml&page_size=25"
+    },
+    {
+      "quote": "{\"count\": 1, \"results\": [{\"name\": \"latest\", \"last_updated\": \"2023-07-28T21:38:31.397796Z\", \"last_updater_username\": \"tgrivel\", \"tag_last_pushed\": \"2023-07-28T21:38:31.397796Z\", \"tag_status\": \"active\"}]}",
+      "locator": "hub.docker.com/v2/repositories/tgrivel/dbml-renderer/tags",
+      "url": "https://hub.docker.com/v2/repositories/tgrivel/dbml-renderer/tags?page_size=25"
+    },
+    {
+      "quote": "{\"count\": 1, \"results\": [{\"name\": \"latest\", \"last_updated\": \"2021-01-21T10:46:06.797173Z\", \"last_updater_username\": \"smoulder\", \"tag_last_pushed\": \"2021-01-21T10:46:06.797173Z\", \"tag_status\": \"active\"}]}",
+      "locator": "hub.docker.com/v2/repositories/smoulder/dbml-cli/tags",
+      "url": "https://hub.docker.com/v2/repositories/smoulder/dbml-cli/tags?page_size=25"
+    },
+    {
+      "quote": "no actual packages are listed [...] the organization appears to have an empty or unpopulated package registry at this time",
+      "locator": "github.com/orgs/softwaretechnik-berlin/packages (rendered page content)",
+      "url": "https://github.com/orgs/softwaretechnik-berlin/packages"
+    }
+  ],
+  "interpretation": {
+    "docker_image_availability": {
+      "classification": "not-expressible",
+      "citation": "hub.docker.com/v2/search/repositories/?query=dbml (20 results, none official/holistics-owned); github.com/orgs/softwaretechnik-berlin/packages (empty)",
+      "rationale": "No image published by the DBML project itself (Holistics / holistics org) or by the dbml-renderer project itself (softwaretechnik-berlin org) exists on Docker Hub or GHCR. The only images found are unofficial, single-tag ('latest' only, no version pinning) uploads by unrelated individual accounts (tgrivel/dbml-renderer, last pushed 2023-07-28; smoulder/dbml-cli, last pushed 2021-01-21), both stale by more than 18 months as of August 2026 and both outside the DBML project's own governance — pulling either would mean depending on a stranger's unmaintained image rather than a project-published artifact. This is recorded as a definite negative finding for an OFFICIAL image, not as 'no image exists at all anywhere'."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "dbml docker hub official image",
+      "dbml-cli ghcr.io",
+      "dbml-renderer docker",
+      "holistics dbml container",
+      "site:hub.docker.com dbml"
+    ],
+    "where_searched": [
+      "Docker Hub v2 public search API (hub.docker.com/v2/search/repositories)",
+      "Docker Hub v2 tags API for the two most-pulled unofficial results",
+      "GitHub Packages UI for github.com/orgs/softwaretechnik-berlin/packages",
+      "github.com/holistics/dbml/pkgs (repository Packages tab)",
+      "general web search for 'dbml' + 'docker hub OR ghcr.io'"
+    ],
+    "search_date": "2026-08-14",
+    "result": "Confirmed absence of any official image: github.com/holistics/dbml/pkgs returns HTTP 404 (no GitHub Packages registered on the repository), and github.com/orgs/softwaretechnik-berlin/packages renders as empty. Docker Hub's own search index returns only unofficial, low-adoption, stale third-party images for the literal query 'dbml' — none flagged `is_official: true`, none owned by an account matching 'holistics' or 'dbml' as an org. This is recorded as a definite negative finding, not an assumption from a README."
+  }
+}

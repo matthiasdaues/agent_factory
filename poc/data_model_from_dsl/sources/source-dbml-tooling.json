@@ -1,0 +1,79 @@
+{
+  "source_identity": "@dbml/cli source code (packages/dbml-cli/src/cli/export.ts, import.ts, index.ts, bin/dbml2sql.js) in holistics/dbml, plus @dbml/cli README and dbml.dbdiagram.io/cli/ page, plus softwaretechnik-berlin/dbml-renderer README",
+  "author_or_issuing_body": "Holistics Software Pte Ltd (holistics/dbml, packages/dbml-cli); Softwaretechnik Berlin GmbH / individual maintainers (softwaretechnik-berlin/dbml-renderer, an independent third-party project not published by Holistics)",
+  "publisher": "GitHub (source hosting: github.com/holistics/dbml and github.com/softwaretechnik-berlin/dbml-renderer); npm registry (package distribution: @dbml/cli, @softwaretechnik/dbml-renderer); dbml.dbdiagram.io (CLI docs page)",
+  "publication_date": "2026-05-14T11:10:36Z",
+  "relevant_event_date": "2026-05-14",
+  "source_family": "holistics/dbml source-code family (packages/dbml-cli) — distinct from the dbml-homepage docs family (source-dbml-grammar.json) and from the independent softwaretechnik-berlin/dbml-renderer project family",
+  "precise_evidence_location": "packages/dbml-cli/src/cli/export.ts (dbml2sql handler, full file, no process.exit call); packages/dbml-cli/src/cli/import.ts (sql2dbml handler); packages/dbml-cli/bin/dbml2sql.js (entrypoint: `require('../lib').dbml2sql(process.argv);`); packages/dbml-cli/README.md; softwaretechnik-berlin/dbml-renderer README.md, 'Usage' section",
+  "method": "Direct retrieval of the exact source files via `gh api repos/holistics/dbml/contents/packages/dbml-cli/src/cli/export.ts` etc. (base64-decoded raw TypeScript/JS), which is the ground truth for runtime behaviour rather than a documentation claim about it; README and CLI docs page retrieved via WebFetch",
+  "limitations": "Source-code inspection covers the code as of the 2026-05-14 commit for export.ts (the file has not changed since); it is possible a newer, unexamined code path (e.g. a wrapping shell script, an npm postinstall hook, or CI-only behaviour) sets a non-zero exit code that this file-level read did not surface — the search covered export.ts, import.ts, index.ts, and bin/dbml2sql.js but not every transitively-imported module (e.g. `../NodeProjectLayout`, `../helpers/logger`, `./utils`, `./validatePlugins/validatePlugins`), any of which could theoretically call process.exit. dbml-renderer's README describes only an SVG output path; the search did not locate a CHANGELOG or release notes page for dbml-renderer confirming PNG was never added at any point in its history, only that its current README does not document PNG.",
+  "provenance": "Retrieved 2026-08-14 via `gh api repos/holistics/dbml/contents/packages/dbml-cli/src/cli/export.ts --jq '.content' | base64 -d` (and similarly for import.ts, index.ts, bin/dbml2sql.js), and via WebFetch of https://github.com/holistics/dbml/blob/master/packages/dbml-cli/README.md, https://dbml.dbdiagram.io/cli/, and https://github.com/softwaretechnik-berlin/dbml-renderer/blob/master/README.md. Re-verify by re-running the same `gh api` calls against the holistics/dbml repository or browsing the cited GitHub paths directly.",
+  "raw_evidence": [
+    {
+      "quote": "let hasErrors = false;\n\n  for (const filepath of entrypoints) {\n    const result = compiler.interpretFile(filepath);\n    const errors = result.getErrors();\n\n    if (errors.length > 0) {\n      hasErrors = true;\n      ...\n      consoleLogger.error(msg);\n      fileLogger.error(msg);\n      continue;\n    }\n    ...\n  }\n\n  if (!hasErrors && opts.outFile) {\n    console.log(...);\n  }",
+      "locator": "packages/dbml-cli/src/cli/export.ts, exportHandler function, full body",
+      "url": "https://github.com/holistics/dbml/blob/master/packages/dbml-cli/src/cli/export.ts"
+    },
+    {
+      "quote": "#!/usr/bin/env node\n\nrequire('../lib').dbml2sql(process.argv);",
+      "locator": "packages/dbml-cli/bin/dbml2sql.js, full file",
+      "url": "https://github.com/holistics/dbml/blob/master/packages/dbml-cli/bin/dbml2sql.js"
+    },
+    {
+      "quote": "npx -p @dbml/cli dbml2sql schema.dbml -o schema.sql",
+      "locator": "packages/dbml-cli/README.md",
+      "url": "https://github.com/holistics/dbml/blob/master/packages/dbml-cli/README.md"
+    },
+    {
+      "quote": "$ dbml2sql <path-to-dbml-file> [--mysql|--postgres|--mssql|--oracle] [-o|--out-file <output-filepath>]",
+      "locator": "dbml.dbdiagram.io/cli/, dbml2sql command syntax",
+      "url": "https://dbml.dbdiagram.io/cli/"
+    },
+    {
+      "quote": "renders DBML files to SVG images. ... dbml-renderer -i example.dbml -o output.svg",
+      "locator": "softwaretechnik-berlin/dbml-renderer README.md, description and usage example",
+      "url": "https://github.com/softwaretechnik-berlin/dbml-renderer/blob/master/README.md"
+    },
+    {
+      "quote": "catch (error) {\n    if (error instanceof CompilerError) {\n      const msg = ...;\n      consoleLogger.error(msg);\n      fileLogger.error(msg);\n      return;\n    }\n    throw error;\n  }",
+      "locator": "packages/dbml-cli/src/cli/import.ts, importHandler function, catch block",
+      "url": "https://github.com/holistics/dbml/blob/master/packages/dbml-cli/src/cli/import.ts"
+    }
+  ],
+  "interpretation": {
+    "validator_existence_and_exit_code": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "packages/dbml-cli/src/cli/export.ts, exportHandler; packages/dbml-cli/bin/dbml2sql.js",
+      "rationale": "A validator exists in the sense that @dbml/core's Compiler.interpretFile() detects syntax and referential errors, and dbml2sql does log them to stderr with file/line/column positions. But nowhere in export.ts, import.ts, index.ts, or bin/dbml2sql.js does the code call process.exit(1) or throw past the top level on a CompilerError for the export (dbml2sql) path — hasErrors is computed but only used to suppress a success message, and the process would exit 0 by default. import.ts (sql2dbml) does `return` after logging a CompilerError rather than throwing, which also does not set a non-zero exit code. To sit behind a deterministic CI gate the way factory/scripts/structurizr validate does, a wrapper script would need to grep dbml2sql's stderr output for error lines, or call the underlying @dbml/core Compiler API directly and exit non-zero itself — a workaround layered on top of the CLI, not the CLI's own documented behaviour."
+    },
+    "svg_export": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "softwaretechnik-berlin/dbml-renderer README.md, 'Usage' section",
+      "rationale": "SVG export exists, but only via a third-party, independently-maintained CLI (dbml-renderer) that is not part of the official @dbml/cli toolchain and is not published as an official Docker image (see source-dbml-docker-registry.json) — using it inside an ephemeral container the way factory/scripts/structurizr does would require building a custom Dockerfile around this unofficial npm package, not pulling a maintained image."
+    },
+    "png_export": {
+      "classification": "not-expressible",
+      "citation": "softwaretechnik-berlin/dbml-renderer README.md — no PNG output format is documented anywhere in the README's usage or output-format description",
+      "rationale": "Neither @dbml/cli nor dbml-renderer documents a PNG output path. The only documented output format across both toolchains is SVG (from dbml-renderer) and SQL/DBML (from @dbml/cli). Producing PNG would require piping dbml-renderer's SVG through a separate, undocumented conversion step (e.g. an SVG rasteriser), which is outside what either project documents or ships."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "dbml2sql exit code",
+      "dbml2sql process.exit",
+      "@dbml/cli validate command",
+      "dbml-renderer PNG export",
+      "dbml-renderer docker",
+      "dbml2sql CI pipeline non-zero"
+    ],
+    "where_searched": [
+      "packages/dbml-cli source tree in holistics/dbml (via gh api contents + code search)",
+      "packages/dbml-cli/README.md and dbml.dbdiagram.io/cli/",
+      "softwaretechnik-berlin/dbml-renderer README.md",
+      "GitHub issue search (search/issues) on repo:holistics/dbml for 'exit code'"
+    ],
+    "search_date": "2026-08-14",
+    "result": "No process.exit call was found anywhere in the dbml2sql code path that was read (export.ts, index.ts, bin/dbml2sql.js) — this is a definite negative finding from source inspection, not an assumption. GitHub issue search for 'exit code' on holistics/dbml returned no relevant open issue confirming or contradicting this (only unrelated dependency-bump PRs), so there is no maintainer statement either way; the finding rests on direct code reading alone. No PNG-export issue or feature request was found in a light search of the dbml-renderer repository, and no PNG output format appears in its README."
+  }
+}

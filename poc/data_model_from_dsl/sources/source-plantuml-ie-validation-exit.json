@@ -1,0 +1,81 @@
+{
+  "source_identity": "PlantUML Language Reference Guide — Command Line (plantuml.com/command-line)",
+  "author_or_issuing_body": "Arnaud Roques and the PlantUML project contributors",
+  "publisher": "plantuml.com (official PlantUML documentation site)",
+  "publication_date": "2026-08-14T00:00:00Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "plantuml.com official documentation (Language Reference Guide) — same family as source-plantuml-ie-notation.json; not independent corroboration of it",
+  "precise_evidence_location": "plantuml.com/command-line §'Exit code'; §'Standard report [stdrpt]'; the flag list under 'Execution control:' (legacy CLI) listing --check-syntax, --stop-on-error, --check-before-run, --no-error-image; the 'New command-line interface (beta)' section's 'Exit codes:' list; the 'Output Format' table (--png/-f png, --svg/-f svg)",
+  "method": "Direct HTTP retrieval of the live documentation page (curl), tag-stripped to recover verbatim body text, including both the legacy CLI section and the separately-documented 'New command-line interface (beta)' section",
+  "limitations": "The page documents two CLI generations side by side — the long-standing legacy CLI (single-dash/short flags like -tsvg-style, though this fetch only surfaced --svg/--png long forms and the -pipe/-stdrpt short forms) and a 'New command-line interface (beta)' with a different flag surface and a different, more granular exit-code scheme. Both were captured, but the page does not state which one ships as the default entrypoint behaviour of a given release/Docker tag, so the exact flag set available inside a specific container image (e.g. plantuml/plantuml:v1.2026.6) was not independently confirmed by running the container — this record is documentary only, per the task's boundary against running or pulling images. No explicit last-modified date is shown on the page; publication_date uses the retrieval date, flagged here as a substitution.",
+  "provenance": "Fetched live via HTTPS from plantuml.com/command-line on 2026-08-14 in this research session (curl to /tmp/pu_cli.html, tag-stripped and grepped for 'error'/'svg'/'png' contexts; cross-checked with a WebFetch summarisation pass of the same URL). Re-verify by fetching https://plantuml.com/command-line directly.",
+  "raw_evidence": [
+    {
+      "quote": "Exit code\nWhen there are some errors in diagrams the command returns an error (-1) exit code. But even if some diagrams contain some errors, all diagrams are generated, which can be time consuming for large project. You can use the -failfast flag to change this behavior to stop diagram generations as soon as one error occurs. In that case, some diagrams will be generated, and some will not. There is also a -failfast2 flag that does a first checking pass. If some error is present, no diagram will be generated at all. In case of error, -failfast2 runs even faster than -failfast, which may be useful for huge project.",
+      "locator": "plantuml.com/command-line, §'Exit code' (legacy CLI)",
+      "url": "https://plantuml.com/command-line"
+    },
+    {
+      "quote": "--check-syntax ............... Check diagram syntax without generating images\n--stop-on-error .............. Stop at the first syntax error\n--check-before-run ........... Pre-check syntax of all inputs and stop faster on error\n--no-error-image ............. Do not generate error images for diagrams with syntax errors",
+      "locator": "plantuml.com/command-line, 'Execution control:' flag list",
+      "url": "https://plantuml.com/command-line"
+    },
+    {
+      "quote": "Using the -stdrpt (standard report) option, you can change the format of the error output of your PlantUML scripts. ... Without any option\njava -jar plantuml.jar file1.pu\nThe error output is:\nError line 2 in file: file1.pu\nSome diagram description contains errors",
+      "locator": "plantuml.com/command-line, §'Standard report [stdrpt]'",
+      "url": "https://plantuml.com/command-line"
+    },
+    {
+      "quote": "Exit codes:\n0 Success\n>0 Error (syntax error or processing failure)\nSee also: java -jar plantuml.jar --help-more",
+      "locator": "plantuml.com/command-line, end-of-page CLI examples block",
+      "url": "https://plantuml.com/command-line"
+    },
+    {
+      "quote": "Exit codes:\n0 Success\n50 No file found\n100 No diagram found in file(s)\n200 Some diagrams have syntax errors",
+      "locator": "plantuml.com/command-line, §'New command-line interface (beta)' exit-code list",
+      "url": "https://plantuml.com/command-line"
+    },
+    {
+      "quote": "Param name | Short param name | Output format | Comment\n--png | -f png | PNG | Default\n--svg | -f svg | SVG | Vector graphics — use for web and documentation",
+      "locator": "plantuml.com/command-line, 'Output Format' table",
+      "url": "https://plantuml.com/command-line"
+    },
+    {
+      "quote": "# Check syntax only (CI)\njava -jar plantuml.jar --check-syntax src/diagrams\n# Read from stdin and write to stdout (SVG)\ncat diagram.puml | java -jar plantuml.jar --svg -pipe > out.svg",
+      "locator": "plantuml.com/command-line, CLI examples block ('New command-line interface (beta)' section)",
+      "url": "https://plantuml.com/command-line"
+    }
+  ],
+  "interpretation": {
+    "validator_exists_and_exit_code_on_malformed_input": {
+      "classification": "expressible",
+      "citation": "plantuml.com/command-line §'Exit code' ('the command returns an error (-1) exit code') and 'New command-line interface (beta)' §'Exit codes:' (0/50/100/200 scheme)",
+      "rationale": "This directly answers the tension flagged in the assignment: PlantUML is documented to exit non-zero on a syntax error by default (legacy CLI: -1; new CLI: 200 for 'some diagrams have syntax errors'), so it is not simply 'error image, exit 0' behaviour. It is not, however, a semantic validator — see the separate finding below about what it does NOT check. --check-syntax additionally lets a caller validate without generating any image at all, and --no-error-image lets a caller suppress the error image while still getting the non-zero exit — both are documented flags that make a deterministic CI gate practical."
+    },
+    "semantic_validation_beyond_syntax": {
+      "classification": "not-expressible",
+      "citation": "No flag or behaviour on this page (nor on the ie-diagram/er-diagram pages in the companion notation record) describes checking referential integrity, duplicate attribute names, or any cross-cutting convention",
+      "rationale": "Every documented error-handling flag (--check-syntax, --stop-on-error, --check-before-run, -failfast, -failfast2, -stdrpt) is framed in terms of 'syntax error' / 'diagram description contains errors' — i.e. grammar-level parse failure. Nothing in the command-line reference describes checking that a relationship references a previously-declared entity, that an attribute name is not duplicated within an entity, or that any cross-cutting convention (e.g. domain_id present on every table) holds. Because PlantUML's IE/Chen support sits on top of the general class-diagram engine, and class diagrams are documented elsewhere to auto-create a class/entity the first time its name is used in a relation (a well-known PlantUML behaviour for undeclared classes), the working assumption — not directly evidenced on this specific page and therefore recorded as an evidence gap — is that referencing an undeclared entity in a relation is not rejected but silently draws an empty box for it. This assumption is NOT independently confirmed against the parser source and is flagged as an unresolved gap below."
+    },
+    "svg_png_export_flags": {
+      "classification": "expressible",
+      "citation": "plantuml.com/command-line, 'Output Format' table (--svg / -f svg; --png / -f png, default) and the CLI examples block ('cat diagram.puml | java -jar plantuml.jar --svg -pipe > out.svg')",
+      "rationale": "SVG and PNG export are both documented first-class CLI output formats with exact flags (--svg, --png, or -f svg / -f png), including a piped stdin-to-stdout mode. Combined with the Dockerfile evidence in the companion GitHub-repo/licence-governance record (ENTRYPOINT java -jar plantuml.jar), this supports running 'docker run ... plantuml/plantuml --svg /data/file.puml' or '--png' with no local install, directly analogous to factory/scripts/structurizr's export-svg/export-png subcommands."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "plantuml exit code error",
+      "plantuml --no-error-image",
+      "plantuml undeclared class implicit creation",
+      "plantuml duplicate attribute error",
+      "plantuml semantic validation referential integrity"
+    ],
+    "where_searched": [
+      "plantuml.com/command-line (full page text, both legacy and beta CLI sections)",
+      "plantuml.com/ie-diagram and plantuml.com/er-diagram (checked for any mention of validation beyond syntax; none found)"
+    ],
+    "search_date": "2026-08-14",
+    "result": "Confirmed (raw quote captured): PlantUML's default legacy-CLI exit code on a diagram containing errors is -1 (non-zero), and error images are generated by default unless --no-error-image is passed. NOT found: any documentation of semantic checks (undeclared-entity references, duplicate attributes, cross-cutting conventions). The behaviour for an undeclared entity referenced in a relation (silently auto-created as an empty box vs. rejected) is a known general PlantUML class-diagram behaviour from general familiarity with the tool, but this specific command-line reference page does not state it explicitly for IE/ER diagrams, so it is recorded as an UNRESOLVED GAP rather than a cited fact — a primary-source citation for this specific behaviour on ER/IE entities was not located within this session's time budget."
+  }
+}

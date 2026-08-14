@@ -1,0 +1,85 @@
+{
+  "source_identity": "mermaid-js/mermaid repository — ER diagram parser grammar (erDiagram.jison) and diagram database module (erDb.ts)",
+  "author_or_issuing_body": "mermaid-js organisation (source code contributors)",
+  "publisher": "GitHub, repository mermaid-js/mermaid",
+  "publication_date": "2026-08-14T00:00:00Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "mermaid-js source repository (packages/mermaid/src/diagrams/er tree, develop branch)",
+  "precise_evidence_location": "packages/mermaid/src/diagrams/er/parser/erDiagram.jison — rules attributeKeyTypeList, attributeKeyType, ATTRIBUTE_KEY lexer token, relSpec; packages/mermaid/src/diagrams/er/erDb.ts — functions addEntity(name, alias) and addRelationship(entA, rolA, entB, rSpec)",
+  "method": "Retrieved the raw source files from raw.githubusercontent.com on the develop branch and extracted the grammar production rules and TypeScript function bodies governing key-attribute parsing and relationship/entity registration.",
+  "limitations": "The develop branch reflects code at time of retrieval (2026-08-14) and may differ in minor ways from the exact code shipped in the tagged 11.16.1 release; no specific commit SHA was pinned, which weakens exact reproducibility — a limitation, not a substantive risk, since the ATTRIBUTE_KEY token set (PK/FK/UK) and the addEntity/addRelationship auto-creation behaviour are long-standing and also corroborated by the rendered documentation in source-mermaid-erd-syntax.json. This is source code, not a formal specification document; behaviour is inferred from implementation rather than from an explicit contract, which is itself a finding (Mermaid has no formal metamodel/spec document separate from its parser implementation).",
+  "provenance": "Fetched from https://raw.githubusercontent.com/mermaid-js/mermaid/develop/packages/mermaid/src/diagrams/er/parser/erDiagram.jison and https://raw.githubusercontent.com/mermaid-js/mermaid/develop/packages/mermaid/src/diagrams/er/erDb.ts on 2026-08-14 via automated web retrieval. Re-verify by fetching the same paths at a specific commit SHA on github.com/mermaid-js/mermaid.",
+  "raw_evidence": [
+    {
+      "quote": "attributeKeyTypeList: attributeKeyType { $$ = [$1]; } | attributeKeyTypeList ',' attributeKeyType",
+      "locator": "packages/mermaid/src/diagrams/er/parser/erDiagram.jison, attributeKeyTypeList rule",
+      "url": "https://raw.githubusercontent.com/mermaid-js/mermaid/develop/packages/mermaid/src/diagrams/er/parser/erDiagram.jison"
+    },
+    {
+      "quote": "attributeKeyType: ATTRIBUTE_KEY { $$=$1; }",
+      "locator": "packages/mermaid/src/diagrams/er/parser/erDiagram.jison, attributeKeyType rule",
+      "url": "https://raw.githubusercontent.com/mermaid-js/mermaid/develop/packages/mermaid/src/diagrams/er/parser/erDiagram.jison"
+    },
+    {
+      "quote": "ATTRIBUTE_KEY lexer token matches \\b((?:PK)|(?:FK)|(?:UK))\\b",
+      "locator": "packages/mermaid/src/diagrams/er/parser/erDiagram.jison, lexer token definitions",
+      "url": "https://raw.githubusercontent.com/mermaid-js/mermaid/develop/packages/mermaid/src/diagrams/er/parser/erDiagram.jison"
+    },
+    {
+      "quote": "relSpec: cardinality relType cardinality { $$ = { cardA: $3, relType: $2, cardB: $1 }; }",
+      "locator": "packages/mermaid/src/diagrams/er/parser/erDiagram.jison, relSpec rule",
+      "url": "https://raw.githubusercontent.com/mermaid-js/mermaid/develop/packages/mermaid/src/diagrams/er/parser/erDiagram.jison"
+    },
+    {
+      "quote": "public addRelationship(entA: string, rolA: string, entB: string, rSpec: RelSpec) { let entityAId: string; if (this.subGraphLookup.has(entA)) { entityAId = entA; } else { const entityA = this.addEntity(entA); if (!entityA) { return; } entityAId = entityA.id; }",
+      "locator": "packages/mermaid/src/diagrams/er/erDb.ts, addRelationship method",
+      "url": "https://raw.githubusercontent.com/mermaid-js/mermaid/develop/packages/mermaid/src/diagrams/er/erDb.ts"
+    },
+    {
+      "quote": "public addEntity(name: string, alias = ''): EntityNode { if (!this.entities.has(name)) { this.entities.set(name, { id: `entity-${name}-${this.entities.size}`, label: name, attributes: [], alias, shape: 'erBox', ...",
+      "locator": "packages/mermaid/src/diagrams/er/erDb.ts, addEntity method",
+      "url": "https://raw.githubusercontent.com/mermaid-js/mermaid/develop/packages/mermaid/src/diagrams/er/erDb.ts"
+    }
+  ],
+  "interpretation": {
+    "composite_primary_keys": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "erDiagram.jison, attributeKeyTypeList / attributeKeyType / ATTRIBUTE_KEY rules",
+      "rationale": "The grammar's only key-related production is a per-attribute, comma-separated list of key tokens (PK, FK, UK) attached to a single attribute row. There is no production that groups two or more attribute rows into one composite-key structure; the AST built from this grammar has no 'composite key' node at all. Marking two rows both PK produces two independent key flags in the data model, not a composite-key semantic — confirmed independently by open issue #3582 in source-mermaid-erd-contrary-evidence.json, which asks how to even notate a composite-key member."
+    },
+    "self_referencing_foreign_keys_multiple": {
+      "classification": "expressible",
+      "citation": "erDb.ts, addRelationship() — entA and entB are accepted as independent strings with no equality check between them; addEntity() is idempotent (checks this.entities.has(name) before creating), so repeated self-references to the same entity do not conflict",
+      "rationale": "Nothing in the relationship-registration code path rejects entA === entB, and nothing limits how many relSpec statements may name the same entity pair. Three FK attribute rows plus three self-referencing relationship statements with distinct labels are all independently legal under this code."
+    },
+    "several_logical_schemas_in_one_database": {
+      "classification": "not-expressible",
+      "citation": "erDiagram.jison — no NAMESPACE, SCHEMA, or subgraph-equivalent token or production exists in the ER grammar (contrast with the classDiagram grammar, which defines a separate namespace construct not shared with erDiagram)",
+      "rationale": "The ER grammar's only structural containers are 'entity' (with its attribute list) and 'relationship'; there is no grouping production. A schema/namespace concept would have to be bolted on outside the language (e.g. naming convention or a post-processing script), which is not an in-DSL workaround."
+    },
+    "cross_cutting_validator_convention": {
+      "classification": "not-expressible",
+      "citation": "erDb.ts — addEntity/addRelationship perform structural bookkeeping (assigning ids, registering attributes) with no rule-evaluation or assertion logic anywhere in the module",
+      "rationale": "The database module that backs the parser is purely a structure-builder for rendering; it contains no concept of a declarative rule, lint check, or cross-entity assertion. Any such convention check would have to be implemented entirely outside Mermaid, against the raw .mmd text or the rendered output."
+    },
+    "malformed_or_semantically_inconsistent_diagram_handling": {
+      "classification": "not-expressible",
+      "citation": "erDb.ts, addRelationship() and addEntity() — a relationship statement naming an entity with no prior attribute-block declaration silently calls addEntity(entA), which creates a new empty EntityNode rather than raising an error",
+      "rationale": "This is the single most load-bearing finding for the incumbent-replacement question: a relationship line that references an undeclared entity (the textbook example of a semantically inconsistent ERD — e.g. a typo'd entity name) is NOT rejected. It is silently auto-vivified into a new, attribute-less entity and rendered as if it were intentional. Mermaid's ER parser therefore has no semantic-consistency check of this kind at all; only lexical/grammatical syntax errors (e.g. an unterminated string, a malformed cardinality token) would fail parsing. See source-mermaid-erd-tooling.json for how this interacts with mmdc's exit-code behaviour."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "erDiagram.jison composite key grammar rule",
+      "erDb.ts addRelationship validation",
+      "mermaid er diagram undeclared entity error",
+      "mermaid classDiagram namespace erDiagram"
+    ],
+    "where_searched": [
+      "https://raw.githubusercontent.com/mermaid-js/mermaid/develop/packages/mermaid/src/diagrams/er/parser/erDiagram.jison",
+      "https://raw.githubusercontent.com/mermaid-js/mermaid/develop/packages/mermaid/src/diagrams/er/erDb.ts"
+    ],
+    "search_date": "2026-08-14",
+    "result": "No grammar production or database-layer check was found that groups attributes into composite keys, defines schema/namespace containers for erDiagram, or rejects a relationship statement naming a previously-undeclared entity. The absence of a throw/error path in addEntity/addRelationship on the undeclared-entity case was the specific, actively-searched-for negative result this record set out to establish."
+  }
+}

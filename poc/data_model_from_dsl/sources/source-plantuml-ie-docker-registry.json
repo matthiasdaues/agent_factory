@@ -1,0 +1,45 @@
+{
+  "source_identity": "Docker Hub registry API tag listings for plantuml/plantuml and plantuml/plantuml-server",
+  "author_or_issuing_body": "PlantUML project (image publisher of record on Docker Hub, namespace 'plantuml')",
+  "publisher": "Docker Hub (hub.docker.com), Docker Inc.",
+  "publication_date": "2026-06-08T22:48:05Z",
+  "relevant_event_date": "2026-06-08",
+  "source_family": "Docker Hub public registry API (hub.docker.com/v2/repositories) — distinct lineage from the plantuml.com documentation family and from the GitHub repository family",
+  "precise_evidence_location": "https://hub.docker.com/v2/repositories/plantuml/plantuml/tags?page_size=25 — tag rows 'latest' (last pushed 2026-06-08T16:22:34Z), '1.2026.6' (2026-06-08T16:22:26Z), '1.2026' (2026-06-08T16:22:28Z); https://hub.docker.com/v2/repositories/plantuml/plantuml-server/tags?page_size=25 — tag rows 'latest' (2026-06-08T22:48:05Z), 'jetty' (2026-06-08T22:48:02Z), 'v1.2026.6' (2026-06-08T22:47:55Z), 'tomcat' (2026-06-08T22:08:11Z)",
+  "method": "Direct unauthenticated GET request to the public Docker Hub v2 registry API (curl to https://hub.docker.com/v2/repositories/<namespace>/<repo>/tags), JSON-parsed for tag name and tag_last_pushed timestamp. This is the registry listing itself, not a README or blog description of it.",
+  "limitations": "The registry API was queried for the first 25 tags per repository (page_size=25); the full tag history (193 tags for plantuml-server, 104 for plantuml, per the API's reported 'count') was not exhaustively enumerated, only the most recent page which is sufficient to establish current availability and freshness. The query captured amd64 architecture manifests only (each result's 'images' array was not exhaustively checked for multi-arch coverage). Docker Hub's 'No overview available' notice on the plantuml/plantuml repository page means the human-readable description does not document usage; the Dockerfile evidence in the companion licence-governance record (ENTRYPOINT/CMD) was needed to establish how the image is actually invoked.",
+  "provenance": "Retrieved live via HTTPS from hub.docker.com on 2026-08-14 in this research session (curl -sL to /tmp/pu_tags.json and /tmp/pu_tags2.json, parsed with python3's json module). Re-verify by querying https://hub.docker.com/v2/repositories/plantuml/plantuml/tags and https://hub.docker.com/v2/repositories/plantuml/plantuml-server/tags directly, or by browsing https://hub.docker.com/r/plantuml/plantuml and https://hub.docker.com/r/plantuml/plantuml-server in a browser.",
+  "raw_evidence": [
+    {
+      "quote": "{\"count\": 104, \"results\": [{\"name\": \"latest\", \"tag_last_pushed\": \"2026-06-08T16:22:34.048156Z\"}, {\"name\": \"sha-6287b33\", \"tag_last_pushed\": \"2026-06-08T16:22:32.22044Z\"}, {\"name\": \"1\", \"tag_last_pushed\": \"2026-06-08T16:22:30.201815Z\"}, {\"name\": \"1.2026\", \"tag_last_pushed\": \"2026-06-08T16:22:28.2612Z\"}, {\"name\": \"1.2026.6\", \"tag_last_pushed\": \"2026-06-08T16:22:26.263356Z\"}]}",
+      "locator": "https://hub.docker.com/v2/repositories/plantuml/plantuml/tags?page_size=25 (JSON response, first 5 of 104 results)",
+      "url": "https://hub.docker.com/v2/repositories/plantuml/plantuml/tags?page_size=25"
+    },
+    {
+      "quote": "{\"count\": 193, \"results\": [{\"name\": \"latest\", \"tag_last_pushed\": \"2026-06-08T22:48:05.600052Z\", \"architecture\": \"amd64\"}, {\"name\": \"jetty\", \"tag_last_pushed\": \"2026-06-08T22:48:02.319242Z\"}, {\"name\": \"jetty-v1.2026.6\", \"tag_last_pushed\": \"2026-06-08T22:47:59.038808Z\"}, {\"name\": \"v1.2026.6\", \"tag_last_pushed\": \"2026-06-08T22:47:55.834716Z\"}, {\"name\": \"tomcat\", \"tag_last_pushed\": \"2026-06-08T22:08:11.358941Z\"}]}",
+      "locator": "https://hub.docker.com/v2/repositories/plantuml/plantuml-server/tags?page_size=25 (JSON response, first 5 of 193 results)",
+      "url": "https://hub.docker.com/v2/repositories/plantuml/plantuml-server/tags?page_size=25"
+    }
+  ],
+  "interpretation": {
+    "docker_image_availability": {
+      "classification": "expressible",
+      "citation": "hub.docker.com/v2/repositories/plantuml/plantuml/tags (image name 'plantuml/plantuml', tags include 'latest', '1.2026.6', '1.2026'); hub.docker.com/v2/repositories/plantuml/plantuml-server/tags (image name 'plantuml/plantuml-server', tags include 'latest', 'v1.2026.6', 'jetty', 'tomcat')",
+      "rationale": "Two distinct official Docker Hub repositories under the 'plantuml' namespace are confirmed live via the registry API itself (not a README claim): 'plantuml/plantuml' — a thin CLI-jar wrapper image (per the companion licence-governance record's Dockerfile evidence, ENTRYPOINT java -jar plantuml.jar) — and 'plantuml/plantuml-server' — a server variant with 'jetty'/'tomcat' servlet-container flavours. Both were last pushed 2026-06-08, coinciding with the v1.2026.6 GitHub release date, indicating the image build is tied to the tagged release process rather than abandoned separately from the source repo."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "plantuml docker hub official image",
+      "ghcr.io plantuml",
+      "plantuml docker image outdated abandoned"
+    ],
+    "where_searched": [
+      "hub.docker.com/v2/repositories/plantuml/plantuml/tags (queried directly)",
+      "hub.docker.com/v2/repositories/plantuml/plantuml-server/tags (queried directly)",
+      "hub.docker.com/r/plantuml/plantuml (human-readable repository page, via WebFetch)"
+    ],
+    "search_date": "2026-08-14",
+    "result": "Both registries returned current, recently-pushed tags (2026-06-08), so no evidence of an abandoned or stale Docker image was found. NOT checked: a ghcr.io (GitHub Container Registry) mirror was not queried in this session — the GitHub repository's own Dockerfile (see companion record) is the build source for the Docker Hub images, and no ghcr.io namespace was referenced from the repository's Dockerfile or README during this pass, so ghcr.io is recorded as an unresolved gap (not confirmed absent, simply not checked) rather than as a negative finding."
+  }
+}

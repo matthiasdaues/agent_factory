@@ -1,0 +1,112 @@
+{
+  "source_identity": "Atlas HCL Schema Language Reference: 'Schema as Code: HCL Syntax' (atlasgo.io/atlas-schema/hcl)",
+  "author_or_issuing_body": "Ariga, Inc. (maintainer of the Atlas project)",
+  "publisher": "atlasgo.io (Ariga, Inc.)",
+  "publication_date": "2026-08-14T00:00:00Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "atlasgo.io official documentation (Ariga)",
+  "precise_evidence_location": "atlasgo.io/atlas-schema/hcl, sections: 'Schema', 'Table', 'Primary Key', 'Foreign Key', 'Index', 'Check', 'Table Qualification'",
+  "method": "Live retrieval of the public documentation page via automated web-fetch, directed to quote verbatim text and HCL code blocks under each named section heading.",
+  "limitations": "The page carries no visible publication or last-updated date, so publication_date above is the retrieval date, not an authored date. Content was obtained through a fetch tool that summarizes/extracts rather than returning raw HTML, so exhaustiveness of quoting cannot be guaranteed — sections not asked about were not captured. The documentation does not state which Atlas CLI version's grammar the page describes at any given moment (it tracks the current release, not a pinned version). No literal example of three simultaneous self-referencing foreign keys on one table, nor of a >2-column primary_key or unique index, was found in the retrieved excerpts; the classifications below extrapolate from the documented list-typed 'columns' attribute rather than from a literal 3+-column or 3-self-FK example.",
+  "provenance": "Retrieved via the WebFetch tool against https://atlasgo.io/atlas-schema/hcl on 2026-08-14. Re-verify by visiting the URL directly and reading the 'Schema', 'Table', 'Primary Key', 'Foreign Key', 'Index', 'Check', and 'Table Qualification' sections.",
+  "raw_evidence": [
+    {
+      "quote": "schema \"market\" { charset = \"utf8mb4\" collate = \"utf8mb4_0900_ai_ci\" }",
+      "locator": "§Schema (MySQL example)",
+      "url": "https://atlasgo.io/atlas-schema/hcl"
+    },
+    {
+      "quote": "schema \"public\" { comment = \"A schema comment\" }",
+      "locator": "§Schema (PostgreSQL example)",
+      "url": "https://atlasgo.io/atlas-schema/hcl"
+    },
+    {
+      "quote": "schema \"main\" {}",
+      "locator": "§Schema (SQLite example)",
+      "url": "https://atlasgo.io/atlas-schema/hcl"
+    },
+    {
+      "quote": "table \"users\" { schema = schema.public column \"id\" { type = int } primary_key { columns = [column.id] } }",
+      "locator": "§Table",
+      "url": "https://atlasgo.io/atlas-schema/hcl"
+    },
+    {
+      "quote": "A `primary_key` is a child resource of a `table`, and it defines the table's primary key",
+      "locator": "§Primary Key",
+      "url": "https://atlasgo.io/atlas-schema/hcl"
+    },
+    {
+      "quote": "foreign_key \"owner_id\" { columns = [column.owner_id] ref_columns = [table.users.column.id] on_delete = CASCADE }",
+      "locator": "§Foreign Key",
+      "url": "https://atlasgo.io/atlas-schema/hcl"
+    },
+    {
+      "quote": "column \"manager_id\" { type = int } ... foreign_key \"manager_fk\" { columns = [column.manager_id] ref_columns = [column.id]",
+      "locator": "§Foreign Key (self-reference example)",
+      "url": "https://atlasgo.io/atlas-schema/hcl"
+    },
+    {
+      "quote": "index \"idx_name\" { unique = true columns = [column.name] }",
+      "locator": "§Index",
+      "url": "https://atlasgo.io/atlas-schema/hcl"
+    },
+    {
+      "quote": "A `check` is a child resource of a `table` that describes a `CHECK` constraint. table \"products\" { column \"price\" { type = float } check \"positive price\" { expr = \"price > 0\" } }",
+      "locator": "§Check",
+      "url": "https://atlasgo.io/atlas-schema/hcl"
+    },
+    {
+      "quote": "In some cases, an Atlas DDL document may contain multiple tables of the same name. This usually happens when the same table name appears in two different schemas.",
+      "locator": "§Table Qualification",
+      "url": "https://atlasgo.io/atlas-schema/hcl"
+    },
+    {
+      "quote": "table \"a\" \"users\" ... table \"b\" \"users\" ... referencing different schemas, with foreign keys using table.public.users.column.id syntax",
+      "locator": "§Table Qualification (cross-schema FK reference example)",
+      "url": "https://atlasgo.io/atlas-schema/hcl"
+    },
+    {
+      "quote": "Columns include type and optional attributes like `null`, `default`, and `comment`.",
+      "locator": "§Column",
+      "url": "https://atlasgo.io/atlas-schema/hcl"
+    }
+  ],
+  "interpretation": {
+    "composite_primary_key": {
+      "classification": "expressible",
+      "citation": "§Primary Key — `primary_key { columns = [...] }`",
+      "rationale": "The `columns` attribute of `primary_key` is a plain HCL list of column references with no documented cardinality limit; the identical list-typed pattern is shown for `index.columns` with an implied multi-entry use. No literal 2+-column example was captured in this fetch, so this is read directly off the grammar shape, not a worked example."
+    },
+    "multiple_self_referencing_foreign_keys_one_table": {
+      "classification": "expressible",
+      "citation": "§Foreign Key (manager_fk self-reference example)",
+      "rationale": "Each `foreign_key` block is an independently named child resource of `table`; the documented single self-referencing example (`manager_id` -> `column.id` on the same table) demonstrates the mechanism. Because blocks are named and repeatable, nothing in the retrieved text restricts a table to one such block, so three distinctly named self-referencing foreign_key blocks on one table follow directly from the grammar. No literal 3-simultaneous-self-FK example was found; this is an extrapolation from a 1-self-FK example plus the general repeatable/named-block pattern."
+    },
+    "nullable_foreign_key": {
+      "classification": "expressible",
+      "citation": "§Column ('optional attributes like `null`, `default`, and `comment`') combined with §Foreign Key",
+      "rationale": "A foreign_key's referencing column is an ordinary table column, and columns carry a `null` attribute per the column-attributes text; nothing suggests FK-bearing columns are exempted from that attribute."
+    },
+    "multi_column_unique_constraint": {
+      "classification": "expressible",
+      "citation": "§Index — `index { unique = true columns = [...] }`",
+      "rationale": "Same list-typed `columns` attribute as `primary_key`; the captured example shows one column, so a 2-column unique index is inferred from the list-typed attribute rather than a literal worked example."
+    },
+    "one_to_zero_or_one_relationship": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "No relationship/cardinality keyword found in §Schema, §Table, §Primary Key, §Foreign Key, §Index, §Check, or §Table Qualification",
+      "rationale": "Atlas HCL is a physical schema language: the retrieved sections define schema, table, column, primary_key, foreign_key, index, and check — there is no block or attribute expressing relationship cardinality as a first-class concept. A one-to-zero-or-one relationship must be reconstructed by a reader from two independently documented primitives — a nullable foreign_key column plus a unique index on that same column — rather than declared directly. This absence claim is based on the sections retrieved in this fetch, not an exhaustive read of the entire hcl documentation tree."
+    },
+    "several_logical_schemas_in_one_database": {
+      "classification": "expressible",
+      "citation": "§Table Qualification — multiple `schema` blocks in one document, tables qualified per schema, cross-schema FK via `table.<schema>.<table>.column.<col>`",
+      "rationale": "Directly documented: the page describes multiple schemas coexisting in one HCL document, with a naming-qualification mechanism and a worked cross-schema foreign-key reference syntax."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": ["atlas hcl composite primary key limit", "atlas hcl self-referencing foreign key limit", "atlas hcl cardinality relationship", "atlas hcl multi-column unique limitation"],
+    "where_searched": ["atlasgo.io/atlas-schema/hcl (this page, full-text via fetch prompts)", "general web search (WebSearch tool)"],
+    "search_date": "2026-08-14",
+    "result": "No documented cap on primary_key/index column-list length was found. No relationship-cardinality construct (e.g. a 'has_one'/'has_many'/'cardinality' keyword) was found anywhere in the retrieved HCL reference sections; its absence is treated here as a structural fact about the language (physical-schema only), not as an unresolved search gap."
+  }
+}

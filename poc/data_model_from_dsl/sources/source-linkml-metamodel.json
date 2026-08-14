@@ -1,0 +1,163 @@
+{
+  "source_identity": "LinkML Metamodel reference (linkml-model) and LinkML core documentation site — schema constructs section",
+  "author_or_issuing_body": "LinkML project (linkml/linkml-model and linkml/linkml maintainers, led by Chris Mungall and collaborators)",
+  "publisher": "linkml.io (LinkML documentation site, GitHub Pages, hosted by the linkml GitHub organization)",
+  "publication_date": "2026-08-14T00:00:00Z",
+  "relevant_event_date": "2026-05-20",
+  "source_family": "linkml-official-docs (linkml.io/linkml and linkml.io/linkml-model — same maintaining org, treated as one family distinct from GitHub source repo and Docker registry families)",
+  "precise_evidence_location": "Multiple exact locators, one per construct: (1) linkml-model docs slot 'identifier' at https://linkml.io/linkml-model/latest/docs/identifier/ and slot 'unique_keys' at https://linkml.io/linkml-model/latest/docs/unique_keys/, cross-referenced from https://linkml.io/linkml/schemas/constraints.html section 'Unique Keys' / 'Compound keys'; (2) https://linkml.io/linkml/schemas/advanced.html section on 'Any' type (linkml:Any) plus absence of a builtin JSON scalar type in the linkml-model core types (only 'Jsonpath' and 'Jsonpointer' string-pattern types found, no opaque 'Json'/'Jsonobj' type); (3) https://linkml.io/linkml/schemas/enums.html section 'Basic Enums', permissible_values key; (4) general 'range' slot mechanism (SlotDefinition.range, linkml-model), no documented restriction against multiple slots per class sharing the same class as range; (5) linkml-model docs slot 'required' at https://linkml.io/linkml-model/latest/docs/required/; (6) same as (1), unique_keys with unique_key_slots list; (7) same as (5) 'required' combined with multivalued default (SlotDefinition.multivalued, default false); (8) https://linkml.io/linkml/schemas/advanced.html section on boolean 'Range Expressions' (any_of/all_of/none_of/exactly_one_of) and Rules section slot_conditions example using equals_string; (9) https://linkml.io/linkml/generators/sqltable.html algorithm statement 'Each schema S corresponds to one database schema D'; (10) https://linkml.io/linkml/schemas/inheritance.html section on Mixins, 'mixins' slot and 'mixin: true' flag.",
+  "method": "Direct retrieval of LinkML's own official documentation pages (linkml.io/linkml and linkml.io/linkml-model, both maintained by the linkml GitHub org) via automated fetch, reading the metamodel slot reference pages and the narrative schema-authoring guide pages for each construct in turn.",
+  "limitations": "linkml.io pages carry no visible per-page 'last updated' date; publication_date above is the retrieval date, not a documented page date, so it is treated as an upper bound only — the underlying content may be older or newer within an unknown window. Several pages returned HTTP 404 on first attempt (e.g. a guessed 'schemas/uniqueness.html' and 'schemas/patterns.html' URL that do not exist as separate pages) and had to be relocated via search, meaning the site's exact page taxonomy was reconstructed rather than browsed from an index; some path guesses may still not reflect the canonical current page structure. Fetches were processed through an intermediate summarization step (WebFetch tool) rather than raw HTML capture, so quoted text, while presented in quotation marks by the tool, was extracted by a secondary model and not manually diffed byte-for-byte against page source. The 'Any' type and absent-native-JSON-type finding is an inference from the presence of Jsonpath/Jsonpointer and the advanced-features page, not from a single explicit 'LinkML has no JSON scalar type' statement — this is flagged as an inference, not a direct quote, in interpretation.",
+  "provenance": "Retrieved 2026-08-14 via automated web fetch of https://linkml.io/linkml-model/latest/docs/identifier/, https://linkml.io/linkml-model/latest/docs/unique_keys/, https://linkml.io/linkml-model/latest/docs/required/, https://linkml.io/linkml/schemas/constraints.html, https://linkml.io/linkml/schemas/enums.html, https://linkml.io/linkml/schemas/advanced.html, https://linkml.io/linkml/schemas/inheritance.html, and https://linkml.io/linkml/generators/sqltable.html. Re-verify by re-fetching the same URLs; all are publicly accessible without authentication.",
+  "raw_evidence": [
+    {
+      "quote": "True means that the key slot(s) uniquely identifies the elements. There can be at most one identifier or key per container",
+      "locator": "linkml-model slot 'identifier', Comments section",
+      "url": "https://linkml.io/linkml-model/latest/docs/identifier/"
+    },
+    {
+      "quote": "a key slot is automatically required. Identifiers cannot be optional; a given domain can have at most one identifier; identifiers and keys are mutually exclusive. A given domain cannot have both",
+      "locator": "linkml-model slot 'identifier', Comments section",
+      "url": "https://linkml.io/linkml-model/latest/docs/identifier/"
+    },
+    {
+      "quote": "A collection of named unique keys for this class. Unique keys may be singular or compound.",
+      "locator": "linkml-model slot 'unique_keys', Description",
+      "url": "https://linkml.io/linkml-model/latest/docs/unique_keys/"
+    },
+    {
+      "quote": "marking a slot with `key: true` is _not_ merely a syntactic sugar for a `unique_keys` definition",
+      "locator": "docs/schemas/constraints.html, section on singular key vs compound unique_keys",
+      "url": "https://linkml.io/linkml/schemas/constraints.html"
+    },
+    {
+      "quote": "classes:\n  Foo:\n    slots:\n      - name\n    unique_keys:\n      the_key:\n        unique_key_slots:\n          - name",
+      "locator": "docs/schemas/constraints.html, Compound/unique_keys YAML example",
+      "url": "https://linkml.io/linkml/schemas/constraints.html"
+    },
+    {
+      "quote": "Enumerations are common features in modeling frameworks. These can be thought of as a 'drop-down' of permissible values for a field/slot.",
+      "locator": "docs/schemas/enums.html, section 'Basic Enums'",
+      "url": "https://linkml.io/linkml/schemas/enums.html"
+    },
+    {
+      "quote": "enums:\n  FamilialRelationshipType:\n    permissible_values:\n      SIBLING_OF:\n      PARENT_OF:\n      CHILD_OF:",
+      "locator": "docs/schemas/enums.html, 'Basic Enums' YAML example",
+      "url": "https://linkml.io/linkml/schemas/enums.html"
+    },
+    {
+      "quote": "true means that the slot must be present in instances of the class definition",
+      "locator": "linkml-model slot 'required', Description",
+      "url": "https://linkml.io/linkml-model/latest/docs/required/"
+    },
+    {
+      "quote": "any_of, all_of, none_of, and exactly_one_of ... apply at the class or slot level ... an array of expressions",
+      "locator": "docs/schemas/advanced.html, Boolean Combinations of Range Expressions section",
+      "url": "https://linkml.io/linkml/schemas/advanced.html"
+    },
+    {
+      "quote": "slots:\n  vital_status:\n    required: true\n    range: Any\n    any_of:\n      - range: MissingValueEnum\n      - range: VitalStatusEnum",
+      "locator": "docs/schemas/advanced.html, any_of YAML example",
+      "url": "https://linkml.io/linkml/schemas/advanced.html"
+    },
+    {
+      "quote": "slot_conditions:\n  country:\n    any_of:\n      - equals_string: USA\n      - equals_string: USA_territory",
+      "locator": "docs/schemas/advanced.html, Rules section, slot_conditions/equals_string YAML example",
+      "url": "https://linkml.io/linkml/schemas/advanced.html"
+    },
+    {
+      "quote": "these features are experimental ... behavior is not guaranteed to stay consistent",
+      "locator": "docs/schemas/advanced.html, caveat on Rules/boolean expressions",
+      "url": "https://linkml.io/linkml/schemas/advanced.html"
+    },
+    {
+      "quote": "Each schema S corresponds to one database schema D",
+      "locator": "docs/generators/sqltable.html, mapping algorithm description",
+      "url": "https://linkml.io/linkml/generators/sqltable.html"
+    },
+    {
+      "quote": "Mixin parents operate similarly to `is_a` parents, but they do not have the constraint of forming a tree.",
+      "locator": "docs/schemas/inheritance.html, Mixins section",
+      "url": "https://linkml.io/linkml/schemas/inheritance.html"
+    },
+    {
+      "quote": "Person:\n  is_a: NamedThing\n  mixins:\n    - HasAliases\n\nHasAliases:\n  mixin: true\n  slots:\n    - aliases",
+      "locator": "docs/schemas/inheritance.html, Mixins YAML example",
+      "url": "https://linkml.io/linkml/schemas/inheritance.html"
+    },
+    {
+      "quote": "`is_a` SHOULD only connect either (1) two mixins (2) two non-mixin elements",
+      "locator": "docs/schemas/inheritance.html, Mixins constraint note",
+      "url": "https://linkml.io/linkml/schemas/inheritance.html"
+    }
+  ],
+  "interpretation": {
+    "composite_primary_key": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "linkml-model slot 'identifier' Comments ('There can be at most one identifier or key per container') plus slot 'unique_keys' (compound unique_key_slots)",
+      "rationale": "A class may declare exactly one 'identifier' or 'key' slot — never more than one, and never a compound identifier. A true multi-column IDENTITY (e.g. OUTCOME_RULE on (task_version_id, sequence_no) as the row's identifying key) cannot be expressed as a compound `identifier`. The documented alternative, `unique_keys`, gives compound UNIQUENESS but is explicitly not identity ('key: true is not merely syntactic sugar for a unique_keys definition' — key/identifier slots get special treatment such as dict-inlining that unique_keys does not). So a composite primary key is representable only as a compound unique_keys constraint standing in for the PK, which is a workaround relative to what the source model actually needs (an identifying composite key), not a native composite-identifier construct."
+    },
+    "json_payload_column": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "docs/schemas/advanced.html 'Any' type (linkml:Any) section; absence of a documented opaque JSON scalar type among linkml-model builtin types (only Jsonpath/Jsonpointer string-pattern types were found)",
+      "rationale": "LinkML has no native opaque-JSON scalar comparable to a database JSONB/JSON column. The two documented escape hatches are (a) `range: Any` (linkml:Any), which permits any typed object but is meant for polymorphic typed values, not an intentionally-untyped blob, or (b) `range: string`, which stores the JSON as an opaque string with no schema-level structure at all. Neither is a first-class 'this column holds arbitrary JSON' construct; both require the schema author to step outside LinkML's typed-slot model."
+    },
+    "enumerated_string_domain": {
+      "classification": "expressible",
+      "citation": "docs/schemas/enums.html, 'Basic Enums' section, permissible_values",
+      "rationale": "Directly and natively supported: an `enums:` block with `permissible_values:` restricts a slot's range to a fixed value set, exactly matching FOLDER_RUN.execution_context (SCHEDULED|MANUAL) and NAMED_RESOURCE_LINK.link_kind (HOST_CAPACITY|NAMED_RESOURCE)."
+    },
+    "multiple_self_referencing_fks_one_table": {
+      "classification": "expressible",
+      "citation": "SlotDefinition.range general mechanism (linkml-model) — no documented cardinality restriction on how many slots of a class may take that same class as their range",
+      "rationale": "A slot's `range` can name any class, including the class the slot itself belongs to. Nothing in the documentation restricts a class to at most one self-referencing slot, so origin_instance_id, cyclic_root_instance_id, and previous_iteration_id can each be declared as ordinary slots with range: TaskInstance. No dedicated 'self-reference' language feature exists or is needed — this follows from the general range mechanism, not from a documented example specific to multiple simultaneous self-references, so the citation is inferential rather than a worked LinkML example."
+    },
+    "nullable_foreign_key": {
+      "classification": "expressible",
+      "citation": "linkml-model slot 'required', Description ('true means that the slot must be present')",
+      "rationale": "Slots are optional (nullable) unless `required: true` is set; this is the documented default. A class-range slot such as TASK_INSTANCE.folder_run_id or .plan_id left without `required: true` is a nullable foreign key by default LinkML behavior."
+    },
+    "multi_column_unique_not_pk": {
+      "classification": "expressible",
+      "citation": "linkml-model slot 'unique_keys' and docs/schemas/constraints.html compound-key YAML example",
+      "rationale": "unique_keys with a list of unique_key_slots is precisely a multi-column UNIQUE constraint independent of the class's identifier/key slot, matching PLAN (domain_id, odate) and NAMED_RESOURCE (domain_id, name)."
+    },
+    "one_to_zero_or_one": {
+      "classification": "expressible",
+      "citation": "linkml-model slot 'required' (default false) combined with SlotDefinition.multivalued (default false)",
+      "rationale": "A class-range slot that is neither required nor multivalued is a singular optional (zero-or-one) reference, which is the standard LinkML default for any non-required, non-multivalued slot with a class range — matching ATTEMPT ||--o| ATTEMPT_RESULT."
+    },
+    "value_constraint_beyond_type": {
+      "classification": "expressible",
+      "citation": "docs/schemas/advanced.html, any_of / equals_string boolean range-expression section",
+      "rationale": "`any_of` combined with `equals_string` (or a numeric range expression with minimum_value) lets a slot be declared as 'range: integer with minimum_value 1' OR 'equals_string: ALL', directly matching resource_task_weight's 'decimal positive integer OR literal ALL' requirement. The documentation itself flags these boolean/rules features as experimental with behavior 'not guaranteed to stay consistent', which is recorded as a limitation on how solid this classification is going forward."
+    },
+    "several_logical_schemas_in_one_database": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "docs/generators/sqltable.html mapping-algorithm statement 'Each schema S corresponds to one database schema D'",
+      "rationale": "The SQL DDL generator's documented algorithm maps one LinkML schema file to exactly one database schema. No documented option was found (see contrary-evidence record) for tagging individual classes with a target database-schema name so that one LinkML source produces tables split across configuration/runtime/audit/resources schemas in one physical database. The closest workaround is authoring four separate LinkML schema files (using `imports` to share common types) and running gen-sqlddl once per file, then hand-assembling the four DDL outputs against one database — which requires manual assembly outside any single documented command."
+    },
+    "cross_cutting_convention_domain_id": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "docs/schemas/inheritance.html Mixins section ('mixins' slot, 'mixin: true')",
+      "rationale": "Mixins let a schema author compose a shared slot (e.g. a DomainScoped mixin carrying domain_id) into every class that needs it, but this is a schema-AUTHORING convention, not an automatically-verified constraint: nothing in the mixins documentation states that a linter or validator checks, after the fact, that every class in some group actually uses the mixin. Enforcing 'domain_id present on every Domain-owned table' as a checked invariant — rather than a convention the author must remember to apply — is not shown as a mixins capability in this documentation; see the tooling record for whether linkml-lint's rule set covers this (it does not, per its documented eight built-in rules)."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "linkml composite primary key",
+      "linkml multiple identifiers per class",
+      "linkml JSON type opaque payload",
+      "linkml self-referencing slot",
+      "linkml multiple database schemas one database sqltablegen",
+      "linkml mixin enforce required slot all classes"
+    ],
+    "where_searched": [
+      "linkml.io/linkml official documentation site (schemas/, generators/ sections)",
+      "linkml.io/linkml-model metamodel slot reference pages",
+      "general web search (WebSearch tool) restricted to no domain filter, results manually screened for linkml.io/github.com origin"
+    ],
+    "search_date": "2026-08-14",
+    "result": "No page was found documenting a composite/compound `identifier` (the identifier docs explicitly cap it at one per class). No page was found describing a native opaque-JSON LinkML type; only Jsonpath/Jsonpointer string-pattern types surfaced, which encode paths/pointers, not arbitrary payloads. No documented per-class 'target database schema' option was found for the SQL DDL generator; the only per-schema-file statement found was 'Each schema S corresponds to one database schema D'. No documented linter rule or validator feature was found that automatically checks 'every class carrying trait X also carries slot Y' as a structural schema-wide invariant — the eight built-in linter rules (recorded in the tooling source record) do not include such a rule."
+  }
+}

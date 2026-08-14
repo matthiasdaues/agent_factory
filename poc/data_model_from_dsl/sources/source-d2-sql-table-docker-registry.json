@@ -1,0 +1,54 @@
+{
+  "source_identity": "Docker Hub public tag listing for terrastruct/d2 (https://hub.docker.com/r/terrastruct/d2/tags) and docs/INSTALL.md's Docker section naming d2lang/d2 as the canonical image",
+  "author_or_issuing_body": "d2lang (Terrastruct Inc.), publishing under the Docker Hub organization/user 'terrastruct'",
+  "publisher": "Docker Hub (Docker, Inc.) — public container registry; image published by the terrastruct/d2lang maintainers",
+  "publication_date": "2025-08-19T13:50:56Z",
+  "relevant_event_date": "2025-08-19",
+  "source_family": "Docker Hub registry listing for the terrastruct/d2 image repository, corroborated by the d2lang/d2 GitHub repository's own docs/INSTALL.md Docker instructions — same publishing org, not independent corroboration of a different fact",
+  "precise_evidence_location": "hub.docker.com/r/terrastruct/d2/tags — tag rows for v0.7.1 and 'latest' (both listed 'Last pushed 12 months' as of retrieval on 2026-08-14, i.e. ~2025-08); docs/INSTALL.md, \"Docker\" section, in the d2lang/d2 repository",
+  "method": "Direct retrieval of the Docker Hub tags page for the terrastruct/d2 repository, and of the raw docs/INSTALL.md file from the d2lang/d2 GitHub repository, cross-checked against the GitHub Releases API (gh api repos/terrastruct/d2/releases/latest) which independently reports v0.7.1 published 2025-08-19T13:50:56Z — the Docker tag's push date and the GitHub release date align, consistent with the image being built and pushed as part of the same release process.",
+  "limitations": "Docker Hub's web UI reports relative ages ('12 months', 'over 1 year') rather than exact timestamps for tag pushes, so the exact push timestamp for the v0.7.1/latest Docker tags themselves was not directly observed — the exact date (2025-08-19T13:50:56Z) is taken from the corresponding GitHub release publish date via the GitHub API, on the assumption (not independently verified by inspecting registry manifest metadata) that the Docker image for a given version tag is published concurrently with its GitHub release. No GHCR (ghcr.io) listing was found for this project in the search performed; Docker Hub is the only registry confirmed to host the image. docs/INSTALL.md's own text is internally inconsistent about which of 'd2lang/d2' or 'terrastruct/d2' is canonical (see raw_evidence) — the automated fetch tooling summarized it as 'd2lang/d2 primary, terrastruct/d2 compatibility mirror' but the raw file content only shows the 'd2lang/d2' name in the example command, with no explicit 'compatibility mirror' language found in the raw text reviewed; this discrepancy between the summarized reading and the literal example command is recorded honestly rather than resolved, since the org rename (terrastruct/d2 to d2lang/d2, confirmed via `gh api repos/terrastruct/d2` returning `full_name: d2lang/d2`) plausibly explains why the older, still-live terrastruct/d2 Docker Hub repository and the newer docs pointing at d2lang/d2 both exist.",
+  "provenance": "Docker Hub tags page fetched via WebFetch on 2026-08-14 (URL: https://hub.docker.com/r/terrastruct/d2/tags). docs/INSTALL.md fetched via raw.githubusercontent.com/terrastruct/d2/master/docs/INSTALL.md on 2026-08-14 (the terrastruct/d2 path 302-redirects to the renamed d2lang/d2 repository, both resolving to the same file). GitHub release date cross-checked via `gh api repos/terrastruct/d2/releases/latest` on 2026-08-14. Re-verifiable by revisiting the same Docker Hub URL or by running `docker manifest inspect terrastruct/d2:v0.7.1`.",
+  "raw_evidence": [
+    {
+      "quote": "v0.7.1 — Last pushed 12 months by terrastruct | latest — Last pushed 12 months by terrastruct | v0.7.0 — Last pushed over 1 year by terrastruct | v0.6.9 — Last pushed over 1 year by terrastruct | v0.6.8 — Last pushed almost 2 years by terrastruct",
+      "locator": "hub.docker.com/r/terrastruct/d2/tags, tag listing table (top 5 rows)",
+      "url": "https://hub.docker.com/r/terrastruct/d2/tags"
+    },
+    {
+      "quote": "docker run --rm -it -u \"$(id -u):$(id -g)\" -v \"$PWD:/home/debian/src\" -p 127.0.0.1:8080:8080 d2lang/d2:v0.1.2 --watch helloworld.d2",
+      "locator": "docs/INSTALL.md, Docker section, code example",
+      "url": "https://raw.githubusercontent.com/d2lang/d2/master/docs/INSTALL.md"
+    },
+    {
+      "quote": "We publish amd64 and arm64 images based on debian:latest for each release.",
+      "locator": "docs/INSTALL.md, Docker section",
+      "url": "https://raw.githubusercontent.com/d2lang/d2/master/docs/INSTALL.md"
+    },
+    {
+      "quote": "{\"tag_name\":\"v0.7.1\",\"published_at\":\"2025-08-19T13:50:56Z\",\"name\":\"v0.7.1\"}",
+      "locator": "GitHub Releases API response for repos/terrastruct/d2/releases/latest",
+      "url": "https://api.github.com/repos/terrastruct/d2/releases/latest"
+    }
+  ],
+  "interpretation": {
+    "docker_image_availability": {
+      "classification": "expressible",
+      "citation": "hub.docker.com/r/terrastruct/d2/tags (registry listing, confirmed present, not a README/blog claim) and docs/INSTALL.md's docker run example",
+      "rationale": "A public, official Docker image exists and is actively maintained — the registry listing itself was consulted directly (not a secondary claim), showing tags up to v0.7.1 and a 'latest' tag, pushed within the 12 months preceding the August-2026 retrieval date. This satisfies the survey's Docker-availability requirement with a definite positive finding: image name confirmed as terrastruct/d2 on Docker Hub (with docs pointing to d2lang/d2 as the name used in the current install instructions — both resolve, per the org rename); exact tag observed: v0.7.1."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "ghcr.io terrastruct/d2",
+      "ghcr.io d2lang/d2",
+      "d2lang docker image ghcr"
+    ],
+    "where_searched": [
+      "General web search for 'd2lang docker image ghcr.io terrastruct/d2 tags'",
+      "docs/INSTALL.md (direct read, only mentions Docker Hub, no GHCR reference)"
+    ],
+    "search_date": "2026-08-14",
+    "result": "No evidence of a GHCR (ghcr.io) listing was found; only Docker Hub was confirmed as a distribution channel for the official image, and docs/INSTALL.md documents only Docker Hub. This is recorded as a definite negative for GHCR specifically, not a general negative on Docker image availability — Docker Hub availability is a confirmed positive."
+    }
+}

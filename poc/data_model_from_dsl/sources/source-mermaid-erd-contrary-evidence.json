@@ -1,0 +1,197 @@
+{
+  "source_identity": "mermaid-js/mermaid and mermaid-js/mermaid-cli GitHub issue trackers (searched via the public GitHub REST Search API, api.github.com/search/issues), the erDiagram.jison grammar, erDb.ts and erTypes.ts source modules, and the entityRelationshipDiagram.md documentation page, all read at the mermaid@11.16.1 tag — the mandatory search_angle 9 contrary-evidence sweep for Mermaid erDiagram, including verification of the two issue numbers (#3582, #442) already cited by sibling Mermaid records",
+  "author_or_issuing_body": "mermaid-js organisation (source code, grammar, and documentation) and individual issue reporters on the mermaid-js/mermaid and mermaid-js/mermaid-cli repositories",
+  "publisher": "GitHub, Inc. (api.github.com search index and issue/PR hosting for mermaid-js/mermaid and mermaid-js/mermaid-cli; raw.githubusercontent.com and the GitHub Contents API for source files pinned to the mermaid@11.16.1 tag)",
+  "publication_date": "2026-08-14T00:00:00Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "Three families, kept distinct: (1) github.com/mermaid-js/mermaid issue tracker, queried directly via the GitHub REST Search API (api.github.com/search/issues) rather than a general web search engine, per the survey's own recorded limitation that WebSearch-sourced evidence was materially weaker; (2) github.com/mermaid-js/mermaid-cli issue tracker, a separate repository under the same GitHub org, queried the same way, distinct from the mermaid-js/mermaid core repository used elsewhere; (3) the mermaid-js/mermaid source repository itself (erDiagram.jison, erDb.ts, erTypes.ts, entityRelationshipDiagram.md), read directly at the mermaid@11.16.1 git tag via the GitHub Contents API — the same primary-source family used by source-mermaid-erd-grammar.json and source-mermaid-erd-syntax.json, but examined here for different constructs (referential auto-creation behaviour, the optional-attribute-type feature, and the absence of any namespace/subgraph token) than those sibling records analysed.",
+  "precise_evidence_location": "api.github.com/search/issues queries scoped to repo:mermaid-js/mermaid and repo:mermaid-js/mermaid-cli for composite key, JSON, enum, self reference, unique, nullable, validator/lint, undefined, cardinality, typo, 'empty box', namespace bug, CHECK constraint, domain_id, custom rule, multiple schemas, and layout/overlap terms; individual issues mermaid-js/mermaid#3582, #442, #3400, #2933, #4429, #3225, #4754, #5409, #3585, #6047, #8054, #6487, #4519; individual issues/PRs mermaid-js/mermaid-cli#245, #903; PR mermaid-js/mermaid#7792 and its resolved issue #7417; the compare API against tags mermaid@11.16.0 and mermaid@11.16.1; packages/mermaid/src/diagrams/er/parser/erDiagram.jison (relationship production rules, lines ~124-180); packages/mermaid/src/diagrams/er/erDb.ts (addEntity, lines 54-74; addRelationship, lines 113-129); packages/mermaid/src/diagrams/er/erTypes.ts (Attribute interface, lines 15-19); packages/mermaid/src/docs/syntax/entityRelationshipDiagram.md (lines 70, 128, 207), all at the mermaid@11.16.1 tag.",
+  "method": "Direct, authenticated calls to the public GitHub REST Search API (via `gh api search/issues`, parsed with jq) against repo:mermaid-js/mermaid and repo:mermaid-js/mermaid-cli for each of the ten advanced constructs plus the validator, undeclared-entity, and layout/legibility angles, followed by direct GET requests to api.github.com/repos/<org>/<repo>/issues/<n> for full issue bodies, states, and dates on every relevant hit. This is the API-based method the sibling source-atlas-hcl-contrary-evidence.json record identifies as materially stronger than WebSearch, and the one this task was explicitly instructed to use. Two issue numbers named in the task (#3582 and #442) were resolved first, directly by number, before any keyword search, to establish ground truth for what sibling records' existing citations actually point to. Grammar, database, and type-definition source files were fetched directly from the GitHub Contents API pinned to the mermaid@11.16.1 tag (not the develop branch) and read in full for the specific question of whether an entity referenced only inside a relationship statement is validated against a prior declaration, and whether the recently-added optional-attribute-type suffix carries any structured nullable semantics. The GitHub Compare API (repos/mermaid-js/mermaid/compare/<tag>...<sha>) was used to determine whether PR #7792's merge commit is an ancestor of the mermaid@11.16.0 and mermaid@11.16.1 tags, i.e. whether a feature merged to the develop branch actually shipped in the examined release.",
+  "limitations": "The GitHub Search API's keyword/full-text matching (`in:title,body` implicitly, or unscoped text matching) will miss issues that use different terminology than the exact search terms tried (e.g. 'compound key' instead of 'composite key'); searches were not exhaustive across the full issue history of either repository, only targeted keyword queries executed in this pass, each recorded individually below. Some issues cited (e.g. #245, #4519, #3400's resolution-by-workaround) are several years old and may not reflect the exact current state of an actively-developed project; each is dated explicitly below rather than treated as current by default, and #8054 is flagged as the freshest and most direct corroboration (opened two days before this search, reproduced explicitly on 11.16.1). The 'undeclared entity silently accepted' finding is derived primarily from direct reading of the parser grammar and database module at the pinned 11.16.1 tag, not from an issue report describing that exact scenario in those words — issue #8054 corroborates the same underlying absence of referential/model validation via a different trigger (an unescaped quote character) and is recorded as corroboration, not as independent proof of the identical code path. The PR #7792 subgraph-support finding is based on the GitHub Compare API's ahead/behind computation between a commit SHA and two tags, which is a reliable but indirect way of establishing release inclusion (a 'diverged' status with nonzero behind_by confirms the commit is not an ancestor of the tag, i.e. not shipped in it); it was cross-checked by grep for the literal string 'subgraph' and 'namespace' in the pinned-tag grammar file, which returned zero matches, corroborating the compare result directly rather than relying on the compare API alone.",
+  "provenance": "Retrieved 2026-08-14 via `gh api search/issues` and `gh api repos/<org>/<repo>/issues/<n>` (public GitHub REST API, authenticated as the operating user, subject to GitHub's published rate limits; api.github.com/rate_limit showed 30/30 search requests and 4996/5000 core requests remaining at the end of this pass), via `gh api repos/mermaid-js/mermaid/contents/<path>?ref=mermaid@11.16.1` for source files, and via `gh api repos/mermaid-js/mermaid/compare/<base>...<head>` for the release-inclusion check. Re-verify by re-issuing the same search/issues queries (query strings recorded in contrary_evidence_search below), by browsing the cited issue/PR numbers directly on github.com/mermaid-js/mermaid or github.com/mermaid-js/mermaid-cli, or by fetching the same file paths at the same tag via raw.githubusercontent.com/mermaid-js/mermaid/mermaid%4011.16.1/<path>.",
+  "raw_evidence": [
+    {
+      "quote": "If you have an Entity that has a composite primary key, and one of the fields in the primary key itself is a foreign key, how do you specify this in the ErDiagram?",
+      "locator": "GitHub issue mermaid-js/mermaid#3582, '[ErDiagram] Notation if a Foreign Key is part of a Composite Primary Key', state: open, created 2022-10-05, last updated 2025-03-19, labels: Type: Other, Status: Triage",
+      "url": "https://github.com/mermaid-js/mermaid/issues/3582"
+    },
+    {
+      "quote": "https://marketplace.visualstudio.com/items?itemName=vstirbu.vscode-mermaid-preview\n\nDocumentation should be updated",
+      "locator": "GitHub issue mermaid-js/mermaid#442, 'New downstream project: Mermaid Preview for VSCode', state: closed, created 2016-12-20, closed 2017-08-16, no labels — a downstream-tooling announcement from before Mermaid's ER diagram type existed (erDiagram itself was added later, in #1308), with no relationship whatsoever to composite keys, erDiagram, or any advanced construct in this survey's acid list",
+      "url": "https://github.com/mermaid-js/mermaid/issues/442"
+    },
+    {
+      "quote": "enum billing_period \"DAILY, WEEKLY, MONTHLY, YEARLY\" ... The downside on this is, that it becomes confusion when you have other comments. I would love, if you just could write enum(Option1, Option2) as type",
+      "locator": "GitHub issue mermaid-js/mermaid#3400, 'How to specify enum values in ERD?', state: closed, created 2022-09-02, closed 2024-08-18 (closed without a native feature landing — the closing left the community-proposed comment-string and separate-Enum-suffixed-table workarounds as the only options; a later comment dated 2026-01-26 continues discussing the same unmet need)",
+      "url": "https://github.com/mermaid-js/mermaid/issues/3400"
+    },
+    {
+      "quote": "In the erDiagram, you can't add a unique key identifier. ... If you try to add a unique key the graph will break.",
+      "locator": "GitHub issue mermaid-js/mermaid#2933, 'Unique Missing in the erDiagram', state: open, created 2022-04-13, last updated 2023-03-01, labels: Type: Bug / Error, Status: Triage, Graph: Entity Relationship",
+      "url": "https://github.com/mermaid-js/mermaid/issues/2933"
+    },
+    {
+      "quote": "Mermaid.js should add the attribute key NN for erDiagrams to model NOT NULL database columns. ... does not provide any facility to mark a column NOT NULL other than manually typing a comment for it",
+      "locator": "GitHub issue mermaid-js/mermaid#4429, 'Support NOT NULL attribute key for erDiagram syntax', state: open, created 2023-05-25, last updated 2025-07-10, labels: Type: Enhancement, Status: Triage, Graph: Entity Relationship",
+      "url": "https://github.com/mermaid-js/mermaid/issues/4429"
+    },
+    {
+      "quote": "export interface Attribute {\n  type: string;\n  name: string;\n  keys: ('PK' | 'FK' | 'UK')[];\n  comment: string;",
+      "locator": "packages/mermaid/src/diagrams/er/erTypes.ts, lines 15-19, mermaid@11.16.1 tag",
+      "url": "https://github.com/mermaid-js/mermaid/blob/mermaid%4011.16.1/packages/mermaid/src/diagrams/er/erTypes.ts"
+    },
+    {
+      "quote": "Adds support for ER diagram attribute types with a trailing `?`, such as `string? alias`, so diagrams can express optional or nullable columns directly in the type column. ... The parser now accepts `?` only as a suffix on `attributeType`... while preserving the literal `?` in the rendered type text.",
+      "locator": "GitHub PR mermaid-js/mermaid#7793, 'feat(er): support optional attribute types', merged, resolves #7319, shipped in the 11.16.0 changeset (confirmed present in the mermaid@11.16.1 CHANGELOG.md '11.16.0 / Minor Changes' section)",
+      "url": "https://github.com/mermaid-js/mermaid/pull/7793"
+    },
+    {
+      "quote": "public addRelationship(entA: string, rolA: string, entB: string, rSpec: RelSpec) {\n    const entityA = this.entities.get(entA);\n    const entityB = this.entities.get(entB);\n    if (!entityA || !entityB) {\n      return;\n    }",
+      "locator": "packages/mermaid/src/diagrams/er/erDb.ts, lines 113-118, mermaid@11.16.1 tag",
+      "url": "https://github.com/mermaid-js/mermaid/blob/mermaid%4011.16.1/packages/mermaid/src/diagrams/er/erDb.ts"
+    },
+    {
+      "quote": "relStatement: entityName relSpec entityName ':' role { yy.addEntity($1); yy.addEntity($3); yy.addRelationship($1, $5, $3, $2); }",
+      "locator": "packages/mermaid/src/diagrams/er/parser/erDiagram.jison, relationship production rules (five near-identical productions, lines ~124-147, each calling yy.addEntity on both sides before yy.addRelationship), mermaid@11.16.1 tag — paraphrased/condensed from the actual grammar for brevity; every one of the five relationship-statement productions in the file calls addEntity on both operands unconditionally before calling addRelationship",
+      "url": "https://github.com/mermaid-js/mermaid/blob/mermaid%4011.16.1/packages/mermaid/src/diagrams/er/parser/erDiagram.jison"
+    },
+    {
+      "quote": "In erDiagram, a bare (unescaped) double quote in the middle of an entity name or relationship label does not produce a parse error. The name is silently truncated at the quote character, and the remainder of the text is re-lexed as further ER statements — creating entities the author never declared and re-anchoring the relationship onto one of these fragments. The author gets no warning: the diagram parses cleanly and renders a different graph from the one they wrote. ... Reproduced identically ... on: Mermaid 11.6.0, Mermaid 11.16.1 (current latest, published 2026-08-04)",
+      "locator": "GitHub issue mermaid-js/mermaid#8054, 'ER diagram: unescaped double quote inside an entity name silently truncates it and rewrites the graph with phantom entities, instead of erroring', state: open, created 2026-08-12, labels: Type: Bug / Error, Status: Triage",
+      "url": "https://github.com/mermaid-js/mermaid/issues/8054"
+    },
+    {
+      "quote": "It's visually helpful to group entity tables by arbitrary categories. It's frustrating to be unable to have a quick snapshot of all entities that relate to each other in some defined way (eg. area of interest: user related entities, etc)",
+      "locator": "GitHub issue mermaid-js/mermaid#3225, 'Group entities (eg. by areas of interes, by collections and subcollections, etc) [ER Diagram]', state: open, created 2022-07-15, last updated 2026-05-21, 14 comments, labels: Type: Enhancement, Graph: Entity Relationship",
+      "url": "https://github.com/mermaid-js/mermaid/issues/3225"
+    },
+    {
+      "quote": "This PR introduces support for subgraphs in Entity Relationship (ER) diagrams, enabling entities to be grouped into logical domains. ... Resolves #7417",
+      "locator": "GitHub PR mermaid-js/mermaid#7792, 'feat(erDiagram): add subgraph support', merged 2026-06-11 into the develop branch, merge_commit_sha 2364d7d40cec4d137232bb03ba69edfc3cf59cd3",
+      "url": "https://github.com/mermaid-js/mermaid/pull/7792"
+    },
+    {
+      "quote": "status: diverged, ahead_by: 52, behind_by: 90 (compare of mermaid@11.16.1...2364d7d40cec4d137232bb03ba69edfc3cf59cd3); zero matches for 'subgraph' or 'namespace' in packages/mermaid/src/diagrams/er/parser/erDiagram.jison at ref mermaid@11.16.1",
+      "locator": "GitHub Compare API, repos/mermaid-js/mermaid/compare/mermaid@11.16.1...2364d7d40cec4d137232bb03ba69edfc3cf59cd3 (and the equivalent compare against mermaid@11.16.0, behind_by 75), cross-checked by direct grep of the pinned-tag grammar file",
+      "url": "https://api.github.com/repos/mermaid-js/mermaid/compare/mermaid@11.16.1...2364d7d40cec4d137232bb03ba69edfc3cf59cd3"
+    },
+    {
+      "quote": "at ER-diagram, EntityBox and others Relation-Line are drawn overlapped, This occur when one of branch has a lot child and the other does not have any children node.",
+      "locator": "GitHub issue mermaid-js/mermaid#4754, 'at ER-diagram, EntityBox are drawn overlapped', state: open, created 2023-08-21, last updated 2023-12-06, labels: Type: Bug / Error, Status: Triage",
+      "url": "https://github.com/mermaid-js/mermaid/issues/4754"
+    },
+    {
+      "quote": "the edges of arrows, which represent different cardinality ratios, overlap and collide into each other. This resulted in a messy and visually unappealing diagram, and can make it difficult to interpret the relationships between entities. ... I noticed the issue doesn't only occur in areas of the diagram that are more densely connected.",
+      "locator": "GitHub issue mermaid-js/mermaid#5409, 'Overlapping Arrow Edges in Large Entity Relationship Diagrams', state: open, created 2024-03-24, last updated 2024-04-05, labels: Type: Bug / Error, Status: Triage — reproduction sample diagram has 8 entities and ~15 relationships, below Gigacron's 25-entity/~30-relationship scale",
+      "url": "https://github.com/mermaid-js/mermaid/issues/5409"
+    },
+    {
+      "quote": "Diagram hard to look at as it's too wide and zoom doesn't work",
+      "locator": "GitHub issue mermaid-js/mermaid#3585, 'large erDiagram too wide', state: open, created 2022-10-05, 0 comments, labels: Type: Bug / Error, Status: Triage — reproduction sample lists well over a dozen entities in an AdventureWorks-derived schema, closer in scale to Gigacron's 25-entity model",
+      "url": "https://github.com/mermaid-js/mermaid/issues/3585"
+    },
+    {
+      "quote": "When I try the following diagram in any renderer, including MermaidChart editor, the entire UI freezes. ... if you remove the last couple of entities, then it works OK.",
+      "locator": "GitHub issue mermaid-js/mermaid#6047, 'erDiagram crashes renderer', state: open, created 2024-11-10, last updated 2026-03-02, labels: Type: Bug / Error, Contributor needed, Status: Approved, Graph: Entity Relationship — reproduction sample has only 6 entities and 5 relationships, well below Gigacron's 25/~30 scale, and already freezes the renderer",
+      "url": "https://github.com/mermaid-js/mermaid/issues/6047"
+    },
+    {
+      "quote": "unclear parser error message, cannot debug whether there's syntax error ... Should show which line are the problem/error.",
+      "locator": "GitHub issue mermaid-js/mermaid-cli#245, 'Unclear error message, error message are hidden (which offending line)', state: closed, created 2022-02-15, closed 2022-06-27, 0 comments",
+      "url": "https://github.com/mermaid-js/mermaid-cli/issues/245"
+    },
+    {
+      "quote": "When mermaid-cli (mmdc) processes an input file ... containing multiple Mermaid diagram blocks, if any single block has a syntax error, the entire conversion process halts. No output is generated for the subsequent, potentially correct, Mermaid blocks.",
+      "locator": "GitHub issue mermaid-js/mermaid-cli#903, 'Feature Request: Add an option to skip invalid Mermaid blocks and continue processing', state: closed, created 2025-05-11, closed 2025-06-11",
+      "url": "https://github.com/mermaid-js/mermaid-cli/issues/903"
+    }
+  ],
+  "interpretation": {
+    "resolution_of_cited_issue_3582": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "mermaid-js/mermaid#3582, open since 2022-10-05, still open and last touched 2025-03-19",
+      "rationale": "This issue is genuinely on-topic and unresolved: it asks how to notate an attribute that is simultaneously part of a composite primary key and a foreign key — exactly the TASK_VERSION-adjacent shape the brief's acid list needs for OUTCOME_RULE, NAMED_RESOURCE_LINK, and CONDITION_POST. It corroborates, from the issue tracker rather than the grammar alone, the sibling source-mermaid-erd-grammar.json record's classification: the grammar accepts `PK, FK` as a comma-separated key-token list on one row, but there is no dedicated composite-key grouping construct, and nearly four years on, no maintainer has closed this gap or even proposed a syntax. Marking two attribute rows both PK, as the grammar allows, produces two independent single-column key flags, not a composite-key semantic — the open issue is direct evidence that real authors hit exactly this ambiguity and get no answer from the project."
+    },
+    "resolution_of_cited_issue_442": {
+      "classification": "not-expressible",
+      "citation": "mermaid-js/mermaid#442, closed 2017-08-16",
+      "rationale": "This issue has no bearing on erDiagram or any advanced construct in this survey. It is a 2016 announcement of a third-party VSCode preview extension, filed and closed years before Mermaid's ER diagram type existed as a documented feature. Recorded here explicitly, as instructed, to correct the sibling records' citation: whatever those records intended #442 to support, this record finds no relevant content in it, and it should not be relied on for any claim about erDiagram. This is reported as a factual finding about the issue's content, not as an accusation about how the citation arose."
+    },
+    "enumerated_string_domain_workaround_only": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "mermaid-js/mermaid#3400, closed 2024-08-18 without a native feature",
+      "rationale": "The issue asks the same question FOLDER_RUN.execution_context and NAMED_RESOURCE_LINK.link_kind need answered — how to constrain a column to a fixed value set — and was closed roughly two years after being opened with no native `enum(...)` type ever added to the grammar (independently confirmed: the sibling source-mermaid-erd-grammar.json record's ATTRIBUTE_KEY/type-token analysis shows no enum production). The two workarounds the community settled on in the thread — a free-text comment string listing the values, or a synthetic side-table named with an `Enum` suffix and no way to visually mark it as an enumeration type — are both outside the language's own semantics and unverifiable by any parser or validator. A comment thread from 2026-01-26, well after closure, shows the underlying need is still unmet."
+    },
+    "unique_key_reported_broken_not_merely_absent": {
+      "classification": "not-expressible",
+      "citation": "mermaid-js/mermaid#2933, open since 2022-04-13",
+      "rationale": "This goes beyond the multi-column-UNIQUE gap the brief's acid list names for PLAN(domain_id, odate) and NAMED_RESOURCE(domain_id, name): it reports that even a single-column UK marker, which sibling records document as grammar-accepted, breaks diagram rendering in practice for the reporter. No multi-column UNIQUE construct exists at all in the grammar (the same absence of any attribute-grouping production that blocks composite primary keys — see source-mermaid-erd-grammar.json), so the multi-column case is necessarily not-expressible; this issue adds that even the simpler single-column case has a live, still-open rendering defect on top of that absence."
+    },
+    "nullable_marker_added_but_purely_cosmetic": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "erTypes.ts Attribute interface (`keys: ('PK' | 'FK' | 'UK')[]`, no 'NN' or nullable field) and merged PR #7793 ('feat(er): support optional attribute types', shipped in 11.16.0, present in 11.16.1); open issue #4429 requesting a first-class `NN` key",
+      "rationale": "A `?` suffix on the attribute type (`string? alias`) was added and has shipped in the exact version (11.16.1) these records examine, and it postdates every sibling Mermaid record's stated retrieval date of 2026-08-14, so it is easy to mistake for a solved nullable-FK story. Reading erTypes.ts directly at the 11.16.1 tag shows the suffix is not: the PR's own description says it is 'preserving the literal `?` in the rendered type text', and the Attribute interface's `type` field remains a bare `string` with no separate boolean or enum nullable field — the `?` is indistinguishable, in the parsed model, from a user typing any other character into the free-text type column. It cannot be asserted, queried, or validated as a semantic nullable flag; it is decoration. Issue #4429, requesting a proper `NN` attribute key parallel to `PK`/`FK`/`UK`, remains open (last updated 2025-07-10) precisely because this cosmetic suffix does not satisfy the request. TASK_INSTANCE.folder_run_id and TASK_INSTANCE.plan_id's nullable-FK requirement is therefore still expressible-only-via-workaround (a documentation-only annotation with no enforcement), not expressible, despite the new syntax."
+    },
+    "no_semantic_validation_undeclared_entity_silently_auto_created": {
+      "classification": "not-expressible",
+      "citation": "erDb.ts addEntity() (lines 54-74) and addRelationship() (lines 113-129); erDiagram.jison relationship productions (lines ~124-180), all at mermaid@11.16.1; corroborated by open issue #8054 (2026-08-12), reproduced explicitly on mermaid@11.16.1",
+      "rationale": "Direct reading of the pinned-tag grammar shows every one of the five relationship-statement productions calls `yy.addEntity()` unconditionally on both operands before calling `yy.addRelationship()`. addEntity() has no failure mode — if the name is not already in the entities map, it creates a bare, attribute-less entity node on the spot and logs an info-level message, nothing more. There is no code path anywhere in erDb.ts that rejects a relationship naming an entity that was never given its own attribute block: such an entity is silently manufactured as an empty box the instant it is first mentioned in a relationship line. A typo in an entity name (e.g. referencing TASK_VERSON instead of TASK_VERSION in one relationship among 30) produces no error, no warning, and no non-zero exit from mermaid-cli — it produces a 26th, empty phantom entity and a relationship pointing at it, with the diagram still parsing 'successfully'. Issue #8054, opened two days before this search and reproduced identically on 11.6.0 and the current-latest 11.16.1, demonstrates the same underlying absence of model-level integrity checking through a different trigger (an unescaped quote silently splitting one declared entity into several phantom fragments) — the issue's own words, 'the diagram parses cleanly and renders a different graph from the one they wrote', describe exactly the risk profile this code reading predicts for the acid-test question of whether a relationship referencing an undeclared entity is silently accepted. It is: not merely accepted, but invisibly promoted to a real entity with no way for a reader or a CI gate to distinguish a genuine 26th entity from a typo."
+    },
+    "grouping_construct_merged_but_not_yet_released_and_not_a_schema": {
+      "classification": "not-expressible",
+      "citation": "PR #7792 (merged to develop 2026-06-11, resolving feature request #7417); GitHub Compare API showing the merge commit is not an ancestor of either the mermaid@11.16.0 or mermaid@11.16.1 tag (status: diverged, behind_by 75 and 90 respectively); zero matches for 'subgraph' or 'namespace' in the pinned-tag erDiagram.jison; open issue #3225 (2022-07-15, 14 comments, still open) requesting the same capability",
+      "rationale": "Two distinct findings, both contrary to treating the several-logical-schemas gap as closed or closing. First, timing: #7792 adds a `subgraph`/`end` grouping block to erDiagram and was merged before both the 11.16.0 (2026-06-25) and 11.16.1 (2026-08-04) release dates, which could suggest it shipped in the exact version these records examine — but the Compare API shows the merge commit is not an ancestor of either release tag, and a direct grep of the grammar file at the 11.16.1 tag confirms zero occurrences of the token, so the feature has not actually reached any tagged release as of this search; a naive date-only inference would have wrongly concluded it had. Second, even once released, the PR's own description characterises it as a rendering/clustering aid ('grouping entities into logical domains', 'improves diagram clarity') built on the same entity namespace as ordinary entities — nothing in the PR text describes namespace-scoped identifiers, cross-schema uniqueness enforcement, or any validation tied to schema boundaries, which is what 'several logical schemas inside one database' requires per research question 10 (matching ADR-0001's configuration/runtime/audit/resources split). It is the same visual-grouping category as a flowchart subgraph, not a schema construct. Issue #3225's persistence for over four years across 14 comments, entirely unaddressed by #7792 per its own resolves-link (#7417, not #3225), is separate evidence that the specific 'group by category, still readable' need remains open even discounting the release-timing question."
+    },
+    "layout_and_legibility_degrade_well_below_gigacron_scale": {
+      "classification": "not-expressible",
+      "citation": "mermaid-js/mermaid#4754 (open, 2023-08-21), #5409 (open, 2024-03-24, ~8 entities/~15 relationships), #3585 (open, 2022-10-05, AdventureWorks-scale schema), #6047 (open, 2024-11-10, 6 entities/5 relationships freezes the renderer)",
+      "rationale": "All four issues are open and describe entity-box overlap, arrow-edge collision, excessive diagram width breaking zoom, and outright renderer freezes. Critically, #6047's reproduction case that freezes the UI has only 6 entities and 5 relationships, and #5409's overlap case has roughly 8 entities and 15 relationships — both far below Gigacron's 25 entities and ~30 relationships. None of these issues were closed as fixed at time of search. This is direct evidence that the legibility and stability problems the brief's completion_criteria implicitly worry about (25 entities in a single diagram being unreadable) are not merely a hypothetical concern at Gigacron's scale — they are reported, open, unresolved defects at scales smaller than Gigacron's model, with no per-issue indication of a fix landing before mermaid@11.16.1."
+    },
+    "validator_exit_behaviour_is_blunt_and_poorly_localised": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "mermaid-js/mermaid-cli#245 (closed 2022-06-27, unclear error message with no offending-line indication) and #903 (closed 2025-06-11, confirms mermaid-cli halts the entire batch and produces no output for any block, correct or not, on a single syntax error, with no way to isolate which of several diagrams failed)",
+      "rationale": "This does not contradict the sibling source-mermaid-erd-tooling.json record's likely finding that mermaid-cli exits non-zero on a malformed diagram (a genuinely usable CI-gate property, not disputed here); it adds a documented-limitations layer on top of that binary pass/fail signal. #903's own description of current behaviour — 'the entire conversion process halts... An error message... is displayed, and the process exits' — is itself confirmation of fail-fast exit behaviour, but the feature request exists precisely because that failure is all-or-nothing with no per-diagram isolation, and #245 documents that the resulting error message does not identify which line is at fault. For a 25-entity, ~30-relationship single-file model, this means a single typo anywhere produces a hard failure with a message that (per #245, admittedly from 2022) may not localise the fault, which is a materially weaker CI-gate diagnostic experience than the exit-code contract alone would suggest."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "repo:mermaid-js/mermaid#3582 and repo:mermaid-js/mermaid#442 (direct issue-number resolution, as instructed, before any keyword search)",
+      "repo:mermaid-js/mermaid erDiagram composite key",
+      "repo:mermaid-js/mermaid erDiagram composite unique",
+      "repo:mermaid-js/mermaid erDiagram enum",
+      "repo:mermaid-js/mermaid erDiagram JSON",
+      "repo:mermaid-js/mermaid erDiagram unique",
+      "repo:mermaid-js/mermaid erDiagram \"self reference\"",
+      "repo:mermaid-js/mermaid erDiagram nullable",
+      "repo:mermaid-js/mermaid erDiagram namespace",
+      "repo:mermaid-js/mermaid erDiagram layout",
+      "repo:mermaid-js/mermaid erDiagram overlap",
+      "repo:mermaid-js/mermaid erDiagram undefined entity",
+      "repo:mermaid-js/mermaid erDiagram cardinality",
+      "repo:mermaid-js/mermaid erDiagram zero or one",
+      "repo:mermaid-js/mermaid erDiagram validate",
+      "repo:mermaid-js/mermaid erDiagram validator OR lint",
+      "repo:mermaid-js/mermaid erDiagram \"not supported\"",
+      "repo:mermaid-js/mermaid erDiagram CHECK constraint",
+      "repo:mermaid-js/mermaid erDiagram \"domain_id\"",
+      "repo:mermaid-js/mermaid erDiagram \"custom rule\"",
+      "repo:mermaid-js/mermaid erDiagram multiple schemas",
+      "repo:mermaid-js/mermaid erDiagram typo",
+      "repo:mermaid-js/mermaid erDiagram \"empty box\"",
+      "repo:mermaid-js/mermaid erDiagram misspell",
+      "repo:mermaid-js/mermaid classDiagram namespace bug",
+      "repo:mermaid-js/mermaid-cli exit",
+      "repo:mermaid-js/mermaid-cli erDiagram",
+      "direct source reads (GitHub Contents API): erDiagram.jison, erDb.ts, erTypes.ts, entityRelationshipDiagram.md, CHANGELOG.md, all pinned to ref mermaid@11.16.1",
+      "GitHub Compare API: mermaid@11.16.0...2364d7d40cec4d137232bb03ba69edfc3cf59cd3 and mermaid@11.16.1...2364d7d40cec4d137232bb03ba69edfc3cf59cd3"
+    ],
+    "where_searched": [
+      "api.github.com/search/issues (GitHub's public REST Search API, scoped with repo:mermaid-js/mermaid or repo:mermaid-js/mermaid-cli, queried via `gh api` — not a general web search engine)",
+      "api.github.com/repos/mermaid-js/mermaid/issues/<n> and api.github.com/repos/mermaid-js/mermaid-cli/issues/<n> for full issue bodies, states, and dates",
+      "api.github.com/repos/mermaid-js/mermaid/contents/<path>?ref=mermaid@11.16.1 for grammar, database, type-definition, documentation, and changelog source files pinned to the exact examined tag",
+      "api.github.com/repos/mermaid-js/mermaid/compare/<base>...<head> for release-inclusion verification"
+    ],
+    "search_date": "2026-08-14",
+    "result": "Both issue numbers named in the task were resolved: #3582 is genuinely on-topic (composite PK/FK notation, open and unresolved since 2022) and corroborates the grammar-level composite-key gap; #442 is unrelated to erDiagram entirely (a 2016 VSCode-extension announcement, closed 2017) and should not be relied on as evidence for any claim in the sibling records that cite it. Substantive, on-topic contrary evidence was found for six of the ten acid-list constructs (composite key: #3582; enumerated domain: #3400; multi-column/single-column unique: #2933; nullable FK: #4429 plus the erTypes.ts/PR-7793 cosmetic-suffix finding; several logical schemas: #3225 plus the PR-7792 timing/scope finding; and, outside the ten-construct list but explicitly named in the task, absence of semantic validation on undeclared entities: erDb.ts/erDiagram.jison code reading plus issue #8054) and for the layout/legibility-at-scale and validator-diagnosability angles (four and two issues respectively). Three constructs were searched and returned no relevant hits, recorded as explicit non-findings rather than as confirmed absence of any relevant discussion: JSON payload column (repo:mermaid-js/mermaid erDiagram JSON — 11 results, none on-topic), self-referencing foreign key (repo:mermaid-js/mermaid erDiagram \"self reference\" — 2 results, neither on-topic), and CHECK/value-constraint-beyond-type (repo:mermaid-js/mermaid erDiagram CHECK constraint — 2 results, neither on-topic). Two constructs were searched with terms tried but no plausible on-topic vocabulary beyond what was already tried was identified, and are recorded as genuine non-findings rather than blurred into 'nothing to search for': one-to-zero-or-one relationship cardinality (repo:mermaid-js/mermaid erDiagram zero or one and erDiagram cardinality — 27 combined results, all parser edge-cases or unrelated features, none describing a cardinality-expressiveness limitation) and the domain_id cross-cutting convention / custom lint rule (repo:mermaid-js/mermaid erDiagram \"domain_id\" and erDiagram \"custom rule\" — zero results for both). No query in this pass was left UNEXECUTED for lack of vocabulary; every one of the ten acid-list constructs plus the validator, undeclared-entity, and layout angles had at least one search term actually run against the API, distinguishing this record's non-findings (searched, nothing on-topic) from an unexecuted search, per the task's explicit instruction that this distinction is load-bearing. No positive evidence found in this pass (e.g. the shipped optional-attribute-type feature, or the merged-but-unreleased subgraph PR) was used to soften any classification above; where such evidence exists, it is recorded and then shown to fall short of the construct's actual requirement, not presented as a win."
+  }
+}

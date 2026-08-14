@@ -1,0 +1,76 @@
+{
+  "source_identity": "mermaid-js/mermaid-cli repository — README and CLI entry point (src/index.js)",
+  "author_or_issuing_body": "mermaid-js organisation (mermaid-cli maintainers; original author Tyler Long per LICENSE)",
+  "publisher": "GitHub, repository mermaid-js/mermaid-cli",
+  "publication_date": "2026-08-10T07:17:58Z",
+  "relevant_event_date": "2026-08-10",
+  "source_family": "mermaid-js/mermaid-cli source repository (distinct project/repository from mermaid-js/mermaid core, though co-maintained under the same GitHub organisation)",
+  "precise_evidence_location": "README.md (root) for usage/export-format/Docker documentation; src/index.js, the error() function and the run() function's try/finally block, master branch",
+  "method": "Retrieved README.md and src/index.js from the repository via raw.githubusercontent.com, and repository metadata (pushed_at, latest release) via the GitHub REST API (api.github.com/repos/mermaid-js/mermaid-cli and .../releases/latest).",
+  "limitations": "src/index.js was read via an automated fetch-and-extract pass rather than a full manual line-by-line review, so the absence of error handling around renderMermaid() is reported as an observed gap in the retrieved excerpt, not an exhaustive audit of every code path in the file (e.g. error handling inside puppeteer.js or other imported modules was not examined). No local execution was performed (out of scope per task boundaries), so exit-code behaviour is inferred from source code reading, not from an observed process exit status. An older, predecessor repository (mermaidjs/mermaid.cli, now archived/renamed) has a historical open issue (#77, 'mmdc process does not exit on error') describing similar behaviour, but that repository is a different source_family and is not used as primary evidence here — see source-mermaid-erd-contrary-evidence.json.",
+  "provenance": "Fetched from https://github.com/mermaid-js/mermaid-cli, https://raw.githubusercontent.com/mermaid-js/mermaid-cli/master/src/index.js, https://api.github.com/repos/mermaid-js/mermaid-cli, and https://api.github.com/repos/mermaid-js/mermaid-cli/releases/latest on 2026-08-14 via automated web retrieval. Re-verify by fetching the same URLs or cloning the repository at the 11.16.0 tag.",
+  "raw_evidence": [
+    {
+      "quote": "Command line interface (CLI) for mermaid. It takes a mermaid definition file as input and generates an SVG/PNG/PDF file as output.",
+      "locator": "README.md, top-of-file description",
+      "url": "https://github.com/mermaid-js/mermaid-cli"
+    },
+    {
+      "quote": "docker run --rm -u `id -u`:`id -g` -v /path/to/diagrams:/data minlag/mermaid-cli -i diagram.mmd",
+      "locator": "README.md, Docker usage example",
+      "url": "https://github.com/mermaid-js/mermaid-cli"
+    },
+    {
+      "quote": "const error = (message) => { console.error(chalk.red(`\\n${message}\\n`)); process.exit(1); };",
+      "locator": "src/index.js, error() helper function",
+      "url": "https://raw.githubusercontent.com/mermaid-js/mermaid-cli/master/src/index.js"
+    },
+    {
+      "quote": "error(`Configuration file \"${file}\" doesn't exist`); / error(`Input file \"${input}\" doesn't exist`); / error('Output file must end with \".md\"/\".markdown\", \".svg\", \".png\" or \".pdf\"'); / error(\"Artefacts [-a|--artefacts] path can only be used with Markdown input file\"); / error(`Output directory \"${outputDir}/\" doesn't exist`);",
+      "locator": "src/index.js, CLI argument validation call sites",
+      "url": "https://raw.githubusercontent.com/mermaid-js/mermaid-cli/master/src/index.js"
+    },
+    {
+      "quote": "} finally { if (browser !== userPassedBrowser) { await browser?.close?.(); } }",
+      "locator": "src/index.js, run() function, finally block following the renderMermaid() call",
+      "url": "https://raw.githubusercontent.com/mermaid-js/mermaid-cli/master/src/index.js"
+    },
+    {
+      "quote": "tag_name: 11.16.0, published_at: 2026-06-29T17:07:35Z",
+      "locator": "GitHub Releases API, /repos/mermaid-js/mermaid-cli/releases/latest",
+      "url": "https://api.github.com/repos/mermaid-js/mermaid-cli/releases/latest"
+    },
+    {
+      "quote": "pushed_at: 2026-08-10T07:17:58Z",
+      "locator": "GitHub Repos API, /repos/mermaid-js/mermaid-cli",
+      "url": "https://api.github.com/repos/mermaid-js/mermaid-cli"
+    }
+  ],
+  "interpretation": {
+    "svg_png_export_from_container": {
+      "classification": "expressible",
+      "citation": "README.md, description line and Docker usage example",
+      "rationale": "mmdc documents direct SVG and PNG export via the -o flag with a .svg or .png extension, and the README's own usage example runs it from the minlag/mermaid-cli Docker image with no local install, matching the pattern of factory/scripts/structurizr."
+    },
+    "validator_exit_code_behaviour": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "src/index.js, error() function (process.exit(1) on CLI-level validation failures) versus the run() function's try/finally block around renderMermaid(), which contains no catch clause or explicit non-zero exit for a rendering/parse failure",
+      "rationale": "mmdc DOES exit non-zero (via error()) for CLI usage mistakes: missing input file, missing config file, wrong output extension, missing output directory. It does NOT, in the retrieved code, appear to explicitly catch a Mermaid parse/render failure and translate it into a controlled non-zero exit — the try/finally only guarantees the browser is closed, not that a specific exit code is set on failure. Combined with the grammar-level finding in source-mermaid-erd-grammar.json that an undeclared-entity relationship is silently auto-vivified rather than rejected, the practical conclusion is: mmdc's exit-non-zero guarantee is reliable for CLI misuse and probably for hard syntax/lexer errors that throw inside renderMermaid() and go unhandled (Node's default behaviour is to exit 1 on an uncaught exception/unhandled rejection), but it has no deliberate, documented exit-code CONTRACT for malformed diagrams, and it has no semantic-validation layer at all, so a diagram that is syntactically valid but semantically inconsistent (e.g. references an undeclared entity) will not cause any non-zero exit — it renders 'successfully'. This is recorded as expressible-only-via-workaround (i.e., relying on undocumented default Node.js uncaught-exception behaviour) rather than not-expressible, because malformed input does appear to crash the process in practice per historical issue reports, but not as a designed, gated, documented contract the way the research question requires."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "mmdc exit code",
+      "mermaid-cli process.exit",
+      "mermaid-cli validate command",
+      "mmdc semantic validation erDiagram"
+    ],
+    "where_searched": [
+      "https://raw.githubusercontent.com/mermaid-js/mermaid-cli/master/src/index.js",
+      "https://github.com/mermaid-js/mermaid-cli (README and repository)",
+      "web search across GitHub issues for mermaid-cli / mermaidjs/mermaid.cli"
+    ],
+    "search_date": "2026-08-14",
+    "result": "No dedicated 'validate' or 'lint' subcommand was found in mermaid-cli — only render-to-file (-o) with implicit validation as a side effect of attempting to render. No documented, stable exit-code CONTRACT for malformed or semantically inconsistent diagrams was found in the README or the retrieved source. A related historical issue on the predecessor repository ('mmdc process does not exit on error', mermaidjs/mermaid.cli issue #77) corroborates that this has been a known weak point in the tool's error handling, though that issue predates the current mermaid-js/mermaid-cli repository and is recorded here only as corroborating context, not as primary evidence for the current tool."
+  }
+}

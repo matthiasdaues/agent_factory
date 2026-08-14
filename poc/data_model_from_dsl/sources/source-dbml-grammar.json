@@ -1,0 +1,139 @@
+{
+  "source_identity": "DBML Syntax — Core Database Markup (docs.md), plus Enrichment & Visualization (enrichment-visualization.md), from the holistics/dbml monorepo's dbml-homepage docs site",
+  "author_or_issuing_body": "Holistics Software Pte Ltd (GitHub org: holistics; docs authored by DBML core maintainers, e.g. commits by huydo862003, NQPhuc)",
+  "publisher": "Holistics Software Pte Ltd, published at dbml.dbdiagram.io/docs/ and dbml.dbdiagram.io/syntax/enrichment-visualization/, source-controlled at github.com/holistics/dbml/tree/master/dbml-homepage/docs",
+  "publication_date": "2026-08-10T05:34:56Z",
+  "relevant_event_date": "2026-08-10",
+  "source_family": "dbml-official-docs (dbml-homepage Docusaurus site built from github.com/holistics/dbml, rendered at dbml.dbdiagram.io) — distinct from the holistics/dbml source-code family and from the public Docker-registry family",
+  "precise_evidence_location": "docs.md sections: 'Table Definition' (line 56), 'Column Settings' (line 101), 'Check Definition' (line 150), 'Index Definition' (line 170), 'Relationships & Foreign Key Definitions' (line 209), 'Enum Definition' (line 331); Schema Definition (line 40) and Public Schema (line 52); enrichment-visualization.md sections 'TableGroup' (line 239) and 'DiagramView' (line 281)",
+  "method": "Direct retrieval of the raw Markdown source files via the GitHub Contents API (gh api repos/holistics/dbml/contents/dbml-homepage/docs/docs.md and .../syntax/enrichment-visualization.md), which are the exact source of the rendered dbml.dbdiagram.io/docs/ site; cross-checked against the rendered page via WebFetch",
+  "limitations": "Docs.md documents general syntax rules and canonical examples; it does not contain an explicit worked example of a table with THREE simultaneous self-referencing foreign keys (see raw_evidence for the closest documented pattern and the corroborating test fixture cited in source-dbml-contrary-evidence.json). DiagramView is a very recently documented construct (file last touched 2026-08-10; the 'DiagramView' heading itself was confirmed present via search of holistics/dbml source, not dated to first introduction) — no changelog entry pinpoints when DiagramView shipped as a stable, non-experimental feature, so its maturity is uncertain. The 'Check Definition' checks{} block accepts an arbitrary backtick-quoted SQL expression string; DBML does not itself validate that expression's semantics — the expression is opaque, dialect-specific text passed through to whatever SQL target is generated.",
+  "provenance": "Retrieved 2026-08-14 via `gh api repos/holistics/dbml/contents/dbml-homepage/docs/docs.md` (raw content, base64-decoded) and `gh api repos/holistics/dbml/contents/dbml-homepage/docs/syntax/enrichment-visualization.md`, and via WebFetch of https://dbml.dbdiagram.io/docs/ and https://docs.dbdiagram.io/table-groups/ for cross-check. Re-verify with: `gh api repos/holistics/dbml/contents/dbml-homepage/docs/docs.md --jq '.content' | base64 -d` from the holistics/dbml repository, or by visiting https://dbml.dbdiagram.io/docs/ directly.",
+  "raw_evidence": [
+    {
+      "quote": "indexes {\n    (id, country) [pk] // composite primary key\n    created_at [name: 'created_at_index', note: 'Date']\n    booking_date\n    (country, booking_date) [unique]\n    booking_date [type: hash]\n    (`id*2`)\n    (`id*3`,`getdate()`)\n    (`id*3`,id)\n  }",
+      "locator": "docs.md, 'Index Definition' section, line 170-192",
+      "url": "https://github.com/holistics/dbml/blob/master/dbml-homepage/docs/docs.md"
+    },
+    {
+      "quote": "type of the data in the column listed as `column_type`\n  - supports all data types. The type name must not contain spaces; if your type has a space (e.g. `double precision`), wrap it in double quotes: `\"double precision\"`. Types with parentheses like `decimal(1,2)` or `varchar(255)` are supported as-is",
+      "locator": "docs.md, 'Table Definition' section, line 73-74",
+      "url": "https://github.com/holistics/dbml/blob/master/dbml-homepage/docs/docs.md"
+    },
+    {
+      "quote": "// enum belonged to default \"public\" schema\nenum job_status {\n  created [note: 'Waiting to be processed']\n  running\n  done\n  failure\n}\n\n// enum belonged to a schema\nenum v2.job_status {\n  ...\n}",
+      "locator": "docs.md, 'Enum Definition' section, line 331-347",
+      "url": "https://github.com/holistics/dbml/blob/master/dbml-homepage/docs/docs.md"
+    },
+    {
+      "quote": "Each operator can be augmented with `?` on either side to make that side **optional** — meaning the FK column is nullable and rows don't have to match.\n\nFor example, `>?` means the referenced side is optional, `?>` means the source side is optional. This works with all operators.",
+      "locator": "docs.md, 'Relationships & Foreign Key Definitions' section, line 234-236",
+      "url": "https://github.com/holistics/dbml/blob/master/dbml-homepage/docs/docs.md"
+    },
+    {
+      "quote": "- `<`: one-to-many. E.g: `users.id < posts.user_id`\n- `>`: many-to-one. E.g: `posts.user_id > users.id`\n- `-`: one-to-one. E.g: `users.id - user_infos.user_id`\n- `<>`: many-to-many. E.g: `authors.id <> books.id`",
+      "locator": "docs.md, 'Relationships & Foreign Key Definitions' section, line 229-232",
+      "url": "https://github.com/holistics/dbml/blob/master/dbml-homepage/docs/docs.md"
+    },
+    {
+      "quote": "**Composite foreign keys:**\n\n```text\nRef: merchant_periods.(merchant_id, country_code) > merchants.(id, country_code)\n```",
+      "locator": "docs.md, 'Relationships & Foreign Key Definitions' section, line 280-284",
+      "url": "https://github.com/holistics/dbml/blob/master/dbml-homepage/docs/docs.md"
+    },
+    {
+      "quote": "Checks allow users to specify custom checks on one or many columns. These checks can be used to enforce check constraints on the possible values of one or many columns, which are otherwise impossible to express.\n\nTable users {\n  id integer\n  wealth integer\n  debt integer\n\n  checks {\n    `debt + wealth >= 0` [name: 'chk_positive_money']\n  }\n}",
+      "locator": "docs.md, 'Check Definition' section, line 150-164",
+      "url": "https://github.com/holistics/dbml/blob/master/dbml-homepage/docs/docs.md"
+    },
+    {
+      "quote": "A new schema will be defined as long as it contains any table or enum. ... By default, any **table**, **relationship**, or **enum** definition that omits `schema_name` will be considered to belong to the `public` schema.",
+      "locator": "docs.md, 'Schema Definition' / 'Public Schema' sections, line 40-54",
+      "url": "https://github.com/holistics/dbml/blob/master/dbml-homepage/docs/docs.md"
+    },
+    {
+      "quote": "`DiagramView` allows users to define multiple views of a database diagram, each focusing on different tables, notes, table groups, or schemas.\n\nEach view can include one or more of the following categories:\n\n- `Tables`: specific tables to include\n- `Notes`: specific sticky notes to include\n- `TableGroups`: specific table groups to include\n- `Schemas`: specific schemas to include\n\nUse `{ * }` to include all items in a category, or specify a line-separated list of names",
+      "locator": "enrichment-visualization.md, 'DiagramView' section, line 281-324",
+      "url": "https://github.com/holistics/dbml/blob/master/dbml-homepage/docs/syntax/enrichment-visualization.md"
+    },
+    {
+      "quote": "`TableGroup` allows users to group the related or associated tables together.\n\nTableGroup tablegroup_name { // tablegroup is case-insensitive.\n  table1\n  table2\n  table3\n}",
+      "locator": "enrichment-visualization.md, 'TableGroup' section, line 239-255",
+      "url": "https://github.com/holistics/dbml/blob/master/dbml-homepage/docs/syntax/enrichment-visualization.md"
+    },
+    {
+      "quote": "`null` or `not null`: mark a column null or not null. If you omit this setting, the column will be null by default",
+      "locator": "docs.md, 'Column Settings' section, line 116",
+      "url": "https://github.com/holistics/dbml/blob/master/dbml-homepage/docs/docs.md"
+    }
+  ],
+  "interpretation": {
+    "composite_primary_keys": {
+      "classification": "expressible",
+      "citation": "docs.md 'Index Definition' section — `(id, country) [pk]` inside a table's `indexes { }` block",
+      "rationale": "The Index Definition section explicitly documents wrapping two or more column names in parentheses with a `[pk]` setting as the mechanism for a composite primary key; the same mechanism composes for OUTCOME_RULE, NAMED_RESOURCE_LINK, and CONDITION_POST."
+    },
+    "json_payload_columns": {
+      "classification": "expressible",
+      "citation": "docs.md 'Table Definition' section — column_type 'supports all data types'",
+      "rationale": "DBML column types are free-form strings passed through to the target dialect (e.g. `json` or `jsonb` for Postgres); no restriction on type name beyond the space-quoting rule, so an opaque JSON payload column is a plain native column type, not a workaround."
+    },
+    "enumerated_string_domains": {
+      "classification": "expressible",
+      "citation": "docs.md 'Enum Definition' section",
+      "rationale": "`enum name { value1 value2 ... }` plus referencing the enum name as a column type is a first-class, dedicated language construct for exactly this case."
+    },
+    "several_self_referencing_foreign_keys_one_table": {
+      "classification": "expressible",
+      "citation": "docs.md 'Relationships & Foreign Key Definitions' section (general Ref syntax, table.column > table.column, no same-table restriction stated); corroborated by a parser test fixture, see source-dbml-contrary-evidence.json",
+      "rationale": "The Ref/relationship grammar names a source and target as schema.table.column pairs with no rule barring the same table on both sides, and each Ref statement is independent, so multiple self-referencing Refs on one table compose. Docs.md itself contains no worked example with three simultaneous self-refs on one table — this classification also rests on the parser test fixture cited in source-dbml-contrary-evidence.json, which shows two independent self-referencing Refs on two different tables (not three on one), so the 'three at once' scaling is inferred from the absence of a stated limit, not directly demonstrated."
+    },
+    "nullable_foreign_keys": {
+      "classification": "expressible",
+      "citation": "docs.md 'Column Settings' (`null`/`not null`, default null) and 'Relationships & Foreign Key Definitions' (`?` optional-side modifier)",
+      "rationale": "A referencing column is nullable by default unless marked `not null`; the relationship operator can additionally be suffixed with `?` to mark a side optional, giving two independent, directly documented mechanisms."
+    },
+    "multi_column_unique_constraints": {
+      "classification": "expressible",
+      "citation": "docs.md 'Index Definition' section — `(country, booking_date) [unique]`",
+      "rationale": "The same indexes{} block used for composite PKs supports a `[unique]` setting on a parenthesized multi-column tuple, independent of any `[pk]` setting."
+    },
+    "one_to_zero_or_one_relationships": {
+      "classification": "expressible",
+      "citation": "docs.md 'Relationships & Foreign Key Definitions' — one-to-one operator `-` combined with the `?` optional-side modifier ('This works with all operators')",
+      "rationale": "The docs state the optional-side `?` modifier applies to all four relationship operators including `-` (one-to-one); applying `?` to the referencing side of a one-to-one Ref yields exactly a one-to-zero-or-one relationship. No worked example shows `-?` specifically (only `>?` is shown), so this is a direct rule application rather than a copied example."
+    },
+    "value_constraint_beyond_type": {
+      "classification": "expressible",
+      "citation": "docs.md 'Check Definition' section — `checks { ... }` block and column-level `check:` setting",
+      "rationale": "DBML has a dedicated construct for arbitrary check expressions ('otherwise impossible to express'). It is a native language feature, not a workaround at the DBML level; however the expression itself is opaque backtick-quoted text that DBML does not parse or validate, so the actual disjunction (decimal positive integer OR literal 'ALL') must be phrased as valid SQL for the target dialect — DBML supplies the slot, not the semantics."
+    },
+    "several_logical_schemas_one_database": {
+      "classification": "expressible",
+      "citation": "docs.md 'Schema Definition' and 'Public Schema' sections",
+      "rationale": "Any table, enum, or relationship can be prefixed with an arbitrary schema_name (`Table core.users { }`, `Table blogging.posts { }`); tables/relationships/enums without a prefix default to `public`. Nothing limits the number of distinct schema_name values in one file, so configuration/runtime/audit/resources map directly to four schema_name prefixes."
+    },
+    "named_subset_views_over_one_model": {
+      "classification": "expressible",
+      "citation": "enrichment-visualization.md 'DiagramView' section",
+      "rationale": "DiagramView is a first-class, named construct that selects a filtered subset of Tables, Notes, TableGroups, or Schemas for one view, directly analogous to Structurizr's views. It is documented but not dated to a specific release in the changelog, and (see source-dbml-contrary-evidence.json) the open-source third-party CLI renderer (dbml-renderer) shows no code reference to DiagramView, so whether the containerizable rendering path actually restricts output to one DiagramView is unconfirmed by primary source — only that the language construct exists and is parsed by @dbml/core/@dbml/parse."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "DBML self-referencing foreign key",
+      "DBML one-to-one optional nullable",
+      "DBML checks constraint limitation",
+      "DBML DiagramView",
+      "DBML TableGroup rendering",
+      "DBML composite primary key not supported"
+    ],
+    "where_searched": [
+      "dbml.dbdiagram.io/docs/ and dbml.dbdiagram.io/syntax/enrichment-visualization/ (rendered docs)",
+      "github.com/holistics/dbml raw docs source (dbml-homepage/docs/*.md via GitHub Contents API)",
+      "github.com/holistics/dbml GitHub code search (search/code) for 'DiagramView' token",
+      "GitHub issue search (search/issues) on repo:holistics/dbml"
+    ],
+    "search_date": "2026-08-14",
+    "result": "No documentation or issue stating that composite PKs, enums, multi-column unique, nullable FKs, or check expressions are unsupported. No explicit statement either confirming or denying that three simultaneous self-referencing FKs on one table are supported — grammar and a two-table test fixture (not a three-FK single-table case) are the closest primary evidence. No changelog entry pinpointing DiagramView's introduction date was found, and no evidence that any open-source renderer currently honours a DiagramView filter when producing SVG/PNG output — this is recorded as an unresolved gap, not a confirmed capability of the rendering toolchain."
+  }
+}

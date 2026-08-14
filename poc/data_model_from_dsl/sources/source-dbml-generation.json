@@ -1,0 +1,107 @@
+{
+  "source_identity": "holistics/dbml postgres_exporter test fixtures (packages/dbml-core/__tests__/examples/model_exporter/postgres_exporter/output/*.out.sql) — the exporter's own expected-output golden files — cross-checked against @dbml/cli's dbml2sql command, plus a web search for third-party application-type generators",
+  "author_or_issuing_body": "Holistics Software Pte Ltd (holistics/dbml, packages/dbml-core exporter test suite); Kevin (PyPI user, unaffiliated third-party maintainer of the unofficial 'dbml-builder' package, cited only as a secondary lead)",
+  "publisher": "GitHub, Inc. (github.com/holistics/dbml source hosting); PyPI (pypi.org/project/dbml-builder, third-party, secondary source)",
+  "publication_date": "2026-08-14T07:33:24Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "holistics/dbml source-code family (packages/dbml-core exporter test suite) — same code family as source-dbml-tooling.json (packages/dbml-cli calls the same @dbml/core ModelExporter); the PyPI dbml-builder reference is a separate, unofficial third-party family cited only as a lead, per source_targets policy",
+  "precise_evidence_location": "packages/dbml-core/__tests__/examples/model_exporter/postgres_exporter/output/checks.out.sql; .../enum_tables.out.sql; .../index_tables.out.sql; .../general_schema.out.sql; .../referential_actions.out.sql",
+  "method": "Direct retrieval of the exporter's golden-file test fixtures via the GitHub Contents API — these are the exact SQL that @dbml/core's ModelExporter (which @dbml/cli's dbml2sql wraps, per source-dbml-tooling.json's export.ts evidence) is asserted by the project's own test suite to produce for a given DBML/JSON model input, i.e. primary-source, machine-checked evidence of actual generation output rather than a documentation claim about it",
+  "limitations": "These are Postgres-target fixtures only; MySQL/MSSQL/Oracle targets were not independently checked and may generate enums or checks differently (e.g. MySQL has no native ENUM-as-type or CHECK support prior to 8.0.16 in the same form). No fixture in the examined set demonstrates a one-to-one ('-') relationship's DDL output (e.g. whether dbml2sql adds a UNIQUE constraint on the FK column to truly enforce one-to-zero-or-one, or merely emits a plain FOREIGN KEY) — this is recorded as an unresolved gap, not a confirmed capability. No fixture with three simultaneous self-referencing FKs on one table was found; the closest DDL-level self-reference evidence is the Oracle importer fixture cited in source-dbml-contrary-evidence.json (grammar/AST level, not a Postgres DDL golden file). Application-type generation (Pydantic/SQLAlchemy/dataclasses) has no official generator in the holistics/dbml project itself — the only lead found (dbml-builder on PyPI) is an unofficial, unaffiliated third-party tool, which per the brief's source_requirements is a lead only and is not treated as evidence of an official generation capability or of per-construct survival through it.",
+  "provenance": "Retrieved 2026-08-14 via `gh api repos/holistics/dbml/contents/packages/dbml-core/__tests__/examples/model_exporter/postgres_exporter/output/<file> --jq '.content' | base64 -d` for checks.out.sql, enum_tables.out.sql, index_tables.out.sql, general_schema.out.sql, and referential_actions.out.sql; WebSearch for 'dbml pydantic OR sqlalchemy generator code generation' located the unofficial dbml-builder PyPI package. Re-verify by fetching the same paths from github.com/holistics/dbml master branch, or by running `dbml2sql --postgres` locally against the corresponding .in.json fixtures.",
+  "raw_evidence": [
+    {
+      "quote": "CREATE TABLE \"User\" (\n  \"balance\" int CHECK (balance > 0),\n  ...\n  CONSTRAINT \"User.not_too_much_money\" CHECK (balance < 10000000),\n  ...\n);",
+      "locator": "packages/dbml-core/__tests__/examples/model_exporter/postgres_exporter/output/checks.out.sql",
+      "url": "https://github.com/holistics/dbml/blob/master/packages/dbml-core/__tests__/examples/model_exporter/postgres_exporter/output/checks.out.sql"
+    },
+    {
+      "quote": "CREATE TYPE \"job_status\" AS ENUM (\n  'created',\n  'running',\n  'done',\n  'failed',\n  'wait for validation'\n);\n\n...\n\nCREATE TABLE \"jobs\" (\n  \"id\" integer PRIMARY KEY,\n  \"status\" job_status\n);",
+      "locator": "packages/dbml-core/__tests__/examples/model_exporter/postgres_exporter/output/enum_tables.out.sql",
+      "url": "https://github.com/holistics/dbml/blob/master/packages/dbml-core/__tests__/examples/model_exporter/postgres_exporter/output/enum_tables.out.sql"
+    },
+    {
+      "quote": "CREATE TABLE \"users\" (\n  \"id\" int,\n  \"full_name\" varchar,\n  ...\n  PRIMARY KEY (\"id\", \"full_name\")\n);",
+      "locator": "packages/dbml-core/__tests__/examples/model_exporter/postgres_exporter/output/index_tables.out.sql",
+      "url": "https://github.com/holistics/dbml/blob/master/packages/dbml-core/__tests__/examples/model_exporter/postgres_exporter/output/index_tables.out.sql"
+    },
+    {
+      "quote": "ALTER TABLE \"order_items\" ADD FOREIGN KEY (\"product_id\", \"product_name\") REFERENCES \"products\" (\"id\", \"name\") ON DELETE SET NULL DEFERRABLE INITIALLY IMMEDIATE;",
+      "locator": "packages/dbml-core/__tests__/examples/model_exporter/postgres_exporter/output/referential_actions.out.sql",
+      "url": "https://github.com/holistics/dbml/blob/master/packages/dbml-core/__tests__/examples/model_exporter/postgres_exporter/output/referential_actions.out.sql"
+    },
+    {
+      "quote": "\"country_code\" int\n... ALTER TABLE \"users\" ADD FOREIGN KEY (\"country_code\") REFERENCES \"countries\" (\"code\") DEFERRABLE INITIALLY IMMEDIATE;",
+      "locator": "packages/dbml-core/__tests__/examples/model_exporter/postgres_exporter/output/general_schema.out.sql (nullable FK column, no NOT NULL modifier, with FK constraint still applied)",
+      "url": "https://github.com/holistics/dbml/blob/master/packages/dbml-core/__tests__/examples/model_exporter/postgres_exporter/output/general_schema.out.sql"
+    },
+    {
+      "quote": "dbml-builder generates Pydantic and SQLAlchemy code from DBML files. ... Currently, there doesn't seem to be a good solution for code generation with DBML in Python hence the creation of dbml-builder.",
+      "locator": "pypi.org/project/dbml-builder (package description, third-party, unofficial)",
+      "url": "https://pypi.org/project/dbml-builder"
+    }
+  ],
+  "interpretation": {
+    "application_type_generation": {
+      "classification": "not-expressible",
+      "citation": "No generator package exists under the holistics/dbml org or in packages/ of the monorepo (packages/dbml-cli, dbml-core, dbml-connector, dbml-parse — none targets Pydantic, SQLAlchemy, or dataclasses); the only located tool (dbml-builder, PyPI) is third-party and unofficial",
+      "rationale": "Within this assignment's scope (the DBML language itself, @dbml/cli, dbml-renderer, and dbdiagram.io), there is no official application-level type generator. dbml-builder exists as an unaffiliated community package (per the brief's source_requirements, a lead only, never sole evidence for a capability claim), so official generation is classified not-expressible; per-construct survival through dbml-builder specifically was not investigated, consistent with treating it as a lead rather than primary evidence."
+    },
+    "ddl_derivation_composite_primary_keys": {
+      "classification": "expressible",
+      "citation": "index_tables.out.sql — `PRIMARY KEY (\"id\", \"full_name\")`",
+      "rationale": "The exporter's own golden-file test confirms a DBML composite PK compiles unchanged into a standard multi-column SQL PRIMARY KEY clause."
+    },
+    "ddl_derivation_json_payload_columns": {
+      "classification": "expressible",
+      "citation": "general_schema.out.sql / column_type pass-through (see source-dbml-grammar.json 'Table Definition' evidence)",
+      "rationale": "Column types are emitted into DDL essentially verbatim (e.g. `varchar`, `datetime` pass through unchanged in every fixture examined); no fixture uses `json` specifically, but the pass-through pattern for every other observed type name supports the same behaviour for `json`/`jsonb`. This specific type name was not directly observed in a fixture, which is noted as a minor gap."
+    },
+    "ddl_derivation_enumerated_string_domains": {
+      "classification": "expressible",
+      "citation": "enum_tables.out.sql — `CREATE TYPE \"job_status\" AS ENUM (...)`",
+      "rationale": "DBML enums compile into native Postgres CREATE TYPE ... AS ENUM statements, fully preserving the fixed value set as a first-class database type, referenced from the column."
+    },
+    "ddl_derivation_self_referencing_foreign_keys": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "No Postgres golden-file fixture with a self-referencing FK was found in the examined set; closest evidence is the Oracle importer fixture in source-dbml-contrary-evidence.json (AST/DBML level, not Postgres DDL)",
+      "rationale": "Classified as expressible-only-via-workaround rather than expressible because the specific DDL-generation claim (does dbml2sql --postgres correctly emit `ALTER TABLE employees ADD FOREIGN KEY (manager_id) REFERENCES employees (id)` for a self-referencing Ref, and does it do so three times on one table without collision) was not found demonstrated in a golden-file test within the examined subset — the standard FK-generation code path (ALTER TABLE ... ADD FOREIGN KEY, as seen in general_schema.out.sql and referential_actions.out.sql) gives no textual reason to expect special-casing against same-table references, but this is an inference, not a directly observed fixture."
+    },
+    "ddl_derivation_nullable_foreign_keys": {
+      "classification": "expressible",
+      "citation": "general_schema.out.sql — `\"country_code\" int` (no NOT NULL) followed by `ALTER TABLE \"users\" ADD FOREIGN KEY (\"country_code\") REFERENCES \"countries\" (\"code\")`",
+      "rationale": "The exporter emits the FK constraint independently of the column's nullability; a column left nullable in DBML stays nullable in the generated DDL while still carrying its FK constraint, directly confirmed by this fixture."
+    },
+    "ddl_derivation_multi_column_unique_constraints": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "index_tables.out.sql shows `CREATE UNIQUE INDEX ON \"users\" (\"id\")` (single-column) and column-level `varchar UNIQUE`; no fixture in the examined set shows a `(colA, colB) [unique]` composite index compiling to a multi-column `CREATE UNIQUE INDEX`",
+      "rationale": "The docs (source-dbml-grammar.json) document `(country, booking_date) [unique]` at the language level, and the single-column unique-index case is confirmed compiling correctly to SQL, but no examined golden-file fixture directly demonstrates the multi-column case surviving into DDL — recorded as expressible-only-via-workaround/unconfirmed rather than a flat 'expressible' to avoid overclaiming beyond what was directly observed in a fixture."
+    },
+    "ddl_derivation_one_to_zero_or_one": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "No fixture directly observed for the `-`/`?` one-to-one/optional operator's DDL output",
+      "rationale": "The language-level construct is documented (source-dbml-grammar.json), and FK-with-nullable-column generation is independently confirmed, but whether dbml2sql additionally emits a UNIQUE constraint on the FK column for a one-to-one Ref (needed to actually enforce zero-or-one rather than zero-or-many) was not found in any examined fixture — recorded as an open gap rather than assumed."
+    },
+    "ddl_derivation_value_constraint_beyond_type": {
+      "classification": "expressible",
+      "citation": "checks.out.sql — `CONSTRAINT \"User.not_too_much_money\" CHECK (balance < 10000000)`",
+      "rationale": "DBML checks{} blocks and column-level check: settings compile directly into named or unnamed SQL CHECK constraints, confirmed by the exporter's own test fixture, including a case combining two conditions with AND (`CREATE TABLE \"User3\" (\"balance\" int CHECK ((balance > 0) AND (balance < 10000000)))`), which is structurally the same shape needed for a 'positive integer OR literal ALL' disjunction."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "dbml pydantic generator",
+      "dbml sqlalchemy generator",
+      "dbml2sql composite unique index",
+      "dbml2sql one-to-one unique constraint",
+      "dbml self-referencing foreign key postgres export"
+    ],
+    "where_searched": [
+      "packages/dbml-core/__tests__/examples/model_exporter/postgres_exporter (golden-file test fixtures, via GitHub Contents API)",
+      "General web search for DBML + Pydantic/SQLAlchemy code generation",
+      "PyPI listing for dbml-builder"
+    ],
+    "search_date": "2026-08-14",
+    "result": "No official Pydantic/SQLAlchemy/dataclass generator was found in the holistics/dbml monorepo; only the unofficial, unaffiliated third-party 'dbml-builder' PyPI package was found, and is recorded as a lead only per the brief's source_requirements. No golden-file fixture demonstrating multi-column UNIQUE, one-to-one-with-uniqueness, or self-referencing FK DDL generation was found within the specific test directories examined — these are recorded as open gaps rather than assumed to work or assumed to fail."
+  }
+}

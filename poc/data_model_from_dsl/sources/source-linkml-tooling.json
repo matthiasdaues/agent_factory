@@ -1,0 +1,103 @@
+{
+  "source_identity": "LinkML CLI documentation — linkml validate, linkml-lint (Schema Linter), gen-erdiagram, and Subsets docs pages",
+  "author_or_issuing_body": "LinkML project (linkml/linkml maintainers)",
+  "publisher": "linkml.io (LinkML documentation site)",
+  "publication_date": "2026-08-14T00:00:00Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "linkml-official-docs (same family as source-linkml-metamodel.json; both drawn from linkml.io/linkml)",
+  "precise_evidence_location": "https://linkml.io/linkml/cli/validate.html ('linkml validate' command reference, --exit-on-first-failure option); https://linkml.io/linkml/schemas/linter.html (Schema Linter rule list and exit-code section); https://linkml.io/linkml/generators/erdiagram.html (gen-erdiagram --format option and PNG/PDF limitation note); https://linkml.io/linkml/schemas/subsets.html (in_subset slot description).",
+  "method": "Direct retrieval of the named LinkML documentation pages, reading CLI reference tables and narrative limitation statements verbatim.",
+  "limitations": "The `linkml validate` CLI reference page documents an --exit-on-first-failure flag but does not itself state numeric exit codes for success vs. failure in the text captured; the exit-code behavior recorded here for that specific command is therefore an operational gap flagged in contrary_evidence_search, distinct from the Schema Linter page, which does document explicit exit codes (0/1/2). Readers should not conflate the two: `linkml validate` (data/schema instance validation) and the Schema Linter (`linkml-lint`, schema-authoring style checks) are two different LinkML CLI tools with two different documented behaviors. The erdiagram page's PNG/PDF statement is dated by its own wording ('There is currently no way...') without a page timestamp, so it is uncertain whether this remains true at the exact v1.11.1 release; no contrary evidence of a newer PNG/SVG capability was found in the same search pass (see contrary_evidence_search).",
+  "provenance": "Retrieved 2026-08-14 via automated web fetch of https://linkml.io/linkml/cli/validate.html, https://linkml.io/linkml/schemas/linter.html, https://linkml.io/linkml/generators/erdiagram.html, and https://linkml.io/linkml/schemas/subsets.html. Re-verify by re-fetching the same URLs; all publicly accessible without authentication.",
+  "raw_evidence": [
+    {
+      "quote": "Validate data against a LinkML schema, or validate a schema itself against the metamodel.",
+      "locator": "cli/validate.html, command summary",
+      "url": "https://linkml.io/linkml/cli/validate.html"
+    },
+    {
+      "quote": "When -s/--schema is omitted, positional arguments are treated as schema files and validated against the LinkML metamodel — verifying required fields, correct types, valid URIs, and NCName constraints.",
+      "locator": "cli/validate.html, schema-validation mode description",
+      "url": "https://linkml.io/linkml/cli/validate.html"
+    },
+    {
+      "quote": "--exit-on-first-failure: Exit after the first validation failure is found. If not specified all validation failures are reported.",
+      "locator": "cli/validate.html, option table",
+      "url": "https://linkml.io/linkml/cli/validate.html"
+    },
+    {
+      "quote": "canonical_prefixes, no_empty_title, no_invalid_slot_usage, no_xsd_int_type, permissible_values_format, recommended, standard_naming, tree_root_class",
+      "locator": "schemas/linter.html, built-in rules list (eight rules)",
+      "url": "https://linkml.io/linkml/schemas/linter.html"
+    },
+    {
+      "quote": "Exit 0: No violations detected; Exit 2: Any level: error violations present; Exit 1 (default): Only level: warning violations found",
+      "locator": "schemas/linter.html, exit-code behavior section",
+      "url": "https://linkml.io/linkml/schemas/linter.html"
+    },
+    {
+      "quote": "-f, --format <format>: markdown | mermaid",
+      "locator": "generators/erdiagram.html, CLI option table",
+      "url": "https://linkml.io/linkml/generators/erdiagram.html"
+    },
+    {
+      "quote": "By default, the output includes markdown fence blocks",
+      "locator": "generators/erdiagram.html, default behavior note",
+      "url": "https://linkml.io/linkml/generators/erdiagram.html"
+    },
+    {
+      "quote": "There is currently no way to directly generate PNGs/PDFs/etc from the mermaid code. You can use the mermaid live editor to generate these.",
+      "locator": "generators/erdiagram.html, limitations note",
+      "url": "https://linkml.io/linkml/generators/erdiagram.html"
+    },
+    {
+      "quote": "The in_subset slot can be used tag your class (or slot) to belong to a pre-defined subset.",
+      "locator": "schemas/subsets.html, in_subset description",
+      "url": "https://linkml.io/linkml/schemas/subsets.html"
+    },
+    {
+      "quote": "in_subset:\n  - translator_minimal",
+      "locator": "schemas/subsets.html, in_subset YAML example",
+      "url": "https://linkml.io/linkml/schemas/subsets.html"
+    }
+  ],
+  "interpretation": {
+    "validator_exit_code": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "cli/validate.html --exit-on-first-failure option; schemas/linter.html documented Exit 0/1/2 codes",
+      "rationale": "Two separate LinkML tools exist. `linkml-lint` (the Schema Linter) has clearly documented, graduated exit codes (0 clean, 1 warnings only, 2 any errors) and so can sit behind a deterministic CI gate directly, comparable to `structurizr validate`. `linkml validate` (data/schema-instance validation against the metamodel) is documented to report failures and offers an --exit-on-first-failure flag, but the fetched page text does not state its numeric exit-code contract on failure, so its suitability as a CI gate on malformed/inconsistent SCHEMAS specifically (as opposed to data) is not fully confirmed from this page alone — classified as workaround-dependent (use linkml-lint for schema gating, where the exit-code contract is explicit) rather than a single clean 'validator with documented non-zero exit' answer across both tools."
+    },
+    "svg_export_from_container": {
+      "classification": "not-expressible",
+      "citation": "generators/erdiagram.html limitations note: 'There is currently no way to directly generate PNGs/PDFs/etc from the mermaid code.'",
+      "rationale": "gen-erdiagram's only documented outputs are markdown/mermaid text, not SVG. The page explicitly states there is no way to generate PNG/PDF (and by extension no documented SVG path) from the generated mermaid text using LinkML's own tooling; the documented workaround is an external tool (the mermaid live editor), which is outside LinkML's own toolchain and not shown to be scriptable inside a Docker container with no local install."
+    },
+    "png_export_from_container": {
+      "classification": "not-expressible",
+      "citation": "generators/erdiagram.html limitations note (same as above)",
+      "rationale": "Same finding as SVG: the documentation states directly and explicitly that PNG generation from LinkML's own ER-diagram output is not currently possible without an external, non-containerized tool (mermaid live editor)."
+    },
+    "named_subset_views_for_diagram_splitting": {
+      "classification": "not-expressible",
+      "citation": "schemas/subsets.html, in_subset description",
+      "rationale": "The documented `subsets`/`in_subset` mechanism is described only as a tagging/annotation feature ('can be used to tag your class ... to belong to a pre-defined subset'). No text on this page, nor cross-referenced from the erdiagram generator page, describes subsets being consumed to filter or split a generated diagram into a named sub-view the way Structurizr views do. Diagram generation (gen-erdiagram) and the subsets annotation appear to be two independent, undocumented-as-connected features in the pages examined."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "linkml validate exit code schema malformed",
+      "linkml gen-erdiagram SVG PNG export",
+      "linkml subsets diagram view filter",
+      "linkml-lint CI gate exit code"
+    ],
+    "where_searched": [
+      "linkml.io/linkml/cli/validate.html",
+      "linkml.io/linkml/schemas/linter.html",
+      "linkml.io/linkml/generators/erdiagram.html",
+      "linkml.io/linkml/schemas/subsets.html",
+      "general web search (WebSearch tool), no domain restriction"
+    ],
+    "search_date": "2026-08-14",
+    "result": "No explicit numeric exit-code statement was found on the linkml-validate (data/schema instance validator) page itself, unlike the Schema Linter page which states exit codes explicitly — recorded as a genuine documentation gap rather than inferred. No documentation was found describing gen-erdiagram routing through mermaid-cli, graphviz, or any other renderer for SVG/PNG output; the page's own text states this is not currently possible. No documentation was found connecting `subsets`/`in_subset` to diagram generation or to any view-splitting feature — the absence is recorded as a definite negative finding for named subset views over a rendered diagram."
+  }
+}
