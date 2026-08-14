@@ -1,13 +1,13 @@
 ---
-title: Feature Branch Scoping
+title: Branch and Worktree Scoping
 category: implementation
 enforcement: implementation-agent dispatch logic (T-35)
-version: 1.0.0
+version: 2.0.0
 ---
 
-# Feature Branch Scoping
+# Branch and Worktree Scoping
 
-Governs how feature branches are created and merged during implementation dispatch — **not** how released code is tagged. Distinct from [versioning-policy.md](versioning-policy.md): that rule governs branch/tag naming once code ships; this rule governs in-progress work, before any release exists. Overlapping scope (both are about branches), different concern (release identity vs. dispatch safety) — kept as separate files rather than merged.
+Governs how every local branch is created, used, and merged — **not** how released code is tagged. Distinct from [versioning-policy.md](versioning-policy.md): that rule governs branch/tag naming once code ships; this rule governs in-progress work, before any release exists. Overlapping scope (both are about branches), different concern (release identity vs. workspace safety) — kept as separate files rather than merged.
 
 ## Project-Specific Rules
 
@@ -17,13 +17,26 @@ Canonical statements: [rules.md § Branching](../rules.md#branching). This secti
 
 Shared integration files (a composition root, a domain-entities module, a ports file) are typically touched by stories across many different epics. A branch scoped to a coarser label collects several stories' edits to the same shared file independently — every grouping's branch then collides with every other grouping's branch, all at once, at merge-back. A branch scoped to one story collides with at most the other stories that genuinely touch the same file, one at a time, in a determinable order.
 
+### Every Branch Has A Worktree
+
+Creating a branch and creating its linked worktree are one atomic operation. This applies to **every** local branch type: invocation, story, bug, review, reconciliation, fix, experiment, spike, release-preparation, and manually created branches. There are no exceptions for sequential work or branches used by only one agent.
+
+```bash
+git worktree add -b <branch> <worktree-path> <base>
+git worktree list --porcelain
+```
+
+Do not use standalone branch creation (`git branch <name>`, `git switch -c/-C`, or `git checkout -b/-B`) and do not create a branch in the current checkout before adding a worktree later. Existing branches may be attached with `git worktree add <worktree-path> <branch>` when recovering or resuming work, but new branches must use the atomic `worktree add -b` form. Verify the branch-to-path mapping before doing work there.
+
+The checkout in which a command starts remains on its existing branch. Work on the new branch happens only in the new worktree. This prevents branch switching from moving or contaminating a shared checkout and makes branch ownership observable from Git state.
+
 ### Invocation Branch
 
-Every feature branch for an invocation is cut from that invocation's own branch, not from `main` directly — the invocation branch is what makes the branch-root/branch-head SHA pair (below) well-defined.
+Every feature branch for an invocation is cut from that invocation's own branch, not from `main` directly — the invocation branch is what makes the branch-root/branch-head SHA pair (below) well-defined. The invocation branch itself is created with its own linked worktree under the rule above.
 
 ### Worktree Isolation
 
-A feature branch name is not a working directory: cutting the branch does not, by itself, guarantee any subagent's commands run against it rather than against the shared/main checkout. Before dispatching a developer-agent subagent, the dispatcher must materialize its feature branch into a dedicated git worktree (e.g. via the Agent tool's `isolation: "worktree"` parameter) and confirm — via `git worktree list`, not the subagent's own report — that the worktree exists and is checked out to the correct branch before considering that subagent dispatched. See [implementation-agent.md § Workflow, Step 3 ("Dispatch: one feature branch per story")](../../agents/implementation-agent.md#workflow) for the enforcing workflow step. Motivating example: the 2026-07-10 `implementation-agent` dispatch, where a subagent's first git command ran against the shared main checkout instead of its own worktree, chain-renaming the main branch through four story names before being caught.
+A feature branch name is not a working directory. The universal branch/worktree rule above guarantees that every new branch is born in a dedicated worktree; dispatch adds the requirement to confirm — via `git worktree list --porcelain`, not the subagent's own report — that the worktree exists and is checked out to the correct branch before considering that subagent dispatched. See [implementation-agent.md § Workflow, Step 3 ("Dispatch: one feature branch per story")](../../agents/implementation-agent.md#workflow) for the enforcing workflow step. Motivating example: the 2026-07-10 `implementation-agent` dispatch, where a subagent's first git command ran against the shared main checkout instead of its own worktree, chain-renaming the main branch through four story names before being caught.
 
 ### Verify-Base Preamble
 
@@ -75,7 +88,7 @@ Feature-branch commits follow [commit-conventions.md](commit-conventions.md) —
 
 ## Enforcement
 
-Overlap-safe merge sequencing is enforced by the implementation-agent's own dispatch algorithm, not a git hook — it needs live backlog state (every ready story's declared outputs) that no static hook has access to. This rulebook states the **what** (branch scope, merge-order constraint, SHA tracking); `agents/implementation-agent.md` (Steps 1–5) and T-35 own the **how** — the actual overlap-detection and wave-planning algorithm.
+Standalone branch creation is mechanically denied by the shared shell and Pi Git guardrails. `git worktree add -b <branch> <path> <base>` is the supported creation primitive. Overlap-safe merge sequencing is enforced by the implementation-agent's own dispatch algorithm, not a git hook — it needs live backlog state (every ready story's declared outputs) that no static hook has access to. This rulebook states the **what** (branch/worktree pairing, branch scope, merge-order constraint, SHA tracking); `agents/implementation-agent.md` (Steps 1–5) and T-35 own the **how** — the actual overlap-detection and wave-planning algorithm.
 
 The base-safety checks are mechanically enforced, per [foundational-principles.md § Agentic Creation, Deterministic Validation](foundational-principles.md#agentic-creation-deterministic-validation): `factory/scripts/verify-base` and `factory/scripts/premerge-check` each write a marker file on success, and `factory/config/hooks/block-dangerous-git.sh` denies `git commit` (inside a linked worktree with no `verify-base-ok` marker) and `git merge <branch>` (with no `premerge-check-ok` marker for that branch's current head) — a `PreToolUse` hook, not agent compliance with a prompt instruction.
 

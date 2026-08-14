@@ -1,0 +1,1684 @@
+#!/usr/bin/env -S uv run --offline --locked --no-python-downloads --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["tiktoken==0.13.0"]
+# ///
+"""usage-capture - Usage record shape, record_id scheme, the fixed
+cl100k_base tokenizer, the per-CLI transcript normalizer, the swappable
+logging-adapter seam, and the argparse CLI entrypoint that composes all of
+it into factory-wide runtime spend capture.
+
+What: Defines `UsageRecord` (one record per agent invocation), the
+      `RecordIdSequencer` that names a record and its transcript copy,
+      `count_tokens()`, a local, deterministic `tiktoken cl100k_base`
+      counter, the persistence seam (`LoggingAdapter` protocol plus
+      `JsonlLoggingAdapter`), the per-CLI `TranscriptNormalizer` protocol
+      plus `get_normalizer()` registry, Claude/Copilot normalizers, and
+      `_main()` — the standalone `usage-capture --cli ... --transcript ...`
+      entrypoint every capture site invokes uniformly.
+When: Invoked directly, via its own PEP 723 shebang, by each capture site —
+      a Claude Code hook, a Pi extension, the orchestrator — once per agent
+      invocation. The underlying module may also be `import`ed in-process
+      (proposal: "The Capture Tool").
+By:   `docs/proposals/implemented/token-usage-tracking.md` ("The Usage Record",
+      "Tokenization Strategy", "Persistence", "The Capture Tool", "Design
+      Details"); backlog ST-0035, ST-0036, ST-0037, ST-0038.
+
+`init-factory` installs the exact, hash-verified dependencies into the
+project-owned usage runtime before activating lifecycle hooks.  Automatic
+capture invokes that interpreter directly; this source shebang deliberately
+permits offline developer/test execution against the adjacent exact lock, but
+cannot update the lock, download Python, or access the network.
+Unlike index-lint's static-index counter, this script has no chars/4
+fallback — the proposal requires `normalized_*` to always be real
+`cl100k_base` counts (a comparable yardstick across CLIs and models), never
+an approximation. Consequently `import tiktoken` is lazy, inside
+`count_tokens()`, not at module scope: it lets the record/record_id half of
+this file (no third-party dependency) stay importable in any bare
+interpreter, while installed token counting runs through the provisioned
+project runtime, where `tiktoken` is guaranteed present.
+
+The record stores integers and references, never text: `to_dict()` never
+needs to attach a git diff or transcript body, only the paths and commit that
+link to them (`transcript_ref`, `commit_id`).
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import stat
+import subprocess
+import sys
+import uuid
+from contextlib import contextmanager
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional, Protocol, Union, runtime_checkable
+
+_DIRECTORY_MODE = 0o700
+_FILE_MODE = 0o600
+_RETENTION_ENV = "AGENT_FACTORY_USAGE_TRANSCRIPT_RETENTION"
+_OPAQUE_PREFIX = "opaque-"
+# A filesystem-safe identifier keeps its verbatim name. Mixed case is allowed
+# (Pi root session ids carry uppercase ISO-8601 separators, e.g. "...T...Z");
+# only genuinely unsafe components — path separators, traversal, Windows device
+# names, oversized or non-ASCII values — fall back to a fixed digest.
+_SAFE_PATH_COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
+_WINDOWS_DEVICE_STEMS = {
+    "con",
+    "prn",
+    "aux",
+    "nul",
+    *(f"com{number}" for number in range(1, 10)),
+    *(f"lpt{number}" for number in range(1, 10)),
+}
+
+
+def filesystem_key(opaque_id: object) -> str:
+    """Map an opaque external identifier to one safe filesystem component.
+
+    Filesystem-safe identifiers keep their verbatim name — mixed case is
+    allowed, so Pi's uppercase ``...T...Z...`` session ids stay readable on
+    disk (the usage directory is gitignored, so the pathname carries no
+    privacy cost); the original value is also retained inside the JSON
+    record. Identifiers that are unsafe as a filename component — path
+    separators, ``.``/``..``, Windows device names, oversized, or non-ASCII —
+    map to a fixed ``opaque-<sha256>`` digest so storage stays contained
+    beneath the usage root regardless of the input.
+    """
+    raw = str(opaque_id)
+    stem = raw.split(".", 1)[0]
+    safe = (
+        bool(_SAFE_PATH_COMPONENT.fullmatch(raw))
+        and raw not in (".", "..")
+        and not raw.startswith(_OPAQUE_PREFIX)
+        and stem.lower() not in _WINDOWS_DEVICE_STEMS
+        and not raw.endswith((".", " "))
+    )
+    if safe:
+        return raw
+    digest = hashlib.sha256(raw.encode("utf-8", errors="surrogatepass")).hexdigest()
+    return f"{_OPAQUE_PREFIX}{digest}"
+
+
+def _write_all(fd: int, data: bytes) -> None:
+    view = memoryview(data)
+    while view:
+        written = os.write(fd, view)
+        if written <= 0:
+            raise OSError("short write while persisting usage evidence")
+        view = view[written:]
+
+
+class UsageStoragePaths:
+    """Central, contained filesystem layout for usage identifiers.
+
+    The session-level storage key is ``<cli>_<session_id>`` so a directory
+    listing identifies which CLI produced a run; the CLI token is itself passed
+    through ``filesystem_key`` so a hypothetical hostile value cannot redirect
+    writes. When no CLI is supplied (direct/test use) the key falls back to the
+    bare ``<session_id>``.
+    """
+
+    def __init__(
+        self, base_dir: Union[str, Path] = ".", *, cli: Optional[str] = None
+    ) -> None:
+        self.base_dir = Path(base_dir).resolve()
+        self.agent_dir = self.base_dir / ".agent-factory"
+        self.usage_dir = self.agent_dir / "usage"
+        self.transcripts_dir = self.usage_dir / "transcripts"
+        self._cli = cli
+
+    def _session_key(self, session_id: object) -> str:
+        """Composite storage key: ``<cli>_<session_id>`` when a CLI is set."""
+        session_component = filesystem_key(session_id)
+        if not self._cli:
+            return session_component
+        return f"{filesystem_key(self._cli)}_{session_component}"
+
+    @staticmethod
+    def _ensure_directory(path: Path, *, repair: bool = True) -> None:
+        created = False
+        try:
+            path.mkdir(mode=_DIRECTORY_MODE)
+            created = True
+        except FileExistsError:
+            pass
+        info = path.lstat()
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+            raise OSError(f"unsafe usage storage directory: {path}")
+        if hasattr(os, "geteuid") and info.st_uid != os.geteuid():
+            raise OSError(f"foreign-owned usage storage directory: {path}")
+        if created or repair:
+            os.chmod(path, _DIRECTORY_MODE, follow_symlinks=False)
+
+    @staticmethod
+    def _require_regular_if_present(path: Path) -> None:
+        try:
+            info = path.lstat()
+        except FileNotFoundError:
+            return
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
+            raise OSError(f"unsafe usage storage file: {path}")
+        if info.st_nlink != 1:
+            raise OSError(f"unsafe hard-linked usage storage file: {path}")
+        if hasattr(os, "geteuid") and info.st_uid != os.geteuid():
+            raise OSError(f"foreign-owned usage storage file: {path}")
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(path, flags)
+        try:
+            opened = os.fstat(fd)
+            if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
+                raise OSError(f"unsafe usage storage file: {path}")
+            if hasattr(os, "geteuid") and opened.st_uid != os.geteuid():
+                raise OSError(f"foreign-owned usage storage file: {path}")
+            os.fchmod(fd, _FILE_MODE)
+        finally:
+            os.close(fd)
+
+    def ensure_layout(self) -> None:
+        self._ensure_directory(self.agent_dir, repair=False)
+        self._ensure_directory(self.usage_dir)
+        self._ensure_directory(self.transcripts_dir)
+
+    def session_path(self, session_id: object) -> Path:
+        return self.usage_dir / f"{self._session_key(session_id)}.jsonl"
+
+    def transcript_directory(self, session_id: object) -> Path:
+        return self.transcripts_dir / self._session_key(session_id)
+
+    def transcript_path(self, session_id: object, record_id: object) -> Path:
+        return (
+            self.transcript_directory(session_id) / f"{filesystem_key(record_id)}.jsonl"
+        )
+
+    def existing_record_count(self, session_id: object) -> int:
+        self.ensure_layout()
+        path = self.session_path(session_id)
+        self._require_regular_if_present(path)
+        try:
+            text = path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            return 0
+        return sum(1 for line in text.splitlines() if line.strip())
+
+    def next_sequence_estimate(self, session_id: str) -> int:
+        """Estimate the next numeric suffix; exclusive creation decides truth."""
+        self.ensure_layout()
+        path = self.session_path(session_id)
+        self._require_regular_if_present(path)
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except FileNotFoundError:
+            return 1
+        prefix = f"{session_id}-"
+        highest = 0
+        populated = 0
+        for line in lines:
+            if not line.strip():
+                continue
+            populated += 1
+            try:
+                record_id = str(json.loads(line).get("record_id", ""))
+            except (AttributeError, json.JSONDecodeError):
+                continue
+            suffix = record_id.removeprefix(prefix)
+            if record_id.startswith(prefix) and suffix.isdecimal():
+                highest = max(highest, int(suffix))
+        return max(highest, populated) + 1
+
+    def reserve_transcript(
+        self, session_id: str, record_id: Optional[str] = None
+    ) -> "TranscriptReservation":
+        """Exclusively reserve evidence for one record without an OS lock.
+
+        Concurrent allocators may share an estimate, but only one can create a
+        candidate. Losers probe monotonically forward. An abandoned empty file
+        is a durable crash reservation and therefore creates a valid gap.
+        """
+        self.ensure_layout()
+        transcript_dir = self.transcript_directory(session_id)
+        self._ensure_directory(transcript_dir)
+        sequence = self.next_sequence_estimate(session_id) if record_id is None else 0
+        flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0)
+        while True:
+            candidate = record_id or f"{session_id}-{sequence:04d}"
+            path = self.transcript_path(session_id, candidate)
+            try:
+                fd = os.open(path, flags, _FILE_MODE)
+            except FileExistsError:
+                if record_id is not None:
+                    raise
+                sequence += 1
+                continue
+            opened = os.fstat(fd)
+            if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
+                os.close(fd)
+                try:
+                    path.unlink()
+                except OSError:
+                    pass
+                raise OSError(f"unsafe transcript target: {path}")
+            os.fchmod(fd, _FILE_MODE)
+            return TranscriptReservation(candidate, path, fd)
+
+
+@dataclass
+class TranscriptReservation:
+    """An exclusively-created transcript path owned by one capture."""
+
+    record_id: str
+    path: Path
+    fd: int
+
+    def discard(self) -> None:
+        if self.fd >= 0:
+            os.close(self.fd)
+            self.fd = -1
+        try:
+            self.path.unlink()
+        except OSError:
+            pass
+
+
+def supports_owner_only_permissions() -> bool:
+    """Whether POSIX owner/group/other mode bits provide the contract."""
+    return os.name == "posix" and hasattr(os, "fchmod")
+
+
+def resolve_transcript_retention(
+    cli_value: Optional[str],
+    base_dir: Union[str, Path] = ".",
+    environ: Optional[dict[str, str]] = None,
+) -> str:
+    """Resolve CLI > environment > secure project config > compatible default."""
+    environment = os.environ if environ is None else environ
+    value = cli_value or environment.get(_RETENTION_ENV)
+    if value is None:
+        config = Path(base_dir).resolve() / ".agent-factory/usage-control/config.json"
+        try:
+            info = config.lstat()
+            if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
+                raise OSError("unsafe retention config")
+            if info.st_nlink != 1:
+                raise OSError("unsafe hard-linked retention config")
+            if hasattr(os, "geteuid") and info.st_uid != os.geteuid():
+                raise OSError("foreign-owned retention config")
+            os.chmod(config, _FILE_MODE, follow_symlinks=False)
+            value = json.loads(config.read_text(encoding="utf-8")).get(
+                "transcript_retention"
+            )
+        except FileNotFoundError:
+            value = "full"
+        except (OSError, AttributeError, json.JSONDecodeError):
+            value = "omit"
+    if value not in ("full", "omit"):
+        print(
+            "usage-capture: invalid transcript retention; forcing omit", file=sys.stderr
+        )
+        value = "omit"
+    if not supports_owner_only_permissions() and value != "omit":
+        print(
+            "usage-capture: owner-only permissions unsupported; forcing transcript omission",
+            file=sys.stderr,
+        )
+        return "omit"
+    return value
+
+
+# ── Tokenizer ────────────────────────────────────────────────────────────
+
+_encoding = None  # cached cl100k_base Encoding, built lazily on first use
+
+
+def count_tokens(text: str) -> int:
+    """Token count for *text* via the fixed `tiktoken cl100k_base` encoding.
+
+    Local and deterministic: no network call, no LLM round-trip, and the
+    same input always yields the same count — the neutral yardstick the
+    proposal specifies, independent of whatever a provider itself reports.
+    """
+    global _encoding
+    if _encoding is None:
+        import tiktoken
+
+        _encoding = tiktoken.get_encoding("cl100k_base")
+    return len(_encoding.encode(text))
+
+
+# ── record_id ────────────────────────────────────────────────────────────
+
+
+class RecordIdSequencer:
+    """Assigns each record a `record_id` that also names its transcript copy.
+
+    Resolves the proposal's open question toward session-sequence-with-
+    UUID-fallback: `session_id` plus a per-session, zero-padded sequence
+    number (`<session_id>-0001`, `-0002`, ...) when a session_id is known,
+    so ids stay stable and sortable within a session's own JSONL file;
+    a UUID4 when it isn't (e.g. a capture site invoked outside any CLI
+    session), so a record_id is always producible either way.
+
+    Counters are process-local. That's sufficient because persistence is
+    per-session (proposal: one JSONL file per `session_id`) — two processes
+    only collide if they somehow shared both a session_id and a counter,
+    which per-session file ownership already rules out.
+    """
+
+    def __init__(self) -> None:
+        self._sequences: dict[str, int] = {}
+
+    def next_id(self, session_id: Optional[str]) -> str:
+        """Return the next record_id for *session_id* (a UUID4 if falsy)."""
+        if not session_id:
+            return str(uuid.uuid4())
+        self._sequences[session_id] = self._sequences.get(session_id, 0) + 1
+        return f"{session_id}-{self._sequences[session_id]:04d}"
+
+    def seed(self, session_id: str, count: int) -> None:
+        """Pre-set *session_id*'s counter to *count* records already seen.
+
+        A fresh `RecordIdSequencer` only sees records assigned in its own
+        process. This remains a deterministic in-process utility. The CLI
+        entrypoint uses `UsageStoragePaths.reserve_transcript()` instead,
+        because exclusive filesystem reservation is what makes allocation
+        safe across processes.
+        """
+        self._sequences[session_id] = count
+
+
+# ── UsageRecord ──────────────────────────────────────────────────────────
+
+
+@dataclass
+class TranscriptRef:
+    """Pointer to a persisted transcript copy — links to what happened
+    (reasoning and tool trace), never the transcript text itself."""
+
+    path: str
+    span: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class ProviderUsageTurn:
+    """Native provider usage for one eligible assistant response turn.
+
+    Missing provider fields stay ``None``.  Normalized token estimates never
+    enter this evidence type because BR-042 permits no inferred substitute.
+    """
+
+    input_tokens: Optional[int]
+    cache_read_tokens: Optional[int]
+
+
+@dataclass(frozen=True)
+class SessionUsageSignals:
+    """Provider-qualified retrospective values derived under BR-042."""
+
+    cli: str
+    provider: Optional[str]
+    usage_capability: str
+    cache_miss_turns: Optional[int]
+    cache_miss_input_tokens: Optional[int]
+    late_early_input_ratio: Optional[float]
+
+    def to_record_fields(self) -> dict:
+        """Return exactly the fields persisted on ``UsageRecord``."""
+        return asdict(self)
+
+
+def derive_session_usage_signals(
+    turns: list[ProviderUsageTurn], *, cli: str, provider: Optional[str]
+) -> SessionUsageSignals:
+    """Derive the deterministic, session-end-only signals from BR-042."""
+    if not turns or any(turn.input_tokens is None for turn in turns):
+        return SessionUsageSignals(cli, provider, "unavailable", None, None, None)
+
+    inputs = [
+        int(turn.input_tokens)
+        for turn in turns
+        if turn.input_tokens is not None
+    ]
+    ratio: Optional[float] = None
+    if len(inputs) >= 2:
+        partition_size = max(1, len(inputs) // 3)
+        early_mean = sum(inputs[:partition_size]) / partition_size
+        late_mean = sum(inputs[-partition_size:]) / partition_size
+        if early_mean != 0:
+            ratio = late_mean / early_mean
+
+    if any(turn.cache_read_tokens is None for turn in turns):
+        return SessionUsageSignals(cli, provider, "input-only", None, None, ratio)
+
+    misses = [
+        turn
+        for turn in turns
+        if turn.input_tokens is not None
+        and turn.input_tokens > 0
+        and turn.cache_read_tokens == 0
+    ]
+    return SessionUsageSignals(
+        cli,
+        provider,
+        "full-cache",
+        len(misses),
+        sum(turn.input_tokens for turn in misses if turn.input_tokens is not None),
+        ratio,
+    )
+
+
+@dataclass
+class UsageRecord:
+    """One usage record per agent invocation (proposal: "The Usage Record").
+
+    Every context field defaults to `None`. `recorded_at` is always produced
+    from this process's UTC clock, while the three `normalized_*` spend fields
+    are always produced by `count_tokens()` over the run's own text, so runs
+    are comparable across CLIs and models regardless of what (if anything) a
+    provider reports.
+    `normalized_total` is derived in `__post_init__`, never accepted from a
+    caller, so `normalized_total == normalized_input + normalized_output`
+    cannot be violated by construction.
+
+    Optional fields exist only when they have a defined producer: native CLI
+    context, parsed provider usage, explicit orchestration flags, or
+    deterministic git enrichment. Unknown values stay null; fields with no
+    viable producer are not part of the record.
+    """
+
+    record_id: str
+    project_id: str
+    project_name: str
+    normalized_input: int
+    normalized_output: int
+    normalized_total: int = field(init=False)
+
+    # Correlation
+    cli: Optional[str] = None
+    session_id: Optional[str] = None
+    parent_session_id: Optional[str] = None
+    depth: Optional[int] = None
+    recorded_at: str = field(init=False)
+
+    # What ran
+    agent: Optional[str] = None
+    model: Optional[str] = None
+    provider: Optional[str] = None
+
+    # Spend (reported_*, usage_granularity — normalized_* declared above)
+    reported_input: Optional[int] = None
+    reported_output: Optional[int] = None
+    reported_cache_read: Optional[int] = None
+    reported_cache_write: Optional[int] = None
+    usage_granularity: Optional[str] = None
+    usage_capability: Optional[str] = None
+    cache_miss_turns: Optional[int] = None
+    cache_miss_input_tokens: Optional[int] = None
+    late_early_input_ratio: Optional[float] = None
+
+    # Outcome
+    exit_status: Optional[str] = None
+    branch: Optional[str] = None
+    commit_id: Optional[str] = None
+    transcript_ref: Optional[TranscriptRef] = None
+
+    def __post_init__(self) -> None:
+        uuid.UUID(self.project_id)
+        if not self.project_name.strip():
+            raise ValueError("project_name must be a non-empty string")
+        self.normalized_total = self.normalized_input + self.normalized_output
+        self.recorded_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def to_dict(self) -> dict:
+        """Serialize to a JSON-ready dict (nested `TranscriptRef` included).
+
+        Never carries the git diff or transcript body itself — only the
+        references (`transcript_ref`, `commit_id`) that let a
+        reader reconstruct what was written and what happened.
+        """
+        return asdict(self)
+
+
+# ── Logging-adapter seam (ST-0036) ──────────────────────────────────────
+
+
+@runtime_checkable
+class LoggingAdapter(Protocol):
+    """The persistence seam capture sites depend on, never a concrete
+    backend directly (proposal: "Persistence").
+
+    `JsonlLoggingAdapter` is the only implementation today. A future
+    PostgreSQL adapter — served by a dedicated logging service, per the
+    proposal's "Explicitly deferred" scope — implements this same
+    `record()` method (inserts instead of appends) and swaps in wherever a
+    capture site currently holds a `JsonlLoggingAdapter`, with no change to
+    the capture site itself. That adapter is not built here; only this
+    interface is fixed.
+    """
+
+    def record(self, usage_record: "UsageRecord", transcript_text: str) -> bool:
+        """Persist *usage_record* and a copy of *transcript_text* (the
+        already-tokenized transcript text a capture site hands in), and set
+        `usage_record.transcript_ref` to point at the persisted copy.
+
+        Best-effort by contract: an implementation must catch its own
+        failures, log them to stderr, and return ``False`` rather than
+        raise — capture must never fail, block, or slow the run it
+        measures (proposal: "Core Principles"). ``True`` means canonical
+        record and evidence persistence completed.
+        """
+        ...
+
+
+class JsonlLoggingAdapter:
+    """Default `LoggingAdapter`: appends one record per line to a
+    per-session JSONL file and persists a transcript copy alongside it.
+
+    What: Implements the seam above against the local filesystem
+          (proposal: "Persistence"). `record()` first writes the
+          transcript copy to
+          `<base_dir>/.agent-factory/usage/transcripts/<session_id>/<record_id>.jsonl`
+          and sets `usage_record.transcript_ref`, then appends the
+          serialized record as one JSON line to
+          `<base_dir>/.agent-factory/usage/<session_id>.jsonl`. The append
+          uses a single `os.open(..., O_APPEND | O_CREAT | O_WRONLY)` plus
+          one `os.write()` call per line: POSIX guarantees an O_APPEND
+          write of this shape lands as one atomic block, so concurrent
+          appends from parallel dispatch (many sub-agents, many processes)
+          never interleave or truncate each other's lines — no
+          application-level lock is needed.
+    When: Constructed directly today; ST-0038's CLI entrypoint will
+          instantiate one per invocation once the argparse layer exists.
+    By:   `docs/proposals/implemented/token-usage-tracking.md` ("Persistence",
+          "The Capture Tool"); backlog ST-0036.
+
+    Any failure inside `record()` — an unwritable path, a directory that
+    collides with a file, a serialization error — is caught, logged to
+    stderr, and swallowed. `record()` returns a success boolean and never
+    raises into the caller.
+    """
+
+    def __init__(
+        self,
+        base_dir: Union[str, Path] = ".",
+        retention: str = "full",
+        *,
+        cli: Optional[str] = None,
+    ) -> None:
+        self._storage = UsageStoragePaths(base_dir, cli=cli)
+        self._usage_dir = self._storage.usage_dir
+        self._retention = retention
+
+    def record(self, usage_record: "UsageRecord", transcript_text: str) -> bool:
+        try:
+            session_id = usage_record.session_id or "unknown"
+            reservation = self._storage.reserve_transcript(
+                session_id, usage_record.record_id
+            )
+            self._write_reserved(usage_record, transcript_text, reservation)
+            return True
+        except Exception as exc:  # best-effort: never raise into the caller
+            print(
+                "usage-capture: JsonlLoggingAdapter failed to record "
+                f"{usage_record.record_id!r}: {exc}",
+                file=sys.stderr,
+            )
+            return False
+
+    def record_reserved(
+        self,
+        usage_record: "UsageRecord",
+        transcript_text: str,
+        reservation: TranscriptReservation,
+    ) -> bool:
+        """Persist a capture using the transcript it atomically reserved."""
+        try:
+            self._write_reserved(usage_record, transcript_text, reservation)
+            return True
+        except Exception as exc:  # best-effort: never raise into the caller
+            print(
+                "usage-capture: JsonlLoggingAdapter failed to record "
+                f"{usage_record.record_id!r}: {exc}",
+                file=sys.stderr,
+            )
+            return False
+
+    def _write_reserved(
+        self,
+        usage_record: "UsageRecord",
+        transcript_text: str,
+        reservation: TranscriptReservation,
+    ) -> None:
+        session_id = usage_record.session_id or "unknown"
+        try:
+            if self._retention == "full":
+                _write_all(reservation.fd, transcript_text.encode("utf-8"))
+            os.close(reservation.fd)
+            reservation.fd = -1
+            usage_record.transcript_ref = TranscriptRef(
+                path=str(reservation.path),
+                span="content-omitted" if self._retention == "omit" else None,
+            )
+            session_path = self._storage.session_path(session_id)
+            line = (json.dumps(usage_record.to_dict()) + "\n").encode("utf-8")
+            session_flags = (
+                os.O_APPEND | os.O_CREAT | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0)
+            )
+            self._storage._require_regular_if_present(session_path)
+            fd = os.open(session_path, session_flags, _FILE_MODE)
+            try:
+                if not stat.S_ISREG(os.fstat(fd).st_mode):
+                    raise OSError(f"unsafe usage record target: {session_path}")
+                os.fchmod(fd, _FILE_MODE)
+                # Keep one write for the atomic O_APPEND record contract.
+                written = os.write(fd, line)
+                if written != len(line):
+                    raise OSError("short write while appending usage record")
+            finally:
+                os.close(fd)
+        except Exception:
+            usage_record.transcript_ref = None
+            reservation.discard()
+            raise
+
+
+# ── Transcript-normalizer seam (per CLI) (ST-0037) ───────────────────────
+
+# Direction of the text a content block contributes to the normalized split.
+# Block type decides first (so a tool's *input* always counts as output and a
+# tool *result* always as input, wherever they are nested); a plain text block
+# falls back to the containing message's role. Documented in ST-0037's
+# analysis: user/system/tool-result text -> input; assistant/thinking/tool-use
+# text -> output.
+_INPUT = "input"
+_OUTPUT = "output"
+
+# Reported-usage key map: provider `usage` key -> UsageRecord `reported_*`
+# field. Missing keys count as zero once any usage object has been seen.
+_USAGE_KEYS = {
+    "input_tokens": "reported_input",
+    "output_tokens": "reported_output",
+    "cache_read_input_tokens": "reported_cache_read",
+    "cache_creation_input_tokens": "reported_cache_write",
+}
+
+
+def _optional_usage_int(usage: object, key: str) -> Optional[int]:
+    """Return one native numeric usage field without filling a missing key."""
+    if not isinstance(usage, dict):
+        return None
+    value = usage.get(key)
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return int(value)
+    return None
+
+
+@dataclass
+class NormalizedTranscript:
+    """One transcript read, reduced to what the record needs (ST-0037).
+
+    Holds the role-split text streams and the summed provider usage from a
+    single pass over a transcript, so both the `normalized_*` counts (by
+    tokenizing `input_text`/`output_text`) and the `reported_*` totals come
+    from one read — never a second parse.
+
+    `input_text` / `output_text` are the role-split streams the
+    `normalized_input` / `normalized_output` counts are taken over. `text` is
+    the full run in original order — system prompt, every turn, tool inputs
+    and results, and thinking — for whole-run tokenizing and the persisted
+    transcript copy. `model` is the latest non-empty model identifier exposed
+    by the CLI-native stream. The four `reported_*` totals and
+    `usage_granularity` are `full` when any per-message `usage` was seen and
+    left `None` (the "none" case: no reported breakdown exists to
+    characterize) when none was.
+    """
+
+    input_text: str
+    output_text: str
+    ordered_segments: list = field(default_factory=list)
+    reported_input: Optional[int] = None
+    reported_output: Optional[int] = None
+    reported_cache_read: Optional[int] = None
+    reported_cache_write: Optional[int] = None
+    usage_granularity: Optional[str] = None
+    model: Optional[str] = None
+    eligible_turns: list[ProviderUsageTurn] = field(default_factory=list)
+
+    @property
+    def text(self) -> str:
+        """Full run text in original order (for whole-run tokenizing and the
+        persisted transcript copy)."""
+        return "\n".join(self.ordered_segments)
+
+
+@runtime_checkable
+class TranscriptNormalizer(Protocol):
+    """Per-CLI seam: turn one CLI's transcript into a `NormalizedTranscript`.
+
+    CLI normalizers are classes registered in `_NORMALIZERS`, selected by `cli` —
+    never a rewrite of the tokenizer, the record, or the logging adapter
+    (proposal: "The Capture Tool" — the normalizer is one of two swappable
+    internal seams around a fixed tokenizer).
+    """
+
+    def parse(self, transcript_path: Union[str, Path]) -> "NormalizedTranscript":
+        """Read *transcript_path* once and return its `NormalizedTranscript`."""
+        ...
+
+
+def _content_text(content: object) -> str:
+    """Flatten a `tool_result`-style `content` (a string, or a list of typed
+    text blocks) into plain text; best-effort, tolerant of odd shapes."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                parts.append(item.get("text", "") or "")
+        return "\n".join(p for p in parts if p)
+    return ""
+
+
+def _block_text(block: object) -> str:
+    """Extract the text a single content block contributes to the stream."""
+    if isinstance(block, str):
+        return block
+    if not isinstance(block, dict):
+        return ""
+    btype = block.get("type")
+    if btype == "text":
+        return block.get("text", "") or ""
+    if btype == "thinking":
+        return block.get("thinking", "") or block.get("text", "") or ""
+    if btype == "tool_use":
+        name = block.get("name", "") or ""
+        tool_input = block.get("input")
+        if tool_input is None:
+            return name
+        return f"{name} {json.dumps(tool_input, ensure_ascii=False, sort_keys=True)}"
+    if btype == "tool_result":
+        return _content_text(block.get("content"))
+    # Unknown block: best-effort — take any `text` it happens to carry.
+    return block.get("text", "") or ""
+
+
+def _block_direction(block: object, role: Optional[str]) -> str:
+    """Classify a block as input or output (block type first, role fallback)."""
+    btype = block.get("type") if isinstance(block, dict) else None
+    if btype == "tool_result":
+        return _INPUT
+    if btype in ("tool_use", "thinking"):
+        return _OUTPUT
+    # Plain text (or a bare string block): follow the message role.
+    return _OUTPUT if role == "assistant" else _INPUT
+
+
+class ClaudeCodeNormalizer:
+    """Normalize a Claude Code `.jsonl` transcript (ST-0037).
+
+    What: Reads the transcript one JSON object per line. Each line is
+          typically `{"type": ..., "message": {"role": ...,
+          "content": [ {"type": "text"|"tool_use"|"tool_result"|"thinking",
+          ...} ], "usage": {...}}}`. Every content block's text is appended
+          to the ordered full-run stream and to its role-split stream
+          (`input_text` / `output_text`), so the whole run — system prompt,
+          every turn, tool inputs and results, thinking — is measured, not
+          just the boundary prompt and final output. In the same pass, any
+          per-message `usage` object is summed into the `reported_*` totals
+          and `usage_granularity` is set to `full`; a transcript carrying no
+          usage leaves them null.
+    When: Selected by `get_normalizer("claude-code")` from a capture site
+          (ST-0038 wires the Claude Code `Stop`/`SubagentStop` hooks to it).
+    By:   `docs/proposals/implemented/token-usage-tracking.md` ("The Capture
+          Tool", "Tokenization Strategy", "The Usage Record"); backlog
+          ST-0037.
+
+    Best-effort by contract: a line that is not valid JSON is skipped, never
+    raised on, so one corrupt line cannot fail the capture of a whole run.
+    """
+
+    def parse(self, transcript_path: Union[str, Path]) -> NormalizedTranscript:
+        ordered: list = []
+        inputs: list = []
+        outputs: list = []
+        reported = {name: 0 for name in _USAGE_KEYS.values()}
+        saw_usage = False
+        model: Optional[str] = None
+        eligible_turns: list[ProviderUsageTurn] = []
+
+        raw = Path(transcript_path).read_text(encoding="utf-8")
+        for line in raw.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except (ValueError, TypeError):
+                # Malformed line: skip it, never raise (best-effort capture).
+                continue
+            if not isinstance(obj, dict):
+                continue
+
+            message = obj.get("message")
+            if not isinstance(message, dict):
+                message = obj  # tolerate a top-level shape (e.g. system lines)
+            role = message.get("role") or obj.get("type")
+            value = message.get("model")
+            if role == "assistant" and isinstance(value, str) and value:
+                model = value
+
+            content = message.get("content")
+            blocks = content if isinstance(content, list) else [content]
+            for block in blocks:
+                if block is None:
+                    continue
+                text = _block_text(block)
+                if not text:
+                    continue
+                ordered.append(text)
+                if _block_direction(block, role) == _INPUT:
+                    inputs.append(text)
+                else:
+                    outputs.append(text)
+
+            usage = message.get("usage")
+            if usage is None:
+                usage = obj.get("usage")
+            if role == "assistant" and not obj.get("isSidechain", False):
+                eligible_turns.append(
+                    ProviderUsageTurn(
+                        _optional_usage_int(usage, "input_tokens"),
+                        _optional_usage_int(usage, "cache_read_input_tokens"),
+                    )
+                )
+            if isinstance(usage, dict):
+                saw_usage = True
+                for key, field_name in _USAGE_KEYS.items():
+                    value = usage.get(key)
+                    if isinstance(value, (int, float)):
+                        reported[field_name] += int(value)
+
+        result = NormalizedTranscript(
+            input_text="\n".join(inputs),
+            output_text="\n".join(outputs),
+            ordered_segments=ordered,
+            model=model,
+            eligible_turns=eligible_turns,
+        )
+        if saw_usage:
+            result.reported_input = reported["reported_input"]
+            result.reported_output = reported["reported_output"]
+            result.reported_cache_read = reported["reported_cache_read"]
+            result.reported_cache_write = reported["reported_cache_write"]
+            result.usage_granularity = "full"
+        return result
+
+
+class CopilotNormalizer:
+    """Normalize Copilot CLI ``events.jsonl`` events.
+
+    Copilot's persisted event stream is deliberately isolated here. Unknown
+    event types and malformed lines are ignored so additions to the CLI's
+    internal log do not break capture. Parent transcripts are inclusive: no
+    event is filtered by ``parentToolCallId`` or ``initiator``, therefore child
+    activity present in a root transcript contributes to the root total.
+    """
+
+    _INPUT_EVENTS = {"system.message", "user.message", "tool.execution_complete"}
+    _OUTPUT_EVENTS = {"assistant.message", "tool.execution_start"}
+    _USAGE_FIELDS = {
+        "inputTokens": "reported_input",
+        "outputTokens": "reported_output",
+        "cacheReadTokens": "reported_cache_read",
+        "cacheWriteTokens": "reported_cache_write",
+    }
+
+    @staticmethod
+    def _event_segments(event_type: str, data: dict) -> list[str]:
+        values: list[object]
+        if event_type in {"system.message", "user.message"}:
+            values = [data.get("content")]
+        elif event_type == "assistant.message":
+            values = [data.get("reasoningText"), data.get("content")]
+        elif event_type == "tool.execution_start":
+            values = [data.get("toolName"), data.get("arguments")]
+        elif event_type == "tool.execution_complete":
+            values = [data.get("result")]
+        else:
+            return []
+
+        segments = []
+        for value in values:
+            if isinstance(value, str) and value:
+                segments.append(value)
+            elif isinstance(value, (dict, list)):
+                segments.append(json.dumps(value, ensure_ascii=False, sort_keys=True))
+        return segments
+
+    def parse(self, transcript_path: Union[str, Path]) -> NormalizedTranscript:
+        ordered: list[str] = []
+        inputs: list[str] = []
+        outputs: list[str] = []
+        reported = {field_name: 0 for field_name in self._USAGE_FIELDS.values()}
+        saw_usage = False
+        model: Optional[str] = None
+        eligible_turns: list[ProviderUsageTurn] = []
+
+        raw = Path(transcript_path).read_text(encoding="utf-8")
+        for line in raw.splitlines():
+            try:
+                event = json.loads(line)
+            except (ValueError, TypeError):
+                continue
+            if not isinstance(event, dict):
+                continue
+            event_type = event.get("type")
+            data = event.get("data")
+            if not isinstance(event_type, str) or not isinstance(data, dict):
+                continue
+            if event_type == "session.model_change":
+                value = data.get("newModel")
+                if isinstance(value, str) and value:
+                    model = value
+
+            segments = self._event_segments(event_type, data)
+            ordered.extend(segments)
+            if event_type in self._INPUT_EVENTS:
+                inputs.extend(segments)
+            elif event_type in self._OUTPUT_EVENTS:
+                outputs.extend(segments)
+
+            if event_type == "assistant.usage":
+                if (
+                    not data.get("parentToolCallId")
+                    and data.get("initiator") != "sub-agent"
+                ):
+                    eligible_turns.append(
+                        ProviderUsageTurn(
+                            _optional_usage_int(data, "inputTokens"),
+                            _optional_usage_int(data, "cacheReadTokens"),
+                        )
+                    )
+                saw_usage = True
+                for key, field_name in self._USAGE_FIELDS.items():
+                    value = data.get(key)
+                    if isinstance(value, (int, float)):
+                        reported[field_name] += int(value)
+
+        result = NormalizedTranscript(
+            input_text="\n".join(inputs),
+            output_text="\n".join(outputs),
+            ordered_segments=ordered,
+            model=model,
+            eligible_turns=eligible_turns,
+        )
+        if saw_usage:
+            result.reported_input = reported["reported_input"]
+            result.reported_output = reported["reported_output"]
+            result.reported_cache_read = reported["reported_cache_read"]
+            result.reported_cache_write = reported["reported_cache_write"]
+            result.usage_granularity = "full"
+        return result
+
+
+class CodexNormalizer:
+    """Normalize Codex rollout JSONL without excluding nested activity.
+
+    Codex writes response items and cumulative token-count events. Response
+    items are kept in file order; function calls are model output and function
+    results are model input. The last ``total_token_usage`` snapshot is the
+    provider total for the rollout (summing snapshots would double count).
+    Consequently a root rollout remains inclusive of any child work Codex
+    records in it, while a separately hooked child rollout is attribution
+    detail only.
+    """
+
+    _USAGE_FIELDS = {
+        "input_tokens": "reported_input",
+        "output_tokens": "reported_output",
+        "cached_input_tokens": "reported_cache_read",
+    }
+
+    @staticmethod
+    def _content_segments(content: object) -> list[str]:
+        if not isinstance(content, list):
+            return []
+        segments = []
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            value = block.get("text")
+            if isinstance(value, str) and value:
+                segments.append(value)
+        return segments
+
+    @classmethod
+    def _response_segments(cls, payload: dict) -> tuple[str, list[str]]:
+        item_type = payload.get("type")
+        if item_type == "message":
+            direction = _OUTPUT if payload.get("role") == "assistant" else _INPUT
+            return direction, cls._content_segments(payload.get("content"))
+        if item_type == "reasoning":
+            return _OUTPUT, cls._content_segments(payload.get("summary"))
+        if item_type in {"function_call", "custom_tool_call"}:
+            name = payload.get("name") or ""
+            arguments = payload.get("arguments") or payload.get("input")
+            text = name
+            if isinstance(arguments, str) and arguments:
+                text = f"{name} {arguments}".strip()
+            elif isinstance(arguments, (dict, list)):
+                text = f"{name} {json.dumps(arguments, ensure_ascii=False, sort_keys=True)}".strip()
+            return _OUTPUT, [text] if text else []
+        if item_type in {"function_call_output", "custom_tool_call_output"}:
+            value = payload.get("output")
+            if isinstance(value, str) and value:
+                return _INPUT, [value]
+            if isinstance(value, (dict, list)):
+                return _INPUT, [json.dumps(value, ensure_ascii=False, sort_keys=True)]
+        return _INPUT, []
+
+    def parse(self, transcript_path: Union[str, Path]) -> NormalizedTranscript:
+        ordered: list[str] = []
+        inputs: list[str] = []
+        outputs: list[str] = []
+        latest_usage: Optional[dict] = None
+        model: Optional[str] = None
+        eligible_turns: list[ProviderUsageTurn] = []
+
+        for line in Path(transcript_path).read_text(encoding="utf-8").splitlines():
+            try:
+                event = json.loads(line)
+            except (ValueError, TypeError):
+                continue
+            if not isinstance(event, dict):
+                continue
+            payload = event.get("payload")
+            if not isinstance(payload, dict):
+                continue
+
+            if event.get("type") == "turn_context":
+                value = payload.get("model")
+                if isinstance(value, str) and value:
+                    model = value
+            elif event.get("type") == "response_item":
+                direction, segments = self._response_segments(payload)
+                ordered.extend(segments)
+                (outputs if direction == _OUTPUT else inputs).extend(segments)
+            elif (
+                event.get("type") == "event_msg"
+                and payload.get("type") == "token_count"
+            ):
+                info = payload.get("info")
+                usage = (
+                    info.get("total_token_usage") if isinstance(info, dict) else None
+                )
+                if isinstance(usage, dict):
+                    latest_usage = usage
+                per_turn = (
+                    info.get("last_token_usage") if isinstance(info, dict) else None
+                )
+                if isinstance(per_turn, dict):
+                    eligible_turns.append(
+                        ProviderUsageTurn(
+                            _optional_usage_int(per_turn, "input_tokens"),
+                            _optional_usage_int(per_turn, "cached_input_tokens"),
+                        )
+                    )
+
+        result = NormalizedTranscript(
+            input_text="\n".join(inputs),
+            output_text="\n".join(outputs),
+            ordered_segments=ordered,
+            model=model,
+            eligible_turns=eligible_turns,
+        )
+        if latest_usage is not None:
+            for key, field_name in self._USAGE_FIELDS.items():
+                value = latest_usage.get(key)
+                setattr(
+                    result,
+                    field_name,
+                    int(value) if isinstance(value, (int, float)) else 0,
+                )
+            result.reported_cache_write = 0
+            result.usage_granularity = "full"
+        return result
+
+
+class PiNormalizer:
+    """Normalize Pi's line-delimited JSON event stream.
+
+    Pi reports per-response usage on assistant ``message_end`` events, so the
+    breakdown is summed across the completed stream. All event text is retained, including nested
+    tool results present in a root stream, so a root record conserves total
+    usage while separately captured subprocess records remain attribution.
+    """
+
+    _USAGE_FIELDS = {
+        "input": "reported_input",
+        "output": "reported_output",
+        "cacheRead": "reported_cache_read",
+        "cacheWrite": "reported_cache_write",
+    }
+
+    @staticmethod
+    def _message_segments(message: dict) -> list[str]:
+        content = message.get("content")
+        blocks = content if isinstance(content, list) else [content]
+        segments: list[str] = []
+        for block in blocks:
+            if isinstance(block, str) and block:
+                segments.append(block)
+            elif isinstance(block, dict):
+                btype = block.get("type")
+                if btype == "thinking":
+                    value = block.get("thinking") or block.get("text")
+                elif btype in {"toolCall", "tool_call", "tool_use"}:
+                    name = block.get("name") or ""
+                    arguments = block.get("arguments", block.get("input"))
+                    encoded = (
+                        arguments
+                        if isinstance(arguments, str)
+                        else json.dumps(arguments, ensure_ascii=False, sort_keys=True)
+                        if arguments is not None
+                        else ""
+                    )
+                    value = f"{name} {encoded}".strip()
+                else:
+                    value = block.get("text")
+                if isinstance(value, str) and value:
+                    segments.append(value)
+        return segments
+
+    def parse(self, transcript_path: Union[str, Path]) -> NormalizedTranscript:
+        ordered: list[str] = []
+        inputs: list[str] = []
+        outputs: list[str] = []
+        reported = {field_name: 0 for field_name in self._USAGE_FIELDS.values()}
+        saw_usage = False
+        model: Optional[str] = None
+        eligible_turns: list[ProviderUsageTurn] = []
+
+        for line in Path(transcript_path).read_text(encoding="utf-8").splitlines():
+            try:
+                event = json.loads(line)
+            except (ValueError, TypeError):
+                continue
+            if not isinstance(event, dict):
+                continue
+            event_type = event.get("type")
+            segments: list[str] = []
+            direction = _INPUT
+            message = event.get("message")
+            if isinstance(message, dict):
+                segments = self._message_segments(message)
+                direction = _OUTPUT if message.get("role") == "assistant" else _INPUT
+                value = message.get("model")
+                if direction == _OUTPUT and isinstance(value, str) and value:
+                    model = value
+                usage = message.get("usage")
+                if (
+                    direction == _OUTPUT
+                    and event_type in ("message_end", "message")
+                ):
+                    eligible_turns.append(
+                        ProviderUsageTurn(
+                            _optional_usage_int(usage, "input"),
+                            _optional_usage_int(usage, "cacheRead"),
+                        )
+                    )
+                if event_type in ("message_end", "message") and isinstance(usage, dict):
+                    saw_usage = True
+                    for key, field_name in self._USAGE_FIELDS.items():
+                        value = usage.get(key)
+                        if isinstance(value, (int, float)):
+                            reported[field_name] += int(value)
+            elif event_type == "session_start":
+                value = event.get("systemPrompt")
+                segments = [value] if isinstance(value, str) and value else []
+            elif event_type in {"tool_execution_end", "tool_result"}:
+                value = event.get("result") or event.get("content")
+                if isinstance(value, str) and value:
+                    segments = [value]
+                elif isinstance(value, (dict, list)):
+                    segments = [json.dumps(value, ensure_ascii=False, sort_keys=True)]
+
+            ordered.extend(segments)
+            (outputs if direction == _OUTPUT else inputs).extend(segments)
+
+        result = NormalizedTranscript(
+            input_text="\n".join(inputs),
+            output_text="\n".join(outputs),
+            ordered_segments=ordered,
+            model=model,
+            eligible_turns=eligible_turns,
+        )
+        if saw_usage:
+            for field_name, value in reported.items():
+                setattr(result, field_name, value)
+            result.usage_granularity = "full"
+        return result
+
+
+# CLI -> normalizer registry. Adding another CLI is a new entry, not a rewrite.
+_NORMALIZERS: dict = {
+    "claude-code": ClaudeCodeNormalizer(),
+    "copilot": CopilotNormalizer(),
+    "codex": CodexNormalizer(),
+    "pi": PiNormalizer(),
+}
+
+SUPPORTED_CLIS = tuple(_NORMALIZERS)
+
+
+def get_normalizer(cli: str) -> TranscriptNormalizer:
+    """Return the transcript normalizer for *cli*.
+
+    Raises `ValueError` for a CLI with no normalizer — a programming error at
+    the capture site, distinct from a malformed transcript (which is skipped,
+    not raised on).
+    """
+    try:
+        return _NORMALIZERS[cli]
+    except KeyError:
+        raise ValueError(
+            f"no transcript normalizer for cli {cli!r}; "
+            f"supported: {', '.join(SUPPORTED_CLIS)}"
+        ) from None
+
+
+# ── CLI entrypoint (ST-0038) ─────────────────────────────────────────────
+
+
+# Context flags (proposal: "The Capture Tool" example invocation), mapped
+# straight onto the `UsageRecord` field of the same name via `dest=`; only
+# `--commit` (-> commit_id) and `--parent-session` need an explicit `dest`.
+def _build_arg_parser() -> argparse.ArgumentParser:
+    """Argument parser for the real CLI: `--cli`/`--transcript` select and
+    read the run; every other flag is invocation context that lands on the
+    matching `UsageRecord` field (proposal: "The Capture Tool")."""
+    parser = argparse.ArgumentParser(
+        prog="usage-capture",
+        description=(
+            "Capture one usage record for a single agent invocation: "
+            "normalize --transcript for --cli, tokenize it via cl100k_base, "
+            "and append the record to .agent-factory/usage/<session>.jsonl."
+        ),
+    )
+    parser.add_argument(
+        "--cli", required=True, help="claude-code | copilot | codex | pi"
+    )
+    parser.add_argument(
+        "--transcript",
+        required=True,
+        type=Path,
+        help="path to the CLI's own transcript file",
+    )
+    parser.add_argument("--session", dest="session_id")
+    parser.add_argument("--parent-session", dest="parent_session_id")
+    parser.add_argument("--depth", type=int)
+    parser.add_argument("--agent")
+    parser.add_argument("--model")
+    parser.add_argument(
+        "--provider",
+        help="provider identity qualifying native per-turn usage semantics",
+    )
+    parser.add_argument("--branch")
+    parser.add_argument("--commit", dest="commit_id")
+    parser.add_argument("--exit-status", dest="exit_status")
+    parser.add_argument("--transcript-retention")
+    parser.add_argument(
+        "--delete-source",
+        action="store_true",
+        help=(
+            "delete --transcript after capture only when it is a regular, "
+            "non-symlink file directly under .agent-factory/usage/.capture"
+        ),
+    )
+    parser.add_argument("--pending-marker", type=Path, help=argparse.SUPPRESS)
+    parser.add_argument("--usage-generation", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--cleanup-owner",
+        choices=("python", "supervisor"),
+        default="python",
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument("--completion-status", type=Path, help=argparse.SUPPRESS)
+    return parser
+
+
+def _delete_factory_staged_source(path: Path, base_dir: Union[str, Path]) -> None:
+    """Delete only a Pi bridge-owned durable handoff file.
+
+    The flag is intentionally not a general unlink primitive: arbitrary,
+    traversed, and symlink paths are retained even when capture was requested
+    with ``--delete-source``.
+    """
+    try:
+        candidate = Path(path)
+        scratch = Path(base_dir).resolve() / ".agent-factory" / "usage" / ".capture"
+        if not candidate.is_absolute() or candidate.is_symlink():
+            return
+        if scratch.is_symlink() or scratch.resolve() != scratch:
+            return
+        if candidate.parent != scratch or not candidate.is_file():
+            return
+        candidate.unlink()
+    except OSError:
+        pass
+
+
+def _delete_factory_pending_marker(path: Path, base_dir: Union[str, Path]) -> None:
+    try:
+        candidate = Path(path)
+        pending = (
+            Path(base_dir).resolve() / ".agent-factory" / "usage-control" / "pending"
+        )
+        if (
+            candidate.is_absolute()
+            and not candidate.is_symlink()
+            and candidate.parent == pending
+            and candidate.suffixes[-2:] == [".pending", ".json"]
+            and candidate.is_file()
+        ):
+            candidate.unlink()
+    except OSError:
+        pass
+
+
+def _write_supervisor_completion(
+    path: Path,
+    outcome: str,
+    base_dir: Union[str, Path],
+    pending_marker: Optional[Path],
+) -> None:
+    """Write one bounded status only inside Factory's usage-control dir."""
+    try:
+        candidate = Path(path)
+        control = Path(base_dir).resolve() / ".agent-factory" / "usage-control"
+        pending = control / "pending"
+        marker = Path(pending_marker) if pending_marker is not None else Path()
+        expected = control / marker.name.replace(".pending.json", ".completion.json")
+        if (
+            not candidate.is_absolute()
+            or candidate.parent != control
+            or not candidate.name.endswith(".completion.json")
+            or not marker.is_absolute()
+            or marker.parent != pending
+            or not marker.name.endswith(".pending.json")
+            or candidate != expected
+            or candidate.is_symlink()
+            or candidate.exists()
+            or control.is_symlink()
+            or control.resolve() != control
+        ):
+            return
+        payload = (json.dumps({"outcome": outcome}) + "\n").encode("utf-8")
+        fd = os.open(
+            candidate,
+            os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0),
+            _FILE_MODE,
+        )
+        try:
+            os.fchmod(fd, _FILE_MODE)
+            _write_all(fd, payload)
+        finally:
+            os.close(fd)
+    except OSError:
+        pass
+
+
+@contextmanager
+def _pi_persistence_fence(args: argparse.Namespace, base_dir: Union[str, Path]):
+    """Fence a registered capture commit against drain/cancel teardown."""
+    marker = getattr(args, "pending_marker", None)
+    if marker is None:
+        yield True
+        return
+
+    root = Path(base_dir).resolve()
+    pending = root / ".agent-factory" / "usage-control" / "pending"
+    committing: Optional[Path] = None
+    allowed = False
+    try:
+        if (
+            not marker.is_absolute()
+            or marker.is_symlink()
+            or marker.parent != pending
+            or marker.suffixes[-2:] != [".pending", ".json"]
+            or not marker.is_file()
+        ):
+            yield False
+            return
+        committing = marker.with_name(
+            marker.name.replace(".pending.json", ".committing.json")
+        )
+        marker.replace(committing)
+        registration = json.loads(committing.read_text(encoding="utf-8"))
+        state = json.loads(
+            (root / ".agent-factory" / "usage-control" / "state.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        allowed = (
+            registration.get("generation") == getattr(args, "usage_generation", None)
+            and state.get("generation") == getattr(args, "usage_generation", None)
+            and state.get("mode") in ("active", "drain")
+        )
+        yield allowed
+    except (OSError, ValueError, json.JSONDecodeError):
+        yield False
+    finally:
+        if (
+            committing is not None
+            and getattr(args, "cleanup_owner", "python") != "supervisor"
+        ):
+            try:
+                committing.unlink()
+            except OSError:
+                pass
+
+
+def _git_context(base_dir: Union[str, Path]) -> tuple[Optional[str], Optional[str]]:
+    """Return the current branch and full HEAD SHA when *base_dir* is a repo.
+
+    Capture is best-effort observability, so missing git, a detached/unborn
+    HEAD, or an inaccessible repository yields nullable context rather than a
+    failed usage record.
+    """
+
+    def query(*git_args: str) -> Optional[str]:
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(base_dir), *git_args],
+                capture_output=True,
+                check=False,
+                text=True,
+                timeout=2,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        value = result.stdout.strip()
+        return value if result.returncode == 0 and value else None
+
+    return (
+        query("symbolic-ref", "--quiet", "--short", "HEAD"),
+        query("rev-parse", "--verify", "HEAD"),
+    )
+
+
+def _project_identity(base_dir: Union[str, Path]) -> tuple[str, str]:
+    """Load the non-null project identity established by init-factory."""
+    path = Path(base_dir).resolve() / "config" / "project.json"
+    identity = json.loads(path.read_text(encoding="utf-8"))
+    project_id = identity["project_id"]
+    project_name = identity["project_name"]
+    if not isinstance(project_id, str):
+        raise TypeError("project_id must be a UUID string")
+    uuid.UUID(project_id)
+    if not isinstance(project_name, str) or not project_name.strip():
+        raise ValueError("project_name must be a non-empty string")
+    return project_id, project_name
+
+
+def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> bool:
+    """Run one capture end to end: normalize, tokenize, assemble, persist.
+
+    Composes the two swappable seams around the fixed tokenizer (proposal:
+    "The Capture Tool") — `get_normalizer(args.cli)` and
+    `JsonlLoggingAdapter` — around exactly one `count_tokens()` pass over
+    each role-split stream, producing exactly one `UsageRecord` per call.
+
+    Raises on any failure (unknown `--cli` via `get_normalizer`, an
+    unreadable transcript, ...); `_main` is the best-effort boundary that
+    catches it, per the proposal's "Core Principles" — capture must never
+    fail, block, or slow the run it measures. `JsonlLoggingAdapter.record()`
+    already swallows its own persistence failures (ST-0036), so this
+    function only ever raises on failures upstream of persistence.
+    """
+    normalizer = get_normalizer(args.cli)  # raises ValueError for unknown cli
+    transcript = normalizer.parse(args.transcript)
+    signals = derive_session_usage_signals(
+        transcript.eligible_turns,
+        cli=args.cli,
+        provider=args.provider,
+    )
+
+    normalized_input = count_tokens(transcript.input_text)
+    normalized_output = count_tokens(transcript.output_text)
+    retention = resolve_transcript_retention(
+        getattr(args, "transcript_retention", None), base_dir
+    )
+    detected_branch, detected_commit = _git_context(base_dir)
+    project_id, project_name = _project_identity(base_dir)
+
+    with _pi_persistence_fence(args, base_dir) as allowed:
+        if allowed:
+            storage = UsageStoragePaths(base_dir, cli=args.cli)
+            session_id = args.session_id or "unknown"
+            fallback_id = None if args.session_id else str(uuid.uuid4())
+            reservation = storage.reserve_transcript(session_id, fallback_id)
+            try:
+                record = UsageRecord(
+                    record_id=reservation.record_id,
+                    project_id=project_id,
+                    project_name=project_name,
+                    normalized_input=normalized_input,
+                    normalized_output=normalized_output,
+                    cli=args.cli,
+                    session_id=args.session_id,
+                    parent_session_id=args.parent_session_id,
+                    depth=args.depth,
+                    agent=args.agent,
+                    model=args.model or transcript.model,
+                    provider=signals.provider,
+                    reported_input=transcript.reported_input,
+                    reported_output=transcript.reported_output,
+                    reported_cache_read=transcript.reported_cache_read,
+                    reported_cache_write=transcript.reported_cache_write,
+                    usage_granularity=transcript.usage_granularity,
+                    usage_capability=signals.usage_capability,
+                    cache_miss_turns=signals.cache_miss_turns,
+                    cache_miss_input_tokens=signals.cache_miss_input_tokens,
+                    late_early_input_ratio=signals.late_early_input_ratio,
+                    exit_status=args.exit_status,
+                    branch=args.branch or detected_branch,
+                    commit_id=args.commit_id or detected_commit,
+                )
+            except Exception:
+                reservation.discard()
+                raise
+            return JsonlLoggingAdapter(
+                base_dir=base_dir, retention=retention, cli=args.cli
+            ).record_reserved(
+                record,
+                transcript.text,
+                reservation,
+            )
+    return False
+
+
+def _main(argv: Optional[list] = None) -> int:
+    """The real CLI entrypoint (proposal: "The Capture Tool").
+
+    Parses `--cli`/`--transcript` plus the context flags, runs the
+    normalize -> tokenize -> assemble -> persist pipeline in `_capture()`
+    for exactly one record, and always returns 0. Best-effort at every
+    boundary per the proposal's "Core Principles": an unknown `--cli`, a
+    missing/malformed argument, an unreadable transcript, or any other
+    failure is logged to stderr and swallowed here — a capture failure
+    must never fail, block, or slow the run it measures. The
+    `--count-tokens`/`--normalize` dev seams (ST-0035/ST-0037) are
+    preserved unchanged above; real capture-site callers use the flags
+    `_build_arg_parser()` defines.
+    """
+    argv = sys.argv[1:] if argv is None else argv
+    if argv and argv[0] == "--count-tokens":
+        print(count_tokens(sys.stdin.read()))
+        return 0
+    if argv and argv[0] == "--normalize" and len(argv) == 3:
+        # `--normalize <cli> <transcript_path>`: parse once, then tokenize the
+        # role-split streams through the real cl100k_base counter and emit the
+        # combined normalized_* / reported_* bundle as one JSON object.
+        _, cli, path = argv
+        nt = get_normalizer(cli).parse(path)
+        normalized_input = count_tokens(nt.input_text)
+        normalized_output = count_tokens(nt.output_text)
+        print(
+            json.dumps(
+                {
+                    "normalized_input": normalized_input,
+                    "normalized_output": normalized_output,
+                    "normalized_total": normalized_input + normalized_output,
+                    "reported_input": nt.reported_input,
+                    "reported_output": nt.reported_output,
+                    "reported_cache_read": nt.reported_cache_read,
+                    "reported_cache_write": nt.reported_cache_write,
+                    "usage_granularity": nt.usage_granularity,
+                }
+            )
+        )
+        return 0
+
+    try:
+        args = _build_arg_parser().parse_args(argv)
+    except SystemExit as exc:
+        if exc.code in (0, None):
+            raise  # --help/--version: let argparse's own normal exit through
+        print(
+            "usage-capture: argument parsing failed; skipping capture",
+            file=sys.stderr,
+        )
+        return 0
+
+    outcome = "dropped"
+    try:
+        if _capture(args):
+            outcome = "captured"
+    except Exception as exc:  # best-effort boundary: never fail the measured run
+        print(f"usage-capture: capture failed: {exc}", file=sys.stderr)
+    finally:
+        if args.cleanup_owner == "supervisor":
+            if args.completion_status:
+                _write_supervisor_completion(
+                    args.completion_status, outcome, ".", args.pending_marker
+                )
+        else:
+            if args.delete_source:
+                _delete_factory_staged_source(args.transcript, ".")
+            if args.pending_marker:
+                _delete_factory_pending_marker(args.pending_marker, ".")
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main())

@@ -1,6 +1,12 @@
 #!/bin/bash
 # mdformat - Zero-local-install wrapper around mdformat + its plugins
 #
+# What: uvx wrapper around mdformat plus its GFM/ruff/frontmatter plugins.
+# When: On commit for Markdown; on demand via /validate; wherever a skill
+#       formats Markdown.
+# By:   pre-commit hooks `mdformat` / `mdformat-orchestrator`; many skills
+#       (retrospective, write-adr, ...).
+#
 # The factory's Markdown artifacts (specs, ADRs, findings, reports) need
 # mdformat plus three plugins (mdformat-gfm for tables, mdformat-ruff for
 # Python code blocks, mdformat-frontmatter to protect YAML frontmatter).

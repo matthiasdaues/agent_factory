@@ -1,0 +1,270 @@
+#!/usr/bin/env python3
+"""openrouter-discover - Curate and validate Pi's OpenRouter tier rows.
+
+What: Queries OpenRouter's live catalog to list, suggest, or drift-check the
+      pi.* tier rows in model.conf (--list/--suggest/--check).
+When: On demand when an operator picks or validates pi.* rows; off the
+      runtime path.
+By:   run by hand (or a drift gate) — never at agent-dispatch time.
+
+An operator aid, off the runtime path (ADR-0005). Runtime tier resolution
+stays static and offline in `config/model.conf` via `resolve-model`; this
+script only helps an operator *choose* and *validate* the `pi.*` rows by
+querying OpenRouter's public model catalog (https://openrouter.ai/api/v1/models).
+
+Modes:
+  --list      Print the catalog sorted by prompt price (filterable).
+  --suggest   Print advisory pi.economy/standard/strong rows for model.conf.
+  --check     Verify the pi.* model ids in model.conf still exist in the
+              catalog; exit 1 if any is missing (a deterministic drift gate).
+
+Model-id convention: model.conf stores the Pi model string. OpenRouter models
+are addressed through Pi as ``openrouter/<catalog-id>`` (e.g.
+``openrouter/anthropic/claude-3.5-haiku``); --check strips a leading
+``openrouter/`` before matching, and --suggest emits that form. Adjust if your
+Pi OpenRouter provider prefix differs.
+
+The catalog endpoint is public; ``OPENROUTER_API_KEY`` is sent as a bearer
+token when set, but is not required for listing.
+
+Exit codes: 0 ok; 1 drift found (--check); 2 network/parse/usage error.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+CATALOG_URL = "https://openrouter.ai/api/v1/models"
+_SCRIPTS_DIR = Path(__file__).resolve().parent
+
+TIERS = ("economy", "standard", "strong")
+
+
+def fetch_catalog(url: str = CATALOG_URL, timeout: float = 20.0) -> list[dict]:
+    """Return the catalog's ``data`` list, or raise on failure."""
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": "agent-factory-openrouter-discover",
+    }
+    key = os.environ.get("OPENROUTER_API_KEY")
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+        raise RuntimeError(f"could not fetch OpenRouter catalog: {exc}") from exc
+    data = payload.get("data")
+    if not isinstance(data, list):
+        raise RuntimeError("unexpected catalog shape: no 'data' list")
+    return data
+
+
+def prompt_price(model: dict) -> float | None:
+    """Per-token prompt price as a float, or None if unparseable."""
+    pricing = model.get("pricing") or {}
+    raw = pricing.get("prompt")
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def context_length(model: dict) -> int:
+    try:
+        return int(model.get("context_length") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def is_text_chat(model: dict) -> bool:
+    """True if the model outputs text (excludes image/audio-only generators)."""
+    arch = model.get("architecture") or {}
+    out = arch.get("output_modalities")
+    if isinstance(out, list) and out:
+        return "text" in out and "image" not in out
+    # Older catalog rows lack output_modalities; assume text.
+    return True
+
+
+def usable(model: dict, min_context: int) -> bool:
+    price = prompt_price(model)
+    return (
+        price is not None
+        and context_length(model) >= min_context
+        and is_text_chat(model)
+    )
+
+
+def ranked(
+    catalog: list[dict], min_context: int, max_price: float | None
+) -> list[dict]:
+    rows = [m for m in catalog if usable(m, min_context)]
+    if max_price is not None:
+        rows = [m for m in rows if (prompt_price(m) or 0.0) <= max_price]
+    rows.sort(key=lambda m: (prompt_price(m) or 0.0, m.get("id", "")))
+    return rows
+
+
+def cmd_list(
+    catalog: list[dict], min_context: int, max_price: float | None, as_json: bool
+) -> int:
+    rows = ranked(catalog, min_context, max_price)
+    if as_json:
+        print(
+            json.dumps(
+                [
+                    {
+                        "id": m.get("id"),
+                        "prompt_price": prompt_price(m),
+                        "context_length": context_length(m),
+                    }
+                    for m in rows
+                ],
+                indent=2,
+            )
+        )
+        return 0
+    for m in rows:
+        print(f"{prompt_price(m):>14.9f}  {context_length(m):>9}  {m.get('id')}")
+    return 0
+
+
+def suggest(catalog: list[dict], min_context: int) -> dict[str, str]:
+    """Advisory tier→id mapping. Heuristic by price, deliberately rough."""
+    rows = ranked(catalog, min_context, None)
+    # Exclude zero-priced (free/experimental) rows from tier picks to avoid
+    # rate-limited freebies landing on a working tier.
+    priced = [m for m in rows if (prompt_price(m) or 0.0) > 0.0]
+    if not priced:
+        raise RuntimeError("no priced models met the context filter")
+    economy = priced[0]
+    strong = priced[-1]
+    standard = priced[len(priced) // 2]
+    return {
+        "economy": f"openrouter/{economy.get('id')}",
+        "standard": f"openrouter/{standard.get('id')}",
+        "strong": f"openrouter/{strong.get('id')}",
+    }
+
+
+def cmd_suggest(catalog: list[dict], min_context: int) -> int:
+    picks = suggest(catalog, min_context)
+    print("# Advisory pi.* rows for config/model.conf (edit to taste — ADR-0005).")
+    print("# Heuristic: cheapest / median / most-expensive priced model above the")
+    print(
+        f"# {min_context}-token context floor. Validate with: openrouter-discover --check"
+    )
+    for tier in TIERS:
+        print(f"pi.{tier:<8} = {picks[tier]}")
+    return 0
+
+
+def read_pi_models(model_conf: Path, cli: str = "pi") -> dict[str, str]:
+    """Return {tier: model-id} for the given CLI from model.conf.
+
+    Reuses matrix-lint's parser so model.conf has one parser (ADR-0004).
+    """
+    import importlib.util
+    from importlib.machinery import SourceFileLoader
+
+    loader = SourceFileLoader("matrix_lint", str(_SCRIPTS_DIR / "matrix-lint"))
+    spec = importlib.util.spec_from_loader("matrix_lint", loader)
+    matrix_lint = importlib.util.module_from_spec(spec)
+    # Register before exec: matrix-lint uses @dataclass (see resolve-model).
+    sys.modules["matrix_lint"] = matrix_lint
+    loader.exec_module(matrix_lint)
+
+    err, facts = matrix_lint.parse_matrix(model_conf.read_text(encoding="utf-8"))
+    if err is not None:
+        raise RuntimeError(f"{model_conf}: {err}")
+    out = {}
+    for tier in TIERS:
+        model = facts.get(f"{cli}.{tier}")
+        if model:
+            out[tier] = model
+    return out
+
+
+def cmd_check(catalog: list[dict], model_conf: Path, cli: str) -> int:
+    configured = read_pi_models(model_conf, cli)
+    if not configured:
+        print(
+            f"openrouter-discover: no {cli}.* rows configured in {model_conf}",
+            file=sys.stderr,
+        )
+        return 0
+    known = {m.get("id") for m in catalog}
+    drift = 0
+    for tier, model in sorted(configured.items()):
+        catalog_id = (
+            model.split("/", 1)[1] if model.startswith("openrouter/") else model
+        )
+        if catalog_id in known:
+            print(f"ok    {cli}.{tier} = {model}")
+        else:
+            drift += 1
+            print(
+                f"DRIFT {cli}.{tier} = {model} (not in OpenRouter catalog)",
+                file=sys.stderr,
+            )
+    return 1 if drift else 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Curate/validate Pi OpenRouter tier rows."
+    )
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--list", action="store_true", help="List the catalog by price.")
+    mode.add_argument("--suggest", action="store_true", help="Suggest pi.* rows.")
+    mode.add_argument(
+        "--check", action="store_true", help="Validate pi.* rows against the catalog."
+    )
+    parser.add_argument(
+        "--min-context", type=int, default=32000, help="Minimum context length filter."
+    )
+    parser.add_argument(
+        "--max-price",
+        type=float,
+        default=None,
+        help="Max prompt price per token (--list).",
+    )
+    parser.add_argument("--json", action="store_true", help="JSON output (--list).")
+    parser.add_argument(
+        "--cli", default="pi", help="CLI whose tier rows to check (--check)."
+    )
+    parser.add_argument(
+        "--model-conf",
+        type=Path,
+        default=_SCRIPTS_DIR.parents[1] / "config" / "model.conf",
+        help="Path to model.conf (--check).",
+    )
+    parser.add_argument(
+        "--url", default=CATALOG_URL, help="Catalog URL override (testing)."
+    )
+    args = parser.parse_args(argv)
+
+    try:
+        catalog = fetch_catalog(args.url)
+        if args.list:
+            return cmd_list(catalog, args.min_context, args.max_price, args.json)
+        if args.suggest:
+            return cmd_suggest(catalog, args.min_context)
+        if args.check:
+            return cmd_check(catalog, args.model_conf, args.cli)
+    except RuntimeError as exc:
+        print(f"openrouter-discover: {exc}", file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
