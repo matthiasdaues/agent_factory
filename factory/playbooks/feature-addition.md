@@ -3,7 +3,7 @@ title: Feature Addition Playbook
 category: orchestration
 type: runbook
 scenario: feature-addition
-version: 1.0.0
+version: 1.2.0
 ---
 
 # Feature Addition Playbook
@@ -14,19 +14,109 @@ Operational procedure for **adding features to existing system**.
 
 - [ ] Existing project with spec and architecture
 - [ ] `CONTEXT.md` exists
-- [ ] Feature request or user story defined
+- [ ] A proposal at `docs/proposals/<name>.md`, written to the [proposal template](../rulebooks/templates/proposal.md)
 
-## Decision: Scope Assessment
+The proposal is the feature's authoritative design origin. Do not maintain a
+parallel feature request, interview record, or design brief.
 
-### Is this a small, well-understood feature?
+## Phase Boundary Contract
 
-**Small**: Single story, clear implementation, no architectural impact
-**If YES** → Skip to Phase 3 (Planning)
+Every transition in the table below is a Factory workflow phase boundary. The
+outgoing participant must invoke `handoff`, obtain a clean `handoff-lint`
+result and independent semantic review, then make a hard stop before doing any
+work from the next row. The incoming participant starts a fresh session and
+must read the handoff first, verify its Git state, and read referenced artifacts
+through an initial bounded chunk, expanding further only on demand. Do not
+replay a prior transcript.
 
-**Large**: Multiple stories, architectural decisions needed, cross-cutting concerns
-**If NO** → Start at Phase 1 (Requirements)
+Before any child returns, it persists its complete reports and findings in
+canonical tracked artifacts. Its parent receives only disposition, severity
+counts, every artifact path, and a one-to-three-sentence next action; finding
+detail and full reasoning remain in the artifacts. No in-place transcript
+compaction, prose-only cache-restabilisation ritual, or live cache control is
+introduced.
 
-## Phase 1: Requirements (Large Features Only)
+| Transition                                     | Route                                                 |
+| ---------------------------------------------- | ----------------------------------------------------- |
+| proposal intake → requirements-agent           | Declared impact requires specification work           |
+| proposal intake → architecture-agent           | Specification is skipped; architecture change is true |
+| proposal intake → planning-agent               | Specification and architecture are both skipped       |
+| requirements-agent → spec-review-agent         | Specification update completes                        |
+| spec-review-agent → requirements-agent         | Open specification findings require remedies          |
+| spec-review-agent → architecture-agent         | Review is clean; architecture change is true          |
+| spec-review-agent → planning-agent             | Review is clean; architecture change is false         |
+| architecture-agent → architecture-review-agent | Architecture update completes                         |
+| architecture-review-agent → architecture-agent | Open architecture findings require remedies           |
+| architecture-review-agent → planning-agent     | Architecture review is clean                          |
+| planning-agent → implementation-agent          | Backlog is approved                                   |
+| implementation-agent → reconciliation-agent    | Implementation wave completes                         |
+| reconciliation-agent → implementation-agent    | Reconciliation finds code defects                     |
+| reconciliation-agent → qa-agent                | Reconciliation is clean                               |
+| qa-agent → implementation-agent                | Quality review finds defects                          |
+| implementation-agent → qa-agent                | Quality remedies are ready for retest                 |
+
+Each listed route requires the reviewed handoff and restart even where agent
+frontmatter groups author and reviewer roles under one broader phase name.
+Work that remains inside one route's outgoing phase is exempt under
+[handoff-format.md](../rulebooks/conventions/handoff-format.md).
+
+## Proposal Intake
+
+### Step 0.1 — Clarify
+
+Read the proposal and its referenced boundaries.
+
+- **`draft`** → Invoke `clarify-requirements` with the proposal as its target.
+  The interview amends that file until the design is decision-complete, then
+  moves it to `open`.
+- **`open`** → Review or grill the proposal in place. Resolve every Open
+  Question as a decision, explicit assumption, or deferral.
+- **`accepted`** → Preserve its recorded baseline and continue to Step 0.3.
+- **`implemented`, `cancelled`, or `superseded`** → Stop; this playbook cannot
+  open implementation from a closed proposal.
+
+Grilling may make an artifact ready for acceptance, but cannot accept it.
+
+### Decision Point 0.2 — Accept
+
+**Manual**: Stakeholder accepts the proposal.
+
+Record the full 40-character SHA of the commit containing the accepted proposal
+as the immutable planning baseline. Do not embed that SHA in the proposal.
+
+**If accepted** → Set `status: accepted`, update `updated`, commit, then route
+the work using Step 0.3.
+**If changes requested** → Return to Step 0.1.
+
+### Step 0.3 — Route from Declared Impact
+
+- Specification work is required when the accepted design changes behavior,
+  use cases, quality requirements, or an external contract. Otherwise, skip to
+  Phase 2.
+- `impact.architecture_change: true` requires Phase 2.
+- `impact.architecture_change: false` skips Phase 2 after required specification
+  work.
+
+Do not infer a small/large shortcut independently of the accepted proposal.
+`impact`, `governance`, and Completion Criteria are the planning inputs.
+
+## Approval Contract
+
+At the start of each phase, present one bounded approval covering its reversible,
+in-scope work. State:
+
+- outputs and acceptance invariants;
+- deterministic gates that must pass;
+- stop conditions: a changed requirement, unresolved design choice, destructive
+  action, external side effect, failed gate, or scope expansion.
+
+After approval, execute the phase through its stated gates without requesting
+confirmation for each routine reversible step. Existing decision points remain:
+stakeholders still approve requirements, architecture decisions, backlog scope,
+destructive cleanup, and any response to a stop condition. Batching must not be
+used to infer broader authority.
+
+## Phase 1: Requirements (If Specification Changes Are Needed)
 
 ### Step 1.1 — Update Specification
 
@@ -61,17 +151,9 @@ grep -l "status: open" docs/findings/SPEC-*.md
 
 ## Phase 2: Architecture (If Architectural Changes Needed)
 
-### Decision: Does this feature require architectural changes?
-
-Check with architect or review ADRs:
-
-- New components?
-- New external dependencies?
-- New deployment requirements?
-- State machine changes?
-
-**If NO architectural changes** → Skip to Phase 3
-**If YES** → Continue Step 2.1
+Enter this phase when `impact.architecture_change` is `true`. If implementation
+discovery contradicts that declaration, the proposal has materially changed:
+return it to `open`, amend it, and repeat acceptance before continuing.
 
 ### Step 2.1 — Update Architecture
 
@@ -123,7 +205,17 @@ factory/scripts/backlog-lint --backlog-dir backlog
 **If errors** → Fix and return to Step 3.1
 **If clean** → Go to Step 3.3
 
-### Step 3.3 — Approve
+### Step 3.3 — Reconcile Plan with Proposal
+
+Check that the backlog covers every Completion Criterion, excludes explicitly
+deferred scope, and applies the declared governance and risk domains.
+
+- If the proposal estimate has `confidence: low`, reforecast it from the
+  decomposition, updating `estimate.as_of`, `basis`, and ranges.
+- If planning changes accepted scope, impact, governance, or completion
+  criteria materially, set the proposal back to `open` and return to Step 0.1.
+
+### Step 3.4 — Approve Backlog
 
 **Manual**: Stakeholder approval
 
@@ -191,5 +283,11 @@ Final checks:
 - [ ] Spec updated to reflect new feature
 - [ ] Architecture docs updated (if applicable)
 - [ ] All findings resolved
+- [ ] Every proposal Completion Criterion is satisfied
+- [ ] Proposal status is `implemented` and `updated` records the completion date
+- [ ] Actual effort remains in the external calibration store, keyed by proposal path and accepted commit SHA; forecast values were not overwritten with actuals
+- [ ] Every absorbed story/finding worktree is clean and removed
+- [ ] Every absorbed local branch is deleted safely with `git branch -d`, unless named as an active review base
+- [ ] Handoff records exact local/upstream tips and ahead/behind counts per [handoff-format.md](../rulebooks/conventions/handoff-format.md)
 
 **Ready to merge**

@@ -44,6 +44,39 @@ This resolution order is why `halt_conditions` must name the **author** state be
 - The deny list mirrors [`block-dangerous-git.sh`](../../../factory/config/hooks/block-dangerous-git.sh)'s own pattern list exactly (BR-020) — a second, independent layer, not a substitute for it.
 - `--interactive` mode constructs no allow/deny list at all; it launches a live session the actor controls directly, after printing the composed prompt (BR-013).
 
+## Phase handoff and result envelope (BR-037…BR-042)
+
+- **BR-037**: compression removes wording only. A valid handoff explicitly retains decisions, open items (including an explicit none), artifact paths, exact 40-character HEAD and other machine-consumed SHAs, branch/upstream state, gate results, verification evidence, and one next action.
+
+- **BR-038**: `handoff-lint` validates all mechanically observable requirements and reports all detectable failures in one run. Every declared referenced repository path must exist; every declared machine-consumed SHA must match `[0-9a-f]{40}`; required sections and declared branch/upstream, verification, open-decision, and next-action fields must be present and non-placeholder. Passing lint makes no claim about facts the author never declared.
+
+- **BR-049**: after structural lint passes, a designated Handoff Semantic Reviewer compares the handoff with the outgoing phase's artifacts, decisions, open items, and evidence. The reviewer alone confirms the losslessness invariant; an omission or distortion blocks closure until correction, repeated lint, and repeated semantic review pass.
+
+- **BR-039**: a phase transition is complete only after a valid handoff is written and the outgoing session stops. Starting the next phase within that session violates the workflow contract. A continuation within the same phase does not require a handoff.
+
+- **BR-040**: before child return, every complete report and finding is written to canonical tracked artifacts. The parent-facing envelope contains exactly the disposition, severity counts, complete artifact-path list, and a one-to-three-sentence next action; it does not contain verbatim finding detail or full reasoning.
+
+- **BR-041**: a potentially large artifact is initially read through a bounded offset/limit chunk. Further chunks are requested only when needed. No prose-only cache-restabilisation turn is required or recommended.
+
+- **BR-042**: derived usage metrics follow this deterministic contract:
+
+  1. The aggregation unit is one chronological, top-level assistant model-response turn in the captured session. Tool/progress events, child-session turns, and synthetic session aggregates are excluded. `N` is the number of these eligible turns.
+  2. `input_i` and `cache_read_i` are the native provider-reported per-turn values normalized without reinterpretation; the stored CLI and provider qualify their semantics.
+  3. Cache capability is `full-cache` only when every eligible turn has both values. For that class, turn `i` is a cache miss exactly when `input_i > 0` and `cache_read_i = 0`; `cache_miss_turns` is the count, and `cache_miss_input_tokens` is `sum(input_i)` over miss turns. A complete session with no misses stores numeric `0` for both.
+  4. Input capability is `input-only` when every eligible turn has `input_i` but at least one lacks `cache_read_i`. Both cache metrics are then `null`; no partial subset is aggregated.
+  5. Capability is `unavailable` when `N = 0` or any eligible turn lacks `input_i`. All three metrics are then `null`.
+  6. With complete input and `N >= 2`, let `k = max(1, floor(N / 3))`. Early is the first `k` eligible turns and late is the last `k`; the sets are disjoint. `late_early_input_ratio = mean(late input) / mean(early input)`. If `N < 2` or the early mean is zero, the ratio is `null`; no infinity or guessed substitute is stored.
+  7. The metrics are computed once at session end, stored with CLI, provider, and capability class, and consumed only retrospectively. They never control a live session.
+
+## Dispatch safeguard assurance (BR-043…BR-048)
+
+- **BR-043**: the audit matrix has one row per accepted mechanism and names its contract, runtime implementation point, automated evidence, and disposition (`complete` or `verified gap`).
+- **BR-044**: declared base SHAs and every SHA used in machine-consumed dispatch, gate, marker, or handoff state are lowercase 40-character hexadecimal object names; abbreviations are display-only.
+- **BR-045**: base-preflight evidence proves a child halts before source reads, writes, or commits when either the target is not an ancestor or the declared base is wrong.
+- **BR-046**: pre-merge evidence proves stale, out-of-scope, file-count-blowout, and target-reverting diffs block integration pending explicit investigation.
+- **BR-047**: nested-agent evidence requires a resolvable parent instance ID and forbids indefinite waiting on an unreachable child; unattended-launch evidence asserts actual argv and deny-list construction, excluding blanket bypass and bare-interpreter wildcards.
+- **BR-048**: scope-cap/checkpoint behavior is covered where mechanically enforceable; otherwise the audit records the contract evidence. A `complete` row creates no reimplementation story, while a `verified gap` may create only the smallest remediation needed to complete that row.
+
 ## Catalog generation (`index-lint`, BR-015, BR-016)
 
 - Frontmatter parsing extracts scalar/folded-block-scalar keys (`name`, `title`, `phase`, `phase-name`, `category`, `description`, `tier`) and list-valued keys (`skills`, `inputs`) from `- item` lines. Other list-valued keys (`outputs`, `triggers`, `handoff-to`) are silently skipped. The `skills` and `inputs` lists are used to resolve agent dependencies for `total_tokens` computation.
@@ -78,3 +111,4 @@ The `script_exit_zero` condition evaluator (currently stubbed per [T-03](../todo
 - [UC-06](../use_cases/UC-06-regenerate-the-catalog.md)
 - [UC-08](../use_cases/UC-08-initialize-agent-factory-into-a-project.md)
 - [UC-09](../use_cases/UC-09-run-tests-via-hook.md)
+- [UC-11](../use_cases/UC-11-cross-a-phase-boundary.md)

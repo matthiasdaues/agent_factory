@@ -81,9 +81,9 @@ generality or process theater, rather than treating YAGNI as an afterthought.
 Findings below are stated plainly where the answer is "no violation" — no
 speculative finding was manufactured to fill out the section.
 
-**1. Root `docs/`/`backlog/` multi-context scaffolding — `docs/CONTEXT-MAP.md`'s
+**1. Root `docs/`/`backlog/` multi-context scaffolding — `docs/arc42/CONTEXT-MAP.md`'s
 `factory_api/` stub.** Checked for any actual structure built ahead of need: a
-repo-wide search found `factory_api/` referenced only in prose (`docs/CONTEXT-MAP.md`,
+repo-wide search found `factory_api/` referenced only in prose (`docs/arc42/CONTEXT-MAP.md`,
 `README.md`'s directory-tree comment, `docs/adr/0001`, two backlog stories) — **no
 directory, no code, no config entry exists for it anywhere**. `CONTEXT-MAP.md`'s own
 wording ("a vision-stub only... No docs or code yet. Not scheduled for implementation")

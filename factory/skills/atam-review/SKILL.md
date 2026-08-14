@@ -12,14 +12,14 @@ Review the Phase-2 architecture for structural defects and quality-attribute ris
 - **Pass 1 — `arch-lint` (deterministic).** A parser catches the boring, provable defects — arc42 chapters missing, Structurizr DSL referencing undefined containers, ADR index out of sync, diagram files not matching view keys. Cheap, reproducible, zero false-positive by design.
 - **Pass 2 — ATAM evaluation (this LLM).** Spend judgement only on what a parser *cannot* decide: sensitivity points, tradeoff points, risks versus non-risks for each quality scenario.
 
-Never re-check by hand what Pass 1 already proved. Read `docs/CONTEXT.md` first — the architecture's vocabulary is the yardstick for the terminology checks.
+Never re-check by hand what Pass 1 already proved. Read `docs/arc42/CONTEXT.md` first — the architecture's vocabulary is the yardstick for the terminology checks.
 
 ## Step 1 — Run the deterministic linter
 
 Run the linter and capture its report:
 
 ```bash
-factory/scripts/arch-lint --docs-dir docs/
+factory/scripts/arch-lint --docs-dir docs/arc42
 ```
 
 Read every finding. `error`-severity findings are hard defects — they go into the report as **Defect** without further debate. `warning`/`info` findings are candidates: confirm or dismiss each during Pass 2 (a heuristic finding may be a false positive; say so explicitly).
@@ -28,7 +28,7 @@ Read every finding. `error`-severity findings are hard defects — they go into 
 
 ## Step 2 — Collect quality scenarios
 
-Read `docs/10_quality_requirements.md`. Extract every quality attribute scenario. If the chapter doesn't exist yet, ask the user to define the top 5 quality goals before proceeding.
+Read `docs/arc42/10_quality_requirements.md`. Extract every quality attribute scenario. If the chapter doesn't exist yet, ask the user to define the top 5 quality goals before proceeding.
 
 **Completion**: a numbered list of quality scenarios to evaluate.
 

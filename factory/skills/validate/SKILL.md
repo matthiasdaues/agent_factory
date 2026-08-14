@@ -13,19 +13,20 @@ Run the same deterministic gates pre-commit runs, callable any time during a ses
 
 Run in this order — cheap and universal first, project-specific last:
 
-| #   | Gate              | Condition to run                              | Command                                                                              |
-| --- | ----------------- | --------------------------------------------- | ------------------------------------------------------------------------------------ |
-| 1   | Markdown format   | Always (every project has *some* Markdown)    | `factory/scripts/mdformat --number .`                                                |
-| 2   | Ruff check        | `pyproject.toml` or any `*.py` exists         | `ruff check --fix .`                                                                 |
-| 3   | Ruff format       | Same as above                                 | `ruff format .`                                                                      |
-| 4   | spec-lint         | `docs/spec/` exists                           | `factory/scripts/spec-lint --spec-dir docs/spec --graph docs/spec/traceability.json` |
-| 5   | arch-lint         | `docs/architecture.dsl` or `docs/adr/` exists | `factory/scripts/arch-lint --docs-dir docs --no-validate`                            |
-| 6   | backlog-lint      | `backlog/` exists                             | `factory/scripts/backlog-lint --backlog-dir backlog`                                 |
-| 7   | matrix-lint       | `config/model.conf` exists                    | `factory/scripts/matrix-lint --matrix config/model.conf`                             |
-| 8   | statemachine-lint | `docs/spec/` exists                           | `factory/scripts/statemachine-lint --spec-dir docs/spec`                             |
-| 9   | index-lint        | `factory/agents/` or `factory/skills/` exists | `factory/scripts/index-lint --check`                                                 |
+| #   | Gate              | Condition to run                                    | Command                                                                              |
+| --- | ----------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| 1   | Markdown format   | Always (every project has *some* Markdown)          | `factory/scripts/mdformat --number .`                                                |
+| 2   | Ruff check        | `pyproject.toml` or any `*.py` exists               | `ruff check --fix .`                                                                 |
+| 3   | Ruff format       | Same as above                                       | `ruff format .`                                                                      |
+| 4   | link-check        | Always (checks project Markdown links)              | \`git ls-files -z '\*.md' ':!factory/\*\*'                                           |
+| 5   | spec-lint         | `docs/spec/` exists                                 | `factory/scripts/spec-lint --spec-dir docs/spec --graph docs/spec/traceability.json` |
+| 6   | arch-lint         | `docs/arc42/architecture.dsl` or `docs/adr/` exists | `factory/scripts/arch-lint --docs-dir docs/arc42 --no-validate`                      |
+| 7   | backlog-lint      | `backlog/` exists                                   | `factory/scripts/backlog-lint --backlog-dir backlog`                                 |
+| 8   | matrix-lint       | `config/model.conf` exists                          | `factory/scripts/matrix-lint --matrix config/model.conf`                             |
+| 9   | statemachine-lint | `docs/spec/` exists                                 | `factory/scripts/statemachine-lint --spec-dir docs/spec`                             |
+| 10  | index-lint        | `factory/agents/` or `factory/skills/` exists       | `factory/scripts/index-lint --check`                                                 |
 
-**Ruff is Python-specific, not universal.** Gates 2-3 are the one pair genuinely conditional on implementation language — the factory itself (agents/skills/playbooks/rulebooks, gates 1 and 4-9) is language-agnostic; only a Python target project pulls in ruff. A non-Python project should see gates 2-3 reported as skipped, not failed.
+**Ruff is Python-specific, not universal.** Gates 2-3 are the one pair genuinely conditional on implementation language — the factory itself (agents/skills/playbooks/rulebooks, gates 1 and 4-10) is language-agnostic; only a Python target project pulls in ruff. A non-Python project should see gates 2-3 reported as skipped, not failed. `link-check` is the fast offline counterpart to tools such as lychee: it validates local files and images while deliberately leaving remote URLs to an online crawler.
 
 **index-lint uses `--check` here, not the default write mode.** `validate` reports pass/fail, it doesn't rewrite project files as a side effect of checking — if `INDEX.yaml` is stale, report `FAIL` and let the user (or `commit`, which already runs `validate` first) decide to regenerate via a plain `factory/scripts/index-lint`.
 

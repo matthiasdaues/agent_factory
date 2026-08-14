@@ -2,6 +2,13 @@
 """trigger — resolve an agent or playbook step from factory/INDEX.yaml's
 source data and invoke it via a CLI, interactive or background.
 
+What: Resolves what to run (agent, or one playbook step) and its model
+      (tier → model.conf), then hands off to the target CLI.
+When: At dispatch, when a skill or orchestrator runs an agent or advances a
+      playbook step.
+By:   the run-step skill and orchestration — not a gate; sequencing lives in
+      transition-lint and phase.
+
 This is the whole of the CLI-agnostic dispatch mechanism: resolve what to
 run (agent name, or one step of a playbook's agent sequence) and how
 (tier -> model via model.conf), then hand off to the target CLI. It does
@@ -23,6 +30,9 @@ Usage
   trigger agent <name> --interactive [--cli claude|copilot] [--cwd DIR]
   trigger playbook <name> --step <agent-name-or-index> [--background|--interactive] [...]
   trigger list                        # print every agent/playbook name known to INDEX.yaml
+
+Options may be written either after the subcommand, as above, or before it
+(`trigger --background --cli claude agent <name>`); both parse identically.
 
 --background runs the CLI non-interactively (`-p`/print mode) under a
 hardcoded, scoped tool allowlist (CLAUDE_ALLOWED_TOOLS / COPILOT_ALLOW_TOOLS
@@ -279,7 +289,7 @@ def build_interactive_command(cli: str, model: str | None) -> list[str]:
 
 
 def run_background(cmd: list[str], cwd: Path) -> int:
-    proc = subprocess.run(cmd, cwd=str(cwd))
+    proc = subprocess.run(cmd, cwd=str(cwd), check=False)
     return proc.returncode
 
 
@@ -289,7 +299,7 @@ def run_interactive(cmd: list[str], cwd: Path, prompt: str) -> int:
     print(prompt)
     print("-" * 72)
     print(f"\ntrigger: launching `{' '.join(cmd)}` in {cwd}\n")
-    proc = subprocess.run(cmd, cwd=str(cwd))
+    proc = subprocess.run(cmd, cwd=str(cwd), check=False)
     return proc.returncode
 
 
@@ -302,32 +312,77 @@ def cmd_list(agents_dir: Path, playbooks_dir: Path) -> int:
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
+def _add_common_options(
+    parser: argparse.ArgumentParser, *, suppress: bool = False
+) -> None:
+    """Attach the CLI-wide options to *parser*.
+
+    They are attached twice: once to the top-level parser and once to every
+    subcommand parser, so both documented orders parse — the spec order
+    `trigger agent NAME --background --cli claude` (UC-04, run-step/SKILL.md,
+    this script's own Usage block) and the argparse-conventional
+    `trigger --background --cli claude agent NAME`.
+
+    The subcommand copies default to SUPPRESS: argparse parses a subcommand
+    into a fresh namespace and copies every key of it onto the parent's, so a
+    real default there would silently clobber a value the top-level parser had
+    already stored. With SUPPRESS, an option not given after the subcommand is
+    absent from that namespace and the earlier value survives.
+    """
+
+    def default(value):
+        return argparse.SUPPRESS if suppress else value
+
+    parser.add_argument(
+        "--agents-dir",
+        default=default(str(_REPO_ROOT / "factory" / "agents")),
+        type=Path,
+    )
+    parser.add_argument(
+        "--playbooks-dir",
+        default=default(str(_REPO_ROOT / "factory" / "playbooks")),
+        type=Path,
+    )
+    parser.add_argument(
+        "--model-conf",
+        default=default(str(_REPO_ROOT / "config" / "model.conf")),
+        type=Path,
+    )
+    parser.add_argument(
+        "--cli", default=default("claude"), choices=["claude", "copilot"]
+    )
+    parser.add_argument("--cwd", default=default("."), type=Path)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--background", action="store_true", default=default(False))
+    mode.add_argument("--interactive", action="store_true", default=default(False))
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """Build the full argument parser.
+
+    Separate from main() so the argv contract can be tested against this exact
+    parser rather than against a stub — the gap that let a caller emit an
+    argument order no real trigger would accept (FAGAN/orchestrator dispatch).
+    """
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument(
-        "--agents-dir", default=str(_REPO_ROOT / "factory" / "agents"), type=Path
-    )
-    ap.add_argument(
-        "--playbooks-dir", default=str(_REPO_ROOT / "factory" / "playbooks"), type=Path
-    )
-    ap.add_argument(
-        "--model-conf", default=str(_REPO_ROOT / "config" / "model.conf"), type=Path
-    )
-    ap.add_argument("--cli", default="claude", choices=["claude", "copilot"])
-    ap.add_argument("--cwd", default=".", type=Path)
-    mode = ap.add_mutually_exclusive_group()
-    mode.add_argument("--background", action="store_true")
-    mode.add_argument("--interactive", action="store_true")
+    _add_common_options(ap)
 
     sub = ap.add_subparsers(dest="kind", required=True)
     p_agent = sub.add_parser("agent")
     p_agent.add_argument("name")
+    _add_common_options(p_agent, suppress=True)
     p_playbook = sub.add_parser("playbook")
     p_playbook.add_argument("name")
     p_playbook.add_argument("--step", required=True)
-    sub.add_parser("list")
+    _add_common_options(p_playbook, suppress=True)
+    p_list = sub.add_parser("list")
+    _add_common_options(p_list, suppress=True)
 
-    args = ap.parse_args(argv)
+    return ap
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
 
     try:
         if args.kind == "list":

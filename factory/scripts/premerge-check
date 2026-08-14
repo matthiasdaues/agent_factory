@@ -4,6 +4,12 @@ merges into its target. Replaces "the orchestrating session remembers to
 diff the branch against its target" with a deterministic check
 (docs/reviews/retro-2026-07-12.md action item #3, proposal §4).
 
+What: Runs the stale-base and contaminated-diff checks on a finished branch
+      and writes the premerge-check-ok marker on success.
+When: Before every branch merge into its target.
+By:   run by the merging session; enforced by block-dangerous-git, which
+      denies `git merge` without the marker.
+
 Catches the two contaminated diffs the 2026-07-12 session hit by hand
 (`git diff --stat` run manually, after the fact) and turns that habit into
 a required step run before every merge, not after a full agent run is

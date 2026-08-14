@@ -15,7 +15,7 @@ Operational procedure for **evaluating existing architecture** without implement
 - [ ] Architecture documentation exists in `docs/`
 - [ ] ADRs exist in `docs/adr/`
 - [ ] Spec exists in `docs/spec/`
-- [ ] `docs/architecture.dsl` exists
+- [ ] `docs/arc42/architecture.dsl` exists
 
 ## Use Cases
 
@@ -34,19 +34,19 @@ Run this playbook when:
 Verify required files exist:
 
 ```bash
-ls docs/01_introduction_and_goals.md \
-   docs/02_architecture_constraints.md \
-   docs/03_system_scope_and_context.md \
-   docs/04_solution_strategy.md \
-   docs/05_building_block_view.md \
-   docs/06_runtime_view.md \
-   docs/07_deployment_view.md \
-   docs/08_crosscutting_concepts.md \
-   docs/09_architecture_decisions.md \
-   docs/10_quality_requirements.md \
-   docs/11_risks_and_technical_debt.md \
-   docs/12_glossary.md \
-   docs/architecture.dsl
+ls docs/arc42/01_introduction_and_goals.md \
+   docs/arc42/02_architecture_constraints.md \
+   docs/arc42/03_system_scope_and_context.md \
+   docs/arc42/04_solution_strategy.md \
+   docs/arc42/05_building_block_view.md \
+   docs/arc42/06_runtime_view.md \
+   docs/arc42/07_deployment_view.md \
+   docs/arc42/08_crosscutting_concepts.md \
+   docs/arc42/09_architecture_decisions.md \
+   docs/arc42/10_quality_requirements.md \
+   docs/arc42/11_risks_and_technical_debt.md \
+   docs/arc42/12_glossary.md \
+   docs/arc42/architecture.dsl
 ```
 
 **If missing files** → Run `architecture-agent` to generate them (go to Playbook: documentation-update)
@@ -55,7 +55,7 @@ ls docs/01_introduction_and_goals.md \
 ### Step 1.2 — Lint Architecture
 
 ```bash
-factory/scripts/arch-lint --docs-dir docs/
+factory/scripts/arch-lint --docs-dir docs/arc42
 ```
 
 **If errors** → Document in `docs/spec/todos.md`, may need architecture-agent to fix

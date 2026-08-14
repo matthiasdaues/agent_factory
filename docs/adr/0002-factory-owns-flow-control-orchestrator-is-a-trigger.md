@@ -18,7 +18,7 @@ This reverses this repo's own prior architecture. Anyone who last touched this c
 
 **A**: status quo — `orchestrator/`'s `PhaseRunner` is the sole flow-control owner; `factory/scripts/*` are internal helpers it calls privately. **B**: factory owns flow control via the marker, the FSM, and deterministic gates on disk; `orchestrator/` becomes a peer trigger, the same standing as a human typing commands (what was built). **C**: duplicate — `orchestrator/` keeps its own `PhaseRunner` *and* `factory/` grows independent mechanisms, unreconciled. **D**: full merge — delete `orchestrator/`'s `PhaseRunner` entirely, including its `RUN`/`RUN_LOCK` bookkeeping; `orchestrator/` becomes a pure UI wrapper with no state of its own.
 
-Criteria drawn from [10_quality_requirements.md § 10.1 Quality Tree](../10_quality_requirements.md#101-quality-tree); **Single source of truth** added per this project's Clean Architecture/SOLID evaluation criterion for decisions affecting a system boundary.
+Criteria drawn from the planned `10_quality_requirements.md` quality tree; **Single source of truth** added per this project's Clean Architecture/SOLID evaluation criterion for decisions affecting a system boundary.
 
 | Criterion                                                                                              | Weight | A: status quo | B: factory owns it, orchestrator is a trigger | C: duplicate, unreconciled | D: full merge, orchestrator has no state |
 | ------------------------------------------------------------------------------------------------------ | ------ | ------------- | --------------------------------------------- | -------------------------- | ---------------------------------------- |
@@ -39,7 +39,7 @@ B wins decisively. C is actively worse than the status quo — two independent, 
 
 `orchestrator/` keeps its own `RUN`/`RUN_LOCK` bookkeeping and invocation audit trail — concerns distinct from "what phase are we in," which `factory/` does not duplicate (see [PRD § NG1](../spec/prd.md#non-goals)).
 
-This documentation ([docs/](../README.md)) supersedes the informal prior description in [docs/concepts.md § The phase chain](../concepts.md#the-phase-chain) and [factory/docs/factory-guide.md § Playbook phase gates](../../factory/docs/factory-guide.md#playbook-phase-gates) as the rigorous statement of this boundary.
+This documentation ([docs/](../README.md)) supersedes the informal prior description in [docs/arc42/concepts.md § The phase chain](../arc42/concepts.md#the-phase-chain) and [factory/docs/factory-guide.md § Playbook phase gates](../../factory/docs/factory-guide.md#playbook-phase-gates) as the rigorous statement of this boundary.
 
 ## Consequences
 
@@ -51,12 +51,12 @@ This documentation ([docs/](../README.md)) supersedes the informal prior descrip
 
 **Negative / risks**
 
-- The boundary is a documented convention, not a compiled one. Nothing in code stops a future change from quietly re-introducing a second, competing notion of "current phase" inside `orchestrator/` — see [11_risks_and_technical_debt.md § 11.2](../11_risks_and_technical_debt.md#112-architectural-risks).
+- The boundary is a documented convention, not a compiled one. Nothing in code stops a future change from quietly re-introducing a second, competing notion of "current phase" inside `orchestrator/` — a risk to record in the planned `11_risks_and_technical_debt.md` chapter.
 - Two files now describe "state of a run," from different angles: the marker (`factory/`'s phase-and-gate state) and `orchestrator/`'s own `run.json` (its `RUN`/`RUN_LOCK` bookkeeping). They do not conflict today because they cover disjoint concerns, but a future reader unfamiliar with this ADR could reasonably ask why there are two.
 - The migration cost (building `transition-lint`, `phase`, `trigger`, `run-step`, and moving `orchestrator/` to call them) is already paid, but reversing this decision — restoring `orchestrator/` as sole flow-control owner — would mean unwinding all four mechanisms' role in every playbook that has since come to depend on them being callable without `orchestrator/` running.
 
 ## Referenced from
 
-- [04_solution_strategy.md § 4.1](../04_solution_strategy.md#41-the-central-decision-factory-owns-flow-control-orchestrator-is-a-trigger)
-- [09_architecture_decisions.md](../09_architecture_decisions.md)
+- `04_solution_strategy.md` § 4.1 (planned chapter)
+- [09_architecture_decisions.md](../arc42/09_architecture_decisions.md)
 - [docs/spec/prd.md § 1 Problem Statement](../spec/prd.md#1-problem-statement)

@@ -9,7 +9,7 @@ disable-model-invocation: false
 
 Document a single architecture decision following **ADR according to Nygard**. Apply **Clean Architecture** and **SOLID** as evaluation criteria where relevant. You MUST apply the **YAGNI** principlt. You MUST write short and precise prose, follow "Strunk & White".
 
-Read `docs/CONTEXT.md` if it exists — use the project's domain vocabulary.
+Read `docs/arc42/CONTEXT.md` if it exists — use the project's domain vocabulary.
 
 **Offer an ADR only when all three hold** (cite this rule when offering): hard to reverse, surprising without context, the result of a real trade-off. Skip otherwise.
 
@@ -45,7 +45,7 @@ evaluation: pugh-matrix | none
 
 **Body follows full Nygard format:** Context, Decision, Consequences sections as specified in the template.
 
-If this decision supersedes an earlier ADR, update that ADR's `status` to `superseded by ADR-NNNN`. If `docs/09_architecture_decisions.md` exists (arc42 chapter-9 index), update it to link the new ADR; if it doesn't exist, skip — not every project using this skill has arc42 documentation.
+If this decision supersedes an earlier ADR, update that ADR's `status` to `superseded by ADR-NNNN`. If `docs/arc42/09_architecture_decisions.md` exists (arc42 chapter-9 index), update it to link the new ADR; if it doesn't exist, skip — not every project using this skill has arc42 documentation.
 
 Format the new ADR (and the chapter-9 index, if updated) via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 

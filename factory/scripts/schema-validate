@@ -1,0 +1,224 @@
+#!/usr/bin/env python3
+# schema-validate — deterministic JSON Schema validator for research artifacts.
+#
+# What: Validates one JSON artifact against one JSON Schema and reports every
+#       structural violation — missing required fields, wrong types, disallowed
+#       enum/const values, malformed identifiers (pattern), bad timestamp
+#       formats, unexpected properties, and too-short arrays.
+# When: Stage 1 of the three-stage research validation order (schema → policy →
+#       semantic); the load-bearing gate every later artifact and playbook step
+#       depends on. Invoked by the research skills/agents (ST-0019..0022) and on
+#       demand from the CLI.
+# By:   `factory/scripts/schema-validate <artifact-file> <schema-file>`.
+#
+# Like spec-lint and arch-lint, this has NO third-party dependencies (Python 3.8+
+# stdlib only), so it runs anywhere without a virtualenv. It implements only the
+# JSON Schema keyword subset the research artifact schemas need — deliberately
+# not a full Draft implementation. Semantic judgements (evidence support, source
+# independence, test severity, claim atomicity) are out of scope: they belong to
+# the policy and semantic stages, not this deterministic gate.
+#
+# Usage:
+#   schema-validate <artifact-file> <schema-file>
+#
+# Exit code:
+#   0  artifact conforms to the schema
+#   1  artifact violates the schema (each violation printed to stdout)
+#   2  operational error — missing file, unreadable/invalid JSON (printed to
+#      stderr)
+
+from __future__ import annotations
+
+import json
+import re
+import sys
+from pathlib import Path
+from typing import Any, List
+
+# Map each JSON Schema `type` name to the Python type(s) that satisfy it. `bool`
+# is a subclass of `int` in Python, so integer/number checks must exclude it
+# explicitly (see _is_type) to avoid accepting `true` where a number is meant.
+_TYPE_NAMES = {
+    "object": dict,
+    "array": list,
+    "string": str,
+    "number": (int, float),
+    "integer": int,
+    "boolean": bool,
+}
+
+# RFC 3339 date-time, the profile JSON Schema's `format: date-time` refers to.
+# Accepts a `Z` suffix or a numeric UTC offset, and an optional fractional part.
+_RE_DATE_TIME = re.compile(
+    r"^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(\.\d+)?([Zz]|[+-]\d{2}:\d{2})$"
+)
+
+
+def _is_type(instance: Any, type_name: str) -> bool:
+    """Return whether *instance* matches the JSON Schema *type_name*.
+
+    Guards the Python `bool`/`int` subclassing quirk: booleans satisfy only the
+    `boolean` type, never `integer` or `number`.
+    """
+    expected = _TYPE_NAMES.get(type_name)
+    if expected is None:
+        return True  # unknown/unsupported type keyword — nothing to enforce
+    if type_name in ("integer", "number") and isinstance(instance, bool):
+        return False
+    return isinstance(instance, expected)
+
+
+def _check_format(instance: str, fmt: str, path: str, errors: List[str]) -> None:
+    """Validate the supported string `format` keywords (`date-time`)."""
+    if fmt == "date-time" and not _RE_DATE_TIME.match(instance):
+        errors.append(f"{path}: '{instance}' is not a valid date-time (RFC 3339)")
+
+
+def validate(instance: Any, schema: Any, path: str = "$") -> List[str]:
+    """Validate *instance* against *schema*, returning a list of violations.
+
+    Pure and side-effect free: it walks nested objects and arrays and collects
+    one human-readable message per violation. An empty list means the instance
+    conforms to the supported keyword subset. `path` is a running JSON-path-ish
+    location used only for messages.
+    """
+    errors: List[str] = []
+
+    # `const` — exact-value match. Checked first so a mismatched const need not
+    # also satisfy the other keywords.
+    if "const" in schema and instance != schema["const"]:
+        errors.append(f"{path}: {instance!r} does not equal const {schema['const']!r}")
+
+    # `enum` — membership in an allowed set (artifact states, vote values, ...).
+    if "enum" in schema and instance not in schema["enum"]:
+        errors.append(f"{path}: {instance!r} is not one of {schema['enum']}")
+
+    # `type` — if the instance is the wrong type, deeper checks would be noise,
+    # so report and stop descending on this branch.
+    if "type" in schema and not _is_type(instance, schema["type"]):
+        errors.append(
+            f"{path}: expected type '{schema['type']}', got {_typename(instance)}"
+        )
+        return errors
+
+    if isinstance(instance, str):
+        if "pattern" in schema and re.search(schema["pattern"], instance) is None:
+            errors.append(
+                f"{path}: '{instance}' does not match pattern /{schema['pattern']}/"
+            )
+        if "format" in schema:
+            _check_format(instance, schema["format"], path, errors)
+
+    if isinstance(instance, dict):
+        errors += _validate_object(instance, schema, path)
+
+    if isinstance(instance, list):
+        errors += _validate_array(instance, schema, path)
+
+    return errors
+
+
+def _validate_object(instance: dict, schema: dict, path: str) -> List[str]:
+    errors: List[str] = []
+
+    for field in schema.get("required", []):
+        if field not in instance:
+            errors.append(f"{path}: missing required field '{field}'")
+
+    properties = schema.get("properties", {})
+    for key, value in instance.items():
+        if key in properties:
+            errors += validate(value, properties[key], f"{path}.{key}")
+
+    # `additionalProperties`: False forbids any property not named in
+    # `properties`; a subschema validates each such extra property against it.
+    additional = schema.get("additionalProperties", True)
+    if additional is not True:
+        for key, value in instance.items():
+            if key in properties:
+                continue
+            if additional is False:
+                errors.append(
+                    f"{path}.{key}: additional property '{key}' is not allowed"
+                )
+            else:  # additional is a subschema
+                errors += validate(value, additional, f"{path}.{key}")
+
+    return errors
+
+
+def _validate_array(instance: list, schema: dict, path: str) -> List[str]:
+    errors: List[str] = []
+
+    if "minItems" in schema and len(instance) < schema["minItems"]:
+        errors.append(
+            f"{path}: array has {len(instance)} item(s), fewer than "
+            f"minItems {schema['minItems']}"
+        )
+
+    if "items" in schema:
+        for index, element in enumerate(instance):
+            errors += validate(element, schema["items"], f"{path}[{index}]")
+
+    return errors
+
+
+def _typename(instance: Any) -> str:
+    """JSON type name for *instance*, for readable type-mismatch messages."""
+    if isinstance(instance, bool):
+        return "boolean"
+    if isinstance(instance, str):
+        return "string"
+    if isinstance(instance, int):
+        return "integer"
+    if isinstance(instance, float):
+        return "number"
+    if isinstance(instance, dict):
+        return "object"
+    if isinstance(instance, list):
+        return "array"
+    if instance is None:
+        return "null"
+    return type(instance).__name__
+
+
+def _load_json(path: Path, label: str) -> Any:
+    """Load and parse a JSON file, exiting 2 with a clear message on failure."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        print(f"schema-validate: cannot read {label} '{path}': {exc}", file=sys.stderr)
+        raise SystemExit(2)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as exc:
+        print(
+            f"schema-validate: {label} '{path}' is not valid JSON: {exc}",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+
+
+def main(argv: List[str]) -> int:
+    if len(argv) != 2:
+        print("usage: schema-validate <artifact-file> <schema-file>", file=sys.stderr)
+        return 2
+
+    artifact_path = Path(argv[0])
+    schema_path = Path(argv[1])
+
+    artifact = _load_json(artifact_path, "artifact")
+    schema = _load_json(schema_path, "schema")
+
+    errors = validate(artifact, schema)
+    if errors:
+        for message in errors:
+            print(message)
+        print(f"\nschema-validate: {len(errors)} violation(s) in {artifact_path}")
+        return 1
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

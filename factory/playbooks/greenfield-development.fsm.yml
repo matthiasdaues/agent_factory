@@ -46,7 +46,7 @@ gate_conditions:
     paths:
       - docs/*.md  # arc42
       - docs/adr/*.md
-      - docs/architecture.dsl
+      - docs/arc42/architecture.dsl
   
   backlog_exists:
     type: files_exist
@@ -137,7 +137,7 @@ states:
     outputs:
       - docs/*.md  # arc42 chapters
       - docs/adr/*.md
-      - docs/architecture.dsl
+      - docs/arc42/architecture.dsl
       - docs/assets/images/*
     
     on:

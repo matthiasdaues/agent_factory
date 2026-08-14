@@ -4,7 +4,7 @@ status: accepted
 evaluation: none
 ---
 
-# Test execution via unavoidable hooks only
+# Test execution via mechanically triggered gates
 
 ## Context
 
@@ -21,21 +21,21 @@ All three violate the trust boundary: agents are noisy channels; their self-repo
 Three integration points emerged as natural enforcement boundaries:
 
 - **Pre-commit** (fast feedback) — changed-file subset, sub-second, bypassable for WIP
-- **Pre-push** (ready-to-share gate) — full suite, unavoidable, blocks work leaving local machine
+- **Pre-push** (ready-to-share gate) — full suite, runs by default before work leaves the local machine; a human can bypass the client-side hook with `git push --no-verify`
 - **Phase advance FSM gate** (phase boundary) — full suite, blocks state transition on red tests
 
 Agent-commanded test execution (`pytest .`, `npm test`) became redundant once hooks covered all three boundaries. Leaving agents able to run tests created a second, competing validation path — which result is trustworthy, the hook's or the agent's? The SOLID Single Responsibility Principle and "single source of truth" (ADR-0002) both point to: one path, hook-triggered only.
 
-This decision was not a choice among competing approaches; it was the only option consistent with the already-accepted validation principle. The decision being recorded is: extend "Agentic Creation, Deterministic Validation" to test execution, using the same unavoidable-hook pattern.
+This decision was not a choice among competing approaches; it was the only option consistent with the already-accepted validation principle. The decision being recorded is: extend "Agentic Creation, Deterministic Validation" to test execution, using mechanically triggered gates.
 
 ## Decision
 
-Test execution happens via three unavoidable hooks only. Agents are blocked from running test commands.
+Test execution happens via three mechanically triggered gates. Agents are blocked from running bare test commands. Human operators retain Git's standard `--no-verify` escape hatch for client-side pre-commit and pre-push hooks; the phase-advance gate has no equivalent Git bypass.
 
 **Hook integration points:**
 
-1. **Pre-commit** — `run-tests --changed-only` fires on `git commit`. Fast subset (pytest `--lf`, jest `--onlyChanged`). Human bypass via `--no-verify` available (discouraged). Agent commits trigger same hook, no bypass.
-2. **Pre-push** — `run-tests --full` fires on `git push`. Complete test suite, no filtering. No bypass for anyone. Work cannot leave local machine with failing tests.
+1. **Pre-commit** — `run-tests --changed-only` fires on `git commit`. Fast subset (pytest `--lf`, jest `--onlyChanged`). Human bypass via `--no-verify` is available (discouraged). Agent commits trigger the same hook and the guardrail denies gate-bypassing commands.
+2. **Pre-push** — `run-tests --full` fires on `git push`. Complete test suite, no filtering. It blocks an ordinary push when tests fail. A human who controls the Git client can bypass it explicitly with `git push --no-verify`; this client-side hook is not a server-side security boundary.
 3. **Phase advance FSM gate** — `script_exit_zero: factory/scripts/run-tests --full` evaluated as entry condition. Phase refuses to advance while tests are red.
 
 **Agent iteration mode:**
@@ -73,18 +73,31 @@ Post-review changes address two major gaps identified during architecture review
 
 Both changes strengthen the architecture without compromising the core "Agentic Creation, Deterministic Validation" principle. Single validation path (hook-triggered) remains; agent prohibition on bare test commands remains; added affordances improve usability (staged mode) and safety (fail-loud multi-framework).
 
+## Amended
+
+**Date**: 2026-08-06
+**Reason**: ST-0073 implementation exposed an inaccurate client-side enforcement claim.
+
+Git supports `git push --no-verify`, so a `pre-push` hook cannot be described as
+having no bypass. The decision now distinguishes automatic mechanical
+triggering from absolute enforcement: ordinary pushes run the full-suite gate
+and are blocked on failure, while a human controlling the client can opt out.
+Agents remain subject to the Factory command guardrail. A guarantee that no
+work can reach a shared repository without passing tests would require a
+server-side protected-branch or required-CI gate, which is outside this ADR.
+
 ## Consequences
 
 **Positive:**
 
-- **Tests always run** — pre-commit catches failures immediately (changed files), pre-push enforces full suite, phase gates block advancement on red tests. No agent amnesia, no partial runs mistaken for complete ones.
+- **Tests run automatically on ordinary Git operations** — pre-commit catches failures immediately (changed files), pre-push runs the full suite, and phase gates block advancement on red tests. No agent amnesia, no partial runs mistaken for complete ones.
 - **Single validation path** — hook result is the only result. No "agent says pass, hook says fail" conflict. Single source of truth.
 - **Trust boundary enforced mechanically** — agents blocked at PreToolUse before command executes. No reliance on agent restraint or judgment.
-- **Consistent with existing pattern** — follows same unavoidable-hook shape as `transition-lint` and `block-dangerous-git.sh`. Test execution is not special-cased.
+- **Consistent with existing pattern** — follows the same mechanically triggered hook shape as `transition-lint` and `block-dangerous-git.sh`. Test execution is not special-cased.
 
 **Negative / risks:**
 
-- **Pre-commit can slow feedback** — even changed-file subset takes time. Mitigated by `--no-verify` escape hatch for WIP commits (discouraged but available). Pre-push has no bypass — deliberate.
+- **Client-side hooks are bypassable by humans** — both commit and push accept `--no-verify`. This is an operational gate for normal workflows, not a repository security boundary. Enforce organization-wide policy with required CI or server-side controls.
 - **Framework detection is heuristic** — `run-tests` scans for known markers; unrecognized frameworks report "no framework detected." Projects must use a supported framework or extend `run-tests`. Not every test setup auto-detects.
 - **Monorepo multi-framework limitation** — detecting multiple frameworks fails loudly rather than running all. Multi-framework orchestration deferred as future work (T-06). Single-framework projects unaffected.
 - **Phase advance becomes test-dependent** — a single failing test blocks phase transition. Deliberately strict; the alternative (advancing with red tests) violates the gate's purpose. Operator can fix tests or temporarily remove the `script_exit_zero` condition from FSM if gate is incorrect.

@@ -1,0 +1,25 @@
+#!/bin/sh
+# Execute usage capture only from init-factory's project-owned runtime.
+# No package manager, cache, resolver, or network operation belongs here.
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+PROJECT_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)
+RUNTIME="$PROJECT_DIR/.agent-factory/usage-runtime"
+
+[ -f "$RUNTIME/.requirements-sha256" ] || exit 70
+
+if [ -x "$RUNTIME/bin/python" ]; then
+    PYTHON="$RUNTIME/bin/python"
+elif [ -x "$RUNTIME/Scripts/python.exe" ]; then
+    PYTHON="$RUNTIME/Scripts/python.exe"
+else
+    exit 71
+fi
+
+if [ "${1:-}" = "--lifecycle" ]; then
+    shift
+    exec "$PYTHON" "$SCRIPT_DIR/usage-capture-lifecycle" "$@"
+fi
+
+exec "$PYTHON" "$SCRIPT_DIR/usage-capture" "$@"

@@ -1,0 +1,43 @@
+{
+  "type": "object",
+  "required": [
+    "research_question",
+    "intended_use",
+    "audience",
+    "scope",
+    "exclusions",
+    "freshness_requirements",
+    "source_requirements",
+    "cost_of_error",
+    "completion_criteria"
+  ],
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": ["survey", "falsification"],
+      "default": "survey",
+      "description": "Research workflow mode. Consumers treat an omitted value as survey."
+    },
+    "research_question": { "type": "string" },
+    "intended_use": { "type": "string" },
+    "audience": { "type": "string" },
+    "scope": { "type": "string" },
+    "exclusions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "freshness_requirements": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "source_requirements": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "cost_of_error": { "type": "string" },
+    "completion_criteria": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

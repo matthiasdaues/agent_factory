@@ -1,5 +1,13 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
 """transition-lint — deterministic phase-ordering gate for structured playbooks.
+
+What: Maps each staged file to its playbook state via the fsm outputs globs
+      and blocks a commit that stages a non-current phase's files.
+When: Every commit during a structured-playbook run (always_run).
+By:   pre-commit hook `transition-lint`.
 
 Reads the git-ignored run-state marker (``.agent-factory/playbook-state.yml``)
 to learn which playbook state a run is in, then maps every staged file to the

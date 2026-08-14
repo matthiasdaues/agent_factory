@@ -8,6 +8,7 @@ description: >-
   Review the specification for consistency, completeness, and traceability using spec-lint plus semantic inspection, in a separate session from the author.
 skills:
   - inspect-spec
+  - handoff
 inputs:
   - docs/CONTEXT.md
   - docs/spec/prd.md
@@ -30,7 +31,7 @@ triggers:
 handoff-to:
   - requirements-agent
   - architecture-agent
-version: 0.3.0
+version: 0.4.0
 ---
 
 # Specification Review Agent
@@ -40,6 +41,29 @@ version: 0.3.0
 ## Role
 
 Evaluate a specification you did not write, without assumptions. Find inconsistencies, gaps, ambiguity, broken traceability, and gold-plating (**YAGNI**: nothing specified that no actor goal justifies) before architecture builds on it.
+
+## Phase entry
+
+When arriving from a workflow boundary, begin in a fresh session. Read the
+handoff first and verify its Git claims. Read referenced artifacts through
+initial bounded chunks, expanding further only on demand for the current
+task. Do not replay the prior transcript. Use no in-place transcript compaction
+and no prose-only cache-restabilisation turn.
+
+## Child return
+
+When this agent runs as a child, persist its complete result in canonical
+tracked artifacts before returning. The parent-facing envelope contains only
+disposition, severity counts, and every artifact path. Include a
+one-to-three-sentence next action. Do not include verbatim finding detail or
+full reasoning.
+
+## Phase exit
+
+If the next action crosses a workflow phase boundary, invoke `handoff`. Require
+a clean `handoff-lint` result and independent semantic review, then stop the
+outgoing session without entering the next phase. Work remaining in the same
+phase is exempt and may continue in the current session.
 
 ## Workflow
 

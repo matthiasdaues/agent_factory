@@ -1,0 +1,391 @@
+#!/usr/bin/env python3
+"""Register and supervise one detached usage capture."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import stat
+import subprocess
+import sys
+import time
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+
+FILE_MODE = 0o600
+DIR_MODE = 0o700
+
+
+def regular(path: Path) -> bool:
+    info = path.lstat()
+    return stat.S_ISREG(info.st_mode) and not stat.S_ISLNK(info.st_mode)
+
+
+def root_path(value: str) -> Path:
+    root = Path(value)
+    if not root.is_absolute() or root.resolve() != root:
+        raise ValueError("invalid root")
+    return root
+
+
+def layout(root: Path) -> tuple[Path, Path, Path]:
+    control = root / ".agent-factory/usage-control"
+    pending = control / "pending"
+    scratch = root / ".agent-factory/usage/.capture"
+    for path in (control, pending, scratch):
+        if path.resolve() != path or path.is_symlink() or not path.is_dir():
+            raise ValueError("redirected lifecycle directory")
+    return control, pending, scratch
+
+
+def state(path: Path, modes: tuple[str, ...]) -> dict:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if value.get("mode") not in modes or not value.get("generation"):
+        raise ValueError("usage removal in progress")
+    return value
+
+
+def write_private(path: Path, value: dict) -> None:
+    flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags, FILE_MODE)
+    try:
+        os.fchmod(fd, FILE_MODE)
+        data = (json.dumps(value) + "\n").encode()
+        while data:
+            written = os.write(fd, data)
+            if written <= 0:
+                raise OSError("short lifecycle write")
+            data = data[written:]
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def unlink(path: Path, parent: Path, suffix: str) -> None:
+    try:
+        if path.parent == parent and path.name.endswith(suffix) and regular(path):
+            path.unlink()
+    except OSError:
+        pass
+
+
+def cleanup(ctx: dict) -> None:
+    unlink(ctx["marker"], ctx["pending"], ".pending.json")
+    unlink(ctx["committing"], ctx["pending"], ".committing.json")
+    unlink(ctx["source"], ctx["scratch"], ".jsonl")
+    unlink(ctx["status"], ctx["control"], ".completion.json")
+    if ctx.get("handshake") is not None:
+        unlink(ctx["handshake"], ctx["control"], ".accepted.json")
+
+
+def snapshot(source: Path, destination: Path) -> None:
+    source_fd = os.open(source, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    destination_fd = -1
+    try:
+        opened = os.fstat(source_fd)
+        if not stat.S_ISREG(opened.st_mode):
+            raise OSError("transcript is not regular")
+        if hasattr(os, "geteuid") and opened.st_uid != os.geteuid():
+            raise OSError("transcript is not owner-owned")
+        destination_fd = os.open(
+            destination,
+            os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0),
+            FILE_MODE,
+        )
+        os.fchmod(destination_fd, FILE_MODE)
+        with (
+            os.fdopen(os.dup(source_fd), "rb") as reader,
+            os.fdopen(os.dup(destination_fd), "wb") as writer,
+        ):
+            shutil.copyfileobj(reader, writer, length=1024 * 1024)
+            writer.flush()
+        os.fsync(destination_fd)
+    finally:
+        if destination_fd >= 0:
+            os.close(destination_fd)
+        os.close(source_fd)
+
+
+def capture_args(args, staged, marker, status_path, generation) -> list[str]:
+    result = [
+        "--cli",
+        args.cli,
+        "--transcript",
+        str(staged),
+        "--session",
+        args.session,
+        "--pending-marker",
+        str(marker),
+        "--usage-generation",
+        generation,
+        "--cleanup-owner",
+        "supervisor",
+        "--completion-status",
+        str(status_path),
+    ]
+    for option, value in (
+        ("--parent-session", args.parent_session),
+        ("--agent", args.agent),
+        ("--model", args.model),
+        ("--exit-status", args.exit_status),
+        ("--depth", args.depth),
+        ("--branch", args.branch),
+        ("--commit", args.commit_id),
+    ):
+        if value is not None:
+            result.extend((option, str(value)))
+    return result
+
+
+def register(args) -> int:
+    ctx = None
+    temporary = None
+    try:
+        root = root_path(args.root)
+        control, pending, scratch = layout(root)
+        original = Path(args.transcript)
+        if not original.is_absolute() or not regular(original):
+            raise ValueError("invalid transcript")
+        runtime = root / "factory/scripts/usage-capture-runtime"
+        lifecycle = root / "factory/scripts/usage-capture-lifecycle"
+        if not os.access(runtime, os.X_OK) or lifecycle.resolve() != lifecycle:
+            raise ValueError("untrusted usage runtime")
+        identifier = f"capture-{uuid.uuid4()}"
+        marker = pending / f"{identifier}.pending.json"
+        staged = scratch / f"{identifier}.jsonl"
+        status_path = control / f"{identifier}.completion.json"
+        temporary = control / f"{identifier}.registration.tmp"
+        ctx = {
+            "root": root,
+            "control": control,
+            "pending": pending,
+            "scratch": scratch,
+            "marker": marker,
+            "committing": pending / f"{identifier}.committing.json",
+            "source": staged,
+            "status": status_path,
+        }
+        os.link(control / "state.json", marker, follow_symlinks=False)
+        current = state(marker, ("active",))
+        generation = current["generation"]
+        write_private(
+            temporary,
+            {
+                "generation": generation,
+                "staged_source": str(staged),
+                "session_id": args.session,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        os.replace(temporary, marker)
+        temporary = None
+        ctx["generation"] = generation
+        if (
+            state(control / "state.json", ("active", "drain"))["generation"]
+            != generation
+        ):
+            raise ValueError("usage generation changed")
+        snapshot(original, staged)
+        if (
+            state(control / "state.json", ("active", "drain"))["generation"]
+            != generation
+        ):
+            raise ValueError("usage generation changed")
+        subprocess.Popen(
+            [
+                sys.executable,
+                str(lifecycle),
+                "supervise",
+                "--root",
+                str(root),
+                "--marker",
+                str(marker),
+                "--source",
+                str(staged),
+                "--status",
+                str(status_path),
+                "--generation",
+                generation,
+                "--capture-command",
+                str(runtime),
+                *capture_args(args, staged, marker, status_path, generation),
+            ],
+            cwd=root,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+            close_fds=True,
+        )
+    except Exception:  # noqa: BLE001 - registration is a best-effort hook boundary
+        if ctx:
+            cleanup(ctx)
+        if temporary:
+            unlink(temporary, temporary.parent, ".registration.tmp")
+    return 0
+
+
+def validate_supervisor(args) -> dict:
+    root = root_path(args.root)
+    control, pending, scratch = layout(root)
+    marker, source, status_path = map(Path, (args.marker, args.source, args.status))
+    if (
+        marker.parent != pending
+        or not marker.name.endswith(".pending.json")
+        or not regular(marker)
+    ):
+        raise ValueError("invalid marker")
+    if (
+        source.parent != scratch
+        or not source.name.endswith(".jsonl")
+        or not regular(source)
+    ):
+        raise ValueError("invalid source")
+    expected = control / marker.name.replace(".pending.json", ".completion.json")
+    if status_path != expected or status_path.exists() or status_path.is_symlink():
+        raise ValueError("invalid status")
+    handshake = Path(args.acceptance_handshake) if args.acceptance_handshake else None
+    if handshake is not None:
+        expected_handshake = control / marker.name.replace(
+            ".pending.json", ".accepted.json"
+        )
+        if (
+            handshake != expected_handshake
+            or handshake.exists()
+            or handshake.is_symlink()
+        ):
+            raise ValueError("invalid acceptance handshake")
+    registration = json.loads(marker.read_text(encoding="utf-8"))
+    if registration.get("generation") != args.generation or registration.get(
+        "staged_source"
+    ) != str(source):
+        raise ValueError("registration mismatch")
+    runtime = root / "factory/scripts/usage-capture-runtime"
+    if not args.capture_command or Path(args.capture_command[0]) != runtime:
+        raise ValueError("invalid capture command")
+    return {
+        "root": root,
+        "control": control,
+        "pending": pending,
+        "scratch": scratch,
+        "marker": marker,
+        "committing": pending
+        / marker.name.replace(".pending.json", ".committing.json"),
+        "source": source,
+        "status": status_path,
+        "generation": args.generation,
+        "handshake": handshake,
+    }
+
+
+def diagnostic(ctx, reason, exit_code) -> None:
+    try:
+        current = state(ctx["control"] / "state.json", ("active", "drain"))
+        if current["generation"] != ctx["generation"]:
+            return
+        directory = ctx["control"] / "diagnostics"
+        directory.mkdir(mode=DIR_MODE, exist_ok=True)
+        if directory.resolve() != directory or directory.is_symlink():
+            return
+        os.chmod(directory, DIR_MODE)
+        write_private(
+            directory / f"capture-{uuid.uuid4()}.json",
+            {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "reason": reason,
+                "exit_code": exit_code,
+                "signal": -exit_code
+                if exit_code is not None and exit_code < 0
+                else None,
+            },
+        )
+    except Exception:  # noqa: BLE001, S110 - diagnostics must never break cleanup
+        pass
+
+
+def outcome(ctx) -> str:
+    try:
+        if not regular(ctx["status"]):
+            return "missing-status"
+        value = json.loads(ctx["status"].read_text(encoding="utf-8")).get("outcome")
+        return value if value in ("captured", "dropped") else "invalid-status"
+    except Exception:  # noqa: BLE001 - malformed status is an invalid outcome
+        return "invalid-status"
+
+
+def supervise(args) -> int:
+    ctx = None
+    try:
+        ctx = validate_supervisor(args)
+        if ctx["handshake"] is not None:
+            write_private(
+                ctx["handshake"],
+                {"accepted": True, "generation": ctx["generation"]},
+            )
+            deadline = time.monotonic() + 6
+            while ctx["handshake"].exists() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            if (
+                ctx["handshake"].exists()
+                or not regular(ctx["marker"])
+                or not regular(ctx["source"])
+            ):
+                raise RuntimeError("bootstrap did not acknowledge acceptance")
+        completed = subprocess.run(
+            args.capture_command,
+            cwd=ctx["root"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        reason = outcome(ctx) if completed.returncode == 0 else "capture-process-failed"
+        if reason != "captured":
+            diagnostic(ctx, reason, completed.returncode)
+    except Exception:  # noqa: BLE001 - supervisor must preserve host CLI behavior
+        if ctx:
+            diagnostic(ctx, "supervisor-failed", None)
+    finally:
+        if ctx:
+            cleanup(ctx)
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    result = argparse.ArgumentParser()
+    commands = result.add_subparsers(dest="mode", required=True)
+    registration = commands.add_parser("register")
+    registration.add_argument("--root", required=True)
+    registration.add_argument(
+        "--cli", choices=("claude-code", "codex", "copilot"), required=True
+    )
+    registration.add_argument("--transcript", required=True)
+    registration.add_argument("--session", required=True)
+    registration.add_argument("--parent-session")
+    registration.add_argument("--agent")
+    registration.add_argument("--model")
+    registration.add_argument("--exit-status")
+    registration.add_argument("--depth", type=int)
+    registration.add_argument("--branch")
+    registration.add_argument("--commit", dest="commit_id")
+    supervisor = commands.add_parser("supervise")
+    supervisor.add_argument("--root", required=True)
+    supervisor.add_argument("--marker", required=True)
+    supervisor.add_argument("--source", required=True)
+    supervisor.add_argument("--status", required=True)
+    supervisor.add_argument("--generation", required=True)
+    supervisor.add_argument("--acceptance-handshake")
+    supervisor.add_argument(
+        "--capture-command", nargs=argparse.REMAINDER, required=True
+    )
+    return result
+
+
+if __name__ == "__main__":
+    arguments = build_parser().parse_args()
+    raise SystemExit(
+        register(arguments) if arguments.mode == "register" else supervise(arguments)
+    )

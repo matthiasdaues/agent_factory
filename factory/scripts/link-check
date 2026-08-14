@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+"""Check local links in Markdown files without network access.
+
+The pre-commit hook passes changed Markdown files.  HTTP(S), mailto, and other
+URI schemes are intentionally left to dedicated online crawlers; this fast
+gate catches broken repository paths and missing same-document anchors.
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from pathlib import Path
+from urllib.parse import unquote, urlsplit
+
+LINK = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
+SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
+
+
+def check(path: Path) -> list[str]:
+    errors: list[str] = []
+    text = path.read_text(encoding="utf-8")
+    for raw in LINK.findall(text):
+        destination = raw.strip().split(maxsplit=1)[0].strip("<>")
+        if not destination or SCHEME.match(destination):
+            continue
+        parsed = urlsplit(destination)
+        target = path if not parsed.path else path.parent / unquote(parsed.path)
+        target = target.resolve()
+        if not target.exists():
+            errors.append(f"{path}: broken link {destination!r}")
+            continue
+    return errors
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Check local Markdown links")
+    parser.add_argument("files", nargs="*")
+    args = parser.parse_args(argv)
+    errors: list[str] = []
+    for name in args.files:
+        path = Path(name)
+        if path.is_file() and path.suffix.lower() == ".md":
+            errors.extend(check(path))
+    if errors:
+        print("\n".join(errors), file=sys.stderr)
+        print(f"link-check: {len(errors)} broken local link(s)", file=sys.stderr)
+        return 1
+    print("link-check: all local links resolve")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

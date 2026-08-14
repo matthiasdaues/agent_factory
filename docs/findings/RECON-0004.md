@@ -4,8 +4,10 @@ source: reconcile-spec
 severity: major
 category: defect
 artifact: orchestrator/tests/test_backlog_lint.py:20
-status: open
+status: resolved
 ---
+
+**Resolution (verified 2026-07-21, research + pi.dev reconciliation pass):** Fixed by commit `31c7997` ("fix: repoint orchestrator test fixtures at factory/scripts and factory/agents"); the two files were subsequently removed in the orchestrator restructuring. `uvx pytest --collect-only` inside `orchestrator/` now reports 270 tests collected with 0 collection errors, and no `parents[2] / "scripts"` stale-path pattern remains in `orchestrator/tests/`. The defect no longer manifests.
 
 # Two orchestrator test files fail collection: they still resolve gate scripts at the pre-pivot `scripts/` path
 

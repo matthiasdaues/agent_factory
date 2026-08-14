@@ -37,7 +37,7 @@ Also checked and clean, no findings: orchestrator arc42 component names against 
 
 ## Linter results
 
-- Root `spec-lint`: exit 2, "spec directory not found at docs/spec" — expected/inert, root `docs/spec/` doesn't exist yet per `docs/CONTEXT-MAP.md`.
+- Root `spec-lint`: exit 2, "spec directory not found at docs/spec" — expected/inert, root `docs/spec/` doesn't exist yet per `docs/arc42/CONTEXT-MAP.md`.
 - Root `arch-lint --docs-dir docs --no-validate`: 0 errors, 0 warnings, 0 info.
 - Root `backlog-lint --backlog-dir backlog`: 0 errors, 0 warnings, 0 info across 8 story files.
 - Orchestrator `spec-lint --spec-dir orchestrator/docs/spec`: 0 errors, 13 warnings, 18 info (pre-existing EARS-heuristic and unreferenced-BR notices, unrelated to this range).

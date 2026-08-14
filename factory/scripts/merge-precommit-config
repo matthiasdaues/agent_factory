@@ -3,6 +3,12 @@
 existing project's .pre-commit-config.yaml, without disturbing any hooks the
 project already had.
 
+What: Appends Agent Factory's `- repo: local` hook block to a project's own
+      pre-commit config, idempotently.
+When: During init-factory, only when the target already has its own
+      pre-commit config.
+By:   init-factory — never run standalone in normal use.
+
 Only handles the one case that actually needs merge logic: a *real*,
 pre-existing `--target` file. If `--target` doesn't exist yet, the caller
 (init-factory) just symlinks the template in directly — this script is never

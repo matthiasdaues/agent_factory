@@ -5,4 +5,5 @@ category: requirements
 source: https://github.com/mattpocock/skills/
 ---
 
-Run the `grilling` skill.
+Run the `grilling` skill. When the target is a feature proposal, use its
+proposal-target workflow and amend that proposal in place.

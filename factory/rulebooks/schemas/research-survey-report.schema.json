@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agent-factory/rulebooks/schemas/research-survey-report.schema.json",
+  "title": "Survey Research Report",
+  "description": "A cited synthesis of recorded sources, explicitly bounded by uncertainties, gaps, and limitations.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "findings",
+    "uncertainties",
+    "evidence_gaps",
+    "limitations",
+    "candidates_for_deeper_falsification_study"
+  ],
+  "properties": {
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "summary", "source_record_refs"],
+        "properties": {
+          "title": { "type": "string" },
+          "summary": { "type": "string" },
+          "source_record_refs": {
+            "description": "References to source-record artifacts supporting this finding.",
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "uncertainties": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "evidence_gaps": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "candidates_for_deeper_falsification_study": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

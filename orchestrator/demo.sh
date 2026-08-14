@@ -58,7 +58,7 @@ session_log_init() {
     #
     # Where it is documented:
     #   - factory/docs/factory-guide.md § Session logging
-    #   - factory/docs/proposals/session-log-addendum.md
+    #   - docs/proposals/session-log-addendum.md
     #
     # If unset, all logging is a no-op. No silent failures, no missing files.
     export AF_SESSION_LOG="$DEMO_DIR/.agent-factory/audit.log"

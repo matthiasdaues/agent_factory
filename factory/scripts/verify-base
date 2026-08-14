@@ -2,6 +2,13 @@
 """verify-base — assert a worktree's HEAD is not behind its target branch,
 and optionally that it was cut from a specific declared SHA.
 
+What: Checks a worktree's base is not stale (optionally against a declared
+      SHA) and writes verify-base-ok on a full pass.
+When: The first tool call in every worktree-isolated dispatch, before any
+      file is read or edited.
+By:   dispatch prompts (branching-policy preamble); enforced by
+      block-dangerous-git, which denies worktree `git commit` without the marker.
+
 Required as the FIRST tool call in every worktree-isolated dispatch prompt
 (branching-policy.md § Verify-Base Preamble). A worktree whose base has
 gone stale relative to its target branch reasons against code that no
@@ -15,14 +22,18 @@ inside any linked worktree that has no such marker — mechanical
 enforcement, not just a prompt instruction.
 
 Checks
-  1. Not-behind-target: `<target>` must be fully reachable from HEAD
+  1. Prior-marker invalidation: every invocation removes an existing
+     `verify-base-ok` marker before validation, so a failed rerun cannot
+     inherit earlier authorization.
+  2. Not-behind-target: `<target>` must be fully reachable from HEAD
      (`git merge-base --is-ancestor <target> HEAD`) and `git rev-list
      --left-right --count <target>...HEAD` must show 0 commits on
      `<target>`'s side that HEAD is missing.
-  2. Declared-base (only if --expect-base is given): HEAD's merge-base
-     with `--expect-base` must equal `--expect-base` itself — proof the
-     worktree was actually cut from the SHA the dispatcher recorded,
-     independent of how far `<target>` has since moved.
+  3. Declared-base (only if --expect-base is given): the declaration must
+     be an exact lowercase 40-character hexadecimal object name, and HEAD's
+     merge-base with it must equal the declaration itself — proof the worktree
+     was actually cut from the SHA the dispatcher recorded, independent of
+     how far `<target>` has since moved.
 
 Usage
   verify-base <target> [--expect-base <SHA>]
@@ -37,14 +48,24 @@ Exit codes
 from __future__ import annotations
 
 import argparse
+import re
 import subprocess
 import sys
 from pathlib import Path
 
+_FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
+
 
 def run_git(args: list[str]) -> tuple[int, str, str]:
-    result = subprocess.run(["git", *args], capture_output=True, text=True)
+    result = subprocess.run(["git", *args], capture_output=True, text=True, check=False)
     return result.returncode, result.stdout.strip(), result.stderr.strip()
+
+
+def clear_marker() -> None:
+    """Invalidate prior authorization before evaluating a new preflight."""
+    code, top, _ = run_git(["rev-parse", "--show-toplevel"])
+    if code == 0:
+        (Path(top) / ".agent-factory" / "verify-base-ok").unlink(missing_ok=True)
 
 
 def write_marker(target: str, expect_base: str | None) -> None:
@@ -125,18 +146,33 @@ def main(argv: list[str] | None = None) -> int:
         print(f"verify-base: not a git repository: {err}", file=sys.stderr)
         return 2
 
+    clear_marker()
+
+    if args.expect_base and not _FULL_SHA.fullmatch(args.expect_base):
+        print(
+            "verify-base: --expect-base must be an exact lowercase "
+            "40-character hexadecimal object name",
+            file=sys.stderr,
+        )
+        return 2
+
     ok, diagnosis = check_not_behind_target(args.target)
-    print(diagnosis)
+    print(
+        diagnosis, file=sys.stderr if diagnosis.startswith("BASE_ERROR") else sys.stdout
+    )
 
     if not ok:
-        return 1
+        return 2 if diagnosis.startswith("BASE_ERROR") else 1
 
     if args.expect_base:
         ok, diagnosis = check_declared_base(args.expect_base)
-        print(diagnosis)
+        print(
+            diagnosis,
+            file=sys.stderr if diagnosis.startswith("BASE_ERROR") else sys.stdout,
+        )
 
         if not ok:
-            return 1
+            return 2 if diagnosis.startswith("BASE_ERROR") else 1
 
     write_marker(args.target, args.expect_base)
     return 0

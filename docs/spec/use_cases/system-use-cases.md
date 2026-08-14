@@ -62,12 +62,61 @@ Technical requirements at the system's interfaces, expressed in **EARS** syntax 
 - If the command matches a pattern in the fixed dangerous-pattern list, then `block-dangerous-git.sh` shall exit `2` and report the matched pattern (UC-07, BR-019).
 - Where the command matches no pattern in the list, `block-dangerous-git.sh` shall exit `0` (UC-07).
 
+## Pi agent invocation (`run_agent`)
+
+- When the caller invokes `run_agent`, the extension shall spawn a fresh `pi` subprocess and never role-play the agent in the caller's own session (UC-10, BR-030).
+- The spawned child shall be granted project trust per spawn with `-a` (UC-10, BR-031).
+- The spawned child shall receive the agent persona via `--append-system-prompt`, preserving Pi's own tool guidance and the project `AGENTS.md` (UC-10, BR-032).
+- Where the child loads `.pi/extensions/`, the git-safety guardrail shall bind the child as it binds the parent (UC-10, BR-033).
+- `run_agent` shall parse structured JSON from `--mode json` `message_end`, persist the complete result in canonical tracked artifacts, and return the bounded BR-040 envelope with token usage (UC-10, BR-034, BR-040).
+- If the spawn depth recorded in `PI_RUN_AGENT_DEPTH` is at the bound, then `run_agent` shall refuse to spawn and return a depth-bound error (UC-10, BR-035).
+- If the named agent file is absent, or no model resolves for `pi.<tier>` under `on_missing: halt`, then `run_agent` shall return an error result and launch no subprocess (UC-10).
+
 ## Installation (`init-factory`)
 
 - When `init-factory` finds an unexpected file at a destination path, it shall stop the entire run before any later step executes (UC-08, BR-021).
 - `init-factory` shall never modify `config/model.conf` once it exists at the target (UC-08, BR-022).
 - Where `--target/factory` already exists, `init-factory` shall skip the copy step entirely (UC-08).
 - Re-running `init-factory` against an already-initialized target shall report every step as already satisfied (UC-08).
+
+## Usage capture attribution
+
+- When capture receives an explicit model identifier from its invocation context, it shall persist that identifier (BR-036).
+- Otherwise, where the CLI transcript exposes model identifiers, capture shall persist the latest non-empty identifier from that CLI's native model event (BR-036).
+- Automated contract tests shall exercise model attribution for every CLI in the capture registry—Claude Code, GitHub Copilot CLI, Codex, and Pi (BR-036).
+- The model-attribution fixture set shall equal the capture registry, so adding a supported CLI without a model-bearing fixture fails the contract test (BR-036).
+- Where neither invocation context nor the transcript exposes a model identifier, `model` may remain null (BR-036).
+
+## Phase boundary and context control
+
+- When work crosses a Factory phase boundary, the outgoing session shall produce a `handoff-lint`-clean handoff and stop before the next phase begins (UC-11, BR-038, BR-039).
+- The Factory-owned `handoff` skill shall preserve every decision, open item, artifact path, exact 40-character SHA, branch/upstream state, gate result, verification result, and next action while compressing prose (UC-11, BR-037).
+- If a handoff has a mechanically observable structural defect, contains a malformed declared full SHA, omits a required declared field, or references a missing declared path, then `handoff-lint` shall exit non-zero and report every detected defect (UC-11, BR-038).
+- When `handoff-lint` passes, a designated Handoff Semantic Reviewer shall compare the handoff with outgoing phase artifacts, decisions, open items, and evidence before confirming losslessness (UC-11, BR-049).
+- If semantic review finds an omitted or distorted material fact, then phase closure shall remain blocked until correction, repeated lint, and repeated semantic review pass (UC-11, BR-049).
+- When a fresh session begins a phase, it shall read the handoff first and then read referenced large artifacts in bounded, on-demand chunks (UC-11, BR-041).
+- Before a child returns to a parent, it shall persist its complete result in canonical tracked report and finding artifacts (UC-11, BR-040).
+- A child result injected into a parent transcript shall contain only disposition, finding counts by severity, every result-artifact path, and a one-to-three-sentence next action (UC-11, BR-040).
+- When a session ends, usage capture shall identify eligible turns as chronological top-level assistant model-response turns belonging to that session, excluding tool events, progress events, child-session turns, and synthetic aggregate records (UC-11, BR-042).
+- Where every eligible turn has provider-reported input and cache-read token values, usage capture shall classify a turn as a cache miss exactly when input is greater than zero and cache read equals zero (UC-11, BR-042).
+- Where cache capability is complete, cache-miss turn count shall equal the number of cache-miss turns (UC-11, BR-042).
+- Where cache capability is complete, cache-miss input-token total shall equal the sum of provider-reported input across cache-miss turns (UC-11, BR-042).
+- Where per-turn input is complete and at least two eligible turns exist, usage capture shall let `k = max(1, floor(N / 3))`, define early as the first `k` turns and late as the last `k` turns, and calculate the ratio as late mean input divided by early mean input (UC-11, BR-042).
+- If any eligible turn lacks input, then all three derived metrics shall be null (UC-11, BR-042).
+- If every eligible turn has input but any lacks cache-read tokens, then both cache-miss metrics shall be null (UC-11, BR-042).
+- Where there are fewer than two eligible turns or early mean input is zero, late-versus-early input ratio shall be null (UC-11, BR-042).
+- Where no eligible turns exist, all three derived metrics shall be null (UC-11, BR-042).
+- Where eligible turns have complete cache fields but none is a miss, both cache-miss metrics shall be numeric zero (UC-11, BR-042).
+- Usage capture shall store CLI, provider, and capability class (`full-cache`, `input-only`, or `unavailable`) with the derived metrics (UC-11, BR-042).
+- Derived cache signals shall be retrospective only (UC-11, BR-042).
+- While a session is live, derived cache signals shall not interrupt, stop, or otherwise control it (UC-11, BR-042).
+
+## Dispatch safeguard assurance
+
+- The accepted dispatch audit shall map base preflight, declared base SHA, nested-agent addressing, pre-merge diff checking, unattended permissions, and scope/checkpoint discipline to shipped contract, implementation, and automated evidence (FR-L1, BR-043).
+- Machine-consumed base declarations and dispatch records shall use exact 40-character Git SHAs (FR-L2, BR-044).
+- Automated evidence shall exercise wrong and stale bases before work, stale/out-of-scope/file-count-blowout/target-reverting diffs, resolvable nested reply addressing, and unattended argv and deny-list construction (FR-L2, BR-045, BR-046, BR-047).
+- Where a mechanism already has complete contract, implementation, and automated evidence, the audit shall not create reimplementation work for it (FR-L3, BR-048).
 
 ## Referenced from
 

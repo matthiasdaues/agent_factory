@@ -7,14 +7,95 @@ session-scratchpad.md
 
 # Agent Factory local run state — playbook-state.yml (harness PoC),
 # session-log.jsonl (session-log PoC). Neither is portable across
-# machines or meant to be reviewed; see factory/docs/proposals/.
+# machines or meant to be reviewed; see docs/proposals/.
 .agent-factory/
 
 # Python specific folders and files
 __pycache__/
 *.pyc
 .ruff_cache/
+.pytest_cache/
+
 
 
 models/
 
+# >>> agent_factory related >>>
+# Added by init-factory; remove with factory/scripts/remove-factory.
+#/factory/
+/.claude/
+/.pi/
+/.agents/
+/.codex/
+/.demo-seed/
+/.agent-factory/
+/session-scratchpad.md
+/config/project.json
+/AGENTS.md
+/.github/INDEX.yaml
+/.github/agents
+/.github/copilot-instructions.md
+/.github/hooks
+/.github/playbooks
+/.github/rulebooks
+/.github/scripts
+/.github/skills
+/.codex/INDEX.yaml
+/.codex/agents/architecture-agent.toml
+/.codex/agents/architecture-review-agent.toml
+/.codex/agents/claim-reviewer.toml
+/.codex/agents/coaching-agent.toml
+/.codex/agents/developer-agent.toml
+/.codex/agents/implementation-agent.toml
+/.codex/agents/planning-agent.toml
+/.codex/agents/qa-agent.toml
+/.codex/agents/reconciliation-agent.toml
+/.codex/agents/requirements-agent.toml
+/.codex/agents/research-orchestrator.toml
+/.codex/agents/research-report-writer.toml
+/.codex/agents/research-synthesizer.toml
+/.codex/agents/researcher.toml
+/.codex/agents/spec-review-agent.toml
+/.codex/hooks.json
+/.codex/hooks/block-dangerous-git.sh
+/.codex/hooks/capture-codex-usage.sh
+/.codex/playbooks
+/.codex/rulebooks
+/.codex/scripts
+/.agents/skills/adversarial-review
+/.agents/skills/atam-review
+/.agents/skills/bug-hunt
+/.agents/skills/capture-vision
+/.agents/skills/caveman
+/.agents/skills/claim-formulation
+/.agents/skills/clarify-requirements
+/.agents/skills/commit
+/.agents/skills/create-backlog
+/.agents/skills/derive-spec
+/.agents/skills/domain-modeling
+/.agents/skills/fagan-review
+/.agents/skills/grill-me
+/.agents/skills/grill-with-docs
+/.agents/skills/grilling
+/.agents/skills/handoff
+/.agents/skills/implement-issue
+/.agents/skills/init-factory
+/.agents/skills/inspect-spec
+/.agents/skills/maintain-architecture
+/.agents/skills/pugh-matrix
+/.agents/skills/reconcile-spec
+/.agents/skills/refutation-design
+/.agents/skills/research-planning
+/.agents/skills/research-reporting
+/.agents/skills/research-synthesis
+/.agents/skills/retrospective
+/.agents/skills/run-step
+/.agents/skills/scaffold-arc42
+/.agents/skills/scratchpad
+/.agents/skills/security-review
+/.agents/skills/source-research
+/.agents/skills/spec-feedback
+/.agents/skills/validate
+/.agents/skills/write-adr
+/.agents/skills/write-prd
+# <<< agent_factory related <<<

@@ -1,0 +1,113 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agent-factory/rulebooks/schemas/research-claim-register.schema.json",
+  "title": "Claim Register",
+  "description": "Separates every claim examined during a research run by its final disposition — surviving, refuted, unresolved, or superseded — and records the falsification trail for each surviving claim.",
+  "type": "object",
+  "required": [
+    "surviving_claims",
+    "refuted_claims",
+    "unresolved_claims",
+    "superseded_claims"
+  ],
+  "properties": {
+    "surviving_claims": {
+      "description": "Claims that withstood every test and review applied to them.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "claim_text",
+          "scope",
+          "assumptions",
+          "evidence",
+          "tests",
+          "failed_tests",
+          "reviews",
+          "vote_result",
+          "qualifications",
+          "remaining_possible_refuters",
+          "applicable_date"
+        ],
+        "properties": {
+          "claim_text": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "assumptions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tests": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "failed_tests": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reviews": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "vote_result": {
+            "type": "string"
+          },
+          "qualifications": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "remaining_possible_refuters": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "applicable_date": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "refuted_claims": {
+      "description": "Claims a test or review falsified.",
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "unresolved_claims": {
+      "description": "Claims neither confirmed nor falsified by the run's tests and reviews.",
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "superseded_claims": {
+      "description": "Claims replaced by a later, more precise claim during the run.",
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  }
+}

@@ -26,7 +26,7 @@ See [story.md template](../../rulebooks/templates/story.md) for the complete fro
 - `status`: pending | in_progress | review | blocked | done
 - `deps`: Story IDs that block this one (optional)
 - `traces`: Use Case / ADR / component IDs implemented (optional)
-- `outputs`: Files the story produces
+- `outputs`: Files the story produces — **including its test file(s)**, so `premerge-check --scope` covers them without manual widening
 
 EPICs are **not** separate files — an EPIC is the `epic:` frontmatter value shared by its stories. MoSCoW priority lives in the prose body (the frontmatter schema is closed; `backlog-lint` rejects unknown fields).
 

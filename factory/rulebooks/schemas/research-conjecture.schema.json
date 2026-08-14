@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Conjecture",
+  "description": "One falsifiable claim formed from evidence, structured so it cannot enter review without stating what would refute it.",
+  "type": "object",
+  "required": [
+    "claim",
+    "scope",
+    "assumptions",
+    "supporting_evidence",
+    "contrary_evidence",
+    "possible_refuting_evidence",
+    "planned_tests",
+    "qualifications",
+    "content_hash"
+  ],
+  "properties": {
+    "claim": {
+      "type": "string",
+      "description": "Exactly one claim, stated as a single sentence — not a list of claims."
+    },
+    "scope": {
+      "type": "string",
+      "description": "The boundary within which the claim is asserted to hold."
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Background assumptions the claim depends on."
+    },
+    "supporting_evidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Source-record references or excerpts that support the claim."
+    },
+    "contrary_evidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Source-record references or excerpts that weigh against the claim."
+    },
+    "possible_refuting_evidence": {
+      "type": "string",
+      "description": "What observation, if made, would refute this claim. Mandatory: a claim that cannot state what would count against it is structurally incomplete."
+    },
+    "planned_tests": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Concrete checks planned to look for the refuting evidence described above."
+    },
+    "qualifications": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Caveats on the claim's strength or confidence."
+    },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Hex digest (e.g. SHA-256) of the conjecture's content, for change detection."
+    }
+  }
+}

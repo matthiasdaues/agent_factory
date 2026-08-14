@@ -6,12 +6,12 @@
 **Architecture Docs Reviewed**:
 
 - docs/adr/0003-test-execution-via-hooks.md
-- docs/05_building_block_view.md (§5.2.1 run-tests)
-- docs/06_runtime_view.md (§6.2 test execution flows)
-- docs/08_crosscutting_concepts.md (§8.1 validation pattern)
+- docs/arc42/05_building_block_view.md (§5.2.1 run-tests)
+- docs/arc42/06_runtime_view.md (§6.2 test execution flows)
+- docs/arc42/08_crosscutting_concepts.md (§8.1 validation pattern)
 - docs/spec/use_cases/UC-09-run-tests-via-hook.md
 - docs/spec/supplementary_specs/validation-rules.md (BR-023 through BR-027)
-- docs/architecture.dsl (TestExecutionFlow dynamic view)
+- docs/arc42/architecture.dsl (TestExecutionFlow dynamic view)
 
 **Deterministic Linter**: `arch-lint` was blocked by permission issues. Manual consistency checks performed instead.
 
@@ -350,7 +350,7 @@ ______________________________________________________________________
 
 ### 8.1 Manual Checks Performed
 
-✅ **ADR index consistency** - docs/09_architecture_decisions.md lists ADR-0003 correctly
+✅ **ADR index consistency** - docs/arc42/09_architecture_decisions.md lists ADR-0003 correctly
 ✅ **ADR frontmatter** - ADR-0003 has `status: accepted`, `evaluation: none`
 ✅ **Cross-references valid** - UC-09, BR-023-027, foundational-principles.md all exist and correctly referenced
 ✅ **C4 model coupling** - architecture.dsl `TestExecutionFlow` matches runtime view § 6.2
@@ -436,8 +436,8 @@ Both Major findings from this ATAM review were addressed immediately via archite
 **Documentation updated**:
 
 - `docs/adr/0003-test-execution-via-hooks.md` — Added "Amended" section, updated Decision and Consequences
-- `docs/05_building_block_view.md` § 5.2.1 — Added `--staged` to run-tests interface
-- `docs/06_runtime_view.md` § 6.2.4 — New sequence diagram showing agent staged workflow
+- `docs/arc42/05_building_block_view.md` § 5.2.1 — Added `--staged` to run-tests interface
+- `docs/arc42/06_runtime_view.md` § 6.2.4 — New sequence diagram showing agent staged workflow
 - `docs/spec/supplementary_specs/validation-rules.md` — BR-024 updated, BR-028 added
 - `docs/findings/ATAM-0001-*.md` — Status: resolved
 
@@ -456,7 +456,7 @@ Both Major findings from this ATAM review were addressed immediately via archite
 **Documentation updated**:
 
 - `docs/adr/0003-test-execution-via-hooks.md` — Added "Amended" section, updated Decision and Consequences
-- `docs/05_building_block_view.md` § 5.2.1 — Updated framework detection behavior
+- `docs/arc42/05_building_block_view.md` § 5.2.1 — Updated framework detection behavior
 - `docs/spec/supplementary_specs/validation-rules.md` — BR-023 updated
 - `docs/findings/ATAM-0002-*.md` — Status: resolved
 

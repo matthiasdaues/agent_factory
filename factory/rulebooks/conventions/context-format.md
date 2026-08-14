@@ -20,11 +20,11 @@ Skeleton: [context.md template](../templates/context.md).
 
 ## Single vs multi-context repos
 
-**Single context (most repos):** one `docs/CONTEXT.md`.
+**Single context (most repos):** one `docs/arc42/CONTEXT.md`.
 
-**Multiple contexts:** a `docs/CONTEXT-MAP.md` lists the contexts, where they live, and how they relate. Skeleton: [context-map.md template](../templates/context-map.md).
+**Multiple contexts:** a `docs/arc42/CONTEXT-MAP.md` lists the contexts, where they live, and how they relate. Skeleton: [context-map.md template](../templates/context-map.md).
 
-Infer the structure: `docs/CONTEXT-MAP.md` exists → read it for contexts; only `docs/CONTEXT.md` exists → single context; neither exists → create `docs/CONTEXT.md` lazily when the first term is resolved.
+Infer the structure: `docs/arc42/CONTEXT-MAP.md` exists → read it for contexts; only `docs/arc42/CONTEXT.md` exists → single context; neither exists → create `docs/arc42/CONTEXT.md` lazily when the first term is resolved.
 
 When multiple contexts exist, infer which one the current topic relates to; ask if unclear.
 

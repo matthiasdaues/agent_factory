@@ -84,7 +84,7 @@ Document in `docs/spec/todos.md`:
 **Expected outputs**:
 
 - `docs/01-12*.md` (arc42 chapters)
-- `docs/architecture.dsl` (C4 model of existing system)
+- `docs/arc42/architecture.dsl` (C4 model of existing system)
 - `docs/adr/` (document discovered decisions as ADRs)
 
 ### Step 2.2 — Document State Machines
@@ -101,7 +101,7 @@ Output: `docs/spec/supplementary_specs/state-machines.md`
 ### Step 2.3 — Validate Architecture
 
 ```bash
-factory/scripts/arch-lint --docs-dir docs/
+factory/scripts/arch-lint --docs-dir docs/arc42
 ```
 
 **If errors** → Fix and loop to Step 2.1
@@ -261,7 +261,7 @@ Deliverables:
 - [ ] `docs/spec/use_cases/*.md` (extracted from code/tests)
 - [ ] `docs/*.md` (arc42 architecture docs)
 - [ ] `docs/adr/*.md` (documented decisions)
-- [ ] `docs/architecture.dsl` (C4 model)
+- [ ] `docs/arc42/architecture.dsl` (C4 model)
 - [ ] `CONTEXT.md` (domain glossary)
 - [ ] `docs/spec/todos.md` (identified gaps)
 

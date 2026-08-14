@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Source Record",
+  "description": "One piece of primary evidence, recorded so its independence, provenance, and precision can be checked later without re-fetching it.",
+  "type": "object",
+  "required": [
+    "source_identity",
+    "author_or_issuing_body",
+    "publisher",
+    "publication_date",
+    "relevant_event_date",
+    "source_family",
+    "precise_evidence_location",
+    "method",
+    "limitations",
+    "provenance"
+  ],
+  "properties": {
+    "source_identity": {
+      "type": "string",
+      "description": "Stable identifying label for the source (title, filing number, URL, or similar)."
+    },
+    "author_or_issuing_body": {
+      "type": "string",
+      "description": "The person or organisation who authored or issued the source."
+    },
+    "publisher": {
+      "type": "string",
+      "description": "The organisation that published or hosts the source."
+    },
+    "publication_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the source itself was published."
+    },
+    "relevant_event_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}",
+      "description": "When the event the source describes took place (may predate publication)."
+    },
+    "source_family": {
+      "type": "string",
+      "description": "The lineage this source belongs to, so copies of the same underlying source are not mistaken for independent corroboration."
+    },
+    "precise_evidence_location": {
+      "type": "string",
+      "description": "Exact locator of the evidence within the source (section, table, timestamp, line number)."
+    },
+    "method": {
+      "type": "string",
+      "description": "How the source obtained or produced the evidence."
+    },
+    "limitations": {
+      "type": "string",
+      "description": "Known weaknesses, biases, or gaps in this source's evidence."
+    },
+    "provenance": {
+      "type": "string",
+      "description": "Chain of custody: how this record was obtained and how to re-verify it."
+    }
+  }
+}

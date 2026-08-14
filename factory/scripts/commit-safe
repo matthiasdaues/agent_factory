@@ -1,0 +1,44 @@
+#!/bin/bash
+# commit-safe — commit through the pre-commit hooks with the deterministic
+# two-pass sequence (rulebooks/conventions/git-workflow.md).
+#
+# This repo's pre-commit hooks REWRITE staged files (mdformat, ruff, index-lint,
+# arch-lint), which aborts the commit with "files were modified by this hook".
+# commit-safe stages, commits, and — if that abort happens — re-stages the
+# hook's own modifications and commits once more. It never bypasses a hook; a
+# genuine hook failure surfaces as a non-zero exit on the second pass.
+#
+# Usage: commit-safe -m "<message>" [<path>...]
+#   -m MSG   commit message (required; Conventional Commits with an ID)
+#   paths    optional explicit paths to stage first; otherwise commits what is
+#            already staged. Never stages with -A/. — pass explicit paths.
+set -euo pipefail
+
+MSG=""
+PATHS=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -m) MSG="${2:-}"; shift 2 ;;
+    -m*) MSG="${1#-m}"; shift ;;
+    *) PATHS+=("$1"); shift ;;
+  esac
+done
+
+if [ -z "$MSG" ]; then
+  echo "commit-safe: -m <message> is required" >&2
+  exit 2
+fi
+
+if [ "${#PATHS[@]}" -gt 0 ]; then
+  git add -- "${PATHS[@]}"
+fi
+
+# First pass. A hook rewrite aborts it; the `if` keeps set -e from exiting.
+if git commit -m "$MSG"; then
+  exit 0
+fi
+
+# Second pass: re-stage the hook's modifications to already-tracked files and
+# commit once more. No third pass — a still-failing commit surfaces its error.
+git add -u
+git commit -m "$MSG"

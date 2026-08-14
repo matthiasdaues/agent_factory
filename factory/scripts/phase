@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """phase — advance a structured-playbook run's state marker.
 
+What: Advances or retries the run-state marker, enforcing the target state's
+      entry_conditions before it moves.
+When: At a phase boundary, moving a playbook run forward or retrying a state.
+By:   the run-step skill / playbook harness — not a pre-commit hook.
+
 Subcommand-style tool (like ``structurizr validate``). Two subcommands:
 
   factory/scripts/phase advance [--by NAME]
