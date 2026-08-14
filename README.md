@@ -4,7 +4,7 @@
 
 Agent Factory equips your AI coding CLI with specialist agents, proven engineering methods, repeatable playbooks, and automated quality gates. You approve the important decisions; the factory does the structured work.
 
-[Get started](factory/README.md) · [Read the beginner's guide](docs/beginner-intro.md) · [See how it works](docs/concepts.md)
+[Get started](factory/README.md) · [Read the beginner's guide](docs/arc42/beginner-intro.md) · [See how it works](docs/arc42/concepts.md)
 
 ![Agent Factory turns a human-guided idea into production-ready software through specialist AI agents, independent review, and deterministic quality gates.](docs/assets/images/agent-factory-hero.svg)
 
@@ -30,14 +30,14 @@ You do not need the full chain for every task. Included playbooks provide shorte
 
 ## Choose your starting point
 
-| I want to…                                   | Start here                                        |
-| -------------------------------------------- | ------------------------------------------------- |
-| Understand the idea without running commands | [Beginner's introduction](docs/beginner-intro.md) |
-| Install Agent Factory in a project           | [Factory quick start](factory/README.md)          |
-| See the agents, gates, and design principles | [How Agent Factory works](docs/concepts.md)       |
-| Explore the toolset itself                   | [`factory/`](factory/README.md)                   |
-| Understand the architecture                  | [Architecture documentation](docs/README.md)      |
-| Try automated workflow execution             | [`orchestrator/`](orchestrator/README.md)         |
+| I want to…                                   | Start here                                              |
+| -------------------------------------------- | ------------------------------------------------------- |
+| Understand the idea without running commands | [Beginner's introduction](docs/arc42/beginner-intro.md) |
+| Install Agent Factory in a project           | [Factory quick start](factory/README.md)                |
+| See the agents, gates, and design principles | [How Agent Factory works](docs/arc42/concepts.md)       |
+| Explore the toolset itself                   | [`factory/`](factory/README.md)                         |
+| Understand the architecture                  | [Architecture documentation](docs/README.md)            |
+| Try automated workflow execution             | [`orchestrator/`](orchestrator/README.md)               |
 
 ## What you get
 
@@ -87,7 +87,7 @@ The result is not autonomous software development. It is a disciplined collabora
 
 - **[`factory/`](factory/README.md)** — the installable toolset: agents, skills, playbooks, rulebooks, scripts, and checks. Start here to use Agent Factory.
 - **[`orchestrator/`](orchestrator/README.md)** — the optional CLI for driving playbooks automatically. It is under active development.
-- **[`docs/`](docs/concepts.md)** — concepts, specifications, decisions, reviews, and arc42 architecture documentation.
+- **[`docs/`](docs/arc42/concepts.md)** — concepts, specifications, decisions, reviews, and arc42 architecture documentation.
 - **`backlog/`, `config/`** — this repository's own planning and configuration, maintained with Agent Factory.
 
 ## Project status

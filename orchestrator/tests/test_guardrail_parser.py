@@ -101,3 +101,38 @@ class TestControls:
     def test_real_dangerous_still_blocked(self):
         r = _run("git push --force origin main")
         assert r.returncode == 2
+
+
+class TestBranchRequiresWorktree:
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "git branch feat/x",
+            "git branch feat/x main",
+            "git branch --track feat/x origin/main",
+            "git branch feat/x && git status",
+            "git switch -c feat/x",
+            "git switch -C feat/x main",
+            "git checkout -b feat/x",
+            "git checkout -B feat/x main",
+        ],
+    )
+    def test_standalone_branch_creation_is_blocked(self, command):
+        result = _run(command)
+        assert result.returncode == 2
+        assert "git worktree add -b" in result.stderr
+
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "git worktree add -b feat/x /tmp/feat-x main",
+            "git branch --list",
+            "git branch -d merged-branch",
+            "git branch -m old-name new-name",
+            "git switch existing-branch",
+            "git checkout existing-branch",
+        ],
+    )
+    def test_noncreating_branch_operations_remain_allowed(self, command):
+        result = _run(command)
+        assert result.returncode == 0, result.stderr

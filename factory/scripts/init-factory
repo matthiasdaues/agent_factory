@@ -475,7 +475,8 @@ def _link_orientation(
             log(
                 report,
                 "AGENTS.md: project file left untouched; Factory orientation "
-                "was skipped — incorporate the local-first rules manually",
+                "was skipped — manually incorporate its top-level "
+                "rulebook-ingestion and local-first instructions",
             )
         else:
             log(

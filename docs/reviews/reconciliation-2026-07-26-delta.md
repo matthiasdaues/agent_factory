@@ -16,12 +16,12 @@
   .gitignore
   HANDOFF.md
   config/model.conf
-  docs/05_building_block_view.md
-  docs/06_runtime_view.md
-  docs/08_crosscutting_concepts.md
-  docs/09_architecture_decisions.md
-  docs/12_glossary.md
-  docs/CONTEXT-MAP.md
+  docs/arc42/05_building_block_view.md
+  docs/arc42/06_runtime_view.md
+  docs/arc42/08_crosscutting_concepts.md
+  docs/arc42/09_architecture_decisions.md
+  docs/arc42/12_glossary.md
+  docs/arc42/CONTEXT-MAP.md
   docs/adr/0004-pi-subagent-invocation-via-subprocess-spawn.md
   docs/adr/0005-openrouter-model-discovery-for-model-conf.md
   docs/adr/0006-research-flat-storage-and-validation-pipeline.md

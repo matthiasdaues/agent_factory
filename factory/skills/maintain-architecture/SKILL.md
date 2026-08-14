@@ -9,17 +9,17 @@ disable-model-invocation: true
 
 Update architecture documentation with `architecture.dsl` as the **single source of truth** for all structural and runtime views. Prose chapters narrate and extend the model; they never contradict it.
 
-Read `docs/CONTEXT.md` if it exists — use the project's domain vocabulary throughout.
+Read `docs/arc42/CONTEXT.md` if it exists — use the project's domain vocabulary throughout.
 
 ## Principle: DSL first, prose second
 
-The Structurizr DSL (`docs/architecture.dsl`) owns:
+The Structurizr DSL (`docs/arc42/architecture.dsl`) owns:
 
 - **What exists** — systems, containers, components, deployment nodes
 - **How they connect** — relationships with descriptions and technologies
 - **Interaction sequences** — dynamic views define the canonical step order
 
-Prose chapters (`docs/01_*.md` through `docs/12_*.md`) own:
+Prose chapters (`docs/arc42/01_*.md` through `docs/arc42/12_*.md`) own:
 
 - **Why** — rationale, trade-offs, design rules
 - **Contracts** — DTOs, validation rules, schemas
@@ -27,7 +27,7 @@ Prose chapters (`docs/01_*.md` through `docs/12_*.md`) own:
 
 ## Step 1 — Update the DSL model
 
-Before touching any prose chapter, update `docs/architecture.dsl`:
+Before touching any prose chapter, update `docs/arc42/architecture.dsl`:
 
 1. **Static model** — add/rename/remove elements and relationships.
 2. **Dynamic views** — add or update `dynamic` views for runtime scenarios. Each step references an existing model relationship.
@@ -69,7 +69,7 @@ For chapters 5 (tables) and 9 (ADR index): element names and port lists must mat
 
 Format every updated chapter via `factory/scripts/mdformat --number <path>` per [markdown-formatting.md](../../factory/rulebooks/conventions/markdown-formatting.md).
 
-**Completion**: `arch-lint --docs-dir docs` reports 0 errors. Do not commit yet.
+**Completion**: `arch-lint --docs-dir docs/arc42` reports 0 errors. Do not commit yet.
 
 ## Step 4 — Derive Mermaid diagrams from DSL dynamic views
 

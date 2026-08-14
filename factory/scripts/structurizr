@@ -25,11 +25,17 @@ set -euo pipefail
 # Configuration
 IMAGE="${STRUCTURIZR_IMAGE:-structurizr/structurizr:2026.05.22-playwright}"
 DOCS_DIR="${STRUCTURIZR_DOCS:-$(pwd)/docs}"
+ARC42_DIR="${DOCS_DIR}/arc42"
 IMAGES_DIR="${DOCS_DIR}/assets/images"
 
 # Validate that docs directory exists
 if [ ! -d "${DOCS_DIR}" ]; then
     echo "Error: docs directory does not exist at ${DOCS_DIR}" >&2
+    exit 1
+fi
+
+if [ ! -d "${ARC42_DIR}" ]; then
+    echo "Error: arc42 directory does not exist at ${ARC42_DIR}" >&2
     exit 1
 fi
 
@@ -59,13 +65,13 @@ case "${1:-}" in
     export-png)
         docker run --rm \
             -v "${DOCS_DIR}:/workspace" \
-            "${IMAGE}" export -format png -workspace /workspace/architecture.dsl -output /workspace/assets/images
+            "${IMAGE}" export -format png -workspace /workspace/arc42/architecture.dsl -output /workspace/assets/images
         strip_prefix
         ;;
     export-svg)
         docker run --rm \
             -v "${DOCS_DIR}:/workspace" \
-            "${IMAGE}" export -format svg -workspace /workspace/architecture.dsl -output /workspace/assets/images
+            "${IMAGE}" export -format svg -workspace /workspace/arc42/architecture.dsl -output /workspace/assets/images
         strip_prefix
         ;;
     export-all)
@@ -76,14 +82,14 @@ case "${1:-}" in
 
         docker run --rm \
             -v "${DOCS_DIR}:/workspace" \
-            "${IMAGE}" export -format svg -workspace /workspace/architecture.dsl -output /workspace/assets/images \
+            "${IMAGE}" export -format svg -workspace /workspace/arc42/architecture.dsl -output /workspace/assets/images \
             || SVG_EXIT=$?
 
         [ "${SVG_EXIT}" -eq 0 ] || echo "Warning: SVG export failed (exit ${SVG_EXIT})" >&2
 
         docker run --rm \
             -v "${DOCS_DIR}:/workspace" \
-            "${IMAGE}" export -format png -workspace /workspace/architecture.dsl -output /workspace/assets/images \
+            "${IMAGE}" export -format png -workspace /workspace/arc42/architecture.dsl -output /workspace/assets/images \
             || PNG_EXIT=$?
 
         [ "${PNG_EXIT}" -eq 0 ] || echo "Warning: PNG export failed (exit ${PNG_EXIT})" >&2
@@ -97,12 +103,12 @@ case "${1:-}" in
     validate)
         exec docker run --rm \
             -v "${DOCS_DIR}:/workspace" \
-            "${IMAGE}" validate -workspace /workspace/architecture.dsl
+            "${IMAGE}" validate -workspace /workspace/arc42/architecture.dsl
         ;;
     list-views)
         exec docker run --rm \
             -v "${DOCS_DIR}:/workspace" \
-            "${IMAGE}" list-views -workspace /workspace/architecture.dsl
+            "${IMAGE}" list-views -workspace /workspace/arc42/architecture.dsl
         ;;
     *)
         # Unknown subcommand

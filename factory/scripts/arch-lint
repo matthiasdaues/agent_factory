@@ -33,8 +33,8 @@ checks are skipped rather than erroring. One present without the other is a real
 inconsistency and still errors.
 
 Usage
-  arch-lint --docs-dir docs
-  arch-lint --docs-dir docs --no-validate
+  arch-lint --docs-dir docs/arc42
+  arch-lint --docs-dir docs/arc42 --no-validate
 
 Exit non-zero iff at least one error-severity finding exists (gate contract).
 """
@@ -221,7 +221,7 @@ def check_staleness(rep: Report, dsl_path: Path, images: list[Path]) -> None:
 
     if needs_export:
         # Auto-export via structurizr script (deterministic validation principle)
-        docs_dir = dsl_path.parent
+        docs_root = dsl_path.parent.parent
         structurizr_script = Path("factory/scripts/structurizr").resolve()
 
         if not structurizr_script.exists():
@@ -234,7 +234,7 @@ def check_staleness(rep: Report, dsl_path: Path, images: list[Path]) -> None:
         try:
             # Run export-all with STRUCTURIZR_DOCS pointing at the correct docs dir
             env = dict(os.environ)
-            env["STRUCTURIZR_DOCS"] = str(docs_dir.resolve())
+            env["STRUCTURIZR_DOCS"] = str(docs_root.resolve())
             result = subprocess.run(
                 [str(structurizr_script), "export-all"],
                 env=env,
@@ -289,7 +289,7 @@ def check_validate(rep: Report, docs_dir: Path) -> None:
         r = subprocess.run(
             [str(structurizr), "validate"],
             cwd=docs_abs.parent,
-            env={**_env(), "STRUCTURIZR_DOCS": str(docs_abs)},
+            env={**_env(), "STRUCTURIZR_DOCS": str(docs_abs.parent)},
             capture_output=True,
             text=True,
             timeout=300,
@@ -372,7 +372,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description="Consistency gate for arc42 + Structurizr docs."
     )
-    ap.add_argument("--docs-dir", default="docs", type=Path)
+    ap.add_argument("--docs-dir", default="docs/arc42", type=Path)
     ap.add_argument(
         "--no-validate", action="store_true", help="skip structurizr validate"
     )
@@ -381,8 +381,8 @@ def main(argv: list[str] | None = None) -> int:
     docs = args.docs_dir
     dsl_path = docs / "architecture.dsl"
     ch5_path = docs / "05_building_block_view.md"
-    images = sorted((docs / "assets" / "images").glob("*.png"))
-    adr_dir = docs / "adr"
+    images = sorted((docs.parent / "assets" / "images").glob("*.png"))
+    adr_dir = docs.parent / "adr"
 
     rep = Report()
 

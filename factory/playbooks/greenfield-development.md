@@ -106,7 +106,7 @@ orchestrator run-phase architecture
 ```
 
 **Agent**: `architecture-agent`
-**Expected outputs**: `docs/*.md` (arc42 chapters), `docs/adr/`, `docs/architecture.dsl`, `docs/assets/images/`
+**Expected outputs**: `docs/arc42/*.md` (arc42 chapters), `docs/adr/`, `docs/arc42/architecture.dsl`, `docs/assets/images/`
 
 ### Step 2.2 — Run Architecture Review Agent (Separate Session)
 

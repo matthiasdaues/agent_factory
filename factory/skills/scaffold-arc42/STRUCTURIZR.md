@@ -4,7 +4,7 @@ Disclosed reference for the `scaffold-arc42` skill.
 
 ## Minimal workspace
 
-The DSL file lives at `docs/architecture.dsl`.
+The DSL file lives at `docs/arc42/architecture.dsl`.
 
 ```dsl
 workspace "System Name" "One-line description" {
@@ -68,11 +68,11 @@ factory/scripts/structurizr export-all
 factory/scripts/structurizr list-views
 ```
 
-The script defaults to `docs/architecture.dsl` and outputs to `docs/assets/images/`. Override the docs directory with `STRUCTURIZR_DOCS=<path>`.
+The script defaults to `docs/arc42/architecture.dsl` and outputs to `docs/assets/images/`. Override the docs directory with `STRUCTURIZR_DOCS=<path>`.
 
 ## Rules
 
-- The DSL file `docs/architecture.dsl` is the versioned source of truth. Exported images are derived artifacts.
+- The DSL file `docs/arc42/architecture.dsl` is the versioned source of truth. Exported images are derived artifacts.
 - One workspace per project. Multiple views within the same workspace.
 - Use `autoLayout` unless manual positioning is needed for clarity.
 - Tag elements for styling: `element "Tag" { ... }` in the `styles` block.

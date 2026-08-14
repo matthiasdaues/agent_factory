@@ -1,10 +1,10 @@
-[back to index](README.md)
+[back to index](../README.md)
 
 # 6. Runtime View
 
 ## 6.1 Overview
 
-This chapter describes key interaction sequences, focusing on **test execution** — the newest flow and the one most central to the "Agentic Creation, Deterministic Validation" principle. Other runtime scenarios (phase advance, agent dispatch, retry loops) are documented here as needed for context but are not exhaustive; see use cases in [`spec/use_cases/`](spec/use_cases/) for full flows.
+This chapter describes key interaction sequences, focusing on **test execution** — the newest flow and the one most central to the "Agentic Creation, Deterministic Validation" principle. Other runtime scenarios (phase advance, agent dispatch, retry loops) are documented here as needed for context but are not exhaustive; see use cases in [`spec/use_cases/`](../spec/use_cases/) for full flows.
 
 ## 6.2 Test Execution Flow
 
@@ -167,11 +167,11 @@ sequenceDiagram
 
 Full sequences for these flows are in their respective use cases:
 
-- **Phase advance with multiple entry conditions** → [UC-01](spec/use_cases/UC-01-advance-a-playbook-phase.md)
-- **Retry loop with iteration cap** → [UC-03](spec/use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md)
-- **Agent dispatch (interactive vs. background)** → [UC-04](spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md)
-- **Resume after interruption** → [UC-05](spec/use_cases/UC-05-resume-an-interrupted-playbook-run.md)
-- **Transition-lint blocking out-of-phase commit** → [UC-02](spec/use_cases/UC-02-block-an-out-of-phase-commit.md)
+- **Phase advance with multiple entry conditions** → [UC-01](../spec/use_cases/UC-01-advance-a-playbook-phase.md)
+- **Retry loop with iteration cap** → [UC-03](../spec/use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md)
+- **Agent dispatch (interactive vs. background)** → [UC-04](../spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md)
+- **Resume after interruption** → [UC-05](../spec/use_cases/UC-05-resume-an-interrupted-playbook-run.md)
+- **Transition-lint blocking out-of-phase commit** → [UC-02](../spec/use_cases/UC-02-block-an-out-of-phase-commit.md)
 
 ## Referenced from
 

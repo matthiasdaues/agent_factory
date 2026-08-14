@@ -20,13 +20,13 @@ unless a genuine contradiction forced a change.
 
 Targets re-reconciled:
 
-1. Root `README.md` and root-level docs it references (`docs/concepts.md`,
-   `docs/beginner-intro.md`, `docs/CONTEXT-MAP.md`).
+1. Root `README.md` and root-level docs it references (`docs/arc42/concepts.md`,
+   `docs/arc42/beginner-intro.md`, `docs/arc42/CONTEXT-MAP.md`).
 2. `factory/` self-documentation (`factory/README.md`, `factory/docs/`).
 3. `orchestrator/` self-documentation (`orchestrator/README.md`,
    `orchestrator/docs/**`, `orchestrator/docs/adr/`). `orchestrator/CONTEXT.md`
    was checked for again — it still does not exist, which matches
-   `docs/CONTEXT-MAP.md`'s current (post-prior-pass) entry that links
+   `docs/arc42/CONTEXT-MAP.md`'s current (post-prior-pass) entry that links
    `orchestrator/README.md` instead.
 
 **Method.** Rebuilt truth maps from code (`factory/scripts/`,
@@ -68,7 +68,7 @@ implementation agent.
 
 ## Observations (not filed, not edited)
 
-- **`docs/concepts.md` project tree** still lists
+- **`docs/arc42/concepts.md` project tree** still lists
   `01_introduction_and_goals.md # ...through 12_glossary.md — the 12 arc42 chapters`, but only `05`, `06`, `08`, `09`, `12` exist on disk. This
   describes the flow-control arc42 architecture surface, explicitly excluded
   from scope, and is a known intentional partial state (`arch-lint` is
@@ -92,18 +92,18 @@ implementation agent.
 Re-confirmed against code-as-built; no edits needed:
 
 - Root `README.md` — repo-layout claims, links to `factory/`,
-  `orchestrator/`, `docs/concepts.md`, `docs/beginner-intro.md`, the
+  `orchestrator/`, `docs/arc42/concepts.md`, `docs/arc42/beginner-intro.md`, the
   workflow-diagram asset (`docs/assets/images/workflow-diagram.svg` exists).
-- `docs/concepts.md` — phase chain, research-workflow description,
+- `docs/arc42/concepts.md` — phase chain, research-workflow description,
   `update-factory` mention, `factory/config/` template labelling,
   orchestrator `.fsm.yml` description. (Project tree arc42 claim excepted
   above.)
-- `docs/beginner-intro.md` — all six playbook references resolve
+- `docs/arc42/beginner-intro.md` — all six playbook references resolve
   (`poc-spike`, `bug-fix`, `documentation-update`, `greenfield-development`,
   `brownfield-onboarding`, `feature-addition` all exist in
   `factory/playbooks/`); `INDEX.yaml` catalogue reference; two-modes framing;
   orchestrator `.fsm.yml` description.
-- `docs/CONTEXT-MAP.md` — Usage Accounting (`usage/` absent, no code) and
+- `docs/arc42/CONTEXT-MAP.md` — Usage Accounting (`usage/` absent, no code) and
   Factory API ("vision-stub only", `factory_api/` absent) claims accurate;
   orchestrator entry links `orchestrator/README.md` + `orchestrator/docs/adr/`
   and no longer mentions the dead `ai_tooling` term or

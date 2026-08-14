@@ -15,7 +15,7 @@ Reviewed the complete `docs/spec/` specification and both accepted design inputs
 - `docs/proposals/agent-dispatch-token-efficiency.md`
 - `docs/proposals/proposal-session-transcript-token-control.md`
 
-The immutable accepted baseline was `5219c64b6586b7606df346cac668d128bd3c21fe`. `docs/CONTEXT.md` does not exist; `docs/CONTEXT-MAP.md` was used as the repository's available context map.
+The immutable accepted baseline was `5219c64b6586b7606df346cac668d128bd3c21fe`. `docs/CONTEXT.md` does not exist; `docs/arc42/CONTEXT-MAP.md` was used as the repository's available context map.
 
 `spec-lint`: 0 errors, 0 warnings, 17 information messages across 20 specification files.
 

@@ -19,8 +19,8 @@ Inspected the full diff of `feat/update-factory` (tip `47628e3`) against `dev`
   manifest and updates two docstring/log strings.
 - `orchestrator/tests/test_update_factory.py` (new, 11 tests).
 - `docs/adr/0010-refresh-installed-factory-by-remove-and-reinstall.md` (new
-  ADR) and `docs/09_architecture_decisions.md` index + summary.
-- `docs/concepts.md`, `docs/spec/use_cases/UC-08-initialize-agent-factory-into-a-project.md`,
+  ADR) and `docs/arc42/09_architecture_decisions.md` index + summary.
+- `docs/arc42/concepts.md`, `docs/spec/use_cases/UC-08-initialize-agent-factory-into-a-project.md`,
   `factory/docs/factory-guide.md` — documentation updates.
 
 `docs/CONTEXT.md` does not exist, so there was no project glossary against which

@@ -1,10 +1,10 @@
 ---
 schema_version: 2
 title: "Factory CLI Security Hardening"
-status: open
+status: superseded
 owner: agent-factory
 created: 2026-07-28
-updated: 2026-07-29
+updated: 2026-08-10
 supersedes:
 
 impact:
@@ -32,6 +32,14 @@ estimate:
 ---
 
 # Proposal: Factory CLI Security Hardening
+
+> **Superseded on 2026-08-10.** This proposal is retained as design history.
+> Its scope is replaced by
+> [Agent Execution Isolation and Optional Container Distribution](agent-execution-isolation-and-distribution.md),
+> which makes multi-path host filesystem delegation the primary security goal,
+> treats containers as an optional pinned environment, and leaves privileged
+> Git authorization and publication to a future, separately accepted
+> orchestrator security proposal. Existing guardrails remain in force meanwhile.
 
 ## Summary
 
@@ -104,6 +112,15 @@ The account has:
 For interactive use, the human invokes a trusted launcher that changes to this
 identity and enters the sandbox. Direct execution of the AI CLI under the
 human account is unsupported because it defeats identity separation.
+
+The [Containerized Agent Factory Distribution](containerized-agent-factory.md)
+defines one explicit specialization of this rule. Its verified rootless Podman
+profile may preserve the invoking user's file ownership only because the agent
+process remains inside a user namespace with one approved bind mount, no host
+home or runtime socket, dropped capabilities, and a mechanically proved
+identity mapping. That profile supersedes this subsection only within its
+stated exclusion of kernel or runtime compromise. Baseline and hardened
+workstation deployments still require the dedicated `agent-factory` account.
 
 Use separate identities where capabilities differ materially:
 

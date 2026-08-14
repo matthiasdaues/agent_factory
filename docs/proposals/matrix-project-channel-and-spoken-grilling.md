@@ -18,7 +18,7 @@ impact:
     - factory/scripts/phase
     - factory/skills/grilling/SKILL.md
     - factory/docs/factory-guide.md
-    - docs/architecture.dsl
+    - docs/arc42/architecture.dsl
 
 governance:
   assurance: critical
@@ -54,7 +54,7 @@ Factory Session Controller acts as a third operator peer over the same public
 Factory CLI used by a human or the orchestrator, while Factory scripts retain
 exclusive authority over workflow-state legality and deterministic gates. The
 channel works with either today's host-native Factory installation or the
-separate [container-distribution proposal](containerized-agent-factory.md);
+separate [execution-isolation proposal](agent-execution-isolation-and-distribution.md);
 neither backend changes the Matrix protocol or grants Matrix administrative
 control.
 
@@ -236,25 +236,27 @@ Release 1 provides two adapters.
 **Host-native adapter:**
 
 - runs the installed project's Factory scripts and supported AI CLI as the
-  configured local operating-system identity;
+  dedicated identity defined by the execution-isolation proposal;
 - uses the canonical project root as its working directory;
-- inherits the current host-native security limitations; and
+- receives only the host-controlled delegated paths and access modes; and
 - does not require Docker or Podman.
 
 **Container adapter:**
 
 - invokes the trusted launcher and pinned image defined by the
-  [container-distribution proposal](containerized-agent-factory.md);
-- mounts only the approved project and directional broker paths;
-- uses the runtime-specific rootless identity strategy; and
+  [execution-isolation proposal](agent-execution-isolation-and-distribution.md);
+- mounts only the approved delegated paths and directional broker paths, with
+  their declared access modes;
+- uses the same dedicated identity and delegation model as the host-native
+  adapter; and
 - does not expose Matrix credentials or the container-runtime socket inside the
   Factory runner.
 
 Runtime selection is made during terminal setup and stored in host-controlled
 configuration. Matrix commands cannot change it. Both adapters must produce
 the same typed events, decision results, and conversational behavior. Security
-status reports the selected backend honestly; enabling Matrix does not make a
-host-native Factory sandboxed.
+status reports the selected backend and effective delegation honestly;
+enabling Matrix does not broaden either backend's authority.
 
 ### Directional message broker
 

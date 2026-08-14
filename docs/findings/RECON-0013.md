@@ -3,7 +3,7 @@ id: RECON-0013
 source: reconcile-spec
 severity: major
 category: defect
-artifact: docs/05_building_block_view.md#L27,L123,L129; docs/06_runtime_view.md#L156; docs/08_crosscutting_concepts.md#L58; docs/12_glossary.md#L32,L69; factory/docs/factory-guide.md#cli-safety-guardrails
+artifact: docs/arc42/05_building_block_view.md#L27,L123,L129; docs/arc42/06_runtime_view.md#L156; docs/arc42/08_crosscutting_concepts.md#L58; docs/arc42/12_glossary.md#L32,L69; factory/docs/factory-guide.md#cli-safety-guardrails
 status: resolved
 traces: [ADR-0004, ADR-0007]
 ---
@@ -18,16 +18,16 @@ PreToolUse guardrail as Claude Code and Copilot CLI, not merely a usage hook.
 
 Concrete drift locations:
 
-- `docs/05_building_block_view.md` §5.2 and §5.5 — `block-dangerous-git` is
+- `docs/arc42/05_building_block_view.md` §5.2 and §5.5 — `block-dangerous-git` is
   labelled "PreToolUse hook (both CLIs)" (lines 27 and 123). The §5.5
   "Invoked by" column for the `run-step` skill reads "Claude Code, Copilot CLI
   (LLM-executed)" (line 129), omitting Pi and Codex, under which the skill is
   also installed and invoked.
-- `docs/06_runtime_view.md` §6.2.5 — "Both CLIs: Works identically for Claude
+- `docs/arc42/06_runtime_view.md` §6.2.5 — "Both CLIs: Works identically for Claude
   Code and Copilot CLI" (line 156).
-- `docs/08_crosscutting_concepts.md` §8.2 — "Receives the command as JSON on
+- `docs/arc42/08_crosscutting_concepts.md` §8.2 — "Receives the command as JSON on
   stdin (both CLIs use the same schema)" (line 58).
-- `docs/12_glossary.md` — the **PreToolUse Hook** entry states "Both Claude
+- `docs/arc42/12_glossary.md` — the **PreToolUse Hook** entry states "Both Claude
   Code and Copilot CLI support this" (line 32), and the **CLI** acronym reads
   "Command-Line Interface (here: Claude Code, Copilot CLI)" (line 69). The
   **CLI-Invoked Agent** entry likewise names only Claude Code and Copilot CLI.
@@ -52,7 +52,7 @@ than a hook.
 So "both CLIs" is stale in two ways: it undercounts the hook-based CLIs
 (Claude, Copilot, Codex = three) and it ignores that Pi enforces the same
 guardrail through a different mechanism. This is terminology drift against
-`docs/12_glossary.md`'s own canonical CLI set and against ADR-0007, which
+`docs/arc42/12_glossary.md`'s own canonical CLI set and against ADR-0007, which
 names Claude Code, Copilot CLI, Codex, and Pi as the four runtimes.
 
 **Fix:** Update the affected arc42 chapters, glossary, and the factory guide's

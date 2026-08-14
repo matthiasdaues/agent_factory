@@ -10,8 +10,8 @@ agents:
     tier: standard
     description: Run retrospectives, extract action items, and track process improvements across sessions.
     path: agents/coaching-agent.md
-    tokens: 406
-    total_tokens: 1068
+    tokens: 412
+    total_tokens: 1074
   - name: requirements-agent
     title: Requirements Agent
     phase: 1
@@ -37,8 +37,8 @@ agents:
     tier: strong
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
-    tokens: 1074
-    total_tokens: 6413
+    tokens: 1138
+    total_tokens: 7846
   - name: architecture-review-agent
     title: Architecture Review Agent
     phase: 2
@@ -46,8 +46,8 @@ agents:
     tier: strong
     description: Review architecture against quality attributes using ATAM in a separate session from the architecture author.
     path: agents/architecture-review-agent.md
-    tokens: 798
-    total_tokens: 4248
+    tokens: 819
+    total_tokens: 5562
   - name: planning-agent
     title: Planning Agent
     phase: 3
@@ -64,8 +64,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints. Each subagent implements one story using TDD on its own feature branch. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 1894
-    total_tokens: 6932
+    tokens: 1960
+    total_tokens: 7273
   - name: reconciliation-agent
     title: Reconciliation Agent
     phase: 4
@@ -73,8 +73,8 @@ agents:
     tier: strong
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
-    tokens: 1093
-    total_tokens: 7624
+    tokens: 1115
+    total_tokens: 8930
   - name: qa-agent
     title: QA Agent
     phase: 5
@@ -82,8 +82,8 @@ agents:
     tier: strong
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
-    tokens: 823
-    total_tokens: 5257
+    tokens: 826
+    total_tokens: 5260
   - name: claim-reviewer
     title: Claim Reviewer
     phase: 6
@@ -176,12 +176,17 @@ skills:
     category: architecture
     description: Two-pass architecture review — deterministic arch-lint (structure, DSL consistency, diagram references) then ATAM evaluation against quality attribute scenarios. Files findings as local markdown files.
     path: skills/atam-review/SKILL.md
-    tokens: 773
+    tokens: 782
   - name: maintain-architecture
     category: architecture
     description: Maintain arc42 architecture docs with architecture.dsl as the single source of truth. Covers DSL-first workflow, image export, Mermaid derivation, and state machine pseudocode.
     path: skills/maintain-architecture/SKILL.md
-    tokens: 1156
+    tokens: 1174
+  - name: model-structurizr-slice
+    category: architecture
+    description: Model an increment, MVP, or release in a canonical Structurizr DSL workspace. Use to tag and style a component subset, map runtime deployment, create static and dynamic slice views, separate data models from C4 views, or fix diagrams that mix structure, deployment, behavior, and data.
+    path: skills/model-structurizr-slice/SKILL.md
+    tokens: 1284
   - name: pugh-matrix
     category: architecture
     description: Evaluate multiple alternatives against weighted criteria in a Pugh Matrix, present for confirmation, return the completed matrix. Use when a decision has genuine alternatives worth formally comparing — not every decision needs this.
@@ -191,12 +196,12 @@ skills:
     category: architecture
     description: Create arc42 architecture documentation and a Structurizr C4 model from the specification.
     path: skills/scaffold-arc42/SKILL.md
-    tokens: 676
+    tokens: 737
   - name: write-adr
     category: architecture
     description: Document an architecture decision as an ADR (Nygard format). The sole owner of ADR format in this project — every ADR, from any caller, is written by this skill.
     path: skills/write-adr/SKILL.md
-    tokens: 888
+    tokens: 894
   - name: create-backlog
     category: planning
     description: Break specification and architecture into a local backlog of markdown stories — EPICs and User Stories with INVEST criteria and MoSCoW priority.
@@ -281,7 +286,7 @@ skills:
     category: utility
     description: Run every applicable deterministic gate on demand, mid-session — the custom lint scripts plus ruff and mdformat — without needing a git commit.
     path: skills/validate/SKILL.md
-    tokens: 909
+    tokens: 985
   - name: adversarial-review
     category: research
     description: Test a claim, its evidence, and refutation attempts against ten review checks, classify defects, and produce a vote tied to exact claim hash.
@@ -328,8 +333,8 @@ playbooks:
       - architecture-review-agent
       - architecture-agent
       - architecture-review-agent
-    tokens: 1063
-    total_tokens: 11724
+    tokens: 1108
+    total_tokens: 14516
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -340,8 +345,8 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 1583
-    total_tokens: 24039
+    tokens: 1592
+    total_tokens: 28101
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -352,7 +357,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 777
-    total_tokens: 9190
+    total_tokens: 9193
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -363,8 +368,8 @@ playbooks:
       - implementation-agent
       - spec-review-agent
       - architecture-review-agent
-    tokens: 949
-    total_tokens: 23924
+    tokens: 952
+    total_tokens: 26888
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -380,7 +385,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 2207
-    total_tokens: 42704
+    total_tokens: 47101
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -397,8 +402,8 @@ playbooks:
       - reconciliation-agent
       - qa-agent
       - coaching-agent
-    tokens: 2122
-    total_tokens: 43687
+    tokens: 2128
+    total_tokens: 48096
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -414,7 +419,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1281
-    total_tokens: 9694
+    total_tokens: 9697
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -459,11 +464,11 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 2057
+    tokens: 2170
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
-    tokens: 2188
+    tokens: 2463
   - name: cache-hygiene
     category: conventions
     path: rulebooks/conventions/cache-hygiene.md
@@ -475,7 +480,7 @@ rulebooks:
   - name: context-format
     category: conventions
     path: rulebooks/conventions/context-format.md
-    tokens: 346
+    tokens: 361
   - name: cross-reference-format
     category: conventions
     path: rulebooks/conventions/cross-reference-format.md
@@ -495,7 +500,7 @@ rulebooks:
   - name: git-workflow
     category: conventions
     path: rulebooks/conventions/git-workflow.md
-    tokens: 1139
+    tokens: 1294
   - name: handoff-format
     category: conventions
     path: rulebooks/conventions/handoff-format.md

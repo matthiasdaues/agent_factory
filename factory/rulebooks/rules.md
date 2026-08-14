@@ -49,8 +49,10 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 → [branching-policy.md](conventions/branching-policy.md)
 
+- **MUST** create every new local branch atomically with its own linked worktree using `git worktree add -b <branch> <worktree-path> <base>`; standalone branch creation is forbidden.
+- **MUST** verify every new branch-to-worktree mapping with `git worktree list --porcelain` before doing work on that branch.
 - **MUST** create exactly one feature branch per story or bug — never per EPIC, sprint, or wave.
-- **MUST** cut every feature branch from a dedicated invocation branch (itself cut from `main`), recording its origin commit as the branch root.
+- **MUST** create every feature branch and worktree from a dedicated invocation branch and worktree (itself created from `main`), recording its origin commit as the branch root.
 - **MUST** determine merge order from real file-overlap analysis, not a grouping label — file-disjoint branches merge in parallel, overlapping branches merge serially in dependency order.
 - **MUST** run the full test suite after every merge, before the next.
 - **MUST** track exactly two commit IDs per invocation — branch root and branch head.
@@ -78,6 +80,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 → [git-workflow.md](conventions/git-workflow.md)
 
 - **MUST** issue git as a lone command — never chained after `cd` or another command (the working directory persists; the guardrail mis-parses compound lines).
+- **MUST NOT** switch the current checkout to create a branch; create the branch in its dedicated linked worktree with `git worktree add -b`.
 - **MUST** run `factory/scripts/premerge-check <target> <branch>` before `git merge <branch>` — the merge is blocked without the resulting `.agent-factory/premerge-check-ok` marker.
 - **MUST NOT** bypass a failing pre-commit hook (`--no-verify`, `core.hooksPath`); fix the hook. Discard with `git checkout HEAD -- <path>`, not `git checkout .`.
 - **SHOULD** commit through the hooks with the two-pass sequence — `add` → `commit`; on "files were modified by this hook", `add -u` → recommit — or use `factory/scripts/commit-safe`.
