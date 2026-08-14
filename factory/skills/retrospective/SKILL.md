@@ -28,6 +28,14 @@ Rules:
 - Stop/Continue/Start: actionable — a future agent or operator can follow it.
 - Zero items in a category: say so. Do not pad.
 
+When the session usage record is available, read its provider-qualified
+`cache_miss_turns`, `cache_miss_input_tokens`, and
+`late_early_input_ratio` values with `cli`, `provider`, and
+`usage_capability`. Use non-null values only as concrete evidence in **Caused
+Friction**, retaining the qualifier and distinguishing numeric zero from
+unavailable data. These session-end signals support diagnosis; they are never
+a live budget gate and must not be used to interrupt or control a run.
+
 **Completion**: items collected for all five categories.
 
 ## Step 2 — Draft the report

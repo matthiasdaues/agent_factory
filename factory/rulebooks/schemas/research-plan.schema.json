@@ -1,0 +1,42 @@
+{
+  "type": "object",
+  "required": [
+    "research_questions",
+    "competing_conjectures",
+    "evidence_requirements",
+    "refutation_strategies",
+    "assignments",
+    "review_requirements",
+    "stop_conditions"
+  ],
+  "properties": {
+    "research_questions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "competing_conjectures": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "evidence_requirements": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "refutation_strategies": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "assignments": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "review_requirements": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "stop_conditions": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

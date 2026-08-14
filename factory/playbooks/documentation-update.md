@@ -97,7 +97,7 @@ factory/scripts/spec-lint --spec-dir docs/spec --graph docs/spec/traceability.js
 ### Step 2.2 — Lint Architecture
 
 ```bash
-factory/scripts/arch-lint --docs-dir docs/
+factory/scripts/arch-lint --docs-dir docs/arc42
 ```
 
 **If errors** → Fix manually or run architecture-agent

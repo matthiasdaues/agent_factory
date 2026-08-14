@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="620" viewBox="0 0 1400 620" role="img" aria-labelledby="title desc">
+  <title id="title">Agent Factory: from idea to production</title>
+  <desc id="desc">A human-guided production line transforms an idea through specialist AI agents, independent review, and deterministic quality gates into production-ready software.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fffdf8"/>
+      <stop offset="0.55" stop-color="#f8f5ee"/>
+      <stop offset="1" stop-color="#f1f6f1"/>
+    </linearGradient>
+    <linearGradient id="flow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#75b9ae"/>
+      <stop offset="0.52" stop-color="#9b91c8"/>
+      <stop offset="1" stop-color="#d49a86"/>
+    </linearGradient>
+    <linearGradient id="output" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8fc8bc"/>
+      <stop offset="1" stop-color="#b9addd"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#64748b" flood-opacity="0.14"/>
+    </filter>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#64748b" stroke-opacity="0.045"/>
+    </pattern>
+  </defs>
+
+  <rect width="1400" height="620" rx="28" fill="url(#background)"/>
+  <rect width="1400" height="620" rx="28" fill="url(#grid)"/>
+  <g font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+    <text x="700" y="72" fill="#303743" font-size="30" font-weight="700" text-anchor="middle" letter-spacing="-0.5" word-spacing="3">From rough idea to production-quality code</text>
+    <text x="700" y="105" fill="#747b87" font-size="16" text-anchor="middle">Human judgement · specialist AI agents · deterministic checks</text>
+
+    <!-- Human-guided input -->
+    <g transform="translate(58 196)" filter="url(#shadow)">
+      <rect width="210" height="228" rx="28" fill="#fffdfa" stroke="#75b9ae" stroke-opacity="0.7"/>
+      <circle cx="105" cy="66" r="32" fill="#dceee9" stroke="#75b9ae" stroke-width="2"/>
+      <path d="M91 68c0-9 6-16 14-16s14 7 14 16c0 6-3 10-8 13v7H99v-7c-5-3-8-7-8-13Z" fill="none" stroke="#4d9489" stroke-width="3" stroke-linecap="round"/>
+      <path d="M99 94h12M101 100h8" stroke="#4d9489" stroke-width="3" stroke-linecap="round"/>
+      <text x="105" y="130" fill="#303743" font-size="21" font-weight="700" text-anchor="middle">Your idea</text>
+      <text x="105" y="159" fill="#747b87" font-size="14" text-anchor="middle">goals · context · intent</text>
+      <rect x="35" y="184" width="140" height="28" rx="14" fill="#e7f4f0"/>
+      <text x="105" y="203" fill="#4d7f77" font-size="12" font-weight="600" text-anchor="middle">guided by you</text>
+    </g>
+
+    <!-- Main flow -->
+    <path d="M278 310H1145" fill="none" stroke="#e8e3dc" stroke-width="18" stroke-linecap="round"/>
+    <path d="M278 310H1145" fill="none" stroke="url(#flow)" stroke-width="4" stroke-linecap="round"/>
+    <path d="m1130 298 18 12-18 12" fill="none" stroke="#d49a86" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- Agent cards -->
+    <g filter="url(#shadow)">
+      <g transform="translate(310 220)">
+        <rect width="150" height="180" rx="24" fill="#fffdfa" stroke="#8fc8bc"/>
+        <circle cx="75" cy="54" r="25" fill="#dceee9"/>
+        <path d="M62 55h26M68 47h14M68 63h14" stroke="#4d9489" stroke-width="3" stroke-linecap="round"/>
+        <text x="75" y="105" fill="#303743" font-size="17" font-weight="700" text-anchor="middle">Requirements</text>
+        <text x="75" y="130" fill="#747b87" font-size="12" text-anchor="middle">clarify the goal</text>
+        <circle cx="75" cy="159" r="5" fill="#75b9ae"/>
+      </g>
+      <g transform="translate(490 220)">
+        <rect width="150" height="180" rx="24" fill="#fffdfa" stroke="#a9bdd5"/>
+        <circle cx="75" cy="54" r="25" fill="#e5edf5"/>
+        <path d="M62 64V48l13-8 13 8v16l-13 8-13-8Zm13-24v32M62 48l13 8 13-8" fill="none" stroke="#93c5fd" stroke-width="2.5" stroke-linejoin="round"/>
+        <text x="75" y="105" fill="#303743" font-size="17" font-weight="700" text-anchor="middle">Architecture</text>
+        <text x="75" y="130" fill="#747b87" font-size="12" text-anchor="middle">shape the system</text>
+        <circle cx="75" cy="159" r="5" fill="#8ca9c6"/>
+      </g>
+      <g transform="translate(670 220)">
+        <rect width="150" height="180" rx="24" fill="#fffdfa" stroke="#b9addd"/>
+        <circle cx="75" cy="54" r="25" fill="#eee9f8"/>
+        <path d="M62 46h26M62 55h19M62 64h23" stroke="#8175ae" stroke-width="3" stroke-linecap="round"/>
+        <text x="75" y="105" fill="#303743" font-size="17" font-weight="700" text-anchor="middle">Planning</text>
+        <text x="75" y="130" fill="#747b87" font-size="12" text-anchor="middle">slice the work</text>
+        <circle cx="75" cy="159" r="5" fill="#9b91c8"/>
+      </g>
+      <g transform="translate(850 220)">
+        <rect width="150" height="180" rx="24" fill="#fffdfa" stroke="#dfb19e"/>
+        <circle cx="75" cy="54" r="25" fill="#f7e7df"/>
+        <path d="m68 44-12 11 12 11M82 44l12 11-12 11M79 39l-8 32" fill="none" stroke="#b87862" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="75" y="105" fill="#303743" font-size="17" font-weight="700" text-anchor="middle">Build</text>
+        <text x="75" y="130" fill="#747b87" font-size="12" text-anchor="middle">implement with TDD</text>
+        <circle cx="75" cy="159" r="5" fill="#d49a86"/>
+      </g>
+    </g>
+
+    <!-- Independent review and deterministic gates -->
+    <g>
+      <path d="M385 205V165H925V205" fill="none" stroke="#d9a66f" stroke-width="2" stroke-dasharray="3 8" opacity="0.8"/>
+      <rect x="561" y="138" width="188" height="40" rx="20" fill="#fff6e9" stroke="#e4b984"/>
+      <path d="m576 158 7 7 13-15" fill="none" stroke="#a36e38" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="673" y="163" fill="#7c5a37" font-size="13" font-weight="650" text-anchor="middle">independent review</text>
+
+      <path d="M385 415V455H925V415" fill="none" stroke="#75b9ae" stroke-width="2" stroke-dasharray="3 8" opacity="0.8"/>
+      <rect x="540" y="440" width="230" height="40" rx="20" fill="#edf8f5" stroke="#8fc8bc"/>
+      <path d="M559 460h7l4-8 7 16 5-8h8" fill="none" stroke="#4d9489" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="681" y="465" fill="#426e67" font-size="13" font-weight="650" text-anchor="middle">deterministic checks</text>
+    </g>
+
+    <!-- Output -->
+    <g transform="translate(1168 196)" filter="url(#shadow)">
+      <rect width="174" height="228" rx="24" fill="url(#output)"/>
+      <rect x="2" y="2" width="170" height="224" rx="22" fill="#fffdfa" fill-opacity="0.94"/>
+      <circle cx="87" cy="66" r="34" fill="#eee9f8"/>
+      <circle cx="87" cy="66" r="30" fill="none" stroke="#9b91c8" stroke-width="2" stroke-dasharray="2 6"/>
+      <path d="m71 66 11 11 22-25" fill="none" stroke="#8175ae" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="87" y="130" fill="#303743" font-size="20" font-weight="700" text-anchor="middle">Production</text>
+      <text x="87" y="155" fill="#747b87" font-size="14" text-anchor="middle">ready software</text>
+      <rect x="17" y="184" width="140" height="28" rx="14" fill="#eee9f8"/>
+      <text x="87" y="203" fill="#6f6598" font-size="11" font-weight="600" text-anchor="middle">ready when you are</text>
+    </g>
+
+    <text x="700" y="557" fill="#747b87" font-size="15" text-anchor="middle">See the work. Shape the decisions. Let the routine checks take care of themselves.</text>
+  </g>
+</svg>

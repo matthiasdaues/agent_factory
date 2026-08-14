@@ -27,9 +27,15 @@ The actor runs `factory/scripts/init-factory`, optionally with `--target` and `-
 02. `init-factory` creates the target directory if missing, and runs `git init` if it is not already a repo.
 03. `init-factory` copies `factory/` from the source checkout into the target, since `--target/factory` does not yet exist.
 04. `init-factory` merges the required lines into `--target/.gitignore`, appending only what is missing.
-05. `init-factory` creates `--target/.claude` and `--target/.github` unconditionally.
-06. `init-factory` symlinks `factory/{agents,skills,playbooks,rulebooks,scripts,INDEX.yaml}` and `factory/config/AGENTS.md` into both dot-dirs, and stops at the first path that is not one of "missing" or "already the correct symlink" (BR-021).
-07. `init-factory` symlinks `block-dangerous-git.sh` into both `.claude/hooks/` and `.github/hooks/`, and wires each CLI's own hook-config shape to it — creating `.claude/settings.json` if absent, appending a `PreToolUse`/`Bash` entry if it is absent from an existing one.
+05. `init-factory` creates the Claude Code, GitHub Copilot CLI, Codex, and Pi
+    runtime directories.
+06. `init-factory` installs the generated agents, skills, playbooks, rulebooks,
+    scripts, index, and orientation files in each runtime's native layout, and
+    stops at the first path that is neither missing nor already the expected
+    link (BR-021).
+07. `init-factory` wires `block-dangerous-git.sh` into the Claude Code,
+    GitHub Copilot CLI, and Codex hook configurations, and installs Pi's
+    equivalent project-local extension.
 08. `init-factory` copies `config/model.conf` from `factory/config/model.conf`, since `--target/config/model.conf` does not yet exist.
 09. `init-factory` symlinks `.pre-commit-config.yaml` to `factory/config/pre-commit-config.yaml`, since the target has none yet.
 10. `init-factory` runs `uvx pre-commit install`.
@@ -45,13 +51,16 @@ The actor runs `factory/scripts/init-factory`, optionally with `--target` and `-
   - 9a1. `init-factory` hands off to `factory/scripts/merge-precommit-config`, which splices Agent Factory's hooks into the existing `repos:` list without disturbing what was already there.
   - 9a2. If the merge script cannot handle the existing file's structure, `init-factory` raises a `Collision` and exits `1`, naming the path.
 - **3a. `--target/factory` already exists**
-  - 3a1. `init-factory` skips the copy entirely and reports so — refreshing an existing `factory/` is a separate, not-yet-built update script's job, not `init-factory`'s.
+  - 3a1. `init-factory` skips the copy entirely and reports so — refreshing an existing `factory/` is the update script's job (`factory/scripts/update-factory`), not `init-factory`'s.
 - **7a. `--target/.claude/settings.json` exists but is not valid JSON, or its top-level value is not an object, or `hooks`/`hooks.PreToolUse` is not the expected shape**
   - 7a1. `init-factory` raises a `Collision`, names the exact path, and asks the actor to wire the guardrail hook in by hand.
 
 ## Postconditions
 
-- **Success Guarantee**: on a clean run, `factory/` is present, both dot-dirs are symlinked to it (including the guardrail hook, wired into each CLI's own config shape), `config/model.conf` exists, `.pre-commit-config.yaml` is in place, and `pre-commit` is installed.
+- **Success Guarantee**: on a clean run, `factory/` is present, all four runtime
+  surfaces are installed with their native guardrail integration,
+  `config/model.conf` exists, `.pre-commit-config.yaml` is in place, and
+  `pre-commit` is installed.
 - **Minimal Guarantee**: on any collision, the run stops immediately — nothing later in the step order is left partially applied, and the actor is told the exact colliding path.
 
 ## Business Rules
@@ -70,10 +79,10 @@ flowchart TD
     C -->|no| E[Copy factory/ from source]
     D --> F[Merge .gitignore]
     E --> F
-    F --> G[Create .claude/, .github/]
+    F --> G[Create four CLI runtime surfaces]
     G --> H{every symlink target OK?}
     H -->|collision| I[STOPPED — name exact path, exit 1 — BR-021]
-    H -->|ok| J[Wire guardrail hook into both CLIs]
+    H -->|ok| J[Wire native guardrails and Pi extension]
     J --> K{config/model.conf exists?}
     K -->|yes| L[Leave untouched — BR-022]
     K -->|no| M[Copy model.conf as starter]
@@ -92,8 +101,8 @@ Feature: Initialize Agent Factory into a project
     Given an empty target directory
     When the actor runs init-factory --target that directory
     Then factory/ is copied in
-    And .claude/ and .github/ are symlinked to it
-    And the guardrail hook is wired into both CLIs
+    And Claude Code, GitHub Copilot CLI, Codex, and Pi surfaces are installed
+    And each runtime has its native guardrail integration
     And init-factory exits 0
 
   Scenario: Existing model.conf is left untouched

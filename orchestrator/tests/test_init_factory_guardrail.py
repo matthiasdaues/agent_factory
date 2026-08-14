@@ -20,6 +20,7 @@ import importlib.util
 import json
 import subprocess
 import sys
+import uuid
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 
@@ -35,7 +36,16 @@ GUARDRAIL_COMMAND = init_factory.CLAUDE_GUARDRAIL_HOOK_COMMAND
 
 
 def _run_init(target: Path) -> int:
-    return init_factory.main(["--target", str(target), "--source", str(_ROOT)])
+    return init_factory.main(
+        [
+            "--target",
+            str(target),
+            "--source",
+            str(_ROOT),
+            "--project-name",
+            "Test Project",
+        ]
+    )
 
 
 def _hook_link(target: Path) -> Path:
@@ -90,6 +100,7 @@ class TestHookWiringWorks:
             input='{"tool_input":{"command":"git commit -m x --no-verify"}}',
             capture_output=True,
             text=True,
+            check=False,
         )
         assert result.returncode == 2
         assert "BLOCKED" in result.stderr
@@ -103,6 +114,7 @@ class TestHookWiringWorks:
             input='{"tool_input":{"command":"git status"}}',
             capture_output=True,
             text=True,
+            check=False,
         )
         assert result.returncode == 0
 
@@ -176,3 +188,30 @@ class TestModelConfCopied:
         assert dest.read_text(encoding="utf-8") == (
             _ROOT / "factory" / "config" / "model.conf"
         ).read_text(encoding="utf-8")
+
+
+class TestProjectIdentity:
+    def test_fresh_init_writes_stable_identity_in_config(self, tmp_path):
+        assert _run_init(tmp_path) == 0
+
+        identity_path = tmp_path / "config" / "project.json"
+        first = json.loads(identity_path.read_text(encoding="utf-8"))
+        assert uuid.UUID(first["project_id"])
+        assert first["project_name"] == "Test Project"
+
+        assert _run_init(tmp_path) == 0
+        assert json.loads(identity_path.read_text(encoding="utf-8")) == first
+
+    def test_interactive_init_explicitly_prompts_for_project_name(
+        self, tmp_path, monkeypatch
+    ):
+        answers = iter(["Prompted Project"])
+        monkeypatch.setattr("builtins.input", lambda prompt: next(answers))
+
+        assert (
+            init_factory.main(["--target", str(tmp_path), "--source", str(_ROOT)]) == 0
+        )
+        identity = json.loads(
+            (tmp_path / "config/project.json").read_text(encoding="utf-8")
+        )
+        assert identity["project_name"] == "Prompted Project"

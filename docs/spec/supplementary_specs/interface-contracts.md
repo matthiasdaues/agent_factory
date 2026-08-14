@@ -68,22 +68,80 @@ See [UC-06](../use_cases/UC-06-regenerate-the-catalog.md).
 
 |            |                                                                                                           |
 | ---------- | --------------------------------------------------------------------------------------------------------- |
-| Invocation | `PreToolUse`/`preToolUse` hook, both CLIs; command JSON on stdin                                          |
-| Reads      | `.tool_input.command` (Claude Code) or `.toolArgs.command` (Copilot CLI), via `jq`                        |
+| Invocation | Native `PreToolUse` hook for Claude Code, GitHub Copilot CLI, and Codex; command JSON on stdin            |
+| Reads      | `.tool_input.command`, `.toolArgs.command`, or `.tool_input.cmd`, according to the calling runtime        |
 | Writes     | Deny reason to stderr; `{"permissionDecision":"deny","permissionDecisionReason":"..."}` to stdout on deny |
-| Exit code  | `0` allow; `2` deny (both CLIs' shared convention)                                                        |
+| Exit code  | `0` allow; `2` deny (shared by the three native-hook CLIs)                                                |
 
 See [UC-07](../use_cases/UC-07-block-a-dangerous-git-command.md).
 
+## `factory/config/extensions/run-agent.ts` — the `run_agent` tool
+
+|            |                                                                                                                                                                                                                                                                                                             |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Invocation | Pi model-callable tool `run_agent(agent: string, task: string, model?: string)`, registered by the project-local extension when Pi trusts the project                                                                                                                                                       |
+| Reads      | `factory/agents/<agent>.md` (persona and `tier` frontmatter); `config/model.conf` `pi.<tier>` (via the shared tier resolver); the `PI_RUN_AGENT_DEPTH` env var                                                                                                                                              |
+| Spawns     | `pi --no-session -a --mode json --model <m> --append-system-prompt <agent.md> -p <task>` in the project directory, with `PI_RUN_AGENT_DEPTH` incremented                                                                                                                                                    |
+| Streaming  | Asynchronously spools complete stdout to protected capture staging, incrementally parses arbitrarily chunked JSONL with bounded non-result state, and emits bounded progress updates                                                                                                                        |
+| Returns    | A BR-040 bounded result envelope plus `{ usage, exitCode }` parsed from the child's final assistant `message_end`; an error result on unknown agent, unresolved model, exceeded depth, spawn failure, non-zero/no-result exit, or cancellation                                                              |
+| Capture    | Hands the complete raw staging file to detached best-effort usage capture; capture failure leaves the agent result unchanged, and cancellation terminates the process group through bounded `SIGTERM` → `SIGKILL` escalation, bounds pipe drain, cleans staging, and returns a distinct no-retry diagnostic |
+| Guardrail  | The child loads `.pi/extensions/`, so the git-safety guardrail binds it too; the one sanctioned `factory/scripts/run-tests --staged` remains permitted                                                                                                                                                      |
+
+See [UC-10](../use_cases/UC-10-invoke-a-factory-agent-under-pi.md).
+
+## `factory/scripts/usage-capture`
+
+|                   |                                                                                                                                                      |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Invocation        | `usage-capture --cli <claude-code\|copilot\|codex\|pi> --transcript PATH --session ID [--model MODEL] [...]`                                         |
+| Reads             | One CLI-native transcript, explicit invocation context, and `config/project.json`                                                                    |
+| Writes            | One normalized JSONL usage record with non-null `project_id` and `project_name`, configured evidence, and session-end derived signals when available |
+| Model attribution | Explicit `--model` first; otherwise the latest non-empty native transcript model; otherwise null                                                     |
+| Required coverage | A model-bearing contract fixture for every CLI registered in `SUPPORTED_CLIS`                                                                        |
+
+Derived session-end fields are `cache_miss_turns`, `cache_miss_input_tokens`, `late_early_input_ratio`, `cli`, `provider`, and `usage_capability`. `usage_capability` is `full-cache`, `input-only`, or `unavailable`. Exact eligible-turn, predicate, partition, formula, zero, and null rules are canonical in BR-042. The fields are retrospective evidence only.
+
+See [system-use-cases.md § Usage capture attribution](../use_cases/system-use-cases.md#usage-capture-attribution).
+
+## Business Rules
+
+- **BR-036**: usage capture applies model attribution in this order: explicit invocation context, latest non-empty CLI-native transcript model, then null; registry-complete contract coverage is mandatory.
+
+## `factory/scripts/handoff-lint`
+
+|           |                                                                                                                                                                         |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage     | `handoff-lint <handoff-path> [--repo-root DIR]`                                                                                                                         |
+| Reads     | The handoff document, referenced artifact paths, and repository branch, upstream, and HEAD state                                                                        |
+| Writes    | Nothing; validation is read-only                                                                                                                                        |
+| Exit code | `0` when every structural and referential rule passes; non-zero when any required content is absent or malformed                                                        |
+| Reports   | Every mechanically detectable missing section/declared field/path, malformed exact SHA, malformed declared repository state/evidence, or missing next action in one run |
+
+`handoff-lint` does not infer undeclared decisions, open items, evidence, or artifact references. A designated semantic review against outgoing phase evidence is a separate phase-closure obligation (BR-049).
+
+See [UC-11](../use_cases/UC-11-cross-a-phase-boundary.md).
+
+## Child-result envelope
+
+| Field            | Contract                                                                                                       |
+| ---------------- | -------------------------------------------------------------------------------------------------------------- |
+| `disposition`    | Required pass/fail/block outcome                                                                               |
+| `finding_counts` | Required counts keyed by severity; zero counts remain explicit                                                 |
+| `artifact_paths` | Required complete list of canonical tracked report and finding paths                                           |
+| `next_action`    | Required one-to-three-sentence downstream action                                                               |
+| Full detail      | Forbidden in the envelope; it is persisted before return and read deliberately from `artifact_paths` if needed |
+
+The envelope applies to native subagents, `run_agent`, and `dispatch_wave`; runtime-specific transport may differ but content does not (BR-040).
+
 ## `factory/scripts/init-factory`
 
-|               |                                                                                                                                                                             |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage         | `init-factory [--source DIR] [--target DIR]`                                                                                                                                |
-| Reads         | The source checkout's `factory/`; the target's existing `.gitignore`, `.claude/settings.json`, `.pre-commit-config.yaml`, `config/model.conf`, if present                   |
-| Writes        | `factory/` (copy, once), `.gitignore` (merge), `.claude/`, `.github/` (symlinks + settings), `config/model.conf` (copy, once), `.pre-commit-config.yaml` (symlink or merge) |
-| Exit code     | `0` on success, including a clean no-op re-run; `1` on any collision or unsupported existing state                                                                          |
-| stdout/stderr | One `init-factory: <line>` report line per step; `init-factory: STOPPED — <reason>` on collision                                                                            |
+|               |                                                                                                                                                                                                           |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage         | `init-factory [--source DIR] [--target DIR]`                                                                                                                                                              |
+| Reads         | The source checkout's `factory/`; the target's existing `.gitignore`, runtime hook/settings files, `.pre-commit-config.yaml`, and `config/model.conf`, if present                                         |
+| Writes        | `factory/` (copy, once), `.gitignore` (merge), `.claude/`, `.github/`, `.codex/`, `.agents/`, and `.pi/` runtime surfaces, `config/model.conf` (copy, once), `.pre-commit-config.yaml` (symlink or merge) |
+| Exit code     | `0` on success, including a clean no-op re-run; `1` on any collision or unsupported existing state                                                                                                        |
+| stdout/stderr | One `init-factory: <line>` report line per step; `init-factory: STOPPED — <reason>` on collision                                                                                                          |
 
 See [UC-08](../use_cases/UC-08-initialize-agent-factory-into-a-project.md).
 

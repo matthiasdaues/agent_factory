@@ -5,4 +5,7 @@ category: requirements
 source: https://github.com/mattpocock/skills/
 ---
 
-Run the `grilling` skill, using the `domain-modeling` skill.
+Run the `grilling` skill, using the `domain-modeling` skill. When the target is
+a feature proposal, use the proposal-target workflow and amend that proposal in
+place. Keep domain vocabulary and qualifying ADRs current while the proposal
+remains the sole feature design brief.

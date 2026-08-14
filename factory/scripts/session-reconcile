@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """session-reconcile — compare the session log against real git state.
 
+What: Diffs the session log against committed changes and the working tree,
+      flagging unexplained or drifted paths (no LLM).
+When: After a session, to audit that logged runs match the tree.
+By:   run by hand / a reconcile step — not a gate.
+
 Reads two machine facts and reports where they disagree, with no LLM and no
-prose-parsing (see factory/docs/proposals/session-log-addendum.md § 4):
+prose-parsing (see docs/proposals/session-log-addendum.md § 4):
 
   1. the session log — every gate run and the tree delta recorded around it
      (JSON Lines, one file, ``--log``);
@@ -46,7 +51,6 @@ import subprocess
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
 
 SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
 
@@ -70,7 +74,7 @@ class Finding:
 # --- Fact gathering -----------------------------------------------------------
 
 
-def _git(args: List[str]) -> str:
+def _git(args: list[str]) -> str:
     """Run a git command in the cwd; return stdout, or '' on any failure."""
     try:
         proc = subprocess.run(
@@ -81,9 +85,9 @@ def _git(args: List[str]) -> str:
     return proc.stdout if proc.returncode == 0 else ""
 
 
-def read_log(path: Path) -> Tuple[List[dict], List[Finding]]:
+def read_log(path: Path) -> tuple[list[dict], list[Finding]]:
     """Parse the JSON Lines session log. Returns (runs, parse_findings)."""
-    findings: List[Finding] = []
+    findings: list[Finding] = []
     if not path.exists():
         findings.append(
             Finding(
@@ -94,7 +98,7 @@ def read_log(path: Path) -> Tuple[List[dict], List[Finding]]:
             )
         )
         return [], findings
-    runs: List[dict] = []
+    runs: list[dict] = []
     for lineno, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         if not raw.strip():
             continue
@@ -112,7 +116,7 @@ def read_log(path: Path) -> Tuple[List[dict], List[Finding]]:
     return runs, findings
 
 
-def committed_paths(base: str | None, head: str) -> Set[str]:
+def committed_paths(base: str | None, head: str) -> set[str]:
     """Paths changed by commits over base..head (empty when no base given)."""
     if not base:
         return set()
@@ -120,10 +124,10 @@ def committed_paths(base: str | None, head: str) -> Set[str]:
     return {ln.strip() for ln in out.splitlines() if ln.strip()}
 
 
-def worktree_status() -> Dict[str, str]:
+def worktree_status() -> dict[str, str]:
     """Return ``{path: XY}`` from ``git status --porcelain``."""
     out = _git(["status", "--porcelain"])
-    status: Dict[str, str] = {}
+    status: dict[str, str] = {}
     for line in out.splitlines():
         if not line.strip():
             continue
@@ -134,7 +138,7 @@ def worktree_status() -> Dict[str, str]:
     return status
 
 
-def logged_paths(runs: List[dict]) -> Set[str]:
+def logged_paths(runs: list[dict]) -> set[str]:
     return {
         fc["path"]
         for run in runs
@@ -146,7 +150,7 @@ def logged_paths(runs: List[dict]) -> Set[str]:
 # --- Reconciliation -----------------------------------------------------------
 
 
-def check_session(log_path: Path, base: str | None, head: str) -> List[Finding]:
+def check_session(log_path: Path, base: str | None, head: str) -> list[Finding]:
     runs, findings = read_log(log_path)
 
     logged = logged_paths(runs)
