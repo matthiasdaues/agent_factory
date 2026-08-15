@@ -20,7 +20,7 @@ agents:
     description: Capture a project vision, clarify requirements through adversarial interview, and produce a complete specification.
     path: agents/requirements-agent.md
     tokens: 799
-    total_tokens: 4423
+    total_tokens: 4699
   - name: spec-review-agent
     title: Specification Review Agent
     phase: 1
@@ -151,7 +151,7 @@ skills:
     category: requirements
     description: Derive the full specification chain from a PRD — actor-goal list, persona use cases, system use cases, supplementary specs.
     path: skills/derive-spec/SKILL.md
-    tokens: 872
+    tokens: 1148
   - name: grill-me
     category: requirements
     description: Interview the user relentlessly about a plan or design until reaching shared understanding, resolving each branch of the decision tree. Use when user wants to stress-test a plan, get grilled on their design, or mentions "grill me".
@@ -385,7 +385,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 2207
-    total_tokens: 47101
+    total_tokens: 47377
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -403,7 +403,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2128
-    total_tokens: 48096
+    total_tokens: 48372
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
