@@ -98,7 +98,8 @@
       "BR-056",
       "BR-057",
       "BR-058",
-      "BR-059"
+      "BR-059",
+      "BR-060"
     ],
     "entities": [
       "AGENT_ENTRY",
@@ -726,7 +727,17 @@
     {
       "from": "UC-14",
       "rel": "references_br",
+      "to": "BR-053"
+    },
+    {
+      "from": "UC-14",
+      "rel": "references_br",
       "to": "BR-059"
+    },
+    {
+      "from": "UC-14",
+      "rel": "references_br",
+      "to": "BR-053"
     },
     {
       "from": "UC-14",
@@ -822,6 +833,11 @@
       "from": "UC-10",
       "rel": "references_br",
       "to": "BR-040"
+    },
+    {
+      "from": "UC-10",
+      "rel": "references_br",
+      "to": "BR-060"
     },
     {
       "from": "UC-10",

@@ -45,6 +45,10 @@ The actor runs `factory/scripts/bausteinsicht validate` explicitly, or `arch-lin
 - **4b. `architecture.drawio` does not exist**
   - 4b1. Bausteinsicht reports that the draw.io diagram is missing.
   - 4b2. The wrapper exits non-zero (the actor should run `sync` first to create it).
+- **2a. Docker daemon is not running**
+  - 2a1. The wrapper script cannot start the Docker container (BR-053).
+  - 2a2. The wrapper reports Docker is unavailable and exits non-zero without modifying any files.
+  - 2a3. The actor starts Docker and retries.
 - **6a. `arch-lint` invoked instead of `bausteinsicht validate` directly**
   - 6a1. `arch-lint` runs `bausteinsicht validate` and `bausteinsicht lint` as delegates (BR-059).
   - 6a2. `arch-lint` then runs its own Factory-specific checks (arc42 chapter coupling, ADR format, image staleness).
@@ -57,6 +61,7 @@ The actor runs `factory/scripts/bausteinsicht validate` explicitly, or `arch-lin
 
 ## Business Rules
 
+- **BR-053**: All Bausteinsicht operations run inside a Docker container via the `factory/scripts/bausteinsicht` wrapper. The Factory does not install the Bausteinsicht binary directly on the host.
 - **BR-056**: `bausteinsicht validate` checks structural consistency between the JSONC model and the draw.io diagram. `bausteinsicht lint` checks architectural constraints declared in the JSONC model's `constraints` array. Both must pass for validation to succeed.
 - **BR-059**: `arch-lint` delegates model-specific checks to `bausteinsicht validate` and `bausteinsicht lint`, retaining its own Factory-specific checks (arc42 chapter coupling, ADR format, image staleness).
 
@@ -64,7 +69,9 @@ The actor runs `factory/scripts/bausteinsicht validate` explicitly, or `arch-lin
 
 ```mermaid
 flowchart TD
-    A[Actor runs bausteinsicht validate] --> B[Start container with docs/ mounted]
+    A[Actor runs bausteinsicht validate] --> AA{Docker available?}
+    AA -->|no| AB[Report Docker unavailable, exit non-zero]
+    AA -->|yes| B[Start container with docs/ mounted]
     B --> C[Validate JSONC schema + referential integrity]
     C --> D{JSONC internally valid?}
     D -->|no| E[Report JSONC violations, exit non-zero]
@@ -116,6 +123,13 @@ Feature: Validate architecture model consistency
     When the actor runs arch-lint
     Then arch-lint runs bausteinsicht validate and bausteinsicht lint
     And arch-lint also runs its own Factory-specific checks
+
+  Scenario: Docker unavailable blocks validation
+    Given architecture.jsonc exists
+    And Docker daemon is not running
+    When the actor runs bausteinsicht validate
+    Then the wrapper reports Docker is unavailable
+    And the wrapper exits non-zero
 ```
 
 ## Referenced from
