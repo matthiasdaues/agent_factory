@@ -1,6 +1,6 @@
-# Entity Model — Factory Flow Control
+# Entity Model — Factory Specification
 
-The entities `factory/scripts/transition-lint`, `factory/scripts/phase`, `factory/scripts/trigger`, and `factory/scripts/index-lint` read, write, or generate, and how they relate. Applying **SOLID** (Single Responsibility): each entity owns one concern of the run's state — the marker owns *where a run is*, the FSM definition owns *what the run's phases are*, the catalog owns *what agents/skills/playbooks/rulebooks exist*.
+The entities the Factory's flow-control scripts and architecture modeling pipeline read, write, or generate, and how they relate. Applying **SOLID** (Single Responsibility): each entity owns one concern — the marker owns *where a run is*, the FSM definition owns *what the run's phases are*, the catalog owns *what agents/skills/playbooks/rulebooks exist*, the architecture model owns *what architectural elements exist and how they connect*.
 
 ```mermaid
 erDiagram
@@ -24,6 +24,11 @@ erDiagram
     HANDOFF_SEMANTIC_REVIEW }o--|| HANDOFF : evaluates
     CHILD_RESULT_ENVELOPE ||--o{ ARTIFACT_REFERENCE : points_to
     SESSION_USAGE_SIGNAL }o--|| REPOSITORY_STATE : qualifies_session
+    ARCHITECTURE_MODEL ||--o{ ARCHITECTURE_VIEW : defines
+    ARCHITECTURE_MODEL ||--o{ ARCHITECTURE_CONSTRAINT : declares
+    ARCHITECTURE_MODEL ||--|| ARCHITECTURE_DIAGRAM : "syncs with"
+    ARCHITECTURE_MODEL ||--|| SYNC_STATE : "tracked by"
+    ARCHITECTURE_VIEW ||--o{ EXPORTED_IMAGE : "rendered to"
 
     FSM_DEFINITION {
         string playbook
@@ -147,6 +152,32 @@ erDiagram
         int cache_miss_input_tokens "nullable when unavailable"
         float late_early_input_ratio "nullable when unavailable"
     }
+    ARCHITECTURE_MODEL {
+        string path "docs/arc42/architecture.jsonc"
+        string schema "Bausteinsicht JSON Schema URL"
+        list elements "systems, containers, components, etc."
+        list relationships "source-target with description"
+    }
+    ARCHITECTURE_DIAGRAM {
+        string path "docs/arc42/architecture.drawio"
+        string role "layout and visual arrangement"
+    }
+    SYNC_STATE {
+        string path "docs/arc42/.bausteinsicht-sync"
+        string role "auto-managed sync checkpoint"
+    }
+    ARCHITECTURE_VIEW {
+        string name "view identifier"
+        string type "static or dynamic"
+    }
+    ARCHITECTURE_CONSTRAINT {
+        string description "rule text"
+        string scope "elements or relationships it governs"
+    }
+    EXPORTED_IMAGE {
+        string path "docs/assets/images/<view>.<format>"
+        string format "png or svg"
+    }
 ```
 
 ## Notes
@@ -161,6 +192,12 @@ erDiagram
 - **AGENT_ENTRY.tier** and **MODEL_MATRIX_ENTRY.tier** share the same three-value vocabulary (`economy | standard | strong`); `trigger` resolves an agent's dispatch model by looking up `<cli>.<tier>` in `config/model.conf`.
 - **HANDOFF** is the restart contract between two phases. It owns phase continuity; **REPOSITORY_STATE** owns the exact revision and validation evidence, and **ARTIFACT_REFERENCE** names durable information instead of embedding it in a transcript. **HANDOFF_SEMANTIC_REVIEW** records the separate human/agent judgment that the mechanically valid handoff omitted or distorted no material fact.
 - **CHILD_RESULT_ENVELOPE** is deliberately smaller than the tracked result it references. **SESSION_USAGE_SIGNAL** is retrospective evidence qualified by CLI/provider, never live workflow state.
+- **ARCHITECTURE_MODEL** is `docs/arc42/architecture.jsonc` — the single source of truth for architectural structure (BR-050). Its `$schema` field points to the Bausteinsicht JSON Schema on GitHub for IDE autocompletion. Agents work in this file exclusively (BR-052).
+- **ARCHITECTURE_DIAGRAM** is `docs/arc42/architecture.drawio` — the tracked visual artifact that owns layout and receives forward-synced structural changes. Reverse sync carries back only labels and descriptions (BR-051). Marked as binary in `.gitattributes`.
+- **SYNC_STATE** is `docs/arc42/.bausteinsicht-sync` — a dot-file auto-managed by `bausteinsicht sync` to track the synchronization point between model and diagram. Not edited manually.
+- **ARCHITECTURE_VIEW** is a named view (static or dynamic) defined in the JSONC model. Each view is rendered to one or more exported images by `bausteinsicht export`.
+- **ARCHITECTURE_CONSTRAINT** is a rule declared in the JSONC model's `constraints` array, enforced by `bausteinsicht lint` (BR-056).
+- **EXPORTED_IMAGE** is a derived PNG or SVG file in `docs/assets/images/`, rendered from a view by `bausteinsicht export`. Arc42 chapters embed these with relative image references (BR-057).
 
 ## Referenced from
 

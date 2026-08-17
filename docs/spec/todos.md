@@ -1,6 +1,6 @@
-# Todos — Factory Flow Control
+# Todos — Factory Specification
 
-Deferred decisions and named gaps found while reverse-engineering this specification from `factory/`'s code, per [rules.md § Todos](../../factory/rulebooks/rules.md#todos). None of these block the mechanisms documented in [use_cases/](use_cases/) — each is a known, intentional gap in the current implementation, not a defect this spec papers over.
+Deferred decisions and named gaps found while specifying the Factory's flow-control and architecture-modeling mechanisms, per [rules.md § Todos](../../factory/rulebooks/rules.md#todos). None of these block the mechanisms documented in [use_cases/](use_cases/) — each is a known, intentional gap in the current implementation, not a defect this spec papers over.
 
 ## T-01: No CLI-failure classification in `trigger`
 
@@ -53,7 +53,7 @@ Under Pi the git-safety guardrail is a project-local extension loaded only after
 
 ## T-09: `run_agent` tier resolution duplicates or shells the Python resolver
 
-`run-agent.ts` is TypeScript; the canonical tier→model resolver (`matrix-lint.parse_matrix`, reused by `trigger`) is Python. `run-agent.ts` must either re-implement the `model.conf` parse in TS or shell out to a small Python resolver to keep a single source of truth. See [ADR-0004](../../adr/0004-pi-subagent-invocation-via-subprocess-spawn.md).
+`run-agent.ts` is TypeScript; the canonical tier→model resolver (`matrix-lint.parse_matrix`, reused by `trigger`) is Python. `run-agent.ts` must either re-implement the `model.conf` parse in TS or shell out to a small Python resolver to keep a single source of truth. See [ADR-0004](../adr/0004-pi-subagent-invocation-via-subprocess-spawn.md).
 
 - [ ] Confirm the chosen resolution path holds up once OpenRouter model IDs (ADR-0005) populate `pi.*`.
 
@@ -63,8 +63,20 @@ Per the build order, the `run_agent` single-agent primitive shipped and was vali
 
 - [x] Land `dispatch_wave` and its two-parallel-agent validation.
 
+## T-11: No restricted reverse mode flag in first release
+
+`bausteinsicht sync` performs a full reverse sync — it carries back whatever Bausteinsicht's reverse pass produces, not just labels and descriptions. The Factory workflow relies on `bausteinsicht validate` and `bausteinsicht lint` to catch structural drift introduced via draw.io edits, rather than on a `--reverse-mode=labels-only` flag in the Bausteinsicht binary. The flag is a desirable future Bausteinsicht product feature but is not required for the first release. See [BR-051](supplementary_specs/validation-rules.md#architecture-model-invariants-br-050-br-051-br-052).
+
+- [ ] Track upstream Bausteinsicht support for `--reverse-mode=labels-only` and adopt it when available.
+
+## T-12: Agent draw.io edit restriction is instruction-enforced, not mechanically gated
+
+BR-052 states that factory agents work in the JSONC model exclusively and never edit the draw.io file directly. This restriction is enforced by skill and agent instructions (`maintain-architecture`, `model-slice`), not by a mechanical gate (`block-dangerous-git.sh` pattern or a pre-tool-use check). An agent ignoring its instructions could write to the draw.io file.
+
+- [ ] Decide whether to add a `block-dangerous-git.sh` pattern for draw.io edits by agents, or whether instruction-level enforcement is sufficient given the pre-commit validation safety net.
+
 ## Referenced from
 
 - [validation-rules.md](supplementary_specs/validation-rules.md)
 - [entity-model.md](supplementary_specs/entity-model.md)
-- [docs/findings/ATAM-0002-monorepo-multi-framework-blind-spot.md](../../findings/ATAM-0002-monorepo-multi-framework-blind-spot.md)
+- [docs/findings/ATAM-0002-monorepo-multi-framework-blind-spot.md](../findings/ATAM-0002-monorepo-multi-framework-blind-spot.md)

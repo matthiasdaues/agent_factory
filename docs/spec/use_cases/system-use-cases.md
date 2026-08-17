@@ -1,4 +1,4 @@
-# System Use Cases — Factory Flow Control
+# System Use Cases — Factory Specification
 
 Technical requirements at the system's interfaces, expressed in **EARS** syntax (Ubiquitous / When / While / If-Then / Where). Each requirement is atomic. Requirements reference the persona use cases (UC-##) and business rules (BR-###) they derive from.
 
@@ -117,6 +117,46 @@ Technical requirements at the system's interfaces, expressed in **EARS** syntax 
 - Machine-consumed base declarations and dispatch records shall use exact 40-character Git SHAs (FR-L2, BR-044).
 - Automated evidence shall exercise wrong and stale bases before work, stale/out-of-scope/file-count-blowout/target-reverting diffs, resolvable nested reply addressing, and unattended argv and deny-list construction (FR-L2, BR-045, BR-046, BR-047).
 - Where a mechanism already has complete contract, implementation, and automated evidence, the audit shall not create reimplementation work for it (FR-L3, BR-048).
+
+## Architecture model sync (`bausteinsicht sync`)
+
+- When `bausteinsicht sync` runs, it shall perform a forward sync propagating structural changes from the JSONC model to the draw.io diagram (UC-13, BR-050).
+- When `bausteinsicht sync` runs, it shall perform a reverse sync carrying label and description text from the draw.io diagram back to the JSONC model (UC-13, BR-051).
+- Reverse sync shall not create, delete, or rename elements or relationships in the JSONC model (UC-13, BR-051).
+- All Bausteinsicht operations shall run inside a Docker container via the wrapper script (UC-13, UC-14, UC-15, UC-16, BR-053).
+- Where `architecture.drawio` does not exist when `sync` runs, Bausteinsicht shall create an initial draw.io file from the JSONC model (UC-13).
+- Where Docker is unavailable, the wrapper shall report the condition and exit non-zero without modifying any files (UC-13).
+
+## Architecture model validation (`bausteinsicht validate`, `bausteinsicht lint`)
+
+- When `bausteinsicht validate` runs, it shall check the JSONC model's internal consistency (schema, referential integrity) and structural consistency with the draw.io diagram (UC-14, BR-056).
+- When `bausteinsicht lint` runs, it shall check architectural constraints declared in the JSONC model's `constraints` array (UC-14, BR-056).
+- If any validation or constraint check fails, then the wrapper shall report every violation in one run and exit non-zero (UC-14).
+- When `arch-lint` runs and `architecture.jsonc` exists, `arch-lint` shall delegate model checks to `bausteinsicht validate` and `bausteinsicht lint` before running its own Factory-specific checks (UC-14, BR-059).
+
+## Architecture image export (`bausteinsicht export`)
+
+- When `bausteinsicht export-all` runs, it shall render every view in the JSONC model to both PNG and SVG in `docs/assets/images/` (UC-15, BR-057).
+- When `bausteinsicht export-png` or `export-svg` runs, it shall render to the single requested format only (UC-15).
+- If a view references elements that do not exist in the model, then the wrapper shall report the broken reference and exit non-zero (UC-15).
+
+## Architecture migration (`bausteinsicht import`)
+
+- When `bausteinsicht import` runs, it shall read the specified Structurizr DSL file and produce `architecture.jsonc` and `architecture.drawio` (UC-16, BR-058).
+- If `architecture.jsonc` already exists at the target path, then `import` shall refuse and exit non-zero without writing any files (UC-16).
+- If the DSL file has syntax errors, then `import` shall report the errors and exit non-zero without writing any files (UC-16).
+- `import` shall not delete the source `.dsl` file; deletion is a manual actor step after verification (UC-16, BR-058).
+
+## Architecture pre-commit validation
+
+- The architecture pre-commit hook shall fire only when `.jsonc` or `.drawio` files appear in the staging area (UC-17, BR-055).
+- If `architecture.jsonc` is staged without `architecture.drawio`, or vice versa, then the hook shall reject the commit and name the missing file (UC-17, BR-054).
+- When both files are co-staged, the hook shall run `bausteinsicht validate` and reject the commit if validation fails (UC-17, BR-056).
+- Where no `.jsonc` or `.drawio` files are staged, the architecture hook shall be a no-op (UC-17, BR-055).
+
+## Architecture structural change summary (`bausteinsicht diff`)
+
+- When `bausteinsicht diff` runs, it shall produce a human-readable structural change summary suitable for PR descriptions (SF-04).
 
 ## Referenced from
 
