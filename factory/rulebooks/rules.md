@@ -68,6 +68,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST** split a whole-codebase dispatch into smaller, independently mergeable dispatches rather than run it as one.
 - **MUST** checkpoint a long-running dispatch with commits between rounds.
 - **MUST** verify a sub-agent's reported result against observable state (git, tests, gates) before treating the work as done — the mechanical gates, not the self-report, are authoritative.
+- **MUST NOT** launch a new agent for the same role while a prior instance is still running — the prior instance cannot be cancelled and will consume tokens against stale state.
 
 ## Commits
 

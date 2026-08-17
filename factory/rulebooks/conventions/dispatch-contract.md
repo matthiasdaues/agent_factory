@@ -86,6 +86,19 @@ Motivating example: the binder-to-OCR research run dispatched ~60–80 research 
 
 A sub-agent's success report is a claim, not proof. Before treating a dispatched unit of work as done, verify it against observable state — the branch tip and `git log`, the actual test run, and the mechanical gates ([verify-base](branching-policy.md#verify-base-preamble), [premerge-check](branching-policy.md#pre-merge-diff-check)) — never the self-report alone.
 
+### Do Not Supersede A Running Agent
+
+Do not launch a new agent for the same role while a prior instance of that role
+is still running. The prior instance cannot be cancelled — it runs to completion
+or failure, consuming tokens against stale state and producing output that will
+be discarded. Wait for the prior instance to complete (or fail), then launch the
+replacement.
+
+Motivating example: the 2026-08-17 bausteinsicht spec review launched a
+repeat-pass spec-review-agent while the first-pass instance was still running.
+The first instance continued, hit the spend limit, recovered, and consumed
+~217k tokens producing findings from pre-fix state that were never used.
+
 ### `run_agent` Envelope Error Is Not Proof Of Failure
 
 A `run_agent`/`dispatch_wave` result reported as `child result envelope invalid` is a final-message *handshake* failure, not proof the child failed.

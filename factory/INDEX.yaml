@@ -19,8 +19,8 @@ agents:
     tier: strong
     description: Capture a project vision, clarify requirements through adversarial interview, and produce a complete specification.
     path: agents/requirements-agent.md
-    tokens: 799
-    total_tokens: 4699
+    tokens: 889
+    total_tokens: 4789
   - name: spec-review-agent
     title: Specification Review Agent
     phase: 1
@@ -65,7 +65,7 @@ agents:
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints. Each subagent implements one story using TDD on its own feature branch. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
     tokens: 1960
-    total_tokens: 7273
+    total_tokens: 7416
   - name: reconciliation-agent
     title: Reconciliation Agent
     phase: 4
@@ -74,7 +74,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 1115
-    total_tokens: 8930
+    total_tokens: 9073
   - name: qa-agent
     title: QA Agent
     phase: 5
@@ -101,7 +101,7 @@ agents:
     description: Selects survey or falsification research from the brief, advances the chosen validated playbook, and enforces its role boundaries and release gate.
     path: agents/research-orchestrator.md
     tokens: 1320
-    total_tokens: 5406
+    total_tokens: 5549
   - name: research-report-writer
     title: Research Report Writer
     phase: 6
@@ -256,7 +256,7 @@ skills:
     category: utility
     description: Relentless interview to sharpen a plan or design until reaching shared understanding. Use when the user wants to stress-test a plan, get grilled on their design, or mentions "grill me".
     path: skills/grilling/SKILL.md
-    tokens: 382
+    tokens: 469
   - name: handoff
     category: utility
     description: Create and validate a dense phase-boundary restart contract before ending the outgoing session.
@@ -346,7 +346,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 1592
-    total_tokens: 28101
+    total_tokens: 28244
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -369,7 +369,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 952
-    total_tokens: 26888
+    total_tokens: 27174
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -384,8 +384,8 @@ playbooks:
       - implementation-agent
       - reconciliation-agent
       - qa-agent
-    tokens: 2207
-    total_tokens: 47377
+    tokens: 2417
+    total_tokens: 47963
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -403,7 +403,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2128
-    total_tokens: 48372
+    total_tokens: 48748
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -432,7 +432,7 @@ playbooks:
       - research-synthesizer
       - research-orchestrator
     tokens: 1018
-    total_tokens: 8925
+    total_tokens: 9068
   - name: research-topic
     title: Research Topic Playbook
     category: orchestration
@@ -453,7 +453,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 3026
-    total_tokens: 14028
+    total_tokens: 14171
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration
@@ -464,7 +464,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 2247
+    tokens: 2283
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
@@ -488,7 +488,7 @@ rulebooks:
   - name: dispatch-contract
     category: conventions
     path: rulebooks/conventions/dispatch-contract.md
-    tokens: 2230
+    tokens: 2373
   - name: finding-format
     category: conventions
     path: rulebooks/conventions/finding-format.md

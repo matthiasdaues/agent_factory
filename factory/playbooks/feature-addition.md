@@ -77,6 +77,14 @@ Read the proposal and its referenced boundaries.
 
 Grilling may make an artifact ready for acceptance, but cannot accept it.
 
+**Token discipline — grill before dispatch.** The orchestrating session (not a
+spawned subagent) owns the grilling interview. Complete all design questions and
+resolve Open Questions here, in direct conversation with the stakeholder. The
+requirements-agent then receives a decision-complete proposal and performs
+mechanical spec derivation without interactive round-trips. Each subagent
+suspend/resume cycle replays its full context; grilling inside a subagent
+multiplies cost by the number of questions asked.
+
 ### Decision Point 0.2 — Accept
 
 **Manual**: Stakeholder accepts the proposal.
@@ -115,6 +123,14 @@ confirmation for each routine reversible step. Existing decision points remain:
 stakeholders still approve requirements, architecture decisions, backlog scope,
 destructive cleanup, and any response to a stop condition. Batching must not be
 used to infer broader authority.
+
+**Token discipline — fresh agents for review-fix loops.** When a review finds
+defects and the loop returns to the authoring step, spawn a fresh agent for the
+fix pass rather than resuming the original. The original agent's context
+contains the full grilling transcript, every prior tool call, and every file
+read; resuming it replays all of that before the fix work begins. A fresh agent
+reads only the findings and the affected files, cutting the fix-cycle cost by
+50–70%.
 
 ## Phase 1: Requirements (If Specification Changes Are Needed)
 

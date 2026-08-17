@@ -43,6 +43,11 @@ estimate:
   normalized_tokens:
     min: 40000
     max: 80000
+  estimated_consumption:
+    min: 600000
+    max: 2000000
+    overhead_multiplier: 15
+    playbook: feature-addition
 ---
 
 # Feature Request: Bausteinsicht Factory Integration

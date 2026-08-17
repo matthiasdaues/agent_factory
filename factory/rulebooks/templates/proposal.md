@@ -41,6 +41,11 @@ estimate:
   normalized_tokens:               # or: unknown; fixed tokenizer from ADR-0007
     min: 10000
     max: 25000
+  estimated_consumption:           # or: unknown; total tokens consumed by the
+    min: 150000                    # agentic workflow (overhead multiplier applied)
+    max: 375000
+    overhead_multiplier: 15        # typical range: 8-25x normalized_tokens
+    playbook: feature-addition     # playbook path determines multiplier
 ---
 ```
 
@@ -66,10 +71,23 @@ frontmatter does not introduce a parallel evidence entity.
 
 `estimate` is a dated forecast, not an accounting record or enforceable budget.
 Ranges use numeric values and satisfy `0 <= min <= max`. Human-review hours
-cover active human review, approval, and manual validation—not elapsed waiting
-time. Normalized tokens use the fixed cross-CLI tokenizer from ADR-0007 and do
-not predict provider billing. Use `unknown` instead of retrospective invention
-or false precision.
+cover active human review, approval, and manual validation — not elapsed waiting
+time. Normalized tokens use the fixed cross-CLI tokenizer from ADR-0007 and
+measure the **edit volume** — how many tokens of text change across the affected
+files. They do not predict provider billing or agentic overhead.
+
+`estimated_consumption` predicts the **total tokens consumed** by the agentic
+workflow: context reads, grilling, reviews, fix cycles, and orchestration. It
+applies an `overhead_multiplier` to `normalized_tokens` calibrated from the
+playbook path. Typical multipliers:
+
+- Feature-addition with review loops: 15–25×
+- Bug fix or refactoring: 8–12×
+- Documentation update: 5–10×
+
+Use `unknown` instead of retrospective invention or false precision. After
+completion, record actuals in the external calibration store (not in the
+proposal) to improve future multiplier estimates.
 
 # Feature Request: <Feature Name>
 
