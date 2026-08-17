@@ -121,8 +121,7 @@ Technical requirements at the system's interfaces, expressed in **EARS** syntax 
 ## Architecture model sync (`bausteinsicht sync`)
 
 - When `bausteinsicht sync` runs, it shall perform a forward sync propagating structural changes from the JSONC model to the draw.io diagram (UC-13, BR-050).
-- When `bausteinsicht sync` runs, it shall perform a reverse sync carrying label and description text from the draw.io diagram back to the JSONC model (UC-13, BR-051).
-- Reverse sync shall not create, delete, or rename elements or relationships in the JSONC model (UC-13, BR-051).
+- When `bausteinsicht sync` runs, it shall perform a full reverse sync carrying all draw.io changes — including structural edits — back to the JSONC model (UC-13). The Factory workflow permits only label and description changes via this path (BR-051); structural drift is detected by `bausteinsicht validate` after the fact.
 - All Bausteinsicht operations shall run inside a Docker container via the wrapper script (UC-13, UC-14, UC-15, UC-16, BR-053).
 - Where `architecture.drawio` does not exist when `sync` runs, Bausteinsicht shall create an initial draw.io file from the JSONC model (UC-13).
 - Where Docker is unavailable, the wrapper shall report the condition and exit non-zero without modifying any files (UC-13).
@@ -149,10 +148,10 @@ Technical requirements at the system's interfaces, expressed in **EARS** syntax 
 
 ## Architecture pre-commit validation
 
-- The architecture pre-commit hook shall fire only when `.jsonc` or `.drawio` files appear in the staging area (UC-17, BR-055).
+- The architecture pre-commit hook shall fire only when files matching `*.jsonc` or `*.drawio` under `docs/arc42/` appear in the staging area (UC-17, BR-055). Files with those extensions outside `docs/arc42/` do not trigger the hook.
 - If `architecture.jsonc` is staged without `architecture.drawio`, or vice versa, then the hook shall reject the commit and name the missing file (UC-17, BR-054).
 - When both files are co-staged, the hook shall run `bausteinsicht validate` and reject the commit if validation fails (UC-17, BR-056).
-- Where no `.jsonc` or `.drawio` files are staged, the architecture hook shall be a no-op (UC-17, BR-055).
+- Where no `docs/arc42/*.jsonc` or `docs/arc42/*.drawio` files are staged, the architecture hook shall be a no-op (UC-17, BR-055).
 
 ## Architecture structural change summary (`bausteinsicht diff`)
 
