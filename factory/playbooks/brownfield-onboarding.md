@@ -193,51 +193,7 @@ factory/scripts/arch-lint --docs-dir docs/arc42
 Fix findings from the ATAM review. Re-validate architecture after fixes.
 
 **If blocking findings remain** → Loop to Step 5.1
-**If clean** → Proceed to Step 5.3
-
-### Step 5.3 — Capture Project Charter
-
-**Manual**: Invoke `capture-charter --init --scan` to scan the codebase and bootstrap the project charter.
-
-The charter records foundational decisions the team has already made: languages,
-frameworks, databases, testing practices, CI/CD, and team rules. Brownfield
-onboarding surfaces these from the code and infrastructure-as-code.
-
-The skill:
-
-1. Scans for signals (package manifests, test configs, linter configs, IaC, CI/CD
-   pipelines)
-2. Pre-populates the three charter files (`docs/charter/tech-stack.md`,
-   `docs/charter/development.md`, `docs/charter/house-rules.md`)
-3. Presents findings to the stakeholder for confirmation
-
-**⚠️ No Epic 0 derivation in brownfield** — the mise en place (infrastructure,
-setup scripts, configurations) already exists in the scanned codebase. Unlike
-greenfield, which must *create* those artifacts, brownfield *documents* them.
-The charter records reality as it stands.
-
-**Expected output**: `docs/charter/` (three documents), confirmed by
-stakeholder
-
-**If scan incomplete** → Stakeholder corrects or adds findings
-**If complete** → Proceed to Step 5.4
-
-### Step 5.4 — Planning Gate (Charter & Specification Readiness)
-
-**Manual**: Stakeholder approval + deterministic gate
-
-Present the completed charter to the stakeholder. Run the planning gate to
-verify no `To be decided.` entries remain in tech-stack.md or development.md:
-
-```bash
-factory/scripts/charter-lint --planning-gate
-```
-
-This gate must pass before any specification work or planning decisions that
-follow onboarding.
-
-**If gate fails** → Return to Step 5.3 and correct charter entries
-**If gate passes + stakeholder approves** → Proceed to Phase 6
+**If clean** → Proceed to Phase 6
 
 ## Phase 6: Reconciliation / Gap Loop
 

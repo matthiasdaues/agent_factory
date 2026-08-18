@@ -113,25 +113,25 @@ stories:
     wave: 3
     reason: null
   - id: ST-0083
-    branch: story/ST-0083
-    worktree: .agent-factory/worktrees/story-ST-0083
-    declared_base: 6f94cd30f6848210c284fbb4ac674c281f9f1ec1
+    branch: null
+    worktree: null
+    declared_base: null
     verify_base: null
     premerge_check: null
     commit_sha: null
     merge_sha: null
-    status: dispatched
+    status: pending
     wave: 4
     reason: null
   - id: ST-0084
-    branch: story/ST-0084
-    worktree: .agent-factory/worktrees/story-ST-0084
-    declared_base: 6f94cd30f6848210c284fbb4ac674c281f9f1ec1
+    branch: null
+    worktree: null
+    declared_base: null
     verify_base: null
     premerge_check: null
     commit_sha: null
     merge_sha: null
-    status: dispatched
+    status: pending
     wave: 4
     reason: null
 waves:
