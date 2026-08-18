@@ -55,8 +55,8 @@ agents:
     tier: strong
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
-    tokens: 447
-    total_tokens: 1697
+    tokens: 456
+    total_tokens: 1706
   - name: implementation-agent
     title: Implementation Agent (Dispatcher)
     phase: 4
@@ -390,7 +390,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 2417
-    total_tokens: 53415
+    total_tokens: 53424
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -408,7 +408,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2128
-    total_tokens: 54200
+    total_tokens: 54209
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration

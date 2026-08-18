@@ -13,6 +13,7 @@ inputs:
   - docs/spec/actor-goal-list.md
   - docs/spec/use_cases/*.md
   - docs/spec/supplementary_specs/*.md
+  - docs/charter/*.md
   - docs/*.md
   - docs/adr/*.md
 outputs:
