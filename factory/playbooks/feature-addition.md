@@ -71,7 +71,7 @@ Read the proposal and its referenced boundaries.
   moves it to `open`.
 - **`open`** → Review or grill the proposal in place. Resolve every Open
   Question as a decision, explicit assumption, or deferral.
-- **`accepted`** → Preserve its recorded baseline and continue to Step 0.3.
+- **`accepted`** → Preserve its recorded baseline and continue to Step 0.2.
 - **`implemented`, `cancelled`, or `superseded`** → Stop; this playbook cannot
   open implementation from a closed proposal.
 
@@ -84,6 +84,28 @@ requirements-agent then receives a decision-complete proposal and performs
 mechanical spec derivation without interactive round-trips. Each subagent
 suspend/resume cycle replays its full context; grilling inside a subagent
 multiplies cost by the number of questions asked.
+
+### Step 0.1a — Charter Amendment Check
+
+**Manual decision**: Does this feature require charter amendments?
+
+Read [`docs/charter/`](../../docs/charter/) to understand current declarations
+for tech stack, development practices, and house rules.
+
+**If no amendments needed** → Skip to Step 0.2.
+
+**If amendments needed**:
+
+1. Invoke [`update-charter`](../skills/update-charter/SKILL.md) to update the
+   relevant section(s) of `docs/charter/tech-stack.md`,
+   `docs/charter/development.md`, or `docs/charter/house-rules.md`.
+2. Run `factory/scripts/charter-lint --planning-gate` on changed documents to
+   ensure completeness.
+3. If new decisions emerge that imply infrastructure, setup, or configuration
+   artifacts not already in the repository, derive corresponding Epic 0 stories
+   (using the [`capture-charter`](../skills/capture-charter/SKILL.md) Step 3
+   workflow as reference).
+4. Proceed to Step 0.2.
 
 ### Decision Point 0.2 — Accept
 
