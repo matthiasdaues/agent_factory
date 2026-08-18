@@ -37,8 +37,8 @@ agents:
     tier: strong
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
-    tokens: 1370
-    total_tokens: 8078
+    tokens: 1365
+    total_tokens: 8073
   - name: architecture-review-agent
     title: Architecture Review Agent
     phase: 2
@@ -334,7 +334,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1108
-    total_tokens: 14748
+    total_tokens: 14743
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -345,8 +345,8 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 1905
-    total_tokens: 24618
+    tokens: 1900
+    total_tokens: 24608
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -385,7 +385,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 2417
-    total_tokens: 48286
+    total_tokens: 48281
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -403,7 +403,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2128
-    total_tokens: 49071
+    total_tokens: 49066
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -464,7 +464,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 2526
+    tokens: 2520
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md

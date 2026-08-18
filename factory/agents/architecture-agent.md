@@ -85,7 +85,7 @@ phase is exempt and may continue in the current session.
 
 ## Workflow
 
-1. **Archive superseded docs first** — Move superseded documentation artifacts to `docs/~archive/`, preserving their original relative path under `docs/` (for example, `docs/arc42/legacy.md` → `docs/~archive/arc42/legacy.md`), so active guidance stays clean.
+1. **Archive superseded docs first** — Move all pre-existing documentation artifacts to `~archive/`, preserving their original relative path (for example, `docs/arc42/legacy.md` → `~archive/docs/arc42/legacy.md`), so active guidance stays clean.
 2. **Build `architecture.dsl` first** — Invoke `scaffold-arc42`, then immediately fill `docs/arc42/architecture.dsl` from code and deployment IaC (Terraform when available) before writing architecture prose.
    - Required first pass coverage: System Context, Container, Component, Deployment views
    - `05_building_block_view.md`, `06_runtime_view.md`, and `07_deployment_view.md` must derive from these DSL views

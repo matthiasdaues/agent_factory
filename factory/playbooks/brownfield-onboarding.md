@@ -67,7 +67,7 @@ First architecture pass: structural skeleton from code and infrastructure-as-cod
 
 ### Step 2.0 — Archive Superseded Documentation
 
-Move superseded documentation artifacts to `docs/~archive/`, preserving each file's original relative path under `docs/` (for example, `docs/arc42/legacy.md` → `docs/~archive/arc42/legacy.md`).
+Move all pre-existing documentation artifacts to `~archive/`, preserving each file's original relative path (for example, `docs/arc42/legacy.md` → `~archive/docs/arc42/legacy.md`).
 
 ### Step 2.1 — Locate Infrastructure-as-Code
 

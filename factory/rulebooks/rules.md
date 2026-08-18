@@ -104,7 +104,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST** put one authoritative current-state section before optional historical context.
 - **MUST** record exact local and upstream tips plus ahead/behind counts; decorated branch labels and approximate counts are insufficient.
 - **MUST** replace or move superseded instructions instead of leaving them mixed with current open work.
-- **MUST** move superseded documentation artifacts under `docs/~archive/`, preserving their original relative path under `docs/` (for example, `docs/arc42/old.md` → `docs/~archive/arc42/old.md`).
+- **MUST** move superseded documentation artifacts under `~archive/`, preserving their original relative path (for example, `docs/arc42/old.md` → `~archive/docs/arc42/old.md`).
 
 ## Cross-references
 
