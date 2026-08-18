@@ -2,7 +2,7 @@
 title: Greenfield Development Playbook
 category: orchestration
 type: runbook
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Greenfield Development Playbook
@@ -32,20 +32,20 @@ detail and full reasoning remain in the artifacts. No in-place transcript
 compaction, prose-only cache-restabilisation ritual, or live cache control is
 introduced.
 
-| Transition                                     | Route                                        |
-| ---------------------------------------------- | -------------------------------------------- |
-| requirements-agent → spec-review-agent         | Requirements authoring completes             |
-| spec-review-agent → requirements-agent         | Open specification findings require remedies |
-| spec-review-agent → architecture-agent         | Specification review is clean                |
-| architecture-agent → architecture-review-agent | Architecture authoring completes             |
-| architecture-review-agent → architecture-agent | Open architecture findings require remedies  |
-| architecture-review-agent → planning-agent     | Architecture review is clean                 |
-| planning-agent → implementation-agent          | Backlog is approved                          |
-| implementation-agent → reconciliation-agent    | Implementation wave completes                |
-| reconciliation-agent → implementation-agent    | Reconciliation finds code defects            |
-| reconciliation-agent → qa-agent                | Reconciliation is clean                      |
-| qa-agent → implementation-agent                | Quality review finds defects                 |
-| implementation-agent → qa-agent                | Quality remedies are ready for retest        |
+| Transition                                     | Route                                                                           |
+| ---------------------------------------------- | ------------------------------------------------------------------------------- |
+| requirements-agent → spec-review-agent         | Requirements authoring completes                                                |
+| spec-review-agent → requirements-agent         | Open specification findings require remedies                                    |
+| spec-review-agent → architecture-agent         | Specification review is clean                                                   |
+| architecture-agent → architecture-review-agent | Architecture authoring completes                                                |
+| architecture-review-agent → architecture-agent | Open architecture findings require remedies                                     |
+| architecture-review-agent → planning-agent     | Architecture review is clean, charter completeness sweep and planning gate pass |
+| planning-agent → implementation-agent          | Backlog is approved                                                             |
+| implementation-agent → reconciliation-agent    | Implementation wave completes                                                   |
+| reconciliation-agent → implementation-agent    | Reconciliation finds code defects                                               |
+| reconciliation-agent → qa-agent                | Reconciliation is clean                                                         |
+| qa-agent → implementation-agent                | Quality review finds defects                                                    |
+| implementation-agent → qa-agent                | Quality remedies are ready for retest                                           |
 
 Each listed route requires the reviewed handoff and restart even where agent
 frontmatter groups author and reviewer roles under one broader phase name.
@@ -53,6 +53,19 @@ Work that remains inside one route's outgoing phase is exempt under
 [handoff-format.md](../rulebooks/conventions/handoff-format.md).
 
 ## Phase 1: Requirements
+
+### Step 1.0 — Scaffold Project Charter
+
+```bash
+# In the active session (stakeholder present), right after vision capture:
+capture-charter --init
+```
+
+**Skill**: `capture-charter` (`--init` mode)
+**Expected outputs**: `docs/charter/tech-stack.md`, `docs/charter/development.md`,
+`docs/charter/house-rules.md` — skeleton created from the templates, answers
+already known from the vision conversation filled in, everything else left
+`To be decided.`
 
 ### Step 1.1 — Run Requirements Agent
 
@@ -63,6 +76,11 @@ orchestrator run-phase requirements
 
 **Agent**: `requirements-agent`
 **Expected outputs**: `docs/spec/prd.md`, `docs/spec/actor-goal-list.md`, `docs/spec/use_cases/`, `docs/spec/supplementary_specs/`
+
+As requirements decisions settle a charter entry — a data store, a
+licensing constraint, an integration requirement — the requirements agent
+invokes `update-charter` to record it in `docs/charter/tech-stack.md`
+incrementally, rather than waiting for the completeness sweep.
 
 ### Step 1.2 — Run Spec Review Agent (Separate Session)
 
@@ -108,6 +126,10 @@ orchestrator run-phase architecture
 **Agent**: `architecture-agent`
 **Expected outputs**: `docs/arc42/*.md` (arc42 chapters), `docs/adr/`, `docs/arc42/architecture.dsl`, `docs/assets/images/`
 
+As architecture decisions settle a charter entry — infrastructure, deployment
+topology, a cloud provider — the architecture agent invokes `update-charter`
+to record it in `docs/charter/tech-stack.md` incrementally.
+
 ### Step 2.2 — Run Architecture Review Agent (Separate Session)
 
 ```bash
@@ -127,7 +149,7 @@ grep -l "status: open" docs/findings/ATAM-*.md
 ```
 
 **If open findings exist** → Go to Step 2.4
-**If no open findings** → Go to Phase 3
+**If no open findings** → Go to Step 2.5
 
 ### Step 2.4 — Loop: Address Findings
 
@@ -140,6 +162,33 @@ orchestrator run-phase architecture
 
 Return to Step 2.2 (run architecture-review-agent again)
 
+### Step 2.5 — Charter Completeness Sweep
+
+```bash
+# In the active session (stakeholder present):
+capture-charter
+```
+
+**Skill**: `capture-charter` (completeness sweep mode, no flag)
+**Expected outputs**: `docs/charter/tech-stack.md` and `docs/charter/development.md`
+with every entry resolved to a concrete answer or an explicit deferral
+(`docs/charter/house-rules.md` may still carry open items), Epic 0 stories
+(`epic: "Epic 0 — Project Setup"`) written to `backlog/ST-*.md`, including the
+closing "update development.md" story that depends on every other Epic 0 story
+
+### Step 2.6 — Planning Gate
+
+```bash
+factory/scripts/charter-lint --planning-gate
+```
+
+**If exit code non-zero** → Return to Step 2.5, resolve the reported `To be decided.` entries
+**If exit code 0** → Present the completed charter and the Epic 0 batch to the
+stakeholder for approval together — same manual-approval pattern as Step 3.3
+
+**If approved** → Go to Phase 3
+**If changes needed** → Return to Step 2.5
+
 ## Phase 3: Planning
 
 ### Step 3.1 — Run Planning Agent
@@ -151,6 +200,12 @@ orchestrator run-phase planning
 
 **Agent**: `planning-agent`
 **Expected outputs**: `backlog/ST-*.md` files
+
+The planning agent reads `docs/charter/*.md` and acknowledges that Epic 0
+stories already exist in `backlog/` — written by the charter completeness
+sweep in Step 2.5. It derives feature stories after them: each feature
+story's `deps:` chains to the closing Epic 0 "update development.md" story,
+so no feature story is dependency-ready until Epic 0 is done.
 
 ### Step 3.2 — Validate Backlog
 
@@ -179,6 +234,11 @@ orchestrator run-phase implementation
 
 **Agent**: `implementation-agent` (spawns parallel `developer-agent` subagents)
 **Expected outputs**: `src/**/*`, `tests/**/*`, commits per story
+
+Wave 1 is Epic 0 (`epic: "Epic 0 — Project Setup"`) — no feature story
+dispatches until every must-have Epic 0 story reaches a terminal state. This
+is enforced by the `deps:` chain the planning agent wrote in Step 3.1, not by
+separate scheduling logic.
 
 ### Step 4.2 — Run Reconciliation Agent (Separate Session)
 

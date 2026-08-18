@@ -412,8 +412,8 @@ playbooks:
       - reconciliation-agent
       - qa-agent
       - coaching-agent
-    tokens: 2128
-    total_tokens: 54209
+    tokens: 2786
+    total_tokens: 54867
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
