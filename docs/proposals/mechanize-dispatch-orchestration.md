@@ -17,6 +17,7 @@ impact:
     - factory/rulebooks/conventions/branching-policy.md
     - factory/scripts/premerge-check
     - factory/scripts/verify-base
+    - config/project.json
 
 governance:
   assurance: elevated
@@ -92,7 +93,7 @@ Does not modify any state. The LLM reviews the plan and may adjust before procee
 
 #### `dispatch init --base <branch> --stories ST-0074,ST-0075,...`
 
-Create the invocation branch and worktree from the specified base. Initialize the dispatch ledger at `.agent-factory/dispatch-ledger.yaml`. Record branch root. Commit the ledger. Verify the worktree mapping with `git worktree list --porcelain`. Check that all target directories implied by story outputs are git-tracked.
+Create the invocation branch and worktree from the specified base. Initialize the dispatch ledger at `.agent-factory/dispatch-ledger.yaml`. Record branch root. Commit the ledger. Verify the worktree mapping with `git worktree list --porcelain`. Check that all target directories implied by story outputs are git-tracked. Preflight the `test_command` key in `config/project.json` (must be present and non-empty) — failing here costs nothing; failing at the first `merge-story` costs a prepared wave.
 
 Untracked target directories are a precondition failure: `init` lists them and exits non-zero. Since the script owns all git state, the LLM cannot make the baseline commit by hand; instead, re-running `init` with `--baseline-commit` makes the script create an explicit baseline commit of those directories' current contents on the base branch, **before** the invocation branch is created — never as an improvised mid-dispatch fix.
 
@@ -100,15 +101,26 @@ Exit non-zero if any other precondition fails.
 
 #### `dispatch prepare-wave <N>`
 
-Read the ledger. Verify all stories in waves < N are terminal (done, blocked, or failed) — exit non-zero if not (this is the mechanical wave gate). For each story in wave N:
+Read the ledger. Verify all stories in waves < N are terminal (done, blocked, or failed) — exit non-zero if not (this is the mechanical wave gate). Prepare only the stories in wave N whose declared base exists at prepare time: **parallel-safe stories and serial-chain heads**, both cut from the invocation branch tip. Subsequent serial-chain links stay `pending` — their declared base is the predecessor's merge commit, which does not exist yet — and are prepared lazily by `dispatch prepare-story` after the predecessor merges. For each story being prepared:
 
-1. Create feature branch and worktree from the correct base (invocation branch tip for parallel-safe, previous story's merge commit for serial chains).
+1. Create feature branch and worktree from the invocation branch tip.
 2. Verify the branch-to-worktree mapping with `git worktree list --porcelain` — one check per story, matching path and branch against what was requested — before considering the story prepared. This absorbs the [rules.md § Branching](../../factory/rulebooks/rules.md#branching) MUST that today relies on the LLM remembering to run it.
 3. Run `factory/scripts/verify-base <invocation-branch> --expect-base <story's declared-base SHA>` in the new worktree — exit non-zero on failure, before the LLM spawns anything. The `--expect-base` argument is mandatory here: at creation time the not-behind-target check passes trivially, so the declared-base half is the one that catches a wrong-base dispatch.
 4. Record the story as `prepared` in the ledger (new status between `pending` and `dispatched`), including `declared_base` and the `verify_base` result.
 5. Commit the ledger.
 
-Output the prepared worktree paths and a subagent prompt template for each story. The LLM reads this output and spawns subagents.
+Output the prepared worktree paths and a subagent prompt template for each story, plus the list of chain links left `pending` with their predecessors. The LLM reads this output and spawns subagents.
+
+#### `dispatch prepare-story <story-id>`
+
+Lazily prepare one serial-chain link. Called by the LLM only after the link's chain predecessor has been merged (`merge-story` succeeded). Validates that the story is in the current wave, has status `pending`, and its predecessor is `done`; exits non-zero otherwise. Then, exactly as in `prepare-wave`:
+
+1. Create feature branch and worktree from the predecessor's merge commit — the declared base, which now exists.
+2. Verify the branch-to-worktree mapping with `git worktree list --porcelain`.
+3. Run `factory/scripts/verify-base <invocation-branch> --expect-base <predecessor's merge SHA>` — mandatory, as in `prepare-wave`.
+4. Record the story as `prepared` with `declared_base` and the `verify_base` result. Commit the ledger.
+
+Output the worktree path and subagent prompt template; the LLM spawns the subagent. This mirrors the current workflow's serial-chain rule ([implementation-agent.md § Workflow, Step 3](../../factory/agents/implementation-agent.md#workflow)): chain heads are created off the invocation branch, each subsequent link off the previous one's *already-merged* state, dispatched one at a time.
 
 #### `dispatch mark-dispatched <story-id>`
 
@@ -129,10 +141,10 @@ Note: `premerge-check` is deliberately **not** part of this subcommand. Its pass
 
 Merge the story's feature branch into the invocation branch, in the invocation-branch worktree:
 
-1. Read the story file's `outputs:` globs and run `factory/scripts/premerge-check <invocation-branch> <story-branch> --scope <output-glob> ...` — one repeated `--scope` per declared output path. The scope check is the mechanical detector for the proposal's own failure mode #1 (branch contamination): every changed file must fall under at least one declared output prefix. Omitting `--scope` would silently skip it, so the script derives scopes from the story file and never calls `premerge-check` without them. A non-zero exit blocks the merge and records `premerge_check: fail` in the ledger.
+1. Preflight: confirm the `test_command` key in `config/project.json` is present and non-empty — fail fast **before** merging, not after the merge commit exists (the key is validated once at `init`; this re-check guards against mid-dispatch config edits). Then read the story file's `outputs:` globs and run `factory/scripts/premerge-check <invocation-branch> <story-branch> --scope <output-glob> ...` — one repeated `--scope` per declared output path. The scope check is the mechanical detector for the proposal's own failure mode #1 (branch contamination): every changed file must fall under at least one declared output prefix. Omitting `--scope` would silently skip it, so the script derives scopes from the story file and never calls `premerge-check` without them. A non-zero exit blocks the merge and records `premerge_check: fail` in the ledger.
 2. Immediately on pass — in the same subcommand invocation, so the one-slot `premerge-check-ok` marker still matches this branch's head — run `git merge <story-branch>`.
 3. Update the story file's `status` to `done` in the same commit as the merge.
-4. Run the full test suite after the merge, before any other story is merged. This is not optional: [rules.md § Branching](../../factory/rulebooks/rules.md#branching) states "**MUST** run the full test suite after every merge, before the next", and the current workflow already does this (inline, per merge). The script discovers the test command from a `test_command` key in the project config (`config/project.json` — the project-local config file that already exists alongside `config/model.conf`); if no command is declared there, it exits non-zero with a diagnostic rather than guessing. **Red-suite recovery:** the merge commit already exists when tests run, so a red suite cannot simply block the merge. The script records the story as `blocked` in the ledger with reason `post-merge test failure` (merge SHA noted), commits the ledger, and exits non-zero. The wave blocks; repairing the merged-but-broken invocation branch (fix-forward story or revert) is the dispatcher's call, exactly as [implementation-agent.md § Workflow, Step 4f](../../factory/agents/implementation-agent.md#workflow) treats a conflict or red suite today: resolve before continuing.
+4. Run the full test suite after the merge, before any other story is merged. This is not optional: [rules.md § Branching](../../factory/rulebooks/rules.md#branching) states "**MUST** run the full test suite after every merge, before the next", and the current workflow already does this (inline, per merge). The script discovers the test command from a `test_command` key in the project config (`config/project.json` — the project-local config file that already exists alongside `config/model.conf`); if no command is declared there, it exits non-zero with a diagnostic rather than guessing. **Red-suite recovery:** the merge commit already exists when tests run, so a red suite cannot simply block the merge — and the merge commit already set the story file's `status` to `done`. Record semantics on a red suite: the script makes a dedicated status-correction commit on the invocation branch setting the story file's `status` to `blocked` (permitted by [dispatch-contract.md § Story Status Commit Rule](../../factory/rulebooks/conventions/dispatch-contract.md#story-status-commit-rule): blocked/failed status updates may be dedicated commits), records the story as `blocked` in the ledger with reason `post-merge test failure` (merge SHA noted), commits ledger and story file together, and exits non-zero. The wave blocks. Repair is the dispatcher's call with user approval — fix-forward as a new story, or revert the merge commit manually (exceptional recovery outside the dispatch lifecycle; the script does not automate reverts in the first release). The story is re-dispatchable only once the invocation branch is green again. This matches [implementation-agent.md § Workflow, Step 4f](../../factory/agents/implementation-agent.md#workflow) today: resolve before continuing.
 5. Update the ledger with `premerge_check`, `merge_sha`, and `status: done`. Clean up the worktree and delete the merged branch. Commit.
 
 Exit non-zero on conflicts, premerge-check failure, or post-merge test failure. On a merge conflict the script runs `git merge --abort` before exiting, so the invocation worktree is never left in a MERGING state.
@@ -159,6 +171,15 @@ Every subcommand is idempotent: re-running it after success is a no-op that exit
 
 Mid-merge conflict handling is specified above (`merge-story` aborts the merge, marks the story blocked, exits non-zero). A red post-merge suite is likewise specified above. For every other failure mode the rule is: ledger unchanged, non-zero exit, diagnosis on stderr.
 
+### Script-generated commits
+
+The script writes commits on the dispatcher's behalf; their messages follow [commit-conventions.md](../../factory/rulebooks/conventions/commit-conventions.md) (`<type>: <description> (<ID>)`) so they pass the same gates as agent-authored commits:
+
+- Merge commit: `merge: story/ST-NNNN — <story title> (ST-NNNN)`
+- Ledger commit: `chore: dispatch ledger — <transition> (ST-NNNN)` (wave-level records use the wave label)
+- Status-update or status-correction commit: `chore: story ST-NNNN status -> <status> (ST-NNNN)`
+- Baseline commit (`init --baseline-commit`): `chore: baseline for dispatch — <dirs> (ST-NNNN,...)`
+
 ### Implementation-agent changes
 
 The implementation-agent's Workflow section is rewritten to call `dispatch` subcommands instead of performing git operations directly. The new workflow:
@@ -171,8 +192,9 @@ The implementation-agent's Workflow section is rewritten to call `dispatch` subc
    c. `dispatch mark-dispatched` for each spawned story
    d. On completion: `dispatch verify-story` for each reported SHA
    e. For each verified story, in overlap-determined order: `dispatch merge-story` — one story fully merged (check, merge, status, tests) before the next merge begins
-   f. On failure at any point: `dispatch mark-blocked` / `dispatch mark-failed` with a reason
-   g. `dispatch close-wave N`
+   f. When a serial-chain predecessor merges: `dispatch prepare-story <next-link>` → spawn its subagent → `mark-dispatched` → `verify-story` → `merge-story`, one link at a time
+   g. On failure at any point: `dispatch mark-blocked` / `dispatch mark-failed` with a reason
+   h. `dispatch close-wave N`
 4. Handoff when all waves done
 
 The agent prompt template for subagents no longer instructs them to run `verify-base` — the script already ran it before they were spawned.
@@ -189,20 +211,22 @@ Current: `pending → dispatched → done | blocked | failed`
 
 New: `pending → prepared → dispatched → done | blocked | failed`
 
-The `prepared` status means the script has created the branch and worktree and verify-base has passed, but the LLM has not yet spawned the subagent. This eliminates the gap where a story is `dispatched` in the ledger but no subagent exists. `blocked` and `failed` are recorded by `mark-blocked` / `mark-failed`; `done` is recorded by `merge-story` only after the post-merge test suite passes.
+The `prepared` status means the script has created the branch and worktree and verify-base has passed, but the LLM has not yet spawned the subagent. This eliminates the gap where a story is `dispatched` in the ledger but no subagent exists. Serial-chain links beyond the chain head stay `pending` until `prepare-story` prepares them — a `pending` link in an active wave means "waiting for its predecessor to merge", not "forgotten". `blocked` and `failed` are recorded by `mark-blocked` / `mark-failed` (or by `merge-story`'s red-suite recovery); `done` is recorded by `merge-story` only after the post-merge test suite passes.
 
 ### Dispatch contract updates
 
 - dispatch-contract.md § Dispatch Ledger: document `prepared` status, note that the script owns all ledger writes.
 - dispatch-contract.md § Verify Sub-Agent Reports: note that verify-base is now pre-spawn (script-owned), not in-agent.
 - dispatch-contract.md § Hard Checkpoint Per Story: note that `premerge-check` runs inside `merge-story`, immediately before its own merge, with `--scope` derived from the story's `outputs:`.
+- implementation-agent.md § Workflow, Step 3: serial-chain links are prepared lazily by `dispatch prepare-story` after the predecessor merges — chain heads and parallel-safe stories are prepared upfront by `prepare-wave`.
 - branching-policy.md § Verify-Base Preamble: update to note that verify-base is called by the dispatch script for dispatched stories; the developer-agent preamble instruction is a fallback for non-dispatched use.
 
 ## Scope
 
 **In the first release:**
 
-- `factory/scripts/dispatch` with subcommands: `plan`, `init`, `prepare-wave`, `mark-dispatched`, `verify-story`, `merge-story`, `mark-blocked`, `mark-failed`, `close-wave`, `status`
+- `factory/scripts/dispatch` with subcommands: `plan`, `init`, `prepare-wave`, `prepare-story`, `mark-dispatched`, `verify-story`, `merge-story`, `mark-blocked`, `mark-failed`, `close-wave`, `status`
+- `config/project.json`: add the `test_command` key (absent today; required by `init` preflight and `merge-story`)
 - `factory/agents/implementation-agent.md` rewritten to call script subcommands
 - `factory/rulebooks/conventions/dispatch-contract.md` updated: `prepared` status, script-owned ledger, pre-spawn verify-base, premerge-check placement and `--scope` derivation
 - `factory/rulebooks/conventions/branching-policy.md` updated: verify-base preamble notes script-owned path
@@ -225,6 +249,9 @@ The `prepared` status means the script has created the branch and worktree and v
 - `dispatch prepare-wave` exits non-zero when prior wave has non-terminal stories (mechanical wave gate)
 - `dispatch prepare-wave` runs `verify-base --expect-base <declared-base>` before spawning and exits non-zero on failure (pre-spawn gate)
 - `dispatch prepare-wave` verifies each story's branch-to-worktree mapping with `git worktree list --porcelain`
+- `dispatch prepare-wave` prepares only stories whose declared base exists at prepare time (parallel-safe stories and serial-chain heads); chain links stay `pending`
+- `dispatch prepare-story` exits non-zero unless the story's chain predecessor is `done`; on success it cuts the link from the predecessor's merge commit and passes `verify-base --expect-base` against that merge SHA
+- `dispatch init` and `dispatch merge-story` exit non-zero when `config/project.json` lacks a usable `test_command` key (preflight before any merge)
 - `dispatch verify-story` catches the SHA-level failures from the charter dispatch: missing SHA (`cat-file`), wrong branch (`branch --contains`)
 - `dispatch merge-story` catches the contamination failure from the charter dispatch: it runs `premerge-check --scope <story outputs>` immediately before its own merge, in the invocation-branch worktree, so the `premerge-check-ok` marker pairing holds by construction
 - `dispatch merge-story` updates story status to `done` in the same commit as the merge and runs the full test suite (command from the `test_command` key in `config/project.json`) after the merge, before the next merge
