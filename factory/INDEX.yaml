@@ -137,6 +137,11 @@ agents:
     total_tokens: 3316
 
 skills:
+  - name: capture-charter
+    category: requirements
+    description: "Scaffold, scan, or complete the project charter under docs/charter/ — three modes: --init creates the skeleton from templates, --init --scan pre-populates it from an existing codebase, and the completeness sweep (no flag) forces every remaining decision and derives Epic 0 setup stories. Use when starting a new project's charter, onboarding a brownfield codebase, or running the pre-planning completeness sweep."
+    path: skills/capture-charter/SKILL.md
+    tokens: 2792
   - name: capture-vision
     category: requirements
     description: Capture a project vision through structured interview.
