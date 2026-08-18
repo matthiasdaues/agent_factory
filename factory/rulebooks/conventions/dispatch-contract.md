@@ -2,7 +2,7 @@
 title: Dispatch Contract
 category: implementation
 enforcement: dispatch-prompt clause (human/agent-authored discipline) — not mechanically gate-checked
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Dispatch Contract
@@ -86,6 +86,15 @@ Motivating example: the binder-to-OCR research run dispatched ~60–80 research 
 
 A sub-agent's success report is a claim, not proof. Before treating a dispatched unit of work as done, verify it against observable state — the branch tip and `git log`, the actual test run, and the mechanical gates ([verify-base](branching-policy.md#verify-base-preamble), [premerge-check](branching-policy.md#pre-merge-diff-check)) — never the self-report alone.
 
+For every commit SHA a sub-agent reports, run both checks before proceeding:
+
+```bash
+git cat-file -e <sha>^{commit}       # SHA exists as a commit object
+git branch --contains <sha>          # SHA lives on the expected branch
+```
+
+A SHA that fails either check means the sub-agent's report is false or the work landed somewhere unexpected — investigate before merging or closing the story.
+
 ### Do Not Supersede A Running Agent
 
 Do not launch a new agent for the same role while a prior instance of that role
@@ -123,6 +132,79 @@ envelope error on 8 of 9 reconciliation/planning dispatches, yet the child had
 committed real work in each case (`50b307f`, `8abf5cd`, `04ba170`, `35229f2`).
 
 Motivating example: in the 2026-07-21 session a developer-agent committed on a stale worktree base missing 144 commits and reported "7 passed"; `premerge-check` blocked the merge, and a direct git check exposed the false report.
+
+### Wave Boundary As Hard Gate
+
+File-disjoint stories fan out in parallel within a wave — that concurrency is the dispatcher's strength. The constraint is between waves, not within them: **every story in a wave must reach a terminal state before the next wave launches**. A terminal state is a verified merge or an explicit blocked/failed record in the dispatch ledger.
+
+This eliminates the drift pattern (wave N+1 dispatching against stale state) without sacrificing the throughput of parallel fan-out. The concurrent wave cap from [Model Tier And Wave Size](#model-tier-and-wave-size) (default six) still applies within each wave.
+
+### Hard Checkpoint Per Story
+
+Every story in a wave must reach a terminal state — merged commit on the target branch, or an explicit blocked/failed record — before the next wave launches. "Terminal state" means:
+
+1. The story's commit SHA is verified on the expected branch (see [Verify Sub-Agent Reports Against State](#verify-sub-agent-reports-against-state)).
+2. `premerge-check` passed and the merge is complete, OR the story is recorded as blocked/failed with a reason.
+3. The story file's `status` field is updated in the same commit that delivers the implementation (for done) or in a dedicated status-update commit (for blocked/failed).
+
+No new wave may launch while any story from the prior wave is in an unresolved state. This eliminates the drift pattern where later waves dispatch against progressively staler bases.
+
+### Story Status Commit Rule
+
+The story file's `status` field must be updated to `done` in the **same commit** that delivers the story's implementation — not in a separate housekeeping commit after the fact. For blocked or failed stories, the status update may be a dedicated commit, but it must happen before the next story is dispatched.
+
+This ensures the backlog file is always consistent with the repository's actual state: if the commit is present, the status is `done`; if the status is `done`, the commit is present.
+
+### Dispatch Ledger
+
+The dispatcher must maintain a machine-readable ledger at `.agent-factory/dispatch-ledger.yaml` tracking every story in the current dispatch. The ledger is committed after each story reaches its terminal state and serves as the authoritative record of what was dispatched, what succeeded, and what failed.
+
+Schema:
+
+```yaml
+invocation_branch: <branch-name>
+branch_root: <40-char SHA>
+branch_head: <40-char SHA>  # updated after each merge
+stories:
+  - id: <story-id>
+    branch: <feature-branch-name>
+    worktree: <worktree-path>
+    declared_base: <40-char SHA>
+    verify_base: pass | fail
+    premerge_check: pass | fail | pending
+    commit_sha: <40-char SHA or null>
+    merge_sha: <40-char SHA or null>
+    status: dispatched | done | blocked | failed
+    wave: <wave-number>
+    reason: <null or explanation for blocked/failed>
+```
+
+The ledger is the dispatcher's working memory across session boundaries — on resume, the dispatcher reads the ledger to determine which stories completed, which failed, and what the current base SHA is, rather than reconstructing state from git log heuristics.
+
+### Wave Closeout Record
+
+At the end of each wave (even a single-story wave), the dispatcher produces a brief closeout summary committed alongside the ledger update:
+
+1. Stories completed this wave, with merge SHAs.
+2. Stories blocked or failed this wave, with reasons.
+3. Next-ready stories (computed from the updated dependency graph).
+4. Current branch head SHA.
+
+This record is not a separate artifact — it is logged as a YAML list under the `waves:` key in the dispatch ledger, appended after each wave:
+
+```yaml
+waves:
+  - number: 1
+    completed:
+      - id: ST-0101
+        merge_sha: <40-char SHA>
+    blocked: []
+    failed: []
+    next_ready:
+      - ST-0102
+      - ST-0103
+    branch_head: <40-char SHA>
+```
 
 ## Enforcement
 
