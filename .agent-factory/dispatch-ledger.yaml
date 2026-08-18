@@ -1,6 +1,6 @@
 invocation_branch: impl/charter
 branch_root: 1f69c0d6ec83acd54df0142a7de979489253a94b
-branch_head: 6f94cd30f6848210c284fbb4ac674c281f9f1ec1
+branch_head: 5a4e6645b5c55ec1dcf0b217e71a1f580a07eb4a
 stories:
   - id: ST-0074
     branch: story/ST-0074
@@ -113,25 +113,25 @@ stories:
     wave: 3
     reason: null
   - id: ST-0083
-    branch: null
-    worktree: null
-    declared_base: null
-    verify_base: null
-    premerge_check: null
-    commit_sha: null
-    merge_sha: null
-    status: pending
+    branch: story/ST-0083
+    worktree: .agent-factory/worktrees/story-ST-0083
+    declared_base: 6f94cd30f6848210c284fbb4ac674c281f9f1ec1
+    verify_base: pass
+    premerge_check: pass
+    commit_sha: 67c94555d0461e79973990797ed283fabeb94bf7
+    merge_sha: b2831ff2311c5e175cdb887bb7b3776ad6528be0
+    status: done
     wave: 4
     reason: null
   - id: ST-0084
-    branch: null
-    worktree: null
-    declared_base: null
-    verify_base: null
-    premerge_check: null
-    commit_sha: null
-    merge_sha: null
-    status: pending
+    branch: story/ST-0084
+    worktree: .agent-factory/worktrees/story-ST-0084
+    declared_base: 6f94cd30f6848210c284fbb4ac674c281f9f1ec1
+    verify_base: pass
+    premerge_check: pass
+    commit_sha: ae2428cb7ce678f111daa347587cce5bc7992be6
+    merge_sha: 5a4e6645b5c55ec1dcf0b217e71a1f580a07eb4a
+    status: done
     wave: 4
     reason: null
 waves:
@@ -182,3 +182,13 @@ waves:
       - ST-0083
       - ST-0084
     branch_head: 6f94cd30f6848210c284fbb4ac674c281f9f1ec1
+  - number: 4
+    completed:
+      - id: ST-0083
+        merge_sha: b2831ff2311c5e175cdb887bb7b3776ad6528be0
+      - id: ST-0084
+        merge_sha: 5a4e6645b5c55ec1dcf0b217e71a1f580a07eb4a
+    blocked: []
+    failed: []
+    next_ready: []
+    branch_head: 5a4e6645b5c55ec1dcf0b217e71a1f580a07eb4a
