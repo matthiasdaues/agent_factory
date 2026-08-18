@@ -57,7 +57,8 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 → [branching-policy.md](conventions/branching-policy.md)
 
-- **MUST** create every new local branch atomically with its own linked worktree using `git worktree add -b <branch> <worktree-path> <base>`; standalone branch creation is forbidden.
+- **MUST** create every new local branch atomically with its own linked worktree using `git worktree add -b <branch> .agent-factory/worktrees/<branch> <base>`; standalone branch creation is forbidden.
+- **MUST** place every worktree under `.agent-factory/worktrees/` — never in the repository root, a sibling directory, or an arbitrary path.
 - **MUST** verify every new branch-to-worktree mapping with `git worktree list --porcelain` before doing work on that branch.
 - **MUST** create exactly one feature branch per story or bug — never per EPIC, sprint, or wave.
 - **MUST** create every feature branch and worktree from a dedicated invocation branch and worktree (itself created from `main`), recording its origin commit as the branch root.
