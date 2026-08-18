@@ -56,7 +56,7 @@ agents:
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
     tokens: 447
-    total_tokens: 1429
+    total_tokens: 1697
   - name: implementation-agent
     title: Implementation Agent (Dispatcher)
     phase: 4
@@ -64,8 +64,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints. Each subagent implements one story using TDD on its own feature branch. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 2367
-    total_tokens: 8821
+    tokens: 2508
+    total_tokens: 8962
   - name: reconciliation-agent
     title: Reconciliation Agent
     phase: 4
@@ -206,7 +206,7 @@ skills:
     category: planning
     description: Break specification and architecture into a local backlog of markdown stories — EPICs and User Stories with INVEST criteria and MoSCoW priority.
     path: skills/create-backlog/SKILL.md
-    tokens: 982
+    tokens: 1250
   - name: implement-issue
     category: implementation
     description: Implement a single backlog story with TDD — analyse, red-green, commit, check docs.
@@ -374,7 +374,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 952
-    total_tokens: 29510
+    total_tokens: 29651
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -390,7 +390,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 2417
-    total_tokens: 53006
+    total_tokens: 53415
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -408,7 +408,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2128
-    total_tokens: 53791
+    total_tokens: 54200
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration

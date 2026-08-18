@@ -13,6 +13,8 @@ Stories are project artifacts, not entries in an external tracker: one file per 
 
 Read `docs/CONTEXT.md` if it exists — use the project's domain vocabulary in story titles and descriptions.
 
+Read `docs/charter/*.md` if charter files exist — the charter defines Epic 0 (foundational must-haves) and concrete implementation names (test framework, deployment target, API framework) to use in story acceptance criteria.
+
 ## Story file format
 
 See [story.md template](../../rulebooks/templates/story.md) for the complete frontmatter schema and body structure.
@@ -30,11 +32,13 @@ See [story.md template](../../rulebooks/templates/story.md) for the complete fro
 
 EPICs are **not** separate files — an EPIC is the `epic:` frontmatter value shared by its stories. MoSCoW priority lives in the prose body (the frontmatter schema is closed; `backlog-lint` rejects unknown fields).
 
-## Step 1 — Define EPICs
+## Step 1 — Define EPICs and identify Epic 0
 
 Read `docs/spec/actor-goal-list.md` and `docs/spec/use_cases/`. Group related User Goals into EPICs — each a coherent slice developable and demonstrable independently.
 
-**Completion**: every User Goal belongs to exactly one EPIC (an `epic:` value).
+If charter files exist and Epic 0 stories are already in the backlog (created by the `capture-charter` completeness sweep), identify the final Epic 0 story (the last one chronologically). Feature stories derived from the charter's Feature List shall depend on this final Epic 0 story via `deps:` — ensuring foundational work completes before feature implementation begins.
+
+**Completion**: every User Goal belongs to exactly one EPIC (an `epic:` value). If Epic 0 stories exist, feature stories carry appropriate `deps:` on the final Epic 0 story.
 
 ## Step 2 — Break EPICs into User Stories
 
@@ -46,9 +50,13 @@ Each story records in `traces`: Use Case ID(s) it implements (e.g. `UC-01`, `UC-
 
 Judge each story's `tier` (`economy | standard | strong`) — the model strength its work needs, same vocabulary as agent frontmatter's `tier`.
 
+When charter files exist, extract concrete implementation names (test framework, deployment target, API framework) and use them in acceptance criteria instead of placeholders. Example: rather than "the feature must be tested", use "the feature must be tested with pytest and deployed to AWS Lambda".
+
+For each story, check whether existing tests in the codebase already cover its acceptance criteria. If pre-existing tests match the acceptance criteria, record their file paths in the story's `tests:` field (optional frontmatter, a list of test file paths or test identifiers).
+
 Format each story file via `factory/scripts/mdformat --number <path>` per [markdown-formatting.md](../../factory/rulebooks/conventions/markdown-formatting.md).
 
-**Completion**: every User Goal covered by at least one story, all stories meet INVEST, `traces` and `tier` present.
+**Completion**: every User Goal covered by at least one story, all stories meet INVEST, `traces` and `tier` present. Pre-existing tests are recorded in `tests:` where applicable.
 
 ## Step 3 — Prioritise with MoSCoW
 

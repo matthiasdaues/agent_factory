@@ -20,6 +20,7 @@ inputs:
   - docs/spec/supplementary_specs/*.md
   - docs/*.md
   - docs/adr/*.md
+  - docs/charter/*.md
   - docs/CONTEXT.md
   - factory/rulebooks/conventions/branching-policy.md
   - factory/rulebooks/conventions/dispatch-contract.md
@@ -75,7 +76,8 @@ Every feature branch's cut point is a **declared base SHA** the dispatcher recor
 ## Workflow
 
 1. **Load backlog + initialise ledger** — Parse all `backlog/ST-*.md`: `id`, `status`, `deps`, `tier`, `outputs`. Build dependency graph. Identify **ready stories** (`status: pending`, all `deps` done). If `.agent-factory/dispatch-ledger.yaml` exists from a prior session, read it to recover completed/blocked state and the current branch head — do not reconstruct from git log. **Before creating the invocation branch and worktree**: for every distinct directory implied by ready stories' declared `outputs:` globs, determine and state whether it is already git-tracked (at least one commit reachable from `main`) or untracked — per [branching-policy.md](../rulebooks/conventions/branching-policy.md)'s "Invocation Branch" section, a feature branch only has a clean, known starting point if the directory it writes to is actually tracked at that point. If any target directory is untracked, plan and make an explicit baseline commit for it now, before the invocation branch or any per-story branch/worktree is created — never as an improvised mid-dispatch fix. Report each directory's tracked/untracked finding to the user alongside the branch-root SHA. Only then create the invocation branch atomically in its dedicated worktree under `.agent-factory/worktrees/` with `git worktree add -b <branch> .agent-factory/worktrees/<branch> <base>`, verify the mapping with `git worktree list --porcelain`, record branch root, and initialise the dispatch ledger per [dispatch-contract.md § Dispatch Ledger](../rulebooks/conventions/dispatch-contract.md#dispatch-ledger).
-2. **Plan wave** — Group ready stories by declared `outputs:` file overlap (in addition to dependency-readiness, not instead of it):
+2. **Plan wave** — Read the charter (`docs/charter/*.md`) to inform model selection and dispatch strategy. Group ready stories by declared `outputs:` file overlap (in addition to dependency-readiness, not instead of it):
+   - **Epic 0 scheduling**: Identify stories with `epic: "Epic 0 — Project Setup"` and schedule them as **wave 1** with highest priority. No feature story (non-Epic 0) dispatches until all must-have Epic 0 stories reach terminal state. Use the existing dependency mechanism: feature stories carry `deps:` on the final Epic 0 story ("Update development.md"), which chains from all other Epic 0 stories. The agent does not need new scheduling logic — the dependency graph enforces precedence automatically.
    - **Parallel-safe set**: file-disjoint stories → dispatch in parallel within the wave.
    - **Serial chain(s)**: stories sharing an output file → dispatch and merge one at a time, in dependency order.
      Never substitute EPIC for this grouping. Per [dispatch-contract.md § Wave Boundary As Hard Gate](../rulebooks/conventions/dispatch-contract.md#wave-boundary-as-hard-gate), every story in the **prior** wave must have reached a terminal state before this wave launches. Assign each story a model from its own `tier` field, looked up directly in `model.conf` (ADR-0020, ADR-0021) — `economy | standard | strong`, no translation step. Developer sub-agents declare no tier of their own — the story's `tier` is their sole axis.
