@@ -179,6 +179,11 @@ ORIENTATION_INCLUDE = {
     ".claude": "@../factory/config/AGENTS.md\n",
 }
 
+RULEBOOK_LINK_TARGETS = {
+    ".github": "../factory/rulebooks/rules.md",
+    ".pi": "factory/rulebooks/rules.md",
+}
+
 MANIFEST_PATH = ".agent-factory/factory-install.json"
 USAGE_RUNTIME = Path(".agent-factory/usage-runtime")
 USAGE_REQUIREMENTS = Path("factory/config/usage-runtime-requirements.txt")
@@ -484,6 +489,9 @@ def _orientation_block(dot_dir: str, factory: Path) -> str:
         body = (factory / "config" / "AGENTS.md").read_text(encoding="utf-8")
         if not body.endswith("\n"):
             body += "\n"
+        target = RULEBOOK_LINK_TARGETS.get(dot_dir)
+        if target is not None:
+            body = body.replace("](../rulebooks/rules.md)", f"]({target})")
     return (
         ORIENTATION_BEGIN
         + "\n"
