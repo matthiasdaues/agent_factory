@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: Project Charter
-status: open
+status: accepted
 owner: md@matthiasdaues.de
 created: 2026-08-18
 updated: 2026-08-18
