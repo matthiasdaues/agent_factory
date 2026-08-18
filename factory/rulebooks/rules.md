@@ -32,6 +32,14 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
   `accepted` proposal and route those phases from its declared impact.
 - **MUST NOT** reference a `docs/proposals/*` file in a shipped agent's `inputs:` — a proposal is a design origin, not a runtime artifact; point `inputs:` at tracked, shipped artifacts (the playbook, policies, schemas it consumes).
 
+## Architecture documentation
+
+→ [brownfield-onboarding.md § Step 2.1 — Build architecture.dsl first](../playbooks/brownfield-onboarding.md#step-21--build-architecturedsl-first), [architecture-agent.md § Workflow](../agents/architecture-agent.md#workflow)
+
+- **MUST** start onboarding by creating and filling `docs/arc42/architecture.dsl` from code before writing architecture prose.
+- **MUST** model deployment nodes and connections in the `architecture.dsl` Deployment view from Terraform (or equivalent IaC) when available.
+- **MUST** treat arc42 chapters 05, 06, and 07 as derived explanations of `architecture.dsl` views, not independent sources.
+
 ## Coding
 
 - placeholder for future rules

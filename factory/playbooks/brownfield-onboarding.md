@@ -71,23 +71,30 @@ Document in `docs/spec/todos.md`:
 
 ## Phase 2: Architecture Documentation
 
-### Step 2.1 — Run Architecture Agent (Reverse Mode)
+### Step 2.1 — Build architecture.dsl first
 
 ```bash
 # Manual session
-"Document the existing architecture in docs/. Analyze the codebase in src/ and create arc42 documentation describing what exists, not what should exist."
+"Document the existing architecture in docs/. First create and fill docs/arc42/architecture.dsl from code and Terraform (if present). Then derive arc42 prose chapters from the DSL."
 ```
 
 **Agent**: `architecture-agent`
-**Task**: Analyze code, create arc42 docs describing current state
+**Task**: Analyze code and IaC, fill `architecture.dsl` first, then create arc42 docs describing current state
 
 **Expected outputs**:
 
-- `docs/01-12*.md` (arc42 chapters)
 - `docs/arc42/architecture.dsl` (C4 model of existing system)
+- `docs/01-12*.md` (arc42 chapters derived from DSL)
 - `docs/adr/` (document discovered decisions as ADRs)
 
-### Step 2.2 — Document State Machines
+### Step 2.2 — Validate and export Structurizr model
+
+```bash
+factory/scripts/structurizr validate
+factory/scripts/structurizr export-all
+```
+
+### Step 2.3 — Document State Machines
 
 For stateful components found in code:
 
@@ -98,7 +105,7 @@ For stateful components found in code:
 
 Output: `docs/spec/supplementary_specs/state-machines.md`
 
-### Step 2.3 — Validate Architecture
+### Step 2.4 — Validate Architecture
 
 ```bash
 factory/scripts/arch-lint --docs-dir docs/arc42
