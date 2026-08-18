@@ -71,6 +71,12 @@ Document in `docs/spec/todos.md`:
 
 ## Phase 2: Architecture Documentation
 
+### Step 2.0 — Archive superseded documentation
+
+Before producing updated architecture docs, move superseded documentation
+artifacts to `docs/~archive/`, preserving each file's original relative path
+under `docs/` (for example, `docs/arc42/legacy.md` → `docs/~archive/arc42/legacy.md`).
+
 ### Step 2.1 — Build architecture.dsl first
 
 ```bash

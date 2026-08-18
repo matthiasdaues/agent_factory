@@ -85,16 +85,17 @@ phase is exempt and may continue in the current session.
 
 ## Workflow
 
-1. **Build `architecture.dsl` first** — Invoke `scaffold-arc42`, then immediately fill `docs/arc42/architecture.dsl` from code and deployment IaC (Terraform when available) before writing architecture prose.
+1. **Archive superseded docs first** — Move superseded documentation artifacts to `docs/~archive/`, preserving their original relative path under `docs/` (for example, `docs/arc42/legacy.md` → `docs/~archive/arc42/legacy.md`), so active guidance stays clean.
+2. **Build `architecture.dsl` first** — Invoke `scaffold-arc42`, then immediately fill `docs/arc42/architecture.dsl` from code and deployment IaC (Terraform when available) before writing architecture prose.
    - Required first pass coverage: System Context, Container, Component, Deployment views
    - `05_building_block_view.md`, `06_runtime_view.md`, and `07_deployment_view.md` must derive from these DSL views
    ```bash
    factory/scripts/structurizr validate
    factory/scripts/structurizr export-all
    ```
-2. **Write arc42 prose from DSL** — Populate chapters with code and IaC citations, using exported DSL views as canonical diagrams.
-3. **Write ADRs** — Per decision: if genuine alternatives exist, invoke `pugh-matrix` against ch.10 quality goals (**Clean Architecture** + **SOLID** as criteria when boundaries/contracts are affected) before invoking `write-adr`; if there's no real alternative to weigh, invoke `write-adr` directly. Update `docs/arc42/09_architecture_decisions.md` index.
-4. **Address findings** (repeat passes) — Invoke `maintain-architecture`: DSL first → validate → export → prose → Mermaid → state machines per [state-machine-notation.md](../rulebooks/conventions/state-machine-notation.md) → annotate findings (don't resolve). One atomic commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `refactor: <description> (ATAM-NNNN)`.
+3. **Write arc42 prose from DSL** — Populate chapters with code and IaC citations, using exported DSL views as canonical diagrams.
+4. **Write ADRs** — Per decision: if genuine alternatives exist, invoke `pugh-matrix` against ch.10 quality goals (**Clean Architecture** + **SOLID** as criteria when boundaries/contracts are affected) before invoking `write-adr`; if there's no real alternative to weigh, invoke `write-adr` directly. Update `docs/arc42/09_architecture_decisions.md` index.
+5. **Address findings** (repeat passes) — Invoke `maintain-architecture`: DSL first → validate → export → prose → Mermaid → state machines per [state-machine-notation.md](../rulebooks/conventions/state-machine-notation.md) → annotate findings (don't resolve). One atomic commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `refactor: <description> (ATAM-NNNN)`.
 
 **Pause points:** Arc42 chapters before ADRs · Each ADR for approval.
 
