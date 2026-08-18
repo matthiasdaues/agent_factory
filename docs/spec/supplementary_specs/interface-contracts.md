@@ -212,6 +212,40 @@ All stories must have YAML frontmatter with the following fields:
 - `tests` files are checked for existence; missing files produce `BL-FILE` warnings (not errors — tests may be written after planning)
 - Machine field names (`tier`, `deps`, `traces`, `outputs`) must not appear as prose headings or bold terms in the story body
 
+## `factory/scripts/charter-lint`
+
+|               |                                                                                                                                       |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage         | `charter-lint [--charter-dir DIR] [--template-dir DIR] [--planning-gate] [--format text\|json] [--report-only]`                       |
+| Reads         | Charter files in `docs/charter/{tech-stack,development,house-rules}.md`; template files in `factory/rulebooks/templates/charter-*.md` |
+| Writes        | Nothing; validation is read-only                                                                                                      |
+| Exit code     | Count of error-severity findings (`0` = clean), unless `--report-only` (always `0`)                                                   |
+| Finding codes | `CH-DIR`, `CH-FILE`, `CH-FM`, `CH-SECT`, `CH-EMPTY`, `CH-TBD`                                                                         |
+
+### Charter validation modes
+
+**Default mode:** Validates structural integrity and template compliance:
+
+- All three charter files exist under `docs/charter/`
+- Required sections present per template (derived from `## headings` in template files)
+- No section is empty (content beyond HTML comment prompt required)
+- YAML frontmatter parses cleanly
+
+**Planning gate mode** (`--planning-gate`): Stricter pre-planning validation:
+
+- All default checks pass
+- `tech-stack.md` contains no "To be decided" entries
+- `development.md` contains no "To be decided" entries
+- `house-rules.md` may contain "To be decided" entries (not validated)
+
+### Validation rules
+
+- `charter-lint` reports one `Finding` per detected error or anomaly
+- Errors block (exit code > 0); warnings and info do not
+- Templates are read to discover required sections dynamically (no hardcoded section names)
+- Section content is extracted between `## Section` markers; empty or comment-only sections fail validation
+- "To be decided" entries are detected case-insensitively and block planning gate unless in house-rules.md
+
 ## Referenced from
 
 - [entity-model.md](entity-model.md)

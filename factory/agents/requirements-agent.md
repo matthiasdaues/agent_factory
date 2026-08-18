@@ -13,6 +13,7 @@ skills:
   - grill-with-docs
   - write-prd
   - derive-spec
+  - update-charter
   - handoff
 inputs:
   - docs/CONTEXT.md

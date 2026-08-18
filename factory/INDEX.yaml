@@ -19,8 +19,8 @@ agents:
     tier: strong
     description: Capture a project vision, clarify requirements through adversarial interview, and produce a complete specification.
     path: agents/requirements-agent.md
-    tokens: 889
-    total_tokens: 4789
+    tokens: 895
+    total_tokens: 6029
   - name: spec-review-agent
     title: Specification Review Agent
     phase: 1
@@ -37,8 +37,8 @@ agents:
     tier: strong
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
-    tokens: 1365
-    total_tokens: 8073
+    tokens: 1371
+    total_tokens: 9313
   - name: architecture-review-agent
     title: Architecture Review Agent
     phase: 2
@@ -282,6 +282,11 @@ skills:
     description: Append a quick note to session-scratchpad.md, sectioned by date. Use when the user says "note this down:", "make a note of this:", or invokes "/scratchpad" or "/scratch".
     path: skills/scratchpad/SKILL.md
     tokens: 354
+  - name: update-charter
+    category: utility
+    description: Update a section in the project charter (tech-stack, development, or house-rules). Invokable by any agent during any phase. Owns the write target docs/charter/*.md.
+    path: skills/update-charter/SKILL.md
+    tokens: 1234
   - name: validate
     category: utility
     description: Run every applicable deterministic gate on demand, mid-session — the custom lint scripts plus ruff and mdformat — without needing a git commit.
@@ -334,7 +339,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1108
-    total_tokens: 14743
+    total_tokens: 15983
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -346,7 +351,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 1900
-    total_tokens: 25539
+    total_tokens: 26779
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -385,7 +390,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 2417
-    total_tokens: 50526
+    total_tokens: 53006
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -403,7 +408,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2128
-    total_tokens: 51311
+    total_tokens: 53791
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
