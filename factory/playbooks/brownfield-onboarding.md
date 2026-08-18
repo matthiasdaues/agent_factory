@@ -77,7 +77,16 @@ Before producing updated architecture docs, move superseded documentation
 artifacts to `docs/~archive/`, preserving each file's original relative path
 under `docs/` (for example, `docs/arc42/legacy.md` → `docs/~archive/arc42/legacy.md`).
 
-### Step 2.1 — Build architecture.dsl first
+### Step 2.1 — Locate Infrastructure-as-Code
+
+Before dispatching the architecture agent, ask the user:
+
+1. Does the project contain Terraform, OpenTofu, Pulumi, CloudFormation, or other IaC?
+2. If yes, where does it live? (e.g. `infra/`, `terraform/`, repo root)
+
+Record the answer. If IaC exists, pass the path to the architecture agent so it can model deployment nodes and connections from IaC rather than guessing.
+
+### Step 2.2 — Build architecture.dsl first
 
 ```bash
 # Manual session
@@ -93,14 +102,14 @@ under `docs/` (for example, `docs/arc42/legacy.md` → `docs/~archive/arc42/lega
 - `docs/01-12*.md` (arc42 chapters derived from DSL)
 - `docs/adr/` (document discovered decisions as ADRs)
 
-### Step 2.2 — Validate and export Structurizr model
+### Step 2.3 — Validate and export Structurizr model
 
 ```bash
 factory/scripts/structurizr validate
 factory/scripts/structurizr export-all
 ```
 
-### Step 2.3 — Document State Machines
+### Step 2.4 — Document State Machines
 
 For stateful components found in code:
 
@@ -111,13 +120,13 @@ For stateful components found in code:
 
 Output: `docs/spec/supplementary_specs/state-machines.md`
 
-### Step 2.4 — Validate Architecture
+### Step 2.5 — Validate Architecture
 
 ```bash
 factory/scripts/arch-lint --docs-dir docs/arc42
 ```
 
-**If errors** → Fix and loop to Step 2.1
+**If errors** → Fix and loop to Step 2.2
 **If clean** → Go to Phase 3
 
 ## Phase 3: Specification Extraction

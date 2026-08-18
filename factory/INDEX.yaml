@@ -345,8 +345,8 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 1721
-    total_tokens: 28605
+    tokens: 1829
+    total_tokens: 28713
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
