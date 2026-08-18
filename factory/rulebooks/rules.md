@@ -42,7 +42,9 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 ## Coding
 
-- placeholder for future rules
+- **MUST** derive Epic 0 from the charter when one exists.
+- **MUST** complete all must-have Epic 0 stories before any feature story begins.
+- **MUST** read house-rules and adjust workflow accordingly.
 
 ## Testing
 

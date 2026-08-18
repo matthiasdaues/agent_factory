@@ -464,7 +464,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 2699
+    tokens: 2742
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
