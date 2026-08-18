@@ -338,15 +338,15 @@ playbooks:
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
-    description: Operational procedure for documenting existing undocumented system (reverse engineering).
+    description: Operational procedure for documenting an existing undocumented system (reverse engineering).
     path: playbooks/brownfield-onboarding.md
     agents:
       - architecture-agent
-      - spec-review-agent
+      - architecture-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 1829
-    total_tokens: 28713
+    tokens: 1905
+    total_tokens: 24618
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
