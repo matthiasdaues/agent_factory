@@ -296,7 +296,7 @@ skills:
     category: utility
     description: Run every applicable deterministic gate on demand, mid-session — the custom lint scripts plus ruff and mdformat — without needing a git commit.
     path: skills/validate/SKILL.md
-    tokens: 1037
+    tokens: 1092
   - name: adversarial-review
     category: research
     description: Test a claim, its evidence, and refutation attempts against ten review checks, classify defects, and produce a vote tied to exact claim hash.
