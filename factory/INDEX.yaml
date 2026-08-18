@@ -355,8 +355,8 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 1900
-    total_tokens: 26779
+    tokens: 2304
+    total_tokens: 27183
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -394,8 +394,8 @@ playbooks:
       - implementation-agent
       - reconciliation-agent
       - qa-agent
-    tokens: 2417
-    total_tokens: 53424
+    tokens: 2646
+    total_tokens: 53653
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -412,8 +412,8 @@ playbooks:
       - reconciliation-agent
       - qa-agent
       - coaching-agent
-    tokens: 2128
-    total_tokens: 54209
+    tokens: 2786
+    total_tokens: 54867
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
