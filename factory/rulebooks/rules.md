@@ -129,7 +129,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 → [markdown-formatting.md](conventions/markdown-formatting.md)
 
-- **MUST** run `scripts/mdformat --number <path>` immediately after writing any markdown file — not deferred to `validate` or the pre-commit hook.
+- **MUST** run `factory/scripts/mdformat --number <path>` immediately after writing any markdown file — not deferred to `validate` or the pre-commit hook.
 
 ## Mermaid notation
 
