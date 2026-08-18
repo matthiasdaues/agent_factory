@@ -15,6 +15,7 @@ inputs:
   - docs/*.md
   - docs/adr/*.md
   - docs/CONTEXT.md
+  - docs/charter/*.md
   - backlog/ST-NNNN.md
   - factory/rulebooks/conventions/commit-conventions.md
 outputs:
@@ -64,9 +65,9 @@ phase is exempt and may continue in the current session.
 
 **Invoke skills:** `implement-issue`, `spec-feedback`
 
-1. **Analyse** — Read story, trace to Use Cases, record analysis in the story's `## Analysis` section.
-2. **Agree seams** — Identify test boundaries; prefer existing seams, highest level possible.
-3. **Red-Green-Refactor** — **London** or **Chicago School**, vertical slices; refactor is its own phase, not mid-loop.
+1. **Analyse** — Read story, trace to Use Cases, record analysis in the story's `## Analysis` section. Read the charter from `docs/charter/*.md` to learn what to install, how to run tests, and what conventions to follow.
+2. **Agree seams** — Identify test boundaries; prefer existing seams, highest level possible. If the story's `tests:` field is present and non-empty, those listed test files are your specification — read them as your acceptance criteria.
+3. **Red-Green-Refactor** — If `tests:` is present and non-empty, go straight to Green phase only (skip Red; read the tests as the spec and implement code to make them pass). If `tests:` is absent or empty, follow the full **Red-Green-Refactor** cycle using **London** or **Chicago School**, vertical slices; refactor is its own phase, not mid-loop.
 4. **Commit** — Per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `feat: <description> (ST-NNNN)`, set `status: done`.
 5. **Spec feedback** — Check for drift, update docs if needed, invoke `write-adr` for new decisions.
 
@@ -78,3 +79,7 @@ phase is exempt and may continue in the current session.
 - Story references Use Case IDs
 - Conventional Commit with story ID, `status: done`
 - Spec matches implementation
+
+## Note: Epic 0 Stories
+
+Epic 0 stories are implemented like any other story. No special handling is needed beyond what the charter provides — follow the standard workflow above.
