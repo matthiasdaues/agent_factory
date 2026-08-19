@@ -2,7 +2,7 @@
 title: Fagan Inspection — openwebui.ts repeat pass after rework
 date: 2026-08-19
 reviewer: qa-agent
-target: /home/matthiasdaues/.pi/agent/extensions/openwebui.ts (443 lines, external to this repo)
+target: ~/.pi/agent/extensions/openwebui.ts (443 lines, external to this repo)
 scope: Fagan Inspection repeat pass per review-loop discipline — full fresh re-inspection plus per-finding verification; framework claims verified against @earendil-works/pi-coding-agent@0.84.0 dist/, not trusted from author claims
 prior: fagan-review-2026-08-19-openwebui.md
 ---

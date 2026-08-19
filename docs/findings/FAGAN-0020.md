@@ -3,7 +3,7 @@ id: FAGAN-0020
 source: fagan-review
 severity: major
 category: defect
-artifact: /home/matthiasdaues/.pi/agent/extensions/openwebui.ts:255
+artifact: ~/.pi/agent/extensions/openwebui.ts:255
 status: resolved
 ---
 
