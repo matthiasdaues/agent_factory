@@ -5,13 +5,22 @@ category: utility
 source: https://github.com/mattpocock/skills/
 ---
 
-Interview me relentlessly about every aspect of this plan until we reach shared understanding. Walk down each branch of the design tree, resolving dependencies one-by-one. For each question, give your recommended answer — ask one question at a time, waiting for feedback before continuing.
+Interview me relentlessly about every aspect of this plan until we reach shared understanding. Walk down each branch of the design tree, resolving dependencies one-by-one. For each question, give your recommended answer.
 
 Use caveman style; the auto-clarity exception covers ambiguity risk in questions and options.
 
 If a question is a *fact* answerable by exploring the codebase, look it up instead of asking. The *decisions* are the user's — put each one to them and wait for their answer.
 
 Do not enact the plan until shared understanding is reached.
+
+## Pacing
+
+- **Direct user session** — ask one question at a time, waiting for feedback
+  before continuing.
+- **Subagent session** (you were spawned by an orchestrator or another agent) —
+  batch up to five related questions per round-trip. Group by theme; number each
+  question so the caller can answer concisely. Each round-trip reprocesses your
+  full context, so fewer round-trips means dramatically lower token cost.
 
 ## Proposal target
 

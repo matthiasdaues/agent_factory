@@ -1,0 +1,133 @@
+{
+  "source_identity": "LinkML generator documentation — Pydantic generator, SQLAlchemy generator, SQL DDL (SQLTableGenerator) pages",
+  "author_or_issuing_body": "LinkML project (linkml/linkml maintainers)",
+  "publisher": "linkml.io (LinkML documentation site)",
+  "publication_date": "2026-08-14T00:00:00Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "linkml-official-docs (same family as source-linkml-metamodel.json and source-linkml-tooling.json)",
+  "precise_evidence_location": "https://linkml.io/linkml/generators/pydantic.html (Pydantic generator page: pattern-validator generation, PydanticEnum, multivalued option); https://linkml.io/linkml/generators/sqlalchemy.html (SQLAlchemy generator page: Declarative-style support statement); https://linkml.io/linkml/generators/sqltable.html (SQL DDL generator: mapping algorithm, --use-foreign-keys default, --rename-foreign-keys option); GitHub issue linkml/linkml#3501 (gen-sqlddl foreign-key-to-inherited-identifier defect).",
+  "method": "Direct retrieval of the three named generator documentation pages plus the one cross-referenced GitHub issue found via search, reading generator feature statements and any explicit limitation/'currently only' wording verbatim.",
+  "limitations": "None of the three generator pages, as fetched, contains an explicit construct-by-construct compatibility table (e.g. a matrix stating 'composite key: supported/unsupported' per generator). Survival of composite-key-like constructs (unique_keys), self-referencing FKs, and enums through each generator is therefore assessed by combining what each generator page explicitly states it produces (declarative classes, enum columns, FK columns, relationships) with what the metamodel record (source-linkml-metamodel.json) establishes those constructs actually are in LinkML — this is a documented-capability cross-reference, not a single page making the full claim, and is flagged as such in interpretation. The SQLAlchemy generator page in particular returned very little text on first fetch; its 'no explicit mention' findings for composite PKs, unique_keys, self-referencing FKs, and JSON handling are recorded as documentation silence, not as a confirmed negative — see contrary_evidence_search.",
+  "provenance": "Retrieved 2026-08-14 via automated web fetch of https://linkml.io/linkml/generators/pydantic.html, https://linkml.io/linkml/generators/sqlalchemy.html, and https://linkml.io/linkml/generators/sqltable.html, plus a WebSearch locating https://github.com/linkml/linkml/issues/3501. Re-verify by re-fetching the same URLs and issue page; all publicly accessible without authentication.",
+  "raw_evidence": [
+    {
+      "quote": "generates Pydantic-compliant classes from a schema as an alternative to the dataclasses-based Pythongen",
+      "locator": "generators/pydantic.html, overview paragraph",
+      "url": "https://linkml.io/linkml/generators/pydantic.html"
+    },
+    {
+      "quote": "validators are created for those slots that have a `pattern` property",
+      "locator": "generators/pydantic.html, pattern-validator section",
+      "url": "https://linkml.io/linkml/generators/pydantic.html"
+    },
+    {
+      "quote": "empty_list_for_multivalued_slots",
+      "locator": "generators/pydantic.html, generator options",
+      "url": "https://linkml.io/linkml/generators/pydantic.html"
+    },
+    {
+      "quote": "Semantic Enumerations are supported with PydanticEnum class",
+      "locator": "generators/pydantic.html, enum-handling section",
+      "url": "https://linkml.io/linkml/generators/pydantic.html"
+    },
+    {
+      "quote": "Currently only the Declarative style is fully supported",
+      "locator": "generators/sqlalchemy.html, implementation-status note",
+      "url": "https://linkml.io/linkml/generators/sqlalchemy.html"
+    },
+    {
+      "quote": "Each schema S corresponds to one database schema D; Each Class C in S is mapped to a table T; Each slot S in each C is mapped to a column Col",
+      "locator": "generators/sqltable.html, mapping algorithm",
+      "url": "https://linkml.io/linkml/generators/sqltable.html"
+    },
+    {
+      "quote": "--use-foreign-keys (default True): Emit FK declarations",
+      "locator": "generators/sqltable.html, CLI option table",
+      "url": "https://linkml.io/linkml/generators/sqltable.html"
+    },
+    {
+      "quote": "--rename-foreign-keys: Rename every class-range slot to <slot>_<target_pk> in the emitted DDL so column names match SQLAlchemy 2.x declarative ORM output.",
+      "locator": "generators/sqltable.html, CLI option table",
+      "url": "https://linkml.io/linkml/generators/sqltable.html"
+    },
+    {
+      "quote": "for class ranges with singular primary keys: Col.type = ForeignKey(Ref.PK)",
+      "locator": "generators/sqltable.html, FK-mapping description",
+      "url": "https://linkml.io/linkml/generators/sqltable.html"
+    },
+    {
+      "quote": "gen-sqlddl emits foreign keys to inherited injected identifiers instead of a class's direct identifier ... the generated FK target was incorrectly pointing to Person.id when the Person table's direct identifier was name",
+      "locator": "GitHub issue linkml/linkml #3501, issue title and body summary",
+      "url": "https://github.com/linkml/linkml/issues/3501"
+    }
+  ],
+  "interpretation": {
+    "generation_targets_supported": {
+      "classification": "expressible",
+      "citation": "generators/pydantic.html and generators/sqlalchemy.html overview text",
+      "rationale": "LinkML documents dedicated Pydantic and SQLAlchemy generators (plus dataclasses via Pythongen, not detailed here). Both are real, named, documented generators — application-type generation as a capability exists and is not inferred from reputation."
+    },
+    "composite_pk_survival_through_generation": {
+      "classification": "not-expressible",
+      "citation": "generators/sqltable.html FK-mapping text explicitly conditions on 'class ranges with singular primary keys' (ForeignKey(Ref.PK)); metamodel record establishes LinkML classes have at most one identifier/key slot",
+      "rationale": "Because LinkML's own metamodel caps a class at one identifier/key slot (see source-linkml-metamodel.json), there is no true composite primary key in the source schema for a generator to preserve or drop — the construct never exists in LinkML form for OUTCOME_RULE-style composite identity. The SQL DDL generator's FK-target logic is explicitly documented only for the singular-PK case, and GitHub issue #3501 shows the FK-to-identifier logic has had defects even in the singular case (targeting an inherited identifier instead of the class's own). unique_keys (the closest LinkML analog) is not shown, in the sqltable.html text captured, to be emitted as a SQL-level composite UNIQUE constraint or composite PK — this is recorded as unconfirmed rather than assumed positive."
+    },
+    "json_payload_survival_through_generation": {
+      "classification": "not-expressible",
+      "citation": "no generator page found documenting JSON-column output for `range: Any` or `range: string` slots",
+      "rationale": "Since LinkML has no native opaque-JSON type (per source-linkml-metamodel.json), a schedule_spec-style column would be authored as range: string at best; none of the three generator pages fetched documents that a plain string slot is emitted as a JSON/JSONB column type in SQL DDL or as a structured dict field in Pydantic/SQLAlchemy — the documented behavior is a plain string/VARCHAR column, which loses the 'this is structured JSON' semantic entirely."
+    },
+    "enum_survival_through_generation": {
+      "classification": "expressible",
+      "citation": "generators/pydantic.html 'Semantic Enumerations are supported with PydanticEnum class'; sqltable.html lists enums as a possible slot range (per source search) though exact SQL rendering (CHECK vs lookup table) was not confirmed",
+      "rationale": "Pydantic generation of enums is explicitly documented (PydanticEnum). SQL DDL enum rendering mechanism (CHECK constraint vs. separate lookup table) was not found explicitly stated on the sqltable.html page as fetched — recorded as a gap, but the enum construct itself is not documented as dropped."
+    },
+    "self_referencing_fk_survival_through_generation": {
+      "classification": "expressible",
+      "citation": "generators/sqltable.html FK-mapping description (Col.type = ForeignKey(Ref.PK)) applies generically to any class-range slot, including a class referencing itself",
+      "rationale": "No documented restriction excludes self-referencing slots from the general FK-mapping rule; the mechanism described (any class-range slot with a singular PK maps to a ForeignKey column) applies the same way whether Ref is a different class or the same class. This is inferred from the generality of the stated rule, not from a worked self-reference example in the docs."
+    },
+    "nullable_fk_survival_through_generation": {
+      "classification": "expressible",
+      "citation": "generators/sqltable.html general column-mapping rule combined with 'required' default-false metamodel behavior (source-linkml-metamodel.json)",
+      "rationale": "No documented override forces NOT NULL on FK columns generated from non-required slots; the general column-mapping rule (each slot maps to a column) is not shown to be conditioned on nullability, so a non-required class-range slot should map to a nullable FK column by default LinkML/SQL DDL behavior."
+    },
+    "multi_column_unique_survival_through_generation": {
+      "classification": "not-expressible",
+      "citation": "no explicit statement found in generators/sqltable.html text captured describing unique_keys being emitted as a SQL UNIQUE constraint",
+      "rationale": "unique_keys is documented at the metamodel level (source-linkml-metamodel.json) but the SQL DDL generator page as fetched does not state that it reads unique_keys and emits a corresponding multi-column UNIQUE constraint in DDL. Recorded as a negative finding pending direct confirmation; see contrary_evidence_search."
+    },
+    "one_to_zero_or_one_survival_through_generation": {
+      "classification": "expressible",
+      "citation": "generators/sqltable.html general singular-class-range FK mapping combined with 'required' default-false",
+      "rationale": "A non-required, non-multivalued class-range slot maps to a nullable single FK column under the same general rule used for nullable FKs above, which is the standard relational encoding of a zero-or-one relationship."
+    },
+    "value_constraint_survival_through_generation": {
+      "classification": "not-expressible",
+      "citation": "no statement found in any of the three generator pages regarding any_of/equals_string rendering",
+      "rationale": "The any_of/equals_string mechanism used to express 'positive integer OR literal ALL' (source-linkml-metamodel.json) is documented by LinkML's own advanced-features page as experimental. None of the three generator pages fetched states that any_of expressions are translated into Pydantic validators, SQLAlchemy CheckConstraints, or SQL CHECK constraints. Given the pattern-only validator statement found for Pydantic ('validators are created for those slots that have a pattern property' — not any_of), this construct is assessed as dropped/not surviving generation absent contrary evidence."
+    },
+    "ddl_derivation_and_construct_survival": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "generators/sqltable.html full mapping algorithm",
+      "rationale": "Physical DDL derivation from the same LinkML source does exist (gen-sqlddl / SQLTableGenerator) — this is a genuine, documented, separate generator from Pydantic/SQLAlchemy. But per the construct-by-construct findings above, several advanced constructs (composite identity, opaque JSON, multi-column unique-as-UNIQUE-constraint, the any_of value constraint) are either not expressible in the LinkML source in the first place or not confirmed to survive into DDL, so DDL derivation is real but does not carry the full advanced-construct set intact."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "linkml sqlalchemy generator composite primary key",
+      "linkml pydantic generator any_of validator",
+      "linkml gen-sqlddl unique_keys UNIQUE constraint",
+      "linkml sqltablegen JSON column type",
+      "linkml generator issue composite key OR self-referencing"
+    ],
+    "where_searched": [
+      "linkml.io/linkml/generators/pydantic.html",
+      "linkml.io/linkml/generators/sqlalchemy.html",
+      "linkml.io/linkml/generators/sqltable.html",
+      "GitHub web search restricted to linkml/linkml issues (WebSearch tool)"
+    ],
+    "search_date": "2026-08-14",
+    "result": "Found one directly relevant open-issue-history item: linkml/linkml#3501, documenting a real defect in gen-sqlddl's foreign-key target resolution for identifiers (targeting an inherited identifier instead of a class's own direct identifier) — evidence that FK/identifier handling in the SQL DDL generator has known rough edges even for the simple singular-identifier case. No issue or documentation page was found confirming or denying that unique_keys is rendered as a SQL UNIQUE constraint, or that any_of/equals_string expressions are rendered as CHECK constraints or Pydantic validators — both recorded as explicit gaps rather than assumed to work or assumed to fail."
+  }
+}

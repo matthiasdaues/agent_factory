@@ -1,0 +1,400 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
+"""charter-lint — deterministic validation gate for the project charter.
+
+What: Validates the project charter structure and completeness.
+When: Pre-commit hook when charter files change.
+By:   Planning phase gate (Project Charter epic).
+
+Validates:
+- All three charter files exist under docs/charter/
+- Required sections present per template
+- No section is empty (beyond HTML comment prompt)
+- YAML frontmatter parses cleanly
+- (--planning-gate mode) No "To be decided" entries in tech-stack and development
+
+No third-party dependencies (Python 3.10+ stdlib only).
+
+Usage:
+  charter-lint
+  charter-lint --charter-dir docs/charter
+  charter-lint --template-dir factory/rulebooks/templates
+  charter-lint --planning-gate
+  charter-lint --format json --report-only
+
+Exit code: number of ERROR-severity findings (0 = clean), unless --report-only.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
+
+CHARTER_FILES = ["tech-stack.md", "development.md", "house-rules.md"]
+
+
+@dataclass
+class Finding:
+    """Represents a single validation finding."""
+
+    code: str
+    severity: str
+    artifact: str
+    message: str
+
+    def line(self) -> str:
+        return (
+            f"[{self.severity.upper():7}] {self.code}  {self.artifact}: {self.message}"
+        )
+
+
+# --- YAML frontmatter parser (stdlib only) ------------------------------------
+
+
+def _parse_yaml_value(raw: str) -> Any:
+    """Minimal YAML value parser — handles strings, lists, booleans, null."""
+    val = raw.strip()
+    if not val or val in ("~", "null"):
+        return None
+    if val in ("true", "True", "yes"):
+        return True
+    if val in ("false", "False", "no"):
+        return False
+    if val.startswith("[") and val.endswith("]"):
+        inner = val[1:-1]
+        if not inner.strip():
+            return []
+        return [_unquote(t.strip()) for t in inner.split(",") if t.strip()]
+    return _unquote(val)
+
+
+def _unquote(s: str) -> str:
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in ('"', "'"):
+        return s[1:-1]
+    return s
+
+
+def parse_frontmatter(text: str) -> Tuple[Optional[Dict[str, Any]], str]:
+    """Return (frontmatter_dict | None, body) from ---delimited YAML."""
+    lines = text.split("\n")
+    if not lines or lines[0].strip() != "---":
+        return None, text
+
+    end = None
+    for i, ln in enumerate(lines[1:], start=1):
+        if ln.strip() == "---":
+            end = i
+            break
+    if end is None:
+        return None, text
+
+    fm: Dict[str, Any] = {}
+    current_key: Optional[str] = None
+    current_list: Optional[List[str]] = None
+
+    for ln in lines[1:end]:
+        list_item = re.match(r"^\s+-\s+(.+)$", ln)
+        if list_item and current_key is not None:
+            if current_list is None:
+                current_list = []
+            current_list.append(_unquote(list_item.group(1).strip()))
+            continue
+
+        if current_key is not None and current_list is not None:
+            fm[current_key] = current_list
+            current_list = None
+            current_key = None
+
+        m = re.match(r"^([A-Za-z_][A-Za-z0-9_-]*)\s*:\s*(.*)?$", ln)
+        if m:
+            key = m.group(1)
+            raw_val = (m.group(2) or "").strip()
+            if not raw_val:
+                current_key = key
+                current_list = None
+                fm[key] = None
+            else:
+                current_key = key
+                current_list = None
+                fm[key] = _parse_yaml_value(raw_val)
+
+    if current_key is not None and current_list is not None:
+        fm[current_key] = current_list
+
+    body = "\n".join(lines[end + 1 :])
+    return fm, body
+
+
+# --- Section discovery from templates ------------------------------------------
+
+
+def _extract_sections(text: str) -> Set[str]:
+    """Extract all top-level section headers (## headings) from markdown."""
+    sections: Set[str] = set()
+    for line in text.split("\n"):
+        # Match ## Section Name (not ### or beyond)
+        m = re.match(r"^##\s+(.+)$", line)
+        if m:
+            sections.add(m.group(1).strip())
+    return sections
+
+
+def _load_template_sections(
+    template_dir: Path, charter_file: str
+) -> Set[str]:
+    """Load required sections from template file."""
+    template_map = {
+        "tech-stack.md": "charter-tech-stack.md",
+        "development.md": "charter-development.md",
+        "house-rules.md": "charter-house-rules.md",
+    }
+
+    template_name = template_map.get(charter_file)
+    if not template_name:
+        return set()
+
+    template_path = template_dir / template_name
+    if not template_path.is_file():
+        return set()
+
+    text = template_path.read_text(encoding="utf-8")
+    # Skip frontmatter
+    _, body = parse_frontmatter(text)
+    return _extract_sections(body)
+
+
+def _is_section_empty(text: str, section_name: str) -> bool:
+    """Check if a section has no meaningful content beyond the HTML comment."""
+    lines = text.split("\n")
+    in_section = False
+    section_content = []
+
+    for line in lines:
+        # Start of target section
+        if re.match(rf"^##\s+{re.escape(section_name)}$", line):
+            in_section = True
+            continue
+
+        # End of section (next ## heading or beyond)
+        if in_section and re.match(r"^##", line):
+            break
+
+        if in_section:
+            section_content.append(line)
+
+    # Join content and strip whitespace
+    content = "\n".join(section_content).strip()
+
+    # Remove HTML comment lines
+    content = re.sub(r"<!--.*?-->", "", content, flags=re.DOTALL).strip()
+
+    return len(content) == 0
+
+
+def _has_to_be_decided(text: str) -> bool:
+    """Check if text contains 'To be decided' entries."""
+    return bool(re.search(r"To be decided", text, re.IGNORECASE))
+
+
+# --- Validation checks --------------------------------------------------------
+
+
+def check_charter_file(
+    path: Path, template_sections: Set[str], planning_gate: bool = False
+) -> List[Finding]:
+    """Validate a single charter file."""
+    findings: List[Finding] = []
+    rel = path.name
+
+    if not path.is_file():
+        findings.append(
+            Finding("CH-FILE", "error", rel, f"file does not exist")
+        )
+        return findings
+
+    text = path.read_text(encoding="utf-8")
+
+    # Parse frontmatter
+    fm, body = parse_frontmatter(text)
+    if fm is None:
+        findings.append(
+            Finding(
+                "CH-FM",
+                "error",
+                rel,
+                "file has no valid YAML frontmatter (missing --- delimiters)",
+            )
+        )
+        return findings
+
+    # Check required sections exist
+    actual_sections = _extract_sections(body)
+    for required in sorted(template_sections):
+        if required not in actual_sections:
+            findings.append(
+                Finding(
+                    "CH-SECT",
+                    "error",
+                    rel,
+                    f"required section '## {required}' is missing",
+                )
+            )
+
+    # Check no section is empty
+    for section_name in actual_sections:
+        if _is_section_empty(body, section_name):
+            findings.append(
+                Finding(
+                    "CH-EMPTY",
+                    "error",
+                    rel,
+                    f"section '## {section_name}' is empty",
+                )
+            )
+
+    # Planning gate: check for "To be decided"
+    if planning_gate:
+        if _has_to_be_decided(body):
+            if rel in ["tech-stack.md", "development.md"]:
+                findings.append(
+                    Finding(
+                        "CH-TBD",
+                        "error",
+                        rel,
+                        f"contains 'To be decided' entries (not allowed before planning)",
+                    )
+                )
+            # house-rules.md is allowed to have "To be decided"
+
+    return findings
+
+
+def check_charter(
+    charter_dir: Path,
+    template_dir: Path,
+    planning_gate: bool = False,
+) -> Tuple[List[Finding], bool]:
+    """Validate the entire project charter."""
+    findings: List[Finding] = []
+
+    if not charter_dir.is_dir():
+        findings.append(
+            Finding(
+                "CH-DIR",
+                "error",
+                str(charter_dir),
+                "charter directory does not exist",
+            )
+        )
+        return findings, False
+
+    # Load template sections for each file
+    template_sections_map: Dict[str, Set[str]] = {}
+    for charter_file in CHARTER_FILES:
+        sections = _load_template_sections(template_dir, charter_file)
+        template_sections_map[charter_file] = sections
+
+    # Check each charter file
+    all_exist = True
+    for charter_file in CHARTER_FILES:
+        charter_path = charter_dir / charter_file
+        if not charter_path.is_file():
+            findings.append(
+                Finding(
+                    "CH-FILE",
+                    "error",
+                    charter_file,
+                    f"charter file does not exist at {charter_path}",
+                )
+            )
+            all_exist = False
+        else:
+            template_sections = template_sections_map.get(charter_file, set())
+            findings += check_charter_file(
+                charter_path, template_sections, planning_gate
+            )
+
+    findings.sort(key=lambda f: (-SEVERITY_ORDER[f.severity], f.code, f.artifact))
+    return findings, all_exist
+
+
+# --- Driver -------------------------------------------------------------------
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(
+        description="Deterministic validation gate for the project charter."
+    )
+    p.add_argument(
+        "--charter-dir",
+        default="docs/charter",
+        type=Path,
+        help="Path to charter directory (default: docs/charter)",
+    )
+    p.add_argument(
+        "--template-dir",
+        default="factory/rulebooks/templates",
+        type=Path,
+        help="Path to charter templates (default: factory/rulebooks/templates)",
+    )
+    p.add_argument(
+        "--planning-gate",
+        action="store_true",
+        help="Stricter mode: no 'To be decided' in tech-stack/development",
+    )
+    p.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        dest="fmt",
+        help="Output format (default: text)",
+    )
+    p.add_argument(
+        "--report-only",
+        action="store_true",
+        help="Always exit 0 (report without gating)",
+    )
+
+    args = p.parse_args(argv)
+
+    findings, all_exist = check_charter(
+        args.charter_dir, args.template_dir, args.planning_gate
+    )
+    counts = {s: sum(1 for f in findings if f.severity == s) for s in SEVERITY_ORDER}
+
+    if args.fmt == "json":
+        # Output JSON to stderr
+        sys.stderr.write(
+            json.dumps(
+                {
+                    "findings": [asdict(f) for f in findings],
+                    "summary": counts,
+                    "all_files_exist": all_exist,
+                },
+                indent=2,
+            )
+        )
+        sys.stderr.write("\n")
+    else:
+        # Output text to stderr
+        for f in findings:
+            sys.stderr.write(f.line() + "\n")
+        sys.stderr.write(
+            f"\ncharter-lint: {counts['error']} error(s), "
+            f"{counts['warning']} warning(s), {counts['info']} info.\n"
+        )
+
+    return 0 if args.report_only else counts["error"]
+
+
+if __name__ == "__main__":
+    sys.exit(main())

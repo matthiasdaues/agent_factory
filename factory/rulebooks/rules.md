@@ -32,9 +32,19 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
   `accepted` proposal and route those phases from its declared impact.
 - **MUST NOT** reference a `docs/proposals/*` file in a shipped agent's `inputs:` — a proposal is a design origin, not a runtime artifact; point `inputs:` at tracked, shipped artifacts (the playbook, policies, schemas it consumes).
 
+## Architecture documentation
+
+→ [brownfield-onboarding.md § Step 2.2 — Build architecture.dsl first](../playbooks/brownfield-onboarding.md#step-22--build-architecturedsl-first), [architecture-agent.md § Workflow](../agents/architecture-agent.md#workflow)
+
+- **MUST** start onboarding by creating and filling `docs/arc42/architecture.dsl` from code before writing architecture prose.
+- **MUST** model deployment nodes and connections in the `architecture.dsl` Deployment view from Terraform (or equivalent IaC) when available.
+- **MUST** treat arc42 chapters 05, 06, and 07 as derived explanations of `architecture.dsl` views, not independent sources.
+
 ## Coding
 
-- placeholder for future rules
+- **MUST** derive Epic 0 from the charter when one exists.
+- **MUST** complete all must-have Epic 0 stories before any feature story begins.
+- **MUST** read house-rules and adjust workflow accordingly.
 
 ## Testing
 
@@ -49,7 +59,8 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 → [branching-policy.md](conventions/branching-policy.md)
 
-- **MUST** create every new local branch atomically with its own linked worktree using `git worktree add -b <branch> <worktree-path> <base>`; standalone branch creation is forbidden.
+- **MUST** create every new local branch atomically with its own linked worktree using `git worktree add -b <branch> .agent-factory/worktrees/<branch> <base>`; standalone branch creation is forbidden.
+- **MUST** place every worktree under `.agent-factory/worktrees/` — never in the repository root, a sibling directory, or an arbitrary path.
 - **MUST** verify every new branch-to-worktree mapping with `git worktree list --porcelain` before doing work on that branch.
 - **MUST** create exactly one feature branch per story or bug — never per EPIC, sprint, or wave.
 - **MUST** create every feature branch and worktree from a dedicated invocation branch and worktree (itself created from `main`), recording its origin commit as the branch root.
@@ -68,6 +79,12 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST** split a whole-codebase dispatch into smaller, independently mergeable dispatches rather than run it as one.
 - **MUST** checkpoint a long-running dispatch with commits between rounds.
 - **MUST** verify a sub-agent's reported result against observable state (git, tests, gates) before treating the work as done — the mechanical gates, not the self-report, are authoritative.
+- **MUST** verify every reported commit SHA exists (`git cat-file -e <sha>^{commit}`) and lives on the expected branch (`git branch --contains <sha>`) before accepting a sub-agent's completion claim.
+- **MUST NOT** launch a new agent for the same role while a prior instance is still running — the prior instance cannot be cancelled and will consume tokens against stale state.
+- **MUST** verify every story in a wave has reached a terminal state (merged or explicitly blocked/failed in the dispatch ledger) before launching the next wave.
+- **MUST** commit or explicitly record each story's outcome (merged SHA or blocked reason) before the wave is considered closed.
+- **MUST** maintain a dispatch ledger (`.agent-factory/dispatch-ledger.yaml`) tracking each story's branch, worktree, declared base, gate results, commit SHA, merge SHA, and status.
+- **MUST** update the story file's `status` field in the same commit that delivers the story's implementation.
 
 ## Commits
 
@@ -94,6 +111,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST** put one authoritative current-state section before optional historical context.
 - **MUST** record exact local and upstream tips plus ahead/behind counts; decorated branch labels and approximate counts are insufficient.
 - **MUST** replace or move superseded instructions instead of leaving them mixed with current open work.
+- **MUST** move superseded documentation artifacts under `~archive/`, preserving their original relative path (for example, `docs/arc42/old.md` → `~archive/docs/arc42/old.md`).
 
 ## Cross-references
 
@@ -113,7 +131,13 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 → [markdown-formatting.md](conventions/markdown-formatting.md)
 
-- **MUST** run `scripts/mdformat --number <path>` immediately after writing any markdown file — not deferred to `validate` or the pre-commit hook.
+- **MUST** run `factory/scripts/mdformat --number <path>` immediately after writing any markdown file — not deferred to `validate` or the pre-commit hook.
+
+## Mermaid notation
+
+→ [mermaid-notation.md](conventions/mermaid-notation.md)
+
+- **MUST NOT** put raw semicolons in Mermaid blocks; use one statement per line and encode an essential literal semicolon as `#59;`.
 
 ## Review loop discipline
 
@@ -152,6 +176,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - [cross-reference-format.md § Rule](conventions/cross-reference-format.md#rule)
 - [finding-format.md § When to file](conventions/finding-format.md#when-to-file)
 - [markdown-formatting.md § Rule](conventions/markdown-formatting.md#rule)
+- [mermaid-notation.md § Rule](conventions/mermaid-notation.md#rule)
 - [review-loop-discipline.md § Rule](conventions/review-loop-discipline.md#rule)
 - [state-machine-notation.md § Canonical Format](conventions/state-machine-notation.md#canonical-format)
 - [versioning-policy.md § Git Tag Must Match Version File](conventions/versioning-policy.md#git-tag-must-match-version-file)

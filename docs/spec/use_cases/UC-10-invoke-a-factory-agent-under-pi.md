@@ -74,7 +74,7 @@ The calling Pi session invokes the model-callable tool `run_agent(agent, task, m
 - **BR-032**: the child layers the agent persona with `--append-system-prompt`, not `--system-prompt`, keeping Pi's own tool guidance and the project `AGENTS.md`.
 - **BR-033**: the child inherits the git-safety guardrail, since it loads `.pi/extensions/`; subagents are bound by the same dangerous-command block and the single sanctioned `factory/scripts/run-tests --staged` allow.
 - **BR-034**: `run_agent` parses structured JSON from `--mode json` `message_end` and exposes token usage; parent-facing result content follows BR-040's bounded envelope rather than injecting the full final text.
-- **BR-034a**: `run_agent` consumes the JSON event stream asynchronously and
+- **BR-060**: `run_agent` consumes the JSON event stream asynchronously and
   incrementally, reports bounded progress, retains bounded non-result state,
   and gives the complete raw stream to best-effort usage capture without
   assembling it in memory.
@@ -92,12 +92,12 @@ flowchart TD
     E -->|yes| G{depth within bound?}
     G -->|no| H[Error result, no spawn — BR-035]
     G -->|yes| I[Spawn pi --no-session -a --mode json --model m --append-system-prompt agent -p task]
-    I --> J[Stream raw JSONL to protected staging; parse events and report progress]
+    I --> J[Stream raw JSONL to protected staging, parse events, and report progress]
     J --> K{cancelled?}
-    K -->|yes| L[Terminate child; clean staging; return abort diagnostic]
+    K -->|yes| L[Terminate child, clean staging, and return abort diagnostic]
     K -->|no| M{child exits 0 with message_end?}
     M -->|no| N[Error result: exit code + bounded stderr tail]
-    M -->|yes| O[Persist complete result; hand raw file to capture; return bounded envelope + usage]
+    M -->|yes| O[Persist complete result, hand raw file to capture, and return bounded envelope + usage]
 ```
 
 ## Acceptance Criteria

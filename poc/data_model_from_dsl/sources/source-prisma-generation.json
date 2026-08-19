@@ -1,0 +1,97 @@
+{
+  "source_identity": "GitHub repositories RobertCraigie/prisma-client-py (third-party Python client generator) and keonik/prisma-erd-generator (third-party ERD/SVG generator), plus Prisma's own 'prisma migrate diff' CLI reference and 'Multi-schema'/generation-adjacent docs",
+  "author_or_issuing_body": "Robert Craigie (independent maintainer, prisma-client-py); John Fay and contributors (prisma-erd-generator); Prisma Data, Inc. (prisma migrate diff docs)",
+  "publisher": "github.com (repository hosting for both third-party projects); www.prisma.io (Prisma Data, Inc., for the CLI reference)",
+  "publication_date": "2026-08-14T00:00:00Z",
+  "relevant_event_date": "2025-04-10",
+  "source_family": "third-party-generator-ecosystem",
+  "precise_evidence_location": "GitHub API https://api.github.com/repos/RobertCraigie/prisma-client-py (fields: archived, pushed_at, license, description); raw file https://raw.githubusercontent.com/RobertCraigie/prisma-client-py/main/README.md, warning banner near line 26; GitHub API https://api.github.com/repos/keonik/prisma-erd-generator (fields: archived, pushed_at, license); raw file https://raw.githubusercontent.com/keonik/prisma-erd-generator/main/package.json (dependencies block); raw file https://raw.githubusercontent.com/keonik/prisma-erd-generator/main/README.md, sections on installation, 'Ignore specific tables by pattern', and 'Issues'; www.prisma.io/docs/orm/reference/prisma-cli-reference, section 'migrate diff' (#migrate-diff).",
+  "method": "Direct HTTP GET via curl against the GitHub REST API (repo metadata: archived flag, pushed_at timestamp, license.spdx_id) and against raw.githubusercontent.com for README/package.json content, executed 2026-08-14, parsed programmatically. The `prisma migrate diff` documentation was retrieved via web fetch of the live Prisma CLI reference page.",
+  "limitations": "Both prisma-client-py and prisma-erd-generator are third-party projects, not maintained by Prisma Data, Inc. — neither appears in Prisma's own documentation as an endorsed or first-party tool as far as this research found; their evaluation here answers 'does any path exist' honestly but should not be read as Prisma vouching for them. prisma-client-py's construct-survival behavior (whether composite PKs, enums, Json fields, etc. generate correctly into Python) was not independently tested by running the generator — the survey's task boundary forbids running any Prisma command — so per-construct survival for Python generation is reported as an evidence gap, not verified either way, beyond the overarching maintenance-status finding. prisma-erd-generator's rendering pipeline was inspected via its declared package.json dependencies and README, not by running it; SVG/PNG output was not visually verified.",
+  "provenance": "GitHub repository metadata and raw file contents are re-verifiable by re-issuing the same curl commands against api.github.com and raw.githubusercontent.com (no authentication required for public repos). Re-verify the CLI reference at the URL given.",
+  "raw_evidence": [
+    {
+      "quote": "\"archived\": true, \"pushed_at\": \"2025-04-10T08:07:05Z\", \"license\": {\"spdx_id\": \"Apache-2.0\"}, \"description\": \"Prisma Client Python is an auto-generated and fully type-safe database client designed for ease of use\", \"open_issues_count\": 252, \"stargazers_count\": 2098",
+      "locator": "GitHub REST API repository object for RobertCraigie/prisma-client-py",
+      "url": "https://api.github.com/repos/RobertCraigie/prisma-client-py"
+    },
+    {
+      "quote": "> [!WARNING]\n> Prisma Client Python is no longer being maintained. See [this issue](https://github.com/RobertCraigie/prisma-client-py/issues/1073) for more information.",
+      "locator": "README.md, warning banner near line 26",
+      "url": "https://raw.githubusercontent.com/RobertCraigie/prisma-client-py/main/README.md"
+    },
+    {
+      "quote": "All query methods return pydantic models. ... Prisma Client Python interfaces with Prisma using Rust, so you don't need Node or TypeScript.",
+      "locator": "prisma-client-py project description (README/docs summary)",
+      "url": "https://github.com/RobertCraigie/prisma-client-py"
+    },
+    {
+      "quote": "\"archived\": false, \"pushed_at\": \"2026-08-01T02:12:26Z\", \"license\": {\"spdx_id\": \"MIT\"}, \"description\": \"Generate an ER Diagram based on your Prisma schema every time you run npx prisma generate\", \"open_issues_count\": 23, \"stargazers_count\": 1032",
+      "locator": "GitHub REST API repository object for keonik/prisma-erd-generator",
+      "url": "https://api.github.com/repos/keonik/prisma-erd-generator"
+    },
+    {
+      "quote": "\"dependencies\": {\"@mermaid-js/mermaid-cli\": \"^11.9.0\", \"@prisma/generator-helper\": \"^7.0.0\", \"dotenv\": \"^16.6.1\"}",
+      "locator": "package.json, dependencies block",
+      "url": "https://raw.githubusercontent.com/keonik/prisma-erd-generator/main/package.json"
+    },
+    {
+      "quote": "npm i -D prisma-erd-generator @mermaid-js/mermaid-cli puppeteer ... In order for this generator to succeed you must have `mmdc` installed. This is the mermaid cli tool that is used to generate the ERD. ... Because this package relies on mermaid js and puppeteer, issues often are opened that relate to those libraries causing issues between different versions of Node.js and your operating system.",
+      "locator": "README.md, installation instructions and sections 'mmdcPath' and 'Issues'",
+      "url": "https://raw.githubusercontent.com/keonik/prisma-erd-generator/main/README.md"
+    },
+    {
+      "quote": "Hide specific models from the ERD using pattern matching. ... ignorePattern = \"sys_*,Internal*,Session,_*\"",
+      "locator": "README.md, section 'Ignore specific tables by pattern'",
+      "url": "https://raw.githubusercontent.com/keonik/prisma-erd-generator/main/README.md"
+    },
+    {
+      "quote": "This command compares two database schema sources and outputs a description of a migration taking the first to the state of the second. ... --script: Outputs a SQL script instead of the default human-readable summary. ... Both schema sources must use the same database provider. ... This command is only partially supported for MongoDB.",
+      "locator": "Prisma CLI Reference, section 'migrate diff' (#migrate-diff)",
+      "url": "https://www.prisma.io/docs/orm/reference/prisma-cli-reference#migrate-diff"
+    }
+  ],
+  "interpretation": {
+    "python_application_type_generation": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "GitHub repo RobertCraigie/prisma-client-py (archived: true, pushed_at 2025-04-10T08:07:05Z); README.md warning banner",
+      "rationale": "Prisma's own generator ecosystem is TypeScript/JavaScript-first; there is no first-party Prisma Data, Inc. generator for Python types. The one substantial third-party project providing Python types from a Prisma schema, prisma-client-py, generates Pydantic-backed models — but GitHub's own API reports it archived, and its README states outright, in its own words, that it 'is no longer being maintained'. Its last push (2025-04-10) is within the brief's 18-month freshness window measured from August 2026, but the archived flag means no further commits can land through normal means regardless of window — a materially different and weaker state than 'quiet but alive'. Per-construct survival of the ten advanced constructs through this generator (do composite PKs, JSON columns, enums, multiple self-relations, nullable FKs, multi-column unique, one-to-zero-or-one, and the CHECK-style value constraint all come through into Python types intact) was not verified by running the generator, and is recorded as an unresolved evidence gap rather than assumed to work."
+    },
+    "svg_export": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "package.json dependencies (@mermaid-js/mermaid-cli, implied puppeteer); README.md installation and 'mmdcPath' sections",
+      "rationale": "No first-party Prisma SVG export exists. The third-party prisma-erd-generator can produce SVG, but it does so by depending on @mermaid-js/mermaid-cli (the same mmdc tool used by the incumbent Mermaid candidate in this survey) plus puppeteer/a headless Chromium — it converts the Prisma schema to Mermaid erDiagram syntax internally and shells out to mermaid-cli to render it. This is a workaround built on a second third-party tool, not a Prisma-native rendering pipeline, and its output quality/limitations are therefore inherited from Mermaid's own erDiagram renderer (see the Mermaid candidate's own source records for that renderer's limitations)."
+    },
+    "png_export": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "Same as svg_export — package.json dependencies and README",
+      "rationale": "prisma-erd-generator documents PNG as one of its supported output formats (alongside SVG, PDF, Markdown), via the same mermaid-cli/puppeteer pipeline described above. Same caveats apply: third-party-on-third-party, not a Prisma-native capability, and requires a Chromium-capable environment (puppeteer) rather than the lightweight ephemeral-container pattern factory/scripts/structurizr uses."
+    },
+    "named_subset_views_over_one_model": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "README.md, section 'Ignore specific tables by pattern' (ignorePattern option); also 'Ignore enums' and 'Ignore views' options",
+      "rationale": "No first-party Prisma mechanism for named, savable subset views over one model was found (see source-prisma-schema-reference.json and source-prisma-tooling.json — nothing resembling Structurizr's views concept exists in the schema reference or CLI reference). The third-party prisma-erd-generator offers filtering flags (ignorePattern, ignoreEnums, ignoreViews) that hide matched models/enums from a single generator's output. This could approximate 'named subset views' only by declaring multiple differently-configured `generator erd_xxx { provider = \"prisma-erd-generator\"; ignorePattern = \"...\" }` blocks in the same schema, each producing its own filtered diagram file — a workaround assembled from a filtering flag never designed as a multi-view feature, not a documented 'named view' construct."
+    },
+    "ddl_derivation": {
+      "classification": "expressible",
+      "citation": "Prisma CLI Reference, section 'migrate diff' (#migrate-diff)",
+      "rationale": "`prisma migrate diff --script` is documented to output executable SQL DDL derived by comparing two schema sources (which can include the schema.prisma file itself as one side). This is a first-party, Prisma-native DDL-derivation path — distinct from the Python-generation and SVG/PNG-export findings above, which all required third-party tooling. It is provider-bound ('both schema sources must use the same database provider') and only partially supported for MongoDB. Whether the resulting DDL preserves every advanced construct (particularly the CHECK-style value constraint, which is absent from the schema in the first place and therefore cannot appear in derived DDL either) was not independently tested by running the command; this is recorded as an evidence gap for construct-by-construct DDL fidelity beyond the constructs that are already known to be inexpressible upstream in the schema."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "prisma python client pydantic",
+      "prisma client python maintained",
+      "prisma erd generator svg png",
+      "prisma erd generator maintained",
+      "prisma migrate diff limitations"
+    ],
+    "where_searched": [
+      "GitHub REST API for both third-party repositories (archived flag, pushed_at)",
+      "raw README content on GitHub for both third-party repositories",
+      "www.prisma.io/docs CLI reference for migrate diff"
+    ],
+    "search_date": "2026-08-14",
+    "result": "Found direct, strong contrary evidence for the Python-generation path specifically: the GitHub API's own archived:true flag plus the maintainer's explicit README warning that prisma-client-py 'is no longer being maintained', discovered without needing to search further — this is a first-party admission by the project itself, not an inference from external commentary. For SVG/PNG export, found that the generator's own README frames issues as expected friction ('issues often are opened that relate to [mermaid js and puppeteer] causing issues between different versions of Node.js and your operating system'), i.e. the maintainers themselves flag the third-party rendering chain as a known source of breakage. No limitations page or 'not supported' statement was found for `prisma migrate diff` beyond the documented provider-matching requirement and partial MongoDB support already quoted above."
+  }
+}

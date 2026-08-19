@@ -1,0 +1,36 @@
+{
+  "mode": "survey",
+  "research_question": "Which text-based data-modeling meta-language and toolchain can serve Gigacron as a validatable documentation-as-code source of truth for the persisted entity model — the hinge between specification, documentation, and code — rendering to SVG and PNG from an ephemeral Docker container as Structurizr DSL already does for architecture?",
+  "intended_use": "Decide whether to replace the hand-maintained Mermaid erDiagram embedded in docs/spec/supplementary_specs/entity-model.md with a dedicated modeling language. The report feeds a Pugh Matrix comparison of the shortlisted candidates and, if the decision is taken, an ADR recorded alongside ADR-0001, together with a Docker wrapper script parallel to factory/scripts/structurizr.",
+  "audience": "The project's specification and architecture authors, the reviewing agents that gate those artifacts, and the developers who will implement the persisted model.",
+  "scope": "Text-based data-modeling meta-languages and their toolchains, judged as a replacement for the Mermaid erDiagram currently embedded in docs/spec/supplementary_specs/entity-model.md, which holds 25 entities and roughly 30 relationships.\n\nA candidate MUST express the conceptual and logical model as a plain-text, version-controlled, product-neutral source of truth. It MUST offer a validator that exits non-zero on a malformed or internally inconsistent model, so the artifact can sit behind a deterministic gate. It MUST render to SVG and PNG from an ephemeral Docker container in the manner of factory/scripts/structurizr, with no local toolchain installation.\n\nA candidate SHOULD also generate application-level type objects — Pydantic models, SQLAlchemy mappings, dataclasses, or equivalent — but that capability counts only where the advanced database constructs listed below can both be expressed in the language and survive the generation intact. Wherever such generation exists, the survey additionally records whether physical DDL can be derived from the same source, since DDL derivation is worth having only on top of a model that already carries these constructs.\n\nThe advanced constructs are taken from the existing entity model and serve as the acid test for every candidate: composite primary keys; JSON payload columns; enumerated string domains; several self-referencing foreign keys on one table; nullable foreign keys; multi-column unique constraints; one-to-zero-or-one relationships; value constraints beyond type, such as a positive integer or the literal ALL; several logical schemas inside one database; and a cross-cutting column convention, domain_id on every Domain-owned table, that the validator should be able to assert.\n\nBecause 25 entities in a single diagram are unreadable, the survey also records whether a candidate supports named subset views over one model, as Structurizr does for architecture.",
+  "exclusions": [
+    "Choosing the relational database product itself; ADR-0001 deliberately leaves it open, and the modeling language must stay product-neutral at the specification level.",
+    "Re-modeling the content of the entity model. The entities, relationships, and constraints are fixed input; the question is which language expresses them.",
+    "Replacing Structurizr DSL for architecture. That decision stands and is not reopened.",
+    "GUI-first or proprietary modeling tools with no plain-text source of truth that a human and an agent can both diff and review.",
+    "Message and event payload schema languages, such as Avro, Protobuf, and JSON Schema, except where a candidate also covers relational structure. NATS interface contracts are governed separately by docs/spec/supplementary_specs/interface-contracts.md.",
+    "Database migration tooling judged on its own merits. Migration support is in bounds only where it derives from the model artifact under evaluation.",
+    "Object-relational mappers used as the primary model source. Code-first modeling inverts the required direction, in which the specification artifact is authoritative."
+  ],
+  "freshness_requirements": [
+    "Capability claims must reflect the candidate's state as of August 2026, and each record must name the exact version or image tag examined.",
+    "Prefer sources published or updated within the last 24 months. Older sources are acceptable only for stable grammar or language-specification definitions.",
+    "Flag any candidate with no release and no repository activity in the last 18 months as at risk of abandonment."
+  ],
+  "source_requirements": [
+    "Primary evidence is the official language specification or grammar, the official documentation, and the project's own repository, including release tags and issue tracker.",
+    "A claim that an advanced construct is expressible must cite the exact documentation section or grammar rule that permits it.",
+    "Availability of a container image must be verified against the public registry listing, not against a blog post or a README claim.",
+    "Secondary sources such as blog posts and comparison articles are leads only and never the sole evidence for a capability claim.",
+    "Every candidate record states the licence and the governance model, since the artifact would sit in the project's critical path."
+  ],
+  "cost_of_error": "The chosen artifact would become the single source of truth for the persisted model that the specification, the architecture, and the eventual implementation all cite. A language that cannot express the model's advanced constructs, or whose toolchain cannot run inside a container in CI, leads to one of two bad outcomes: a silent return to hand-maintained diagrams that drift away from the code, or a second migration of every entity and constraint after the model is already referenced across the specification. The cost is high at the outset and grows with every artifact that cites the model.",
+  "completion_criteria": [
+    "At least four candidates are surveyed, including DBML and the incumbent Mermaid erDiagram as the baseline to beat.",
+    "Each candidate has a source record covering the language definition, the validator and its exit behaviour, Docker-based SVG and PNG rendering, support for named subset views, application-type generation, DDL derivation, licence, and project activity.",
+    "Every advanced construct named in the scope is answered for every candidate as expressible, expressible only through a workaround, or not expressible, each answer carrying a citation.",
+    "Candidates ruled out are recorded with the reason and the evidence, not silently dropped.",
+    "The report states its uncertainties, its evidence gaps, and the candidates worth a hands-on proof of concept, and it stops short of declaring a winner. The decision belongs to the Pugh Matrix and the ADR that follow."
+  ]
+}

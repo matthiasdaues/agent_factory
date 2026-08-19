@@ -42,7 +42,7 @@ VALID_TIERS = {"economy", "standard", "strong"}
 VALID_STATUSES = {"pending", "in-progress", "review", "blocked", "done"}
 RE_STORY_ID = re.compile(r"^ST-\d{4,}$")
 REQUIRED_FIELDS = {"id", "epic", "title", "tier", "status", "outputs"}
-OPTIONAL_FIELDS = {"deps", "traces"}
+OPTIONAL_FIELDS = {"deps", "traces", "tests"}
 ALL_FIELDS = REQUIRED_FIELDS | OPTIONAL_FIELDS
 
 # Machine fields whose names must not appear as standalone terms in the prose body.
@@ -298,6 +298,34 @@ def check_story(
                     f"outputs match existing file(s): {matched}",
                 )
             )
+
+    # --- tests: type and file existence ---
+    tests = fm.get("tests")
+    if tests is not None and not isinstance(tests, list):
+        out.append(Finding("BL-TYPE", "error", rel, "tests must be an array"))
+    elif isinstance(tests, list):
+        if len(tests) > 0:
+            for test_file in tests:
+                if not isinstance(test_file, str):
+                    out.append(
+                        Finding(
+                            "BL-TYPE",
+                            "error",
+                            rel,
+                            f"test file path must be a string, got {type(test_file).__name__}",
+                        )
+                    )
+                    continue
+                test_path = project_root / test_file
+                if not test_path.is_file():
+                    out.append(
+                        Finding(
+                            "BL-FILE",
+                            "warning",
+                            rel,
+                            f"test file '{test_file}' does not exist",
+                        )
+                    )
 
     # --- machine field names must not appear as headings/terms in body ---
     for fld in MACHINE_FIELD_NAMES:

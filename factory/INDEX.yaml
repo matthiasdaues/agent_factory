@@ -19,8 +19,8 @@ agents:
     tier: strong
     description: Capture a project vision, clarify requirements through adversarial interview, and produce a complete specification.
     path: agents/requirements-agent.md
-    tokens: 799
-    total_tokens: 4423
+    tokens: 895
+    total_tokens: 6029
   - name: spec-review-agent
     title: Specification Review Agent
     phase: 1
@@ -37,8 +37,8 @@ agents:
     tier: strong
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
-    tokens: 1138
-    total_tokens: 7846
+    tokens: 1371
+    total_tokens: 9313
   - name: architecture-review-agent
     title: Architecture Review Agent
     phase: 2
@@ -55,8 +55,8 @@ agents:
     tier: strong
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
-    tokens: 447
-    total_tokens: 1429
+    tokens: 456
+    total_tokens: 1706
   - name: implementation-agent
     title: Implementation Agent (Dispatcher)
     phase: 4
@@ -64,8 +64,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints. Each subagent implements one story using TDD on its own feature branch. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 1960
-    total_tokens: 7273
+    tokens: 2508
+    total_tokens: 8962
   - name: reconciliation-agent
     title: Reconciliation Agent
     phase: 4
@@ -74,7 +74,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 1115
-    total_tokens: 8930
+    total_tokens: 10004
   - name: qa-agent
     title: QA Agent
     phase: 5
@@ -101,7 +101,7 @@ agents:
     description: Selects survey or falsification research from the brief, advances the chosen validated playbook, and enforces its role boundaries and release gate.
     path: agents/research-orchestrator.md
     tokens: 1320
-    total_tokens: 5406
+    total_tokens: 6480
   - name: research-report-writer
     title: Research Report Writer
     phase: 6
@@ -133,10 +133,15 @@ agents:
     title: Developer Agent
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
-    tokens: 704
-    total_tokens: 3156
+    tokens: 864
+    total_tokens: 3316
 
 skills:
+  - name: capture-charter
+    category: requirements
+    description: "Scaffold, scan, or complete the project charter under docs/charter/ — three modes: --init creates the skeleton from templates, --init --scan pre-populates it from an existing codebase, and the completeness sweep (no flag) forces every remaining decision and derives Epic 0 setup stories. Use when starting a new project's charter, onboarding a brownfield codebase, or running the pre-planning completeness sweep."
+    path: skills/capture-charter/SKILL.md
+    tokens: 2792
   - name: capture-vision
     category: requirements
     description: Capture a project vision through structured interview.
@@ -151,7 +156,7 @@ skills:
     category: requirements
     description: Derive the full specification chain from a PRD — actor-goal list, persona use cases, system use cases, supplementary specs.
     path: skills/derive-spec/SKILL.md
-    tokens: 872
+    tokens: 1148
   - name: grill-me
     category: requirements
     description: Interview the user relentlessly about a plan or design until reaching shared understanding, resolving each branch of the decision tree. Use when user wants to stress-test a plan, get grilled on their design, or mentions "grill me".
@@ -206,7 +211,7 @@ skills:
     category: planning
     description: Break specification and architecture into a local backlog of markdown stories — EPICs and User Stories with INVEST criteria and MoSCoW priority.
     path: skills/create-backlog/SKILL.md
-    tokens: 982
+    tokens: 1250
   - name: implement-issue
     category: implementation
     description: Implement a single backlog story with TDD — analyse, red-green, commit, check docs.
@@ -256,7 +261,7 @@ skills:
     category: utility
     description: Relentless interview to sharpen a plan or design until reaching shared understanding. Use when the user wants to stress-test a plan, get grilled on their design, or mentions "grill me".
     path: skills/grilling/SKILL.md
-    tokens: 382
+    tokens: 469
   - name: handoff
     category: utility
     description: Create and validate a dense phase-boundary restart contract before ending the outgoing session.
@@ -282,11 +287,16 @@ skills:
     description: Append a quick note to session-scratchpad.md, sectioned by date. Use when the user says "note this down:", "make a note of this:", or invokes "/scratchpad" or "/scratch".
     path: skills/scratchpad/SKILL.md
     tokens: 354
+  - name: update-charter
+    category: utility
+    description: Update a section in the project charter (tech-stack, development, or house-rules). Invokable by any agent during any phase. Owns the write target docs/charter/*.md.
+    path: skills/update-charter/SKILL.md
+    tokens: 1234
   - name: validate
     category: utility
     description: Run every applicable deterministic gate on demand, mid-session — the custom lint scripts plus ruff and mdformat — without needing a git commit.
     path: skills/validate/SKILL.md
-    tokens: 985
+    tokens: 1092
   - name: adversarial-review
     category: research
     description: Test a claim, its evidence, and refutation attempts against ten review checks, classify defects, and produce a vote tied to exact claim hash.
@@ -334,19 +344,19 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1108
-    total_tokens: 14516
+    total_tokens: 15983
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
-    description: Operational procedure for documenting existing undocumented system (reverse engineering).
+    description: Operational procedure for documenting an existing undocumented system (reverse engineering).
     path: playbooks/brownfield-onboarding.md
     agents:
       - architecture-agent
-      - spec-review-agent
+      - architecture-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 1592
-    total_tokens: 28101
+    tokens: 2304
+    total_tokens: 27183
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -357,7 +367,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 777
-    total_tokens: 9193
+    total_tokens: 9353
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -369,7 +379,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 952
-    total_tokens: 26888
+    total_tokens: 29651
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -384,8 +394,8 @@ playbooks:
       - implementation-agent
       - reconciliation-agent
       - qa-agent
-    tokens: 2207
-    total_tokens: 47101
+    tokens: 2646
+    total_tokens: 53653
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -402,8 +412,8 @@ playbooks:
       - reconciliation-agent
       - qa-agent
       - coaching-agent
-    tokens: 2128
-    total_tokens: 48096
+    tokens: 2786
+    total_tokens: 54867
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -419,7 +429,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1281
-    total_tokens: 9697
+    total_tokens: 9857
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -432,7 +442,7 @@ playbooks:
       - research-synthesizer
       - research-orchestrator
     tokens: 1018
-    total_tokens: 8925
+    total_tokens: 9999
   - name: research-topic
     title: Research Topic Playbook
     category: orchestration
@@ -453,7 +463,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 3026
-    total_tokens: 14028
+    total_tokens: 15102
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration
@@ -464,11 +474,11 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 2170
+    tokens: 2742
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
-    tokens: 2463
+    tokens: 2530
   - name: cache-hygiene
     category: conventions
     path: rulebooks/conventions/cache-hygiene.md
@@ -488,7 +498,7 @@ rulebooks:
   - name: dispatch-contract
     category: conventions
     path: rulebooks/conventions/dispatch-contract.md
-    tokens: 2230
+    tokens: 3304
   - name: finding-format
     category: conventions
     path: rulebooks/conventions/finding-format.md
@@ -500,7 +510,7 @@ rulebooks:
   - name: git-workflow
     category: conventions
     path: rulebooks/conventions/git-workflow.md
-    tokens: 1294
+    tokens: 1326
   - name: handoff-format
     category: conventions
     path: rulebooks/conventions/handoff-format.md
@@ -509,6 +519,10 @@ rulebooks:
     category: conventions
     path: rulebooks/conventions/markdown-formatting.md
     tokens: 325
+  - name: mermaid-notation
+    category: conventions
+    path: rulebooks/conventions/mermaid-notation.md
+    tokens: 291
   - name: report-format
     category: conventions
     path: rulebooks/conventions/report-format.md
@@ -544,7 +558,7 @@ rulebooks:
   - name: todo-format
     category: conventions
     path: rulebooks/conventions/todo-format.md
-    tokens: 409
+    tokens: 410
   - name: versioning-policy
     category: conventions
     path: rulebooks/conventions/versioning-policy.md

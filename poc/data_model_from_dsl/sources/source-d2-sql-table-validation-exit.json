@@ -1,0 +1,71 @@
+{
+  "source_identity": "d2lang/d2 Go source code — d2cli/validate.go, d2lib/d2.go; d2lang/util-go xmain/xmain.go; and docs/tour/man.md (CLI manual)",
+  "author_or_issuing_body": "d2lang (D2 language maintainers, Terrastruct Inc.)",
+  "publisher": "GitHub repositories d2lang/d2 and d2lang/util-go; docs page hosted at d2lang.com by d2lang",
+  "publication_date": "2026-08-10T00:44:40Z",
+  "relevant_event_date": "2026-08-10",
+  "source_family": "d2lang/d2 repository source code (d2cli, d2lib packages) and its d2lang/util-go dependency (xmain package) — both maintained by the same org; the man.md documentation page is a separately-rendered copy of the same CLI behavior, not independent corroboration of a different claim",
+  "precise_evidence_location": "d2cli/validate.go lines 12-41 (function validateCmd); d2lib/d2.go lines 54-63 (function Parse) and line 65-67 (function Compile, for contrast); d2lang/util-go xmain/xmain.go lines 23-82 (functions Main and mainFatal); docs/tour/man.md lines 16-37 (SYNOPSIS/DESCRIPTION) and lines 176-177 (validate subcommand entry)",
+  "method": "Direct retrieval of raw Go source files via raw.githubusercontent.com for the exact commit on the master branch, read in full; cross-checked against the rendered CLI manual page on d2lang.com which is generated from the same repository's man page source.",
+  "limitations": "Source-code reading, not execution — no local install or `d2` invocation was performed (out of scope per task boundaries), so exit codes were confirmed by reading the code path rather than observing a live process exit status. The xmain package lives in a separate repository (d2lang/util-go) from d2lang/d2 itself; it is a shared library maintained by the same org but its version pinned by d2's go.mod was not independently checked against the exact release tag v0.7.1 — the master branch was read, which may be marginally ahead of the last tagged release. Only the `validate` subcommand's code path was traced in depth; other error paths (e.g. render-time errors from `d2compiler.Compile`) were not traced to the same level of detail, though the man page's general exit-status guidance ('Never use the presence of the output file to check for success. Always use the exit status of d2.') covers both.",
+  "provenance": "Fetched via `gh api repos/d2lang/d2/contents/...` (download_url) and `curl` against raw.githubusercontent.com on 2026-08-14, for repository d2lang/d2 (formerly terrastruct/d2 — GitHub confirms an org-level rename, old URLs redirect) and d2lang/util-go. Re-verifiable by re-fetching the same file paths on the master branch or by cloning and running `d2 validate` against a malformed file locally.",
+  "raw_evidence": [
+    {
+      "quote": "func validateCmd(ctx context.Context, ms *xmain.State) (err error) {\n\tdefer xdefer.Errorf(&err, \"\")\n...\n\tinput, err := ms.ReadPath(inputPath)\n\tif err != nil {\n\t\treturn err\n\t}\n\n\t_, err = d2lib.Parse(ctx, string(input), nil)\n\tif err != nil {\n\t\treturn err\n\t}\n...\n\tfmt.Printf(\"Success! [%s] is valid D2.\\n\", inputPath)\n\treturn nil\n}",
+      "locator": "d2cli/validate.go, lines 12-41",
+      "url": "https://raw.githubusercontent.com/d2lang/d2/master/d2cli/validate.go"
+    },
+    {
+      "quote": "func Parse(ctx context.Context, input string, compileOpts *CompileOptions) (*d2ast.Map, error) {\n\tif compileOpts == nil {\n\t\tcompileOpts = &CompileOptions{}\n\t}\n\n\tast, err := d2parser.Parse(compileOpts.InputPath, strings.NewReader(input), &d2parser.ParseOptions{\n\t\tUTF16Pos: compileOpts.UTF16Pos,\n\t})\n\treturn ast, err\n}\n\nfunc Compile(ctx context.Context, input string, compileOpts *CompileOptions, renderOpts *d2svg.RenderOpts) (*d2target.Diagram, *d2graph.Graph, error) {\n\treturn compileInput(ctx, input, compileOpts, renderOpts)\n}",
+      "locator": "d2lib/d2.go, lines 54-67",
+      "url": "https://raw.githubusercontent.com/d2lang/d2/master/d2lib/d2.go"
+    },
+    {
+      "quote": "g, config, err := d2compiler.Compile(compileOpts.InputPath, strings.NewReader(input), &d2compiler.CompileOptions{...})",
+      "locator": "d2lib/d2.go, compileInput function, line 77 (called only by Compile, never by Parse)",
+      "url": "https://raw.githubusercontent.com/d2lang/d2/master/d2lib/d2.go"
+    },
+    {
+      "quote": "func (ms *State) mainFatal(err error) {\n\tcode := 1\n\tmsg := \"\"\n\tusage := false\n\n\tvar eerr ExitError\n\tvar uerr UsageError\n\tif errors.As(err, &eerr) {\n\t\tcode = eerr.Code\n\t\tmsg = eerr.Message\n\t} else if errors.As(err, &uerr) {\n\t\tmsg = err.Error()\n\t\tusage = true\n\t} else {\n\t\tmsg = err.Error()\n\t}\n...\n\tos.Exit(code)\n}",
+      "locator": "d2lang/util-go, xmain/xmain.go, lines 58-82",
+      "url": "https://raw.githubusercontent.com/d2lang/util-go/master/xmain/xmain.go"
+    },
+    {
+      "quote": "Never use the presence of the output file to check for success.  Always use the exit status of d2.  This is because sometimes when errors occur while rendering, d2 still write out a partial render anyway to enable iteration on a broken diagram.",
+      "locator": "docs/tour/man.md, DESCRIPTION section, lines 31-34",
+      "url": "https://raw.githubusercontent.com/d2lang/d2-docs/master/docs/tour/man.md"
+    },
+    {
+      "quote": "validate file.d2\n\t\t Validates file.d2",
+      "locator": "docs/tour/man.md, COMMANDS section, lines 176-177",
+      "url": "https://raw.githubusercontent.com/d2lang/d2-docs/master/docs/tour/man.md"
+    }
+  ],
+  "interpretation": {
+    "validator_existence_and_exit_code": {
+      "classification": "expressible",
+      "citation": "d2cli/validate.go lines 12-41; xmain.go lines 58-82",
+      "rationale": "A dedicated `d2 validate file.d2` subcommand exists (confirmed both in source and in the man page). Any error returned by `validateCmd` — including a parse error — propagates to `mainFatal`, which calls `os.Exit(code)` with `code` defaulting to 1 unless the error is a typed `ExitError` carrying a different explicit code. This is a genuine deterministic non-zero exit on a malformed file, suitable in principle for a CI gate, matching the survey's validator requirement."
+    },
+    "semantic_vs_syntax_checking": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "d2lib/d2.go lines 54-67 (Parse calls only d2parser.Parse; Compile is the separate function that calls d2compiler.Compile)",
+      "rationale": "The `validate` subcommand calls `d2lib.Parse`, which is a thin wrapper around `d2parser.Parse` only — pure syntax/AST parsing. It never calls `d2compiler.Compile`, the function that performs semantic resolution (shape/connection graph construction, layout preparation, and whatever internal consistency checks the compiler performs). Full semantic compilation only happens on the render path (`d2 file.d2 out.svg`), not on `d2 validate`. So `d2 validate` catches syntax errors but not the class of semantic issue the research question named as the test case (a connection to an undeclared shape) — and that specific test case is moot in D2 regardless, since D2's connection syntax auto-declares any shape it references (a documented core language feature, not an error condition), so there is no 'undeclared shape' error class for D2 to check in the first place. Classified as expressible-only-via-workaround because getting any semantic-level error surfaced as a CI-gate-worthy exit code requires running the full render command instead of the dedicated validate command, and even then the specific semantic check the question was probing for (undeclared-shape references) does not exist as an error class in this language by design."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "d2 validate exit code",
+      "d2 validate semantic",
+      "undeclared shape d2",
+      "d2compiler error"
+    ],
+    "where_searched": [
+      "d2lang.com official CLI manual page (docs/tour/man.md)",
+      "d2lang/d2 GitHub repository source (d2cli, d2lib, d2compiler package boundaries)",
+      "General web search for 'd2lang.com CLI reference validate exit code documentation' (returned no dedicated prose page beyond the man page and DeepWiki secondary summaries, which were not used as evidence)"
+    ],
+    "search_date": "2026-08-14",
+    "result": "No official documentation page describes validate's exit-code contract more precisely than the man page's general 'always use the exit status' guidance and the source code itself; the distinction between validate's Parse-only path and the render command's Compile path is not called out anywhere in the prose documentation — it was found only by reading the source directly. This is recorded as a documentation gap: a user relying on prose docs alone would not learn that `validate` performs syntax-only checking."
+  }
+}

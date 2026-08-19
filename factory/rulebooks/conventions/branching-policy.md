@@ -22,11 +22,13 @@ Shared integration files (a composition root, a domain-entities module, a ports 
 Creating a branch and creating its linked worktree are one atomic operation. This applies to **every** local branch type: invocation, story, bug, review, reconciliation, fix, experiment, spike, release-preparation, and manually created branches. There are no exceptions for sequential work or branches used by only one agent.
 
 ```bash
-git worktree add -b <branch> <worktree-path> <base>
+git worktree add -b <branch> .agent-factory/worktrees/<branch> <base>
 git worktree list --porcelain
 ```
 
-Do not use standalone branch creation (`git branch <name>`, `git switch -c/-C`, or `git checkout -b/-B`) and do not create a branch in the current checkout before adding a worktree later. Existing branches may be attached with `git worktree add <worktree-path> <branch>` when recovering or resuming work, but new branches must use the atomic `worktree add -b` form. Verify the branch-to-path mapping before doing work there.
+All worktrees live under `.agent-factory/worktrees/`, named after their branch. This directory is gitignored and co-located with other Agent Factory runtime state. Never place a worktree in the repository root, a sibling directory, or an arbitrary path.
+
+Do not use standalone branch creation (`git branch <name>`, `git switch -c/-C`, or `git checkout -b/-B`) and do not create a branch in the current checkout before adding a worktree later. Existing branches may be attached with `git worktree add .agent-factory/worktrees/<branch> <branch>` when recovering or resuming work, but new branches must use the atomic `worktree add -b` form. Verify the branch-to-path mapping before doing work there.
 
 The checkout in which a command starts remains on its existing branch. Work on the new branch happens only in the new worktree. This prevents branch switching from moving or contaminating a shared checkout and makes branch ownership observable from Git state.
 
@@ -88,7 +90,7 @@ Feature-branch commits follow [commit-conventions.md](commit-conventions.md) —
 
 ## Enforcement
 
-Standalone branch creation is mechanically denied by the shared shell and Pi Git guardrails. `git worktree add -b <branch> <path> <base>` is the supported creation primitive. Overlap-safe merge sequencing is enforced by the implementation-agent's own dispatch algorithm, not a git hook — it needs live backlog state (every ready story's declared outputs) that no static hook has access to. This rulebook states the **what** (branch/worktree pairing, branch scope, merge-order constraint, SHA tracking); `agents/implementation-agent.md` (Steps 1–5) and T-35 own the **how** — the actual overlap-detection and wave-planning algorithm.
+Standalone branch creation is mechanically denied by the shared shell and Pi Git guardrails. `git worktree add -b <branch> .agent-factory/worktrees/<branch> <base>` is the supported creation primitive. Overlap-safe merge sequencing is enforced by the implementation-agent's own dispatch algorithm, not a git hook — it needs live backlog state (every ready story's declared outputs) that no static hook has access to. This rulebook states the **what** (branch/worktree pairing, branch scope, merge-order constraint, SHA tracking); `agents/implementation-agent.md` (Steps 1–5) and T-35 own the **how** — the actual overlap-detection and wave-planning algorithm.
 
 The base-safety checks are mechanically enforced, per [foundational-principles.md § Agentic Creation, Deterministic Validation](foundational-principles.md#agentic-creation-deterministic-validation): `factory/scripts/verify-base` and `factory/scripts/premerge-check` each write a marker file on success, and `factory/config/hooks/block-dangerous-git.sh` denies `git commit` (inside a linked worktree with no `verify-base-ok` marker) and `git merge <branch>` (with no `premerge-check-ok` marker for that branch's current head) — a `PreToolUse` hook, not agent compliance with a prompt instruction.
 

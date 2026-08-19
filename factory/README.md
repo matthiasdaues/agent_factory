@@ -47,9 +47,9 @@ mkdir my-project && cd my-project
 1. **`factory/`** — copied wholesale from agent_factory, containing all agents, skills, playbooks, scripts, and rulebooks
 2. **`.claude/`**, **`.github/`**, and **`.pi/`** — created (or left alone if they exist), with symlinks into `factory/`:
    - `agents/`, `skills/`, `playbooks/`, `rulebooks/`, `scripts/`, `INDEX.yaml`
-   - `.claude/CLAUDE.md` → `factory/config/AGENTS.md` (orientation file)
-   - `.github/copilot-instructions.md` → `factory/config/AGENTS.md` — **unless you already have one**, in which case yours is left untouched and Agent Factory's is not forced on top
-   - `AGENTS.md` → `factory/config/AGENTS.md` for Pi, with project-local resources under `.pi/`
+   - `.claude/CLAUDE.md` → `factory/config/AGENTS.md` (orientation file) — **if you already have one**, a marker-fenced `@`-include is prepended instead; your content is preserved below it
+   - `.github/copilot-instructions.md` → `factory/config/AGENTS.md` — **if you already have one**, the full orientation content is inlined between markers at the top; your content is preserved below it
+   - `AGENTS.md` → `factory/config/AGENTS.md` for Pi/Codex — **if you already have one**, the orientation content is inlined between markers; your content is preserved below it
    - `.claude/hooks/block-dangerous-git.sh` → `factory/config/hooks/block-dangerous-git.sh`
    - `.github/hooks/block-dangerous-git.sh` → `factory/config/hooks/block-dangerous-git.sh`
    - `.github/hooks/block-dangerous-git.json` → `factory/config/hooks/block-dangerous-git.json`
@@ -84,7 +84,7 @@ If the first commit modifies a few files, that's `mdformat`/`ruff` auto-fixing f
 factory/scripts/remove-factory
 ```
 
-It reads the manifest and takes everything back down to a clean `git status`: the git-ignored footprint is deleted, the `agent_factory related` `.gitignore` block is stripped (restoring your file's exact bytes), and the `agent_factory_hook-` pre-commit block is removed while your own hooks stay put. A project that already had its own orientation file, pre-commit config, or `.github/workflows` gets them back exactly as they were.
+It reads the manifest and takes everything back down to a clean `git status`: the git-ignored footprint is deleted, orientation blocks are stripped from existing orientation files, the `agent_factory related` `.gitignore` block is stripped (restoring your file's exact bytes), and the `agent_factory_hook-` pre-commit block is removed while your own hooks stay put. A project that already had its own orientation file, pre-commit config, or `.github/workflows` gets them back exactly as they were.
 
 Now open your AI coding CLI in `my-project` and greet it. It should read `.claude/CLAUDE.md`, `.github/copilot-instructions.md`, or `AGENTS.md` (Pi) and confirm it understands the local-first rule.
 

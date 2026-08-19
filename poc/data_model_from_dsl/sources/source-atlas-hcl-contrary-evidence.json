@@ -1,0 +1,142 @@
+{
+  "source_identity": "ariga/atlas GitHub issue tracker (searched via the public GitHub Search API) and atlasgo.io's 'Dev Database' concept documentation — the mandatory search_angle 9 contrary-evidence sweep for Atlas HCL",
+  "author_or_issuing_body": "Ariga, Inc. (maintainer of the Atlas project) and individual issue reporters on the ariga/atlas GitHub repository",
+  "publisher": "GitHub, Inc. (api.github.com search index and issues/pulls hosting for ariga/atlas); atlasgo.io (Ariga, Inc., official documentation)",
+  "publication_date": "2026-08-14T00:00:00Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "Two families: (1) github.com/ariga/atlas issue and pull-request tracker, queried directly via the GitHub REST Search API (api.github.com/search/issues) rather than a general web search engine, giving an authoritative, exhaustive-within-query result set rather than a search-engine's partial index; (2) atlasgo.io/concepts/dev-database, the official documentation page describing the dev-database requirement — distinct from, but maintained by the same org as, the atlasgo.io pages used in the sibling licence-governance and other Atlas HCL facet records.",
+  "precise_evidence_location": "api.github.com/search/issues queries scoped to repo:ariga/atlas for: composite primary key, self reference foreign key, multiple schemas, enum, unique constraint, nullable foreign key, custom lint rule, dev database required, and 'is not supported' in:title; individual issues github.com/ariga/atlas/issues/1584, /2957, /2180, /1614, /1551, /2086, /2252, and pull request github.com/ariga/atlas/pull/417; atlasgo.io/concepts/dev-database (full page).",
+  "method": "Direct, unauthenticated calls to the public GitHub REST Search API (via curl, parsed with jq) against repo:ariga/atlas for each of the ten advanced constructs plus validator/live-connection/product-neutrality terms, reading total_count, issue/PR number, state, title, and (for the most relevant hits) the full issue body via a follow-up direct GET to api.github.com/repos/ariga/atlas/issues/<n>. This is a stronger method than a general web search engine, per the limitation the sibling source-linkml-contrary-evidence.json record flagged for LinkML's equivalent search (it recommended exactly this API-based approach as the improvement). One official documentation page (atlasgo.io/concepts/dev-database) was also fetched directly, since search_angle 9 also covers 'documented limitations' and 'capabilities that require a live database connection', which is a documented-behaviour question rather than an issue-tracker question.",
+  "limitations": "The GitHub Search API's unauthenticated rate limit is 10 requests/minute, which constrained the number of distinct construct-specific queries run in one pass; some queries (e.g. 'one-to-zero-or-one relationship', 'domain_id convention') have no natural issue-tracker vocabulary and were not separately queried because no plausible search term was identified — this is recorded as a genuine search-method gap for those two constructs, not as a confirmed absence of relevant issues. Search was title/body full-text matching (`in:title,body`), which will miss issues using materially different terminology (e.g. 'compound key' rather than 'composite key', or discussion in a closed PR review thread rather than an issue). Several queries returned issues about migration-time bugs (ALTER-time behaviour) rather than initial-schema-expressibility gaps; these are recorded and classified separately from expressibility, consistent with the distinction the plan's research questions draw between 'expressible' and the CLI's actual validate/apply/lint behaviour. The dev-database finding describes an ephemeral, Docker-driven database instance, not a persistent live database — this record is precise about that distinction rather than overstating it as 'Atlas requires a live production database connection'.",
+  "provenance": "Retrieved 2026-08-14 via curl against api.github.com/search/issues and api.github.com/repos/ariga/atlas/issues/<n> (public, unauthenticated GitHub REST API, subject to GitHub's published rate limits — reset time and remaining quota observed via api.github.com/rate_limit during this pass) and via WebFetch against https://atlasgo.io/concepts/dev-database. Re-verify by re-issuing the same api.github.com/search/issues queries (query strings are recorded in contrary_evidence_search below) or by browsing https://github.com/ariga/atlas/issues directly with the same terms.",
+  "raw_evidence": [
+    {
+      "quote": "I want to pass directory with schemas, but atlas doesnt see them. If i have directory db with 1 hcl scheme, that is ok... But if i add one more scheme - atlas says that there is no changes.",
+      "locator": "GitHub issue ariga/atlas#1584, 'Error during using multiple hcl schemas', open, created 2023-04-13",
+      "url": "https://github.com/ariga/atlas/issues/1584"
+    },
+    {
+      "quote": "I naturally expects HCL schema file are (by default or optionally) scoped to its own file but they behaves as if they share all schemas when used at the same time... Error: mysql: failed converting to *schema.Realm: multiple reference tables found for \"users\"",
+      "locator": "GitHub issue ariga/atlas#2957, 'Hard to keep HCL files concise when they contain same table names', open, created 2024-07-12, reproduction using two schema files each declaring a table named \"users\"",
+      "url": "https://github.com/ariga/atlas/issues/2957"
+    },
+    {
+      "quote": "Obvious way to fix is: -table \"users\" { ... } +table \"site1\" \"users\" { ... }",
+      "locator": "GitHub issue ariga/atlas#2957, reporter's proposed workaround (the documented Table-Qualification syntax) confirmed necessary in practice, not merely optional style",
+      "url": "https://github.com/ariga/atlas/issues/2957"
+    },
+    {
+      "quote": "A dev database... is a temporary, isolated database instance that Atlas uses as a sandbox to simulate the real environment. Parsing schemas and migrations is not enough: every expression, constraint, default, function call, and DDL/DML statement must be semantically valid and accepted by a real database. ... only the real engine, with the right version and extensions, can compile every expression, resolve every reference, and accept the result.",
+      "locator": "atlasgo.io/concepts/dev-database",
+      "url": "https://atlasgo.io/concepts/dev-database"
+    },
+    {
+      "quote": "Syntax is covered [by Atlas's parsers without a dev database]. Correctness is a different question.",
+      "locator": "atlasgo.io/concepts/dev-database",
+      "url": "https://atlasgo.io/concepts/dev-database"
+    },
+    {
+      "quote": "--dev-url \"docker://postgres/15/dev?search_path=public\" ... --dev-url \"docker://mysql/8/dev\" ... Atlas can spin up an ephemeral local Docker container using the special docker driver, and clean it up at the end of the process.",
+      "locator": "atlasgo.io/concepts/dev-database, docker:// driver syntax",
+      "url": "https://atlasgo.io/concepts/dev-database"
+    },
+    {
+      "quote": "sql/mysql: reject CHECK constraints when it is not supported by the database",
+      "locator": "GitHub pull request ariga/atlas#417, merged 2022-01-15",
+      "url": "https://github.com/ariga/atlas/pull/417"
+    },
+    {
+      "quote": "Error: replacing or reordering enum (\"t_job_application_process_status\") value is not supported: [...] != [...]",
+      "locator": "GitHub issue ariga/atlas#2252, 'replacing or reordering enum (\"ENUM NAME\") value is not supported', closed 2023-11-04 (reporter's own PostgreSQL enum-migration error message, unresolved for the reporter at time of closure)",
+      "url": "https://github.com/ariga/atlas/issues/2252"
+    },
+    {
+      "quote": "Support for composite user-defined types in Postgres",
+      "locator": "GitHub issue ariga/atlas#2180, open, created 2023-10-12 (feature request, composite/structured types distinct from composite primary keys but adjacent)",
+      "url": "https://github.com/ariga/atlas/issues/2180"
+    },
+    {
+      "quote": "Occasionally, composite foreign key is regenerated with same constraint.",
+      "locator": "GitHub issue ariga/atlas#1614, closed, created 2023-04-29",
+      "url": "https://github.com/ariga/atlas/issues/1614"
+    },
+    {
+      "quote": "[BUG, postgres] Fail to drop field and change the composite key because of order of the query.",
+      "locator": "GitHub issue ariga/atlas#1551, closed, created 2023-03-22",
+      "url": "https://github.com/ariga/atlas/issues/1551"
+    },
+    {
+      "quote": "Renaming a table with a UNIQUE CONSTRAINT fails as it attempts to create the new table before dropping the constraint",
+      "locator": "GitHub issue ariga/atlas#2086, open",
+      "url": "https://github.com/ariga/atlas/issues/2086"
+    },
+    {
+      "quote": "total_count: 0",
+      "locator": "GitHub Search API result for repo:ariga/atlas \"self reference\" foreign key in:title,body",
+      "url": "https://api.github.com/search/issues?q=repo:ariga/atlas+%22self+reference%22+foreign+key+in:title,body"
+    }
+  ],
+  "interpretation": {
+    "several_logical_schemas_in_one_database_practical_gap": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "ariga/atlas#1584 (open, silent no-op when applying multiple HCL schema files together); ariga/atlas#2957 (open, same-named tables across schema files collide with 'multiple reference tables found' unless every table is written with the qualified table \"<schema>\" \"<name>\" form)",
+      "rationale": "This directly contradicts a reading of the sibling source-atlas-hcl-hcl-language.json record's 'expressible' classification for multiple logical schemas as friction-free: that record correctly documents the Table-Qualification mechanism exists, but this contrary-evidence pass found two open, still-unresolved issues showing the mechanism is not merely an optional style choice — omitting it produces either a hard error ('multiple reference tables found') or, worse, a silent no-op where `schema apply` reports no changes despite a genuine multi-schema diff (#1584, open since 2023, no fix confirmed as of this search). For Gigacron's actual case — the configuration/runtime/audit/resources split named in ADR-0001, which per the arc42 system map places tables with identical or overlapping names in different logical schemas — this is exactly the collision scenario #2957 reproduces. The construct remains classified expressible-only-via-workaround, but this record adds that the workaround (universal, disciplined use of qualified table names across every multi-schema HCL project) is not optional in practice and that at least one related bug (#1584) is open and unresolved, not merely a historical/closed defect."
+    },
+    "capabilities_requiring_a_live_database_engine_not_the_hcl_file_alone": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "atlasgo.io/concepts/dev-database: 'Parsing schemas and migrations is not enough... only the real engine, with the right version and extensions, can compile every expression, resolve every reference, and accept the result'; docker:// driver syntax for an ephemeral dev database",
+      "rationale": "This is a documented, official-source limitation, not an issue-tracker gap: for anything beyond bare syntax parsing — meaningful semantic validation, `schema apply`, `migrate diff`, `schema plan`, `schema lint` — Atlas requires a running instance of the actual target database engine (the 'dev database'), which Atlas can spin up as an ephemeral Docker container via the `docker://<engine>/<version>/<name>` driver rather than a persistent live database. This is precise: it is NOT a requirement for a persistent production database connection, but it IS a requirement heavier than 'work from the HCL file alone' — it requires Docker (or an external database) at validation time, and it requires committing to one specific database engine and version for that dev container, which reopens the product-neutrality question the brief's exclusions explicitly try to keep closed at the specification level ('the modeling language must stay product-neutral at the specification level'; ADR-0001 leaves the database product unchosen). A CI gate built on `atlas schema lint --dev-url docker://postgres/15/dev ...` is implicitly a PostgreSQL-flavoured gate, not a product-neutral one, even though the HCL schema syntax itself (per the sibling hcl-language.json and product-neutrality.json records) keeps its structural keywords dialect-neutral. This corroborates, from an independent official-docs source, the dialect-leak finding already recorded in source-atlas-hcl-product-neutrality.json, and extends it: the leak is not only at the type-name/check-expression level but also at the validator's own runtime dependency level."
+    },
+    "check_value_constraint_dialect_and_version_dependence": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "ariga/atlas#417 (merged PR, 2022-01-15): 'sql/mysql: reject CHECK constraints when it is not supported by the database'",
+      "rationale": "This closes part of the open gap the sibling source-atlas-hcl-validation-exit.json record flagged ('No page found confirming or denying MySQL's version-gated CHECK-constraint enforcement... in the context of Atlas specifically'): Atlas does have code, merged in 2022, that specifically rejects (rather than silently accepts) CHECK constraints when targeting a MySQL version/configuration that does not enforce them. This is good CI-gate behaviour in one sense — a malformed-for-the-target-dialect CHECK constraint is caught rather than silently ignored — but it is also direct evidence that the CHECK/value-constraint-beyond-type construct's actual acceptance is dialect-and-version-dependent, not a uniform, product-neutral guarantee: the same HCL `check { expr = ... }` block that validates cleanly against one MySQL version/config can be rejected against another, and this determination requires the live dev-database engine described above, not the HCL file in isolation."
+    },
+    "enum_construct_evolution_gap": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "ariga/atlas#2252 (closed, 2023-11-04): 'Error: replacing or reordering enum value is not supported'",
+      "rationale": "The enumerated-string-domain construct is confirmed expressible for initial schema authoring (sibling source-atlas-hcl-hcl-language.json / hcl-types record). This issue is contrary evidence at the maintenance layer: once a PostgreSQL enum type exists, reordering or replacing its value set through Atlas's declarative/versioned migration flow hits a hard, explicitly-named 'not supported' error, requiring a manual workaround (typically a raw SQL migration step) outside the HCL-driven flow. Because Gigacron's FOLDER_RUN.execution_context and NAMED_RESOURCE_LINK.link_kind enums are exactly the kind of fixed-value-set construct this affects, this is recorded as a genuine gap between what the HCL language can express once and what the CLI's own migration tooling can evolve over time — directly answering the plan's 'gap between the HCL language and what the CLI actually validates or renders' angle."
+    },
+    "composite_key_and_multi_column_unique_operational_history": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "ariga/atlas#1614 (closed, composite FK regenerated with duplicate constraint); ariga/atlas#1551 (closed, [BUG, postgres] failure dropping a field while changing a composite key, due to statement ordering); ariga/atlas#2086 (open, renaming a table with a UNIQUE CONSTRAINT fails because the new table is created before the old constraint is dropped)",
+      "rationale": "None of these dispute that composite primary keys or multi-column UNIQUE constraints can be DECLARED in HCL (both remain classified expressible in the sibling hcl-language.json record for initial authoring). They are contrary evidence at the migration-execution layer: composite keys and UNIQUE constraints have a real history of Atlas's own migration planner mis-ordering the generated DDL statements around them (drop-before-create races, duplicate-constraint regeneration). Two of the three are closed (presumed fixed); #2086 is open at time of search. Recorded as operational risk on top of, not instead of, the 'expressible' authoring-time classification."
+    },
+    "self_referencing_foreign_key_search": {
+      "classification": "not-expressible",
+      "citation": "GitHub Search API, repo:ariga/atlas \"self reference\" foreign key in:title,body — total_count: 0",
+      "rationale": "Classification here follows the sibling contrary-evidence records' convention: 'not-expressible' means no contrary evidence was found by this search, not that the construct itself is unsupported. Zero issues were returned. This is an explicit non-finding — it leaves the hcl-language.json record's 'expressible' classification for multiple self-referencing foreign keys unopposed but also not independently corroborated by a real-world bug report, and it does not rule out relevant discussion existing under different terminology this query did not capture."
+    },
+    "nullable_foreign_key_search": {
+      "classification": "not-expressible",
+      "citation": "GitHub Search API, repo:ariga/atlas nullable foreign key in:title,body — returned only unrelated results (Liquibase XML changelog support request; implicit names for PostgreSQL indexes/constraints)",
+      "rationale": "No issue specifically describing a limitation in nullable foreign-key columns was found. Explicit non-finding, same caveat as above."
+    },
+    "custom_rule_domain_id_convention_and_one_to_zero_or_one_search": {
+      "classification": "not-expressible",
+      "citation": "No issue-tracker query was run for these two constructs (see limitations: no plausible search vocabulary was identified for either)",
+      "rationale": "Recorded honestly as an unexecuted search rather than a false 'nothing found' result. The domain_id cross-cutting-convention question is instead answered from official pricing/feature documentation in the sibling licence-governance record (Custom Schema Rules: Pro-only) rather than from the issue tracker. The one-to-zero-or-one relationship question is answered from the HCL language reference in the sibling hcl-language.json record (no cardinality keyword exists) rather than from the issue tracker; no attempt was made here to search the tracker for it because Atlas's issue vocabulary has no natural term for a relationship-cardinality feature request given the language does not model relationships as a first-class concept at all."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "repo:ariga/atlas composite primary key in:title,body",
+      "repo:ariga/atlas \"self reference\" foreign key in:title,body",
+      "repo:ariga/atlas multiple schemas in:title,body",
+      "repo:ariga/atlas enum in:title,body",
+      "repo:ariga/atlas unique constraint in:title,body",
+      "repo:ariga/atlas nullable foreign key in:title,body",
+      "repo:ariga/atlas custom lint rule in:title,body",
+      "repo:ariga/atlas dev database required in:title,body",
+      "repo:ariga/atlas \"is not supported\" in:title",
+      "atlasgo.io dev-url dev database required schema validate diff lint docker (general web search, to find the official concepts/dev-database page)"
+    ],
+    "where_searched": [
+      "api.github.com/search/issues (GitHub's public Search API, scoped with repo:ariga/atlas, queried directly via curl+jq — not a general web search engine)",
+      "atlasgo.io/concepts/dev-database (official documentation, via WebFetch)",
+      "general web search (WebSearch tool), used only to locate the dev-database documentation page and as a fallback for two early queries before switching to the GitHub Search API directly"
+    ],
+    "search_date": "2026-08-14",
+    "result": "The search surfaced substantive, on-topic contrary evidence for four of the ten advanced constructs (several logical schemas: #1584, #2957; CHECK/value constraint: #417; enumerated domain: #2252; composite key/multi-column unique: #1614, #1551, #2086) plus one decisive documented-limitation finding outside the ten-construct list (the dev-database live-engine requirement, bearing directly on both the 'live database connection' and the 'product-neutral use given ADR-0001' angles). Two constructs (self-referencing foreign key, nullable foreign key) were queried and returned no relevant hits — recorded as explicit non-findings. Two constructs (domain_id cross-cutting convention, one-to-zero-or-one relationship) were not queried against the issue tracker at all, for the reasons given in the interpretation section above, and are recorded as an unexecuted search rather than silently omitted. No evidence was found and not used to soften any of the above; per the task instruction, no positive/balancing evidence is included in this record even where it exists in sibling records."
+  }
+}

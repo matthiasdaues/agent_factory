@@ -1,0 +1,72 @@
+{
+  "source_identity": "Atlas CLI reference (schema validate, schema lint), Migration Analyzers doc, Custom Schema Rules pages, and the v0.31 release blog post",
+  "author_or_issuing_body": "Ariga, Inc. (maintainer of the Atlas project)",
+  "publisher": "atlasgo.io (Ariga, Inc.)",
+  "publication_date": "2025-02-06T00:00:00Z",
+  "relevant_event_date": "2025-02-06",
+  "source_family": "atlasgo.io official documentation and blog (Ariga)",
+  "precise_evidence_location": "atlasgo.io/cli-reference §'atlas schema validate' and §'atlas schema lint'; atlasgo.io/lint/analyzers (exit-code statement); atlasgo.io/lint/rules ('Custom Schema Policy'); atlasgo.io/blog/2025/02/06/v031-schema-lint-pgvector-and-more (licensing statement)",
+  "method": "Live retrieval of multiple public documentation and blog pages via automated web-fetch and web-search, directed to quote verbatim command descriptions, flags, exit-code statements, and licensing/tier statements.",
+  "limitations": "The 'exit code 1' statement found is explicitly scoped to `atlas migrate lint`'s destructive-change analyzer, not to `atlas schema validate` or `atlas schema lint` by name; no page was found stating an explicit numeric exit code for `atlas schema validate` or `atlas schema lint` specifically — only prose ('returns an error describing the problem') that implies, but does not document, non-zero exit. The blog post is dated 2025-02-06 (over 18 months before the retrieval date of 2026-08-14), so it may not reflect the current, most recent state of pricing/tier gating for schema rules; the atlasgo.io/lint/rules page (undated) was used to corroborate that the gating was still in force at retrieval time.",
+  "provenance": "Retrieved via WebFetch and WebSearch tools against https://atlasgo.io/cli-reference, https://atlasgo.io/lint/analyzers, https://atlasgo.io/blog/2025/02/06/v031-schema-lint-pgvector-and-more, and https://atlasgo.io/lint/rules on 2026-08-14. Re-verify by visiting each URL directly.",
+  "raw_evidence": [
+    {
+      "quote": "The 'atlas schema validate' command checks that a schema definition is valid and can be parsed and loaded correctly by Atlas.",
+      "locator": "cli-reference §atlas schema validate",
+      "url": "https://atlasgo.io/cli-reference"
+    },
+    {
+      "quote": "If the schema is valid, the command exits successfully without output. If the schema is invalid, it returns an error describing the problem.",
+      "locator": "cli-reference §atlas schema validate",
+      "url": "https://atlasgo.io/cli-reference"
+    },
+    {
+      "quote": "Running migration linting locally on in CI fails with exit code 1 in case destructive changes are detected.",
+      "locator": "atlasgo.io/lint/analyzers",
+      "url": "https://atlasgo.io/lint/analyzers"
+    },
+    {
+      "quote": "You can now define custom rules for your database schema and have Atlas enforce them for you during CI.",
+      "locator": "blog/2025/02/06/v031-schema-lint-pgvector-and-more",
+      "url": "https://atlasgo.io/blog/2025/02/06/v031-schema-lint-pgvector-and-more"
+    },
+    {
+      "quote": "require columns to be not null or have a default value",
+      "locator": "blog/2025/02/06/v031-schema-lint-pgvector-and-more (example custom rule)",
+      "url": "https://atlasgo.io/blog/2025/02/06/v031-schema-lint-pgvector-and-more"
+    },
+    {
+      "quote": "The schema linting rules language is currently in beta and available for enterprise accounts and paid projects only.",
+      "locator": "blog/2025/02/06/v031-schema-lint-pgvector-and-more",
+      "url": "https://atlasgo.io/blog/2025/02/06/v031-schema-lint-pgvector-and-more"
+    },
+    {
+      "quote": "The schema linting rules language is available exclusively to Pro users.",
+      "locator": "atlasgo.io/lint/rules ('Custom Schema Policy')",
+      "url": "https://atlasgo.io/lint/rules"
+    },
+    {
+      "quote": "Atlas ships with 50+ built-in analyzers that review migration files, and these analyzers detect destructive changes like dropped tables or columns, data-dependent modifications such as adding non-nullable columns without defaults, and database-specific risks like table locks and table rewrites that can cause downtime on busy tables.",
+      "locator": "atlasgo.io/lint/rules / atlasgo.io/lint/analyzers (built-in analyzer description)",
+      "url": "https://atlasgo.io/lint/analyzers"
+    }
+  ],
+  "interpretation": {
+    "validator_existence_and_exit_code": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "cli-reference §atlas schema validate (prose 'returns an error'); atlasgo.io/lint/analyzers ('fails with exit code 1' — scoped to migrate lint destructive-change analyzer)",
+      "rationale": "A validator command exists and is documented to fail on invalid input, which is the qualitative behaviour a deterministic CI gate needs. However, the only PRIMARY-SOURCE passage explicitly naming a numeric exit code ('exit code 1') is written about `atlas migrate lint`'s destructive-change check, not about `atlas schema validate` or `atlas schema lint`. Treating `schema validate`/`schema lint` as having a confirmed, documented exit-code contract equivalent to `factory/scripts/structurizr validate` would overstate what the primary sources say; the behaviour is plausible by CLI convention and by the 'returns an error' prose, but not confirmed with the same precision found for migrate lint. Recorded as a gap, not resolved."
+    },
+    "cross_cutting_convention_validator_domain_id": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "blog/2025/02/06/v031-schema-lint-pgvector-and-more ('custom rules... during CI'; 'require columns to be not null or have a default value' example) and atlasgo.io/lint/rules ('exclusively to Pro users')",
+      "rationale": "Atlas documents a purpose-built mechanism — the 'Atlas Schema Rule language' — for exactly this class of cross-cutting structural policy (the worked example asserts a column-level convention across a schema, analogous in kind to 'domain_id present on every Domain-owned table'). This is a genuine built-in capability, not an improvised workaround, in the sense that the language and enforcement point are provided by Atlas itself rather than bolted on by a separate script. But per two independent statements on two different official pages (the v0.31 blog and the lint/rules page), this capability is licensed exclusively to Enterprise/paid-project accounts, not the open-source/community edition. For a project relying on the free/community distribution, the capability is therefore unavailable at any price point below Pro/Enterprise, which is why it is classified as workaround-only rather than plainly 'expressible' — a community-tier user could not use Atlas's own mechanism for this and would need an external lint script instead, the same 'workaround' pattern the research question distinguishes against a built-in rule."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": ["atlas schema validate exit code", "atlas schema lint exit code", "atlas schema lint free community", "atlas custom schema rules pricing"],
+    "where_searched": ["atlasgo.io/cli-reference", "atlasgo.io/lint/analyzers", "atlasgo.io/lint/rules", "general web search (WebSearch tool)"],
+    "search_date": "2026-08-14",
+    "result": "No page was found stating an explicit numeric exit code for `atlas schema validate` or `atlas schema lint` by name (only the prose 'returns an error' for validate, and the exit-code-1 statement scoped to migrate lint's destructive analyzer). No page was found offering the custom schema-rule language for free/community accounts; two independent official pages (2025-02-06 blog and the undated lint/rules page) agree it is Pro/Enterprise-only, which is treated as corroboration within the same source family (both are Ariga/atlasgo.io) rather than independent confirmation."
+  }
+}

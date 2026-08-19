@@ -1,0 +1,81 @@
+{
+  "source_identity": "mermaid-js/mermaid repository LICENSE file, CONTRIBUTING.md, and GitHub Repos/Releases API metadata",
+  "author_or_issuing_body": "mermaid-js organisation; copyright holder Knut Sveidqvist (mermaid core) per LICENSE",
+  "publisher": "GitHub, repository mermaid-js/mermaid",
+  "publication_date": "2026-08-14T14:28:48Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "mermaid-js/mermaid source repository (root LICENSE and packages/mermaid/src/docs/community/contributing.md, develop branch) and GitHub REST API repository/release metadata for the same repository",
+  "precise_evidence_location": "LICENSE (repository root); packages/mermaid/src/docs/community/contributing.md, section 'Congratulations' (release/maintainer-authority paragraph); GitHub REST API /repos/mermaid-js/mermaid (license.spdx_id, pushed_at, updated_at fields) and /repos/mermaid-js/mermaid/releases/latest (tag_name, published_at fields)",
+  "method": "Retrieved LICENSE and contributing.md directly from raw.githubusercontent.com; retrieved repository and latest-release metadata via the GitHub REST API (api.github.com).",
+  "limitations": "No standalone GOVERNANCE.md file exists in the repository (confirmed by a direct 404 on that path), so governance is characterised from the CONTRIBUTING guide's description of maintainer review plus a single named individual's release authority, rather than from a formal charter document. This is an inference about governance STYLE from process description, not a self-declared governance model label from the project itself — recorded as a limitation. The GitHub API's license.spdx_id field (a GitHub-computed classification) is treated as corroboration of, not a replacement for, the LICENSE file text itself, which is quoted directly below.",
+  "provenance": "Fetched from https://raw.githubusercontent.com/mermaid-js/mermaid/develop/LICENSE, https://raw.githubusercontent.com/mermaid-js/mermaid/develop/packages/mermaid/src/docs/community/contributing.md, https://api.github.com/repos/mermaid-js/mermaid, and https://api.github.com/repos/mermaid-js/mermaid/releases/latest on 2026-08-14 via automated web retrieval. A direct request to https://github.com/mermaid-js/mermaid/blob/develop/GOVERNANCE.md returned HTTP 404, confirmed on the same date. Re-verify by fetching the same URLs.",
+  "raw_evidence": [
+    {
+      "quote": "The MIT License (MIT)",
+      "locator": "LICENSE, line 1",
+      "url": "https://raw.githubusercontent.com/mermaid-js/mermaid/develop/LICENSE"
+    },
+    {
+      "quote": "Copyright (c) 2014 - 2022 Knut Sveidqvist",
+      "locator": "LICENSE, copyright line",
+      "url": "https://raw.githubusercontent.com/mermaid-js/mermaid/develop/LICENSE"
+    },
+    {
+      "quote": "license.spdx_id: MIT",
+      "locator": "GitHub REST API, /repos/mermaid-js/mermaid, license object",
+      "url": "https://api.github.com/repos/mermaid-js/mermaid"
+    },
+    {
+      "quote": "pushed_at: 2026-08-14T14:27:55Z, updated_at: 2026-08-14T14:28:48Z, open_issues_count: 1696",
+      "locator": "GitHub REST API, /repos/mermaid-js/mermaid",
+      "url": "https://api.github.com/repos/mermaid-js/mermaid"
+    },
+    {
+      "quote": "tag_name: @mermaid-js/tiny@11.16.1, published_at: 2026-08-04T15:06:03Z",
+      "locator": "GitHub REST API, /repos/mermaid-js/mermaid/releases/latest",
+      "url": "https://api.github.com/repos/mermaid-js/mermaid/releases/latest"
+    },
+    {
+      "quote": "PRs will be reviewed by active maintainers, who will provide feedback and request changes as needed. ... Once the PR is approved, the maintainers will merge the PR into the develop branch.",
+      "locator": "packages/mermaid/src/docs/community/contributing.md, section 'Congratulations'",
+      "url": "https://raw.githubusercontent.com/mermaid-js/mermaid/develop/packages/mermaid/src/docs/community/contributing.md"
+    },
+    {
+      "quote": "When a release is ready, the release/x.x.x branch will be created, extensively tested and knsv will be in charge of the release process.",
+      "locator": "packages/mermaid/src/docs/community/contributing.md, section 'Congratulations'",
+      "url": "https://raw.githubusercontent.com/mermaid-js/mermaid/develop/packages/mermaid/src/docs/community/contributing.md"
+    }
+  ],
+  "interpretation": {
+    "licence": {
+      "classification": "not-applicable",
+      "citation": "LICENSE, line 1 and copyright line",
+      "rationale": "SPDX identifier MIT, read directly from the LICENSE file text ('The MIT License (MIT)', copyright Knut Sveidqvist 2014-2022), independently corroborated by the GitHub API's license.spdx_id field. Note mermaid-cli carries a SEPARATE MIT-licensed copyright line (Tyler Long, 2017-2020) in its own repository per source-mermaid-erd-tooling.json — same licence family (MIT) but a distinct copyright holder, since it is a distinct repository."
+    },
+    "governance_model": {
+      "classification": "not-applicable",
+      "citation": "packages/mermaid/src/docs/community/contributing.md, section 'Congratulations'",
+      "rationale": "No formal GOVERNANCE.md exists (confirmed 404). The documented process is maintainer code review with merge authority, plus a single named individual ('knsv', i.e. Knut Sveidqvist, the original author and copyright holder) who is 'in charge of the release process' and whom maintainers 'request a review from... if necessary.' This reads as maintainer-team-led with a founder/BDFL-adjacent figure retaining release authority, not a foundation-governed or formally chartered community-consensus model, and not single-vendor commercial governance in the sense Prisma or Atlas would be (no company is named as backing the mermaid-js/mermaid core project in this document — contrast with the separate commercial entity 'Mermaid Chart', which sponsors some maintainers but is not documented here as controlling governance)."
+    },
+    "release_and_activity_freshness": {
+      "classification": "not-applicable",
+      "citation": "GitHub REST API /repos/mermaid-js/mermaid (pushed_at 2026-08-14T14:27:55Z) and /repos/mermaid-js/mermaid/releases/latest (published_at 2026-08-04T15:06:03Z); mermaid-cli /repos/mermaid-js/mermaid-cli (pushed_at 2026-08-10T07:17:58Z) and its latest release tag 11.16.0 (published_at 2026-06-29T17:07:35Z) per source-mermaid-erd-tooling.json",
+      "rationale": "Both the most recent tagged release (2026-08-04 for mermaid core) and the most recent repository activity (2026-08-14 for mermaid core, same day as this record's retrieval) fall well within the 18 months before August 2026 (since roughly February 2025) required by the brief's freshness_requirements. Not at risk of abandonment by either measure — this is the freshest-looking candidate surveyed by construction, since it is the incumbent in active use."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "mermaid-js GOVERNANCE.md",
+      "mermaid js foundation OpenJS",
+      "mermaid chart company sponsor maintainers",
+      "mermaid license change dual license"
+    ],
+    "where_searched": [
+      "https://github.com/mermaid-js/mermaid/blob/develop/GOVERNANCE.md (404)",
+      "https://raw.githubusercontent.com/mermaid-js/mermaid/develop/CONTRIBUTING.md",
+      "https://raw.githubusercontent.com/mermaid-js/mermaid/develop/packages/mermaid/src/docs/community/contributing.md"
+    ],
+    "search_date": "2026-08-14",
+    "result": "No GOVERNANCE.md, no foundation charter (e.g. no OpenJS Foundation or Linux Foundation membership document), and no dual-licensing or licence-change notice were found. The project remains single-repository, MIT-licensed, with maintainer-review-plus-named-release-authority as its only documented governance process."
+  }
+}

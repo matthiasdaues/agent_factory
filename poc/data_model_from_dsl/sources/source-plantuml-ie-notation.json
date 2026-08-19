@@ -1,0 +1,145 @@
+{
+  "source_identity": "PlantUML Language Reference Guide — Information Engineering diagrams (plantuml.com/ie-diagram), Entity Relationship diagrams / Chen's notation (plantuml.com/er-diagram), and Class Diagram syntax and features (plantuml.com/class-diagram)",
+  "author_or_issuing_body": "Arnaud Roques and the PlantUML project contributors (copyright holder per LICENSES.md: 'Copyright (C) 2009-2026, Arnaud Roques')",
+  "publisher": "plantuml.com (official PlantUML documentation site)",
+  "publication_date": "2026-08-14T00:00:00Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "plantuml.com official documentation (Language Reference Guide) — all plantuml.com/* reference pages share this one family; not independent corroboration of each other",
+  "precise_evidence_location": "plantuml.com/ie-diagram §'Information Engineering Relations' table and 'Entities' section; plantuml.com/er-diagram §'Entities and attributes', §'Relationships', §'Structural constraints', §'Identifying relationships'; plantuml.com/class-diagram §'Namespaces', §'Automatic package creation', §'Abstract class and interface' (enum keyword), §'Association classes', §'Association on same class', §'More on notes'",
+  "method": "Direct HTTP retrieval of the three live documentation pages (curl), tag-stripped to recover verbatim body text; cross-checked against a WebFetch summarisation pass of the same pages",
+  "limitations": "The docs describe rendering/drawing syntax; they are not a formal grammar (no BNF/EBNF was found for the ER-specific keywords) and do not themselves discuss parser-level validation behaviour — that question is covered by the separate command-line source record. No page carries an explicit revision date; publication_date is therefore the retrieval date (2026-08-14), not a stated last-modified date, and is flagged as retrieval-date substitution per the evidence policy. The pages are living/versioned documentation, so the exact prose may already have changed by the time this record is re-verified — re-fetch the URLs to confirm.",
+  "provenance": "Fetched live via HTTPS from plantuml.com on 2026-08-14 in this research session (curl to /tmp/pu_ie.html, /tmp/pu_er.html, /tmp/pu_class.html; also cross-checked with a WebFetch summarisation pass). Re-verify by fetching https://plantuml.com/ie-diagram, https://plantuml.com/er-diagram, and https://plantuml.com/class-diagram directly.",
+  "raw_evidence": [
+    {
+      "quote": "Information Engineering diagrams are an extension to the existing Class Diagrams. This extension adds: Additional relations for the Information Engineering notation; An entity alias that maps to the class diagram class; An additional visibility modifier * to identify mandatory attributes. Otherwise, the syntax for drawing diagrams is the same as for class diagrams. All other features of class diagrams are also supported. [Ref. GH-31]",
+      "locator": "plantuml.com/ie-diagram, §'Information Engineering Diagrams' (intro paragraph)",
+      "url": "https://plantuml.com/ie-diagram"
+    },
+    {
+      "quote": "Type | Symbol\nZero or One | |o--\nExactly One | ||--\nZero or Many | }o--\nOne or Many | }|--\nExamples:\n@startuml\nEntity01 }|..|| Entity02\nEntity03 }o..o| Entity04\nEntity05 ||--o{ Entity06\nEntity07 |o--|| Entity08\n@enduml",
+      "locator": "plantuml.com/ie-diagram, §'Information Engineering Relations'",
+      "url": "https://plantuml.com/ie-diagram"
+    },
+    {
+      "quote": "@startuml\nentity Entity01 {\n  * identifying_attribute\n  --\n  * mandatory_attribute\n  optional_attribute\n}\n@enduml\nAgain, this is the normal class diagram syntax (aside from use of entity instead of class). Anything that you can do in a class diagram can be done here.\nThe * visibility modifier can be used to identify mandatory attributes.",
+      "locator": "plantuml.com/ie-diagram, §'Entities'",
+      "url": "https://plantuml.com/ie-diagram"
+    },
+    {
+      "quote": "entity \"Card\" as e02 {\n  *card_id : number <<generated>>\n  sync_enabled: boolean\n  version: number\n  last_sync_version: number\n  --\n  *user_id : number <<FK>>\n  other_details : text\n}",
+      "locator": "plantuml.com/ie-diagram, §'Complete Example' (entity e02 'Card')",
+      "url": "https://plantuml.com/ie-diagram"
+    },
+    {
+      "quote": "This page is for Chen's Entity Relationship notation, which is commonly used in teaching. ... Attributes can be keys, meaning that their value is unique among entities of a given type, or they can be derived, meaning that their value is computed based on other attributes. Attributes may also be multi-valued, or have their domain (set of allowed values) defined.\n@startchen\nentity DIRECTOR {\n  Number : INTEGER <<key>>\n  Name {\n    Fname : STRING\n    Lname : STRING\n  }\n  Born : DATE\n  Died : DATE\n  Age : INTEGER\n}\nentity CUSTOMER {\n  Number : INTEGER <<key>>\n  Bonus : REAL <<derived>>\n  Name : STRING <<multi>>\n}\n@endchen",
+      "locator": "plantuml.com/er-diagram, §'Entities and attributes'",
+      "url": "https://plantuml.com/er-diagram"
+    },
+    {
+      "quote": "A weak entity does not have a key attribute that uniquely identifies each instance of that entity. Instead, it is identified by the combination of a partial key on the weak entity itself and the key of another entity, which it is related to via an identifying relationship. A weak entity must have total participation in its identifying relationship.\n@startchen\nentity PARENT {\n  Number <<key>>\n  Name\n}\nentity CHILD <<weak>> {\n  Name <<key>>\n  Age\n}\nrelationship PARENT_OF <<identifying>> {\n}\nPARENT_OF -1- PARENT\nPARENT_OF =N= CHILD\n@endchen",
+      "locator": "plantuml.com/er-diagram, §'Identifying relationships'",
+      "url": "https://plantuml.com/er-diagram"
+    },
+    {
+      "quote": "The cardinality of relationships can also be expressed as a range.\n@startchen\n...\nRENTED_TO -(1,N)- CUSTOMER\nRENTED_TO -(0,1)- MOVIE\n@endchen",
+      "locator": "plantuml.com/er-diagram, §'Structural constraints'",
+      "url": "https://plantuml.com/er-diagram"
+    },
+    {
+      "quote": "Starting with version 1.2023.2, PlantUML handles differently namespaces and packages. There won't be any difference between namespaces and packages anymore: both keywords are now synonymous.",
+      "locator": "plantuml.com/class-diagram, §'Namespaces'",
+      "url": "https://plantuml.com/class-diagram"
+    },
+    {
+      "quote": "namespace net.dummy #DDDDDD {\n  .BaseClass <|-- Person\n  Meeting o-- Person\n  .BaseClass <|- Meeting\n}\nnamespace net.foo {\n  net.dummy.Person <|- Person\n  .BaseClass <|-- Person\n  net.dummy.Meeting o-- Person\n}",
+      "locator": "plantuml.com/class-diagram, §'Splitting large files' (namespace qualified-name example)",
+      "url": "https://plantuml.com/class-diagram"
+    },
+    {
+      "quote": "You can use the interface, annotation and enum keywords too.\n@startuml\n...\nenum TimeUnit {\n  DAYS\n  HOURS\n  MINUTES\n}\n...\n@enduml",
+      "locator": "plantuml.com/class-diagram, §'Abstract class and interface'",
+      "url": "https://plantuml.com/class-diagram"
+    },
+    {
+      "quote": "It is also possible to add a note on field (field, attribute, member) or on method.",
+      "locator": "plantuml.com/class-diagram, §'Note on field (field, attribute, member) or method'",
+      "url": "https://plantuml.com/class-diagram"
+    },
+    {
+      "quote": "How could I paint relations containing 'composed keys', a relation between multiple columns in both classes? ... I only know how to paint relations between individual class members, for example Foo2::column1 --> Foo1::column1",
+      "locator": "forum.plantuml.net/14467 (community Q&A, posted 2021-08-29) — cited here only as corroborating evidence that no dedicated composite-key relation keyword exists in the official grammar; see the dedicated contrary-evidence record for full treatment",
+      "url": "https://forum.plantuml.net/14467/relations-relation-containing-multiple-members-composed"
+    }
+  ],
+  "interpretation": {
+    "composite_primary_keys": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "plantuml.com/ie-diagram §'Entities' (repeated '*' attribute lines above the '--' separator); plantuml.com/er-diagram §'Entities and attributes' (nested composite attribute + <<key>> stereotype)",
+      "rationale": "There is no grammar construct that names a group of columns as one composite key. The IE-notation convention is to mark each of several attributes with '*' above the separator; the Chen notation lets you mark several individual attributes '<<key>>' or nest sub-attributes under one composite attribute name (e.g. 'Name { Fname Lname }'). Both are established idioms in the official docs, but neither is a language-level 'this group of N columns is jointly the key' assertion — it is drawn as N independently-marked attributes and a human reader infers the composite. The unresolved community question at forum.plantuml.net/14467 (no dedicated construct for a relation spanning multiple columns as a unit) corroborates that this is a documented workaround, not a first-class construct."
+    },
+    "json_payload_columns": {
+      "classification": "expressible",
+      "citation": "plantuml.com/ie-diagram §'Complete Example' (free-form 'name : type' attribute syntax, e.g. '*user_id : number <<generated>>')",
+      "rationale": "An entity attribute's type annotation after ':' is free text with no grammar-level type system — writing 'schedule_spec : json' or 'schedule_spec : jsonb' renders exactly as any other typed attribute. Because the construct under test is an OPAQUE payload column (no internal structure needs to be expressed), a free-text type label is sufficient to express it; nothing more is claimed by the construct itself."
+    },
+    "enumerated_string_domains": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "plantuml.com/class-diagram §'Abstract class and interface' (the 'enum' keyword, e.g. 'enum TimeUnit { DAYS HOURS MINUTES }')",
+      "rationale": "PlantUML class diagrams (and by extension IE diagrams, which are declared to inherit 'all other features of class diagrams') have a real 'enum' keyword — but it declares a separate UML enumeration diagram element with its own box and literal list, not a constraint bound to a specific entity attribute's value set. To show FOLDER_RUN.execution_context is restricted to SCHEDULED|MANUAL, the closest native idiom is either (a) free-text after the ':' on the attribute line (e.g. 'execution_context : SCHEDULED|MANUAL'), which is uninterpreted text, or (b) declaring a separate 'enum' box and drawing a relation from FOLDER_RUN to it, which changes the diagram shape rather than annotating the column. Neither carries language-level enforcement that the attribute's value is drawn from the enum's literal set."
+    },
+    "several_self_referencing_fks_one_table": {
+      "classification": "expressible",
+      "citation": "plantuml.com/class-diagram (relation labels + multiplicity on class-diagram associations, inherited by IE/Chen diagrams); plantuml.com/ie-diagram §'Information Engineering Relations' (crow's-foot relations are ordinary labelled relations between two entity names, and PlantUML places no restriction on drawing several distinct labelled relations between the same two entity names, including an entity and itself)",
+      "rationale": "Class-diagram relation syntax supports a role/attribute label after ':' and independent multiplicities on each end (e.g. 'A \"1\" -- \"0..*\" A : origin_instance_id'). Nothing in the grammar limits how many such labelled self-relations may be drawn between one entity and itself, so origin_instance_id, cyclic_root_instance_id, and previous_iteration_id can each be drawn as a separately labelled self-referencing relation with IE crow's-foot cardinality. This is genuine relation-level grammar (label + multiplicity), not free text pasted into an attribute name."
+    },
+    "nullable_foreign_keys": {
+      "classification": "expressible",
+      "citation": "plantuml.com/ie-diagram §'Information Engineering Relations' cardinality table ('Zero or One' = '|o--', 'Zero or Many' = '}o--')",
+      "rationale": "The crow's-foot 'zero' cardinality markers are exactly the conventional notation for an optional (nullable) foreign key: the referencing side is drawn with a zero-or-one or zero-or-many marker rather than the mandatory 'exactly one'/'one or many' markers. This is a documented grammar-level cardinality symbol, not a workaround."
+    },
+    "multi_column_unique_not_tied_to_pk": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "plantuml.com/class-diagram §'More on notes' (generic 'note' attached to a class/entity); no dedicated UNIQUE-constraint keyword found on plantuml.com/ie-diagram or plantuml.com/er-diagram",
+      "rationale": "No IE- or Chen-notation keyword expresses 'these N columns, not the primary key, must be unique together'. The only native mechanism to attach such a statement to an entity is a free-text 'note' block (e.g. 'note bottom of PLAN: UNIQUE(domain_id, odate)'), which is real grammar for attaching arbitrary prose to a diagram element, but the prose itself is not parsed or enforced as a constraint."
+    },
+    "one_to_zero_or_one_relationships": {
+      "classification": "expressible",
+      "citation": "plantuml.com/ie-diagram §'Information Engineering Relations' cardinality table (symmetric application of '||--' 'Exactly One' on one side and '--o|' zero-or-one mirrored on the other, as shown by the symmetric examples 'Entity05 ||--o{ Entity06' and 'Entity07 |o--|| Entity08')",
+      "rationale": "The documented cardinality symbol set is explicitly two-sided crow's-foot notation; combining 'Exactly One' on one entity with 'Zero or One' on the other (ATTEMPT ||--o| ATTEMPT_RESULT) is a direct, literal application of the four documented symbols and needs no workaround."
+    },
+    "value_constraint_beyond_type": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "plantuml.com/ie-diagram §'Complete Example' (free-text 'name : type' attribute syntax is the only place such a statement could go)",
+      "rationale": "There is no CHECK-constraint or value-range grammar anywhere in the IE/Chen documentation. A constraint such as 'resource_task_weight is a positive integer OR the literal ALL' can only be approximated by writing it as uninterpreted free text after the attribute name (e.g. 'resource_task_weight : positive integer or \\'ALL\\''), which renders but is not parsed as a constraint."
+    },
+    "several_logical_schemas_one_database": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "plantuml.com/class-diagram §'Namespaces' and §'Splitting large files' (namespace/package keyword, dotted qualified names like 'net.dummy.Person')",
+      "rationale": "The 'namespace'/'package' keyword does more than purely visual grouping: it introduces a dotted qualified-name scope (as the 'net.dummy.Person' vs 'net.foo.Person' example shows), so two entities with the same short name in different namespaces are distinct diagram elements referenced by qualified path. That is real grammar-level scoping, closer to a schema-qualified name than to a plain visual box. It is recorded as 'workaround' rather than 'expressible' because namespaces are a rendering/scoping construct borrowed from class diagrams with no declared connection to database-schema semantics (no enforcement that a namespace maps 1:1 to a physical schema, no schema-level constraint checking) — using it for 'configuration/runtime/audit/resources' schemas is an appropriation of a generic UML namespace mechanism, not a documented database-schema feature."
+    },
+    "cross_cutting_convention_domain_id_on_every_table": {
+      "classification": "not-expressible",
+      "citation": "No construct for this appears anywhere on plantuml.com/ie-diagram, plantuml.com/er-diagram, or plantuml.com/class-diagram; see the dedicated validation-exit source record for the command-line surface, which likewise has no lint/convention-assertion option",
+      "rationale": "This is a cross-entity, cross-cutting assertion ('every table tagged as Domain-owned has a domain_id column'), not a per-entity drawing choice. Nothing in the ER-notation documentation or (per the companion command-line source record) the CLI options exposes a rule-based or lint-style check of this kind. Recorded as not-expressible by the renderer itself; a caller could only get this by writing a separate script that parses the .puml source text externally, which is not a PlantUML capability."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "plantuml composite key",
+      "plantuml UNIQUE constraint entity",
+      "plantuml enum attribute type",
+      "plantuml check constraint",
+      "plantuml domain_id convention lint",
+      "plantuml schema namespace database"
+    ],
+    "where_searched": [
+      "plantuml.com/ie-diagram (full page text)",
+      "plantuml.com/er-diagram (full page text)",
+      "plantuml.com/class-diagram (full page text, ~176KB)",
+      "general web search (WebSearch tool) for 'plantuml composite key OR multi-column key entity relationship github issue'",
+      "forum.plantuml.net (community Q&A site, one thread retrieved)"
+    ],
+    "search_date": "2026-08-14",
+    "result": "No dedicated grammar for composite keys, multi-column UNIQUE constraints, value-range/CHECK constraints, or cross-cutting convention assertions was found anywhere in the three official reference pages. The one community forum thread found (forum.plantuml.net/14467) confirms a user asking in 2021 how to draw a composite-key relation and receiving no documented built-in answer, which is consistent with (not proof beyond the docs, but corroborating) the absence found in the official docs themselves."
+  }
+}

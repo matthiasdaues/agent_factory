@@ -68,8 +68,8 @@ flowchart TD
     A[Load immutable proposal baseline] --> B[Create six audit rows]
     B --> C[Map contract, implementation, automated evidence]
     C --> D{Row evidence complete?}
-    D -->|yes| E[Mark complete; create no implementation work]
-    D -->|no| F[Mark verified gap; define smallest remediation]
+    D -->|yes| E[Mark complete and create no implementation work]
+    D -->|no| F[Mark verified gap and define smallest remediation]
     E --> G{Rows remain?}
     F --> G
     G -->|yes| C
@@ -113,4 +113,4 @@ Feature: Audit delivered dispatch safeguards without retrospective reimplementat
 - [PRD § FR-L](../prd.md#fr-l--dispatch-safeguard-assurance-audit)
 - [System use cases](system-use-cases.md#dispatch-safeguard-assurance)
 - [Validation rules](../supplementary_specs/validation-rules.md#dispatch-safeguard-assurance-br-043br-048)
-- [Accepted dispatch-efficiency proposal](../../proposals/agent-dispatch-token-efficiency.md)
+- [Accepted dispatch-efficiency proposal](../../proposals/implemented/agent-dispatch-token-efficiency.md)

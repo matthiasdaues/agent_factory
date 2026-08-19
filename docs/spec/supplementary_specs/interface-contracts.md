@@ -1,6 +1,6 @@
-# Interface Contracts — Factory Flow Control
+# Interface Contracts — Factory Specification
 
-Command-line contract for every script this specification covers: inputs, flags, outputs, and exit codes. All scripts are stdlib-only Python 3.8+; none requires a virtualenv.
+Command-line contract for every script this specification covers. Flow-control scripts are stdlib-only Python 3.8+ with no virtualenv; the architecture modeling wrapper is a shell script delegating to Docker.
 
 ## `factory/scripts/transition-lint`
 
@@ -144,6 +144,107 @@ The envelope applies to native subagents, `run_agent`, and `dispatch_wave`; runt
 | stdout/stderr | One `init-factory: <line>` report line per step; `init-factory: STOPPED — <reason>` on collision                                                                                                          |
 
 See [UC-08](../use_cases/UC-08-initialize-agent-factory-into-a-project.md).
+
+## `factory/scripts/bausteinsicht`
+
+|             |                                                                                                                                                                                                                                   |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage       | `bausteinsicht <subcommand> [args...]`                                                                                                                                                                                            |
+| Subcommands | `sync`, `validate`, `lint`, `export-all`, `export-png`, `export-svg`, `import <dsl-path>`, `diff`                                                                                                                                 |
+| Reads       | `docs/arc42/architecture.jsonc`, `docs/arc42/architecture.drawio`, `docs/arc42/.bausteinsicht-sync` (subcommand-dependent)                                                                                                        |
+| Writes      | `docs/arc42/architecture.jsonc` (full reverse sync), `docs/arc42/architecture.drawio` (forward sync, first-time creation), `docs/assets/images/*.{png,svg}` (export), `.bausteinsicht-sync`                                       |
+| Exit code   | `0` on success; non-zero on Docker unavailability, validation failure, parsing error, or conflict                                                                                                                                 |
+| Docker      | All operations run inside a Factory-built Docker container; the script calls `docker run` with `docs/` volume-mounted. The container includes Bausteinsicht, draw.io Desktop (headless via xvfb), dbus, and Electron dependencies |
+
+### Subcommand details
+
+| Subcommand   | Operation                                                                          | See                                                                              |
+| ------------ | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `sync`       | Forward sync (JSONC to draw.io) + full reverse sync (all draw.io changes to JSONC) | [UC-13](../use_cases/UC-13-synchronize-model-and-diagram.md)                     |
+| `validate`   | JSONC schema + referential integrity + JSONC/draw.io structural consistency        | [UC-14](../use_cases/UC-14-validate-model-consistency.md)                        |
+| `lint`       | Architectural constraint checking against the JSONC model's `constraints` array    | [UC-14](../use_cases/UC-14-validate-model-consistency.md)                        |
+| `export-all` | Export all views as PNG + SVG to `docs/assets/images/`                             | [UC-15](../use_cases/UC-15-export-architecture-views.md)                         |
+| `export-png` | Export all views as PNG only                                                       | [UC-15](../use_cases/UC-15-export-architecture-views.md)                         |
+| `export-svg` | Export all views as SVG only                                                       | [UC-15](../use_cases/UC-15-export-architecture-views.md)                         |
+| `import`     | One-time Structurizr DSL to JSONC + draw.io migration                              | [UC-16](../use_cases/UC-16-migrate-from-structurizr-dsl.md)                      |
+| `diff`       | Human-readable structural change summary (SF-04)                                   | [actor-goal-list.md § SF-04](../actor-goal-list.md#goals--architecture-modeling) |
+
+## `factory/scripts/backlog-lint`
+
+|               |                                                                                                                                                                        |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage         | `backlog-lint [--backlog-dir DIR] [--format text\|json] [--report-only]`                                                                                               |
+| Reads         | Story files in `backlog/ST-*.md`                                                                                                                                       |
+| Writes        | Nothing; validation is read-only                                                                                                                                       |
+| Exit code     | Count of error-severity findings (`0` = clean), unless `--report-only` (always `0`)                                                                                    |
+| Finding codes | `BL-ID`, `BL-MISSING`, `BL-EXTRA`, `BL-ENUM`, `BL-TYPE`, `BL-DEP`, `BL-FILE`, `BL-EMPTY`, `BL-NAME`, `BL-PARSE`, `BL-DUP-ID`, `BL-CYCLE`, `BL-DUP`, `VR-027`, `VR-028` |
+
+### StoryFrontmatter schema
+
+All stories must have YAML frontmatter with the following fields:
+
+#### Required fields
+
+| Field     | Type             | Valid values                                          | Notes                                       |
+| --------- | ---------------- | ----------------------------------------------------- | ------------------------------------------- |
+| `id`      | string           | `ST-\d{4,}` (pattern)                                 | Zero-padded, must match filename stem       |
+| `epic`    | string           | Any non-empty string                                  | Grouping label, not a separate artifact     |
+| `title`   | string           | Any non-empty string                                  | One-line story title                        |
+| `tier`    | string           | `economy`, `standard`, `strong`                       | Model tier for implementation workload      |
+| `status`  | string           | `pending`, `in-progress`, `review`, `blocked`, `done` | Current status                              |
+| `outputs` | array of strings | File paths or glob patterns                           | Files the story produces; must be non-empty |
+
+#### Optional fields
+
+| Field    | Type             | Notes                                                                                           |
+| -------- | ---------------- | ----------------------------------------------------------------------------------------------- |
+| `deps`   | array of strings | Story IDs that must complete first; must match pattern `ST-\d{4,}`                              |
+| `traces` | array of strings | Use Case / ADR / component IDs this story implements                                            |
+| `tests`  | array of strings | Pre-existing test file paths covering acceptance criteria; missing files generate warnings only |
+
+### Validation rules
+
+- `backlog-lint` reports one `Finding` per detected error or anomaly
+- Errors block (exit code > 0); warnings and info do not
+- Filename must match pattern `ST-NNNN.md` and its stem must match frontmatter `id`
+- `outputs` globs are matched relative to the project root; when status is `done`, at least one glob must match an existing file
+- `deps` referential integrity: listed story IDs must exist (warning if missing); no circular dependencies allowed (error)
+- `tests` files are checked for existence; missing files produce `BL-FILE` warnings (not errors — tests may be written after planning)
+- Machine field names (`tier`, `deps`, `traces`, `outputs`) must not appear as prose headings or bold terms in the story body
+
+## `factory/scripts/charter-lint`
+
+|               |                                                                                                                                       |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage         | `charter-lint [--charter-dir DIR] [--template-dir DIR] [--planning-gate] [--format text\|json] [--report-only]`                       |
+| Reads         | Charter files in `docs/charter/{tech-stack,development,house-rules}.md`; template files in `factory/rulebooks/templates/charter-*.md` |
+| Writes        | Nothing; validation is read-only                                                                                                      |
+| Exit code     | Count of error-severity findings (`0` = clean), unless `--report-only` (always `0`)                                                   |
+| Finding codes | `CH-DIR`, `CH-FILE`, `CH-FM`, `CH-SECT`, `CH-EMPTY`, `CH-TBD`                                                                         |
+
+### Charter validation modes
+
+**Default mode:** Validates structural integrity and template compliance:
+
+- All three charter files exist under `docs/charter/`
+- Required sections present per template (derived from `## headings` in template files)
+- No section is empty (content beyond HTML comment prompt required)
+- YAML frontmatter parses cleanly
+
+**Planning gate mode** (`--planning-gate`): Stricter pre-planning validation:
+
+- All default checks pass
+- `tech-stack.md` contains no "To be decided" entries
+- `development.md` contains no "To be decided" entries
+- `house-rules.md` may contain "To be decided" entries (not validated)
+
+### Validation rules
+
+- `charter-lint` reports one `Finding` per detected error or anomaly
+- Errors block (exit code > 0); warnings and info do not
+- Templates are read to discover required sections dynamically (no hardcoded section names)
+- Section content is extracted between `## Section` markers; empty or comment-only sections fail validation
+- "To be decided" entries are detected case-insensitively and block planning gate unless in house-rules.md
 
 ## Referenced from
 

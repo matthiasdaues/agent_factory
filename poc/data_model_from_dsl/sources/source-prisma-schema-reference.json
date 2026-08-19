@@ -1,0 +1,116 @@
+{
+  "source_identity": "Prisma ORM Documentation — Prisma Schema Reference, Data Model / Relations pages, and Database Features Matrix",
+  "author_or_issuing_body": "Prisma Data, Inc. (Prisma documentation team)",
+  "publisher": "Prisma Data, Inc. (www.prisma.io)",
+  "publication_date": "2026-08-14T00:00:00Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "prisma-official-docs",
+  "precise_evidence_location": "Multiple pages under www.prisma.io/docs/orm/: (a) /reference/prisma-schema-reference sections '@@id', '@@unique', 'Json'; (b) /prisma-schema/data-model/relations/self-relations section 'Multiple self-relations on same model' (#multiple-self-relations-on-same-model); (c) /prisma-schema/data-model/relations/one-to-one-relations, subsection on required/optional 1-1 relation fields; (d) /prisma-schema/data-model/models section 'Defining enums'; (e) /reference/database-features, section 'Relational database features' > 'Constraints' table (row 'CHECK') and > 'Misc' table (row 'Enums'). Publication dates are not shown on any of these pages (no visible 'last updated' byline was found in the fetched content); the date recorded is the retrieval date, per the limitations field.",
+  "method": "Retrieved via automated web fetch of the live documentation pages on 2026-08-14, extracting verbatim section text and code samples.",
+  "limitations": "No visible publication/last-updated date on any of the fetched pages; publication_date above is the retrieval date, not a confirmed authoring date. Content was extracted through an intermediate summarization step (WebFetch tool), not read as raw HTML for every quote — the @@id, @@unique, self-relations, one-to-one, and database-features-matrix quotes below were cross-checked against a second raw-HTML pass (database-features matrix) or a targeted second fetch (self-relations, one-to-one) where noted, but the nullable-foreign-key quote ('Makes a field optional') was captured only through the summarization step and its exact section heading/anchor on the schema-reference page was not independently verified — this is flagged as a citation gap. Docs describe Prisma's current (2026-08-14) behavior only; no attempt was made to reconstruct schema-language behavior at a specific past Prisma version unless a version number appears in the quote itself (e.g. the SQLite JSON/Enum support footnote, which names Prisma ORM 6.2.0).",
+  "provenance": "Original source is the live Prisma documentation site, publicly readable, no authentication required. Re-verify by visiting the URLs listed in raw_evidence[].url directly, or by fetching https://www.prisma.io/docs/orm/reference/database-features and searching in-page for 'CHECK' and 'Enums'. The database-features matrix table was additionally cross-checked by downloading the page's raw HTML with curl and parsing the <table> markup directly (not just the WebFetch summary), to reduce risk of summarization error on this decision-relevant table.",
+  "raw_evidence": [
+    {
+      "quote": "Defines a multi-field ID (composite ID) on the model. @@id(_ fields: FieldReference[], name: String?, map: String?) ... The MongoDB connector does not support composite IDs.",
+      "locator": "Prisma Schema Reference, section '@@id' (#id-1)",
+      "url": "https://www.prisma.io/docs/orm/reference/prisma-schema-reference#id-1"
+    },
+    {
+      "quote": "@@unique(_ fields: FieldReference[], name: String?, map: String?) — Creates a compound unique constraint across specified fields. All fields that make up the unique constraint must be mandatory fields.",
+      "locator": "Prisma Schema Reference, section '@@unique' (#unique-1)",
+      "url": "https://www.prisma.io/docs/orm/reference/prisma-schema-reference#unique-1"
+    },
+    {
+      "quote": "Json scalar type — supported providers: PostgreSQL (maps to jsonb), MySQL (maps to JSON), MongoDB (valid BSON object in Relaxed mode), SQLite (maps to JSONB), CockroachDB (maps to JSONB). Microsoft SQL Server does not have a specific data type for JSON.",
+      "locator": "Prisma Schema Reference, section 'Json' (#json)",
+      "url": "https://www.prisma.io/docs/orm/reference/prisma-schema-reference#json"
+    },
+    {
+      "quote": "Enums are defined via the enum block when supported by your database",
+      "locator": "Prisma Schema data model docs, section 'Defining enums'",
+      "url": "https://www.prisma.io/docs/orm/prisma-schema/data-model/models#defining-enums"
+    },
+    {
+      "quote": "Constraint | Supported | Prisma schema | Prisma Client | Prisma Migrate — row 'CHECK': ✔️† | Not yet | ✔️ | Not yet. Footnote †: Only supported in MySQL in version 8 and higher.",
+      "locator": "Database features matrix doc, section 'Relational database features' > 'Constraints' table, row 'CHECK'",
+      "url": "https://www.prisma.io/docs/orm/reference/database-features#constraints"
+    },
+    {
+      "quote": "Feature | Supported | Prisma schema | Prisma Client | Prisma Migrate — row 'Enums': ✔️*† | enum | ✔️ | ✔️. Footnote *: Not supported by Microsoft SQL Server. Footnote †: JSON and Enum types are supported in SQLite as of Prisma ORM 6.2.0.",
+      "locator": "Database features matrix doc, section 'Relational database features' > 'Misc' table, row 'Enums'",
+      "url": "https://www.prisma.io/docs/orm/reference/database-features#misc"
+    },
+    {
+      "quote": "You can combine multiple self-relations ... Both sides must use the same @relation name.",
+      "locator": "Prisma Schema data model docs, 'Self-relations' page, section 'Multiple self-relations on same model' (#multiple-self-relations-on-same-model) — example shows one model with a one-to-many self-relation named @relation(\"TeacherStudents\", ...) and a many-to-many self-relation named @relation(\"UserFollows\") simultaneously.",
+      "url": "https://www.prisma.io/docs/orm/prisma-schema/data-model/relations/self-relations#multiple-self-relations-on-same-model"
+    },
+    {
+      "quote": "The side without a relation scalar must be optional. ... The side with a relation scalar can be required or optional. ... In SQL, a 1-1 relation requires a UNIQUE constraint on the foreign key. Without this, it becomes a 1-n relation.",
+      "locator": "Prisma Schema data model docs, 'One-to-one relations' page, section on required/optional 1-1 relation fields",
+      "url": "https://www.prisma.io/docs/orm/prisma-schema/data-model/relations/one-to-one-relations"
+    },
+    {
+      "quote": "profileId Int? @unique — Makes a field optional.",
+      "locator": "Prisma Schema Reference — general field type-modifier documentation (exact section anchor not independently re-verified; see limitations)",
+      "url": "https://www.prisma.io/docs/orm/reference/prisma-schema-reference"
+    }
+  ],
+  "interpretation": {
+    "composite_primary_keys": {
+      "classification": "expressible",
+      "citation": "Prisma Schema Reference, '@@id' (#id-1)",
+      "rationale": "@@id([field1, field2, ...]) is a documented block-level attribute for exactly this purpose on any non-MongoDB provider (PostgreSQL, MySQL, SQLite, SQL Server, CockroachDB). OUTCOME_RULE(task_version_id, sequence_no), NAMED_RESOURCE_LINK(task_version_id, resource_name), and CONDITION_POST(condition_id, date_key) all map directly onto @@id([field1, field2])."
+    },
+    "json_payload_columns": {
+      "classification": "expressible",
+      "citation": "Prisma Schema Reference, 'Json' (#json); Database features matrix, 'Misc' row 'JSON support'",
+      "rationale": "The Json scalar is documented for PostgreSQL, MySQL, SQLite (since 6.2.0), MongoDB, and CockroachDB. TASK_VERSION's six *_spec columns can each be typed Json on any of those providers. Not supported on SQL Server per the schema-reference Json section ('Microsoft SQL Server does not have a specific data type for JSON') — this is a provider-conditional gap, see the product-neutrality record."
+    },
+    "enumerated_string_domains": {
+      "classification": "expressible",
+      "citation": "Prisma Schema data model docs, 'Defining enums'; Database features matrix, 'Misc' row 'Enums'",
+      "rationale": "The enum block is a first-class Prisma schema construct. FOLDER_RUN.execution_context (SCHEDULED|MANUAL) and NAMED_RESOURCE_LINK.link_kind (HOST_CAPACITY|NAMED_RESOURCE) map directly. Not supported on Microsoft SQL Server per the Misc-table footnote — another provider-conditional gap."
+    },
+    "multiple_self_referencing_fks_one_table": {
+      "classification": "expressible",
+      "citation": "Prisma Schema data model docs, 'Self-relations', section 'Multiple self-relations on same model'",
+      "rationale": "The documentation explicitly covers a model with more than one self-relation simultaneously, disambiguated by giving each relation pair a distinct @relation(\"Name\") string on both sides. TASK_INSTANCE's three self-referencing FKs (origin_instance_id, cyclic_root_instance_id, previous_iteration_id) each need their own named relation; the documented pattern generalizes from two named self-relations to three without any stated limit on count."
+    },
+    "nullable_foreign_keys": {
+      "classification": "expressible",
+      "citation": "Prisma Schema Reference, optional-field '?' modifier (see limitations on exact anchor)",
+      "rationale": "The '?' type modifier on a relation scalar field (e.g. folder_run_id Int?) is the documented way to make a foreign key optional; the one-to-one docs independently confirm 'the side without a relation scalar must be optional' and permit the scalar side to also be optional."
+    },
+    "multi_column_unique_constraints": {
+      "classification": "expressible",
+      "citation": "Prisma Schema Reference, '@@unique' (#unique-1)",
+      "rationale": "@@unique([field1, field2]) is a documented block-level attribute independent of @@id. PLAN(domain_id, odate) and NAMED_RESOURCE(domain_id, name) map directly, provided both columns are mandatory (the documented constraint: 'All fields that make up the unique constraint must be mandatory fields')."
+    },
+    "one_to_zero_or_one_relationships": {
+      "classification": "expressible",
+      "citation": "Prisma Schema data model docs, 'One-to-one relations'",
+      "rationale": "Documented directly: making the relation scalar field optional (Int?) on the 'many'-shaped side and the relation field optional (Profile?) on the other side yields a 1-to-0-or-1 relation, matching ATTEMPT ||--o| ATTEMPT_RESULT."
+    },
+    "value_constraint_beyond_type": {
+      "classification": "not-expressible",
+      "citation": "Database features matrix, 'Constraints' table, row 'CHECK' — Prisma schema column value 'Not yet'",
+      "rationale": "The database-features matrix states plainly that the CHECK constraint has no Prisma-schema representation ('Not yet') and no Prisma-Migrate generation path either ('Not yet' in that column too). NAMED_RESOURCE_LINK.resource_task_weight's 'decimal positive integer OR the literal ALL' rule has no native construct; expressing it would require either raw-SQL migration hand-editing outside the generated-from-schema flow (which then drifts on the next `prisma migrate dev`) or purely application-level validation, neither of which keeps the constraint inside the schema.prisma source of truth."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "prisma check constraint",
+      "prisma enum SQL Server",
+      "prisma composite id MongoDB",
+      "prisma self relation limit named relations",
+      "prisma json field not supported"
+    ],
+    "where_searched": [
+      "www.prisma.io/docs (official documentation site, via web fetch)",
+      "github.com/prisma/prisma issue tracker, via web search"
+    ],
+    "search_date": "2026-08-14",
+    "result": "Found explicit contrary/limiting evidence, not absence-of-evidence: (1) GitHub issue prisma/prisma#3388 'Support SQL Check constraints' (opened December 2019, found still open at retrieval) states 'Right now there is no way of expressing SQL check constraints in the Prisma schema' — corroborates the database-features-matrix 'Not yet' finding from an independent source family (issue tracker vs docs site). (2) The docs themselves name two other provider-conditional gaps not asked about directly: composite IDs are unsupported on MongoDB, and enums are unsupported on Microsoft SQL Server. No search turned up a documented hard limit on the *number* of named self-relations a model may declare; absence of a stated limit is recorded as an evidence gap, not as proof no limit exists."
+  }
+}

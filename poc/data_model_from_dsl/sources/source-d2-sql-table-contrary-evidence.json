@@ -1,0 +1,67 @@
+{
+  "source_identity": "D2 Documentation — Containers (docs/tour/containers.md) — plus a consolidated GitHub issue-tracker contrary-evidence search across repo:d2lang/d2 for cross-cutting-convention linting and outstanding sql_table gaps",
+  "author_or_issuing_body": "d2lang (D2 language maintainers, Terrastruct Inc.)",
+  "publisher": "d2lang.com (docs/tour/containers.md) and github.com/d2lang/d2 (issue tracker)",
+  "publication_date": "2024-02-01T22:05:44Z",
+  "relevant_event_date": "2024-02-01",
+  "source_family": "d2lang/d2-docs repository docs/tour/containers.md (one source family, unchanged since 2024-02-01 per commit history) plus a separate GitHub issue-tracker search over d2lang/d2 (a distinct source family: searchable public issue records, not documentation prose)",
+  "precise_evidence_location": "docs/tour/containers.md, full page (\"Containers\", \"Nested syntax\", \"Container labels\", \"Reference parent\" sections, lines 7-63); docs/tour/faq.md \"Can an object be part of more than 1 container?\" (line 54-59); GitHub issues #671, #672, #1386, #1960, #1655/#1660, #2628, #2781 in repo d2lang/d2",
+  "method": "Direct retrieval of the raw containers.md and faq.md markdown via raw.githubusercontent.com, read in full for any schema/namespace-specific vocabulary (found none beyond generic 'container' and 'label'). Direct GitHub search/issues API queries (`gh api search/issues`) for terms describing a cross-cutting column-presence lint rule, plus a consolidated re-listing of every open sql_table-related issue surfaced across the researched facets, to document the state of known gaps as a single contrary-evidence record.",
+  "limitations": "Absence of a search hit is evidence of absence only within GitHub's search index and the specific terms tried; a feature request phrased with entirely different vocabulary (e.g., 'schema validation policy' rather than 'lint' or 'custom rule') would not have been found. containers.md's last substantive edit is 2024-02-01, over two years before this record's August-2026 retrieval date — outside the brief's 24-month freshness preference for non-grammar sources, though the brief allows an exception for 'stable grammar or language-specification definitions', which this page functionally is (the container primitive has not needed updating). This age is flagged rather than hidden.",
+  "provenance": "docs/tour/containers.md and docs/tour/faq.md fetched via raw.githubusercontent.com/d2lang/d2-docs/master/docs/tour/{containers,faq}.md on 2026-08-14. Issue searches run via `gh api -X GET search/issues -f q='repo:d2lang/d2 ...'` on 2026-08-14; individual issues fetched via `gh api repos/d2lang/d2/issues/<number>`.",
+  "raw_evidence": [
+    {
+      "quote": "You can avoid repeating containers by creating nested maps.",
+      "locator": "docs/tour/containers.md, \"Nested syntax\" section, line 17",
+      "url": "https://raw.githubusercontent.com/d2lang/d2-docs/master/docs/tour/containers.md"
+    },
+    {
+      "quote": "Sometimes you want to reference something outside of the container from within. The underscore (`_`) refers to parent.",
+      "locator": "docs/tour/containers.md, \"Reference parent\" section, lines 56-57",
+      "url": "https://raw.githubusercontent.com/d2lang/d2-docs/master/docs/tour/containers.md"
+    },
+    {
+      "quote": "Can an object be part of more than 1 container?\n\n...e.g., an item in the middle of a venn diagram.\n\nNot currently and not in the near future.",
+      "locator": "docs/tour/faq.md, \"Layouts\" section, lines 54-59",
+      "url": "https://raw.githubusercontent.com/d2lang/d2-docs/master/docs/tour/faq.md"
+    },
+    {
+      "quote": "d2cli validate: Support JSON output (issue #2628, open)",
+      "locator": "github.com/d2lang/d2 issue #2628",
+      "url": "https://github.com/d2lang/d2/issues/2628"
+    },
+    {
+      "quote": "Full consolidated list of open sql_table / validate-related issues found across this facet's search and the sql-table-shape facet's search: #671 (composite PK/FK, open since 2023-01-16), #672 ([FR] support multiple constraints on columns, open), #1386 (d2oracle: constraint should be settable as maps, open since 2023-06-09), #1960 (label collision with key name in sql_table, open), #2628 (validate: no JSON output, open), #2781 (SQL table relationship routing inconsistent between D2.js and CLI with ELK, open since 2026-07-24); one CLOSED pair found and excluded from the open-gaps count: #1655/#1660 (null constraint rendering bug, fixed).",
+      "locator": "github.com/d2lang/d2 issues, consolidated from search/issues API queries run 2026-08-14",
+      "url": "https://github.com/d2lang/d2/issues"
+    }
+  ],
+  "interpretation": {
+    "multiple_logical_schemas_in_one_database": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "docs/tour/containers.md, entire page — no 'schema' or 'namespace' keyword anywhere on the page; docs/tour/faq.md line 54-59 confirms a shape may belong to only one container",
+      "rationale": "D2's `container` primitive lets sql_table shapes be visually nested — e.g. a top-level `configuration: { ... }` container holding the TASK_VERSION and PLAN tables, alongside sibling `runtime: {}`, `audit: {}`, `resources: {}` containers — which would produce a diagram with four visually grouped clusters resembling four schemas. But the documentation attaches no schema-specific semantics to this: containers.md's own worked examples group cloud-provider resources (the generic 'gcloud: Google Cloud' example), not database schemas, and the page uses the identical primitive for any grouping purpose. There is no schema-qualified naming (e.g. no `configuration.task_version` cross-schema reference syntax distinct from ordinary nested-shape addressing), no schema-level constraint, and the FAQ confirms a shape can belong to only one container at a time with no near-term plan to change that — a stricter, purely-structural constraint, not a database-schema concept. Verdict: the visual grouping can be produced and would read correctly to a human, but it is a generic nesting primitive doing double duty, not a first-class schema/namespace construct — workaround, not genuine expressiveness."
+    },
+    "cross_cutting_convention_assertable_by_validator": {
+      "classification": "not-expressible",
+      "citation": "d2cli/validate.go (see companion record source-d2-sql-table-validation-exit.json) — validate performs syntax parsing only; GitHub issue-tracker search for lint/custom-rule terms returned no relevant results",
+      "rationale": "There is no documented mechanism, built-in or plugin-based, for asserting a project-specific structural convention such as 'domain_id must be present on every Domain-owned sql_table' — this would require semantic knowledge of which tables are 'Domain-owned' and a rule engine to check column presence across many shapes, neither of which is implied by anything in D2's language reference, its validate command (confirmed syntax-only per the companion validation-exit record), or its issue tracker. No lint, plugin, or custom-rule-authoring mechanism was found. This would have to be implemented entirely outside D2, as an external script parsing the compiled diagram's shape data (e.g. via `d2 --to json` or similar, if such an export exists) — a workaround built OUTSIDE the tool, which the brief's own research question explicitly distinguishes from a built-in rule ('distinguishing a built-in rule from a workaround'). Since no external-inspection export format sufficient for this purpose was confirmed either, this is recorded as not-expressible rather than expressible-only-via-workaround."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "lint",
+      "custom rule",
+      "require field",
+      "schema namespace d2",
+      "cross-cutting convention",
+      "sql_table (general re-scan for any open issue not yet catalogued)"
+    ],
+    "where_searched": [
+      "GitHub issue-tracker full-text search scoped to repo:d2lang/d2 via the GitHub search/issues API",
+      "docs/tour/containers.md and docs/tour/faq.md (direct read, official docs)"
+    ],
+    "search_date": "2026-08-14",
+    "result": "No issue, discussion, or documentation page proposes or implements a cross-cutting structural-convention linter for D2 models; the only 'lint' hits in the repository concern the project's own Go/shell code-quality CI, unrelated to end-user diagram content. This is a corroborated negative finding, not merely an absence noticed once. Combined with the sql-table-shape record's search, the full set of open, primary-source-confirmed gaps against the advanced-construct checklist is: composite PK/FK (#671), multi-constraint-per-column ergonomics still evolving (#672, #1386), and general SQL-table-relationship rendering inconsistencies between engines (#2781) — all still open as of the 2026-08-14 search date, none contradicted by any closed/fixed issue found (the one closed pair, #1655/#1660, concerned a rendering bug for null constraints, not a capability gap)."
+  }
+}

@@ -22,11 +22,11 @@ Run one git operation per shell invocation, never chained after `cd` or another 
 Every new branch must be created atomically with its linked worktree:
 
 ```bash
-git worktree add -b <branch> <worktree-path> <base>
+git worktree add -b <branch> .agent-factory/worktrees/<branch> <base>
 git worktree list --porcelain
 ```
 
-The second command verifies the path and branch before work begins. Standalone branch creation through `git branch <name>`, `git switch -c/-C`, or `git checkout -b/-B` is blocked. Do not switch the current checkout as an intermediate step. To resume an existing unattached branch, use `git worktree add <worktree-path> <branch>`.
+All worktrees live under `.agent-factory/worktrees/`, named after their branch. The second command verifies the path and branch before work begins. Standalone branch creation through `git branch <name>`, `git switch -c/-C`, or `git checkout -b/-B` is blocked. Do not switch the current checkout as an intermediate step. To resume an existing unattached branch, use `git worktree add .agent-factory/worktrees/<branch> <branch>`.
 
 ## Merging requires the pre-merge marker
 
@@ -39,14 +39,14 @@ The second command verifies the path and branch before work begins. Standalone b
 
 The guardrail blocks these in every session, including the operator's own:
 
-| Blocked                                             | Use instead                                                       |
-| --------------------------------------------------- | ----------------------------------------------------------------- |
-| Standalone branch creation                          | `git worktree add -b <branch> <path> <base>`                      |
-| `git checkout .` / `git checkout -- .`              | `git checkout HEAD -- <path>`                                     |
-| `git branch -D` (force delete)                      | `git branch -d` (merged only); ask the operator for force deletes |
-| `git commit --no-verify`, `git ... --no-verify`     | Fix the failing hook; never bypass                                |
-| `git config core.hooksPath …`                       | Do not repoint hooks                                              |
-| `git reset --hard`, `git clean`, `git push --force` | Ask the operator                                                  |
+| Blocked                                             | Use instead                                                             |
+| --------------------------------------------------- | ----------------------------------------------------------------------- |
+| Standalone branch creation                          | `git worktree add -b <branch> .agent-factory/worktrees/<branch> <base>` |
+| `git checkout .` / `git checkout -- .`              | `git checkout HEAD -- <path>`                                           |
+| `git branch -D` (force delete)                      | `git branch -d` (merged only); ask the operator for force deletes       |
+| `git commit --no-verify`, `git ... --no-verify`     | Fix the failing hook; never bypass                                      |
+| `git config core.hooksPath …`                       | Do not repoint hooks                                                    |
+| `git reset --hard`, `git clean`, `git push --force` | Ask the operator                                                        |
 
 `rm -rf` is separately gated by the safety classifier — ask before destructive removal.
 

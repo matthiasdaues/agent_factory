@@ -1,0 +1,62 @@
+{
+  "source_identity": "Docker Hub tag listing for the arigaio/atlas image (hub.docker.com/r/arigaio/atlas/tags)",
+  "author_or_issuing_body": "Ariga, Inc. (publisher of the arigaio/atlas image)",
+  "publisher": "Docker Hub (Docker, Inc.) — registry hosting; image published by Ariga, Inc.",
+  "publication_date": "2026-08-14T00:00:00Z",
+  "relevant_event_date": "2026-08-13",
+  "source_family": "Docker Hub public registry listing (independent of atlasgo.io documentation, corroborates but is a distinct source family)",
+  "precise_evidence_location": "hub.docker.com/r/arigaio/atlas/tags — tag rows: 'latest', 'latest-extended', 'latest-alpine', 'latest-community', 'latest-distroless', 'latest-community-alpine', 'latest-extended-alpine', 'latest-community-distroless', '1.3.1', '1.3.1-alpine', '1.3.1-extended', '1.3.1-distroless', '1.3.1-community', '1.3.1-community-alpine', '1.3.1-extended-alpine', '1.3.1-community-distroless'",
+  "method": "Live retrieval of the public Docker Hub tag-listing page via automated web-fetch, directed to list every visible tag name and its shown last-pushed recency.",
+  "limitations": "Docker Hub renders push recency as a relative string ('pushed about 19/20 hours ago') rather than an absolute timestamp; relevant_event_date above (2026-08-13) is derived by subtracting that relative offset from the 2026-08-14 retrieval date and is therefore approximate, not an exact date read off the page. The fetch tool summarized the tag list rather than returning the raw page/API JSON, so the full tag inventory (e.g. older historical tags, or a complete 'latest-*' matrix) may extend beyond what was captured. No inspection of the image contents (what 'community' vs. unsuffixed/'extended' tags actually differ by feature-wise) was performed here — that distinction is recorded as an open observation, not verified against a manifest or the image's entrypoint/feature set.",
+  "provenance": "Retrieved via the WebFetch tool against https://hub.docker.com/r/arigaio/atlas/tags on 2026-08-14. Re-verify by visiting the URL directly; Docker Hub also exposes a tag-listing API endpoint for exact push timestamps.",
+  "raw_evidence": [
+    {
+      "quote": "\"latest-extended\" – pushed about 19 hours ago",
+      "locator": "tag row: latest-extended",
+      "url": "https://hub.docker.com/r/arigaio/atlas/tags"
+    },
+    {
+      "quote": "\"latest-community-alpine\" – pushed about 19 hours ago",
+      "locator": "tag row: latest-community-alpine",
+      "url": "https://hub.docker.com/r/arigaio/atlas/tags"
+    },
+    {
+      "quote": "\"latest\" – pushed about 19 hours ago",
+      "locator": "tag row: latest",
+      "url": "https://hub.docker.com/r/arigaio/atlas/tags"
+    },
+    {
+      "quote": "\"1.3.1\" – pushed about 20 hours ago",
+      "locator": "tag row: 1.3.1",
+      "url": "https://hub.docker.com/r/arigaio/atlas/tags"
+    },
+    {
+      "quote": "\"1.3.1-community\" – pushed about 20 hours ago",
+      "locator": "tag row: 1.3.1-community",
+      "url": "https://hub.docker.com/r/arigaio/atlas/tags"
+    },
+    {
+      "quote": "Version 1.3.0 tags were pushed 12 days ago, and 1.2.3 tags approximately 2 months ago.",
+      "locator": "tag rows: 1.3.0, 1.2.3 (relative-recency summary)",
+      "url": "https://hub.docker.com/r/arigaio/atlas/tags"
+    }
+  ],
+  "interpretation": {
+    "docker_image_availability": {
+      "classification": "expressible",
+      "citation": "hub.docker.com/r/arigaio/atlas/tags — tags 'latest', '1.3.1', and several '-community'/'-extended'/'-alpine'/'-distroless' variants, all confirmed present at retrieval time",
+      "rationale": "A public, actively-updated image is confirmed directly against the registry listing itself (not a README or blog claim), satisfying the source_requirements constraint that Docker availability be verified against the registry. Exact image name to use in a CI pipeline: `arigaio/atlas:latest` or a pinned `arigaio/atlas:1.3.1`."
+    },
+    "tag_variant_observation": {
+      "classification": "not applicable — observational note, not a construct classification",
+      "citation": "hub.docker.com/r/arigaio/atlas/tags — coexistence of unsuffixed, '-community', and '-extended' tag families at the same version number",
+      "rationale": "The registry publishes distinct '-community' and unsuffixed/'-extended' tag families per version. This raises the possibility that image-level feature availability (e.g. whether Pro-gated capabilities are compiled in/out) tracks the tag family, but this was not verified by inspecting image contents in this pass — recorded as an open question relevant to the licensing/commercial-tier finding, not resolved here."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": ["arigaio/atlas docker hub", "atlas docker image ghcr.io", "atlas container registry github packages"],
+    "where_searched": ["hub.docker.com/r/arigaio/atlas/tags", "general web search (WebSearch tool)"],
+    "search_date": "2026-08-14",
+    "result": "No evidence of image removal, deprecation notice, or absence was found — the image is actively published with multiple tag families as of the retrieval date. A parallel ghcr.io listing was not separately checked in this pass; Docker Hub alone was sufficient to satisfy the registry-verification requirement, so ghcr.io was not pursued further (recorded as an unexplored angle, not a negative finding)."
+  }
+}

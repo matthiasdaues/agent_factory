@@ -1,0 +1,49 @@
+{
+  "source_identity": "Docker Hub public registry API — repository minlag/mermaid-cli tag listing",
+  "author_or_issuing_body": "Docker Hub (registry operator); image published by mermaid-cli maintainer(s) under the 'minlag' namespace",
+  "publisher": "Docker, Inc. (hub.docker.com registry service)",
+  "publication_date": "2026-08-03T10:30:28Z",
+  "relevant_event_date": "2026-08-03",
+  "source_family": "Docker Hub registry API (v2 repositories endpoint) — independent of, and distinct from, the mermaid-cli GitHub repository and README (source-mermaid-erd-tooling.json); this is the registry's own listing, not a README or blog claim about the registry",
+  "precise_evidence_location": "https://hub.docker.com/v2/repositories/minlag/mermaid-cli/tags?page_size=25&ordering=last_updated — results[] array, entries for tag names '11.16.1', 'latest', '11.16.0'",
+  "method": "Direct HTTPS GET against the Docker Hub v2 repositories API tag-listing endpoint for the minlag/mermaid-cli repository, requesting up to 25 tags ordered by last_updated descending.",
+  "limitations": "Covers only the 'minlag/mermaid-cli' Docker Hub image, which is the image documented in the mermaid-cli README; the README also names a second registry path (ghcr.io/mermaid-js/mermaid-cli/mermaid-cli) which was attempted but returned HTTP 401 Unauthorized for anonymous/unauthenticated tag listing at the endpoint tried (https://ghcr.io/v2/mermaid-js/mermaid-cli/mermaid-cli/tags/list) — a bearer token was obtained from ghcr.io's token endpoint but the tag list itself was not successfully retrieved before this record was finalised, so ghcr.io availability is corroborated only by the README claim in source-mermaid-erd-tooling.json, not independently verified against that second registry's own listing. This is recorded honestly as an evidence gap rather than asserted as verified.",
+  "provenance": "Fetched from https://hub.docker.com/v2/repositories/minlag/mermaid-cli/tags?page_size=25&ordering=last_updated on 2026-08-14 via automated web retrieval. Re-verify by issuing the same GET request; Docker Hub's public v2 API requires no authentication for public repository tag listings.",
+  "raw_evidence": [
+    {
+      "quote": "{\"name\": \"11.16.1\", \"last_updated\": \"2026-08-03T10:30:28.83956Z\", \"tag_last_pushed\": \"2026-08-03T10:30:28.83956Z\"}",
+      "locator": "results[0], tag '11.16.1'",
+      "url": "https://hub.docker.com/v2/repositories/minlag/mermaid-cli/tags?page_size=25&ordering=last_updated"
+    },
+    {
+      "quote": "{\"name\": \"latest\", \"last_updated\": \"2026-08-03T10:30:26.171527Z\", \"tag_last_pushed\": \"2026-08-03T10:30:26.171527Z\"}",
+      "locator": "results[1], tag 'latest'",
+      "url": "https://hub.docker.com/v2/repositories/minlag/mermaid-cli/tags?page_size=25&ordering=last_updated"
+    },
+    {
+      "quote": "{\"name\": \"11.16.0\", \"last_updated\": \"2026-06-29T17:12:35.360071Z\", \"tag_last_pushed\": \"2026-06-29T17:12:35.360071Z\"}",
+      "locator": "results[5], tag '11.16.0'",
+      "url": "https://hub.docker.com/v2/repositories/minlag/mermaid-cli/tags?page_size=25&ordering=last_updated"
+    }
+  ],
+  "interpretation": {
+    "docker_image_availability": {
+      "classification": "expressible",
+      "citation": "Docker Hub v2 tags API, minlag/mermaid-cli repository, tag '11.16.1' last pushed 2026-08-03T10:30:28Z",
+      "rationale": "Verified directly against the registry's own listing (not a README or blog claim): the image minlag/mermaid-cli:11.16.1 exists and was pushed 2026-08-03, eleven days before this record's retrieval date, and 'latest' was pushed the same day, indicating the tag stream is kept current with mermaid-cli's own GitHub releases (11.16.0 published 2026-06-29 per source-mermaid-erd-tooling.json, with the Docker tag following shortly after each release, e.g. many 11.15.1-beta.N and 11.16.1-beta.N pre-release tags also present in the fuller listing, showing an active, automated publish pipeline)."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "ghcr.io mermaid-js mermaid-cli tags",
+      "minlag/mermaid-cli docker hub deprecated",
+      "mermaid-cli docker image abandoned"
+    ],
+    "where_searched": [
+      "https://ghcr.io/v2/mermaid-js/mermaid-cli/mermaid-cli/tags/list (attempted directly, 401 Unauthorized without a bearer token flow that was not completed)",
+      "https://hub.docker.com/v2/repositories/minlag/mermaid-cli/tags"
+    ],
+    "search_date": "2026-08-14",
+    "result": "No evidence of deprecation or abandonment was found for the minlag/mermaid-cli Docker Hub image; on the contrary, the tag list shows near-continuous publishing from 2026-05 through 2026-08, including beta pre-release tags, indicating an active CI publishing pipeline. The ghcr.io mirror named in the README could not be independently confirmed against its own registry listing within this pass (see limitations) — recorded as an explicit gap rather than assumed present."
+    }
+}

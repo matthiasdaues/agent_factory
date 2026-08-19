@@ -1,0 +1,69 @@
+{
+  "source_identity": "holistics/dbml GitHub issue tracker (issues #142, #222, #249, #484, #545) and the Oracle-importer parser test fixture (packages/dbml-core/__tests__/examples/importer/oracle_importer/output/column_def_fk.out.dbml), searched for known limitations touching the ten advanced constructs, the exit-code question, and self-referencing FK support",
+  "author_or_issuing_body": "Individual GitHub users filing issues against holistics/dbml (bug reporters, unaffiliated with Holistics unless otherwise noted); Holistics Software Pte Ltd (the oracle_importer test fixture, part of the project's own test suite)",
+  "publisher": "GitHub, Inc. (github.com/holistics/dbml/issues and github.com/holistics/dbml source tree)",
+  "publication_date": "2023-12-11T13:30:10Z",
+  "relevant_event_date": "2025-11-04",
+  "source_family": "holistics/dbml issue-tracker family (github.com/holistics/dbml/issues) and holistics/dbml source-code family (test fixture) — the issue-tracker family is distinct from both the docs family (source-dbml-grammar.json) and the plain source-code family used for tooling/generation citations, since issues represent third-party bug reports rather than project-authored documentation or code",
+  "precise_evidence_location": "Issue #142 'dbdiagram.io: Error with composite foreign keys when importing from MySQL' (body, full); Issue #222 '[Postgres] Import fails on self referencing composite key' (title); Issue #249 'Space in Enum values' (via WebSearch summary); Issue #484 'Add support for custom constraints' (body + state:closed, closed timeline ending 2025-11-04); Issue #545 'Can't reference capitalized types in export to Postgresql' (via WebSearch summary); packages/dbml-core/__tests__/examples/importer/oracle_importer/output/column_def_fk.out.dbml, `Ref \"fk_self_emp\":\"employees_self\".\"emp_id\" ?<? \"employees_self\".\"manager_id\"` and `Ref \"fk_emp_manager\":\"employees\".\"emp_id\" ?<? \"employees\".\"manager_id\"`",
+  "method": "GitHub issue search via `gh api search/issues?q=repo:holistics/dbml+<terms>`, direct issue retrieval via `gh api repos/holistics/dbml/issues/<n>`, and direct retrieval of the test fixture file via the GitHub Contents API",
+  "limitations": "GitHub's code/issue search endpoints are keyword-based and can miss relevant issues that use different terminology (e.g. an issue about domain-scoped validation might not contain the literal words searched); the search was not exhaustive across all ~950 issues in the repository, only targeted keyword queries. Issue #142 and #222 concern the SQL-to-DBML import direction (sql2dbml / db2dbml, reverse-engineering from an existing database), not the DBML-authoring direction this survey cares about (hand-writing DBML text) — they are recorded as contrary evidence about tooling robustness generally, but do not by themselves show that composite or self-referencing FKs are unauthorable in DBML text (the language-level support is independently confirmed in source-dbml-grammar.json and by this fixture). The Oracle importer fixture demonstrates one self-referencing Ref per table (two different tables, each with exactly one self-ref), not three simultaneous self-referencing Refs on a single table, so it corroborates the general mechanism but not the specific 'three at once' cardinality needed for TASK_INSTANCE.",
+  "provenance": "Retrieved 2026-08-14 via `gh api \"search/issues?q=repo:holistics/dbml+composite+fk...\"`, `gh api repos/holistics/dbml/issues/484`, `gh api repos/holistics/dbml/issues/142`, WebSearch queries ('holistics dbml github issue check constraint enum postgres generate SQL enum type', 'holistics dbml GitHub self reference'), and `gh api repos/holistics/dbml/contents/packages/dbml-core/__tests__/examples/importer/oracle_importer/output/column_def_fk.out.dbml`. Re-verify by re-running the same gh api / search queries, or browsing the cited issue numbers and file path directly on github.com/holistics/dbml.",
+  "raw_evidence": [
+    {
+      "quote": "When importing from mysql with a table having the next FK: ... Throws the following error `(1:1) Two endpoints have unequal number of fields` But the both sides of the relationship have the same number of fields (The script works on MySQL) The documentation says that composite FK are supported",
+      "locator": "Issue #142, body",
+      "url": "https://github.com/holistics/dbml/issues/142"
+    },
+    {
+      "quote": "[Postgres] Import fails on self referencing composite key",
+      "locator": "Issue #222, title",
+      "url": "https://github.com/holistics/dbml/issues/222"
+    },
+    {
+      "quote": "for example, how can I use dbml to give this description : CREATE TABLE `MyTable` ( `id` INT PRIMARY KEY AUTO_INCREMENT, `foreignKey1` INT, `foreignKey2` INT, CONSTRAINT `check_foreign_key` CHECK (...))",
+      "locator": "Issue #484 'Add support for custom constraints', body, opened 2023-12-11, closed 2025-11-04",
+      "url": "https://github.com/holistics/dbml/issues/484"
+    },
+    {
+      "quote": "Ref \"fk_self_emp\":\"employees_self\".\"emp_id\" ?<? \"employees_self\".\"manager_id\"\n\nRef \"fk_emp_manager\":\"employees\".\"emp_id\" ?<? \"employees\".\"manager_id\"",
+      "locator": "packages/dbml-core/__tests__/examples/importer/oracle_importer/output/column_def_fk.out.dbml",
+      "url": "https://github.com/holistics/dbml/blob/master/packages/dbml-core/__tests__/examples/importer/oracle_importer/output/column_def_fk.out.dbml"
+    }
+  ],
+  "interpretation": {
+    "value_constraint_beyond_type_contrary_check": {
+      "classification": "expressible",
+      "citation": "Issue #484, closed 2025-11-04, superseded by the now-documented checks{} block (source-dbml-grammar.json 'Check Definition' section)",
+      "rationale": "This issue is contrary evidence of a PAST gap, not a current one: a user in 2023 asked for exactly the CHECK-constraint capability that docs.md's 'Check Definition' section (source-dbml-grammar.json) now documents as shipped. The issue's closed state with a 2025-11-04 timestamp is consistent with — though does not by itself prove — the checks{} feature having been added to resolve it; this inference is flagged rather than stated as certain, since the issue's closing comment/linked PR was not separately read."
+    },
+    "self_referencing_fk_import_direction": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "Issue #222 '[Postgres] Import fails on self referencing composite key' (open/state not confirmed in this pass)",
+      "rationale": "This is a bug in the reverse direction (sql2dbml/db2dbml importing FROM an existing database INTO DBML), not in hand-authoring DBML text. Recorded because it is exactly the kind of contrary evidence the brief's mandatory search requires, and because it is relevant if the eventual Gigacron workflow ever needs db2dbml to reverse-engineer DBML from a live database — a path this survey did not otherwise evaluate, since DBML is being assessed as an authoring format, not a reverse-engineering target."
+    },
+    "cross_cutting_domain_id_convention": {
+      "classification": "not-expressible",
+      "citation": "No built-in lint/convention-assertion mechanism was found anywhere in dbml.dbdiagram.io/docs/, dbml.dbdiagram.io/syntax/enrichment-visualization/, or the @dbml/cli source read in source-dbml-tooling.json",
+      "rationale": "DBML's own validator (the Compiler used by @dbml/cli, see source-dbml-tooling.json) checks syntax and referential well-formedness only — nothing in the documented column/table/index/check settings expresses a cross-table, cross-cutting rule such as 'every table tagged as Domain-owned must carry a domain_id column'. This would require a workaround: a custom script consuming @dbml/core's parsed JSON model (via `dbml2sql`'s underlying Parser, or a hand-written script using the `@dbml/core` npm package's parser API) to walk every table definition and assert the convention itself, entirely outside DBML's own tooling — directly analogous to a 'workaround such as a custom lint script layered on top', per the research question's own framing."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "composite fk",
+      "self reference composite key",
+      "space in enum values",
+      "custom constraints",
+      "capitalized types export postgresql",
+      "exit code",
+      "one-to-one"
+    ],
+    "where_searched": [
+      "github.com/holistics/dbml/issues via GitHub search/issues API",
+      "WebSearch across github.com/holistics/dbml issue titles/bodies",
+      "packages/dbml-core/__tests__/examples/importer/oracle_importer test fixtures"
+    ],
+    "search_date": "2026-08-14",
+    "result": "Found four relevant limitation-adjacent issues (#142, #222, #249, #545), all concerning the SQL-import direction or SQL-export edge cases (capitalized enum type names, enum values containing spaces) rather than the DBML-authoring direction this survey evaluates. Found one issue (#484) requesting exactly the value-constraint capability that now appears to be shipped as checks{} (closed 2025-11-04). Found no issue, docs page, or 'known limitations' statement addressing the cross-cutting-convention validator question directly — its not-expressible classification rests on the absence of any such documented mechanism across the docs and CLI source examined, not on an explicit maintainer statement that it is unsupported; this absence-of-evidence is recorded as the search result itself, per the evidence policy's requirement to record a search even when it finds nothing on point."
+  }
+}

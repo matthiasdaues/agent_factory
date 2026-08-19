@@ -13,6 +13,7 @@ skills:
   - grill-with-docs
   - write-prd
   - derive-spec
+  - update-charter
   - handoff
 inputs:
   - docs/CONTEXT.md
@@ -73,6 +74,12 @@ phase is exempt and may continue in the current session.
 3. **Write PRD** — Invoke `write-prd`: synthesize into `docs/spec/prd.md`.
 4. **Derive Specification** — Invoke `derive-spec`: Actor-Goal List → Persona Use Cases (**Gherkin** + **Mermaid**) → System Use Cases (**EARS**) → Supplementary Specs (**Mermaid** ERD, state machines, contracts, validation).
 5. **Address review findings** (repeat passes) — Re-run steps 1–4 as needed for open `SPEC-*` findings. Commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `docs: <description> (SPEC-NNNN)`.
+   - **Grep before fixing**: when a finding identifies a conceptual
+     inconsistency (e.g. "X says one thing, Y says another"), `rg` the entire
+     `docs/spec/` directory for every occurrence of the affected concept before
+     editing. Fix all occurrences in one pass — not just the locations the
+     finding names. A missed occurrence creates another review cycle, which
+     costs a full agent run.
 
 **Pause points:** Vision confirmation · Todos review before PRD · PRD approval.
 

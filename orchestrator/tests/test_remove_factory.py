@@ -151,7 +151,7 @@ class TestInstallShape:
         )
         assert first_af < ids.index("project-own-hook")
 
-    def test_existing_orientation_file_left_untouched(self, tmp_path):
+    def test_existing_orientation_file_gets_injected_block(self, tmp_path):
         _make_project(tmp_path, with_copilot_instructions=True)
         before = (tmp_path / ".github" / "copilot-instructions.md").read_text()
 
@@ -159,7 +159,9 @@ class TestInstallShape:
 
         ci = tmp_path / ".github" / "copilot-instructions.md"
         assert not ci.is_symlink()
-        assert ci.read_text() == before
+        after = ci.read_text()
+        assert after.startswith(init_factory.ORIENTATION_BEGIN)
+        assert before in after
         # a file we didn't create is never added to our ignore block
         assert "copilot-instructions" not in (tmp_path / ".gitignore").read_text()
 

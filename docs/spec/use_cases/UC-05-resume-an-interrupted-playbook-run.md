@@ -69,7 +69,7 @@ flowchart TD
     B -->|yes| E{playbook has .fsm.yml?}
     D --> E
     E -->|yes| F[Read state.agent from FSM — BR-017]
-    E -->|no| G[Use INDEX.yaml agents list;<br/>confirm step with actor]
+    E -->|no| G[Use INDEX.yaml agents list,<br/>then confirm step with actor]
     F --> H{outputs exist on disk?}
     G --> H
     H -->|no| I[Fresh start: run author workflow Step 1]

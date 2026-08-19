@@ -55,9 +55,37 @@ Apply **Clean Architecture** and **SOLID** — Dependency Inversion and Interfac
 
 Create (as applicable to the project):
 
-1. **Entity Model** — entities, attributes, relationships, constraints as a **Mermaid** ERD. Save as `docs/spec/supplementary_specs/entity-model.md`.
+1. **Entity Model** — create a specification-level **Mermaid** ERD of the
+   domain. Save it as `docs/spec/supplementary_specs/entity-model.md`.
+
+   The ERD defines stakeholder-visible domain facts before architecture begins:
+
+   - Model top-level domain entities, their essential semantic attributes, and
+     exact relationship cardinalities. For example, a Tenant contains one or
+     more Domains and every Domain belongs to exactly one Tenant.
+   - Include a concept only when it appears in the PRD, use cases, business
+     rules, or ubiquitous language. State important relationship constraints in
+     prose below the diagram when Mermaid cannot express them precisely.
+   - Use domain names and domain-level identifiers. Attributes may express
+     identity or required business meaning, but must not prescribe a database
+     representation.
+   - Do not model architecture or persistence mechanisms such as tables,
+     primary/foreign-key annotations, database-specific types, outboxes, claim
+     leases, transport messages, payload hashes, denormalized counters, or
+     storage partitions. An otherwise technical-looking concept belongs only if
+     stakeholders observe it as part of the domain and the specification defines
+     its semantics independently of implementation.
+   - Do not use the ERD to allocate ownership to components or containers. The
+     architecture phase decides representation, persistence, messaging,
+     recovery mechanisms, and deployment boundaries.
+
+   The result answers *which domain concepts exist and how they relate*, not
+   *how the system stores or transports them*.
+
 2. **State Machines** — for entities with lifecycle behavior. Write On If/Else pseudocode first, then derive **Mermaid** state diagrams. Save as `docs/spec/supplementary_specs/state-machines.md`.
+
 3. **Interface Contracts** — DTOs and schemas at system boundaries. Save as `docs/spec/supplementary_specs/interface-contracts.md`.
+
 4. **Validation Rules** — cross-cutting rules not tied to a single use case, numbered and cross-referenced. Save as `docs/spec/supplementary_specs/validation-rules.md`.
 
 ## Output

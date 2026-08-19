@@ -31,7 +31,7 @@ Skeleton: [todo-entry.md template](../templates/todo-entry.md).
 
 ## Format
 
-Run `scripts/mdformat --number docs/spec/todo.md` after every edit, per [markdown-formatting.md](markdown-formatting.md).
+Run `factory/scripts/mdformat --number docs/spec/todo.md` after every edit, per [markdown-formatting.md](markdown-formatting.md).
 
 ## Referenced from
 

@@ -1,0 +1,71 @@
+{
+  "source_identity": "Prisma ORM Documentation — 'datasource' schema block reference, 'Multi-schema' data-model page, and Database Features Matrix (provider-conditional rows)",
+  "author_or_issuing_body": "Prisma Data, Inc. (Prisma documentation team)",
+  "publisher": "Prisma Data, Inc. (www.prisma.io)",
+  "publication_date": "2026-08-14T00:00:00Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "prisma-official-docs",
+  "precise_evidence_location": "www.prisma.io/docs/orm/reference/prisma-schema-reference, section 'datasource' (#datasource); www.prisma.io/docs/orm/prisma-schema/data-model/multi-schema, 'Overview' section; www.prisma.io/docs/orm/reference/preview-features, table row 'multiSchema'; www.prisma.io/docs/orm/reference/database-features, 'Misc' table rows 'Enums' and 'JSON support' and 'Constraints' table row 'CHECK'. No visible last-updated date on any page; retrieval date used per limitations.",
+  "method": "Retrieved via automated web fetch of the live documentation pages on 2026-08-14; the multiSchema preview/GA graduation claim and the database-features rows were additionally cross-checked in a second, separately worded fetch pass to reduce summarization risk.",
+  "limitations": "This record answers a scoping question ('how far can a Prisma schema stay product-neutral') by assembling documented facts, not by testing an actual schema against multiple providers — no schema was written or validated as part of this research (per task boundary: no Prisma command was run). The datasource provider list is taken from the schema-reference page's own enumeration and was not independently cross-checked against the CLI's `prisma init --datasource-provider` help text. Whether every one of the ten advanced constructs in this survey is affected by provider choice was checked only for the constructs the docs discuss by name (Json, enum, CHECK, multiSchema); composite PKs, @@unique, self-relations, and nullable FKs were not found to be provider-conditional in any documentation reviewed (see source-prisma-schema-reference.json), and their absence from this file's findings should be read as 'no provider-conditionality found', not 'provider-conditionality checked and ruled out for every provider'.",
+  "provenance": "Original source is the live Prisma documentation site, publicly readable, no authentication required. Re-verify at the URLs in raw_evidence[].url; the multiSchema preview/GA table can be re-checked at https://www.prisma.io/docs/orm/reference/preview-features by searching the page for 'multiSchema'.",
+  "raw_evidence": [
+    {
+      "quote": "You can only have one datasource block in a schema. Supported providers: postgresql, mysql, sqlite, sqlserver, mongodb, cockroachdb.",
+      "locator": "Prisma Schema Reference, section 'datasource' (#datasource)",
+      "url": "https://www.prisma.io/docs/orm/reference/prisma-schema-reference#datasource"
+    },
+    {
+      "quote": "datasource db { provider = \"postgresql\" ... } — the provider field is a required, non-optional key of the datasource block.",
+      "locator": "Prisma Schema Reference, section 'datasource' (#datasource), example block",
+      "url": "https://www.prisma.io/docs/orm/reference/prisma-schema-reference#datasource"
+    },
+    {
+      "quote": "PostgreSQL, CockroachDB, and SQL Server allow you to organize database tables into named groups. ... Multi-schema feature is only supported for PostgreSQL, CockroachDB, and SQL Server. It is not available for SQLite and MySQL because these databases don't have the same concept of schemas as namespaces.",
+      "locator": "Prisma Schema data model docs, 'Multi-schema' page, 'Overview' section",
+      "url": "https://www.prisma.io/docs/orm/prisma-schema/data-model/multi-schema"
+    },
+    {
+      "quote": "multiSchema | Released into Preview: 4.3.0 | Released into General Availability: 6.13.0",
+      "locator": "Preview features reference page, feature table, row 'multiSchema'",
+      "url": "https://www.prisma.io/docs/orm/reference/preview-features"
+    },
+    {
+      "quote": "Feature | Supported | Prisma schema | ... row 'Enums': ✔️*† ... Footnote *: Not supported by Microsoft SQL Server.",
+      "locator": "Database features matrix, 'Misc' table, row 'Enums'",
+      "url": "https://www.prisma.io/docs/orm/reference/database-features#misc"
+    },
+    {
+      "quote": "Constraint | Supported | Prisma schema | ... row 'CHECK': ✔️† | Not yet | ✔️ | Not yet. Footnote †: Only supported in MySQL in version 8 and higher.",
+      "locator": "Database features matrix, 'Constraints' table, row 'CHECK'",
+      "url": "https://www.prisma.io/docs/orm/reference/database-features#constraints"
+    },
+    {
+      "quote": "Microsoft SQL Server does not have a specific data type for JSON.",
+      "locator": "Prisma Schema Reference, section 'Json' (#json)",
+      "url": "https://www.prisma.io/docs/orm/reference/prisma-schema-reference#json"
+    }
+  ],
+  "interpretation": {
+    "product_neutrality_of_a_prisma_schema": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "Prisma Schema Reference, section 'datasource' (#datasource); Database features matrix, rows 'Enums', 'CHECK'; Multi-schema page 'Overview'",
+      "rationale": "A .prisma file cannot be written without a datasource block, and that block requires exactly one non-optional `provider` value chosen from a fixed enumeration (postgresql, mysql, sqlite, sqlserver, mongodb, cockroachdb) — there is no 'unset' or 'generic' provider value documented anywhere in the schema reference. This means Gigacron's brief requirement to stay product-neutral at the specification level cannot be satisfied literally: authoring a valid schema.prisma file is itself an act of picking a database product. Beyond that structural leak, several of the survey's advanced constructs are themselves provider-conditional rather than uniformly available: multiSchema (construct 9) works only on PostgreSQL, CockroachDB, and SQL Server and is documented as absent for SQLite and MySQL; enum (construct 3) is unsupported on SQL Server; Json (construct 2) has no native SQL Server type; and CHECK-style value constraints (construct 8) are not expressible in the schema for any provider at all, so that gap is provider-independent. The closest thing to a 'neutral' workaround the docs support is authoring against one placeholder provider (e.g. postgresql) to keep development moving, while documenting that the choice is provisional and that several constructs (multiSchema, enum, Json) would need to be re-verified or reworked if the eventual product choice differs from the placeholder — but the schema.prisma file itself, as an artifact, always names one committed provider. No documented mechanism allows a single schema.prisma file to declare its data model against more than one provider simultaneously, or to declare 'undecided'."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "prisma multiple datasource providers",
+      "prisma provider agnostic schema",
+      "prisma datasource provider optional",
+      "prisma schema without provider",
+      "prisma multi-provider support"
+    ],
+    "where_searched": [
+      "www.prisma.io/docs (official documentation site, via web fetch)",
+      "prisma-schema-reference page for the full 'datasource' block grammar"
+    ],
+    "search_date": "2026-08-14",
+    "result": "No documented mechanism was found for a provider-neutral or multi-provider datasource block; the schema reference states flatly that only one datasource block is allowed and enumerates a closed list of provider values with no 'none' or 'generic' option. This is a positive absence finding (searched for and confirmed not present in the reference grammar), not merely an unexplored gap. No GitHub issue proposing provider-agnostic schemas was located in the scope of this search; that avenue was not exhaustively searched against the issue tracker and is recorded as an open gap rather than a confirmed absence."
+  }
+}
