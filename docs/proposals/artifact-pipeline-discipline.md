@@ -4,7 +4,7 @@ title: "Artifact Pipeline Discipline"
 status: draft
 owner: agent-factory
 created: 2026-08-17
-updated: 2026-08-17
+updated: 2026-08-19
 supersedes:
 
 impact:
@@ -25,6 +25,9 @@ impact:
     - factory/config/hooks/block-dangerous-git.sh
     - factory/config/extensions/block-dangerous-git.ts
     - factory/scripts/step-guard
+    - factory/scripts/write-step-manifest
+    - factory/docs/factory-guide.md
+    - factory/scripts/init-factory
     - .claude/settings.json
     - .codex/hooks.json
     - .github/hooks/
@@ -109,9 +112,16 @@ and exits.
   No transcript, tool output, or reasoning state crosses a step boundary.
 - The step manifest is the single source of truth for what a step may read and
   write. It is a tracked file, not an in-memory convention.
-- Enforcement is deterministic — event hooks, not agent instructions. An agent
-  that tries to read outside its declared inputs is blocked before the read
-  executes, not after it has already consumed context.
+- Enforcement is layered. Dedicated tool calls (`Read`, `Edit`, `Write`) are
+  guarded deterministically by event hooks. Shell commands (`Bash`) are guarded
+  best-effort by path extraction from the command string — inherently incomplete,
+  since arbitrary shell syntax cannot be fully parsed. The hard cap is the
+  context guard at spawn: the orchestrator measures declared inputs before the
+  agent starts and denies the spawn if the total exceeds the step's budget.
+- The context bound targets project artifacts (specifications, architecture
+  documents, source code), not factory machinery. Skills, agents, playbooks,
+  rulebooks, and scripts under `factory/` are prompt infrastructure that every
+  agent needs; they are always allowed.
 - The mechanism must work identically across Claude Code, Codex, GitHub Copilot
   CLI, and Pi. CLI-specific adapters translate the shared manifest and hook
   logic into each CLI's native event surface; the step contract itself is
@@ -125,39 +135,54 @@ Before spawning a step's agent, the orchestrating session writes a YAML file
 that declares the step's boundaries:
 
 ```yaml
-# .agent-factory/current-step.yml
+# .agent-factory/current-step.yml  (relative to working-directory root)
 schema_version: 1
 step: derive-use-cases
 playbook: feature-addition
 phase: 1
-role: step-agent                    # step-agent | orchestrator
 
 inputs:
   - docs/spec/prd-architecture-modeling.md
   - docs/spec/actor-goal-list.md
   - docs/proposals/bausteinsicht-factory-integration.md
-  - factory/rulebooks/rules.md
 
 outputs:
   - docs/spec/use_cases/UC-*.md
 
 max_input_tokens: 40000             # hard cap on sum of input file sizes
-
-running_agents: []                  # populated by spawn guard, cleared on exit
 ```
 
-The manifest lives at `.agent-factory/current-step.yml` and is git-ignored —
-local runtime state, never committed. The orchestrating session writes it; the
-hooks read it; the agent never edits it.
+The manifest lives at `.agent-factory/current-step.yml` relative to the working
+directory root (resolved via `git rev-parse --show-toplevel`). It is git-ignored
+— local runtime state, never committed. The orchestrating session writes it
+before spawning the step agent; the hooks read it; the agent never edits it; the
+orchestrator removes it after the agent completes.
 
-`role: orchestrator` exempts the orchestrating session from read guards. The
-orchestrator reads broadly to assemble inputs and validate outputs; it is not
-bound by a single step's input list. Only `role: step-agent` activates the read
-and write guards.
+**Worktree isolation.** In linked worktrees (Phase 4 dispatch),
+`--show-toplevel` returns the worktree path, not the main checkout. Each
+worktree therefore gets its own manifest at its own root. No coordination is
+needed — filesystem isolation provides per-instance separation.
+
+**Lifecycle-based scoping.** There is no `role` field. The manifest's existence
+is the activation signal: when it exists, guards apply to all tool calls in that
+working directory; when it does not, tool calls are unrestricted. The
+orchestrator operates *between* steps — it writes the manifest, spawns the
+agent, waits for completion, removes the manifest, then validates outputs.
+During the step the orchestrator makes no file reads or writes; between steps no
+manifest exists and no guards fire.
+
+**No-supersede enforcement.** There is no `running_agents` list.
+[`factory/scripts/write-step-manifest`](#orchestrator-role) refuses to write if
+a manifest already exists at the target path, preventing a second agent from
+being spawned for the same working directory while the first is still running.
+After the agent completes (detected via `SubagentStop` or equivalent), the
+orchestrator removes the manifest, unblocking the next write.
 
 ### Enforcement hooks
 
-Four deterministic hooks enforce the manifest. Each hook is a single shared
+Five hooks enforce the manifest. The first three (read, write, Bash) are
+deterministic for their tool surface; the Bash guard is best-effort because
+shell syntax cannot be fully parsed. Each hook is a single shared
 implementation with CLI-specific wiring.
 
 #### 1. Read guard
@@ -165,18 +190,21 @@ implementation with CLI-specific wiring.
 **Event**: `PreToolUse` on `Read` (Claude Code, Codex), custom-agent
 `pre_tool_use` (Copilot CLI), `pre_tool_use` extension (Pi).
 
-**Logic**: If `.agent-factory/current-step.yml` exists and `role` is
-`step-agent`, read the `inputs` list. The file path in the tool call must match
-at least one declared input glob. If it does not, deny the tool call with an
-explanation naming the step, the file, and the declared inputs.
+**Logic**: Resolve the manifest at `$(git rev-parse --show-toplevel)/.agent-factory/current-step.yml`.
+If the manifest does not exist, allow (no active step). If it exists, read the
+`inputs` list. The file path in the tool call must match at least one declared
+input glob or an always-allowed prefix. If it does not, deny the tool call with
+an explanation naming the step, the file, and the declared inputs.
 
-Always-allowed paths (not subject to input matching):
+Always-allowed prefixes (not subject to input matching):
 
-- `factory/rulebooks/rules.md` — binding session rules, required by every agent.
-- `factory/rulebooks/conventions/*.md` — rulebook expansions.
-- `.claude/INDEX.yaml`, `.github/INDEX.yaml`, `.pi/INDEX.yaml`,
-  `.codex/INDEX.yaml` — local-first resolution.
-- `.agent-factory/current-step.yml` — the manifest itself.
+- `factory/` — prompt infrastructure: skills, agents, playbooks, rulebooks,
+  scripts, and configuration. Every agent needs these to function; restricting
+  them would break skill invocation (see [Open Questions](#open-questions),
+  resolved).
+- `.claude/`, `.github/`, `.pi/`, `.codex/` — CLI index files and local skill
+  directories.
+- `.agent-factory/` — runtime state, including the manifest itself.
 
 **Exit codes**: `0` = allow, `2` = deny with reason.
 
@@ -199,7 +227,30 @@ Always-allowed write paths:
 This supports exploratory steps where the output set is not fully known in
 advance.
 
-#### 3. Context guard
+#### 3. Bash guard (best-effort)
+
+**Event**: `PreToolUse` on `Bash` (Claude Code, Codex), custom-agent
+`pre_tool_use` on `bash` (Copilot CLI), `pre_tool_use` extension (Pi).
+
+**Logic**: Same manifest resolution as the read guard. Extract file path
+arguments from the command string using regex patterns for common read commands
+(`cat`, `head`, `tail`, `less`, `rg`, `grep`, `find`, `fd`) and write commands
+(shell redirects `>`, `>>`, `tee`, `cp`, `mv`). Check each extracted path
+against the declared `inputs` (for reads) or `outputs` (for writes) and the
+always-allowed prefixes. Deny if a path violates.
+
+**Limitations**: Shell syntax is Turing-complete; the guard cannot catch
+variable expansion, subshells, or obfuscated paths. It handles the common
+patterns that account for the vast majority of agent tool calls. The context
+guard at spawn is the hard cap — the Bash guard is defense-in-depth. This
+follows the precedent of
+[`block-dangerous-git.sh`](../../factory/config/hooks/block-dangerous-git.sh),
+which already parses `Bash` commands by pattern matching rather than full shell
+interpretation.
+
+**Exit codes**: `0` = allow, `2` = deny with reason.
+
+#### 4. Context guard
 
 **Event**: `PreToolUse` on `Agent` (Claude Code, Codex), custom-agent dispatch
 (Copilot CLI), `run_agent` extension (Pi).
@@ -211,39 +262,46 @@ cap, deny the spawn with the measured total and the cap.
 
 This hook runs in the orchestrating session, not in the step agent.
 
-#### 4. No-supersede guard
+#### 5. No-supersede guard
 
-**Event**: `PreToolUse` on `Agent` (Claude Code, Codex), custom-agent dispatch
-(Copilot CLI), `dispatch_wave` extension (Pi).
+**Event**: Not a hook — enforced by
+`factory/scripts/write-step-manifest`.
 
-**Logic**: Read `running_agents` from the manifest. If an agent with the same
-`role` (agent type name) is already listed, deny the spawn with an explanation.
-The orchestrator appends the agent's instance ID to `running_agents` on
-successful spawn and removes it when the agent completes (via `SubagentStop` /
-equivalent hook).
+**Logic**: Before writing a new manifest, the script checks whether one already
+exists at the target path. If it does, the write is refused with an error
+naming the existing step and the target path. The orchestrator must remove the
+old manifest (after the prior agent completes) before writing a new one. This
+turns the existing MUST NOT in
+[rules.md § Dispatch](../../factory/rulebooks/rules.md#dispatch) ("MUST NOT
+launch a new agent for the same role while a prior instance is still running")
+into a mechanical gate.
 
 ### CLI-specific wiring
 
-The shared logic lives in a single script (`factory/scripts/step-guard`) that
-accepts the tool event as JSON on stdin and the guard type as an argument
-(`read`, `write`, `context`, `supersede`). CLI-specific adapters normalize the
-tool input JSON before calling the shared script:
+The shared logic lives in a single script (`factory/scripts/step-guard`) that accepts
+the tool event as JSON on stdin and the guard type as an argument (`read`,
+`write`, `bash`, `context`). The no-supersede guard is enforced by
+[`factory/scripts/write-step-manifest`](#orchestrator-role), not by a hook.
+CLI-specific adapters normalize the tool input JSON before calling the shared
+script:
 
-| CLI                | Tool input field           | Hook config location           | Adapter            |
-| ------------------ | -------------------------- | ------------------------------ | ------------------ |
-| Claude Code        | `.tool_input.file_path`    | `.claude/settings.json`        | Shell (inline jq)  |
-| Codex              | `.tool_input.file_path`    | `.codex/hooks.json`            | Shell (inline jq)  |
-| GitHub Copilot CLI | `.toolArgs.file_path`      | `.github/hooks/`               | JSON + shell       |
-| Pi                 | Extension API `args` field | `.pi/extensions/step-guard.ts` | TypeScript wrapper |
+| CLI                | Matchers                        | Tool input field           | Hook config location           | Adapter            |
+| ------------------ | ------------------------------- | -------------------------- | ------------------------------ | ------------------ |
+| Claude Code        | `Read`, `Edit`, `Write`, `Bash` | `.tool_input.file_path`    | `.claude/settings.json`        | Shell (inline jq)  |
+| Codex              | `Read`, `Edit`, `Write`, `Bash` | `.tool_input.file_path`    | `.codex/hooks.json`            | Shell (inline jq)  |
+| GitHub Copilot CLI | `Read`, `Edit`, `Write`, `Bash` | `.toolArgs.file_path`      | `.github/hooks/`               | JSON + shell       |
+| Pi                 | `Read`, `Edit`, `Write`, `Bash` | Extension API `args` field | `.pi/extensions/step-guard.ts` | TypeScript wrapper |
 
-This follows the established pattern of `block-dangerous-git.sh`, which already
-normalizes across Claude Code, Copilot CLI, and Codex using a `jq` expression
-that tries each CLI's field path.
+This follows the established pattern of
+[`block-dangerous-git.sh`](../../factory/config/hooks/block-dangerous-git.sh),
+which already normalizes across Claude Code, Copilot CLI, and Codex using a
+`jq` expression that tries each CLI's field path.
 
 Pi requires a TypeScript extension because its `pre_tool_use` surface is an
-extension API, not a shell hook. The extension calls the shared
-`factory/scripts/step-guard` script via `execFileSync`, identical to how
-`block-dangerous-git.ts` delegates to its shell counterpart.
+extension API, not a shell hook. The extension calls the shared script via
+`execFileSync`, identical to how
+[`block-dangerous-git.ts`](../../factory/config/extensions/block-dangerous-git.ts)
+delegates to its shell counterpart.
 
 ### Playbook step declarations
 
@@ -318,25 +376,46 @@ Its responsibilities are:
 
 1. Read the playbook's step declarations.
 2. For each step: write the manifest, spawn a fresh agent, wait for completion,
-   validate outputs exist.
+   remove the manifest, validate outputs exist.
 3. At review decision points: check for open findings, route to the next step.
 4. At manual decision points: present the decision to the stakeholder.
 
-This is what the orchestrating session already does, but with the manifest write
-as an additional mechanical step before each spawn. No new orchestrator code is
-required in the first release. A `factory/scripts/write-step-manifest` helper
-script reduces boilerplate:
+This is what the orchestrating session already does, but with the manifest
+lifecycle as an additional mechanical step around each spawn. No new
+orchestrator code is required in the first release. A
+`factory/scripts/write-step-manifest` helper script reduces boilerplate:
 
 ```bash
+# Write — before spawn
 factory/scripts/write-step-manifest \
   --playbook feature-addition \
-  --step derive-use-cases \
-  --role step-agent
+  --step derive-use-cases
+
+# Remove — after agent completes
+factory/scripts/write-step-manifest --clear
 ```
 
-It reads the step declaration from the playbook, resolves glob patterns to
-concrete file lists, validates the context cap, and writes
-`.agent-factory/current-step.yml`.
+The `write` subcommand reads the step declaration from the playbook, resolves
+glob patterns to concrete file lists, validates the context cap against
+`max_input_tokens`, and writes `.agent-factory/current-step.yml` relative to the
+working directory root. If a manifest already exists (a prior agent has not
+completed), the script exits non-zero — the no-supersede guard.
+
+The `--clear` subcommand removes the manifest, unblocking the next write. The
+orchestrator calls it after the step agent completes and before validating
+outputs. If an agent crashes or is cancelled without cleanup, a stale manifest
+blocks subsequent writes; `--clear --force` removes it regardless, with a
+warning naming the orphaned step.
+
+Note: the write-refusal guard blocks *any* concurrent step in the same working
+directory, not only a same-role duplicate. This is intentionally broader than
+the MUST NOT it mechanizes — one manifest per directory, one agent per
+directory — because concurrent agents in the same directory would overwrite each
+other's outputs.
+
+For worktree dispatches, the script accepts `--worktree <path>` to write the
+manifest into a specific worktree's root instead of the current working
+directory.
 
 ### Context budget model
 
@@ -380,21 +459,33 @@ pipeline model alone, before any other optimization.
 
 - Step manifest schema (`current-step.yml` format) and validation script.
 - `factory/scripts/step-guard` — shared enforcement logic for read, write,
-  context, and no-supersede guards.
-- `factory/scripts/write-step-manifest` — helper to write the manifest from a
-  playbook's step declarations.
+  Bash, and context guards.
+- `factory/scripts/write-step-manifest` — helper to write and clear the
+  manifest from a playbook's step declarations; enforces no-supersede.
 - CLI-specific wiring for all four CLIs:
-  - Claude Code: `PreToolUse` entries in `.claude/settings.json`.
-  - Codex: `PreToolUse` entries in `.codex/hooks.json`.
-  - GitHub Copilot CLI: hook files in `.github/hooks/`.
+  - Claude Code: `PreToolUse` entries in `.claude/settings.json` for `Read`,
+    `Edit`, `Write`, and `Bash`.
+  - Codex: `PreToolUse` entries in `.codex/hooks.json` for `Read`, `Edit`,
+    `Write`, and `Bash`.
+  - GitHub Copilot CLI: hook files in `.github/hooks/` for the same matchers.
   - Pi: `step-guard.ts` extension in `.pi/extensions/`.
-- Step declarations for `feature-addition` playbook (the reference
-  implementation).
-- Updated `feature-addition.md` with `steps:` block.
-- Updated `rules.md` with step-boundary rules.
-- Updated `dispatch-contract.md` with manifest and guard conventions.
-- Updated `init-factory` to install the step-guard hook wiring.
-- Updated `factory-guide.md` with pipeline discipline documentation.
+- Step declarations for the
+  [`feature-addition`](../../factory/playbooks/feature-addition.md) playbook
+  (the reference implementation).
+- Updated [`feature-addition.md`](../../factory/playbooks/feature-addition.md)
+  with `steps:` block.
+- Updated [`rules.md`](../../factory/rulebooks/rules.md) with step-boundary
+  rules.
+- Updated
+  [`dispatch-contract.md`](../../factory/rulebooks/conventions/dispatch-contract.md)
+  with manifest and guard conventions.
+- Updated [`init-factory`](../../factory/scripts/init-factory) to install the
+  step-guard wiring alongside existing hooks.
+- Updated [`factory-guide.md`](../../factory/docs/factory-guide.md) with
+  pipeline discipline documentation.
+- Epic-0 spike story verifying the GitHub Copilot CLI `pre_tool_use` event
+  surface for `Read`/`Edit`/`Write` matchers (currently unverified — recorded
+  assumption until the spike confirms).
 
 **Explicitly deferred (do NOT plan stories for these):**
 
@@ -412,44 +503,84 @@ pipeline model alone, before any other optimization.
 
 ## Open Questions
 
-- Should the read guard deny or warn by default? Deny is safer but may block
-  agents that legitimately need to read a file not anticipated in the step
-  declaration. A `read_guard: warn` mode (like `write_guard: warn`) would allow
-  the read but log a violation for the orchestrator to review.
+All resolved — no open questions remain.
 
-- Should the always-allowed read paths include the full `factory/` directory
-  (all skills, agents, and scripts) or only the specific files the step's agent
-  needs? Allowing all of `factory/` simplifies step declarations but weakens the
-  context bound; restricting it requires listing every skill and agent file the
-  agent might invoke.
+- ~~Should the read guard deny or warn by default?~~ **Resolved:** deny by
+  default. The always-allowed prefixes (`factory/`, CLI directories,
+  `.agent-factory/`) cover legitimate runtime reads. If a step needs an
+  unanticipated project file, the step declaration is updated — not the guard
+  weakened. `read_guard: warn` exists as an opt-in escape hatch for exploratory
+  steps, mirroring `write_guard: warn`.
 
-- What is the right `max_input_tokens` default when a step declaration omits
-  it? Options: no default (force explicit declaration), a conservative default
-  (50,000), or a permissive default (200,000).
+- ~~Should the always-allowed read paths include the full `factory/` directory
+  or only the specific files the step's agent needs?~~ **Resolved:** always-allow
+  the full `factory/` directory, plus CLI directories (`.claude/`, `.github/`,
+  `.pi/`, `.codex/`) and `.agent-factory/`. These are prompt infrastructure, not
+  project artifacts. The context bound targets project documentation and source
+  code. Skills, agents, and playbooks must be readable at runtime for skill
+  invocation to work; restricting them would break every skill-invoking agent.
+  See [Read guard § Always-allowed prefixes](#1-read-guard).
+
+- ~~What is the right `max_input_tokens` default when a step declaration omits
+  it?~~ **Resolved:** no default — the field is required.
+  `max_input_tokens` is a budget; implicit budgets defeat the purpose of
+  bounding context. `write-step-manifest` exits non-zero if the field is missing
+  from the step declaration.
+
+- ~~What glob flavor do manifest `inputs` and `outputs` patterns use?~~
+  **Resolved:** gitignore-style semantics (globset in Rust, picomatch with
+  `dot: true` in TypeScript, `pathspec` in Python, `rg -g` in shell). `*`
+  matches within a single path segment; `**` matches zero or more path segments
+  (recursive). No dotfile special-casing — `**/*.md` matches files under hidden
+  directories, unlike fnmatch/bash defaults. Globs match the path string, not
+  the filesystem — output globs match new files whose path satisfies the
+  pattern, even if the file does not yet exist at manifest-write time.
+
+  **Consistency requirement.** The guard (string-matching a candidate path) and
+  the resolver (`write-step-manifest` expanding globs to sum file sizes for
+  `max_input_tokens`) must share one pinned semantics. If they diverge — the
+  resolver undercounts because it skips hidden directories while the guard
+  matches them — the context cap leaks silently, which is the exact failure mode
+  the proposal exists to prevent. Concretely: one shared matching
+  implementation in `step-guard` used by both the guard and
+  `write-step-manifest`, and the resolver must use explicit flags (e.g.
+  `rg --files --hidden --no-ignore -g '<pattern>'`), never ambient shell
+  defaults (`shopt -s dotglob`) which are fragile across hook invocations.
 
 ## Completion Criteria
 
 - `.agent-factory/current-step.yml` manifest schema is documented and validated
   by a lint script.
-- `factory/scripts/step-guard` enforces read, write, context, and no-supersede
-  guards from the manifest.
+- `factory/scripts/step-guard` enforces read, write, Bash (best-effort), and
+  context guards from the manifest.
 - `factory/scripts/write-step-manifest` writes a valid manifest from a
-  playbook's step declarations.
+  playbook's step declarations and refuses to overwrite an existing manifest
+  (no-supersede).
 - All four CLIs (Claude Code, Codex, GitHub Copilot CLI, Pi) wire the step
-  guard into their native event surfaces.
-- `init-factory` installs the step-guard wiring alongside existing hooks.
-- The `feature-addition` playbook has a complete `steps:` block covering all
-  phases.
-- An agent spawned as a step agent is blocked from reading files outside its
-  declared inputs (verified by test).
-- An agent spawned as a step agent is blocked (or warned) when writing files
-  outside its declared outputs (verified by test).
-- A spawn is blocked when declared inputs exceed `max_input_tokens` (verified by
-  test).
-- A spawn is blocked when another agent with the same role is already running
+  guard into their native `PreToolUse` event surfaces for `Read`, `Edit`,
+  `Write`, and `Bash` matchers.
+- [`init-factory`](../../factory/scripts/init-factory) installs the step-guard
+  wiring alongside existing hooks.
+- The [`feature-addition`](../../factory/playbooks/feature-addition.md) playbook
+  has a complete `steps:` block covering all phases.
+- A step agent is blocked from reading project files outside its declared inputs
+  via `Read` tool calls (verified by test). Factory machinery under `factory/`,
+  CLI directories, and `.agent-factory/` are always allowed.
+- A step agent is blocked (or warned) when writing files outside its declared
+  outputs via `Edit`/`Write` tool calls (verified by test).
+- A step agent's `Bash` tool calls are checked best-effort for file-path
+  references outside declared inputs and outputs (verified by test against
+  common commands: `cat`, `rg`, `grep`, shell redirects).
+- `write-step-manifest` blocks when declared inputs exceed `max_input_tokens`
   (verified by test).
-- The orchestrating session (role: orchestrator) is exempt from read and write
-  guards.
+- `write-step-manifest` blocks when a manifest already exists at the target
+  path (verified by test).
+- When no manifest exists (between steps), tool calls are unrestricted —
+  the orchestrator is not guarded.
+- In linked worktrees, each worktree resolves its own manifest independently
+  (verified by test with two concurrent worktrees).
+- Declared inputs under hidden directories are matched and counted identically
+  by guard and resolver (verified by test with a dot-directory input).
 
 ## Guiding Rule
 
