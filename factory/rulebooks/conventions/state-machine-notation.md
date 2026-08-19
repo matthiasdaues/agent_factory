@@ -93,5 +93,5 @@ stateDiagram-v2
 
 - [rules.md § State machine notation](../rules.md#state-machine-notation)
 - [architecture-agent.md § Workflow](../../agents/architecture-agent.md#workflow)
-- [maintain-architecture § Step 5 — Maintain state machine pseudocode](../../skills/maintain-architecture/SKILL.md#step-5-maintain-state-machine-pseudocode)
-- [brownfield-onboarding § Step 2.2 — Document State Machines](../../playbooks/brownfield-onboarding.md#step-22-document-state-machines)
+- [maintain-architecture § Step 5 — Maintain state machine pseudocode](../../skills/maintain-architecture/SKILL.md#step-5--maintain-state-machine-pseudocode)
+- [brownfield-onboarding § Step 3.7 — Document State Machines](../../playbooks/brownfield-onboarding.md#step-37--document-state-machines)

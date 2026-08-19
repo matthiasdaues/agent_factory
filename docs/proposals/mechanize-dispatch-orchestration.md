@@ -4,7 +4,7 @@ title: Mechanize Dispatch Orchestration
 status: accepted
 owner: md@matthiasdaues.de
 created: 2026-08-18
-updated: 2026-08-18
+updated: 2026-08-19
 supersedes:
 
 impact:
@@ -149,9 +149,11 @@ Merge the story's feature branch into the invocation branch, in the invocation-b
 
 Exit non-zero on conflicts, premerge-check failure, or post-merge test failure. On a merge conflict the script runs `git merge --abort` before exiting, so the invocation worktree is never left in a MERGING state.
 
-#### `dispatch mark-blocked <story-id> --reason <text>` / `dispatch mark-failed <story-id> --reason <text>`
+#### `dispatch mark-blocked <story-id> --reason <text>` / `dispatch mark-failed <story-id> --class <class> --evidence <path>`
 
-Record a story that cannot reach `done` in this dispatch. Update the ledger entry (`status`, `reason`), update the story file's `status` field in a dedicated status-update commit per [dispatch-contract.md § Story Status Commit Rule](../../factory/rulebooks/conventions/dispatch-contract.md#story-status-commit-rule), and commit both.
+Record a story that cannot reach `done` in this dispatch. Update the ledger entry (`status`, and `reason` or `class`/`evidence`), update the story file's `status` field in a dedicated status-update commit per [dispatch-contract.md § Story Status Commit Rule](../../factory/rulebooks/conventions/dispatch-contract.md#story-status-commit-rule), and commit both.
+
+`mark-failed` takes a closed failure class and a path to tracked evidence rather than free text, because [cost-aware-agent-delegation.md § Axis 3 — Evidence-gated escalation](cost-aware-agent-delegation.md#axis-3--evidence-gated-escalation) makes the recorded class the input to a mechanical escalation predicate; free text cannot be evaluated. The signature is reserved here so the subcommand is built once; the owner ruled the change immaterial, so this proposal remains `accepted`. `mark-blocked` keeps `--reason`: blocking is a human decision, not a classified failure.
 
 Without these two subcommands the lifecycle cannot close: `prepare-wave` and `close-wave` exit non-zero unless every story is terminal, and the LLM is forbidden from writing the ledger directly — so a single failed story would deadlock the dispatch. Failed stories stay `pending` in the backlog (matching current workflow); the ledger status is `failed`, which is terminal for wave-gating purposes.
 
@@ -193,7 +195,7 @@ The implementation-agent's Workflow section is rewritten to call `dispatch` subc
    d. On completion: `dispatch verify-story` for each reported SHA
    e. For each verified story, in overlap-determined order: `dispatch merge-story` — one story fully merged (check, merge, status, tests) before the next merge begins
    f. When a serial-chain predecessor merges: `dispatch prepare-story <next-link>` → spawn its subagent → `mark-dispatched` → `verify-story` → `merge-story`, one link at a time
-   g. On failure at any point: `dispatch mark-blocked` / `dispatch mark-failed` with a reason
+   g. On failure at any point: `dispatch mark-blocked` with a reason, or `dispatch mark-failed` with a class and evidence
    h. `dispatch close-wave N`
 4. Handoff when all waves done
 

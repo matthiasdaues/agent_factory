@@ -13,7 +13,7 @@ Runtime: Ubuntu 22.04, kernel 6.8, podman 3.4.4 (rootless), image python:3.12-sl
   - `/etc/shadow` and `/root` are the **container's own** (from the base
     image), not the host's.
 - [x] Host secret file planted at `~/poc-host-secret.*` → **not visible**
-  inside (`/home/matthiasdaues/` does not exist in the container).
+  inside (`~/` does not exist in the container).
 - [x] Mounted cwd (project) is read-write and usable (`WROTE to /work/.poc-write-test OK`; gate script runs from `/work`).
 
 ### (b) egress control

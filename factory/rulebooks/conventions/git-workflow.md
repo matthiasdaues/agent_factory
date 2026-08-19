@@ -81,7 +81,7 @@ At merge and handoff boundaries, record the local branch tip, its configured
 upstream tip (or `none`), and ahead/behind counts. Use exact SHAs; decorated log
 labels alone can conflate a local branch with similarly named remote-tracking
 refs. The required handoff shape is defined by
-[handoff-format.md](handoff-format.md#authoritative-current-state).
+[handoff-format.md § Required document shape](handoff-format.md#required-document-shape).
 
 ## Referenced from
 

@@ -16,7 +16,7 @@ Deferred decisions and named gaps found while specifying the Factory's flow-cont
 
 ## T-03: `script_exit_zero` condition type is stubbed
 
-`factory/scripts/phase`'s `evaluate_condition` always returns `(True, "script_exit_zero <script> (stubbed pass)")` for this condition type — it never actually runs the named script. See [validation-rules.md § Entry conditions](supplementary_specs/validation-rules.md#entry-conditions).
+`factory/scripts/phase`'s `evaluate_condition` always returns `(True, "script_exit_zero <script> (stubbed pass)")` for this condition type — it never actually runs the named script. See [validation-rules.md § Entry conditions](supplementary_specs/validation-rules.md#entry-conditions-gate_condition).
 
 - [ ] Implement the real subprocess run + exit-code check, or remove the condition type if nothing ends up needing it.
 

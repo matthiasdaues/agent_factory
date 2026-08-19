@@ -3,7 +3,11 @@
 
 The pre-commit hook passes changed Markdown files.  HTTP(S), mailto, and other
 URI schemes are intentionally left to dedicated online crawlers; this fast
-gate catches broken repository paths and missing same-document anchors.
+gate catches broken repository paths and broken heading anchors, in the same
+document and across documents.
+
+Fenced code blocks and inline code spans are skipped: a link inside them is an
+example, not a reference.
 """
 
 from __future__ import annotations
@@ -16,11 +20,60 @@ from urllib.parse import unquote, urlsplit
 
 LINK = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
+FENCE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
+INLINE_CODE = re.compile(r"`+[^`\n]*`+")
+HEADING = re.compile(r"^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$")
+
+
+def without_fences(text: str) -> str:
+    """Blank out fenced code blocks, preserving line count."""
+    lines: list[str] = []
+    fence: str | None = None
+    for line in text.splitlines():
+        match = FENCE.match(line)
+        if match:
+            if fence is None:
+                fence = match.group(1)[0] * 3
+            elif line.strip().startswith(fence):
+                fence = None
+            lines.append("")
+            continue
+        lines.append("" if fence else line)
+    return "\n".join(lines)
+
+
+def strip_code(text: str) -> str:
+    """Blank out fenced blocks and inline code spans; a link in either is an example."""
+    return INLINE_CODE.sub("", without_fences(text))
+
+
+def slugify(title: str) -> str:
+    """Slugify a heading the way GitHub does."""
+    text = re.sub(r"`([^`]*)`", r"\1", title)
+    text = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", text)
+    text = re.sub(r"[*~]", "", text)
+    text = re.sub(r"[^\w\- ]", "", text.lower(), flags=re.UNICODE)
+    return text.replace(" ", "-")
+
+
+def anchors(path: Path) -> set[str]:
+    """Every anchor a Markdown document offers, duplicates suffixed as GitHub does."""
+    found: set[str] = set()
+    counts: dict[str, int] = {}
+    for line in without_fences(path.read_text(encoding="utf-8")).splitlines():
+        heading = HEADING.match(line)
+        if not heading:
+            continue
+        slug = slugify(heading.group(2).strip())
+        seen = counts.get(slug, 0)
+        counts[slug] = seen + 1
+        found.add(slug if seen == 0 else f"{slug}-{seen}")
+    return found
 
 
 def check(path: Path) -> list[str]:
     errors: list[str] = []
-    text = path.read_text(encoding="utf-8")
+    text = strip_code(path.read_text(encoding="utf-8"))
     for raw in LINK.findall(text):
         destination = raw.strip().split(maxsplit=1)[0].strip("<>")
         if not destination or SCHEME.match(destination):
@@ -31,6 +84,10 @@ def check(path: Path) -> list[str]:
         if not target.exists():
             errors.append(f"{path}: broken link {destination!r}")
             continue
+        if not parsed.fragment or target.is_dir() or target.suffix.lower() != ".md":
+            continue
+        if unquote(parsed.fragment) not in anchors(target):
+            errors.append(f"{path}: broken anchor {destination!r}")
     return errors
 
 

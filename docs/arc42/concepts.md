@@ -70,5 +70,5 @@ See [docs/arc42/CONTEXT-MAP.md](CONTEXT-MAP.md) for the bounded-context map.
 
 ## Referenced from
 
-- [README.md § How it works](../../README.md#how-it-works)
+- [README.md § Built around a simple principle](../../README.md#built-around-a-simple-principle)
 - [docs/spec/prd.md § Problem Statement](../spec/prd.md#1-problem-statement)

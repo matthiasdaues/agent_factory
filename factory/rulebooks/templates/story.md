@@ -50,5 +50,5 @@ When `tests:` is present and non-empty, the developer-agent reads these tests as
 
 ## Referenced from
 
-- [create-backlog § Step 2](../../skills/create-backlog/SKILL.md#step-2-break-epics-into-user-stories)
+- [create-backlog § Step 2](../../skills/create-backlog/SKILL.md#step-2--break-epics-into-user-stories)
 - [backlog-lint script](../../scripts/backlog-lint)

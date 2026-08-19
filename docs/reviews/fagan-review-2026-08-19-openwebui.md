@@ -2,7 +2,7 @@
 title: Fagan Inspection — Pi extension openwebui.ts
 date: 2026-08-19
 reviewer: qa-agent
-target: /home/matthiasdaues/.pi/agent/extensions/openwebui.ts (327 lines, external to this repo)
+target: ~/.pi/agent/extensions/openwebui.ts (327 lines, external to this repo)
 scope: Fagan Inspection only — no OWASP pass, no bug-hunt/fix loop, no code changes
 ---
 

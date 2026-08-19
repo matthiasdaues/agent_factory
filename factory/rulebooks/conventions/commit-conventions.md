@@ -82,7 +82,7 @@ fix: bug fix
 - [reconciliation-agent.md § Workflow](../../agents/reconciliation-agent.md#workflow)
 - [qa-agent.md § Workflow](../../agents/qa-agent.md#workflow)
 - [bug-hunt § Phase: Fix](../../skills/bug-hunt/SKILL.md#phase-fix)
-- [implement-issue § Step 4 — Commit](../../skills/implement-issue/SKILL.md#step-4-commit)
+- [implement-issue § Step 4 — Commit](../../skills/implement-issue/SKILL.md#step-4--commit)
 - [commit](../../skills/commit/SKILL.md)
 - [branching-policy.md § Commits On Feature Branches](branching-policy.md#commits-on-feature-branches)
 - [versioning-policy.md § Version Bump Triggers](versioning-policy.md#version-bump-triggers)
