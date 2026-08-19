@@ -75,3 +75,32 @@ None new. Q1, Q2 answered by the author; [T-0001](../spec/todo.md) and [T-0002](
 - The one genuinely dangerous rework area (the escape function) regressed silently exactly as repeat-pass discipline exists to catch; nothing else in the rework introduced correctness or concurrency regressions.
 
 **Verdict: rework.** The rework direction is right and broad, but one major defect ([FAGAN-0021](../findings/FAGAN-0021.md)) remains open plus one minor compile-gate defect ([FAGAN-0024](../findings/FAGAN-0024.md)); fix both and re-submit for a verification pass.
+
+## Verification pass 2 (second repeat, 2026-08-19)
+
+Scope per [review-loop-discipline.md](../../factory/rulebooks/conventions/review-loop-discipline.md): deterministic gates re-run, each open finding verified individually, and the full inspection re-run fresh on the current 444-line file — not just the prior findings list. Author claims were not trusted; every check below was re-executed by the reviewer.
+
+### Deterministic gates re-run
+
+1. **Escape round-trip (empirical):** `escapeConfigValue` extracted verbatim from the current file and round-tripped through the installed resolver (`@earendil-works/pi-coding-agent@0.84.0`, `dist/core/resolve-config-value.js`) — **17/17 probes pass**. The author's 10 probes (`ab$HOME`, `x$1$y`, `$HOME`, `${HOME}`, `!$HOME`, `$$double`, `a${HOME}b`, `!cmd`, `plain-key`, `sk-abc123`) plus 7 additional adversarial cases (`$!`, bare `!`, `a$b$c`, whitespace literal, `a!b$HOME`, unclosed `${HOME`, `!!`) all resolve to their raw input.
+2. **`tsc --strict`:** byte-identical copy (sha256 match) of the target passes `tsc --noEmit --strict --skipLibCheck --module esnext --moduleResolution bundler --target es2022` (typescript 5.9.3, `@types/node` plus the installed package's types) — **exit 0, no diagnostics**. Mutation control: stripping the annotation reproduces the original TS2322 at line 370, proving the gate exercises this defect class and the green run is not trivial.
+3. **URL validation regression net:** `normalizeBaseUrl` extracted verbatim, 15/15 probes pass — unchanged by this round (rejects `file:`, `ftp:`, bare `host:port`, userinfo, query, fragment, empty; accepts http(s); `[::1]`, `localhost.`, `0.0.0.0`, `127.*`, `localhost` local; trailing-slash strip; secure flag).
+4. **Framework claims vs dist/:** `CONFIG_DIR_NAME` remains a genuine value export (`dist/index.js` re-exports from `dist/config.js:394`). No new framework dependencies introduced by the edits.
+
+### Prior findings — verification verdicts
+
+| Finding                                                                         | Verdict      | Evidence                                                                                                                                                                                                         |
+| ------------------------------------------------------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [FAGAN-0021](../findings/FAGAN-0021.md) — `escapeConfigValue` no-op replacement | **resolved** | `value.replace(/\$/g, "$$$$")` doubles every `$`; leading `!` neutralized by `$`-prefix. 17/17 empirical round-trips through the real resolver pass; the doc comment now accurately describes the implementation |
+| [FAGAN-0024](../findings/FAGAN-0024.md) — strict type error on `apiKey`         | **resolved** | \`let apiKey: string                                                                                                                                                                                             |
+
+### Edit-introduced-defect check
+
+- **Escape function:** the replacement form is correct; the escaped output can never begin with `!`, so the resolver's shell-command path is unreachable; ordering handles pre-escaped `$$`, leading `!$X`, `$!`, and unclosed braces. The inline comment (`("$$" would be a silent no-op.)`) is accurate.
+- **`apiKey` annotation:** annotation-only, no runtime change; both `if (!apiKey)` guards still cover `undefined` and prompt-cancelled input; no new diagnostics introduced.
+
+### Fresh full-inspection pass
+
+All five focus areas re-run over the whole file. Unchanged units re-confirmed: `envConfiguredNames` inverse mapping and Set-dedup (the degenerate `OPENWEBUI__BASE_URL` is correctly ignored by the anchored pattern), `withConfigLock` rejection-safe chaining, discovery fetch outside the lock, file-only `/unregister`, warning replay with headless stderr fallback, and all header-comment claims. **No new defects.** Suggestions S8–S11 from the prior pass remain minor and optional. No new questions.
+
+**Verdict: accepted.** Supersedes the rework verdict above: [FAGAN-0021](../findings/FAGAN-0021.md) (major) and [FAGAN-0024](../findings/FAGAN-0024.md) (minor) are both verified resolved under the deterministic gates, and the fresh full-inspection sweep found no regressions or new defects.
