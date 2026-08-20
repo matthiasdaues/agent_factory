@@ -393,7 +393,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 952
-    total_tokens: 29639
+    total_tokens: 29670
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -409,7 +409,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 2646
-    total_tokens: 53641
+    total_tokens: 53686
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -427,7 +427,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2786
-    total_tokens: 54855
+    total_tokens: 54900
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
