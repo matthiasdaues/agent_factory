@@ -1,0 +1,81 @@
+{
+  "source_identity": "GitHub repository prisma/prisma — LICENSE file, repository metadata (releases, commit activity), CONTRIBUTING.md; and Prisma's own 'About' marketing page",
+  "author_or_issuing_body": "Prisma Data, Inc. (repository owner, GitHub organization 'prisma'; LICENSE copyright holder)",
+  "publisher": "github.com (repository hosting); www.prisma.io (About page, Prisma Data, Inc.)",
+  "publication_date": "2026-08-14T13:46:38Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "prisma-github-repo",
+  "precise_evidence_location": "https://raw.githubusercontent.com/prisma/prisma/main/LICENSE, header lines 1-4 and copyright notice; GitHub REST API https://api.github.com/repos/prisma/prisma (fields: archived, pushed_at, created_at, license.spdx_id, owner.type, open_issues_count, stargazers_count, default_branch); GitHub REST API https://api.github.com/repos/prisma/prisma/releases (top 3 entries: tag_name, published_at, prerelease); GitHub REST API https://api.github.com/repos/prisma/prisma/commits (top 3 entries: sha, commit.committer.date); https://raw.githubusercontent.com/prisma/prisma/main/CONTRIBUTING.md, opening 'Status — please read first' section; https://www.prisma.io/about, investor-logo section and FOSS Fund statement.",
+  "method": "Direct HTTP GET via curl against the GitHub REST API and raw.githubusercontent.com, executed 2026-08-14, JSON parsed programmatically (releases, commits, repo metadata, LICENSE, CONTRIBUTING.md). The About page was retrieved via web fetch of the live marketing site.",
+  "limitations": "A direct check for a GOVERNANCE.md file at the repository root returned HTTP 404 (confirmed absent by direct request, not merely unsearched) — Prisma has no separate governance charter document at that conventional path; governance evidence here is therefore inferred from ownership structure (GitHub org 'prisma', a single company, not a foundation), from investor disclosure on the About page, and from CONTRIBUTING.md's maintainer-approval language, rather than from a dedicated governance document. CONTRIBUTING.md as fetched describes a project calling itself 'Prisma Next', stated to be 'pre-1.0' with breaking changes expected between minor versions, and explicitly says 'Prisma 7 remains the recommended path for production today' with a note that Prisma 7 'lives on the v7 branch' of the same repository — this indicates the default/main branch currently tracks a not-yet-stable next-generation rewrite, while the production-recommended version is maintained on a separate branch. This research did not fetch the v7 branch's own LICENSE, CONTRIBUTING.md, or release history separately; the release and commit timestamps recorded here are for the repository's default branch activity as a whole (which GitHub's releases/commits/repo endpoints report across the whole repo, not branch-scoped), and are reported as repository-wide activity, not confirmed to be v7-branch-specific. This distinction is recorded as a material nuance for whoever weighs 'is Prisma actively maintained' — the repository is highly active, but part of that activity is a pre-1.0 rewrite, not incremental maintenance of the currently-recommended stable version.",
+  "provenance": "All GitHub facts are re-verifiable by re-issuing the same curl commands against api.github.com and raw.githubusercontent.com (no authentication required for public repository data). The About page is re-verifiable at https://www.prisma.io/about.",
+  "raw_evidence": [
+    {
+      "quote": "Apache License\n                           Version 2.0, January 2004\n                        http://www.apache.org/licenses/",
+      "locator": "LICENSE file, header, lines 1-3",
+      "url": "https://raw.githubusercontent.com/prisma/prisma/main/LICENSE"
+    },
+    {
+      "quote": "\"full_name\": \"prisma/prisma\", \"archived\": false, \"pushed_at\": \"2026-08-14T13:46:38Z\", \"created_at\": \"2019-06-20T13:33:47Z\", \"license\": {\"spdx_id\": \"Apache-2.0\"}, \"owner\": {\"login\": \"prisma\", \"type\": \"Organization\"}, \"open_issues_count\": 2536, \"stargazers_count\": 47576, \"description\": \"Next-generation ORM for Node.js & TypeScript | PostgreSQL, MySQL, MariaDB, SQL Server, SQLite, MongoDB and CockroachDB\", \"default_branch\": \"main\"",
+      "locator": "GitHub REST API repository object for prisma/prisma",
+      "url": "https://api.github.com/repos/prisma/prisma"
+    },
+    {
+      "quote": "v8.0.0-rc.1 | published_at 2026-08-07T10:53:52Z | prerelease: true; v0.17.0 | published_at 2026-08-04T13:31:06Z | prerelease: false; 7.9.1 | published_at 2026-07-27T14:17:54Z | prerelease: false",
+      "locator": "GitHub REST API releases list, top 3 entries by recency",
+      "url": "https://api.github.com/repos/prisma/prisma/releases?per_page=3"
+    },
+    {
+      "quote": "81045dfc0e | 2026-08-14T13:43:15Z | \"TML-3204: Closed-transaction guard pinned on both prepared bridges (#30015)\"",
+      "locator": "GitHub REST API commits list, most recent entry on the default branch",
+      "url": "https://api.github.com/repos/prisma/prisma/commits?per_page=3"
+    },
+    {
+      "quote": "# Contributing to Prisma Next\n\n... Prisma Next is **pre-1.0**. While we are pre-1.0:\n\n- Expect breaking changes between minor versions. ...\n- Only the latest minor receives security fixes. ...\n- Don't build production applications on Prisma Next yet unless you are prepared to follow upgrades closely. [Prisma 7](https://www.prisma.io/docs/orm) remains the recommended path for production today.",
+      "locator": "CONTRIBUTING.md, opening 'Status — please read first' section",
+      "url": "https://raw.githubusercontent.com/prisma/prisma/main/CONTRIBUTING.md"
+    },
+    {
+      "quote": "HTTP 404 for https://raw.githubusercontent.com/prisma/prisma/main/GOVERNANCE.md",
+      "locator": "Direct request for a GOVERNANCE.md file at the repository root of the default branch",
+      "url": "https://raw.githubusercontent.com/prisma/prisma/main/GOVERNANCE.md"
+    },
+    {
+      "quote": "Prisma evolved from an open-source project to the most downloaded ORM in the Node.js ecosystem. [Investor logos shown include] Amplify, Altimeter, IVP, Kleiner Perkins, Fathom, and System.one, plus individual investors including the founders of Vercel, Heroku, and GitHub. [A Free and Open Source Software (FOSS) Fund, established April 2022, donates $500 monthly to selected open-source projects.]",
+      "locator": "About page, investor-logo section and FOSS Fund statement",
+      "url": "https://www.prisma.io/about"
+    }
+  ],
+  "interpretation": {
+    "licence": {
+      "classification": "expressible",
+      "citation": "LICENSE file, header",
+      "rationale": "The repository's LICENSE file, read directly, states Apache License, Version 2.0 — matching the SPDX identifier 'Apache-2.0' independently reported by the GitHub API's license field. Both the direct LICENSE-file read and the GitHub metadata agree, giving two independent confirmations within the same source family (both ultimately point at the same repository file)."
+    },
+    "governance_model": {
+      "classification": "expressible",
+      "citation": "GitHub API owner.type = 'Organization' (prisma); About page investor-logo section; CONTRIBUTING.md 'Status' section; confirmed absence of GOVERNANCE.md",
+      "rationale": "Prisma is single-vendor, commercially-backed open source: the repository is owned by a company (Prisma Data, Inc., the LICENSE copyright holder and the GitHub org owner), the About page discloses venture-capital investors by name, and there is no foundation, BDFL charter, or community-consensus governance document (GOVERNANCE.md returns 404). Decision-making authority, per CONTRIBUTING.md, sits with 'maintainers' who approve substantive changes — consistent with single-vendor governance rather than a foundation or community-consensus model. This is recorded plainly, per the task's explicit instruction, since the artifact under evaluation would sit in the project's critical path."
+    },
+    "freshness_and_abandonment_risk": {
+      "classification": "not-expressible",
+      "citation": "Releases API (latest published_at 2026-08-07T10:53:52Z); Commits API (latest 2026-08-14T13:43:15Z, the same day as this research)",
+      "rationale": "Classification here means 'at-risk-of-abandonment is NOT expressible/supportable as a finding' — i.e. the brief's abandonment flag does not apply. The most recent tagged release (v8.0.0-rc.1, 2026-08-07) and the most recent repository commit (2026-08-14, the date of this research) both fall far inside the 18-months-before-August-2026 window (since roughly February 2025) the brief specifies. The repository is not at risk of abandonment by this test. The one nuance worth weighing separately (see limitations) is that the actively-committed default branch is a pre-1.0 rewrite ('Prisma Next'), while CONTRIBUTING.md itself names 'Prisma 7' — kept on a separate v7 branch — as the version 'recommended for production today'; this research did not separately measure the v7 branch's own release/commit cadence."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "prisma GOVERNANCE.md",
+      "prisma foundation governance",
+      "prisma license change SSPL BSL",
+      "prisma abandoned deprecated",
+      "prisma Next pre-1.0 stability"
+    ],
+    "where_searched": [
+      "GitHub REST API and raw.githubusercontent.com for prisma/prisma (LICENSE, CONTRIBUTING.md, GOVERNANCE.md direct-path check)",
+      "www.prisma.io/about"
+    ],
+    "search_date": "2026-08-14",
+    "result": "Found a direct, load-bearing contrary/complicating nuance rather than a simple absence: CONTRIBUTING.md's own 'Status — please read first' section states the default branch ('Prisma Next') is pre-1.0 with breaking changes expected between minor versions, and explicitly redirects production users to the separate v7 branch. This means the very high commit/release cadence observed on the default branch should not, on its own, be read as 'the stable product Gigacron would depend on is under heavy active development' without the caveat that a meaningful share of that activity is pre-1.0 rewrite work. No license-change controversy (e.g. a move to a source-available license, which some commercially-backed open-source projects have done) was found for prisma/prisma; the LICENSE file confirms Apache-2.0 as of the retrieval date, with no dual-licensing or field-of-use restriction text found in the same file."
+  }
+}

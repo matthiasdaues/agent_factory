@@ -1,0 +1,52 @@
+{
+  "source_identity": "PlantUML Language Reference Guide — Preprocessing (plantuml.com/preprocessing, §'Including files or URL' and §'Including Subpart'), cross-checked against a PlantUML community Q&A thread on composite keys (forum.plantuml.net/14467)",
+  "author_or_issuing_body": "Arnaud Roques and the PlantUML project contributors (plantuml.com); an anonymous community member (forum question, 2021-08-29) on the PlantUML Q&A forum",
+  "publisher": "plantuml.com (official documentation) and forum.plantuml.net (PlantUML's own community Q&A site, linked from CONTRIBUTING.md as the canonical support channel)",
+  "publication_date": "2026-08-14T00:00:00Z",
+  "relevant_event_date": "2021-08-29",
+  "source_family": "plantuml.com official documentation (same family as source-plantuml-ie-notation.json and source-plantuml-ie-validation-exit.json) for the preprocessing/!include evidence; forum.plantuml.net (PlantUML project's own community support forum, linked from the project's official CONTRIBUTING.md as a sanctioned support channel, but user-generated and therefore SECONDARY, not primary, evidence) for the composite-key thread — the forum thread is not from the same family as the documentation and is used only as corroborating, non-authoritative evidence per the brief's rule that secondary sources are leads, never sole evidence",
+  "precise_evidence_location": "plantuml.com/preprocessing, §'Including files or URL [!include, !include_many, !include_once]' and §'Including Subpart [!startsub, !endsub, !includesub]'; forum.plantuml.net/14467/relations-relation-containing-multiple-members-composed (question text, posted 2021-08-29, category 'Question / help')",
+  "method": "Direct HTTP retrieval of the live plantuml.com/preprocessing page (curl, tag-stripped); WebFetch-based extraction of the forum thread's verbatim question text (forum threads render via client-side JS in places, so WebFetch's rendered-text extraction was used rather than raw curl)",
+  "limitations": "The forum thread is a single unanswered (as observed) community question from 2021; it demonstrates that a user wanted a composite-key relation construct and, as far as the visible page content shows, received no documented built-in answer — but a forum thread showing no answer is not proof that no answer exists elsewhere (e.g. in a later doc update); it is used here only as a corroborating data point alongside the documentation's own silence on the topic (see source-plantuml-ie-notation.json's composite-key interpretation), not as the sole evidence for that classification. The !include/!includesub mechanism was read from the docs directly and not exercised (no PlantUML installation was run, per the assignment's boundary against running or rendering anything).",
+  "provenance": "Preprocessing page fetched live via HTTPS from plantuml.com on 2026-08-14 in this research session (curl to /tmp/pu_pre.html, tag-stripped). Forum thread fetched live via WebFetch on 2026-08-14. Re-verify by fetching https://plantuml.com/preprocessing and https://forum.plantuml.net/14467/relations-relation-containing-multiple-members-composed directly.",
+  "raw_evidence": [
+    {
+      "quote": "Use the !include directive to include file in your diagram. Using URL, you can also include file from Internet/Intranet. ... Imagine you have the very same class that appears in many diagrams. Instead of duplicating the description of this class, you can define a file that contains the description. ... By default, a file can only be included once. You can use !include_many instead of !include if you want to include some file several times. Note that there is also a !include_once directive that raises an error if a file is included several times.",
+      "locator": "plantuml.com/preprocessing, §'Including files or URL [!include, !include_many, !include_once]'",
+      "url": "https://plantuml.com/preprocessing"
+    },
+    {
+      "quote": "You can also use !startsub NAME and !endsub to indicate sections of text to include from other files using !includesub. ... file2.puml\n@startuml\ntitle this contains only B and D\n!includesub file1.puml!BASIC\n@enduml\nThis file would be rendered exactly as if:\n@startuml\ntitle this contains only B and D\nB -> B : stuff2\nD -> D : stuff4\n@enduml",
+      "locator": "plantuml.com/preprocessing, §'Including Subpart [!startsub, !endsub, !includesub]'",
+      "url": "https://plantuml.com/preprocessing"
+    },
+    {
+      "quote": "How could I paint relations containing 'composed keys', a relation between multiple columns in both classes? Foo2::(column2,column3,column4) --> Foo1::(column2,column3,column4). I only know how to paint relations between individual class members, for example Foo2::column1 --> Foo1::column1",
+      "locator": "forum.plantuml.net/14467, question body, posted 2021-08-29, 'Question / help' category",
+      "url": "https://forum.plantuml.net/14467/relations-relation-containing-multiple-members-composed"
+    }
+  ],
+  "interpretation": {
+    "named_subset_views_over_one_model": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "plantuml.com/preprocessing §'Including Subpart [!startsub, !endsub, !includesub]'",
+      "rationale": "PlantUML does have a genuine named-subset-of-source-text mechanism: authors wrap named blocks in !startsub NAME / !endsub inside one source file, and a separate diagram file pulls in only the named block(s) via !includesub. This is real, documented grammar, not user convention. However, it is a TEXT-inclusion mechanism operating on line ranges tagged by the author, not a model-aware VIEW mechanism: it has no concept of 'entity', 'relationship', or 'this entity's neighbours' the way Structurizr's views do. To produce a readable subset diagram of, say, 6 of 25 entities and only the relationships among them, the author must manually decide which lines belong to which named sub-block and manually keep the tags in sync as the model evolves — there is no query like 'give me EntityX and everything within 1 hop.' The materially different, and more commonly used, alternative documented on the same page is !include of a shared file containing entity definitions, then writing several independent top-level @startuml/@enduml diagrams that each include a different combination of shared files — i.e., several separate diagram files sharing common entity text, not named views computed over one single source model. Both routes exist and are recorded distinctly; neither is a semantic view mechanism, so this is classified as expressible-only-via-workaround rather than expressible."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "plantuml named view subset diagram",
+      "plantuml !include multiple diagrams",
+      "plantuml large diagram split entities",
+      "plantuml composite key workaround",
+      "plantuml Structurizr-style views"
+    ],
+    "where_searched": [
+      "plantuml.com/preprocessing (full page text)",
+      "forum.plantuml.net (one thread retrieved directly; no site-wide search performed within this session's time budget)",
+      "general web search (WebSearch tool, for the composite-key query covered in the companion notation record)"
+    ],
+    "search_date": "2026-08-14",
+    "result": "Found: a real but text-level (not model-level) named-subset mechanism (!includesub), and a separate, materially different multi-file composition mechanism (!include of shared entity definitions across independent diagram files). NOT found: any PlantUML feature described as a 'view', 'viewpoint', or model-aware filtered projection in the terminology Structurizr uses. NOT found: any built-in composite-key, multi-column UNIQUE, or cross-cutting-convention construct anywhere searched (consistent with, and reusing the same negative finding as, source-plantuml-ie-notation.json). This record's overall unresolved gap: whether the parser rejects a relationship referencing an undeclared entity (vs. silently auto-creating an empty box for it) was not confirmed against a primary source within this session — flagged identically in source-plantuml-ie-validation-exit.json as the single most important open question for the semantic-validation research question, since it bears directly on whether PlantUML could ever be extended into a genuine schema-consistency gate."
+  }
+}

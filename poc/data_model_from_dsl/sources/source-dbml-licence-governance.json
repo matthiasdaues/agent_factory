@@ -1,0 +1,81 @@
+{
+  "source_identity": "holistics/dbml LICENSE file (raw), CONTRIBUTING.md, README.md 'Community Contributions' section, CHANGELOG.md, and repository metadata (pushed_at, default branch activity) via the GitHub API",
+  "author_or_issuing_body": "Holistics Software Pte Ltd",
+  "publisher": "GitHub, Inc. (github.com/holistics/dbml)",
+  "publication_date": "2026-08-14T07:33:24Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "holistics/dbml source-code family (repository root files: LICENSE, CONTRIBUTING.md, README.md, CHANGELOG.md, and repo metadata) — same family as source-dbml-tooling.json and source-dbml-generation.json, distinct from the dbml-homepage docs family in source-dbml-grammar.json",
+  "precise_evidence_location": "LICENSE (full file, root of repository); CONTRIBUTING.md, 'Not sure where to start?' section (references 'Holistics Organization' on GitHub, no separate GOVERNANCE.md exists in repo root per the file listing retrieved); CHANGELOG.md, entries for v10.1.1 (2026-08-14) and v10.1.0 (2026-08-13); GitHub API `repos/holistics/dbml` field `pushed_at`; GitHub API `repos/holistics/dbml/tags` (v10.1.1 as newest tag)",
+  "method": "Direct retrieval of the LICENSE, CONTRIBUTING.md, README.md, and CHANGELOG.md raw file contents via `gh api repos/holistics/dbml/contents/<path>`, and of repository/tag metadata via `gh api repos/holistics/dbml` and `gh api repos/holistics/dbml/tags`",
+  "limitations": "No dedicated GOVERNANCE.md or MAINTAINERS.md file was found in the repository root listing (`.github`, `.gitignore`, CHANGELOG.md, CODE_OF_CONDUCT.md, CONTRIBUTING.md, LICENSE, README.md, bearer.yml, dbml-homepage, dbml-playground, lerna.json, package.json, packages, tsconfig.json, vitest.config.ts, yarn.lock) — the single-vendor governance conclusion rests on CONTRIBUTING.md's own description ('hosted in the Holistics Organization on GitHub') plus the observed pattern that all recent CHANGELOG committers (NQPhuc, huydo862003, Tho Nguyen Xuan) appear to be Holistics staff or closely affiliated contributors, not on an explicit self-description as 'single-vendor governed'. The GitHub REST /releases endpoint returned an empty array for this repository (confirmed both via `gh api repos/holistics/dbml/releases` and by WebFetch of the Releases tab, which read 'There aren't any releases here') — version history is tracked via git tags and CHANGELOG.md (Lerna-based versioning) rather than GitHub's Releases feature, which is a structural quirk worth noting for anyone re-verifying via the Releases UI expecting to find dated release notes there.",
+  "provenance": "Retrieved 2026-08-14 via `gh api repos/holistics/dbml/contents/LICENSE --jq '.content' | base64 -d` (cross-checked with WebFetch of the raw LICENSE URL), `gh api repos/holistics/dbml/contents/CONTRIBUTING.md`, `gh api repos/holistics/dbml/contents/README.md`, `gh api repos/holistics/dbml/contents/CHANGELOG.md`, `gh api repos/holistics/dbml --jq '{full_name, pushed_at, updated_at, license: .license.spdx_id, archived}'`, `gh api repos/holistics/dbml/tags`, and `gh api repos/holistics/dbml/commits?per_page=1`. Re-verify with the same commands against the live repository.",
+  "raw_evidence": [
+    {
+      "quote": "Apache License, Version 2.0 ... Copyright 2019 Holistics Software Pte Ltd.",
+      "locator": "LICENSE file, header/copyright line, root of holistics/dbml",
+      "url": "https://raw.githubusercontent.com/holistics/dbml/master/LICENSE"
+    },
+    {
+      "quote": "{\"archived\":false,\"full_name\":\"holistics/dbml\",\"license\":\"Apache-2.0\",\"pushed_at\":\"2026-08-14T07:33:24Z\",\"updated_at\":\"2026-08-14T07:33:30Z\"}",
+      "locator": "GitHub REST API, GET /repos/holistics/dbml",
+      "url": "https://api.github.com/repos/holistics/dbml"
+    },
+    {
+      "quote": "{\"name\":\"v10.1.1\"} {\"name\":\"v10.1.1-alpha.0\"} {\"name\":\"v10.1.0\"} {\"name\":\"v10.1.0-alpha.0\"} {\"name\":\"v10.0.0\"}",
+      "locator": "GitHub REST API, GET /repos/holistics/dbml/tags (5 most recent)",
+      "url": "https://api.github.com/repos/holistics/dbml/tags"
+    },
+    {
+      "quote": "## v10.1.1 (2026-08-14)\n\n#### :bug: Bug Fix\n* `dbml-cli`, `dbml-connector`, `dbml-core`, `dbml-parse`\n  * [#958] Resolve a dep block through the symbol table ([@NQPhuc])",
+      "locator": "CHANGELOG.md, top entry",
+      "url": "https://github.com/holistics/dbml/blob/master/CHANGELOG.md"
+    },
+    {
+      "quote": "The following is a set of guidelines for contributing to DBML and its packages, which are hosted in the [Holistics Organization](https://github.com/holistics) on GitHub.",
+      "locator": "CONTRIBUTING.md, opening paragraph",
+      "url": "https://github.com/holistics/dbml/blob/master/CONTRIBUTING.md"
+    },
+    {
+      "quote": "DBML uses PEG.js library to parse different database languages ... Check out DBML website for more documentation on DBML syntax.",
+      "locator": "CONTRIBUTING.md, 'Not sure where to start?' section",
+      "url": "https://github.com/holistics/dbml/blob/master/CONTRIBUTING.md"
+    },
+    {
+      "quote": "Comes with a free, simple database visualiser at dbdiagram.io ... Also comes with a free database documentation app at dbdocs.io",
+      "locator": "README.md, 'Benefits' section",
+      "url": "https://github.com/holistics/dbml/blob/master/README.md"
+    }
+  ],
+  "interpretation": {
+    "licence": {
+      "classification": "expressible",
+      "citation": "LICENSE file, root of holistics/dbml",
+      "rationale": "Not a construct classification — recorded per the brief's mandatory licence field. SPDX identifier Apache-2.0, confirmed both by direct LICENSE-file text ('Apache License, Version 2.0 ... Copyright 2019 Holistics Software Pte Ltd') and independently by the GitHub API's own license detection (`license.spdx_id: Apache-2.0`), two convergent readings of the same underlying file (same source family, not independent corroboration)."
+    },
+    "governance_model": {
+      "classification": "expressible",
+      "citation": "CONTRIBUTING.md opening paragraph; README.md 'Benefits' section naming dbdiagram.io and dbdocs.io as commercial products from the same team",
+      "rationale": "Single-vendor governance: the project is hosted under, and its commit history dominated by, the Holistics organization/company (Holistics Software Pte Ltd, the same entity that owns the commercial dbdiagram.io and dbdocs.io products DBML feeds into). No GOVERNANCE.md, MAINTAINERS.md, or foundation charter exists in the repository; CONTRIBUTING.md describes a conventional PR/issue workflow but names no independent steering body. This is an interpretation drawn from the absence of governance documents plus the observed hosting/commit pattern, not from an explicit maintainer statement of governance model."
+    },
+    "freshness_and_abandonment_risk": {
+      "classification": "expressible",
+      "citation": "GitHub API repos/holistics/dbml pushed_at = 2026-08-14T07:33:24Z; CHANGELOG.md top entries v10.1.1 (2026-08-14), v10.1.0 (2026-08-13), v10.0.0 (2026-08-10)",
+      "rationale": "Not at risk of abandonment: both the most recent tagged release (v10.1.1) and the most recent repository push are dated 2026-08-14, the day of this research — well inside the brief's 18-month freshness window (since roughly February 2025). The CHANGELOG shows near-daily releases through August 2026, indicating active, ongoing maintenance rather than a stale project."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "holistics dbml GOVERNANCE.md",
+      "holistics dbml MAINTAINERS.md",
+      "dbml license change relicense",
+      "dbml abandoned unmaintained"
+    ],
+    "where_searched": [
+      "holistics/dbml repository root file listing (via GitHub Contents API)",
+      "CONTRIBUTING.md and README.md full text",
+      "GitHub repository metadata (pushed_at, archived flag) and tags/commits API"
+    ],
+    "search_date": "2026-08-14",
+    "result": "No GOVERNANCE.md or MAINTAINERS.md file exists in the repository (confirmed by the full root directory listing: .github, .gitignore, CHANGELOG.md, CODE_OF_CONDUCT.md, CONTRIBUTING.md, LICENSE, README.md, bearer.yml, dbml-homepage, dbml-playground, lerna.json, package.json, packages, tsconfig.json, vitest.config.ts, yarn.lock — no governance-named file present). The repository is not archived (`archived: false`) and shows commit/push activity on the day of this research, directly contradicting any abandonment concern; no evidence of a relicensing event was found."
+  }
+}

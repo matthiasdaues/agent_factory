@@ -50,8 +50,17 @@ export default function (pi: ExtensionAPI) {
 
     if (createsStandaloneBranch(command)) {
       return blocked(
-        "standalone branch creation is forbidden. Create the branch and its linked worktree atomically with: git worktree add -b <branch> <worktree-path> <base>.",
+        "standalone branch creation is forbidden. Create the branch and its linked worktree atomically with: git worktree add -b <branch> .agent-factory/worktrees/<branch> <base>.",
       );
+    }
+
+    if (/^git\s+worktree\s+add\s/.test(command)) {
+      const wtPath = extractWorktreePath(command);
+      if (wtPath && !wtPath.startsWith(".agent-factory/worktrees/")) {
+        return blocked(
+          `worktrees must be created under .agent-factory/worktrees/. Got: ${wtPath}`,
+        );
+      }
     }
 
     if (/^git\s+commit(\s|$)/.test(command)) {
@@ -119,6 +128,19 @@ function firstMergeBranch(command: string) {
   for (const token of rest.split(/\s+/)) {
     if (!token || token.startsWith("-")) continue;
     return token;
+  }
+  return null;
+}
+
+function extractWorktreePath(command: string) {
+  const rest = command.replace(/^git\s+worktree\s+add\s+/, "");
+  const tokens = rest.split(/\s+/);
+  let skipNext = false;
+  for (const tok of tokens) {
+    if (skipNext) { skipNext = false; continue; }
+    if (tok === "-b" || tok === "-B") { skipNext = true; continue; }
+    if (tok.startsWith("-")) continue;
+    return tok;
   }
   return null;
 }

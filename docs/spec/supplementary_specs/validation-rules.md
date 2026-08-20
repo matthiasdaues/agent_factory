@@ -1,4 +1,4 @@
-# Validation Rules — Factory Flow Control
+# Validation Rules — Factory Specification
 
 Field- and behavior-level rules each mechanism enforces, grouped by the entity or mechanism they govern. Business rule IDs (BR-###) are defined here or in the use case that introduces them; this file is the canonical index.
 
@@ -40,7 +40,7 @@ This resolution order is why `halt_conditions` must name the **author** state be
 - **Never** a blanket bypass: `--dangerously-skip-permissions` (Claude Code) and `--allow-all-tools` (Copilot CLI) are excluded from the background-mode command construction entirely — there is no flag path that reaches them from `trigger agent ... --background`.
 - **Never** a bare interpreter wildcard: an allowlist entry that only scopes the outer command while leaving `python3 *`, `uv *`, `uvx *`, or `npm *` unscoped is treated as equivalent to no scoping, and is excluded on that basis.
 - Every allowlist entry is derived from a command literally observed in this repo's own playbooks, skills, agents, and config files — grep-verified, not guessed ahead of a real need, per [YAGNI](../../../factory/rulebooks/conventions/foundational-principles.md#yagni). Adding a new entry requires the same evidence standard.
-- Claude Code's allow/deny lists use its own `Bash(<cmd> *)` glob syntax; Copilot CLI's use its colon-wildcard `shell(<cmd>:*)` syntax. The two-word-prefix form (`shell(git commit:*)`) is confirmed against GitHub's own documentation; the three-word forms (`shell(uv run pytest:*)`) follow the same pattern but are unconfirmed — see [T-05](../todos.md#t-05-copilot-three-word-shell-wildcard-syntax-unconfirmed).
+- Claude Code's allow/deny lists use its own `Bash(<cmd> *)` glob syntax; Copilot CLI's use its colon-wildcard `shell(<cmd>:*)` syntax. The two-word-prefix form (`shell(git commit:*)`) is confirmed against GitHub's own documentation; the three-word forms (`shell(uv run pytest:*)`) follow the same pattern but are unconfirmed — see [T-05](../todos.md#t-05-copilot-clis-three-word-shell-wildcard-syntax-unconfirmed).
 - The deny list mirrors [`block-dangerous-git.sh`](../../../factory/config/hooks/block-dangerous-git.sh)'s own pattern list exactly (BR-020) — a second, independent layer, not a substitute for it.
 - `--interactive` mode constructs no allow/deny list at all; it launches a live session the actor controls directly, after printing the composed prompt (BR-013).
 
@@ -102,6 +102,34 @@ This resolution order is why `halt_conditions` must name the **author** state be
 
 The `script_exit_zero` condition evaluator (currently stubbed per [T-03](../todos.md#t-03-script_exit_zero-condition-type-is-stubbed)) will invoke `run-tests` and read its exit code; the JSON summary on stdout is for human/log consumption, not for the gate's pass/fail decision.
 
+## Architecture model invariants (BR-050, BR-051, BR-052)
+
+- **BR-050**: The JSONC model (`docs/arc42/architecture.jsonc`) is the single source of truth for architectural structure: elements, relationships, views, and constraints. The draw.io file (`docs/arc42/architecture.drawio`) owns layout and visual arrangement. Neither file is authoritative for the other's domain.
+- **BR-051**: The Factory workflow permits only label and description text to change via draw.io reverse sync. Element creation, deletion, and structural renaming are workflow-permitted only through the JSONC-first path. The `bausteinsicht sync` command itself performs a full, unrestricted reverse pass — it carries back all draw.io changes, including structural ones, into the JSONC model. Enforcement of the labels-only workflow restriction relies on `bausteinsicht validate` catching structural drift after the fact, and on the pre-commit hook (BR-056) blocking commits that contain such drift. No `--reverse-mode=labels-only` flag exists in the first release. See [T-11](../todos.md#t-11-no-restricted-reverse-mode-flag-in-first-release).
+- **BR-052**: Factory agents work in the JSONC model exclusively. An agent never edits the draw.io file directly. This constraint is enforced by skill and agent instructions, not by a mechanical gate.
+
+## Architecture Docker execution (BR-053)
+
+- **BR-053**: All Bausteinsicht operations run inside a Docker container via the `factory/scripts/bausteinsicht` wrapper. The Factory does not install the Bausteinsicht binary directly on the host. The wrapper requires a running Docker daemon and exits non-zero if Docker is unavailable.
+
+## Architecture pre-commit validation (BR-054, BR-055, BR-056)
+
+- **BR-054**: Co-staging enforcement: the pre-commit hook rejects a commit when `architecture.jsonc` is staged without `architecture.drawio`, or vice versa. Both files must be staged together to pass the hook.
+- **BR-055**: The pre-commit hook fires conditionally. It checks whether any files matching `*.jsonc` or `*.drawio` under `docs/arc42/` appear in the staging area (`git diff --cached --name-only`). If no such files are staged, the hook is a no-op and exits `0` immediately. Files with those extensions outside `docs/arc42/` do not trigger the hook.
+- **BR-056**: `bausteinsicht validate` checks structural consistency between the JSONC model and the draw.io diagram (schema, referential integrity, element correspondence). `bausteinsicht lint` checks architectural constraints declared in the JSONC model's `constraints` array. Both must pass for the pre-commit hook to allow the commit.
+
+## Architecture image export (BR-057)
+
+- **BR-057**: Exported images are written to `docs/assets/images/`. Arc42 chapters embed them with relative image references to this path (e.g. `SystemContext.png` for the System Context view). The filenames are derived from view names in the JSONC model.
+
+## Architecture migration (BR-058)
+
+- **BR-058**: Migration via `bausteinsicht import` is a one-time operation that produces `architecture.jsonc` and an initial `architecture.drawio` from an existing Structurizr DSL file. The command refuses to run if `architecture.jsonc` already exists at the target path. After verification, the `.dsl` file is deleted manually by the actor; the import command does not delete it.
+
+## Architecture lint delegation (BR-059)
+
+- **BR-059**: `arch-lint` delegates model-specific checks to `bausteinsicht validate` and `bausteinsicht lint`, retaining its own Factory-specific checks (arc42 chapter coupling, ADR format, image staleness). The condition for running the delegated checks is the existence of `architecture.jsonc` (replacing the previous `architecture.dsl` condition). When `architecture.jsonc` is absent, `arch-lint` skips the delegated checks and runs only its own Factory-specific checks.
+
 ## Referenced from
 
 - [entity-model.md](entity-model.md)
@@ -112,3 +140,8 @@ The `script_exit_zero` condition evaluator (currently stubbed per [T-03](../todo
 - [UC-08](../use_cases/UC-08-initialize-agent-factory-into-a-project.md)
 - [UC-09](../use_cases/UC-09-run-tests-via-hook.md)
 - [UC-11](../use_cases/UC-11-cross-a-phase-boundary.md)
+- [UC-13](../use_cases/UC-13-synchronize-model-and-diagram.md)
+- [UC-14](../use_cases/UC-14-validate-model-consistency.md)
+- [UC-15](../use_cases/UC-15-export-architecture-views.md)
+- [UC-16](../use_cases/UC-16-migrate-from-structurizr-dsl.md)
+- [UC-17](../use_cases/UC-17-validate-architecture-at-commit.md)

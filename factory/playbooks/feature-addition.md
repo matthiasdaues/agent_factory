@@ -71,11 +71,41 @@ Read the proposal and its referenced boundaries.
   moves it to `open`.
 - **`open`** → Review or grill the proposal in place. Resolve every Open
   Question as a decision, explicit assumption, or deferral.
-- **`accepted`** → Preserve its recorded baseline and continue to Step 0.3.
+- **`accepted`** → Preserve its recorded baseline and continue to Step 0.2.
 - **`implemented`, `cancelled`, or `superseded`** → Stop; this playbook cannot
   open implementation from a closed proposal.
 
 Grilling may make an artifact ready for acceptance, but cannot accept it.
+
+**Token discipline — grill before dispatch.** The orchestrating session (not a
+spawned subagent) owns the grilling interview. Complete all design questions and
+resolve Open Questions here, in direct conversation with the stakeholder. The
+requirements-agent then receives a decision-complete proposal and performs
+mechanical spec derivation without interactive round-trips. Each subagent
+suspend/resume cycle replays its full context; grilling inside a subagent
+multiplies cost by the number of questions asked.
+
+### Step 0.1a — Charter Amendment Check
+
+**Manual decision**: Does this feature require charter amendments?
+
+Read [`docs/charter/`](../../docs/charter/) to understand current declarations
+for tech stack, development practices, and house rules.
+
+**If no amendments needed** → Skip to Step 0.2.
+
+**If amendments needed**:
+
+1. Invoke [`update-charter`](../skills/update-charter/SKILL.md) to update the
+   relevant section(s) of `docs/charter/tech-stack.md`,
+   `docs/charter/development.md`, or `docs/charter/house-rules.md`.
+2. Run `factory/scripts/charter-lint --planning-gate` on changed documents to
+   ensure completeness.
+3. If new decisions emerge that imply infrastructure, setup, or configuration
+   artifacts not already in the repository, derive corresponding Epic 0 stories
+   (using the [`capture-charter`](../skills/capture-charter/SKILL.md) Step 3
+   workflow as reference).
+4. Proceed to Step 0.2.
 
 ### Decision Point 0.2 — Accept
 
@@ -115,6 +145,14 @@ confirmation for each routine reversible step. Existing decision points remain:
 stakeholders still approve requirements, architecture decisions, backlog scope,
 destructive cleanup, and any response to a stop condition. Batching must not be
 used to infer broader authority.
+
+**Token discipline — fresh agents for review-fix loops.** When a review finds
+defects and the loop returns to the authoring step, spawn a fresh agent for the
+fix pass rather than resuming the original. The original agent's context
+contains the full grilling transcript, every prior tool call, and every file
+read; resuming it replays all of that before the fix work begins. A fresh agent
+reads only the findings and the affected files, cutting the fix-cycle cost by
+50–70%.
 
 ## Phase 1: Requirements (If Specification Changes Are Needed)
 

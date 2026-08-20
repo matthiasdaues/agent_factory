@@ -1,0 +1,73 @@
+{
+  "source_identity": "linkml/linkml GitHub issue tracker — targeted search for gaps in composite-key, self-referencing, multi-schema, and generation-fidelity support",
+  "author_or_issuing_body": "LinkML project contributors and issue reporters (linkml/linkml GitHub repository)",
+  "publisher": "GitHub, Inc. (github.com, issue tracker for linkml/linkml)",
+  "publication_date": "2026-08-14T00:00:00Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "github-linkml-linkml-issues (distinct source family from the LICENSE/Releases family and from the linkml.io documentation family, though all trace to the same maintaining org)",
+  "precise_evidence_location": "GitHub issue linkml/linkml#3501, title 'gen-sqlddl emits foreign keys to inherited injected identifiers instead of a class's direct identifier', body describing FK target resolution defect; general issue-tracker search results for composite-key/self-referencing/multi-schema terms (see raw_evidence for exact search-result set).",
+  "method": "Targeted keyword search (WebSearch tool, restricted post-hoc to github.com/linkml results) against the linkml/linkml issue tracker and general web index for phrases naming each of the ten advanced constructs plus validator/Docker/subset/generation-fidelity topics, reading titles and summarized bodies of matching issues.",
+  "limitations": "This is a keyword-driven search of a public issue tracker via a general web search engine, not an exhaustive GitHub Issues API query with LinkML-specific labels; the true population of open/closed issues touching each construct may be larger than what surfaced in these search result pages, and issues using different terminology (e.g. 'primary key' vs 'identifier', or discussion buried in a closed/merged PR rather than an issue) would not have been found by this method. Only one directly on-topic issue (#3501) was confirmed found and read; absence of further hits for several constructs is recorded honestly as 'not found by this search', not as proof no such issue exists. No issue search was performed using GitHub's own issue search syntax (e.g. `repo:linkml/linkml is:issue \"composite key\"`) with an authenticated `gh` CLI in this pass — a stronger, more exhaustive contrary-evidence pass would use `gh issue list --repo linkml/linkml --search <term>` directly against the API rather than a general web search engine.",
+  "provenance": "Retrieved 2026-08-14 via WebSearch tool queries (not authenticated GitHub API calls) run against terms combining 'linkml' with 'composite key', 'multiple identifiers', 'self-referencing', and generator-specific terms; one result (linkml/linkml#3501) was read via its GitHub search-result summary. Re-verify by running `gh issue list --repo linkml/linkml --search \"<term>\"` for each construct term, or by browsing https://github.com/linkml/linkml/issues directly with the same search terms.",
+  "raw_evidence": [
+    {
+      "quote": "`gen-sqlddl` emits foreign keys to inherited injected identifiers instead of a class's direct identifier",
+      "locator": "GitHub issue linkml/linkml#3501, title",
+      "url": "https://github.com/linkml/linkml/issues/3501"
+    },
+    {
+      "quote": "the generated FK target was incorrectly pointing to Person.id when the Person table's direct identifier was name",
+      "locator": "GitHub issue linkml/linkml#3501, body summary",
+      "url": "https://github.com/linkml/linkml/issues/3501"
+    },
+    {
+      "quote": "the issue recommends that for generated relational tables, PK/FK resolution should prefer the class's direct identifier/key attribute rather than an inherited identifier",
+      "locator": "GitHub issue linkml/linkml#3501, body summary",
+      "url": "https://github.com/linkml/linkml/issues/3501"
+    },
+    {
+      "quote": "annotations schema does not support multiple values for an annotation key: need an Any type? · Issue #296 · linkml/linkml",
+      "locator": "search result title, unrelated LinkML issue surfaced by the same query batch (annotations, not the ten advanced constructs) — recorded for completeness, not used as evidence for any construct classification",
+      "url": "https://github.com/linkml/linkml/issues/296"
+    }
+  ],
+  "interpretation": {
+    "composite_pk_and_fk_generation_reliability": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "linkml/linkml#3501",
+      "rationale": "This issue is direct primary-source contrary evidence that even LinkML's SINGULAR-identifier foreign-key generation logic (the simpler case than any composite key) has had a real, reported defect in FK target resolution when identifiers are inherited. Combined with the metamodel finding that LinkML caps a class at one identifier/key slot (source-linkml-metamodel.json), this issue reinforces that composite-identity FK generation is not a mature, battle-tested path in LinkML's SQL DDL generator — it strengthens rather than contradicts the 'expressible-only-via-workaround' classification recorded for composite primary keys."
+    },
+    "self_referencing_fk_gap_search": {
+      "classification": "not-expressible",
+      "citation": "no issue found",
+      "rationale": "No open issue was found via this search method describing a limitation specific to multiple self-referencing foreign keys on one class. This is recorded as an explicit non-finding: the search did not surface evidence either confirming a gap or ruling one out, which leaves the metamodel-level 'expressible' classification (source-linkml-metamodel.json, based on the general range mechanism) unopposed but also not independently corroborated by a real-world issue report."
+    },
+    "multi_schema_gap_search": {
+      "classification": "not-expressible",
+      "citation": "no issue found",
+      "rationale": "No open issue was found describing a feature request or limitation for mapping one LinkML schema's classes to multiple distinct database schemas within one physical database. This absence is consistent with (does not contradict) the metamodel-record finding that the SQL DDL generator's documented algorithm is one-LinkML-schema-to-one-DB-schema, but it is also possible relevant discussion exists under different terminology not captured by this search."
+    },
+    "docker_svg_png_and_subset_view_gap_search": {
+      "classification": "not-expressible",
+      "citation": "no additional issue found beyond the erdiagram page's own documented limitation (source-linkml-tooling.json)",
+      "rationale": "No GitHub issue was found in this search pass either confirming plans to add SVG/PNG export to gen-erdiagram or disputing the documented PNG/PDF limitation quoted directly from the generator's own docs page. The documented limitation stands as the primary evidence; the issue-tracker search neither strengthens nor weakens it."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "linkml site:github.com issues composite key",
+      "linkml site:github.com issues multiple identifiers",
+      "linkml site:github.com issues self-referencing",
+      "linkml gen-sqlddl foreign key identifier",
+      "linkml unique_keys not enforced OR not supported",
+      "linkml erdiagram SVG PNG export issue",
+      "linkml multiple database schemas issue"
+    ],
+    "where_searched": [
+      "general web search (WebSearch tool) with results manually filtered for github.com/linkml origin",
+      "no authenticated GitHub Issues API search was performed in this pass (recorded as a limitation above)"
+    ],
+    "search_date": "2026-08-14",
+    "result": "One directly relevant, on-topic issue was found and used as evidence: linkml/linkml#3501 (FK-to-identifier resolution defect in gen-sqlddl). No issues were found specifically discussing composite/compound primary keys as a feature gap, self-referencing foreign key limitations, multi-database-schema support, unique_keys-to-SQL-UNIQUE-constraint gaps, or SVG/PNG export requests for gen-erdiagram. Each of these is recorded as an explicit 'not found by this search' result rather than treated as a confirmed absence of any such issue anywhere in the tracker, given the search-method limitation noted above."
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "source_identity": "linkml/linkml GitHub repository — LICENSE file, Releases page, CONTRIBUTING.md, and GitHub organization page",
+  "author_or_issuing_body": "LinkML project (linkml GitHub organization; repository owner linkml)",
+  "publisher": "GitHub, Inc. (github.com, hosting the linkml/linkml repository)",
+  "publication_date": "2026-05-20T17:03:00Z",
+  "relevant_event_date": "2026-05-20",
+  "source_family": "github-linkml-linkml-repo (distinct from linkml-official-docs and from the Docker Hub registry family — this is the source code repository itself, read directly)",
+  "precise_evidence_location": "https://raw.githubusercontent.com/linkml/linkml/main/LICENSE (full license text); https://github.com/linkml/linkml/releases (release tag rows v1.11.1, v1.11.0, v1.11.0-rc3/rc2/rc1, v1.10.0, v1.10.0-rc5..rc2, v1.10.0-rc1 with dates); https://raw.githubusercontent.com/linkml/linkml/main/CONTRIBUTING.md (contribution-guidelines pointer and AI_COVENANT.md reference); https://github.com/linkml (organization page repo list and team-member list).",
+  "method": "Direct retrieval of the LICENSE file's raw text, the rendered GitHub Releases listing, the raw CONTRIBUTING.md file, and the GitHub organization landing page, reading dates, license text, and listed maintainers/team members as displayed.",
+  "limitations": "No GOVERNANCE.md or equivalent formal governance charter was located for the linkml/linkml repository itself in this search pass; the organization page shows named team members (cmungall, dalito, sierra-moxon, sujaypatil96, turbomam) but no documented decision-making process, term lengths, or voting rules for the LinkML project's own core repository — this absence is recorded as a genuine negative finding, not an oversight, and is distinct from an unrelated LinkML how-to guide (linkml.io/linkml/howtos/collaborative-development) that describes a generic 'Steering Council' governance template FOR OTHER PROJECTS that adopt LinkML, which must not be mistaken for LinkML's own governance (that guide explicitly cites external examples: Bioschemas, schema.org, GA4GH, Bioregistry). The release-date fetch was read from GitHub's rendered UI (relative/short dates like '20 May') via an intermediate summarization step rather than the raw API's ISO timestamps; the year is inferred from context (release-listing order and current date) rather than read as an explicit 4-digit year in the fetched text, and should be treated as approximate to the day shown but not independently re-verified against the GitHub REST API's created_at field in this pass.",
+  "provenance": "Retrieved 2026-08-14 via automated web fetch of https://raw.githubusercontent.com/linkml/linkml/main/LICENSE, https://github.com/linkml/linkml/releases, https://raw.githubusercontent.com/linkml/linkml/main/CONTRIBUTING.md, and https://github.com/linkml, plus a WebSearch for GOVERNANCE.md/steering-committee documentation that surfaced only the unrelated collaborative-development how-to guide. Re-verify by re-fetching the same URLs; all publicly accessible without authentication.",
+  "raw_evidence": [
+    {
+      "quote": "Apache License, Version 2.0, January 2004, http://www.apache.org/licenses/",
+      "locator": "LICENSE file, header",
+      "url": "https://raw.githubusercontent.com/linkml/linkml/main/LICENSE"
+    },
+    {
+      "quote": "perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable copyright license",
+      "locator": "LICENSE file, Grant of Copyright License section",
+      "url": "https://raw.githubusercontent.com/linkml/linkml/main/LICENSE"
+    },
+    {
+      "quote": "provided 'AS IS' BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND",
+      "locator": "LICENSE file, Disclaimer of Warranty section",
+      "url": "https://raw.githubusercontent.com/linkml/linkml/main/LICENSE"
+    },
+    {
+      "quote": "v1.11.1 — 20 May 17:03; v1.11.0 — 13 May 19:04; v1.11.0-rc3 — 07 May 19:38; v1.11.0-rc2 — 28 Apr 14:51; v1.11.0-rc1 — 02 Apr 13:19; v1.10.0 — 25 Feb 17:12",
+      "locator": "github.com/linkml/linkml/releases, release tag rows",
+      "url": "https://github.com/linkml/linkml/releases"
+    },
+    {
+      "quote": "v1.11.1 ... represents a re-release of v1.11.0-rc3 contents, as the original v1.11.0 was built from an incorrect commit and was subsequently removed from PyPI",
+      "locator": "github.com/linkml/linkml/releases, v1.11.1 release notes summary",
+      "url": "https://github.com/linkml/linkml/releases"
+    },
+    {
+      "quote": "AI Covenant - norms for AI-assisted contributions",
+      "locator": "CONTRIBUTING.md, reference to AI_COVENANT.md",
+      "url": "https://raw.githubusercontent.com/linkml/linkml/main/CONTRIBUTING.md"
+    },
+    {
+      "quote": "LinkML is described as 'a flexible modeling language that allows you to author schemas in YAML that describe the structure of your data'",
+      "locator": "github.com/linkml organization page, description",
+      "url": "https://github.com/linkml"
+    },
+    {
+      "quote": "team members: cmungall, dalito, sierra-moxon, sujaypatil96, turbomam",
+      "locator": "github.com/linkml organization page, People/team listing",
+      "url": "https://github.com/linkml"
+    }
+  ],
+  "interpretation": {
+    "licence": {
+      "classification": "expressible",
+      "citation": "LICENSE file header, 'Apache License, Version 2.0'",
+      "rationale": "The LICENSE file, read directly from the repository, is the Apache License 2.0 (SPDX identifier Apache-2.0) — an OSI-approved, permissive licence with no viral copyleft obligation, consistent with the artifact sitting in the project's critical path per the brief's source_requirements."
+    },
+    "governance": {
+      "classification": "not-expressible",
+      "citation": "No GOVERNANCE.md/MAINTAINERS.md found in linkml/linkml; CONTRIBUTING.md points only to an AI_COVENANT.md and generic contribution-guidelines page; github.com/linkml org page lists team members without a documented decision process",
+      "rationale": "No primary-source governance charter (steering council charter, BDFL statement, or foundation charter) was located for the LinkML project's own repository. What is visible is an informal maintainer/team-member list on the GitHub organization page. This is recorded as a negative finding per the evidence policy rather than inferred as 'informal community governance' from silence — the brief requires the governance field be 'sourced from the repository's LICENSE file and governance or CONTRIBUTING documentation', and that documentation, as searched, does not describe a governance model."
+    },
+    "last_release_and_activity_freshness": {
+      "classification": "expressible",
+      "citation": "github.com/linkml/linkml/releases, v1.11.1 dated 20 May (2026, inferred from listing order and current retrieval date of 2026-08-14)",
+      "rationale": "The most recent tagged release, v1.11.1, is dated within the 18-month freshness window (since roughly February 2025) relative to August 2026 by a wide margin — under three months before the August 2026 retrieval date. Repository activity (the v1.11.1 re-release note describing a same-day correction of a bad v1.11.0 build) also indicates active, recent maintenance. LinkML is not at risk of abandonment under the brief's freshness_requirements based on this evidence."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "linkml GOVERNANCE.md",
+      "linkml steering committee OR technical steering",
+      "linkml MAINTAINERS.md",
+      "linkml foundation charter Linux Foundation OR NumFOCUS"
+    ],
+    "where_searched": [
+      "github.com/linkml/linkml repository root (raw file fetch of CONTRIBUTING.md)",
+      "general web search (WebSearch tool), no domain restriction",
+      "github.com/linkml organization page"
+    ],
+    "search_date": "2026-08-14",
+    "result": "Search surfaced only linkml.io/linkml/howtos/collaborative-development, a how-to GUIDE for OTHER projects wanting to adopt a Steering-Council-style governance model when building on LinkML (citing Bioschemas, schema.org, GA4GH, Bioregistry as examples) — this is explicitly not a description of LinkML's own project governance and was not used as evidence for LinkML's governance field. No GOVERNANCE.md, MAINTAINERS.md, or foundation charter naming the LinkML project itself was found in the repository or via search. This is recorded as a confirmed absence, not an inference from reputation."
+  }
+}

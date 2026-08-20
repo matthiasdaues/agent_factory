@@ -1,0 +1,56 @@
+{
+  "source_identity": "Prisma ORM Documentation — CLI Reference ('prisma validate', 'prisma format') and dedicated 'prisma validate' command page",
+  "author_or_issuing_body": "Prisma Data, Inc. (Prisma documentation team)",
+  "publisher": "Prisma Data, Inc. (www.prisma.io)",
+  "publication_date": "2026-08-14T00:00:00Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "prisma-official-docs",
+  "precise_evidence_location": "www.prisma.io/docs/orm/reference/prisma-cli-reference, sections 'validate' (#validate) and 'format' (#format); www.prisma.io/docs/cli/validate (dedicated command page), 'Options' and example output sections. No visible last-updated date; retrieval date used per limitations.",
+  "method": "Retrieved via automated web fetch of the live documentation pages on 2026-08-14.",
+  "limitations": "No Prisma command was executed as part of this research (out of scope per task boundary), so exit-code behavior is reported strictly as documented, not as observed. Neither CLI reference page states an explicit numeric exit code for `prisma validate` or `prisma format --check` on failure; the finding that they 'fail' is inferred from the documented error-output examples and the `--check` flag's stated CI purpose, not from an explicit 'exit code N' sentence — this is a genuine documentation gap, recorded honestly rather than assumed. Corroborating community evidence (a third-party GitHub Marketplace Action named 'Prisma Schema Validate' that wraps `prisma validate` for CI use) was found via web search but is secondary and is not relied on as the sole support for the exit-code claim; it is recorded only as a lead. The cross-cutting-convention question (domain_id present on every Domain-owned table) was checked against the same CLI reference and the schema-reference attribute list; no built-in assertion mechanism for arbitrary cross-cutting naming/column conventions was found anywhere in these pages.",
+  "provenance": "Original source is the live Prisma documentation site, publicly readable, no authentication required. Re-verify at the URLs in raw_evidence[].url.",
+  "raw_evidence": [
+    {
+      "quote": "validate — Validates the Prisma Schema Language of the Prisma schema file.",
+      "locator": "Prisma CLI Reference, section 'validate' (#validate)",
+      "url": "https://www.prisma.io/docs/orm/reference/prisma-cli-reference#validate"
+    },
+    {
+      "quote": "format — Formats the Prisma schema file, which includes validating, formatting, and persisting the schema. ... --check: Fails if any files are unformatted. This can be used in CI to detect if the schema is formatted correctly.",
+      "locator": "Prisma CLI Reference, section 'format' (#format)",
+      "url": "https://www.prisma.io/docs/orm/reference/prisma-cli-reference#format"
+    },
+    {
+      "quote": "The schema at /absolute/path/prisma/schema.prisma is valid — [on failure, example output includes] Error code: P1012 ... The preview feature 'unknownFeatureFlag' is not known. ... Validation Error Count: 1",
+      "locator": "Dedicated 'prisma validate' command page, success and error example output",
+      "url": "https://www.prisma.io/docs/cli/validate"
+    }
+  ],
+  "interpretation": {
+    "validator_exit_code_behaviour": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "CLI Reference sections 'validate' (#validate) and 'format' (#format); dedicated 'prisma validate' page error-output example",
+      "rationale": "`prisma validate` exists and is documented to detect Prisma Schema Language errors, printing a distinct 'Error code' (e.g. P1012) and an error count on failure, and `prisma format --check` is explicitly documented as usable 'in CI to detect if the schema is formatted correctly' — both statements imply CI-gatable pass/fail behavior. However, neither page states an exit-code number outright, so the deterministic-CI-gate claim rests on the documented error-output-and-CI-usage pattern rather than an explicit contract sentence like factory/scripts/structurizr's documented exit-code behavior. This is recorded as 'expressible-only-via-workaround' in the sense that a CI gate could reasonably be built on this documented behavior, but doing so relies on inference (nonzero exit assumed from 'fails'/'error count' language) rather than a first-party documented exit-code guarantee."
+    },
+    "cross_cutting_convention_domain_id_on_every_domain_owned_table": {
+      "classification": "not-expressible",
+      "citation": "Prisma CLI Reference (no lint/rule mechanism found across 'validate', 'format', or any other listed subcommand)",
+      "rationale": "No built-in Prisma mechanism was found, in the CLI reference or the schema reference, for asserting an arbitrary cross-cutting convention such as 'every model in a given group must carry a domain_id field'. `prisma validate` checks Prisma Schema Language well-formedness (syntax, type references, attribute correctness), not user-defined semantic/naming rules across models. The only path to enforcing such a convention would be a custom script parsing the schema.prisma AST or generated DMMF (Data Model Meta Format) and failing CI itself — a workaround built entirely outside Prisma's own validator, analogous to a hand-written lint layered on top, not a capability of the language or its tooling."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "prisma validate exit code",
+      "prisma format --check CI",
+      "prisma schema custom lint rule",
+      "prisma validate non-zero exit",
+      "prisma schema convention enforcement"
+    ],
+    "where_searched": [
+      "www.prisma.io/docs (official documentation, via web fetch)",
+      "web search across github.com/prisma/prisma issues and GitHub Marketplace listings"
+    ],
+    "search_date": "2026-08-14",
+    "result": "No official Prisma documentation page was found stating an explicit exit-code contract for `prisma validate` or `prisma format --check`. A web search surfaced a third-party GitHub Marketplace Action ('Prisma Schema Validate') built around `prisma validate` for CI gating, and several prisma/prisma GitHub issues discussing CI failures around related commands (`prisma generate`, `prisma format`) with nonzero exit codes in practice — these are consistent with, but do not constitute primary-source confirmation of, a documented exit-code contract. No mechanism for asserting cross-cutting naming/column conventions (like a required domain_id field) was found anywhere in the CLI or schema reference; this is recorded as a confirmed absence in the primary docs, not merely an unexplored gap."
+  }
+}

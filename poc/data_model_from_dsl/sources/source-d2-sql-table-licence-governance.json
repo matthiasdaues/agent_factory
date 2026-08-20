@@ -1,0 +1,80 @@
+{
+  "source_identity": "d2lang/d2 repository LICENSE.txt, THIRD_PARTY_NOTICES.txt, docs/CONTRIBUTING.md, and docs/tour/tala.md (TALA licensing distinction); GitHub repository metadata (activity/release dates)",
+  "author_or_issuing_body": "d2lang (Terrastruct Inc.) for D2 itself; Terrastruct Inc. separately for TALA",
+  "publisher": "GitHub repository d2lang/d2 (formerly terrastruct/d2) for the LICENSE/CONTRIBUTING files; d2lang.com for the TALA docs page; GitHub REST API for repository/commit/release metadata",
+  "publication_date": "2026-08-12T03:14:31Z",
+  "relevant_event_date": "2026-08-12",
+  "source_family": "d2lang/d2 repository root files (LICENSE.txt, THIRD_PARTY_NOTICES.txt, docs/CONTRIBUTING.md) — one source family, the repository itself; the TALA docs page and TALA's own GitHub repository description are a second, related-but-distinct source family (Terrastruct's separate commercial product); GitHub REST API responses for repo/commits/releases are a third source family (platform metadata, not authored prose)",
+  "precise_evidence_location": "LICENSE.txt, first 5 lines (copyright + license name); THIRD_PARTY_NOTICES.txt, \"Dagro\" entry (first ~15 lines); docs/CONTRIBUTING.md \"Welcome\" and \"Logistics\" sections; docs/tour/tala.md \"Cons\" list and lines 8-10; GitHub API responses for repos/terrastruct/d2 (full_name, archived, pushed_at) and repos/terrastruct/d2/releases/latest (tag_name, published_at)",
+  "method": "Direct retrieval of LICENSE.txt, THIRD_PARTY_NOTICES.txt, and docs/CONTRIBUTING.md via raw.githubusercontent.com; direct retrieval of docs/tour/tala.md via the same route; direct queries against the GitHub REST API (`gh api repos/terrastruct/d2`, `gh api repos/terrastruct/d2/releases/latest`, `gh api repos/terrastruct/d2/commits?per_page=1`) for governance-adjacent and freshness metadata.",
+  "limitations": "No standalone GOVERNANCE.md or MAINTAINERS.md file was found in the repository root listing (`gh api repos/terrastruct/d2/contents/` shows no such file) — governance is inferred from CONTRIBUTING.md's informal, single-org-led tone ('we', 'our', Discord-based community support) plus the repository being owned by the d2lang GitHub organization, which is itself controlled by Terrastruct Inc. (the company also selling the commercial TALA layout engine). This is an inference from available evidence, not a citation to an explicit governance charter, since none exists to cite. The TALA licensing detail (Personal vs Enterprise pricing) was found via web search results referencing Hacker News and third-party commentary, not read directly from a primary TALA pricing/license document — that specific pricing detail is NOT included as evidence here for that reason; only the primary-sourced d2lang.com/tour/tala.md statement that TALA is a separate, proprietary, 'not free' install is used as evidence.",
+  "provenance": "LICENSE.txt and THIRD_PARTY_NOTICES.txt fetched via raw.githubusercontent.com/d2lang/d2/master/{LICENSE.txt,THIRD_PARTY_NOTICES.txt} on 2026-08-14. docs/CONTRIBUTING.md fetched the same way. docs/tour/tala.md fetched via raw.githubusercontent.com/d2lang/d2-docs/master/docs/tour/tala.md. GitHub metadata fetched via `gh api` calls against the GitHub REST API on 2026-08-14, using the terrastruct/d2 path which the API itself resolves to full_name d2lang/d2 (confirming an org rename, not a fork or unrelated repository).",
+  "raw_evidence": [
+    {
+      "quote": "Copyright 2022 Terrastruct Inc.\n\nMozilla Public License Version 2.0\n==================================",
+      "locator": "LICENSE.txt, lines 1-3",
+      "url": "https://raw.githubusercontent.com/d2lang/d2/master/LICENSE.txt"
+    },
+    {
+      "quote": "D2 Third-Party Notices\n\nDagro\nhttps://github.com/d2lang/dagro\n\nDagro is a Go port of the Dagre 3.1.1 layout surface used by D2 and the subset of Graphlib 4.0.5 required by that layout implementation.\n...\nMIT License\n\nCopyright (c) 2012-2014 Chris Pettitt",
+      "locator": "THIRD_PARTY_NOTICES.txt, \"Dagro\" entry, first ~15 lines",
+      "url": "https://raw.githubusercontent.com/d2lang/d2/master/THIRD_PARTY_NOTICES.txt"
+    },
+    {
+      "quote": "D2's long-term mission is to significantly reduce the amount of time and effort it takes to create and maintain high-quality diagrams for every software team. We started this because we love the idea of creating diagrams with text -- but it was clear the existing solutions were inadequete in their state and speed of execution for this idea to be widely usable.",
+      "locator": "docs/CONTRIBUTING.md, \"Welcome\" section",
+      "url": "https://raw.githubusercontent.com/d2lang/d2/master/docs/CONTRIBUTING.md"
+    },
+    {
+      "quote": "TALA is a separate install from D2, to keep a clean cut between 100% free and open-source D2, and proprietary, closed-source TALA. You can download it here...\n\n## Cons\n\n- Not free.",
+      "locator": "docs/tour/tala.md, lines 5-10 and 33-35",
+      "url": "https://raw.githubusercontent.com/d2lang/d2-docs/master/docs/tour/tala.md"
+    },
+    {
+      "quote": "{\"archived\":false,\"description\":\"D2 is a modern diagram scripting language that turns text to diagrams.\",\"full_name\":\"d2lang/d2\",\"html_url\":\"https://github.com/d2lang/d2\",\"owner\":\"d2lang\"}",
+      "locator": "GitHub REST API, GET /repos/terrastruct/d2",
+      "url": "https://api.github.com/repos/terrastruct/d2"
+    },
+    {
+      "quote": "pushed_at: 2026-08-12T04:44:59Z; latest commit author date: 2026-08-12T04:44:55Z",
+      "locator": "GitHub REST API, GET /repos/terrastruct/d2 (pushed_at field) and GET /repos/terrastruct/d2/commits?per_page=1",
+      "url": "https://api.github.com/repos/terrastruct/d2"
+    },
+    {
+      "quote": "{\"name\":\"v0.7.1\",\"published_at\":\"2025-08-19T13:50:56Z\",\"tag_name\":\"v0.7.1\"}",
+      "locator": "GitHub REST API, GET /repos/terrastruct/d2/releases/latest",
+      "url": "https://api.github.com/repos/terrastruct/d2/releases/latest"
+    }
+  ],
+  "interpretation": {
+    "licence": {
+      "classification": "expressible",
+      "citation": "LICENSE.txt, lines 1-3",
+      "rationale": "D2 itself (the language, compiler, and CLI in the d2lang/d2 repository) is licensed under the Mozilla Public License 2.0 (SPDX: MPL-2.0), a standard OSI-approved open-source license — a weak-copyleft, file-level license, not a restrictive or source-available license. This is read directly from LICENSE.txt, satisfying the source_requirements' instruction to read the licence file directly rather than a third-party summary. Distinct and separate from this: TALA, D2's optional, proprietary, non-default layout engine, is explicitly documented (docs/tour/tala.md) as 'proprietary, closed-source' and 'Not free' — a commercially licensed component sitting alongside, not inside, the MPL-2.0-licensed core. D2 functions fully without TALA (the default and Dagre/ELK layout engines are open-source and included), so the MPL-2.0 licence covers everything required for the survey's baseline use case; TALA is an optional upgrade with separate commercial terms, and this distinction is recorded exactly rather than blurred."
+    },
+    "governance": {
+      "classification": "expressible",
+      "citation": "docs/CONTRIBUTING.md \"Welcome\" and \"Logistics\" sections; absence of a GOVERNANCE.md/MAINTAINERS.md file in the repository root listing",
+      "rationale": "No formal governance charter exists in the repository. CONTRIBUTING.md's language ('We started this because we love...', 'We've tried our best...', branch-off-master / sign-your-commits process rules) reads as single-org, maintainer-directed governance rather than a foundation-governed or BDFL-with-documented-succession model. The repository is owned by the d2lang GitHub organization, which the TALA page and general knowledge of the project identify as controlled by Terrastruct Inc., the same company that sells the commercial TALA add-on. This is recorded as: governance model = single-vendor/company-led (Terrastruct Inc.), informal community contribution process via GitHub Issues/PRs and Discord, no documented foundation or steering-committee structure found."
+    },
+    "release_and_activity_freshness": {
+      "classification": "expressible",
+      "citation": "GitHub REST API: repos/terrastruct/d2 (pushed_at: 2026-08-12T04:44:59Z) and repos/terrastruct/d2/releases/latest (v0.7.1, published_at: 2025-08-19T13:50:56Z)",
+      "rationale": "Most recent tagged release: v0.7.1, published 2025-08-19 — within the 18-month freshness window before August 2026 (window starts ~February 2025). Most recent repository activity: a commit pushed 2026-08-12, four days before this record's retrieval date — well within the freshness window and indicating active, ongoing development on the master branch even though no new tagged release has shipped since August 2025. Per the brief's freshness_requirements, a candidate is flagged at-risk-of-abandonment only if BOTH the release date and the activity date fall outside the 18-month window; here activity is current and the release, while a year old, is also inside the window. D2 is NOT flagged at risk of abandonment on this evidence."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "GOVERNANCE.md d2lang",
+      "MAINTAINERS.md d2lang",
+      "d2 license restrictive",
+      "TALA commercial license enterprise"
+    ],
+    "where_searched": [
+      "d2lang/d2 GitHub repository root file listing (gh api repos/terrastruct/d2/contents/)",
+      "General web search for 'terrastruct d2 TALA license commercial layout engine'"
+    ],
+    "search_date": "2026-08-14",
+    "result": "No GOVERNANCE.md or MAINTAINERS.md file exists in the repository root — confirmed as a definite absence by listing the full root directory contents rather than guessing. Web search surfaced third-party commentary (a Hacker News comment) quoting a specific TALA licensing price, which was deliberately excluded from raw_evidence here because it is not a primary source per the evidence policy and per this task's own instruction to use primary documentation; only the primary d2lang.com TALA page's qualitative statement ('Not free', 'proprietary, closed-source') is used as evidence."
+  }
+}

@@ -42,6 +42,12 @@ repos:
         types: [markdown]
         exclude: ^factory/
 
+      - id: agent_factory_hook-mermaid-lint
+        name: "agent_factory: mermaid-lint (no raw semicolons)"
+        entry: factory/scripts/mermaid-lint
+        language: system
+        types: [markdown]
+
       - id: agent_factory_hook-spec-lint
         name: "agent_factory: spec-lint (specification consistency & traceability)"
         entry: factory/scripts/spec-lint

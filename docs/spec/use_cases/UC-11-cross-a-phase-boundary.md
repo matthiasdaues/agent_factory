@@ -165,6 +165,6 @@ Feature: Cross a Factory phase boundary without transcript replay
 
 - [PRD § FR-K](../prd.md#fr-k--session-transcript-token-control)
 - [System use cases](system-use-cases.md#phase-boundary-and-context-control)
-- [Interface contracts](../supplementary_specs/interface-contracts.md#factoryscripts-handoff-lint)
+- [Interface contracts](../supplementary_specs/interface-contracts.md#factoryscriptshandoff-lint)
 - [Validation rules](../supplementary_specs/validation-rules.md#phase-handoff-and-result-envelope-br-037br-042)
-- [Accepted session-control proposal](../../proposals/proposal-session-transcript-token-control.md)
+- [Accepted session-control proposal](../../proposals/implemented/proposal-session-transcript-token-control.md)

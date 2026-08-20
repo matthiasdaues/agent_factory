@@ -1,0 +1,87 @@
+{
+  "source_identity": "Atlas ERD/visualization, DDL-application, and ORM-provider documentation: 'Exploring Database Schemas with Atlas' (blog), atlasgo.io/features, atlasgo.io/declarative/apply, ariga/atlas-provider-sqlalchemy repository",
+  "author_or_issuing_body": "Ariga, Inc. (maintainer of the Atlas project)",
+  "publisher": "atlasgo.io and github.com/ariga (Ariga, Inc.)",
+  "publication_date": "2022-12-06T00:00:00Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "atlasgo.io official documentation and blog, plus the ariga GitHub organization's provider repositories (Ariga)",
+  "precise_evidence_location": "atlasgo.io/blog/2022/12/06/erd-and-json (ERD generation via Atlas Cloud 'Explore'); atlasgo.io/features (CLI Features table: 'Schema Visualization' row); atlasgo.io/declarative/apply (schema apply command and --dry-run flag); github.com/ariga/atlas-provider-sqlalchemy (README, provider direction); atlasgo.io/cli-reference §atlas schema validate (--include/--exclude flags)",
+  "method": "Live retrieval of multiple public documentation, blog, and GitHub pages via automated web-fetch and web-search, directed to quote verbatim statements about how the ERD/visualization feature renders and is accessed, the exact DDL-application command, and the direction of the SQLAlchemy integration.",
+  "limitations": "The ERD blog post is dated 2022-12-06, well outside the brief's 24-month freshness preference; it was corroborated with the undated atlasgo.io/features page and a 2026-08-14 web search on the '-w'/'--web' flag to confirm the hosted-cloud behaviour still holds at retrieval time, but the specific wording quoted from the 2022 post about the 'Explore' feature was not independently re-quoted from a 2026-dated page. No primary-source page was found describing a locally-rendered, container-only SVG or PNG file output for the ERD feature; this is recorded as a documented absence within the pages checked, not as proof no such flag exists anywhere in the CLI.",
+  "provenance": "Retrieved via WebFetch and WebSearch tools against https://atlasgo.io/blog/2022/12/06/erd-and-json, https://atlasgo.io/features, https://atlasgo.io/declarative/apply, and https://github.com/ariga/atlas-provider-sqlalchemy on 2026-08-14. Re-verify by visiting each URL directly.",
+  "raw_evidence": [
+    {
+      "quote": "To automatically generate an ERD from your database, you can use the Explore feature of Atlas Cloud.",
+      "locator": "blog/2022/12/06/erd-and-json",
+      "url": "https://atlasgo.io/blog/2022/12/06/erd-and-json"
+    },
+    {
+      "quote": "atlas schema inspect -u mysql://root:pass@localhost:3306/db_name",
+      "locator": "blog/2022/12/06/erd-and-json (command shown for schema inspection prior to ERD generation)",
+      "url": "https://atlasgo.io/blog/2022/12/06/erd-and-json"
+    },
+    {
+      "quote": "The -w flag (also accepted as --web) visualizes the schema as an ERD on Atlas Cloud... if you are not logged in, Atlas prompts where you would like to share your schema visualization, with options to share publicly on gh.atlasgo.cloud or in your personal workspace (which requires 'atlas login').",
+      "locator": "atlasgo.io documentation for `atlas schema inspect -w`, as surfaced via web search summarizing atlasgo.io content",
+      "url": "https://atlasgo.io/declarative/inspect"
+    },
+    {
+      "quote": "Schema Visualization — Pro Plan Only",
+      "locator": "atlasgo.io/features, CLI Features table",
+      "url": "https://atlasgo.io/features"
+    },
+    {
+      "quote": "atlas schema apply --url \"mysql://root:pass@localhost:3306/example\" --to \"file://schema.hcl\" --dev-url \"docker://mysql/8/example\"",
+      "locator": "atlasgo.io/declarative/apply",
+      "url": "https://atlasgo.io/declarative/apply"
+    },
+    {
+      "quote": "--dry-run will 'Write and print the SQL statements of the migration plan without executing them on the target database.'",
+      "locator": "atlasgo.io/declarative/apply (--dry-run flag description)",
+      "url": "https://atlasgo.io/declarative/apply"
+    },
+    {
+      "quote": "-s, --schema strings — set schema names; --exclude strings — filter resources from applying; --include strings — select which resources to keep in inspection",
+      "locator": "atlasgo.io/cli-reference §atlas schema validate (flags)",
+      "url": "https://atlasgo.io/cli-reference"
+    },
+    {
+      "quote": "SQLAlchemy provider for https://atlasgo.io — the Provider works by importing your SQLAlchemy models and extracting the schema from them.",
+      "locator": "github.com/ariga/atlas-provider-sqlalchemy README",
+      "url": "https://github.com/ariga/atlas-provider-sqlalchemy"
+    }
+  ],
+  "interpretation": {
+    "erd_svg_export": {
+      "classification": "not-expressible",
+      "citation": "blog/2022/12/06/erd-and-json ('Explore feature of Atlas Cloud'); atlasgo.io/features ('Schema Visualization — Pro Plan Only'); the '-w'/'--web' flag description (opens gh.atlasgo.cloud or a personal Atlas Cloud workspace)",
+      "rationale": "Every primary-source description of Atlas's ERD/visualization capability found in this pass routes through Atlas Cloud — either the public gh.atlasgo.cloud 'Explore' page or a logged-in personal workspace — not a locally-rendered file. No page was found describing a flag or command that writes an SVG file to disk from inside a container with no network/cloud dependency. This is the decisive distinction the brief's zero-local-install, container-rendered SVG requirement turns on: Atlas's ERD is a hosted-cloud view, not a container-local file export, on the evidence gathered."
+    },
+    "erd_png_export": {
+      "classification": "not-expressible",
+      "citation": "Same as erd_svg_export",
+      "rationale": "No primary source in this pass distinguishes a PNG output path from the SVG/interactive-ERD path; both are described as views inside the Atlas Cloud 'Explore' interface, not file exports. Same reasoning as SVG applies."
+    },
+    "named_subset_views_over_one_model": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "atlasgo.io/cli-reference §atlas schema validate flags: '-s/--schema', '--exclude', '--include'",
+      "rationale": "Atlas has no first-class, savable/named 'view' object comparable to Structurizr's `views` block. The closest documented mechanism is ad hoc: re-running an inspect/validate/apply command with different `--schema`/`--include`/`--exclude` flag values produces a different subset each time, but that subset is not itself a named, reusable, version-controlled artifact the way a Structurizr view is — it must be reconstructed by re-issuing the command with the right flags. Hence workaround, not a native named-view feature."
+    },
+    "application_type_generation": {
+      "classification": "not-expressible",
+      "citation": "github.com/ariga/atlas-provider-sqlalchemy README ('the Provider works by importing your SQLAlchemy models and extracting the schema from them')",
+      "rationale": "The documented SQLAlchemy (and, per broader search, GORM/Sequelize/Prisma/Drizzle) integrations all run in the opposite direction from what the brief needs: they take an existing ORM's models as an INPUT and extract an Atlas schema FROM them, rather than generating Pydantic/SQLAlchemy/dataclass application types FROM an Atlas HCL schema as OUTPUT. No primary source describing Atlas generating Python application types from HCL was found. Because no generation path exists in the needed direction, per-construct-survival-through-generation and DDL-preservation-through-generation are recorded as not applicable (per the research plan's own instruction to record 'not applicable' rather than 'not expressible' when no generation exists) for the generation-fidelity question, while the generation capability itself is recorded as not-expressible for the Python-application-type direction specifically."
+    },
+    "ddl_derivation_from_same_source": {
+      "classification": "expressible",
+      "citation": "atlasgo.io/declarative/apply — `atlas schema apply --to \"file://schema.hcl\" --dev-url ... --dry-run`",
+      "rationale": "Directly documented: applying an HCL schema file with `--dry-run` prints the generated SQL DDL without executing it, deriving physical DDL from the same HCL source artifact. This is a genuine strength on the evidence gathered — no ORM/application-type generation step is required first."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": ["atlas schema export svg", "atlas schema export png local file", "atlas erd offline no cloud", "atlas cli generate python pydantic types", "atlas named views subset schema"],
+    "where_searched": ["atlasgo.io (blog, features, declarative/inspect, declarative/apply — via WebFetch)", "general web search (WebSearch tool)", "github.com/ariga (provider repositories, via web search)"],
+    "search_date": "2026-08-14",
+    "result": "No documentation of a local SVG/PNG file-export flag was found; every visualization reference found routes to Atlas Cloud (gh.atlasgo.cloud) or a personal Atlas Cloud workspace. No documentation of Python application-type generation (Pydantic, dataclasses, or SQLAlchemy as an output) was found; all Python-related integration documentation found runs input-direction (SQLAlchemy models -> Atlas schema). No named/reusable 'view' or 'diagram subset' feature was found under any of the pages checked."
+  }
+}

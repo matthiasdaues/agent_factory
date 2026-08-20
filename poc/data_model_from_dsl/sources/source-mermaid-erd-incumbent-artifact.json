@@ -1,0 +1,138 @@
+{
+  "source_identity": "In-repo incumbent artifact — docs/spec/supplementary_specs/entity-model.md (the Mermaid erDiagram under replacement)",
+  "author_or_issuing_body": "Gigacron project specification authors (this repository)",
+  "publisher": "This repository (gigacron-mvp), file docs/spec/supplementary_specs/entity-model.md",
+  "publication_date": "2026-08-14T00:00:00Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "Gigacron project specification artifact — a primary, first-party source for what the incumbent tool is actually used to express in this project, distinct from and complementary to the upstream mermaid-js documentation and source families in the other source-mermaid-erd-* records",
+  "precise_evidence_location": "docs/spec/supplementary_specs/entity-model.md, the fenced mermaid erDiagram code block (lines 9-298) and the numbered 'Entity Constraints' prose list (lines 300-335, items 01-21)",
+  "method": "Direct read of the file as it exists in the working tree at commit ac48505 (branch base) via the Read tool; no rendering, no execution, no modification. Structural mapping of which of the ten advanced constructs from the research plan appear inside the fenced erDiagram block versus which appear only in the numbered prose constraints beneath it.",
+  "limitations": "This is a single project's usage of Mermaid, not an authoritative statement of Mermaid's general capability ceiling — a construct absent from the diagram here could in principle be a choice by this project's authors rather than a hard limit of the language. However, cross-referenced against source-mermaid-erd-syntax.json and source-mermaid-erd-grammar.json, every construct pushed to prose in this file is also a construct with no dedicated (non-workaround) syntax in the upstream documentation and grammar, so the correlation is treated as meaningful rather than coincidental. Covers only the constructs and relationships present in this one artifact as of 2026-08-14; does not itself establish upstream Mermaid capability ceilings (that evidence lives in the other source-mermaid-erd-* records).",
+  "provenance": "Read directly from the working tree at ~/Documents/repos/dt_vf/giga-x/gigacron/gigacron-mvp/.agent-factory/worktrees/poc-DBML-for-ERD-modeling/docs/spec/supplementary_specs/entity-model.md on 2026-08-14. Re-verify by reading the same path at the same commit (branch poc/DBML-for-ERD-modeling, base ac48505). File not modified by this research task.",
+  "raw_evidence": [
+    {
+      "quote": "OUTCOME_RULE {\n        uuid task_version_id PK\n        int sequence_no PK\n        ...",
+      "locator": "entity-model.md, erDiagram block, OUTCOME_RULE entity, lines 60-68",
+      "url": "docs/spec/supplementary_specs/entity-model.md#L60-L68"
+    },
+    {
+      "quote": "NAMED_RESOURCE_LINK {\n        uuid task_version_id PK\n        string resource_name PK\n        string link_kind\n        string resource_task_weight\n    }",
+      "locator": "entity-model.md, erDiagram block, NAMED_RESOURCE_LINK entity, lines 134-139",
+      "url": "docs/spec/supplementary_specs/entity-model.md#L134-L139"
+    },
+    {
+      "quote": "TASK_INSTANCE {\n        ...\n        uuid origin_instance_id FK\n        uuid cyclic_root_instance_id FK\n        uuid previous_iteration_id FK\n        ...",
+      "locator": "entity-model.md, erDiagram block, TASK_INSTANCE entity, lines 154-179 (three FK-marked self-referencing columns declared as attributes)",
+      "url": "docs/spec/supplementary_specs/entity-model.md#L154-L179"
+    },
+    {
+      "quote": "TASK_INSTANCE ||--o{ TASK_INSTANCE : reruns\n    TASK_INSTANCE ||--o{ TASK_INSTANCE : cyclic_predecessor",
+      "locator": "entity-model.md, erDiagram block, relationship lines 290-291 — only TWO self-referencing relationship lines drawn for THREE FK-marked self-referencing attribute columns",
+      "url": "docs/spec/supplementary_specs/entity-model.md#L290-L291"
+    },
+    {
+      "quote": "ATTEMPT ||--o| ATTEMPT_RESULT : accepts",
+      "locator": "entity-model.md, erDiagram block, line 294",
+      "url": "docs/spec/supplementary_specs/entity-model.md#L294"
+    },
+    {
+      "quote": "04. PLAN is unique on (domain_id, odate). A current OPEN Plan may exist even when it contains no scheduled work.",
+      "locator": "entity-model.md, Entity Constraints, item 04",
+      "url": "docs/spec/supplementary_specs/entity-model.md#L305"
+    },
+    {
+      "quote": "06. TASK_INSTANCE.folder_run_id is nullable for stand-alone Tasks and required for Folder children.",
+      "locator": "entity-model.md, Entity Constraints, item 06",
+      "url": "docs/spec/supplementary_specs/entity-model.md#L307"
+    },
+    {
+      "quote": "15. NAMED_RESOURCE is unique on (domain_id, name), so a pool is unique within a Domain and one Domain may hold many pools.",
+      "locator": "entity-model.md, Entity Constraints, item 15",
+      "url": "docs/spec/supplementary_specs/entity-model.md#L316"
+    },
+    {
+      "quote": "16. NAMED_RESOURCE_LINK.resource_task_weight encodes either a decimal positive integer or the literal ALL. An integer weight must never exceed the linked pool's concurrency_limit.",
+      "locator": "entity-model.md, Entity Constraints, item 16",
+      "url": "docs/spec/supplementary_specs/entity-model.md#L317-L320"
+    },
+    {
+      "quote": "20. FOLDER_RUN.execution_context is SCHEDULED or MANUAL. A manual Folder Run exists only after an operator or API action and is never projected.",
+      "locator": "entity-model.md, Entity Constraints, item 20",
+      "url": "docs/spec/supplementary_specs/entity-model.md#L331"
+    },
+    {
+      "quote": "FOLDER_RUN { ... string execution_context ... }",
+      "locator": "entity-model.md, erDiagram block, FOLDER_RUN entity, line 117 — the attribute is typed 'string' in the diagram with no enum value set shown; the SCHEDULED|MANUAL domain appears only in prose constraint 20",
+      "url": "docs/spec/supplementary_specs/entity-model.md#L117"
+    },
+    {
+      "quote": "The entity model below captures the minimum persisted structures needed to realise the PRD goals and the engineering rules in spec-draft.md. The ERD is the conceptual model; physical schemas may split large payload fields or use partitions.",
+      "locator": "entity-model.md, introductory prose, line 5",
+      "url": "docs/spec/supplementary_specs/entity-model.md#L5"
+    }
+  ],
+  "interpretation": {
+    "composite_primary_keys": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "erDiagram block, OUTCOME_RULE (lines 60-68), NAMED_RESOURCE_LINK (lines 134-139), CONDITION_POST (lines 225-231)",
+      "rationale": "The incumbent marks BOTH columns of each intended composite key with the PK label (e.g. task_version_id PK and sequence_no PK on OUTCOME_RULE). Per source-mermaid-erd-syntax.json and source-mermaid-erd-grammar.json, this is exactly the documented per-attribute PK label used twice, with no composite-key grouping semantic in the language — the diagram renders two PK badges, not one composite-key construct. The prose does not separately restate these as composite keys either; the fact of compositeness is implicit and must be inferred by a reader from the double-PK pattern."
+    },
+    "json_payload_columns": {
+      "classification": "expressible",
+      "citation": "erDiagram block, TASK_VERSION entity (schedule_spec, window_spec, dependency_spec, output_condition_spec, retry_spec, cyclic_spec all typed 'json')",
+      "rationale": "Expressed directly IN the diagram as free-text type labels, consistent with source-mermaid-erd-syntax.json's finding that 'json' is accepted as an ordinary type token with no structural validation attached."
+    },
+    "enumerated_string_domains": {
+      "classification": "not-expressible-in-diagram-pushed-to-prose",
+      "citation": "FOLDER_RUN.execution_context typed 'string' in the diagram (line 117) versus prose constraint 20 stating the SCHEDULED|MANUAL domain; NAMED_RESOURCE_LINK.link_kind typed 'string' in the diagram (line 137) versus prose constraint 17 stating the HOST_CAPACITY|NAMED_RESOURCE domain",
+      "rationale": "Both enumerated domains named in the research plan are entirely absent from the diagram itself — the diagram shows only the generic type 'string' with no hint of a constrained value set — and are stated exclusively in prose. This is a direct, confirmed instance of the split the task asked to establish precisely."
+    },
+    "self_referencing_foreign_keys_multiple": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "TASK_INSTANCE attribute block (three FK-marked columns, lines ~161-163) versus only two self-referencing relationship lines drawn (lines 290-291)",
+      "rationale": "All three FK columns (origin_instance_id, cyclic_root_instance_id, previous_iteration_id) ARE declared as attributes with the FK label, so column-level declaration is complete. But only two relationship lines are drawn ('reruns' and 'cyclic_predecessor'), covering origin_instance_id and one of the cyclic-lineage columns; no third relationship line distinguishes cyclic_root_instance_id from previous_iteration_id — they appear to share the single 'cyclic_predecessor' edge, or one of the three FK columns has no corresponding drawn edge at all. Per source-mermaid-erd-grammar.json this is not a language limitation (three distinct self-referencing relationship lines are legal), so this is an authoring choice/gap in the incumbent, not a Mermaid ceiling — but it is exactly the imprecision the research plan asked to establish."
+    },
+    "nullable_foreign_keys": {
+      "classification": "not-expressible-in-diagram-pushed-to-prose",
+      "citation": "TASK_INSTANCE.folder_run_id and TASK_INSTANCE.plan_id, both typed 'uuid FK' with no nullability marker in the diagram, versus prose constraint 06 stating folder_run_id is nullable and constraint 07 implying plan_id is null for reruns",
+      "rationale": "The diagram was authored before (or without using) Mermaid's v11.16.0 optional-type-suffix feature documented in source-mermaid-erd-syntax.json; nullability for these two FKs is stated only in prose, not in the diagram, even though the upstream language now has a way to express it."
+    },
+    "multi_column_unique_constraints": {
+      "classification": "not-expressible-in-diagram-pushed-to-prose",
+      "citation": "PLAN and NAMED_RESOURCE entities in the diagram carry no UK marking on domain_id or odate/name, versus prose constraints 04 and 15 stating the (domain_id, odate) and (domain_id, name) uniqueness",
+      "rationale": "Confirms the task's framing precisely: these two multi-column UNIQUE constraints exist ONLY in the numbered prose constraints beneath the diagram, not in the erDiagram block itself in any form (not even via the UK label or a comment workaround)."
+    },
+    "one_to_zero_or_one_relationships": {
+      "classification": "expressible",
+      "citation": "erDiagram block, line 294: ATTEMPT ||--o| ATTEMPT_RESULT : accepts",
+      "rationale": "Expressed directly and correctly IN the diagram using Mermaid's documented cardinality notation — the one advanced construct in this survey that the incumbent both needs and already renders natively without any workaround or prose fallback."
+    },
+    "value_constraint_beyond_type": {
+      "classification": "not-expressible-in-diagram-pushed-to-prose",
+      "citation": "NAMED_RESOURCE_LINK.resource_task_weight typed plain 'string' in the diagram (line 138) versus prose constraint 16 stating the decimal-positive-integer-or-literal-ALL rule",
+      "rationale": "The diagram cannot even hint at the disjunctive constraint through its type token (it falls back to the generic 'string' type, losing even the numeric hint); the entire rule, including the cross-field constraint against concurrency_limit, is carried in prose constraint 16."
+    },
+    "several_logical_schemas_in_one_database": {
+      "classification": "not-expressible",
+      "citation": "Entire erDiagram block — all 25 entities appear in one flat, ungrouped diagram with no schema/namespace markers, and the prose constraints likewise never group entities by schema",
+      "rationale": "No trace of a configuration/runtime/audit/resources split anywhere in this artifact, consistent with source-mermaid-erd-syntax.json and source-mermaid-erd-grammar.json's finding that erDiagram has no such construct at all."
+    },
+    "cross_cutting_validator_convention": {
+      "classification": "not-expressible",
+      "citation": "Entire file — domain_id FK appears repeatedly by hand-authored repetition (DOMAIN, TASK_DEFINITION, FOLDER_DEFINITION, PLAN, FOLDER_RUN, TASK_INSTANCE, NAMED_RESOURCE, WORKLOAD_POLICY, OPERATOR_INTENT, AGENT all carry a domain_id FK line) with no assertion anywhere that this convention holds for every Domain-owned table",
+      "rationale": "The convention is only as reliable as manual authoring discipline; nothing in the file or the Mermaid toolchain would catch a future entity that forgets domain_id. This is the concrete instance of the 'silent drift' risk named in the research brief's cost_of_error."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "domain_id (absent from any entity in entity-model.md)",
+      "schema OR namespace (absent from entity-model.md)",
+      "third self-referencing relationship line for TASK_INSTANCE"
+    ],
+    "where_searched": [
+      "docs/spec/supplementary_specs/entity-model.md, full file, both the erDiagram block and the Entity Constraints prose list"
+    ],
+    "search_date": "2026-08-14",
+    "result": "Confirmed by direct reading (not search-engine query, since this is a local in-repo file): of the ten advanced constructs, only JSON payload columns and the one-to-zero-or-one relationship are fully expressed inside the diagram itself. Composite primary keys and self-referencing FK columns are partially expressed (attribute-level labels present, but without composite/complete-relationship semantics). Enumerated domains, nullable FKs, multi-column UNIQUE constraints, and the value constraint beyond type are expressed ONLY in the prose constraints beneath the diagram. Several logical schemas and the cross-cutting domain_id convention are expressed NOWHERE in this artifact, diagram or prose — they exist only as an implicit convention or external knowledge (ADR-0001, arc42) referenced from the research plan, not from this file."
+  }
+}

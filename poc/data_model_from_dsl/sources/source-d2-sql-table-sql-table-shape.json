@@ -1,0 +1,102 @@
+{
+  "source_identity": "D2 Documentation — \"SQL Tables\" tour page (docs/tour/sql-tables.md), https://d2lang.com/tour/sql-tables/",
+  "author_or_issuing_body": "d2lang (formerly terrastruct) — D2 language maintainers",
+  "publisher": "d2lang, hosted at d2lang.com (Docusaurus site built from the d2lang/d2-docs GitHub repository)",
+  "publication_date": "2025-07-28T19:24:43Z",
+  "relevant_event_date": "2025-07-28",
+  "source_family": "d2lang/d2-docs repository — docs/tour/sql-tables.md (official docs site is a rendered mirror of this file; the rendered HTML page and the raw markdown are the same source, not independent corroboration)",
+  "precise_evidence_location": "docs/tour/sql-tables.md, sections \"Basics\" (lines 8-49) and \"Foreign Keys\" (lines 51-64); example files static/d2/tables-1.d2, tables-2.d2, tables-3.d2 in the same repository",
+  "method": "Direct retrieval of the raw markdown source (raw.githubusercontent.com/d2lang/d2-docs/master/docs/tour/sql-tables.md) and its three linked .d2 example files, read verbatim. Cross-checked against the rendered page at d2lang.com/tour/sql-tables/.",
+  "limitations": "Documentation prose, not a formal grammar/EBNF; describes intended behavior, not independently verified by running the compiler (no local install was performed, per task boundaries). Does not exhaustively enumerate every legal 'constraint' string — states only that unrecognized strings pass through unshortened, so the practical ceiling of what the constraint field can express is inferred from that one sentence plus the absence of any validation-rule documentation elsewhere on the site. Repository was renamed from terrastruct/d2-docs to d2lang/d2-docs; old URLs redirect, doesn't affect content authenticity.",
+  "provenance": "Fetched directly from raw.githubusercontent.com (GitHub's raw content CDN for the d2lang/d2-docs repository, default branch master) on 2026-08-14. Re-verifiable by re-fetching the same path; commit history at https://github.com/d2lang/d2-docs/commits/master/docs/tour/sql-tables.md shows last modification 2025-07-28T19:24:43Z.",
+  "raw_evidence": [
+    {
+      "quote": "Each key of a SQL Table shape defines a row. The primary value (the thing after the colon) of each row defines its type.\n\nThe constraint value of each row defines its SQL constraint. D2 will recognize and shorten:\n\n| constraint  | short |\n| ----------- | ----- |\n| primary_key | PK    |\n| foreign_key | FK    |\n| unique      | UNQ   |\n\nBut you can set any constraint you'd like. It just won't be shortened if unrecognized.",
+      "locator": "docs/tour/sql-tables.md, \"Basics\" section, lines 18-30",
+      "url": "https://raw.githubusercontent.com/d2lang/d2-docs/master/docs/tour/sql-tables.md"
+    },
+    {
+      "quote": "You can also specify multiple constraints with an array.\n\n```d2\nx: int { constraint: [primary_key; unique] }\n```",
+      "locator": "docs/tour/sql-tables.md, \"Basics\" section, info box, lines 32-38",
+      "url": "https://raw.githubusercontent.com/d2lang/d2-docs/master/docs/tour/sql-tables.md"
+    },
+    {
+      "quote": "objects: {\n  shape: sql_table\n  id: int {constraint: primary_key}\n  disk: int {constraint: foreign_key}\n\n  json: jsonb {constraint: unique}\n  last_updated: timestamp with time zone\n}\n\ndisks: {\n  shape: sql_table\n  id: int {constraint: primary_key}\n}\n\nobjects.disk -> disks.id",
+      "locator": "static/d2/tables-2.d2 (embedded verbatim in docs/tour/sql-tables.md \"Foreign Keys\" section)",
+      "url": "https://raw.githubusercontent.com/d2lang/d2-docs/master/static/d2/tables-2.d2"
+    },
+    {
+      "quote": "cloud: {\n  disks: {\n    shape: sql_table\n    id: int {constraint: primary_key}\n  }\n  blocks: {\n    shape: sql_table\n    id: int {constraint: primary_key}\n    disk: int {constraint: foreign_key}\n    blob: blob\n  }\n  blocks.disk -> disks.id\n\n  AWS S3 Vancouver -> disks\n}",
+      "locator": "static/d2/tables-3.d2 (embedded verbatim in docs/tour/sql-tables.md \"Example\" section)",
+      "url": "https://raw.githubusercontent.com/d2lang/d2-docs/master/static/d2/tables-3.d2"
+    },
+    {
+      "quote": "When rendered with the [TALA layout engine](/tour/tala/) or [ELK layout engine](/tour/elk/), connections point to the exact row.",
+      "locator": "docs/tour/sql-tables.md, \"Foreign Keys\" section, lines 61-64",
+      "url": "https://raw.githubusercontent.com/d2lang/d2-docs/master/docs/tour/sql-tables.md"
+    },
+    {
+      "quote": "GitHub issue #671, opened 2023-01-16, still open as of 2024-08-20 (last update): \"At the moment d2 can't represent `FK`s that are composed of more than one column.\" Example body includes a comment: \"# here i may want to have the PK defined as (id, tenant)\" showing no syntax exists to express it.",
+      "locator": "github.com/d2lang/d2 issue #671, title \"[FR] sql_table: Support PK and FK composed by 2+ attributes\"",
+      "url": "https://github.com/d2lang/d2/issues/671"
+    }
+  ],
+  "interpretation": {
+    "composite_primary_keys": {
+      "classification": "not-expressible",
+      "citation": "docs/tour/sql-tables.md \"Basics\" section (constraint table + 'any constraint you'd like' sentence) plus open issue d2lang/d2#671",
+      "rationale": "The `constraint` field is declared per single row (column) and is either shortened to PK/FK/UNQ if recognized or passed through as free text. There is no documented syntax that groups two or more columns into one joint PK/UNQ/FK constraint. The 'array' syntax (`constraint: [primary_key; unique]`) applies MULTIPLE distinct constraint labels to ONE column, not one constraint spanning multiple columns — a different feature entirely, easy to mistake for composite-key support. Maintainers' own open feature request #671 confirms directly: 'd2 can't represent FKs that are composed of more than one column' and shows a workaround-free example where the author wants `(id, tenant)` as a joint PK and has no syntax to write it. Two columns each individually labelled `primary_key` would render as two separate PK badges with no indication they are jointly one constraint — a rendering artifact, not an expressed constraint. Verdict: not-expressible, not even via workaround, since no combination of documented syntax produces a joint multi-column constraint."
+    },
+    "json_payload_columns": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "docs/tour/sql-tables.md \"Foreign Keys\" example, tables-2.d2, column `json: jsonb`",
+      "rationale": "The row's type slot is free text — `jsonb` is used in the official example, so a column CAN be labelled with a JSON-ish type string and it will render. But the type slot carries no semantics: D2 does not parse, validate, or distinguish 'jsonb' from any other string; it is decorative text in a table row, identical in kind to `int` or the non-standard `blob` used in tables-3.d2 (blob is not a real SQL type, and D2 accepts it without complaint because nothing checks it). So a JSON payload column can be drawn, but the language attaches no meaning to 'this column holds an opaque JSON document' beyond what a human reads off the label — hence workaround-only, not true type semantics."
+    },
+    "enumerated_string_domains": {
+      "classification": "not-expressible",
+      "citation": "docs/tour/sql-tables.md \"Basics\" section — absence of any enum/domain construct in the documented row grammar (type slot + single constraint slot only)",
+      "rationale": "The row grammar has exactly two semantic slots: type (free text) and constraint (free text, optionally shortened if PK/FK/UNQ). No documented mechanism restricts a column's legal values to an enumerated set. A modeller could put the literal string `SCHEDULED|MANUAL` in the type slot as a label, but D2 would not enforce, parse, or check it — same free-text-label ceiling as JSON columns. No CHECK-constraint or enum construct is mentioned anywhere on this page or the constraint table."
+    },
+    "self_referencing_foreign_keys": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "docs/tour/sql-tables.md \"Foreign Keys\" section — the connection syntax `objects.disk -> disks.id`",
+      "rationale": "Nothing in the shown syntax restricts the connection's source and target table to be different tables — `some_table.col_a -> some_table.col_b` would parse identically to any other row-to-row connection, so three self-referencing FKs on one table can be drawn as three separate connections. But each connection is a generic D2 edge (the same primitive used for connecting arbitrary shapes anywhere in the language) with no FK-specific semantics: nothing associates the connection with the `constraint: foreign_key` label on the source column, nothing prevents a connection with no matching constraint label, and nothing distinguishes which of the several outgoing connections corresponds to which self-referencing column beyond the reader's own visual tracing. It draws the right picture but the FK-ness is purely conventional/visual, hence workaround, not genuine relational semantics."
+    },
+    "nullable_foreign_keys": {
+      "classification": "not-expressible",
+      "citation": "docs/tour/sql-tables.md \"Basics\" section — constraint table lists only primary_key/foreign_key/unique; no null/not-null keyword documented",
+      "rationale": "There is no documented constraint keyword for nullability (no 'nullable', 'not null', 'required', or similar in the recognized-and-shortened table, and no mention elsewhere on the page). A modeller could invent an unrecognized constraint string like `constraint: nullable`, which the docs confirm will render unshortened as free text — but that is indistinguishable, to the language, from a typo or an arbitrary label. Not-expressible as a checked property; at best a decorative label with the same status as any made-up word."
+    },
+    "multi_column_unique_constraints": {
+      "classification": "not-expressible",
+      "citation": "docs/tour/sql-tables.md \"Basics\" section (constraint table + 'array' info box) plus open issue d2lang/d2#671/#672",
+      "rationale": "Same structural gap as composite primary keys: `unique` is a per-row (single-column) constraint label. The array syntax lets one column carry multiple DIFFERENT constraint kinds (e.g. both primary_key and unique on the same column) but does not let two columns jointly form one unique constraint. No documented syntax names a constraint that spans columns."
+    },
+    "one_to_zero_or_one_relationships": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "docs/tour/sql-tables.md \"Foreign Keys\" example (plain `->` connection); see companion record source-d2-sql-table-generation.json for the arrowhead-style documentation citation",
+      "rationale": "D2 connections support crow's-foot-style arrowheads (cf-one, cf-one-required, cf-many, cf-many-required — documented on the connections/arrowheads page) which can be applied to a connection between two sql_table rows to make it LOOK like a one-to-zero-or-one relationship. But arrowhead choice is purely a rendering/styling attribute of the connection primitive — it is not interpreted by the compiler as a cardinality constraint the way a foreign-key or check constraint would be. The sql-tables.md page itself documents only the plain `->` connection with no cardinality vocabulary. Verdict: the visual notation exists as a styling choice, but it carries no enforced or checked cardinality semantics — expressible only as a picture, not as a constraint."
+    },
+    "value_constraint_beyond_type": {
+      "classification": "not-expressible",
+      "citation": "docs/tour/sql-tables.md \"Basics\" section — row grammar has only type + constraint slots, neither of which supports a value expression (e.g. CHECK, range, or literal-alternation)",
+      "rationale": "There is no documented way to say a column holds 'a decimal positive integer OR the literal ALL' beyond writing that phrase as the free-text type string, which — per the same reasoning as JSON columns and enums — is rendered as an uninterpreted label. No CHECK-constraint syntax, no value-expression grammar, is documented anywhere in the sql_table shape reference."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "composite key",
+      "composite primary key",
+      "sql_table constraint",
+      "multiple constraints",
+      "enum sql_table",
+      "check constraint d2"
+    ],
+    "where_searched": [
+      "d2lang.com official documentation (docs/tour/sql-tables.md and surrounding tour pages, fetched directly)",
+      "GitHub issue search API scoped to repo:d2lang/d2 (gh api search/issues)"
+    ],
+    "search_date": "2026-08-14",
+    "result": "Found direct, maintainer-acknowledged confirmation of the composite-key gap: open issue d2lang/d2#671 ('[FR] sql_table: Support PK and FK composed by 2+ attributes', opened 2023-01-16, still open) states plainly 'At the moment d2 can't represent FKs that are composed of more than one column.' Related open issues #672 ('sql_table: support multiple constraints on columns') and #1386 ('d2oracle: set on sql_table columns constraint should be maps') corroborate that the constraint model is a simple per-column label list, not a constraint-object model. Search for 'enum' or 'check constraint' in the issue tracker returned no results relevant to sql_table (only unrelated hits about label alignment and URL encoding), consistent with the documentation's silence on enums/CHECK constraints — read here as absence of the feature rather than absence of demand, since no docs page, changelog, or issue proposes it either way."
+  }
+}

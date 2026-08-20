@@ -19,6 +19,7 @@ status: pending                   # pending | in_progress | review | blocked | d
 deps: [ST-0002]                   # story ids that block this one (optional)
 traces: [UC-02, ADR-0003]         # Use Case / ADR / component ids this story implements (optional)
 outputs: [src/orchestrator/entities.py]   # files the story is expected to produce
+tests: [tests/test_entities.py]   # pre-existing test files covering this story (optional)
 ---
 ```
 
@@ -40,7 +41,14 @@ outputs: [src/orchestrator/entities.py]   # files the story is expected to produ
 <optional guidance, constraints, or context>
 ```
 
+## Frontmatter Fields
+
+### tests (optional)
+
+Array of pre-existing test file paths that cover this story's acceptance criteria.\
+When `tests:` is present and non-empty, the developer-agent reads these tests as the specification and implements code to make them pass (Green phase only, skipping Red). Test files may not exist at planning time (backlog-lint warns but does not error on missing test files).
+
 ## Referenced from
 
-- [create-backlog § Step 2](../../skills/create-backlog/SKILL.md#step-2-break-epics-into-user-stories)
+- [create-backlog § Step 2](../../skills/create-backlog/SKILL.md#step-2--break-epics-into-user-stories)
 - [backlog-lint script](../../scripts/backlog-lint)

@@ -1,0 +1,72 @@
+{
+  "source_identity": "plantuml.com/command-line 'Output Format' reference table (as the exhaustive list of things PlantUML can produce) cross-checked against a GitHub code/issue search of plantuml/plantuml for application-type-generation keywords",
+  "author_or_issuing_body": "Arnaud Roques and the PlantUML project contributors (documentation); GitHub, Inc. (search index)",
+  "publisher": "plantuml.com (official documentation) and github.com (code/issue search API)",
+  "publication_date": "2026-08-14T00:00:00Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "plantuml.com official documentation (same family as source-plantuml-ie-notation.json and source-plantuml-ie-validation-exit.json) for the Output Format table; plantuml/plantuml GitHub repository (same family as source-plantuml-ie-licence-governance.json) for the code/issue search — this record straddles two families already recorded elsewhere and adds no new independent family of its own",
+  "precise_evidence_location": "plantuml.com/command-line, 'Output Format' table (--eps, --latex, --pdf, --png, --scxml, --svg, --txt, --utxt, --format html, --format braille rows — the complete enumerated list); GitHub code-search query 'pydantic repo:plantuml/plantuml' and 'sqlalchemy repo:plantuml/plantuml' (total_count fields); GitHub issue-search query 'pydantic repo:plantuml/plantuml' and '\"code generation\" repo:plantuml/plantuml' (total_count fields)",
+  "method": "The Output Format table was retrieved by the same curl+tag-strip method used for the validation-exit record. The GitHub searches were run via `gh api -X GET search/code` and `gh api -X GET search/issues` with the GitHub REST search API, reading the returned `total_count` field.",
+  "limitations": "GitHub code search only indexes the default branch of public repositories and is known to have coverage gaps for some file types and historical branches; a `total_count` of 0 is strong but not absolute proof that the exact strings 'pydantic' or 'sqlalchemy' never appear anywhere in the repository's full history or in closed/archived issues outside the search index's reach. The Output Format table is an exhaustive documented list of render targets, but the documentation does not explicitly state 'PlantUML has no code generator' as a sentence — the negative is inferred from the completeness of the enumerated list plus the zero-hit searches, not from an explicit disclaimer, so it is recorded as an inferred (not directly asserted) negative.",
+  "provenance": "Output Format table retrieved live via HTTPS from plantuml.com/command-line on 2026-08-14 (same fetch as the validation-exit record, /tmp/pu_cli.html). GitHub searches run live via `gh api` on 2026-08-14 in this research session. Re-verify by fetching https://plantuml.com/command-line and by running `gh api -X GET search/code -f q='pydantic repo:plantuml/plantuml'` and the equivalent sqlalchemy/issue queries.",
+  "raw_evidence": [
+    {
+      "quote": "your diagrams can be exported in a variety of different formats. By default the format will be a PNG file but another type can be selected using the following extensions: Param name Short param name Output format Comment --png -f png PNG Default --svg -f svg SVG Vector graphics ... --eps -f eps EPS PostScript/EPS output ... --format html -f html HTML Experimental/alpha ... --txt -f txt ATXT ASCII art. ... --utxt -f utxt UTXT ASCII art using Unicode characters ... --format latex LATEX ... --format braille -f braille PNG (braille) Braille image",
+      "locator": "plantuml.com/command-line, 'Output Format' table (full enumerated row list)",
+      "url": "https://plantuml.com/command-line"
+    },
+    {
+      "quote": "Set the output format for generated diagrams (e.g. png, svg, pdf, eps, latex, txt, utxt) ... --pdf ... Generate PDF images --png ... Generate PNG images (default) --scxml ... Generate SCXML files for state diagrams --svg ... Generate SVG images",
+      "locator": "plantuml.com/command-line, legacy CLI 'Output format (choose one):' block",
+      "url": "https://plantuml.com/command-line"
+    },
+    {
+      "quote": "{\"total_count\": 0}",
+      "locator": "GitHub REST API, GET /search/code?q=pydantic+repo:plantuml/plantuml",
+      "url": "https://api.github.com/search/code?q=pydantic+repo:plantuml/plantuml"
+    },
+    {
+      "quote": "{\"total_count\": 0}",
+      "locator": "GitHub REST API, GET /search/code?q=sqlalchemy+repo:plantuml/plantuml",
+      "url": "https://api.github.com/search/code?q=sqlalchemy+repo:plantuml/plantuml"
+    },
+    {
+      "quote": "{\"total_count\": 0}",
+      "locator": "GitHub REST API, GET /search/issues?q=pydantic+repo:plantuml/plantuml",
+      "url": "https://api.github.com/search/issues?q=pydantic+repo:plantuml/plantuml"
+    },
+    {
+      "quote": "{\"total_count\": 0}",
+      "locator": "GitHub REST API, GET /search/issues?q=\"code generation\"+repo:plantuml/plantuml",
+      "url": "https://api.github.com/search/issues?q=%22code+generation%22+repo:plantuml/plantuml"
+    }
+  ],
+  "interpretation": {
+    "application_type_generation": {
+      "classification": "not-expressible",
+      "citation": "plantuml.com/command-line, 'Output Format' table (exhaustive list: eps, html, latex, pdf, png, scxml, svg, txt, utxt, braille — all diagram/image or diagram-adjacent markup formats, none of them application source code); corroborated by zero GitHub code/issue search hits for 'pydantic' or 'sqlalchemy' in plantuml/plantuml",
+      "rationale": "PlantUML is a rendering engine: every documented output format is a diagram representation (raster image, vector image, or diagram-description markup like SCXML for state machines). None of the ten enumerated formats produces application source code (no Pydantic models, SQLAlchemy mappings, dataclasses, or any other language binding). This is the honest negative the assignment asked to record explicitly rather than leave implicit: PlantUML has no application-type generator of any kind for ER/IE/Chen diagrams, consistent with its purpose as a renderer rather than a schema compiler."
+    },
+    "physical_ddl_derivation": {
+      "classification": "not-applicable",
+      "citation": "N/A — dependent on application_type_generation above",
+      "rationale": "Per the brief's own instruction, DDL derivation is recorded as not-applicable rather than not-expressible whenever no type-generation capability exists to build it on top of. Since PlantUML has no application-type generator (see above), and no SQL/DDL-specific output format appears anywhere in the Output Format table either, DDL derivation from a PlantUML ER/IE source is recorded as not-applicable."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "plantuml pydantic",
+      "plantuml sqlalchemy",
+      "plantuml \"code generation\"",
+      "plantuml dataclass generator",
+      "plantuml DDL SQL generator export"
+    ],
+    "where_searched": [
+      "plantuml.com/command-line full Output Format table",
+      "GitHub code search scoped to repo:plantuml/plantuml (search/code API)",
+      "GitHub issue search scoped to repo:plantuml/plantuml (search/issues API)"
+    ],
+    "search_date": "2026-08-14",
+    "result": "Zero hits across all four targeted searches (pydantic in code, sqlalchemy in code, pydantic in issues, 'code generation' in issues). No DDL/SQL output format was found in the Output Format table. This is a clean negative: nothing found where something (a generator, a feature request, a plugin reference) would be expected to exist if any such capability were present or even requested. Not searched: third-party PlantUML plugins/companion projects outside the plantuml/plantuml repository itself (e.g. a hypothetical separate community tool that reads .puml ER sources and emits SQLAlchemy code) — this is recorded as an unresolved gap, since the brief's source_requirements treat only the project's own repository and official docs as primary evidence, and a broader ecosystem sweep was out of scope for this pass."
+  }
+}

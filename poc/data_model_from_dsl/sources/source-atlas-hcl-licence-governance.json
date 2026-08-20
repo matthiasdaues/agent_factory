@@ -1,0 +1,149 @@
+{
+  "source_identity": "ariga/atlas GitHub repository (LICENSE file, GOVERNANCE.md/MAINTAINERS.md 404 checks, GitHub API repo/releases/commits metadata) plus atlasgo.io's own 'Community Edition' and 'Features'/'Pricing' documentation pages, and public funding-news coverage of Ariga, Inc.",
+  "author_or_issuing_body": "Ariga, Inc. (maintainer of the Atlas project; GitHub organization 'ariga')",
+  "publisher": "GitHub, Inc. (repository and API hosting); atlasgo.io (Ariga, Inc., documentation); SiliconANGLE, TechCrunch, Globes, FinSMEs (independent funding-news outlets, used only as leads for the governance/vendor-structure finding, never for a capability claim)",
+  "publication_date": "2026-08-14T00:00:00Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "Three distinct families, kept separate: (1) github.com/ariga/atlas repository facts (LICENSE, API metadata) — the primary source for the licence and freshness fields; (2) atlasgo.io official documentation (Ariga) — the primary source for the paid/free tier split; (3) independent funding-news outlets (SiliconANGLE, TechCrunch, Globes, FinSMEs, all reporting the same June 2023 Ariga funding round from what appears to be a shared press release, so treated as one corroborating cluster, not several independent sources) — leads only, for company/governance background.",
+  "precise_evidence_location": "https://raw.githubusercontent.com/ariga/atlas/master/LICENSE (full text); https://github.com/ariga/atlas/blob/master/LICENSE; https://api.github.com/repos/ariga/atlas (license.spdx_id, owner.type, pushed_at, created_at); https://api.github.com/repos/ariga/atlas/releases/latest and /releases?per_page=5 and /tags?per_page=5; https://api.github.com/repos/ariga/atlas/commits?per_page=3; https://raw.githubusercontent.com/ariga/atlas/master/GOVERNANCE.md (404); https://raw.githubusercontent.com/ariga/atlas/master/MAINTAINERS.md (404); https://atlasgo.io/community-edition; https://atlasgo.io/features (CLI Features table, Database Support table); https://atlasgo.io/pricing (Atlas CLI Starter/Pro/Enterprise table); https://ariga.io (company page, minimal content); public funding-announcement articles (SiliconANGLE 2023-06-01, TechCrunch 2023-06-01, Globes, FinSMEs) and atlasgo.io/blog/2023/06/01/funding-announcement.",
+  "method": "Direct fetch of the raw LICENSE file and of the two conventional governance-document paths (confirming HTTP 404 rather than inferring absence), direct calls to the public GitHub REST API for repository/release/commit metadata, live retrieval of atlasgo.io's own licensing and pricing/feature pages via automated web-fetch, and a general web search for the company's funding history and founders as corroborating background for the governance field.",
+  "limitations": "The GitHub API's repository object is fetched through a summarizing fetch tool rather than raw JSON piped to a local parser for the /repos and /commits calls, so exact field ordering/completeness beyond the quoted fields is not independently verified byte-for-byte (the /releases, /tags, and issue-search calls later in this research pass were instead made with curl+jq directly against api.github.com, which is more reliable, but this record's repo/commits metadata predates that method). The atlasgo.io/features and atlasgo.io/pricing pages give CONFLICTING answers about whether ERD/schema visualization requires a paid plan (see interpretation below) — this conflict is recorded as an open gap, not resolved by picking one page over the other, because both are official Ariga-authored pages of comparable authority and neither is dated. No page was found that explicitly restates, in one place, the exact set of feature rows gated by the 'Atlas MSA'-licensed standard distribution as distinct from the Pro paid-subscription gate — the community-edition page states the Apache-2.0 vs. Atlas-MSA split in general terms (which database engines and 'additional proprietary features') without an exhaustive feature-by-feature table, so the MSA-vs-Pro boundary for individual capabilities is partly inferred by combining two separate pages rather than read off one authoritative table. The Ariga company/funding facts come from secondary press coverage (SiliconANGLE, TechCrunch, Globes, FinSMEs), all evidently derived from the same June 2023 funding-round announcement, so they corroborate rather than independently confirm one another, and are used here only as leads for the governance field's vendor-structure finding, never as sole evidence for a capability claim, per the plan's source_targets constraint.",
+  "provenance": "Retrieved 2026-08-14 via WebFetch against raw.githubusercontent.com/ariga/atlas/master/{LICENSE,GOVERNANCE.md,MAINTAINERS.md}, github.com/ariga/atlas, api.github.com/repos/ariga/atlas (and /releases/latest, /releases?per_page=5, /tags?per_page=5, /commits?per_page=3), atlasgo.io/community-edition, atlasgo.io/features, atlasgo.io/pricing, ariga.io, and via WebSearch for Ariga company/funding background. Re-verify by re-fetching the same URLs; all are publicly accessible without authentication except the GitHub API calls, which are unauthenticated public reads subject to GitHub's public rate limit.",
+  "raw_evidence": [
+    {
+      "quote": "Apache License Version 2.0, January 2004, http://www.apache.org/licenses/ ... each Contributor hereby grants to You a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable copyright license ... Licensor provides the Work ... on an AS IS BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND",
+      "locator": "LICENSE file, header and body, read directly (not GitHub's auto-detected license badge)",
+      "url": "https://raw.githubusercontent.com/ariga/atlas/master/LICENSE"
+    },
+    {
+      "quote": "\"license\": {\"spdx_id\": \"Apache-2.0\"}, \"owner\": {\"login\": \"ariga\", \"type\": \"Organization\"}, \"archived\": false, \"pushed_at\": \"2026-08-02T09:01:02Z\", \"created_at\": \"2021-04-30T18:56:42Z\", \"open_issues_count\": 266, \"stargazers_count\": 8640",
+      "locator": "GitHub REST API repository object for ariga/atlas",
+      "url": "https://api.github.com/repos/ariga/atlas"
+    },
+    {
+      "quote": "v1.3.0 | 2026-08-02T09:09:55Z | prerelease: false | \"We're excited to announce Atlas v1.3 🎊 ... this release delivers on a promise we made in v1.2: the security graph is now live in Atlas Cloud\"",
+      "locator": "GitHub REST API releases (latest) and release body opening lines",
+      "url": "https://api.github.com/repos/ariga/atlas/releases/latest"
+    },
+    {
+      "quote": "Top 5 tags in API order: v1.3.0, v1.2.3, v1.2.2, v1.2.1, v1.2.0",
+      "locator": "GitHub REST API tags list",
+      "url": "https://api.github.com/repos/ariga/atlas/tags?per_page=5"
+    },
+    {
+      "quote": "9a6bc601212130a | 2026-07-29T06:36:44Z | \"atlasexec: add scripts commands (#3760)\"",
+      "locator": "GitHub REST API commits list, most recent entry on default branch (master)",
+      "url": "https://api.github.com/repos/ariga/atlas/commits?per_page=3"
+    },
+    {
+      "quote": "HTTP 404 Not Found",
+      "locator": "direct request for GOVERNANCE.md at repository root of the master branch",
+      "url": "https://raw.githubusercontent.com/ariga/atlas/master/GOVERNANCE.md"
+    },
+    {
+      "quote": "HTTP 404 Not Found",
+      "locator": "direct request for MAINTAINERS.md at repository root of the master branch",
+      "url": "https://raw.githubusercontent.com/ariga/atlas/master/MAINTAINERS.md"
+    },
+    {
+      "quote": "The Community Edition of Atlas is licensed under the Apache 2.0 license.",
+      "locator": "atlasgo.io/community-edition",
+      "url": "https://atlasgo.io/community-edition"
+    },
+    {
+      "quote": "The standard distribution is built from the same open-source codebase plus some additional proprietary features, and is free to download and use under the terms of the Atlas MSA.",
+      "locator": "atlasgo.io/community-edition",
+      "url": "https://atlasgo.io/community-edition"
+    },
+    {
+      "quote": "Running `atlas login` unlocks Atlas Pro features such as migration linting, testing, and CI/CD integration. New users get a free 30-day trial, after which a license is required to continue using Atlas Pro.",
+      "locator": "atlasgo.io/community-edition",
+      "url": "https://atlasgo.io/community-edition"
+    },
+    {
+      "quote": "Schema Visualization | Pro (row: Feature = 'Schema Visualization', Availability column = 'Pro')",
+      "locator": "atlasgo.io/features, CLI Features table",
+      "url": "https://atlasgo.io/features"
+    },
+    {
+      "quote": "Database Inspection: Open; Schema Diffing: Open; Versioned Migrations: Open; Declarative Migrations: Open; Migration Linting: Pro; Custom Schema Rules: Pro; Pre-migration checks: Pro; Testing Framework: Pro",
+      "locator": "atlasgo.io/features, CLI Features table (remaining rows)",
+      "url": "https://atlasgo.io/features"
+    },
+    {
+      "quote": "Backward incompatible changes: Open; Destructive changes: Open; Naming conventions: Open; Custom linting rules: Pro; Concurrent index changes: Pro",
+      "locator": "atlasgo.io/features, Linting Rules table",
+      "url": "https://atlasgo.io/features"
+    },
+    {
+      "quote": "Open (Community/Open-Source database support): PostgreSQL, MySQL, MariaDB, SQLite, TiDB, LibSQL. Pro Only: SQL Server, ClickHouse, Redshift, Oracle, Spanner, Snowflake, Databricks, CockroachDB, YugabyteDB, Aurora DSQL, Azure Fabric.",
+      "locator": "atlasgo.io/features, Database Support table",
+      "url": "https://atlasgo.io/features"
+    },
+    {
+      "quote": "Atlas CLI pricing table (Starter / Pro / Enterprise columns): Database inspection & diffing — included in Starter, Pro, Enterprise; Migration planning & execution — included in Starter, Pro, Enterprise; ERD visualization — included in Starter, Pro, Enterprise; Declarative migrations — included in Starter, Pro, Enterprise; Migration linting — included in Starter, Pro, Enterprise; Pre-migration safety checks — included in Starter, Pro, Enterprise; Testing Framework — included in Starter, Pro, Enterprise.",
+      "locator": "atlasgo.io/pricing, 'Atlas CLI' comparison table",
+      "url": "https://atlasgo.io/pricing"
+    },
+    {
+      "quote": "Pro Plan: full access to advanced CLI capabilities, CI/CD integrations, the Cloud UI. Enterprise Plan: dedicated support channel, solution engineering.",
+      "locator": "atlasgo.io/cloud/pricing",
+      "url": "https://atlasgo.io/cloud/pricing"
+    },
+    {
+      "quote": "Ariga was co-founded by Ariel Mashraki (CEO) and Rotem Tamir (CTO) in 2021, headquartered in Tel Aviv, Israel. Ariga raised an $18 million early-stage funding round led by Tiger Global and TLV Partners (announced June 2023); total disclosed funding approximately $30M.",
+      "locator": "funding-announcement coverage (SiliconANGLE, TechCrunch, Globes, FinSMEs, and atlasgo.io/blog/2023/06/01/funding-announcement), summarized",
+      "url": "https://techcrunch.com/2023/06/01/ariga-is-helping-developers-define-database-schema-as-code"
+    }
+  ],
+  "interpretation": {
+    "licence_core_repository": {
+      "classification": "expressible",
+      "citation": "LICENSE file, read directly at raw.githubusercontent.com/ariga/atlas/master/LICENSE, header: 'Apache License Version 2.0'; corroborated by GitHub API license.spdx_id = 'Apache-2.0'",
+      "rationale": "The ariga/atlas GitHub repository's LICENSE file, read directly rather than via GitHub's auto-detected metadata field, is Apache License 2.0 (SPDX identifier Apache-2.0) — an OSI-approved, permissive licence. This answers the source-code-repository licence field precisely and satisfies the plan's requirement to read the LICENSE file directly rather than a third-party summary."
+    },
+    "licence_default_distribution_is_not_apache2": {
+      "classification": "expressible",
+      "citation": "atlasgo.io/community-edition: 'The standard distribution is built from the same open-source codebase plus some additional proprietary features, and is free to download and use under the terms of the Atlas MSA.'",
+      "rationale": "This is the load-bearing finding the task specifically asked for. The Apache-2.0 licence covers only the source repository and a distinct 'Community Edition' build; the binary most users actually install (via the documented default install path, and by extension the unsuffixed/'-extended' Docker Hub tags recorded in the sibling docker-registry facet, as opposed to the '-community' tagged images) is licensed under a separate document Ariga calls the 'Atlas MSA' (Master Subscription/Service Agreement), not Apache-2.0. It is free-to-download and includes 'additional proprietary features' plus a wider set of database drivers (see the Database Support table below), but it is source-available/proprietary-adjacent, not an OSI open-source licence, for anyone running the default distribution rather than deliberately building the Apache-2.0 Community Edition. This directly resolves — as a licensing-level explanation — the open tag-family question the sibling source-atlas-hcl-docker-registry.json record flagged ('the coexistence of unsuffixed, -community, and -extended tag families... was not verified by inspecting image contents'): the '-community' tag family is almost certainly the Apache-2.0 Community Edition build, and the unsuffixed/'-extended' tags are almost certainly the Atlas-MSA-licensed standard distribution, though this record did not independently inspect image manifests/entrypoints to confirm that mapping and states it as a strong inference from the licensing documentation, not a confirmed fact."
+    },
+    "licence_pro_paid_tier": {
+      "classification": "expressible",
+      "citation": "atlasgo.io/community-edition ('Running atlas login unlocks Atlas Pro features... a license is required to continue using Atlas Pro'); atlasgo.io/pricing ('Atlas Pro Seats' priced per developer, 30-day free trial then paid); atlasgo.io/features (Pro column)",
+      "rationale": "On top of the Apache-2.0 core and the free-but-proprietary Atlas-MSA standard distribution, a third, explicitly paid tier ('Atlas Pro', with an 'Enterprise' tier above it) exists, unlocked by logging in and, after a 30-day trial, by a paid subscription (documented elsewhere at $9/seat/month for Pro). This is a three-layer licensing structure, not a simple open-core/paid binary: (1) Apache-2.0 Community Edition, (2) Atlas-MSA standard distribution (free, proprietary, wider driver support), (3) Atlas Pro/Enterprise (paid subscription, additional capabilities)."
+    },
+    "paid_free_boundary_against_briefs_musts": {
+      "classification": "expressible-only-via-workaround",
+      "citation": "atlasgo.io/features (CLI Features and Database Support tables) versus atlasgo.io/pricing (Atlas CLI Starter/Pro/Enterprise table) — the two pages disagree on tier gating for at least one of the brief's MUST capabilities",
+      "rationale": "Schema inspection ('Database Inspection: Open') and the core validator behaviour for the Open-tier database engines are not documented as requiring a paid plan or `atlas login` on either page reviewed; nor is the basic destructive/backward-incompatible/naming-convention lint reported in the sibling source-atlas-hcl-validation-exit.json record as login-gated in its own primary-source excerpt. DDL derivation via `atlas schema apply --dry-run` (sibling record source-atlas-hcl-generation.json, classified expressible) likewise carries no documented login/paid requirement for the Open-tier engines (PostgreSQL, MySQL, MariaDB, SQLite, TiDB, LibSQL); it becomes conditional on a paid plan only if the target database is one of the eleven Pro-only-listed engines (SQL Server, ClickHouse, Redshift, Oracle, Spanner, Snowflake, Databricks, CockroachDB, YugabyteDB, Aurora DSQL, Azure Fabric) — which matters here because ADR-0001 leaves the database product unchosen, so this is a conditional, not a settled, answer. Diagram/ERD visualization is the one MUST capability where the two official pages directly conflict: atlasgo.io/features states, verbatim, 'Schema Visualization — Pro Plan Only'; atlasgo.io/pricing's 'Atlas CLI' table lists 'ERD visualization' as included in the Starter (free) column alongside Pro and Enterprise. Neither page is dated, both are equally official (both atlasgo.io, both first-party Ariga documentation), and no third page was found to arbitrate — this is recorded as an unresolved internal inconsistency rather than picked one way. It does not, however, change the sibling source-atlas-hcl-generation.json record's separate, and here uncontested, finding that whichever tier gates it, the visualization mechanism itself routes through Atlas Cloud (the public gh.atlasgo.cloud 'Explore' page or a personal, login-gated workspace) and not a locally-rendered SVG/PNG file — so ERD visualization fails the brief's ephemeral-Docker-container/no-cloud-dependency MUST on that separate, unconflicted ground regardless of which pricing tier answer is correct. The one capability confirmed Pro/Enterprise-only by two independent official pages with no conflict is the custom schema-rule language needed to assert the domain_id cross-cutting convention (already established in source-atlas-hcl-validation-exit.json; corroborated here by atlasgo.io/pricing's and atlasgo.io/features' agreeing 'Custom Schema Rules: Pro' / 'Custom linting rules: Pro' rows)."
+    },
+    "governance": {
+      "classification": "not-expressible",
+      "citation": "GOVERNANCE.md and MAINTAINERS.md both confirmed 404 at the repository root of the master branch; GitHub API owner.type = 'Organization' (ariga) with no further documented decision process found; ariga.io's own 'About' page returned no usable governance content when fetched",
+      "rationale": "No governance charter, steering-council document, BDFL statement, or foundation charter was found for the Atlas project, checked at the two conventional paths and via a general web search. What can be established, from independent funding-news coverage (used here as leads/corroboration only, per the plan's source_targets constraint, never as sole evidence for a capability claim) plus the GitHub organization ownership fact, is vendor structure: Atlas is maintained by a single venture-capital-backed company, Ariga, Inc. (Tel Aviv, Israel; founded 2021 by Ariel Mashraki and Rotem Tamir; approximately $18M raised in an early-stage round led by Tiger Global and TLV Partners, announced June 2023, with total disclosed funding around $30M). This is recorded plainly, per the task's explicit instruction, as single-vendor commercial governance with no foundation or community-consensus structure — the same pattern found for Prisma in the sibling source-prisma-licence-governance.json record, and recorded here as a genuine negative finding for a documented governance process, not inferred as informal community governance from silence."
+    },
+    "freshness_and_abandonment_risk": {
+      "classification": "expressible",
+      "citation": "GitHub API: latest release v1.3.0 published_at 2026-08-02T09:09:55Z (api.github.com/repos/ariga/atlas/releases/latest); latest commit on default branch 2026-07-29T06:36:44Z (api.github.com/repos/ariga/atlas/commits); repository pushed_at 2026-08-02T09:01:02Z",
+      "rationale": "The most recent tagged release (v1.3.0) and the most recent repository activity both fall well within the brief's 18-month freshness window (since roughly February 2025) relative to the August 2026 retrieval date — the most recent release is under two weeks before retrieval, and the most recent observed commit under three weeks before. Atlas is not at risk of abandonment under the brief's freshness_requirements. One unresolved cross-record observation, noted here for completeness but not investigated further as it belongs to a sibling facet: the sibling source-atlas-hcl-docker-registry.json record observed a Docker Hub image tag '1.3.1' with an estimated push date of 2026-08-13, one day before this record's retrieval date — but no GitHub release or tag named v1.3.1 was found in this pass (the top five tags returned by the GitHub API are v1.3.0, v1.2.3, v1.2.2, v1.2.1, v1.2.0). This could mean a Docker-only patch build ahead of its source tag, or that the sibling record's relative-date-to-absolute-date conversion (Docker Hub shows relative recency strings, not absolute timestamps) was imprecise. Recorded as an open discrepancy between two source records, not resolved here."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "ariga atlas GOVERNANCE.md",
+      "ariga atlas MAINTAINERS.md",
+      "ariga atlas \"Business Source License\" OR \"BSL\" OR EULA Pro Enterprise license terms",
+      "github.com ariga atlas repository enterprise OR ee directory license paid feature gating source code",
+      "\"Ariga, Inc.\" atlas database company founders funding round investors",
+      "atlasgo.io pricing \"ERD visualization\" Starter Pro Enterprise table"
+    ],
+    "where_searched": [
+      "raw.githubusercontent.com/ariga/atlas/master/{GOVERNANCE.md,MAINTAINERS.md} (direct path requests, both 404)",
+      "atlasgo.io/community-edition, atlasgo.io/features, atlasgo.io/pricing, atlasgo.io/cloud/pricing (official docs, via WebFetch)",
+      "ariga.io/about (returned no usable content)",
+      "general web search (WebSearch tool), no domain restriction"
+    ],
+    "search_date": "2026-08-14",
+    "result": "No GOVERNANCE.md, MAINTAINERS.md, foundation charter, or BDFL statement was found for the Atlas project (confirmed absence via direct 404, not inferred). A genuine, load-bearing complication was found rather than a simple confirmation: the project is not simply 'Apache-2.0, single-vendor' as a first glance at the LICENSE file would suggest — it is a three-tier structure (Apache-2.0 Community Edition / free-but-proprietary Atlas-MSA standard distribution / paid Atlas Pro-Enterprise), and the two official pages documenting which specific capabilities sit in the paid tier (atlasgo.io/features vs atlasgo.io/pricing) directly contradict each other on at least the ERD-visualization row. No evidence of a licence-model change controversy (e.g. a retroactive move to a more restrictive licence for the core Apache-2.0 repository itself) was found; the LICENSE file at the current retrieval date is unambiguously Apache-2.0 for the core repository."
+  }
+}

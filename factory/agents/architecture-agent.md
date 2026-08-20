@@ -12,6 +12,7 @@ skills:
   - write-adr
   - maintain-architecture
   - model-structurizr-slice
+  - update-charter
   - handoff
 inputs:
   - docs/arc42/CONTEXT.md
@@ -46,7 +47,7 @@ triggers:
   - "run ATAM"
 handoff-to:
   - architecture-review-agent
-version: 0.4.0
+version: 0.5.0
 ---
 
 # Architecture Agent
@@ -56,6 +57,9 @@ version: 0.4.0
 ## Role
 
 Produce **arc42** documentation, **C4** models in **Structurizr DSL**, and **ADRs according to Nygard**, applying **Clean Architecture** throughout. Reference: [arc42-markdown-template](https://github.com/matthiasdaues/arc42-markdown-template).
+
+For onboarding and brownfield work, `docs/arc42/architecture.dsl` is the
+single source of truth and must be filled first from code and IaC evidence.
 
 ## Phase entry
 
@@ -82,19 +86,25 @@ phase is exempt and may continue in the current session.
 
 ## Workflow
 
-1. **Scaffold arc42 and C4** — Invoke `scaffold-arc42`: all 12 chapters filled, `docs/arc42/architecture.dsl` created.
+1. **Archive superseded docs first** — Move all pre-existing documentation artifacts to `~archive/`, preserving their original relative path (for example, `docs/arc42/legacy.md` → `~archive/docs/arc42/legacy.md`), so active guidance stays clean.
+2. **Build `architecture.dsl` first** — Invoke `scaffold-arc42`, then immediately fill `docs/arc42/architecture.dsl` from code and deployment IaC (Terraform when available) before writing architecture prose.
+   - Required first pass coverage: System Context, Container, Component, Deployment views
+   - `05_building_block_view.md`, `06_runtime_view.md`, and `07_deployment_view.md` must derive from these DSL views
    ```bash
    factory/scripts/structurizr validate
    factory/scripts/structurizr export-all
    ```
-2. **Write ADRs** — Per decision: if genuine alternatives exist, invoke `pugh-matrix` against ch.10 quality goals (**Clean Architecture** + **SOLID** as criteria when boundaries/contracts are affected) before invoking `write-adr`; if there's no real alternative to weigh, invoke `write-adr` directly. Update `docs/arc42/09_architecture_decisions.md` index.
-3. **Address findings** (repeat passes) — Invoke `maintain-architecture`: DSL first → validate → export → prose → Mermaid → state machines per [state-machine-notation.md](../rulebooks/conventions/state-machine-notation.md) → annotate findings (don't resolve). One atomic commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `refactor: <description> (ATAM-NNNN)`.
+3. **Write arc42 prose from DSL** — Populate chapters with code and IaC citations, using exported DSL views as canonical diagrams.
+4. **Write ADRs** — Per decision: if genuine alternatives exist, invoke `pugh-matrix` against ch.10 quality goals (**Clean Architecture** + **SOLID** as criteria when boundaries/contracts are affected) before invoking `write-adr`; if there's no real alternative to weigh, invoke `write-adr` directly. Update `docs/arc42/09_architecture_decisions.md` index.
+5. **Address findings** (repeat passes) — Invoke `maintain-architecture`: DSL first → validate → export → prose → Mermaid → state machines per [state-machine-notation.md](../rulebooks/conventions/state-machine-notation.md) → annotate findings (don't resolve). One atomic commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `refactor: <description> (ATAM-NNNN)`.
 
 **Pause points:** Arc42 chapters before ADRs · Each ADR for approval.
 
 ## Completion Criteria
 
-- All 12 chapters substantive, `docs/arc42/architecture.dsl` validates, diagrams exported
+- `docs/arc42/architecture.dsl` exists, is substantive, validates, and exports diagrams before prose is considered complete
+- Deployment view reflects Terraform (or equivalent IaC) deployment nodes and connections when IaC is available
+- All 12 chapters substantive and consistent with exported DSL views
 - Every decision has an ADR (`evaluation: pugh-matrix` where genuine alternatives existed, `evaluation: none` otherwise), no ADR conflicts
 - Open findings addressed (repeat passes)
 

@@ -1,0 +1,63 @@
+{
+  "source_identity": "Docker Hub public registry API (search + namespace listing) for 'prisma' images; ghcr.io token endpoint probe for prisma org container packages; Prisma official Docker deployment guide",
+  "author_or_issuing_body": "Docker, Inc. (registry API and hosted content); GitHub, Inc. (ghcr.io registry); Prisma Data, Inc. (deployment guide)",
+  "publisher": "hub.docker.com (Docker, Inc.); ghcr.io (GitHub, Inc.); www.prisma.io (Prisma Data, Inc.)",
+  "publication_date": "2026-08-14T00:00:00Z",
+  "relevant_event_date": "2026-08-14",
+  "source_family": "container-registry-listing",
+  "precise_evidence_location": "Docker Hub API endpoints https://hub.docker.com/v2/search/repositories/?query=prisma and https://hub.docker.com/v2/repositories/prismagraphql/ (namespace listing, JSON field last_updated); ghcr.io token endpoint https://ghcr.io/token?service=ghcr.io&scope=repository:prisma/<name>:pull for names prisma/prisma, prisma/prisma-cli, prisma/engines; Prisma docs page /docs/guides/deployment/docker, section '3. Run the app and database together with Docker Compose'.",
+  "method": "Direct HTTP GET requests via curl against the Docker Hub v2 public API and the ghcr.io anonymous-token endpoint, executed on 2026-08-14, with raw JSON responses parsed programmatically (not summarized by an intermediate LLM step) for the registry facts; the deployment-guide quotes were retrieved via web fetch of the live docs page.",
+  "limitations": "Docker Hub's search API and namespace listing are complete for the 'prisma' and 'prismagraphql' namespaces as queried, but a name-based search cannot prove the total absence of a relevant image outside those namespaces (e.g. under an unrelated org name); this is a bounded-search limitation, not a guarantee of exhaustiveness. The ghcr.io check only tested three plausible image-path guesses (prisma/prisma, prisma/prisma-cli, prisma/engines) under the 'prisma' GitHub-org namespace; GitHub Packages listing via the authenticated API (api.github.com/orgs/prisma/packages) returned 401 Unauthorized because it requires an access token this research did not use, so a definitive enumerated list of all ghcr.io packages published by the prisma org could not be obtained — recorded as a gap, not as proof of absence. No Docker image was pulled or run, per task boundary.",
+  "provenance": "Registry facts are re-verifiable by re-issuing the same curl commands against the same public API endpoints (no authentication required for Docker Hub search/listing; ghcr.io anonymous-token probe also requires no credentials). The deployment guide is re-verifiable by visiting the URL in raw_evidence[].url directly.",
+  "raw_evidence": [
+    {
+      "quote": "prismagraphql/prisma | stars: 84 | official: False | desc: The Data Layer for Modern Applications",
+      "locator": "Docker Hub search API response, query 'prisma', result entry 'prismagraphql/prisma'",
+      "url": "https://hub.docker.com/v2/search/repositories/?query=prisma&page_size=25"
+    },
+    {
+      "quote": "{\"name\": \"prisma\", \"pull_count\": 86777836, \"last_updated\": \"2019-11-11T10:27:59.615938Z\"}",
+      "locator": "Docker Hub namespace listing API response for namespace 'prismagraphql', repository 'prisma'",
+      "url": "https://hub.docker.com/v2/repositories/prismagraphql/?page_size=25"
+    },
+    {
+      "quote": "{\"name\": \"build\", \"pull_count\": 515717, \"last_updated\": \"2026-03-06T13:54:56.631258Z\"}; {\"name\": \"mongo-single-replica\", \"pull_count\": 646161, \"last_updated\": \"2026-03-06T13:24:05.109363Z\"}; {\"name\": \"cockroachdb-custom\", \"pull_count\": 7319771, \"last_updated\": \"2026-03-06T13:24:12.974106Z\"}",
+      "locator": "Docker Hub namespace listing API response for namespace 'prismagraphql', repositories 'build', 'mongo-single-replica', 'cockroachdb-custom'",
+      "url": "https://hub.docker.com/v2/repositories/prismagraphql/?page_size=25"
+    },
+    {
+      "quote": "HTTP 403 Forbidden returned by https://ghcr.io/token?service=ghcr.io&scope=repository:prisma/prisma:pull (and the same for scopes prisma/prisma-cli and prisma/engines)",
+      "locator": "ghcr.io anonymous token endpoint response, three probed scopes",
+      "url": "https://ghcr.io/token?service=ghcr.io&scope=repository:prisma/prisma:pull"
+    },
+    {
+      "quote": "FROM node:lts-alpine3.17 [... and, in the alternative Debian-based example ...] FROM node:slim ... CMD [\"sh\", \"-c\", \"npm run db:deploy && npm run dev\"] ... \"db:deploy\": \"npx prisma migrate deploy && npx prisma generate\"",
+      "locator": "Prisma docs, 'How to use Prisma in Docker' guide, section '3. Run the app and database together with Docker Compose'",
+      "url": "https://www.prisma.io/docs/guides/deployment/docker"
+    }
+  ],
+  "interpretation": {
+    "official_docker_image_availability": {
+      "classification": "not-expressible",
+      "citation": "Docker Hub namespace listing for 'prismagraphql' (last_updated 2019-11-11T10:27:59Z for the 'prisma' repo); ghcr.io token-endpoint 403s for the three most plausible current-org image paths; Prisma's own Docker deployment guide, section 3",
+      "rationale": "No currently-maintained, officially-published Prisma CLI/engines Docker image was found on either public registry checked. The only Docker Hub image plausibly named for the current product, prismagraphql/prisma, was last updated 2019-11-11 — this is Prisma 1, the deprecated GraphQL-server product that predates the schema.prisma-based Prisma ORM (Prisma 2+) this survey is about; it is a different product under a legacy namespace, not the candidate in scope, and using it would be a category error. The other prismagraphql/* repositories with recent (2026-03-06) activity (build, mongo-single-replica, cockroachdb-custom) are internal CI/test-fixture images (a build image and seeded-database images for running Prisma's own integration test suite), not a published CLI or engines product image for end users. ghcr.io returned 403 (not merely 404) for the three most plausible current image paths under the prisma org, consistent with — though not conclusive proof of — no public image existing at those paths; a full, authenticated enumeration of the org's ghcr.io packages was not performed (see limitations). The docs' own deployment guide confirms the officially recommended path is NOT a dedicated Prisma image: it instructs building a Dockerfile FROM a generic node:alpine or node:slim base image and running `npx prisma migrate deploy && npx prisma generate` inside it. This is materially different from factory/scripts/structurizr's pattern of pulling one official, versioned image and invoking a validate/export-svg/export-png subcommand — there is no equivalent single official image to pull for Prisma; a project would have to build and maintain its own Dockerfile around the node base image and npx invocations."
+    }
+  },
+  "contrary_evidence_search": {
+    "search_terms": [
+      "official prisma docker image",
+      "prisma docker hub",
+      "prisma ghcr.io",
+      "prisma-engines docker image",
+      "prisma cli container"
+    ],
+    "where_searched": [
+      "Docker Hub public search API (hub.docker.com/v2/search/repositories)",
+      "Docker Hub namespace listing API for 'prisma' and 'prismagraphql'",
+      "ghcr.io anonymous token endpoint for three plausible prisma-org image paths",
+      "web search for 'Prisma official Docker image' and the official deployment guide"
+    ],
+    "search_date": "2026-08-14",
+    "result": "Searched specifically for evidence of an official, currently-maintained Prisma Docker image and found none; found instead a documented absence, in the form of the deployment guide's own generic-node-base-image instructions, plus one clearly legacy/deprecated Docker Hub image (prismagraphql/prisma, unmaintained since 2019) that is not the candidate this survey concerns. This is a materially different, and weaker, answer than 'an official image exists at tag X' — recorded exactly as such per the task's explicit instruction not to accept a README/blog claim in place of a registry-listing check, and not to substitute the npx-in-generic-image path for a genuine official image without saying so."
+  }
+}

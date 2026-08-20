@@ -13,7 +13,12 @@
       "AG-09",
       "AG-10",
       "AG-11",
-      "AG-12"
+      "AG-12",
+      "AG-13",
+      "AG-14",
+      "AG-15",
+      "AG-16",
+      "AG-17"
     ],
     "use_cases": [
       "UC-01",
@@ -27,7 +32,12 @@
       "UC-09",
       "UC-10",
       "UC-11",
-      "UC-12"
+      "UC-12",
+      "UC-13",
+      "UC-14",
+      "UC-15",
+      "UC-16",
+      "UC-17"
     ],
     "business_rules": [
       "BR-001",
@@ -78,13 +88,29 @@
       "BR-046",
       "BR-047",
       "BR-048",
-      "BR-049"
+      "BR-049",
+      "BR-050",
+      "BR-051",
+      "BR-052",
+      "BR-053",
+      "BR-054",
+      "BR-055",
+      "BR-056",
+      "BR-057",
+      "BR-058",
+      "BR-059",
+      "BR-060"
     ],
     "entities": [
       "AGENT_ENTRY",
+      "ARCHITECTURE_CONSTRAINT",
+      "ARCHITECTURE_DIAGRAM",
+      "ARCHITECTURE_MODEL",
+      "ARCHITECTURE_VIEW",
       "ARTIFACT_REFERENCE",
       "CATALOG",
       "CHILD_RESULT_ENVELOPE",
+      "EXPORTED_IMAGE",
       "FINDING",
       "FSM_DEFINITION",
       "GATE_CONDITION",
@@ -98,10 +124,31 @@
       "RULEBOOK_ENTRY",
       "SESSION_USAGE_SIGNAL",
       "SKILL_ENTRY",
-      "STATE_DEFINITION"
+      "STATE_DEFINITION",
+      "SYNC_STATE"
     ]
   },
   "edges": [
+    {
+      "from": "UC-16",
+      "rel": "realizes",
+      "to": "AG-16"
+    },
+    {
+      "from": "UC-16",
+      "rel": "references_br",
+      "to": "BR-058"
+    },
+    {
+      "from": "UC-16",
+      "rel": "references_br",
+      "to": "BR-053"
+    },
+    {
+      "from": "UC-16",
+      "rel": "references_br",
+      "to": "BR-058"
+    },
     {
       "from": "UC-12",
       "rel": "realizes",
@@ -211,6 +258,101 @@
       "from": "UC-05",
       "rel": "references_br",
       "to": "BR-018"
+    },
+    {
+      "from": "UC-13",
+      "rel": "realizes",
+      "to": "AG-13"
+    },
+    {
+      "from": "UC-13",
+      "rel": "references_br",
+      "to": "BR-051"
+    },
+    {
+      "from": "UC-13",
+      "rel": "references_br",
+      "to": "BR-051"
+    },
+    {
+      "from": "UC-13",
+      "rel": "references_br",
+      "to": "BR-050"
+    },
+    {
+      "from": "UC-13",
+      "rel": "references_br",
+      "to": "BR-050"
+    },
+    {
+      "from": "UC-13",
+      "rel": "references_br",
+      "to": "BR-051"
+    },
+    {
+      "from": "UC-13",
+      "rel": "references_br",
+      "to": "BR-052"
+    },
+    {
+      "from": "UC-13",
+      "rel": "references_br",
+      "to": "BR-053"
+    },
+    {
+      "from": "UC-17",
+      "rel": "realizes",
+      "to": "AG-17"
+    },
+    {
+      "from": "UC-17",
+      "rel": "references_br",
+      "to": "BR-055"
+    },
+    {
+      "from": "UC-17",
+      "rel": "references_br",
+      "to": "BR-054"
+    },
+    {
+      "from": "UC-17",
+      "rel": "references_br",
+      "to": "BR-056"
+    },
+    {
+      "from": "UC-17",
+      "rel": "references_br",
+      "to": "BR-055"
+    },
+    {
+      "from": "UC-17",
+      "rel": "references_br",
+      "to": "BR-054"
+    },
+    {
+      "from": "UC-17",
+      "rel": "references_br",
+      "to": "BR-053"
+    },
+    {
+      "from": "UC-17",
+      "rel": "references_br",
+      "to": "BR-054"
+    },
+    {
+      "from": "UC-17",
+      "rel": "references_br",
+      "to": "BR-055"
+    },
+    {
+      "from": "UC-17",
+      "rel": "references_br",
+      "to": "BR-056"
+    },
+    {
+      "from": "UC-17",
+      "rel": "references_br",
+      "to": "BR-054"
     },
     {
       "from": "UC-04",
@@ -548,6 +690,66 @@
       "to": "BR-029"
     },
     {
+      "from": "UC-15",
+      "rel": "realizes",
+      "to": "AG-15"
+    },
+    {
+      "from": "UC-15",
+      "rel": "references_br",
+      "to": "BR-057"
+    },
+    {
+      "from": "UC-15",
+      "rel": "references_br",
+      "to": "BR-053"
+    },
+    {
+      "from": "UC-15",
+      "rel": "references_br",
+      "to": "BR-057"
+    },
+    {
+      "from": "UC-14",
+      "rel": "realizes",
+      "to": "AG-14"
+    },
+    {
+      "from": "UC-14",
+      "rel": "references_br",
+      "to": "BR-059"
+    },
+    {
+      "from": "UC-14",
+      "rel": "references_br",
+      "to": "BR-056"
+    },
+    {
+      "from": "UC-14",
+      "rel": "references_br",
+      "to": "BR-053"
+    },
+    {
+      "from": "UC-14",
+      "rel": "references_br",
+      "to": "BR-059"
+    },
+    {
+      "from": "UC-14",
+      "rel": "references_br",
+      "to": "BR-053"
+    },
+    {
+      "from": "UC-14",
+      "rel": "references_br",
+      "to": "BR-056"
+    },
+    {
+      "from": "UC-14",
+      "rel": "references_br",
+      "to": "BR-059"
+    },
+    {
       "from": "UC-07",
       "rel": "realizes",
       "to": "AG-07"
@@ -631,6 +833,11 @@
       "from": "UC-10",
       "rel": "references_br",
       "to": "BR-040"
+    },
+    {
+      "from": "UC-10",
+      "rel": "references_br",
+      "to": "BR-060"
     },
     {
       "from": "UC-10",
