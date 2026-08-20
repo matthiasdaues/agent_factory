@@ -47,5 +47,5 @@ If `evaluation: pugh-matrix`, the Decision section includes the confirmed matrix
 
 ## Referenced from
 
-- [write-adr § Step 3](../../skills/write-adr/SKILL.md#step-3-write-the-adr)
+- [write-adr § Step 3](../../skills/write-adr/SKILL.md#step-3--write-the-adr)
 - [arch-lint script](../../scripts/arch-lint) (validates frontmatter)

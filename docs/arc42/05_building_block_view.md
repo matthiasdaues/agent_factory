@@ -68,7 +68,7 @@ Two more — `schema-validate` and `policy-validate` — are on-demand validator
 
 - [UC-09 — Run Tests via Hook](../spec/use_cases/UC-09-run-tests-via-hook.md)
 - [PRD § FR-I — Test Execution](../spec/prd.md#fr-i--test-execution-run-tests)
-- [validation-rules.md § Test execution (BR-023..BR-027)](../spec/supplementary_specs/validation-rules.md#test-execution-run-tests-br-023-br-024-br-025-br-026-br-027)
+- [validation-rules.md § Test execution (BR-023..BR-027)](../spec/supplementary_specs/validation-rules.md#test-execution-run-tests-br-023-br-024-br-025-br-026-br-027-br-028-br-029)
 
 ### 5.2.2 Research artifact validators (schema-validate, policy-validate)
 
