@@ -331,11 +331,6 @@
     {
       "from": "UC-17",
       "rel": "references_br",
-      "to": "BR-053"
-    },
-    {
-      "from": "UC-17",
-      "rel": "references_br",
       "to": "BR-054"
     },
     {

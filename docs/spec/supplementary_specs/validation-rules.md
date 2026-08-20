@@ -105,7 +105,7 @@ The `script_exit_zero` condition evaluator (currently stubbed per [T-03](../todo
 ## Architecture model invariants (BR-050, BR-051, BR-052)
 
 - **BR-050**: The JSONC model (`docs/arc42/architecture.jsonc`) is the single source of truth for architectural structure: elements, relationships, views, and constraints. The draw.io file (`docs/arc42/architecture.drawio`) owns layout and visual arrangement. Neither file is authoritative for the other's domain.
-- **BR-051**: The Factory workflow permits only label and description text to change via draw.io reverse sync. Element creation, deletion, and structural renaming are workflow-permitted only through the JSONC-first path. The `bausteinsicht sync` command itself performs a full, unrestricted reverse pass — it carries back all draw.io changes, including structural ones, into the JSONC model. Enforcement of the labels-only workflow restriction relies on `bausteinsicht validate` catching structural drift after the fact, and on the pre-commit hook (BR-056) blocking commits that contain such drift. No `--reverse-mode=labels-only` flag exists in the first release. See [T-11](../todos.md#t-11-no-restricted-reverse-mode-flag-in-first-release).
+- **BR-051**: Reverse sync carries back only label and description text from draw.io to JSONC. Element creation, deletion, and structural renaming flow forward only, from JSONC to draw.io. Known limitation: no `--reverse-mode=labels-only` flag in the first release; enforcement relies on `bausteinsicht validate` detecting structural inconsistencies introduced via draw.io edits. See [T-11](../todos.md#t-11-no-restricted-reverse-mode-flag-in-first-release).
 - **BR-052**: Factory agents work in the JSONC model exclusively. An agent never edits the draw.io file directly. This constraint is enforced by skill and agent instructions, not by a mechanical gate.
 
 ## Architecture Docker execution (BR-053)
@@ -115,7 +115,7 @@ The `script_exit_zero` condition evaluator (currently stubbed per [T-03](../todo
 ## Architecture pre-commit validation (BR-054, BR-055, BR-056)
 
 - **BR-054**: Co-staging enforcement: the pre-commit hook rejects a commit when `architecture.jsonc` is staged without `architecture.drawio`, or vice versa. Both files must be staged together to pass the hook.
-- **BR-055**: The pre-commit hook fires conditionally. It checks whether any files matching `*.jsonc` or `*.drawio` under `docs/arc42/` appear in the staging area (`git diff --cached --name-only`). If no such files are staged, the hook is a no-op and exits `0` immediately. Files with those extensions outside `docs/arc42/` do not trigger the hook.
+- **BR-055**: The pre-commit hook fires conditionally. It checks whether any `.jsonc` or `.drawio` files appear in the staging area (`git diff --cached --name-only`). If none are staged, the hook is a no-op and exits `0` immediately.
 - **BR-056**: `bausteinsicht validate` checks structural consistency between the JSONC model and the draw.io diagram (schema, referential integrity, element correspondence). `bausteinsicht lint` checks architectural constraints declared in the JSONC model's `constraints` array. Both must pass for the pre-commit hook to allow the commit.
 
 ## Architecture image export (BR-057)

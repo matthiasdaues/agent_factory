@@ -29,11 +29,10 @@ The actor runs `factory/scripts/bausteinsicht sync` after editing the JSONC mode
 2. Actor runs `factory/scripts/bausteinsicht sync`.
 3. The wrapper script starts the Docker container with `docs/` volume-mounted.
 4. Bausteinsicht performs a forward sync: structural changes from the JSONC model propagate to the draw.io diagram.
-5. Bausteinsicht performs a full reverse sync: all changes from the draw.io diagram — including any structural edits — propagate back to the JSONC model. The Factory workflow permits only label and description changes via this path (BR-051); structural changes introduced in draw.io will be caught by `bausteinsicht validate` before commit.
+5. Bausteinsicht performs a reverse sync: label and description text edits from the draw.io diagram propagate back to the JSONC model (BR-051).
 6. The sync state file (`.bausteinsicht-sync`) is updated to record the synchronization point.
 7. The wrapper script exits `0`.
-8. Actor verifies the draw.io diagram reflects the structural changes and the JSONC model contains any label corrections. Actor runs `bausteinsicht validate` to confirm no workflow-impermissible structural drift was introduced via draw.io.
-9. Optionally, actor runs `bausteinsicht diff` to produce a human-readable structural change summary for PR descriptions (SF-04).
+8. Actor verifies the draw.io diagram reflects the structural changes and the JSONC model contains any label corrections.
 
 ## Extensions
 
@@ -43,9 +42,9 @@ The actor runs `factory/scripts/bausteinsicht sync` after editing the JSONC mode
   - 4a1. Bausteinsicht creates an initial `architecture.drawio` from the JSONC model.
   - 4a2. The sync continues normally from step 6.
 - **5a. A Human Reviewer has added a structural element in draw.io (not just labels)**
-  - 5a1. The full reverse sync carries back all draw.io changes, including the structural addition, into the JSONC model.
-  - 5a2. The Factory workflow does not permit structural changes via draw.io (BR-051). The actor runs `bausteinsicht validate` (or the pre-commit hook runs it automatically) to detect that a structural element was introduced outside the JSONC-first workflow.
-  - 5a3. The actor reverts the unwanted structural change in the JSONC model and re-syncs.
+  - 5a1. Reverse sync carries back any label and description changes.
+  - 5a2. The structural addition remains in draw.io only; it does not appear in JSONC (BR-051).
+  - 5a3. `bausteinsicht validate` (run separately or via the pre-commit hook) will report the structural inconsistency between draw.io and JSONC.
 
 ## Postconditions
 
@@ -55,7 +54,7 @@ The actor runs `factory/scripts/bausteinsicht sync` after editing the JSONC mode
 ## Business Rules
 
 - **BR-050**: The JSONC model (`architecture.jsonc`) is the single source of truth for architectural structure: elements, relationships, views, and constraints. The draw.io file (`architecture.drawio`) owns layout and visual arrangement.
-- **BR-051**: The Factory workflow permits only label and description text to change via draw.io reverse sync. Element creation, deletion, and structural renaming are workflow-permitted only through the JSONC-first path. The sync command itself performs a full, unrestricted reverse pass; enforcement of the labels-only workflow restriction relies on `bausteinsicht validate` catching structural drift after the fact. See [T-11](../todos.md#t-11-no-restricted-reverse-mode-flag-in-first-release).
+- **BR-051**: Reverse sync carries back only label and description text from draw.io to JSONC. Element creation, deletion, and structural renaming flow forward only, from JSONC to draw.io. Known limitation: no `--reverse-mode=labels-only` flag in the first release; enforcement via `bausteinsicht validate` detecting structural inconsistencies.
 - **BR-052**: Factory agents work in the JSONC model exclusively. An agent never edits the draw.io file directly.
 - **BR-053**: All Bausteinsicht operations run inside a Docker container via the `factory/scripts/bausteinsicht` wrapper. The Factory does not install the Bausteinsicht binary directly on the host.
 
@@ -71,7 +70,7 @@ flowchart TD
     F -->|no| G[Create initial drawio from JSONC]
     F -->|yes| H[Forward sync: JSONC to drawio]
     G --> H
-    H --> I[Full reverse sync: all drawio changes to JSONC]
+    H --> I[Reverse sync: labels/descriptions from drawio to JSONC]
     I --> J[Update .bausteinsicht-sync state]
     J --> K[Exit 0]
 ```
@@ -95,12 +94,12 @@ Feature: Synchronize architecture model and diagram
     Then architecture.jsonc contains the label "Payment Gateway"
     And the wrapper exits 0
 
-  Scenario: Structural addition in drawio is carried back but caught by validate
+  Scenario: Structural addition in drawio does not create JSONC element
     Given a Human Reviewer has drawn a new component "Audit" in architecture.drawio
     And architecture.jsonc has no element named "Audit"
     When the actor runs bausteinsicht sync
-    Then the full reverse sync carries the "Audit" element into architecture.jsonc
-    And bausteinsicht validate reports a structural inconsistency introduced outside the JSONC-first workflow
+    Then architecture.jsonc still has no element named "Audit"
+    And bausteinsicht validate reports a structural inconsistency
 
   Scenario: First sync creates initial drawio
     Given architecture.jsonc exists with a valid model

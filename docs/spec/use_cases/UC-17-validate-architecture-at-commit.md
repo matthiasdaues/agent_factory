@@ -48,10 +48,6 @@ The actor runs `git commit` with `.jsonc` or `.drawio` files in the staging area
   - 5b1. The hook reports every constraint violation.
   - 5b2. The hook exits non-zero, blocking the commit.
   - 5b3. The actor fixes the constraint violations in the JSONC model, syncs, and retries.
-- **5c. Docker daemon is not running**
-  - 5c1. The hook cannot run `bausteinsicht validate` (BR-053).
-  - 5c2. The hook reports Docker is unavailable and exits non-zero, blocking the commit.
-  - 5c3. The actor starts Docker and retries the commit.
 
 ## Postconditions
 
@@ -61,7 +57,7 @@ The actor runs `git commit` with `.jsonc` or `.drawio` files in the staging area
 ## Business Rules
 
 - **BR-054**: The pre-commit hook rejects a commit when `architecture.jsonc` is staged without `architecture.drawio`, or vice versa (co-staging enforcement).
-- **BR-055**: The pre-commit hook fires conditionally — only when files matching `*.jsonc` or `*.drawio` under `docs/arc42/` appear in the staging area. Files with those extensions outside `docs/arc42/` do not trigger the hook. Commits without architecture files pass through without invoking Bausteinsicht validation.
+- **BR-055**: The pre-commit hook fires conditionally — only when `.jsonc` or `.drawio` files appear in the staging area. Commits without architecture files pass through without invoking Bausteinsicht validation.
 - **BR-056**: `bausteinsicht validate` checks structural consistency between the JSONC model and the draw.io diagram. `bausteinsicht lint` checks architectural constraints declared in the JSONC model's `constraints` array. Both must pass for the pre-commit hook to allow the commit.
 
 ## Activity Diagram
@@ -118,13 +114,6 @@ Feature: Validate architecture artifacts at commit time
     And both files are co-staged
     When the actor runs git commit
     Then the pre-commit hook reports the constraint violation
-    And the commit is blocked
-
-  Scenario: Docker unavailable blocks commit
-    Given architecture.jsonc and architecture.drawio are both staged
-    And Docker daemon is not running
-    When the actor runs git commit
-    Then the pre-commit hook reports Docker is unavailable
     And the commit is blocked
 ```
 
