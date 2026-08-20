@@ -1,6 +1,6 @@
-# Interface Contracts — Factory Specification
+# Interface Contracts — Factory Flow Control
 
-Command-line contract for every script this specification covers. Flow-control scripts are stdlib-only Python 3.8+ with no virtualenv; the architecture modeling wrapper is a shell script delegating to Docker.
+Command-line contract for every script this specification covers: inputs, flags, outputs, and exit codes. All scripts are stdlib-only Python 3.8+; none requires a virtualenv.
 
 ## `factory/scripts/transition-lint`
 
@@ -144,29 +144,6 @@ The envelope applies to native subagents, `run_agent`, and `dispatch_wave`; runt
 | stdout/stderr | One `init-factory: <line>` report line per step; `init-factory: STOPPED — <reason>` on collision                                                                                                          |
 
 See [UC-08](../use_cases/UC-08-initialize-agent-factory-into-a-project.md).
-
-## `factory/scripts/bausteinsicht`
-
-|             |                                                                                                                                                                                                                                   |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage       | `bausteinsicht <subcommand> [args...]`                                                                                                                                                                                            |
-| Subcommands | `sync`, `validate`, `export-all`, `export-png`, `export-svg`, `import <dsl-path>`, `diff`                                                                                                                                         |
-| Reads       | `docs/arc42/architecture.jsonc`, `docs/arc42/architecture.drawio`, `docs/arc42/.bausteinsicht-sync` (subcommand-dependent)                                                                                                        |
-| Writes      | `docs/arc42/architecture.jsonc` (reverse sync labels), `docs/arc42/architecture.drawio` (forward sync, first-time creation), `docs/assets/images/*.{png,svg}` (export), `.bausteinsicht-sync`                                     |
-| Exit code   | `0` on success; non-zero on Docker unavailability, validation failure, parsing error, or conflict                                                                                                                                 |
-| Docker      | All operations run inside a Factory-built Docker container; the script calls `docker run` with `docs/` volume-mounted. The container includes Bausteinsicht, draw.io Desktop (headless via xvfb), dbus, and Electron dependencies |
-
-### Subcommand details
-
-| Subcommand   | Operation                                                                          | See                                                                              |
-| ------------ | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `sync`       | Forward sync (JSONC to draw.io) + reverse sync (labels/descriptions only)          | [UC-13](../use_cases/UC-13-synchronize-model-and-diagram.md)                     |
-| `validate`   | JSONC schema + referential integrity + JSONC/draw.io consistency + constraint lint | [UC-14](../use_cases/UC-14-validate-model-consistency.md)                        |
-| `export-all` | Export all views as PNG + SVG to `docs/assets/images/`                             | [UC-15](../use_cases/UC-15-export-architecture-views.md)                         |
-| `export-png` | Export all views as PNG only                                                       | [UC-15](../use_cases/UC-15-export-architecture-views.md)                         |
-| `export-svg` | Export all views as SVG only                                                       | [UC-15](../use_cases/UC-15-export-architecture-views.md)                         |
-| `import`     | One-time Structurizr DSL to JSONC + draw.io migration                              | [UC-16](../use_cases/UC-16-migrate-from-structurizr-dsl.md)                      |
-| `diff`       | Human-readable structural change summary (SF-04)                                   | [actor-goal-list.md § SF-04](../actor-goal-list.md#goals--architecture-modeling) |
 
 ## `factory/scripts/backlog-lint`
 
