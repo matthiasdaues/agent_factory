@@ -31,8 +31,8 @@ At the start of every session, present three choices:
 
 > **What do you want to do?**
 >
-> **A** — I want to achieve something\
-> **B** — I know what to run\
+> **A** — I want to start something new (prove an idea, research a topic, build a system)\
+> **B** — I want to run an agent or playbook directly\
 > **C** — I want to chat freely
 > /
 > Then act on the user's selection:
@@ -93,12 +93,6 @@ ______________________________________________________________________
 ### C — Generic chat
 
 Start a free-form session. No playbook, no agent — just work with the user directly.
-
-______________________________________________________________________
-
-### TUI enhancement (Pi only)
-
-If running in Pi, the entrypoint may be rendered as a keyboard-navigable TUI selector via the `factory-session-start` extension instead of prose. The extension must surface the same three choices (A / B / C) and resolve to the same destinations. On non-interactive or non-Pi environments, fall back to the prose presentation above.
 
 ______________________________________________________________________
 
