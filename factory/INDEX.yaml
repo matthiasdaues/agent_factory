@@ -12,6 +12,15 @@ agents:
     path: agents/coaching-agent.md
     tokens: 412
     total_tokens: 1074
+  - name: kit-manager
+    title: Kit Manager
+    phase: 0
+    phase_name: Utility
+    tier: standard
+    description: Help set up the work environment — scaffold or complete the project charter and validate the result. Accepts ad-hoc reference material (repos, files, URLs) and runs a structured interview to fill charter gaps. Runs in the current session so the stakeholder can answer questions directly.
+    path: agents/kit-manager.md
+    tokens: 1028
+    total_tokens: 6615
   - name: requirements-agent
     title: Requirements Agent
     phase: 1
@@ -272,6 +281,11 @@ skills:
     description: Wire Agent Factory into a project — new or existing — by running the deterministic init-factory script and relaying its result. Invoked explicitly, never automatically.
     path: skills/init-factory/SKILL.md
     tokens: 799
+  - name: process-transcript
+    category: utility
+    description: Process a meeting transcript source document into two markdown artifacts — a verbatim protocol and a comparison against the current repository state. Use when the user provides a transcript, mentions "process transcript", or wants to compare a discussion against the spec.
+    path: skills/process-transcript/SKILL.md
+    tokens: 1865
   - name: retrospective
     category: utility
     description: Run a structured session retrospective across five categories. Produces a timestamped report in docs/reviews/.
