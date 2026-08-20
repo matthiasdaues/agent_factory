@@ -22,12 +22,9 @@ models/
 
 # >>> agent_factory related >>>
 # Added by init-factory; remove with factory/scripts/remove-factory.
-#/factory/
+# /factory/
 /.claude/
 /.pi/
-/.agents/
-/.codex/
-/.demo-seed/
 /.agent-factory/
 /session-scratchpad.md
 /config/project.json
@@ -47,6 +44,7 @@ models/
 /.codex/agents/coaching-agent.toml
 /.codex/agents/developer-agent.toml
 /.codex/agents/implementation-agent.toml
+/.codex/agents/kit-manager.toml
 /.codex/agents/planning-agent.toml
 /.codex/agents/qa-agent.toml
 /.codex/agents/reconciliation-agent.toml
@@ -65,6 +63,7 @@ models/
 /.agents/skills/adversarial-review
 /.agents/skills/atam-review
 /.agents/skills/bug-hunt
+/.agents/skills/capture-charter
 /.agents/skills/capture-vision
 /.agents/skills/caveman
 /.agents/skills/claim-formulation
@@ -82,6 +81,8 @@ models/
 /.agents/skills/init-factory
 /.agents/skills/inspect-spec
 /.agents/skills/maintain-architecture
+/.agents/skills/model-structurizr-slice
+/.agents/skills/process-transcript
 /.agents/skills/pugh-matrix
 /.agents/skills/reconcile-spec
 /.agents/skills/refutation-design
@@ -95,6 +96,7 @@ models/
 /.agents/skills/security-review
 /.agents/skills/source-research
 /.agents/skills/spec-feedback
+/.agents/skills/update-charter
 /.agents/skills/validate
 /.agents/skills/write-adr
 /.agents/skills/write-prd

@@ -23,4 +23,83 @@ Canonical orientation content for any AI coding CLI working in a project that us
 
 - **MUST**: Machine-consumed gates, markers, dispatch records, and handoffs use full 40-character Git SHAs. Abbreviated SHAs are display-only.
 
-- **MUST**: Before you answer the first prompt, greet the user and acknowledge that you have ingested `factory/rulebooks/rules.md` and understood the local-first rule.
+- **MUST**: Before you answer the first prompt, present the session entrypoint (see below), then act on the user's choice.
+
+## Session Entrypoint
+
+At the start of every session, present three choices:
+
+> **What do you want to do?**
+>
+> **A** — I want to achieve something\
+> **B** — I know what to run\
+> **C** — I want to chat freely
+> /
+> Then act on the user's selection:
+
+______________________________________________________________________
+
+### A — Intention-based (ask what they want to achieve)
+
+Present this expanded tree only after A is chosen:
+
+> **1. Create something new**\
+> `a` — Quick answer, throwaway → `poc-spike`\
+> `b` — Validate a technical risk / decision before committing → `technical-poc`\
+> `c` — Build a real production system → `greenfield-development`
+>
+> **2. Onboard an existing project**\
+> → `brownfield-onboarding`
+>
+> **3. Change existing code**\
+> `a` — Add a feature → `feature-addition`\
+> `b` — Fix a defect / bug → `bug-fix`\
+> `c` — Restructure without changing behavior → `refactoring`
+>
+> **4. Sync docs with code**\
+> → `documentation-update`
+>
+> **5. Review what's there**\
+> `a` — Review architecture quality (ATAM) → `architecture-review`\
+> `b` — QA / exploratory bug hunt → `qa-agent`
+>
+> **6. Research a topic**\
+> `a` — Survey: what do credible sources say → `research-survey`\
+> `b` — Falsification: test a hypothesis with refutation → `research-topic`
+>
+> **7. Get unstuck / talk it through**\
+> → free-form session
+>
+> **8. Back to the main menu**
+
+When the user picks a leaf (a playbook or agent), run that playbook's operational procedure or spawn that agent with the user's stated goal as the task.
+
+______________________________________________________________________
+
+### B — Factory-content-based (user knows what they want to run)
+
+**Playbook or Agent?**
+
+> `P` — Run a playbook
+> `A` — Run an agent
+> `M` — Back to the Main Menu
+
+On selection, list the full set and let the user pick by name or number, then run that playbook/agent with the user's stated goal as the task.
+If `P` -> list all playbooks in the local `.*/playbooks` directory. Append an option to go back to the main menu. If the user picks a playbook, initiate that playbook's operational procedure.
+If `A` -> list all agents in the local `.*/agents` directory. Append an option to go back to the main menu. If the user picks an agent, assume that agent's role and ask the user for the intended task.
+
+______________________________________________________________________
+
+### C — Generic chat
+
+Start a free-form session. No playbook, no agent — just work with the user directly.
+
+______________________________________________________________________
+
+### TUI enhancement (Pi only)
+
+If running in Pi, the entrypoint may be rendered as a keyboard-navigable TUI selector via the `factory-session-start` extension instead of prose. The extension must surface the same three choices (A / B / C) and resolve to the same destinations. On non-interactive or non-Pi environments, fall back to the prose presentation above.
+
+______________________________________________________________________
+
+When a playbook is selected, read the playbook's markdown file and follow its operational procedure — running agents, enforcing gates, and producing its documented outputs. When an agent is selected directly, spawn it via the correct mechanism for this CLI (see Pi/Codex/Claude Code/Copilot CLI notes above).
