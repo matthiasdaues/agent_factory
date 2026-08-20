@@ -16,7 +16,7 @@ This specification replaces the Structurizr DSL pipeline with Bausteinsicht's bi
 
 ### Goals
 
-- **G-AM1** — Synchronize a JSONC architecture model with a draw.io diagram bidirectionally: forward sync propagates structural changes, reverse sync carries back all draw.io changes (the Factory workflow restricts permitted reverse changes to labels and descriptions; enforcement is via validate).
+- **G-AM1** — Synchronize a JSONC architecture model with a draw.io diagram bidirectionally: forward sync propagates structural changes, reverse sync carries back label and description edits only.
 - **G-AM2** — Validate model/diagram consistency and enforce architectural constraints declared in the JSONC model, via Docker-containerized Bausteinsicht.
 - **G-AM3** — Export architecture views as PNG and SVG images for arc42 chapter embedding, replacing Structurizr's export pipeline.
 - **G-AM4** — Migrate existing Factory projects from Structurizr DSL to the JSONC + draw.io workflow via a one-time import.
@@ -42,8 +42,8 @@ This specification replaces the Structurizr DSL pipeline with Bausteinsicht's bi
 ### FR-AM-A — Bidirectional sync (`bausteinsicht sync`)
 
 - **FR-AM-A1** — Forward sync propagates structural changes (elements, relationships, views) from the JSONC model to the draw.io diagram.
-- **FR-AM-A2** — Reverse sync carries all draw.io changes — including label, description, and structural edits — back into the JSONC model. The Factory workflow permits only label and description changes via this path; structural drift is detected by `bausteinsicht validate` after the fact (BR-051).
-- **FR-AM-A3** — No `--reverse-mode=labels-only` flag exists in the first release. Enforcement of the labels-only workflow restriction relies on `bausteinsicht validate` catching structural drift and on the pre-commit hook blocking commits that contain such drift (BR-051, BR-056).
+- **FR-AM-A2** — Reverse sync carries label and description text edits from the draw.io diagram back into the JSONC model.
+- **FR-AM-A3** — Reverse sync does not create, delete, or rename elements or relationships in the JSONC model (BR-051).
 - **FR-AM-A4** — The wrapper script runs Bausteinsicht inside a Docker container; no local binary installation is required (BR-053).
 
 ### FR-AM-B — Model validation (`bausteinsicht validate`, `bausteinsicht lint`)
