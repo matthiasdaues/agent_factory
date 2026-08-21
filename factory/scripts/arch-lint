@@ -104,8 +104,22 @@ def _block(text: str, start_marker: str) -> str:
 
 
 def dsl_core_components(dsl: str) -> set[str]:
-    core = _block(dsl, "core = container")
-    return set(re.findall(r'=\s*component\s+"([^"]+)"', core))
+    """Application services of the dispatch core, however the core is modelled.
+
+    Two shapes carry the same information. An expanded model gives the core its
+    own container (`core = container`) whose components are the services. A
+    deflated model makes the core a *component* of a coarser container and keeps
+    its services as same-level components inside a `group` named after the core
+    -- Structurizr has no level below component, so a group is the only way to
+    express ownership there. Accept either rather than forcing the model into
+    one shape.
+    """
+    block = _block(dsl, "core = container")
+    if not block:
+        m = re.search(r'\bcore\s*=\s*component\s+"([^"]+)"', dsl)
+        if m:
+            block = _block(dsl, f'group "{m.group(1)}"')
+    return set(re.findall(r'=\s*component\s+"([^"]+)"', block))
 
 
 def dsl_ports(dsl: str) -> set[str]:
