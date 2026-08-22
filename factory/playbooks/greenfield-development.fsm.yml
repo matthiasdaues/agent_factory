@@ -225,8 +225,7 @@ states:
     outputs:
       - src/**/*
       - tests/**/*
-      - factory/scripts/*
-      - backlog/*.md
+      - backlog/ST-*.md
       - git commits
 
     on:

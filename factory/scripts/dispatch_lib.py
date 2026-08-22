@@ -19,6 +19,14 @@ except ImportError:
 _SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
+def _validate_sha(sha: str) -> None:
+    """Raise ShaFormatError if *sha* is not exactly 40 lowercase hex chars."""
+    if not _SHA_RE.match(sha):
+        raise ShaFormatError(
+            f"SHA must be exactly 40 lowercase hex characters, got: {sha!r}"
+        )
+
+
 class StoryState(str, Enum):
     PENDING = "pending"
     PREPARED = "prepared"
@@ -59,11 +67,12 @@ class StoryEntry:
     gate_results: dict[str, Any] = field(default_factory=dict)
     attempts: list[dict[str, Any]] = field(default_factory=list)
 
+    def __post_init__(self) -> None:
+        if self.base_sha is not None:
+            _validate_sha(self.base_sha)
+
     def set_sha(self, sha: str) -> None:
-        if not _SHA_RE.match(sha):
-            raise ShaFormatError(
-                f"SHA must be exactly 40 lowercase hex characters, got: {sha!r}"
-            )
+        _validate_sha(sha)
         self.base_sha = sha
 
     def to_dict(self) -> dict[str, Any]:
@@ -111,6 +120,9 @@ class Ledger:
         entry.status = target
 
     def save(self, path: Path) -> None:
+        for entry in self.stories.values():
+            if entry.base_sha is not None:
+                _validate_sha(entry.base_sha)
         path.parent.mkdir(parents=True, exist_ok=True)
         data = {
             "stories": {sid: e.to_dict() for sid, e in self.stories.items()},
@@ -157,8 +169,12 @@ def _dump_yaml(data: dict[str, Any]) -> str:
 
 def _load_yaml(text: str) -> dict[str, Any]:
     if yaml is not None:
-        return yaml.safe_load(text)
-    return _stdlib_load(text)
+        result = yaml.safe_load(text)
+    else:
+        result = _stdlib_load(text)
+    if not isinstance(result, dict):
+        raise TypeError(f"expected mapping, got {type(result).__name__}")
+    return result
 
 
 def _stdlib_dump(data: dict[str, Any], indent: int = 0) -> str:
@@ -277,7 +293,7 @@ def _stdlib_load(text: str) -> dict[str, Any]:
         parent = stack[-1][1] if stack else result
 
         if ":" not in stripped:
-            continue
+            raise ValueError(f"malformed YAML: unrecognized line: {stripped!r}")
         key, _, rest = stripped.partition(":")
         key = key.strip()
         rest = rest.strip()
@@ -294,7 +310,6 @@ def _stdlib_load(text: str) -> dict[str, Any]:
         else:
             parent[key] = _parse_scalar(rest)
 
-    return result
     return result
 
 

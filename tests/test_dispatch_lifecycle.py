@@ -92,27 +92,14 @@ def test_valid_transition(from_state, to_state):
 # Invalid transitions
 # ---------------------------------------------------------------------------
 
+ALL_CROSS_PAIRS = [(a, b) for a in StoryState for b in StoryState if a != b]
 INVALID_TRANSITIONS = [
-    (StoryState.PENDING, StoryState.DISPATCHED, "skip DISPATCHING"),
-    (StoryState.PENDING, StoryState.DISPATCHING, "skip PREPARED"),
-    (StoryState.PREPARED, StoryState.DISPATCHED, "skip DISPATCHING"),
-    (StoryState.PREPARED, StoryState.DONE, "skip to terminal"),
-    (StoryState.DISPATCHING, StoryState.DONE, "skip DISPATCHED"),
-    (StoryState.DISPATCHING, StoryState.BLOCKED, "skip DISPATCHED"),
-    (StoryState.DISPATCHING, StoryState.PREPARED, "reverse"),
-    (StoryState.DISPATCHED, StoryState.PREPARED, "reverse"),
-    (StoryState.DISPATCHED, StoryState.DISPATCHING, "reverse"),
-    (StoryState.DONE, StoryState.PREPARED, "outbound from terminal"),
-    (StoryState.DONE, StoryState.FAILED, "outbound from terminal"),
-    (StoryState.DONE, StoryState.BLOCKED, "outbound from terminal"),
-    (StoryState.DONE, StoryState.DISPATCHED, "outbound from terminal"),
-    (StoryState.FAILED, StoryState.DISPATCHED, "skip"),
-    (StoryState.BLOCKED, StoryState.DISPATCHED, "skip"),
+    (a, b) for a, b in ALL_CROSS_PAIRS if (a, b) not in set(VALID_TRANSITIONS)
 ]
 
 
-@pytest.mark.parametrize("from_state,to_state,label", INVALID_TRANSITIONS)
-def test_invalid_transition(from_state, to_state, label):
+@pytest.mark.parametrize("from_state,to_state", INVALID_TRANSITIONS)
+def test_invalid_transition(from_state, to_state):
     entry = story_factory(status=from_state)
     ledger = ledger_with(entry)
     with pytest.raises(TransitionError) as exc_info:
@@ -192,6 +179,50 @@ def test_invalid_sha_rejected(sha):
     entry = story_factory()
     with pytest.raises(ShaFormatError):
         entry.set_sha(sha)
+
+
+# ---------------------------------------------------------------------------
+# SHA boundary enforcement — constructor, from_dict, load, save
+# ---------------------------------------------------------------------------
+
+
+def test_constructor_rejects_invalid_sha():
+    with pytest.raises(ShaFormatError):
+        StoryEntry(id="ST-X", base_sha="abc123")
+
+
+def test_from_dict_rejects_invalid_sha():
+    with pytest.raises(ShaFormatError):
+        StoryEntry.from_dict({"id": "ST-X", "status": "pending", "base_sha": "abc123"})
+
+
+def test_load_rejects_invalid_sha(tmp_path):
+    path = tmp_path / "bad-sha.yaml"
+    path.write_text(
+        textwrap.dedent("""\
+        stories:
+          ST-X:
+            id: ST-X
+            wave: null
+            status: pending
+            branch: null
+            worktree: null
+            base_sha: abc123
+            gate_results: {}
+    """)
+    )
+    with pytest.raises(ShaFormatError):
+        Ledger.load(path)
+
+
+def test_save_rejects_invalid_sha(tmp_path):
+    path = tmp_path / "ledger.yaml"
+    entry = story_factory("ST-X")
+    ledger = ledger_with(entry)
+    # Bypass __post_init__ by using object.__setattr__ on an existing entry
+    object.__setattr__(entry, "base_sha", "abc123")
+    with pytest.raises(ShaFormatError):
+        ledger.save(path)
 
 
 # ---------------------------------------------------------------------------
