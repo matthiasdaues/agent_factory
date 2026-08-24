@@ -160,9 +160,11 @@ A replacement for the current `derive-spec` → `consolidate-gherkin` chain. Ins
 
 **Trigger:** After the proposal is accepted, the requirements-agent runs `derive-feature` as its primary specification step.
 
+**Input contract:** The skill receives the proposal file path as its invocation argument (e.g., `derive-feature docs/proposals/agentic-quality-gates.md`). It reads the proposal's YAML frontmatter to extract `impact.boundaries` — the list of files and modules the feature touches. The requirements-agent is responsible for passing the correct proposal path; the skill fails with a diagnostic if the path is missing, unreadable, or lacks an `impact.boundaries` field.
+
 **Internal reasoning process (Cockburn chain as working discipline, not document production):**
 
-1. **Scan existing code** — read the proposal's `impact.boundaries` and scan `src/` for modules, classes, and functions that the feature touches or extends. Build a symbol index of existing code that may be referenced by Scenarios. This step is a read-only discovery pass; it does not modify code.
+1. **Scan existing code** — read `impact.boundaries` from the proposal frontmatter (received via the input contract above) and scan `src/` for modules, classes, and functions that the feature touches or extends. Build a symbol index of existing code that may be referenced by Scenarios. This step is a read-only discovery pass; it does not modify code.
 2. **Identify actors and goals** — enumerate who interacts with the feature and what they want. Hold in working context; do not commit as a separate artifact.
 3. **For each actor-goal pair, derive a Rule** — each Rule in the `.feature` file corresponds to one actor-goal pair. The Rule name states the goal; a comment line below it identifies the actor. If the Rule extends existing code, annotate it with an `@`-reference to the implementing module or class (see [Design § 8](#8-code-traceability--reference-convention)).
 4. **Under each Rule, enumerate Scenarios** — decompose the goal into Given/When/Then scenarios, applying the Cockburn workflow-to-edge-case progression: main success path first, then extensions and failure modes. Scenarios that exercise existing functions carry `@`-references to those functions; Scenarios for new behavior carry no `@`-reference (absence means "to be implemented").
@@ -515,7 +517,7 @@ Both the `greenfield-development` and `brownfield-onboarding` playbooks produce 
 
 **Greenfield terminal condition:** The playbook ends when the scope map exists with all Rules from the initial specification marked `deferred`, `architecture.dsl` models the planned module structure, and arc42 prose passes architecture review. No `.feature` files exist yet — those are produced per-slice when `feature-addition` begins.
 
-**Brownfield terminal condition:** The playbook ends when the scope map exists with Rules backfilled from the existing codebase (all marked `implemented`), `architecture.dsl` models the as-built module structure (reverse-engineered from code), and arc42 prose passes architecture review. The scope-map migration skill handles the backfill if `derive-spec` artifacts exist; otherwise the scope map is populated directly from code inspection.
+**Brownfield terminal condition:** The playbook ends when the scope map exists with Rules backfilled from the existing codebase (all marked `implemented`), `architecture.dsl` models the as-built module structure (reverse-engineered from code), and arc42 prose passes architecture review. The onboarding produces the architectural and specification baseline; the quality baseline (CRAP scores, mutation coverage, dependency conformance) is established incrementally through the feature pipeline's semantic gates as new feature work enters via `feature-addition`. The scope-map migration skill handles the backfill if `derive-spec` artifacts exist; otherwise the scope map is populated directly from code inspection.
 
 **Effect on playbook flow:** After either playbook completes, all feature work enters through `feature-addition`. The `feature-addition` playbook's Phase 1 produces per-slice `.feature` files from `deferred` Rules in the scope map. This separation means greenfield and brownfield are *onboarding* playbooks — they establish the project's architectural and specification baseline. Feature delivery is a single pipeline regardless of how the project started.
 
@@ -577,6 +579,7 @@ Both the `greenfield-development` and `brownfield-onboarding` playbooks produce 
 - [ ] `feature-addition.md` Step 0.3 mechanical check skips Phase 2 for a feature that touches no module boundaries
 - [ ] `feature-addition.md` Step 0.3 mechanical check routes to Phase 2 for a feature that creates a new module directory
 - [ ] `cross-reference-format.md` amended with `@`-reference notation for `.feature` files (syntax: `# @<path>::<Symbol>.<member>`)
+- [ ] `cross-reference-format.md` states that `@`-references are scoped to `.feature` files only; `validate` rejects `@`-ref syntax in prose documents (`.md` files)
 - [ ] `testing-strategy.md` amended to admit composite structural risk scores as acceptance gates and recognise `.feature` file execution as the acceptance test layer
 - [ ] `story.md` template includes `quality-gates` field with documentation of defaults and override semantics
 - [ ] `implementation-agent` dispatcher gate-check loop documented and implemented (commit → gate → fix-or-merge)
