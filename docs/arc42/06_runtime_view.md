@@ -163,7 +163,98 @@ sequenceDiagram
   `pytest`, package-manager test scripts, `jest`, `vitest`, `mocha`, `go test`,
   `cargo test`, and Python/uv pytest invocations.
 
-## 6.3 Other Runtime Scenarios (Summary)
+## 6.3 Semantic Gate Loop
+
+Derived from dynamic view `SemanticGateLoop` in [`architecture.dsl`](architecture.dsl).
+
+The semantic gate loop runs after each developer-agent commit, before merge. The implementation-agent dispatcher owns execution. The developer agent never runs the gates; it only receives gate reports when a fix iteration is needed. See [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md).
+
+### 6.3.1 Sequence: Gate Pass (All Gates Succeed)
+
+```mermaid
+sequenceDiagram
+    participant D as Developer Agent
+    participant IA as Implementation Agent (Dispatcher)
+    participant CS as crap-score
+    participant MA as mutation-analysis
+    participant DC as dependency-check
+    participant PM as premerge-check
+
+    D->>IA: Commit on story branch
+    IA->>CS: Run crap-score on committed artifacts
+    CS-->>IA: JSON report (all functions PASS)
+    IA->>MA: Run mutation-analysis (diff-scoped)
+    MA-->>IA: JSON report (zero survivors)
+    IA->>DC: Run dependency-check against architecture.dsl
+    DC-->>IA: JSON report (zero violations)
+    Note over IA: All gates pass
+    IA->>PM: Run premerge-check
+    PM-->>IA: Exit 0 (merge allowed)
+    IA->>IA: Merge story branch
+```
+
+### 6.3.2 Sequence: Gate Failure with Fix Iteration
+
+```mermaid
+sequenceDiagram
+    participant D1 as Developer Agent (iteration 1)
+    participant IA as Implementation Agent (Dispatcher)
+    participant CS as crap-score
+    participant MA as mutation-analysis
+    participant DC as dependency-check
+    participant D2 as Developer Agent (iteration 2, fresh context)
+
+    D1->>IA: Commit on story branch
+    IA->>CS: Run crap-score
+    CS-->>IA: JSON report (function X: FAIL, CRAP=42)
+    Note over IA: Gate failed — spawn fresh developer
+    IA->>D2: Gate reports + affected files only
+    D2->>D2: Fix function X (reduce complexity or add coverage)
+    D2->>IA: Commit fix
+    IA->>CS: Run crap-score (iteration 2)
+    CS-->>IA: JSON report (all functions PASS)
+    IA->>MA: Run mutation-analysis
+    MA-->>IA: JSON report (zero survivors)
+    IA->>DC: Run dependency-check
+    DC-->>IA: JSON report (zero violations)
+    Note over IA: All gates pass on iteration 2
+```
+
+**Key Points:**
+
+- Each fix iteration spawns a fresh developer agent. No context contamination from prior gate output.
+- Maximum three fix iterations per tier (configurable in `house-rules.md`). After the cap, the story escalates or is marked blocked.
+- The three gates run in sequence: CRAP, mutation, dependency. All must pass before `premerge-check`.
+- Gate reports are written to `.agent-factory/<gate-name>/<story-id>.json` for traceability.
+
+### 6.3.3 Sequence: Module-Graph Check (Phase Routing)
+
+```mermaid
+sequenceDiagram
+    participant S as Orchestrating Session
+    participant MG as module-graph-check
+    participant DSL as architecture.dsl
+    participant P1 as Phase 1 Outputs
+
+    S->>MG: Run at end of Phase 1
+    MG->>DSL: Read current module map
+    MG->>P1: Read interface-contracts.md, entity-model.md
+    MG->>MG: Compare feature outputs against module map
+    alt No module-graph change
+        MG-->>S: Exit 0 — skip Phase 2, go to Phase 3
+    else Module boundary changed
+        MG-->>S: Exit 1 — enter Phase 2 (Architecture)
+        MG->>MG: Update proposal frontmatter: architecture_change: true
+    end
+```
+
+**Key Points:**
+
+- Runs once per feature, at the Phase 1 / Phase 3 boundary. Not per story, not per commit.
+- Tests module-graph topology only: new modules, changed public interfaces, inverted dependency directions. A new entity in an existing module does not trigger Phase 2.
+- The orchestrating session (hosting the `feature-addition` playbook) owns the check. It is not a hook or a dispatcher gate.
+
+## 6.4 Other Runtime Scenarios (Summary)
 
 Full sequences for these flows are in their respective use cases:
 
@@ -176,5 +267,6 @@ Full sequences for these flows are in their respective use cases:
 ## Referenced from
 
 - [05_building_block_view.md § 5.2.1](05_building_block_view.md#521-run-tests--test-execution-component)
+- [05_building_block_view.md § 5.2.3](05_building_block_view.md#523-semantic-quality-gates-crap-score-mutation-analysis-dependency-check)
 - [08_crosscutting_concepts.md § 8.1](08_crosscutting_concepts.md#81-agentic-creation-deterministic-validation)
 - [09_architecture_decisions.md](09_architecture_decisions.md)
