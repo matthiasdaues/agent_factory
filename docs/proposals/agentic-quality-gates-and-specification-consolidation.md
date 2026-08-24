@@ -4,7 +4,7 @@ title: "Agentic Quality Gates and Requirements Consolidation"
 status: open
 owner: matthiasdaues
 created: 2026-08-24
-updated: 2026-08-24  # second critique pass resolved
+updated: 2026-08-24  # third critique pass resolved
 supersedes:
 
 impact:
@@ -365,6 +365,22 @@ This check uses Phase 1 outputs only — it does not depend on story files or im
 - Amended [testing-strategy.md](../../factory/rulebooks/conventions/testing-strategy.md): clarify that composite structural risk scores using coverage as one input are admissible as acceptance gates
 - Scope-map migration skill: one-time backfill from `derive-spec` output artifacts for existing projects adopting `derive-feature`
 
+### Test Fixtures
+
+Each gate script ships with a minimal fixture project under `factory/fixtures/quality-gates/` that exercises the known-defect baseline. The `validate` skill treats these as implementation artifacts alongside the scripts themselves.
+
+| Fixture                                                | Known defect                                                                                                                                 | Expected gate output                                                                                 |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `factory/fixtures/quality-gates/high-crap/`            | One function with cyclomatic complexity ≥ 10 and 0 % test coverage (CRAP > 100). One function with complexity 2 and full coverage (CRAP < 6) | `crap-score` reports the first function as FAIL (CRAP > 30), the second as PASS                      |
+| `factory/fixtures/quality-gates/surviving-mutant/`     | One arithmetic operator (`+`) whose mutation (`-`) is not detected by any test. One operator whose mutation is killed by the test suite      | `mutation-analysis` reports one surviving mutant on the first operator, zero survivors on the second |
+| `factory/fixtures/quality-gates/dependency-violation/` | Module A imports module B; a `dependency-rules.yaml` declares A must not depend on B. A second import that conforms to the declared rules    | `dependency-check` reports one violation for the illegal import, zero violations for the legal one   |
+
+Each fixture directory is a self-contained project with source files, a test suite, and (where needed) a coverage report and dependency-rules declaration. The completion criteria "runs against a test project" refer to these fixture directories.
+
+### Archive Path Convention
+
+The `~archive/` directory referenced by the scope map and the [handoff convention](../../factory/rulebooks/rules.md#handoffs) is a project-root-relative path: `~archive/` sits at the repository root alongside `docs/`, `src/`, and `factory/`. Archived artifacts preserve their original relative path below that root — for example, `docs/spec/slice-1.feature` archives to `~archive/docs/spec/slice-1.feature`. This convention applies to both `.feature` files archived after implementation and superseded documentation artifacts archived per the handoff rule.
+
 **Delivery order within the release:** The scope is one release, but stories should be sequenced by dependency:
 
 1. Amend `testing-strategy.md` (unblocks CRAP gate design)
@@ -433,25 +449,23 @@ quality-gates:
 
 ## Resolved Questions
 
-1. **Threshold calibration:** Thresholds live in `docs/charter/house-rules.md` as project-level settings. The Factory provides defaults; each project overrides in its charter. *Assumption: the project charter does not exist yet. Threshold defaults are hardcoded in each gate skill (`crap-score`, `mutation-analysis`, `dependency-check`) until a charter is scaffolded; the skills read `house-rules.md` overrides when present.*
+01. **Threshold calibration:** Thresholds live in `docs/charter/house-rules.md` as project-level settings. The Factory provides defaults; each project overrides in its charter. *Assumption: the project charter does not exist yet. Threshold defaults are hardcoded in each gate skill (`crap-score`, `mutation-analysis`, `dependency-check`) until a charter is scaffolded; the skills read `house-rules.md` overrides when present.*
 
-   **Factory defaults:**
+    **Factory defaults:**
 
-   | Gate                | Threshold                                                        | Rationale                                                                                  |
-   | ------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-   | `crap-score`        | CRAP ≤ 30 per function                                           | Industry standard; functions above 30 are both complex and under-tested                    |
-   | `mutation-analysis` | 0 surviving mutants (all killed, removed as dead code, or filed) | The gate's value is exhaustive — partial survival defeats the purpose                      |
-   | `dependency-check`  | 0 violations against `architecture.dsl` dependency rules         | Architectural rules are binary; a "tolerated" violation is a missing rule, not a threshold |
+    | Gate                | Threshold                                                        | Rationale                                                                                  |
+    | ------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+    | `crap-score`        | CRAP ≤ 30 per function                                           | Industry standard; functions above 30 are both complex and under-tested                    |
+    | `mutation-analysis` | 0 surviving mutants (all killed, removed as dead code, or filed) | The gate's value is exhaustive — partial survival defeats the purpose                      |
+    | `dependency-check`  | 0 violations against `architecture.dsl` dependency rules         | Architectural rules are binary; a "tolerated" violation is a missing rule, not a threshold |
 
-2. **Mutation testing on slow test suites:** Deferred. The first release runs mutation testing in its default mode without `--fast-only` or `--jobs N` flags. Collect experience from real usage before deciding on fast-mode semantics and parallelisation defaults.
+02. **Mutation testing on slow test suites:** Deferred. The first release runs mutation testing in its default mode without `--fast-only` or `--jobs N` flags. Collect experience from real usage before deciding on fast-mode semantics and parallelisation defaults.
 
-3. **Consolidated Gherkin file naming:** `docs/spec/<feature-name>.feature`. Discoverability over rename-stability — the file name matches the proposal and feature name as understood at requirements time.
+03. **Consolidated Gherkin file naming:** `docs/spec/<feature-name>.feature`. Discoverability over rename-stability — the file name matches the proposal and feature name as understood at requirements time.
 
-4. **QA strategy document scoping:** One QA strategy document per consolidated `.feature` file. A cross-component feature that produces one `.feature` gets one `<feature-name>-qa-strategy.md` alongside it.
+04. **QA strategy document scoping:** One QA strategy document per consolidated `.feature` file. A cross-component feature that produces one `.feature` gets one `<feature-name>-qa-strategy.md` alongside it.
 
-5. **Architecture mechanical check override authority:** Any human in the loop (the current session host) can override the mechanical module-graph check in either direction. The machine result is the default; the override is an explicit act by the session host, not an agent decision.
-
-### From grilling 2026-08-24
+05. **Architecture mechanical check override authority:** Any human in the loop (the current session host) can override the mechanical module-graph check in either direction. The machine result is the default; the override is an explicit act by the session host, not an agent decision.
 
 06. **Mutation testing scope restriction:** `mutation-analysis` runs against all production files in the story's diff, not only files the story's tests import. Excluding untested files defeats the gate's purpose — a surviving mutant in an untested file is the highest-signal finding the gate can produce. The performance cost is bounded by the diff size and acceptable for a once-per-story pre-merge gate.
 
