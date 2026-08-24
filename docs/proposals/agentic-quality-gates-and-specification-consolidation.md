@@ -38,11 +38,11 @@ estimate:
     min: 2.0
     max: 4.0
   normalized_tokens:
-    min: 8000
-    max: 18000
+    min: 19000
+    max: 38000
   estimated_consumption:
-    min: 120000
-    max: 270000
+    min: 285000
+    max: 570000
     overhead_multiplier: 15
     playbook: feature-addition
 ---
@@ -206,7 +206,7 @@ Each gap is either a missing scenario (turns into a story acceptance criterion) 
 
 **Scope map and slice lifecycle:**
 
-The `.feature` files are transient implementation artifacts — they live on the feature branch, merge to dev with the code, and are removable from dev/main after the slice's tests become the durable behavioral spec. A persistent **scope map** at `docs/spec/scope-map.md` tracks all Rules across all slices:
+The `.feature` files are live during the entire slice lifecycle (Phases 1–5). They are created on the feature branch, read by the developer-agent (Phase 4), the qa-agent (Phase 5), and the reconciliation-agent (Phase 5, pre-merge). After the feature branch merges to dev, the `.feature` file may be deleted or moved to `~archive/` at human discretion — the scope map is the persistent cross-slice record. A persistent **scope map** at `docs/spec/scope-map.md` tracks all Rules across all slices:
 
 ```markdown
 | Rule                                      | Status      | Slice | Feature file              |
@@ -227,11 +227,13 @@ Rules with status `deferred` have no `.feature` file. Rules with status `specifi
 
 1. The requirements-agent derives the scope map from the accepted proposal (all actor-goal pairs as Rules, all initially `deferred`).
 2. For each slice, the requirements-agent produces a per-slice `.feature` file containing only the Rules being implemented in that slice, with full Scenarios. The scope map is updated: those Rules move from `deferred` to `specified`, with a link to the `.feature` file.
-3. After implementation, the slice's `.feature` file is moved to `~archive/` and the scope map is updated: Rules move from `specified` to `implemented`.
+3. After the feature branch merges to dev, Rules move from `specified` to `implemented`. The `.feature` file may be deleted or moved to `~archive/` at human discretion.
 
-The scope map is the persistent artifact that survives across slices. The `.feature` files are consumed during implementation and archived afterward.
+The scope map is the persistent artifact that survives across slices.
 
-**Effect on `derive-spec`:** The current `derive-spec` skill is superseded. The supplementary specs (`interface-contracts.md`, `entity-model.md`) are still produced — they carry structural facts the `.feature` file does not. The UC-XX document chain is no longer produced.
+**Migration from `derive-spec` projects:** Projects with existing UC-XX documents from `derive-spec` adopt the scope map via a one-time backfill. A migration skill reads all `derive-spec` output artifacts — `actor-goal-list.md` (primary source: one Rule per actor-goal row), `UC-XX-short-name.md` files (Gherkin scenarios, traced via `Realizes: AG-##`), `system-use-cases.md`, `entity-model.md`, `interface-contracts.md`, `state-machines.md`, and `validation-rules.md` (cross-check inputs) — and populates the scope map with `implemented` entries. The source column points at the originating UC-XX file, not a `.feature` file. The reconciliation-agent skips Rule-level diff for rows pointing at UC-XX sources. No `.feature` files are created for old features; UC-XX documents stay as-is.
+
+**Effect on `derive-spec`:** The current `derive-spec` skill is superseded. All four supplementary specs are still produced — `entity-model.md`, `interface-contracts.md`, `state-machines.md`, and `validation-rules.md` carry structural facts the `.feature` file does not (entity lifecycles, cross-cutting validation rules, boundary schemas, domain relationships). The UC-XX document chain and the `actor-goal-list.md` are no longer produced as separate artifacts; their content is encoded in the `.feature` file's Rule-per-actor-goal structure.
 
 ### 3. QA Strategy Document — `qa-strategy-from-spec`
 
@@ -316,7 +318,13 @@ This check uses Phase 1 outputs only — it does not depend on story files or im
 - The `planning-agent` can receive this signal and include module-boundary work in Epic 0 if the feature is the first to touch a new module.
 - The `reconciliation-agent` catches any module-graph changes that the Phase 1 check missed — a feature that appeared intra-module at requirements time but crossed a boundary during implementation is reconciled post-hoc.
 
-**Enforcement:** The mechanical check is a deterministic script run by the orchestrating session before Phase 3 starts. Its output is a boolean `architecture_change` flag recorded in the phase handoff. The flag can be overridden manually (a stakeholder may want Phase 2 for documentation reasons even if the module graph is unchanged), but the default is the machine result.
+**Enforcement:** The mechanical check is a deterministic script run by the session hosting the `feature-addition` playbook, at the end of Phase 1 before Phase 3 starts. Its output updates the proposal's `impact.architecture_change` field in the proposal frontmatter — the proposal file is the single record, no separate handoff artifact.
+
+**Override semantics:**
+
+- Field was `false`, machine says `true` → machine wins; field updated to `true`, annotated `# mechanical detection`.
+- Field was `true`, machine says `false` → prior human declaration respected conservatively; machine result logged but field stays `true`.
+- Human explicitly overrides after seeing the machine result → override recorded as a comment on the field (e.g., `architecture_change: false  # manual override — no boundary change despite new interface`).
 
 ## Scope
 
@@ -339,6 +347,7 @@ This check uses Phase 1 outputs only — it does not depend on story files or im
 - Updated `factory/rulebooks/templates/story.md`: add `quality-gates` field (which gates apply to this story's outputs)
 - Updated `feature-addition.md` Step 0.3: mechanical module-graph check before Phase 2 routing
 - Amended [testing-strategy.md](../../factory/rulebooks/conventions/testing-strategy.md): clarify that composite structural risk scores using coverage as one input are admissible as acceptance gates
+- Scope-map migration skill: one-time backfill from `derive-spec` output artifacts for existing projects adopting `derive-feature`
 
 **Delivery order within the release:** The scope is one release, but stories should be sequenced by dependency:
 
@@ -370,17 +379,18 @@ Each gate fires at a distinct point in the workflow. The table below maps every 
 | `premerge-check` (existing) | Before merge, after all three semantic gates pass | `implementation-agent` dispatcher | Merge blocked until investigated                                                       |
 | Module-graph check          | End of Phase 1, before Phase 3                    | Orchestrating session             | Routes to Phase 2 if module boundaries change; otherwise skips to Phase 3              |
 
-The three semantic gates run **per-story, on each commit, before merge** — not on every push, not only at PR time. The module-graph check runs **once per feature, at the Phase 1 → Phase 3 boundary**.
+The three semantic gates run **per developer-agent iteration in the gate fix loop** (max 3 iterations per tier, per resolved question 6) — not per git commit, not on every push, not only at PR time. A story with clean gates runs them once. The module-graph check runs **once per feature, at the Phase 1 → Phase 3 boundary**.
 
 ### 6. Performance Model
 
 **Mutation testing** is the most expensive gate. For a Python module with ~500 lines of production code and a fast test suite (~10s), `mutmut` generates approximately 200–400 mutants. At ~10s per mutant (running the relevant test subset), a full run takes 30–70 minutes. This is acceptable as a pre-merge gate that runs once per story, not on every save.
 
+The gate runs against all production files in the story's diff (resolved question 5), not the whole module. A typical story diff of 50–150 lines produces far fewer mutants than the 500-LOC reference figure, bringing runtime to single-digit minutes for most stories.
+
 Mitigations for larger codebases (all deferred to collect real usage data first):
 
 - `--fast-only`: stop at first killed test per mutant (reduces runtime ~3×)
 - `--jobs N`: parallel mutant execution
-- Scope restriction: run only against files changed in the story's diff
 
 **CRAP scoring** and **dependency checking** are fast — seconds per invocation. They do not require performance mitigation.
 
@@ -397,9 +407,11 @@ quality-gates:
   - dependency-check
 ```
 
-**Defaults:** When the field is absent, all three gates apply (fail-closed). A story may exclude a gate by listing only the applicable ones. Exclusion requires a justification line in the story's `notes:` field.
+**Precedence (highest wins):**
 
-**Per-project overrides:** `docs/charter/house-rules.md` may set project-level defaults: which gates are active, threshold values for `crap-score`, and scope restrictions for `mutation-analysis`. The story-level field overrides the project default for that story only.
+1. **Story-level `quality-gates` field** — if present, use this value. Exclusion of a gate requires a justification line in the story's `notes:` field.
+2. **Project-level `house-rules.md` default** — if the story field is absent and `docs/charter/house-rules.md` declares `default_quality_gates`, use the project default. `house-rules.md` may also set threshold values for `crap-score` and scope restrictions for `mutation-analysis`.
+3. **Factory hardcoded default** — if neither story nor project declares gates, all three apply (fail-closed).
 
 **Effect on dispatch:** The `implementation-agent` reads `quality-gates` from the story file before spawning the developer-agent. After the developer commits, the dispatcher runs only the listed gates. The `premerge-check` script also reads the field to know which gate results to require before allowing the merge.
 
@@ -415,7 +427,7 @@ quality-gates:
 
 5. **Architecture mechanical check override authority:** Any human in the loop (the current session host) can override the mechanical module-graph check in either direction. The machine result is the default; the override is an explicit act by the session host, not an agent decision.
 
-## Resolved Questions (from grilling 2026-08-24)
+### From grilling 2026-08-24
 
 5. **Mutation testing scope restriction:** `mutation-analysis` runs against all production files in the story's diff, not only files the story's tests import. Excluding untested files defeats the gate's purpose — a surviving mutant in an untested file is the highest-signal finding the gate can produce. The performance cost is bounded by the diff size and acceptable for a once-per-story pre-merge gate.
 
@@ -451,6 +463,10 @@ quality-gates:
 - [ ] `story.md` template includes `quality-gates` field with documentation of defaults and override semantics
 - [ ] `implementation-agent` dispatcher gate-check loop documented and implemented (commit → gate → fix-or-merge)
 - [ ] Module-graph check script runs against `interface-contracts.md` and `entity-model.md`, not `story.outputs`
+- [ ] Module-graph check updates proposal `impact.architecture_change` in frontmatter; machine `true` overrides prior `false`; prior human `true` is respected conservatively
+- [ ] Scope-map migration skill reads all `derive-spec` output artifacts (`actor-goal-list.md`, `UC-XX-short-name.md`, `system-use-cases.md`, `entity-model.md`, `interface-contracts.md`, `state-machines.md`, `validation-rules.md`) and populates scope map with `implemented` entries pointing at UC-XX source files
+- [ ] Reconciliation-agent skips Rule-level diff for scope-map rows pointing at UC-XX sources (old-format entries)
+- [ ] `quality-gates` precedence resolves as: story field > `house-rules.md` default > Factory hardcoded default (all three)
 - [ ] All new artifacts pass `factory/scripts/validate`
 
 ## Guiding Rule
