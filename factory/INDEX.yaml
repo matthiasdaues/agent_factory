@@ -568,7 +568,7 @@ rulebooks:
   - name: testing-strategy
     category: conventions
     path: rulebooks/conventions/testing-strategy.md
-    tokens: 709
+    tokens: 786
   - name: todo-format
     category: conventions
     path: rulebooks/conventions/todo-format.md

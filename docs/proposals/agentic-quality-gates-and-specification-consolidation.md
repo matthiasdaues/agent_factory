@@ -9,13 +9,18 @@ supersedes:
 
 impact:
   scope: cross_component
-  architecture_change: false
+  architecture_change: true
   external_contract_change: false
   boundaries:
-    - factory/rulebooks/conventions/testing-strategy.md
+    - factory/rulebooks/conventions/testing-strategy.md (amended)
     - factory/skills/derive-spec/SKILL.md
     - factory/agents/requirements-agent.md
     - factory/agents/qa-agent.md
+    - factory/agents/developer-agent.md
+    - factory/agents/implementation-agent.md
+    - factory/scripts/premerge-check
+    - factory/playbooks/feature-addition.md
+    - factory/rulebooks/templates/story.md
 
 governance:
   assurance: elevated
@@ -45,15 +50,15 @@ estimate:
 
 ## Summary
 
-Close two gaps between the Factory's process model and Bob Martin's agentic coding tenets: (1) add **semantic deterministic gates** (cyclomatic complexity, mutation testing, dependency-rule enforcement) that operate on code meaning, not just format; and (2) enrich the requirements phase output with a **consolidated Gherkin feature file** and a **per-feature QA strategy document** so the specification is actionable by both coders and QA without re-reading prose use cases. Also eliminate the waterfall hinge by routing through the architecture phase only when the feature changes the module graph.
+Close two gaps in the Factory's process model: (1) add **semantic deterministic gates** (cyclomatic complexity, mutation testing, dependency-rule enforcement) that operate on code meaning, not just format; and (2) enrich the requirements phase output with a **consolidated Gherkin feature file** and a **per-feature QA strategy document** so the specification is actionable by both coders and QA without re-reading prose use cases. Also eliminate the waterfall hinge by replacing the manual `architecture_change` declaration with a deterministic script that reads the existing `architecture.dsl`, derives the module map, and compares it against the feature's declared outputs — routing through the architecture phase only when the feature actually changes module boundaries, dependency directions, or public interfaces.
 
 ## Motivation
 
 ### The semantic gate gap
 
-The Factory's `validate` skill and `transition-lint` pre-commit hook run **syntactic** checks — formatting, frontmatter schema, naming conventions. They catch cosmetic violations. They do not catch the defects that Bob Martin identifies as the failure mode for agentic workflows: code that is syntactically valid but semantically degraded (high cyclomatic complexity, shallow modules, missing test coverage, surviving mutants).
+The Factory's `validate` skill and `transition-lint` pre-commit hook run **syntactic** checks — formatting, frontmatter schema, naming conventions. They catch cosmetic violations. They do not catch code that is syntactically valid but semantically degraded: high cyclomatic complexity, shallow modules, missing test coverage, surviving mutants. These are the defects that matter most in agentic workflows, where code is produced faster than any human reviewer can inspect it.
 
-Martin's operational insight: agents are fast enough to run **crap analysis** (cyclomatic complexity + coverage scoring), **mutation testing** (flip every `<` to `>`, every `==` to `!=`, expect the test suite to fail), and **dependency-rule checking** (module A must not import module B — enforced mechanically) at machine speed. The Factory's current gate model trusts agents to self-report on these qualities. The sub-agent self-report is not reliable; the Factory has the dispatch contract to prevent false reports, but it lacks the semantic checks that would make a false report detectable.
+The operational principle: agents are fast enough to run **CRAP analysis** (cyclomatic complexity weighted against coverage), **mutation testing** (flip every `<` to `>`, every `==` to `!=`, expect the test suite to fail), and **dependency-rule checking** (module A must not import module B — enforced mechanically) at machine speed. The Factory's current gate model trusts agents to self-report on these qualities. The sub-agent self-report is not reliable; the Factory has the [dispatch contract](../../factory/rulebooks/conventions/dispatch-contract.md) to prevent false reports, but it lacks the semantic checks that would make a false report detectable.
 
 The practical consequence: without semantic gates, the reconciliation-agent and qa-agent carry the entire semantic quality burden. Each review cycle burns tokens on findings that a deterministic gate could have caught and flagged automatically, or that the coder's own workflow could have been forced to fix before committing.
 
@@ -69,7 +74,7 @@ A **per-feature QA strategy document** does not exist at all. The `testing-strat
 
 The `feature-addition` playbook routes through Phase 2 (Architecture) whenever `impact.architecture_change` is declared `true`. In practice, non-trivial features routinely set this flag and go through spec → architecture → review → fix → review → planning — a six-gate sequence before a line of code. This is a waterfall-shaped gate pattern applied to agentic work.
 
-Martin's counterpoint: with deterministic verification in place, the cost of refactoring has collapsed to near zero. Heavy upfront planning is more expensive than incremental agile with automated gates. The Factory already has the `impact.architecture_change: false` escape hatch, but it requires manual declaration and is not enforced against the actual code change. A feature that adds a new API endpoint to an existing module — touching no module boundaries, no dependency directions, no DSL model — is currently routed through Phase 2 anyway.
+The counterpoint: with deterministic verification in place, the cost of refactoring has collapsed to near zero. Heavy upfront planning is more expensive than incremental agile with automated gates. The Factory already has the `impact.architecture_change: false` escape hatch, but it requires manual declaration and is not enforced against the actual code change. A feature that adds a new API endpoint to an existing module — touching no module boundaries, no dependency directions, no DSL model — is currently routed through Phase 2 anyway.
 
 ## Core Principles
 
@@ -85,30 +90,63 @@ Martin's counterpoint: with deterministic verification in place, the cost of ref
 
 ### 1. Semantic Quality Gate Skill — `quality-gate`
 
-A new factory skill that wraps three existing tool categories:
+Three independent skills, each callable alone and chainable by the caller. The recommended sequence is CRAP → mutation → dependency, but each skill is self-contained and useful in isolation.
 
-| Gate                   | Tool candidates                                                        | What it enforces                                                                                                            |
-| ---------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Complexity gate        | `radon` (Python), `gjstest` (Go), `complexity_report.py` (hand-rolled) | Cyclomatic complexity ≤ threshold per function; threshold tunable per project (Factory default: 6 for agents, 4 for humans) |
-| Mutation coverage gate | `mutmut` (Python), `mutant` (Rust), `pitest` (Java)                    | 100% mutation coverage: every operator flip must kill a test                                                                |
-| Dependency-rule gate   | `deptrack` (general), `dependency-cruiser` (JS/TS), `arch-pkg` (Go)    | Module A must not depend on module B — rules read from `architecture.dsl`                                                   |
+#### `crap-score` — Structural quality
 
-The skill runs in the developer's TDD loop, not as a separate phase:
+CRAP scoring combines cyclomatic complexity with test coverage into a single risk metric: `CRAP(m) = comp(m)^2 × (1 - cov(m)/100)^3 + comp(m)`. A high CRAP score means the function is too complex for its level of test coverage. The cheapest way to pass is to keep code small — reducing complexity lowers CRAP faster than adding coverage.
 
-1. The `developer-agent` writes code and tests.
-2. After each commit, `quality-gate` runs and reports.
-3. If any gate fails, the agent loops internally until the gate passes — per Martin's "loop until the tool says it's okay" pattern.
-4. The `premerge-check` script runs `quality-gate` as a hard blocker before merge.
+|                      |                                                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **Skill file**       | `factory/skills/crap-score/SKILL.md`                                                                                      |
+| **Tool candidates**  | `radon` + `coverage` (Python), `gjstest` (Go), composite script                                                           |
+| **What it enforces** | CRAP ≤ threshold per function; threshold tunable per project (`house-rules.md` when charter exists, else Factory default) |
+| **Inputs**           | Source files, coverage data                                                                                               |
+| **Outputs**          | JSON report per function (CRAP score, pass/fail), logged to `.agent-factory/crap-score/<story-id>.json`                   |
 
-**Skill file:** `factory/skills/quality-gate/SKILL.md`
+#### `mutation-analysis` — Behavioral quality
 
-Inputs: `docs/arc42/architecture.dsl`, project-specific threshold config (`docs/charter/house-rules.md` or `factory/config/quality.conf`)
+Verifies that test coverage is real — not just line-hit but behaviorally meaningful. Every surviving mutant requires action: remove dead code or add the missing test. If neither applies, file a finding for QA. The gate blocks until zero mutants survive; unresolved mutation findings block the merge.
 
-Outputs: structured JSON report per gate (pass/fail per function, per mutant, per dependency rule), logged to `.agent-factory/quality-gate/<story-id>.json`
+|                      |                                                                                                                                |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Skill file**       | `factory/skills/mutation-analysis/SKILL.md`                                                                                    |
+| **Tool candidates**  | `mutmut` (Python; reference implementation for first release). Other languages (`mutant` for Rust, `pitest` for Java) deferred |
+| **What it enforces** | Every surviving mutant resolved: dead code removed, missing contract tested, or finding filed for QA. Zero survivors to pass   |
+| **Inputs**           | Source files, test suite                                                                                                       |
+| **Outputs**          | JSON report per mutant (killed/survived, resolution action), logged to `.agent-factory/mutation-analysis/<story-id>.json`      |
 
-The skill is invoked by the `developer-agent` workflow as part of the red-green-refactor loop, not as a separate phase. It is also listed in `premerge-check` as a hard gate.
+#### `dependency-check` — Architectural integrity
 
-**Note on thresholds:** The Factory's `testing-strategy.md` convention already says *"Test count and coverage percentage are diagnostics, not quality targets."* The complexity and mutation gates are not coverage-percentage targets — they are per-function quality targets enforced by deterministic tools. They do not conflict with this convention; they replace the human judgment that would otherwise be applied to the same quality signal.
+Enforces module dependency directions declared in `architecture.dsl`. Neither TDD nor the testing strategy addresses dependency direction; this skill fills an unoccupied gap.
+
+|                      |                                                                                                                 |
+| -------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **Skill file**       | `factory/skills/dependency-check/SKILL.md`                                                                      |
+| **Tool candidates**  | `deptrack` (general), `dependency-cruiser` (JS/TS), `arch-pkg` (Go)                                             |
+| **What it enforces** | Module dependency directions match `architecture.dsl` declarations                                              |
+| **Inputs**           | `docs/arc42/architecture.dsl`, source files                                                                     |
+| **Outputs**          | JSON report per rule (pass/fail, violating import), logged to `.agent-factory/dependency-check/<story-id>.json` |
+
+#### Invocation model — developer/gate separation
+
+The three gate skills are deterministic scripts that run on committed artifacts. The developer agent never runs them itself — it acts on their output. This prevents context contamination from gate output, analysis, and fix attempts accumulating in one agent's window.
+
+1. The `developer-agent` writes code and tests, commits.
+2. The `implementation-agent` dispatcher runs each gate script (`crap-score`, `mutation-analysis`, `dependency-check`) on the committed artifacts. Each produces a JSON report.
+3. If any gate fails, the dispatcher spawns a **fresh developer agent** with only the gate reports and affected files as input.
+4. The fresh developer fixes, commits. Back to step 2.
+5. When all gates pass, the dispatcher proceeds to `premerge-check` and merge.
+
+**Dispatcher extension:** The `implementation-agent` already owns wave scheduling, branch/merge ordering, and completion tracking. This proposal extends its per-story loop with a gate-check step between the developer's commit and the merge. The extension is internal to the dispatcher's existing per-story workflow — it does not add a new container or component to `architecture.dsl`. The dispatcher calls the gate scripts directly (they are CLI scripts under `factory/scripts/`), reads their JSON output, and decides whether to spawn a fix iteration or proceed to merge. The maximum number of fix iterations before the story is marked as blocked is a tunable default (3), overridable in `house-rules.md`.
+
+Each developer iteration starts with a clean context. The `premerge-check` script lists all three as independent hard gates before merge.
+
+**Coherence with [testing-strategy.md](../../factory/rulebooks/conventions/testing-strategy.md):** The Factory's testing strategy says *"Test count and coverage percentage are diagnostics, not quality targets."* This proposal amends that convention to clarify that composite structural risk scores — such as CRAP — that use coverage as one input to a risk metric are not coverage targets and are admissible as acceptance gates. The three skills respect the amended convention:
+
+- **CRAP score** is a composite structural gate. Coverage enters as a counterweight to cyclomatic complexity; the gate threshold is on the composite score, not on coverage itself. The pressure it applies is toward smaller code, not higher coverage numbers.
+- **Mutation analysis** is a code-smell gate, not a coverage target. A surviving mutant means code does something no test observes. The response is investigation (remove dead code or add the missing contract test), not unconditional test creation. When the developer agent cannot resolve a survivor through either action, it files a finding for the QA agent — the developer does not self-suppress.
+- **Dependency check** enforces what `architecture.dsl` already declares. Neither TDD nor the testing strategy addresses dependency direction; this skill fills an unoccupied gap.
 
 ### 2. Consolidated Gherkin Feature File — `consolidate-gherkin`
 
@@ -198,22 +236,25 @@ At the end of Phase 1 (after the proposal is accepted), before Phase 3 begins:
 Mechanical check:
   1. Read docs/arc42/architecture.dsl — derive the current module map
      (which directories own which modules, which modules depend on which)
-  2. Read the feature's declared outputs: every path in story.outputs
-  3. Map each output path to the module(s) it belongs to
-  4. For each module touched:
-     - Check if the feature adds a new module (new directory with no parent in the map)
-     - Check if the feature changes a module's public interface (new/changed entry in interface-contracts.md)
-     - Check if the feature inverts or changes a dependency direction
-  5. If any of the above is true → set impact.architecture_change: true, enter Phase 2
+  2. Read the feature's Phase 1 outputs:
+     - docs/spec/supplementary_specs/interface-contracts.md — new or changed interfaces
+     - docs/spec/supplementary_specs/entity-model.md — new entities
+  3. For each interface or entity declared by the feature:
+     - Map it to the module(s) in the DSL it belongs to
+     - Check if it targets a module not present in the DSL (new module)
+     - Check if it changes a public interface already declared in the DSL
+     - Check if it introduces or inverts a dependency direction between modules
+  4. If any of the above is true → set impact.architecture_change: true, enter Phase 2
      Otherwise → skip Phase 2, go directly to Phase 3
 ```
+
+This check uses Phase 1 outputs only — it does not depend on story files or implementation artifacts. After implementation, the existing `reconciliation-agent` reconciles `architecture.dsl` and the arc42 documentation against the code-as-built. This two-pass model — coarse structural routing from requirements, precise reconciliation from code — requires no new post-implementation infrastructure.
 
 **Effect on workflow:**
 
 - The `feature-addition` playbook's Step 0.3 routing decision gains a new "Mechanical check" step between the declaration and the decision.
 - The `planning-agent` can receive this signal and include module-boundary work in Epic 0 if the feature is the first to touch a new module.
-- The `implementation-agent` can use the module map to detect cross-module file overlaps (already partly implemented via `outputs:` glob analysis) and also detect cross-module *dependency* changes that would make two feature branches non-mergeable even if file-disjoint.
-- The `premerge-check --scope` already checks diff scope; the new check feeds into the scope determination before dispatch, not after.
+- The `reconciliation-agent` catches any module-graph changes that the Phase 1 check missed — a feature that appeared intra-module at requirements time but crossed a boundary during implementation is reconciled post-hoc.
 
 **Enforcement:** The mechanical check is a deterministic script run by the orchestrating session before Phase 3 starts. Its output is a boolean `architecture_change` flag recorded in the phase handoff. The flag can be overridden manually (a stakeholder may want Phase 2 for documentation reasons even if the module graph is unchanged), but the default is the machine result.
 
@@ -221,49 +262,124 @@ Mechanical check:
 
 **In the first release:**
 
-- `factory/skills/quality-gate/SKILL.md` — skill file with complexity, mutation, and dependency-gate implementations
-- `factory/scripts/quality-gate` — CLI wrapper (Python/shell) for the skill, callable from pre-commit and premerge-check
+- `factory/skills/crap-score/SKILL.md` — CRAP scoring skill (cyclomatic complexity × coverage)
+- `factory/skills/mutation-analysis/SKILL.md` — mutation analysis skill (mutant generation, test execution, survivor classification)
+- `factory/skills/dependency-check/SKILL.md` — dependency-rule enforcement skill
+- `factory/scripts/crap-score` — CLI wrapper for the CRAP skill, callable from premerge-check
+- `factory/scripts/mutation-analysis` — CLI wrapper for the mutation skill, callable from premerge-check
+- `factory/scripts/dependency-check` — CLI wrapper for the dependency skill, callable from premerge-check
 - `docs/spec/<feature-name>.feature` — consolidated Gherkin output per feature (invoke via requirements-agent)
 - `docs/spec/<feature-name>-gaps.md` — coverage gap report (invoke via requirements-agent)
-- `docs/spec/qa-strategy.md` — per-feature QA strategy output (invoke via requirements-agent)
+- `docs/spec/<feature-name>-qa-strategy.md` — per-feature QA strategy output (invoke via requirements-agent)
 - Updated `factory/agents/requirements-agent.md` frontmatter: add the three new outputs to the outputs list
-- Updated `factory/agents/developer-agent.md` workflow: invoke `quality-gate` after each commit, loop until pass
-- Updated `factory/scripts/premerge-check`: add `quality-gate` as a hard blocker
+- Updated `factory/agents/developer-agent.md` workflow: developer produces code and tests; gate scripts run on committed artifacts; dispatcher spawns fresh developer for fixes
+- Updated `factory/scripts/premerge-check`: add `crap-score`, `mutation-analysis`, and `dependency-check` as independent hard gates
 - Updated `factory/rulebooks/templates/story.md`: add `quality-gates` field (which gates apply to this story's outputs)
 - Updated `feature-addition.md` Step 0.3: mechanical module-graph check before Phase 2 routing
+- Amended [testing-strategy.md](../../factory/rulebooks/conventions/testing-strategy.md): clarify that composite structural risk scores using coverage as one input are admissible as acceptance gates
+
+**Delivery order within the release:** The scope is one release, but stories should be sequenced by dependency:
+
+1. Amend `testing-strategy.md` (unblocks CRAP gate design)
+2. Consolidated Gherkin skill + QA strategy document (no code dependencies; unblocks QA agent update)
+3. `quality-gates` story field in `story.md` (unblocks dispatcher gate loop)
+4. Three semantic gate scripts (`crap-score`, `mutation-analysis`, `dependency-check`)
+5. Dispatcher gate-check loop extension in `implementation-agent`
+6. `premerge-check` integration
+7. Module-graph mechanical check + `feature-addition.md` Step 0.3 update
 
 **Explicitly deferred:**
 
 - Per-language mutation testing toolchain (the skill supports `mutmut` for Python as the reference implementation; other languages need tool discovery and threshold calibration)
-- `deptrack` integration for dependency-rule enforcement across language ecosystems (different ecosystems have different tools; the skill structure is language-agnostic but the tool calls are not)
-- `quality-gate` integration into the brownfield-onboarding pipeline (the onboarding reads `architecture.dsl` after it's built; the gate could run against the existing codebase to establish baseline quality scores)
+- Per-language dependency-rule toolchain (different ecosystems have different tools; the skill structure is language-agnostic but the tool calls are not)
+- Gate integration into the brownfield-onboarding pipeline (the onboarding reads `architecture.dsl` after it's built; the gates could run against the existing codebase to establish baseline quality scores)
 - Automated module map update when a new directory is created (currently the DSL is the source of truth; there is no auto-update on `mkdir`)
+- Mutation testing performance flags (`--fast-only`, `--jobs N`) — collect experience from real usage first
+
+### 5. Gate Execution Lifecycle
+
+Each gate fires at a distinct point in the workflow. The table below maps every gate to its trigger, its owner, and what blocks on failure.
+
+| Gate                        | Fires when                                        | Owner                             | On failure                                                                             |
+| --------------------------- | ------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------- |
+| `crap-score`                | After developer-agent commits, before merge       | `implementation-agent` dispatcher | Dispatcher spawns fresh developer with gate report; story blocked after max iterations |
+| `mutation-analysis`         | After developer-agent commits, before merge       | `implementation-agent` dispatcher | Same as `crap-score`; unresolved survivors filed as QA findings                        |
+| `dependency-check`          | After developer-agent commits, before merge       | `implementation-agent` dispatcher | Same as `crap-score`                                                                   |
+| `premerge-check` (existing) | Before merge, after all three semantic gates pass | `implementation-agent` dispatcher | Merge blocked until investigated                                                       |
+| Module-graph check          | End of Phase 1, before Phase 3                    | Orchestrating session             | Routes to Phase 2 if module boundaries change; otherwise skips to Phase 3              |
+
+The three semantic gates run **per-story, on each commit, before merge** — not on every push, not only at PR time. The module-graph check runs **once per feature, at the Phase 1 → Phase 3 boundary**.
+
+### 6. Performance Model
+
+**Mutation testing** is the most expensive gate. For a Python module with ~500 lines of production code and a fast test suite (~10s), `mutmut` generates approximately 200–400 mutants. At ~10s per mutant (running the relevant test subset), a full run takes 30–70 minutes. This is acceptable as a pre-merge gate that runs once per story, not on every save.
+
+Mitigations for larger codebases (all deferred to collect real usage data first):
+
+- `--fast-only`: stop at first killed test per mutant (reduces runtime ~3×)
+- `--jobs N`: parallel mutant execution
+- Scope restriction: run only against files changed in the story's diff
+
+**CRAP scoring** and **dependency checking** are fast — seconds per invocation. They do not require performance mitigation.
+
+**Gate invocation frequency:** Gates run after the developer-agent's commit, triggered by the dispatcher. They do not run on every keystroke, every push, or every CI build. A story that takes three fix iterations runs each gate three times.
+
+### 7. Quality-Gates Story Field
+
+The `quality-gates` field in [story.md](../../factory/rulebooks/templates/story.md) declares which semantic gates apply to the story's outputs. It is a list of gate names; each name corresponds to a CLI script under `factory/scripts/`.
+
+```yaml
+quality-gates:
+  - crap-score
+  - mutation-analysis
+  - dependency-check
+```
+
+**Defaults:** When the field is absent, all three gates apply (fail-closed). A story may exclude a gate by listing only the applicable ones. Exclusion requires a justification line in the story's `notes:` field.
+
+**Per-project overrides:** `docs/charter/house-rules.md` may set project-level defaults: which gates are active, threshold values for `crap-score`, and scope restrictions for `mutation-analysis`. The story-level field overrides the project default for that story only.
+
+**Effect on dispatch:** The `implementation-agent` reads `quality-gates` from the story file before spawning the developer-agent. After the developer commits, the dispatcher runs only the listed gates. The `premerge-check` script also reads the field to know which gate results to require before allowing the merge.
+
+## Resolved Questions
+
+1. **Threshold calibration:** Thresholds live in `docs/charter/house-rules.md` as project-level settings. The Factory provides defaults; each project overrides in its charter. *Assumption: the project charter does not exist yet. Threshold defaults are hardcoded in each gate skill (`crap-score`, `mutation-analysis`, `dependency-check`) until a charter is scaffolded; the skills read `house-rules.md` overrides when present.*
+
+2. **Mutation testing on slow test suites:** Deferred. The first release runs mutation testing in its default mode without `--fast-only` or `--jobs N` flags. Collect experience from real usage before deciding on fast-mode semantics and parallelisation defaults.
+
+3. **Consolidated Gherkin file naming:** `docs/spec/<feature-name>.feature`. Discoverability over rename-stability — the file name matches the proposal and feature name as understood at requirements time.
+
+4. **QA strategy document scoping:** One QA strategy document per consolidated `.feature` file. A cross-component feature that produces one `.feature` gets one `<feature-name>-qa-strategy.md` alongside it.
+
+5. **Architecture mechanical check override authority:** Any human in the loop (the current session host) can override the mechanical module-graph check in either direction. The machine result is the default; the override is an explicit act by the session host, not an agent decision.
 
 ## Open Questions
 
-1. **Threshold calibration:** The Factory's current default complexity threshold for agents is 6 (per Martin's observation that agents have a different threshold than humans). Should this be a project-level setting in `house-rules.md`, a per-story field in the story format, or a global default with a per-project override? *Decision needed: where thresholds live and who sets them.*
+1. **Mutation testing scope restriction:** Should `mutation-analysis` run against all production code in the story's diff, or only against files that the story's tests import? The former catches untested code; the latter is faster. Collect experience from the Python reference implementation before deciding.
 
-2. **Mutation testing on slow test suites:** Mutation testing runs the full test suite per mutant. For large projects with slow suites, this is expensive even at agent speed. The skill needs a `--jobs N` parallelisation flag and a `--fast-only` mode that skips integration-level mutants. *Decision needed: what the default mode is and when to use `--fast-only`.*
+2. **Gate iteration cap:** The dispatcher blocks a story after 3 failed fix iterations (default). Is 3 the right number? Too low and fixable stories get blocked; too high and token spend balloons on unfixable code. The default is tunable in `house-rules.md`; the question is what the Factory default should be.
 
-3. **Consolidated Gherkin file naming:** The file is per-feature, but the feature name may not be stable at requirements time (the proposal title may change after acceptance). Should the file be named `docs/spec/<proposal-name>.feature` (changes with title) or `docs/spec/<ST-NNNN>-<slug>.feature` (stable across rename)? *Decision needed: naming stability vs. discoverability.*
-
-4. **QA strategy document scoping:** For a cross-component feature, should `qa-strategy.md` live at feature level (`docs/spec/<feature>-qa-strategy.md`) or at a shared location that multiple features contribute to? *Decision needed: one doc per feature or one doc per module.*
-
-5. **Architecture mechanical check override authority:** The mechanical check can be overridden manually. Who has authority to override — the stakeholder, the orchestrating agent, or any human in the review loop? *Decision needed: override governance.*
+3. **Module-graph check granularity:** The mechanical check reads `interface-contracts.md` and `entity-model.md`. If a feature introduces a new entity that maps to an existing module, does that count as a module-graph change? Current answer: no — only new modules, changed public interfaces, and inverted dependencies trigger Phase 2. This may need revisiting after real usage.
 
 ## Completion Criteria
 
-- [ ] `factory/skills/quality-gate/SKILL.md` exists and documents all three gate types
-- [ ] `factory/scripts/quality-gate` runs against a test project with known complexity violations and detects all of them
-- [ ] `factory/scripts/quality-gate` runs mutation testing against a project with 100% coverage and kills all surviving mutants
-- [ ] `factory/scripts/quality-gate` runs dependency-rule check against a project with a known violation and flags it
-- [ ] `premerge-check` blocks a merge when `quality-gate` fails on any gate
+- [ ] `factory/skills/crap-score/SKILL.md` exists and documents the CRAP scoring gate
+- [ ] `factory/scripts/crap-score` runs against a test project with known high-CRAP functions and detects all of them
+- [ ] `factory/skills/mutation-analysis/SKILL.md` exists and documents the mutation analysis gate
+- [ ] `factory/scripts/mutation-analysis` runs against a test project, mutates every operator, and blocks until zero mutants survive — each survivor resolved by the developer (dead code removed or test added) or by QA (finding adjudicated); unresolved mutation findings block the merge
+- [ ] `factory/skills/dependency-check/SKILL.md` exists and documents the dependency-rule gate
+- [ ] `factory/scripts/dependency-check` runs against a project with a known dependency violation and flags it
+- [ ] `premerge-check` blocks a merge when any of the three gate scripts fails independently
 - [ ] `requirements-agent` produces `docs/spec/<feature-name>.feature` from two or more UC files
 - [ ] `requirements-agent` produces `docs/spec/<feature-name>-gaps.md` with at least one coverage gap detected from a UC without Gherkin
-- [ ] `requirements-agent` produces `docs/spec/qa-strategy.md` with all template sections filled for a test feature
+- [ ] `requirements-agent` produces `docs/spec/<feature-name>-qa-strategy.md` with all template sections filled for a test feature
 - [ ] `qa-agent` bug-hunt step reads `docs/spec/<feature-name>.feature` and references it in bug findings (not UC files directly)
 - [ ] `feature-addition.md` Step 0.3 mechanical check skips Phase 2 for a feature that touches no module boundaries
 - [ ] `feature-addition.md` Step 0.3 mechanical check routes to Phase 2 for a feature that creates a new module directory
+- [ ] `testing-strategy.md` amended to admit composite structural risk scores as acceptance gates
+- [ ] `story.md` template includes `quality-gates` field with documentation of defaults and override semantics
+- [ ] `implementation-agent` dispatcher gate-check loop documented and implemented (commit → gate → fix-or-merge)
+- [ ] Module-graph check script runs against `interface-contracts.md` and `entity-model.md`, not `story.outputs`
 - [ ] All new artifacts pass `factory/scripts/validate`
 
 ## Guiding Rule

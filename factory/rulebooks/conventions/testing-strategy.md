@@ -46,6 +46,12 @@ a rule already owned by a deterministic linter. Do not use a fixed coverage
 percentage, a minimum case count, or a cosmetic reduction target as an
 acceptance gate.
 
+A composite structural risk score — such as CRAP, which weights cyclomatic
+complexity against coverage — is not a coverage target. Coverage enters as a
+counterweight to complexity; the gate threshold is on the composite score, not
+on coverage itself. Such scores are admissible as acceptance gates when the
+pressure they apply is toward smaller code, not toward higher coverage numbers.
+
 ## Choose cases by behavior
 
 Partition inputs into equivalence classes and retain one representative from

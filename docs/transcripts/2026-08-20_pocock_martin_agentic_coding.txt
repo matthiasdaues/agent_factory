@@ -1,0 +1,1076 @@
+0:00
+I've got a treat for you today. I've got someone who I've been wanting to speak to for a while. Someone who has been really into um I mean software for as
+0:08
+long as I've been a developer, much longer than I've been a developer. And someone who's now making his mark on the agent space. We have uh Uncle Bob Martin
+0:17
+live and in his bathrobe ready to throw down. [laughter]
+0:23
+Uncle Bob, hello. Welcome. Hello and thank you. [laughter] Good to be here.
+0:30
+It's great. It's great to have you. It's great to have you. Um, for folks who
+0:35
+don't know the bathrobe thing specifically, we should probably caveat that. What's What's going on there? And why is the bathrobe become a important
+0:42
+part of your character? I I it happened I think two years ago. I was on my front porch in my bathrobe. It
+0:48
+was 6:00 in the morning and and I started thinking about how awful SQL was because of all [laughter] the SQL
+0:55
+injections and what you know makes no sense to have a textual language as your
+1:00
+database access um for security reasons. And I I was in my bathroom at the time
+1:05
+and I just pulled out my phone and I ranted and that became the morning bathrobe rant. [laughter]
+1:12
+Apparently it was popular so I did it a few more times. So is this the mood that you've come here today in? Is this is this the uncle
+1:19
+[laughter] Bob? It's early in the morning. I haven't had my coffee and just don't
+1:25
+bother me. 6:00 in the morning thinking about sequel, man. [laughter] 6 in the morning. Come on.
+1:30
+I'm done with this now. It's actually 10 in the morning. [laughter] The bathroom off. I have me. I'm on my
+1:38
+first Diet Coke, so I'm fine. Very good. Okay. Well, now the polo shirt is out. Um what's what's the Uncle
+1:46
+Bob's story like for there are probably some folks most of my folks are developers but some of my folks are not
+1:52
+developers as well in this audience. How do we introduce Uncle Bob the phenomenon that is Uncle Bob to especially
+1:57
+non-developers. Phenomenon. I don't know about that. Um I'm a programmer. I I've been a
+2:03
+programmer for a very long time. Uh over half a century at this point. uh started
+2:10
+it. My first program was in 1964
+2:15
+and I was 12. [laughter] The program was was uh a little model
+2:23
+computer that my mother had bought me for my 12th birthday and programmed it
+2:28
+by putting little white tubes on pegs. It was essentially a three-bit finite
+2:33
+state machine, but it fascinated the hell out of me at the age of 12. Okay. So, you're 12 years old. How do we
+2:40
+get to uh 50 years later, Uncle Bob doing his thing now? Yeah, a little more than 50. Um, let's
+2:46
+see. Well, I I you know, I just started learning as much as I could about
+2:52
+programming. My father bought me a book about Forran, a book about Cobalt, book about PL1. I read them all. Had no
+2:59
+machines to execute anything on, so I wrote programs on paper and executed them in my head. got a job uh um writing
+3:08
+a little bit of code at the age of 16. Um but that was a temporary thing. Then
+3:13
+I got a real job at the age of 18 and I've been a programmer ever since. So you've been in the trenches for a
+3:19
+long time and you wrote rather an important book I think. A few I one of them I think was
+3:25
+important. I've written a few more but uh yeah one of them seemed to take off. That was a nice one.
+3:30
+Yeah. and um uh the cleanliness of code if I remember correctly or yeah clean code. Yeah. Yeah. Yeah.
+3:38
+Here's the second edition. This is this is the second edition. But you know
+3:44
+I mean it's it's maybe the most um certainly when I have conversations about good books. It's it's uh for
+3:50
+software engineering. It's the one that most often gets quoted back at me. Like it's incredibly popular, incredibly
+3:56
+influential. So, and that's why I'm interested to talk to you today because
+4:01
+you've had this big influence in like the preAI era and you've been working in
+4:07
+the pre-AI era for almost as long as it's existed virtually now.
+4:13
+How have things changed for you, Uncle Bob, now that AI is out there and is a thing? Um, so this took me a little by
+4:22
+surprise around December of of last year, Christmas
+4:29
+time, and I'm just fiddling around and I I'd already been playing with, you know,
+4:34
+chaty PT and a little bit of Grock and a little bit of this and a little bit of that. And I hadn't been real impressed.
+4:41
+Uh, and then I went through a period where I thought, well, maybe these things are a little more interesting
+4:46
+than I thought. And I I got an agent. First agent I got I think was um Grock
+4:53
+early Grock. It was an early Grock one and I just asked it to write me some code and it did a kind of a poor job but
+5:02
+it wrote the code and I was in the middle of a project at the time. So I said well maybe this thing can help me
+5:07
+with this project and I started having it work with me on the project and I was
+5:13
+cleaning up after it all the time just you know it was always making a mess. was always leaving little dog dude
+5:18
+behind. And I thought, you know, it's it's interesting because it's fast, but
+5:25
+it's frustrating because it makes me slow.
+5:30
+Yep. And then I started thinking, well, wait a minute, because it's fast, it can do things that
+5:38
+I cannot. So in the uh very early 2000s there were a couple of innovations that
+5:45
+that caught me. I thought oo these are good ideas but they were completely impractical. One of them was called um
+5:53
+uh crap. Um it was uh it's an acronym. What can I say? But it's it was a way to
+6:01
+take uh code coverage. So you would you would run code coverage, test coverage
+6:07
+over your code and you'd also measure the cyclatic complexity of every function and you would mix those two in
+6:14
+a complicated formula and out would come a score and the score was a measure of
+6:21
+how crappy your function was. And uh way back in the early 2000s, I thought this
+6:27
+is a great idea. And I ran it over a big project I was working on. And yeah, there was a bunch of crappy functions,
+6:32
+but then it took me forever to go through every one of those functions and try and fix them and rewrite the tests
+6:39
+and but and it was all working. So I didn't think I really could afford to do that. So although it was interesting, I
+6:46
+kind of set it aside. And another one of those um innovations was called mutation
+6:52
+testing. And this this one really caught my attention, too, because in mutation testing, you you have a little a little
+6:59
+program that runs through your source code and flips negative signs to positive signs and less than signs to
+7:06
+greater signs and equal signs to not equal signs and other things as well. And for each of those flips, it runs
+7:13
+your entire test suite and expects the test suite to fail because obviously
+7:19
+they've changed something significant. And if it doesn't fail, well, that's a surviving mutant and it must be killed.
+7:25
+Now, I ran this again over that same project right around the year 2000. And
+7:31
+I had to run it overnight because the test suite ran for four minutes and I was running it maybe several hundred
+7:37
+times. Uh, but it came up with a bunch of surviving mutants which I was able to fix. But once again, it was impractical.
+7:45
+I could not put that as part of a a normal build scenario. And so I'm
+7:50
+sitting there last December or maybe it was January by this time and I'm thinking,"Well, wait a minute. These
+7:56
+guys are fast and they don't care how boring the work is
+8:02
+and they will do what I tell them to do. So why don't you run crap over everything you've just done and it would
+8:09
+run crap and then it would it would clean up the code." And I was watching it do this. I think, well, that's pretty
+8:14
+cool. And why don't you run mutation testing, too? and it would run the mutation testing. Maybe it took it 30
+8:20
+minutes instead of an overnight run and then it would plug all the holes and make sure there were tests covering
+8:26
+everything. I thought, you know, this might be a way to clean up the dog
+8:32
+dew. These things leave a lot of deus and fluff behind, but maybe this is a
+8:37
+good way to clean up all the dog. So I I continued on this path of adding more
+8:42
+tools and continuing to work with these agents and I got them to a place where they were doing a pretty good job. So
+8:49
+nowadays my nowadays my principle is, you know, I will set the agents working.
+8:56
+I will have them run these tools and I'm going to work very hard to get it into a
+9:02
+situation where I don't have to look at the code at all. I can trust what they do. And now I do
+9:08
+other things to verify that the code is still decent. You know, I will look at the crap scores and make sure that
+9:15
+they're low. And I will I will do spot checks on the code from time to time. And I have a whole bunch of other tests
+9:21
+that I run. But overall, that's my goal. If these things are fast, and they are,
+9:28
+and if I can constrain them to do a good job, then I am not going to impose my
+9:33
+slowness upon them. And my bonus is reviewing the
+9:39
+code or inspecting the code at some kind of level of detail. They are fast with
+9:45
+code. I am slow with code. So I'm going to let them have the code and I'm going to deal with the stuff around that to
+9:51
+make sure it's all okay. So far so good. So your goal is to
+9:58
+start pulling yourself away from the code, away from human review to
+10:04
+construct this scaffolding around the code so that you don't have to interact with it much yourself and so that the
+10:11
+agent is constrained as much as possible in as tight a straight jacket as
+10:16
+possible so that it can't make a mistake. I think there's so there's an assumption there that I want to touch on
+10:22
+first which is that the word dog do right doesn't sound good
+10:28
+in in a British accent dog do you know so so what why is why is dog do bad why
+10:37
+is bad code bad like why why do we care about that because these things are so
+10:42
+fast and they can move so quickly why do we care why are we bothering with all of this harness can't we just push through
+10:49
+until the bugs just disappear. One of the things I noticed really early on,
+10:55
+like Decemberish time frame, was that I would be I'd be working with the the uh like this little Grock agent and I'd
+11:02
+have it do something and it would leave all this mess around and instead of cleaning the mess, I would have it do
+11:07
+the next thing and it would leave even more mess around and then I would have it do the next thing. And I noticed it
+11:13
+slowing down and I noticed it having having uh difficulty. It would it would
+11:20
+get into a mode where it would change one thing but inadvertently break another and then it would have to fix
+11:25
+that but inadvertently break another. Started going around in circles and I
+11:30
+thought okay these agents they may be they may be fast and they be maybe relatively smart but they are as subject
+11:38
+as humans are to messy code. Now maybe not as subject. Maybe there's a
+11:45
+difference in threshold, but the threshold is still there. The code can get messy enough that the agents cannot
+11:52
+deal with it any any longer and then they'll just start to spin and make a mess even worse and and be unable. I've
+11:59
+actually had them just give up. One agent one time said, "I just can't deal with this anymore."
+12:07
+Parap I'm paraphrasing it. didn't use those words, but that was obviously what was going on. Yeah. So, your response to that then is,
+12:15
+"How can I clean up the crap?" And I think when most people encounter that,
+12:20
+they start loading the agent with instructions, right? They start saying, "Okay, I'm going to pour in information
+12:27
+into the agent that's doing the implementation, right? I'm going to pile in on claw.md or agents.mmd and every
+12:33
+time I see something bad I'm going to use an instruction instead of what you're doing where it's a deterministic
+12:40
+mechanism. So you're using automated checks whereas a lot of other people are using in my terminology steering right
+12:47
+they're trying to steer it. So why didn't you are you doing any steering or
+12:52
+like how does that work in your mindset? So, initially I started with that. I start, you know, I my early prompts were
+13:00
+here's how you do test-driven development. Here's how you do clean code. Here's what your code should look like. You should follow all these rules.
+13:07
+And, you know, you come up with eventually a document that's five or 10 pages long describing all the good
+13:13
+things about code. I I suppose I could have fed the whole dog on book into it. Mhm.
+13:18
+But what I noticed was that the agents, the the models, whatever you want to
+13:24
+call them, um they treat those rules in the uh Pirates of the Caribbean
+13:31
+sense. They're more like guidelines, you know, might follow.
+13:36
+Can I just Can I just credit you? That's exactly the metaphor that came into my head as well. So, I'm glad we're aligned there. [laughter]
+13:42
+Yeah. Well, so they they definitely will soften and there's technical reasons behind this. I did a not not a lot of
+13:50
+research but some research into why the models behave this way and it turns out
+13:55
+that there's this phenomenon known as lost in the middle. So as the context
+14:02
+window builds up inside the model the stuff at the very beginning and the
+14:08
+stuff at the very end have more prominence than the stuff in the middle
+14:13
+uh for technical reasons. But once again, the the agent will ignore the stuff in the middle. And anything you
+14:20
+say at the very beginning is going to get shoved into the middle if it's long,
+14:26
+right? So maybe the first three sentences you put at the beginning will remain as priority, but the 50th and the
+14:33
+80th sentence in there, they're gone. They're just in the middle somewhere. And the poor agent is trying to deal
+14:40
+with this massive context that's ever growing, ever growing. and it's trying
+14:45
+to pull the important bits out and the stuff in the middle is just gone. So
+14:50
+deterministic tools don't disappear that way.
+14:56
+The the key that I think with agents, and this is really hard to do, the key with agents is to trim that initial
+15:02
+prompt down to its absolute minimum so that you can get as much of it as
+15:08
+possible into its priority. Yeah. Right. and then do deterministic tools
+15:14
+after the fact. Totally. I refer to this as like the smart zone and the dumb zone of the uh
+15:21
+context window. It's not my term. That's Dex Hardy's term. I stole it and it's very very good. Which is especially at
+15:26
+the early part of the context window, like the first 150k tokens, it's pretty smart. But then as you go along, then
+15:32
+the attention relationships in the transformer get really strained. It's really diluted. It's like everyone's
+15:38
+shouting. Each token is shouting in a crowded room and the room's getting more crowded. Right? you can't hear the
+15:43
+signal for the noise. That that's that totally rings true for me. So you've got then you sort of rejected steering and
+15:50
+you sort of started going back to some old techniques in automated checks. Now
+15:58
+it sounds like then because those checks don't go into the context window in the same way that steering instructions do,
+16:03
+you can kind of just layer those on, right? And layer them up and up and up. So if you're using a language with strong types and like tests and like how
+16:13
+does that picture look to you? Is there ever too much when it comes to automated checks? That's one of the things that I'm
+16:19
+working very hard to figure out. Obviously there has to be a case where there's too much, right? You eventually
+16:25
+you will slow the agents down to the point where they're slower than humans. And at that point you've lost the game.
+16:31
+Why do it? Um, but as long as you can keep the margin of productivity higher
+16:37
+than a human, you're still you're still ahead of the game. Uh, and and from what
+16:42
+I've seen so far, I you know, I can get that margin, you know, like a factor of
+16:47
+two or three or four, right? They'll they'll still go pretty fast. Now, I'm I'm slowing them down a lot. When when
+16:55
+uh when you use these deterministic tools, what you are really doing is you're putting them into a loop. Lots of people like to talk about loops
+17:01
+nowadays. You're putting them into a loop and you're saying, "Okay, you must you must change the code until this tool
+17:08
+says that it's okay." And now the agent is going around and around and around. Okay, I've got to do this. I've got to
+17:14
+do that. I've got to I've got to add more tests over here. I've got to cut the cyclatic complexity. I've got to split these functions apart. Got to do
+17:21
+all this work. And it takes it a while to do all that until it gets it into conformance. So you're you're you're you
+17:28
+are sacrificing productivity for higher quality
+17:33
+and at some point that's got to give way. But I haven't found the end point of that yet.
+17:39
+So now I'm in the midst of trying to get multiple agents talking to each other and handing off to each other so that
+17:46
+one guy does one thing and the next one reviews it and the next one tests it and the next one hardens it and so on. And
+17:52
+there's communication overhead like crazy in that. and yet it's still faster
+17:57
+by a large token than a human. Let's talk about that. Let's talk about multi- aent systems because that's I
+18:04
+find that super fascinating. I have always had a bit of a and I think this might be something something where we
+18:09
+differ which is I've always had a bit of a suspicion of like people who say uh you
+18:15
+know I've I've got rid of all my workforce. I now have a hundred agents.
+18:21
+Every one of them has a different role. They all talk to each other. they've got their own email accounts, all that all that rubbish, you know. Um, and so for
+18:29
+me, what's always worked, but okay, I sort of make an exception when it comes to implementation and then review,
+18:36
+right? And I think the benefit there is not having two very specialized agents. It's having okay, you do the
+18:41
+implementation and it's kind of like a red green refactor approach, which is the implement all it has to do is just
+18:48
+like write the bad test and then make it work. It doesn't have to make it beautiful. And then the reviewer comes
+18:55
+in. It doesn't have to do the exploration because it's already got the diff from the implementer. It knows exactly what it's reviewing. And then
+19:02
+you can pile in quite a lot more steering instructions in there because the task is much less constrained. So
+19:08
+I'm really interested in your take on that on like what the implementer does, what the reviewer does, and what these
+19:14
+other hardener agents. I've not experimented with that. Give me more on that. So there's two advantages to
+19:19
+having multiple agents like this. The one is that you can run them in parallel. So you could have, you know,
+19:26
+three coders running at the same time. And my little laptop can support a lot
+19:31
+more than three. Um the other advantage is that when you focus the agents down
+19:37
+to a single task, you're keeping the context window under control. The lost in the middle problem becomes much less
+19:43
+of a problem. So you can pile a few more, not a lot more, but a few more rules up at the top and they'll tend to
+19:50
+follow them better. You can also set up a a system where the agents um are born,
+19:57
+do the task, and die so that the next one comes in with a clean context.
+20:03
+So [clears throat] those are the advantages. The disadvantages are that the startup times are high, right? So an
+20:08
+agent takes, you know, 10 15 seconds to even start up. uh and then it's got to
+20:14
+figure out its whole context all over again. So there's that that particular startup time as well. I like to focus
+20:21
+the task as much as I can. So I will run a specifier. The job of the specifier is
+20:27
+to take a a human written document and turn it into a uh a girkin
+20:37
+and a QA a QA uh procedure. Girkin is you know given when then stuff. It's a
+20:43
+high level acceptance test. Uh and a QA procedure is a essentially a system
+20:49
+test. You know you run the system through the UI with a with a QA procedure. And I have them write it from
+20:56
+a human's point of view. You are a human. You are operating this system at the UI. You must prove that the system
+21:02
+works. And I will produce those two documents. Girkin documents QA documents. And then
+21:09
+those feed into a coder. The coder's job is to write unit tests and the code that
+21:15
+implements the described uh story and uh
+21:21
+also get the girkin working. So it has to do that and then that gets fed over. Once that's working, the coder will work
+21:28
+on that for a little while that gets fed into a cleaner and the cleaner's job is
+21:33
+to run crap analysis and just general code review. clean it clean up whatever
+21:39
+mess the implement made because the implement will have made a horrible mess by that point. And then I have it go
+21:45
+from there to a hardener. The hardener is the guy who runs the mutation testing and he's absolutely merciless,
+21:52
+[laughter] right? It's going to mutate it and it's going to have 100% coverage and every equal
+22:01
+sign and every less it's going to do that work which takes a good long time.
+22:06
+uh and it pops out the end and then it goes into a QA agent and the QA agent takes the the written QA document, turns
+22:14
+it into an executable script that manipulates the system and comes up with
+22:20
+a deterministic result. And and if you can get through all of that, you've got a pretty pretty working
+22:27
+program. I' I've had a lot of success with this. it uh if I if I give it a
+22:33
+task that takes a single agent five minutes to complete with questionable
+22:40
+results. Uh this will take it about an hour. It'll take about an hour to go
+22:45
+through all that which is still a benefit because you know a person would take about a half a day. So maybe I've
+22:52
+got a you know a factor of four factor of five improvement in productivity and very high quality much more quality than
+22:58
+the human would ever put into it. And it's not only that, but you're you're saving productivity or or you're
+23:04
+spending productivity early to gain it later, right? This is an investment in your own codebase. Yeah. What I found
+23:11
+really interesting about that is this is something I've been thinking about recently is it's not only the context window that you're manipulating. You're
+23:18
+also there's this idea of a trajectory of a context window, right? Of a session
+23:24
+where if you get the agent to do one thing and you steer it in a certain way, then everything that follows in that
+23:31
+same session, that same context window, will continue following that trajectory. So if you get it to say, "Okay, maybe we
+23:37
+should test the UI here," then every single time it will test the UI again, no matter how many changes you get it to
+23:42
+make. And the only way to clear the trajectory is to clear the context window, right? So if you're an implement
+23:48
+agent and you're just trying to get it working, then your trajectory is kind of it's not quite as harsh as the one who's
+23:55
+trying to make sure you have 100% coverage. And I found that really interesting. Is that something you does
+24:01
+that click with your mental model as well? Yeah, it certainly does. There's a a pretty well-known effect with these
+24:06
+models and it happens with people who aren't programmers, right? So, you're talking to a model about um oh, I don't
+24:14
+know what what's the best coffee to have and how do you how do you brew it nicely? And you're having this nice
+24:20
+little conversation with the agent about this or with the model about this. And then somebody walks by and they happen
+24:27
+to be talking about the latest soap opera that they saw saw on television and that gets into the context window.
+24:34
+You didn't put it there. This guy walking by put it in there. But then from that point on all the coffee
+24:39
+references have to do with the soap opera, right? The the the model doesn't know. It can't differentiate. So your
+24:46
+idea of trajectory is pretty good, right? As long as you can keep the direction of the model unconfused.
+24:54
+It knows the direction it's going in. Everything in the context window is consistent.
+25:00
+then it's not going to have these crazy hallucinations that that people often
+25:06
+deal with or even just mis even just misalignment right like halluc I think hallucination
+25:11
+is always a danger right like whether it's you know hallucination context you gave it whatever like it's an sort of an
+25:16
+accepted danger and your approach of this kind of gauntlet of different agents slamming horrendous stuff is sort
+25:23
+of a is a great way of taking out that so okay you've talked a lot about the
+25:29
+implementation phase and we can get back to that later too. What I'm also interested in is what planning do you do
+25:37
+up front and especially how are you thinking about the internal
+25:42
+structure of your code bases? Because having a good test suite, right? I mean,
+25:48
+I'm interested in what you think here. Having a good test suite is good, right? Having mutation testing, all that stuff
+25:53
+is good. But if you've got badly designed APIs, if you've got badly shaped modules, how does that interact
+26:01
+with all of this automated checks and stuff like how much are you thinking about that?
+26:06
+So up to the last month or so, what I was doing there was doing that part
+26:12
+manually. So I would I would have the agents build me up a nice thing and then
+26:18
+I would interrogate the agents. And this was manual but but still using the agents, right? I'd interrogate the
+26:24
+agents. What's the structure here? How how does this module interrelate with that module? What are the modules after
+26:32
+all? And how do they talk to each other? I would ask those questions and then I would get scared to death because the
+26:39
+answers were horribly frightening. And then I would design a module structure
+26:44
+and I would tell the agent, okay, here's how the modules should really be partitioned and here's how you should
+26:49
+communicate with them. And I would give them an implementation plan that they would then implement.
+26:55
+Now, that's a that's a tough one. So I also had my agents build me an architecture viewer so I can pop up on
+27:03
+the screen a nice little UML diagram essentially nice little UML diagram that
+27:08
+shows me the modular structure of the system and where the dependencies run and I can click on a module and I can
+27:14
+see inside it to the subm modules and I can click on the subm modules and it'll actually pop the code up on on the
+27:20
+screen for me. So I can I can drill down as much as I want and view the system architecture at any level. That was
+27:28
+really useful to me and I I've made good use of that. I've also put together a
+27:34
+another deterministic tool where I can define which module should depend on
+27:39
+which, which one should not depend on which, how the dependency should flow. That goes into a nice tight little
+27:45
+specification file that the agents cannot violate. There's another little checker that runs at the end and if they
+27:53
+violate it, they've got to fix it somehow. Usually by inverting a dependency or inserting an interface or
+27:59
+splitting a module in half or something like that and it will it will um keep my
+28:04
+rules um from being violated. I'm working now to see if I can automate
+28:11
+that and I'm having not a lot of luck [laughter] so far.
+28:17
+I'm basically in exactly the same boat as you, which is you just get so much
+28:23
+leverage by having well-designed modules, right? Could you explain what that leverage is? Why is why is having a
+28:30
+good structure for these modules important? Well, it's the same argument that we had
+28:35
+for the dirty code versus clean code. Anything that is well partitioned with welld disciplined interfaces between it
+28:43
+is something a human can grasp because we compartmentalize in our minds well so
+28:48
+do the models so do the agents maybe at a slightly different threshold I don't know about that yet but they work far
+28:55
+better if they can focus on a module and if that module has a trajectory right
+29:01
+using your term so that the the model does not get confused [clears throat]
+29:07
+by the topics inside that module. Okay, I'm using the word model and module. I
+29:13
+want [laughter] clear. We get it. We get it. But that that's important. And it's the same argument. It's the coffee and soap
+29:20
+op opera argument. If you load up a module with every bit of stuff under the
+29:27
+of under the sun, the the poor agent is going to wonder, "What the heck am I doing in here? How do I do anything in
+29:34
+here?" if you compartmentalize nicely works pretty well just like a human.
+29:40
+So you're getting and you're probably getting better value out of your test suite as well because that's what I always think is like okay I suppose
+29:47
+here's here's another question for you that's related to this I think of and I have to say I'm a huge fan of um huge
+29:54
+fan of your work but I'm also a huge fan of John Aster's work. Yeah where um I mean who isn't a great guy
+30:00
+you you probably got his book around somewhere. Um and his concept of deep modules is something I find really
+30:06
+fascinating which is you have an you can have bad modules which is kind of shallow modules right that have a wide
+30:12
+interface and not much hidden inside them and you can also have deep modules which have a small interface and then a
+30:17
+deep um lots of hidden information inside them and it occurs to me that that is really good with models because
+30:24
+they can read the interface without having to understand the implementation. Does that sort of chime with you? And
+30:31
+it's not how you're approaching things as well. Yeah, absolutely. Does the models pay attention to interface names? They they pay attention to the
+30:37
+structure. It can allow them to not read the code beneath them, which is both a danger and and an advantage.
+30:45
+Y as long as the code is consistent, you're okay. Um they also pay attention to the tests. They read tests to
+30:52
+understand what the system does. Um so yeah all anything you can do that helps
+30:57
+the structure of the code will help the models understand that code. By the way
+31:04
+in this book there is a long debate between me and John Ora in the appendix and it it was a lot of fun. He and I had
+31:11
+a blast. Well I don't know how much fun he had but I had a lot of fun. I watched I watched the entire thing. I
+31:16
+saw you guys interviewed um on a really great uh uh YouTube discussion where you
+31:21
+talked about it and I I I I just loved it and I that's kind of the reason I wanted you to come on actually because I I just enjoyed that so much. Um okay,
+31:30
+there's a few different ways I could go now. Um
+31:35
+okay. Is there in your book anything that you would change or update now?
+31:43
+because specifically I'm thinking about some advice like um create small functions let's say and keep functions
+31:50
+small um is there is there anything that you're sort of because we've been
+31:56
+talking a lot about how things have not changed right how gauntlets like this have always been good we've just never
+32:02
+had the labor available to actually push through them right these ideas have been good for a long time we're just sort of
+32:08
+modifying them in a different way but is there anything that we just need to and this is I suppose a wide question. Is
+32:14
+there anything that we need to throw out that's just like done or is there anything that's I don't like asking this
+32:21
+question because it puts a lot of pressure on you, but do you have an answer for that one? So, um thresholds for one thing. Uh it
+32:28
+seems to me that the the agents can deal with different levels of complexity than
+32:33
+humans. They have a a much better short-term memory. I mean, a huge short-term memory and a perfectly
+32:40
+accurate short-term memory. So one of the things that I do is I widen the um
+32:46
+the allowed size of a function and I do that by adjusting the crap score. So for
+32:52
+a human I would keep crap numbers below four, right? But for the agents I've set
+32:58
+this at six and I'm thinking and maybe I'll push it to eight. Um I'm trying to find where the threshold is and it's not
+33:04
+an easy threshold to find. But what what does that look like in terms of four to eight? Like what's the or 4 to 12? What's the difference there? like
+33:10
+is it like a 20 line 100line function? Um so it really boils down to the cyclatic complexity which is the number
+33:16
+of pathways through the function. And uh if you've got 100% coverage then a crap
+33:23
+score of six means that there are six pathways through the through the function. They're all covered with
+33:28
+tests. So that's really the goal of crap, right? Get it all covered with tests and then limit the cyclomatic
+33:34
+complexity. Um, and you know, I've had a number of debates with the agents, and by the way, you can't trust any debate
+33:40
+you have with an agent, but I still have them anyway. Uh, and they they seem to think that, oh yeah, you know, six is
+33:46
+probably pretty good. Well, you know, I don't you don't really trust them, but okay. Um, but I, you know, I think
+33:53
+there's a threshold difference there. There's another another factor. In my
+33:58
+books, I talk about disciplines. One of them was was test-driven development. I'm a big advocate of test-driven
+34:05
+development. But that's a human discipline that's done because humans are wired a certain way. I cannot and
+34:13
+will not enforce that on the agents. I don't think it makes any sense to make
+34:18
+an agent write a single line of a test and then write a single line of the
+34:25
+production code and then the next line of the test. I don't think that makes any sense. For a human, it does. At
+34:31
+least for me. I mean there's a a huge benefit for my work but for the agents I
+34:37
+don't think so. So I allow the agents to behave more like John Asterhow would which is to write a function and then
+34:43
+write the test for that function and then write the next function and write the test for that function. I allow them
+34:48
+to do that even when I have told them to do test-driven development at high
+34:54
+discipline. They always fall back on doing that. They always end up doing that. So I figure that's probably okay.
+35:01
+So the bottom line there is it's probably a mistake to impose a human
+35:07
+discipline on an agent. It is not a mistake to impose human values
+35:13
+on the agent, but there may be thresholds that we need to change. But the disciplines themselves, the
+35:19
+behaviors, I don't think it's wise to impose those. That's a lovely way of phrasing it. I really like that. So it's it's a
+35:26
+short-term memory thing, right? Because TDD is great when you have very low short-term memory, like humans, right?
+35:32
+You have enough short-term memory to write the test and then enough short-term memory, just enough to make the test pass, right? You can go out and
+35:39
+get a coffee or something. So, okay, that was great. Thank you.
+35:45
+[laughter] You're welcome. In the Okay, we've talked a lot about building
+35:51
+the thing, right? Right. [clears throat] and building the implementation, right, and doing module architecture and that
+35:57
+sort of thing. What do you do before you kick things off to your specifier? How much planning are you doing before you
+36:04
+actually go into this gauntlet loop? Because like putting the wrong work in a
+36:10
+gauntlet is super wasteful, right? How do you think about that? Well, so the
+36:16
+temptation is to specify, you know, get the human to specify,
+36:22
+specify, specify, specify and then give it to the agent. This is a very old temptation. It was a temptation we
+36:29
+underwent in the 70s. It led us to the waterfall uh process and all of that.
+36:36
+And and the agile revolution was the answer to that or the answer back to
+36:42
+that. I don't know how how well we're doing with the agile revolution either, but but it was the it was a way to say,
+36:49
+"Wait a minute. All this heavy upfront planning makes a mess of everything cuz
+36:55
+what comes out at the end doesn't look anything like the plan and never has." Well, the temptation with agents is to
+37:01
+do the same thing, right? Okay, we're going to plan plan. Then we'll give it to the agent. And I have tried this. In
+37:09
+fact, I've been in the middle of trying this just this week and it's it's always a disaster. It and it's always the same
+37:16
+outcome, right? The you make all these plans and then as the agents are running, you the human realize that they
+37:24
+can't follow that plan because you didn't think of everything and they're not as wise as you are. So they're
+37:31
+running halfcocked off on some nonsense that you have to stop, back up, rewrite
+37:37
+the plan, and then start them over again. And so I've given up on that. I
+37:42
+said, "Okay, wait a minute. Let's try the agile approach now." And I don't know how this is going to work out. It
+37:48
+might not work out all that well, but but let's try the agile approach. Let's just let them do a story or two, and
+37:54
+then we'll look at the architecture at the end, and we maybe I'll have to manually get involved. and you know sort
+38:01
+a few things out and then a few more stories and so on. That might be a better approach. We we may never uh
+38:10
+escape that manual organizing step at the end. Although I'm trying to figure
+38:15
+out a way to do it, but I don't know I don't know if that's possible. I think of it like you've got this huge
+38:22
+chunk of labor that needs to happen. Right? In the old days, this was building the thing, right? and building
+38:27
+the thing would take days, weeks, months maybe. Um, now that has shrunk, right? But the planning up front and then the
+38:33
+review is still the same, right? We're expected to do these faster iteration cycles as devs, but the stuff that was
+38:41
+actually quite hard is still kind of the same and takes the same amount of time.
+38:47
+Building the thing wrong or sorry, building the wrong thing is something that you can still do. And I totally
+38:53
+agree that there's like this sort of a lot of folks are doing this kind of plan maxing thing where they're just, you
+38:59
+know, they take their spec and they they think about their spec, they run their spec through seven different agents or
+39:04
+something and then they um, you know, they get back a better plan that they then go and implement or something. How
+39:11
+like that sound not sound good? The agents love to write plans. Oh my goodness, they love it. And they will
+39:17
+embellish the plans and the plans will be gorgeous and beautiful and spell out all kinds of details. [laughter]
+39:25
+Yeah. And then they fall apart at the end. Um so yeah, I I think you can see it in
+39:31
+the industry right now. There's this movement towards spectriven development. Uh and my my uh impression there is that
+39:40
+that's probably not going to work. My experiments did not work particularly well. Um, and I'm thinking now maybe we
+39:46
+should once again look at the agile ideas and maybe the idea of do a little
+39:52
+bit, get some feedback, do a little bit more, get some feedback, reorganize, do a little bit more, feedback, reorganize.
+39:59
+I used to tell this story back when I was doing agile lectures. If if it cost you
+40:07
+$1 to make a change to a house, including
+40:13
+the initial laying of the foundation, the initial roof, everything, every change you gave to the contractor would
+40:19
+cost you a dollar. How would you build that house? Would you hire an architect
+40:25
+and pay thousands of dollars to the architect to come up with the perfect plan that they then paid a dollar to the
+40:31
+contractor so that he could build in one shot? Or would you walk up to the contractor and say,
+40:38
+"I want the foundation here. Make it that shape." Oh, no. That's [clears throat] bad. Okay, let's change that foundation. Let's do a little Put
+40:45
+the kitchen over here. Put the living room there. There's $2. Oh, heck no.
+40:50
+Let's change those around. That's let's let the kids walk through the oh the traffic pattern is crappy. Move the
+40:56
+stairs [laughter] or whatever. Um obviously the latter is probably better
+41:02
+and that's what we are looking at right now. It costs a dollar. Well maybe two, maybe five. But the the cost of change
+41:11
+has plummeted to as close to zero as I think we're ever going to get it. and well that's
+41:17
+that's a prediction I'll probably lose but still right the cost of change has has gone so far down that why would you
+41:26
+do this upfront planning because that's expensive why wouldn't you just fiddle fiddle
+41:33
+fiddle fiddle until it looks right [laughter] yes I I 100% agree I couldn't agree more
+41:40
+the the thing I the thing I have I think I have a massive issue with the specdriven development label
+41:47
+Because what is spectriven development, right? Like you can have like 10 different interpretations of it and
+41:52
+every time you pass information to an agent, right? Is prompt engineering specri development, right? Like it kind
+41:58
+of is. You know, you don't you know, you would say to your, you know, if in the old days you would have like your mate
+42:04
+over the other side, your colleague, and you would say, you just fix that loading issue in the in the header or something.
+42:09
+Is that spec driven development? Right? Like is that a specification that I've given him? you know and it seems like
+42:14
+every time I say okay do a little bit of upfront alignment first that approach then gets called spectriven development
+42:21
+but for me I think the difference is are you persisting your specifications right
+42:27
+are you returning to those specifications so what's your attitude there like do you do you keep like a
+42:33
+list of all of your specs in the repo or do you like what's going on there
+42:38
+no I do not um the the specifications are ephemeris they go away. Uh they
+42:44
+change a lot. I fiddleled with them and you know that that goes away. There is
+42:49
+no equivalent to source code. You know we humans wrote the source code. So that
+42:56
+was that was the final specification. Well that doesn't exist anymore. There is still source code but we humans
+43:02
+aren't the ones writing it. And a lot of people feel that lack. There has to be a
+43:07
+human thing that defines everything up front. Well,
+43:13
+I mean, in the end, even what the agents produce was produced by humans.
+43:18
+The the thing that I've be been doing lately is this. Instead of creating a
+43:25
+specification that defines what I want or defines what I have even, I look at
+43:32
+the end result and say, well, that is the specification. So, I've got a bunch of tools out there. I've got like the
+43:38
+crap tool runs for closure. It runs for Java. It runs for Go. I wrote a few of
+43:44
+them, right? I had my agents write them. I've got the mutation tester. I've got my my agent harness. You know, I've got
+43:50
+all these things up there. What I tell people is don't download those. I wrote them for me. What you should do is point
+43:57
+your agents at them, have [clears throat] the agents look at them, and then build one for you. [laughter] Yeah. I think that's a far better way of
+44:05
+specifying the essence of something and then customizing it to your to your
+44:11
+particular need. Yep. It's what I always find weird about agents is that if you send them
+44:18
+something, they read it, right? [laughter] Which is very different to humans, right? Very, you know, you can
+44:25
+maybe get a 20% hit rate if you send someone a massive specification and 20% is maybe a bit generous. 5% maybe if you
+44:32
+pass a you know a spec to an agent they're probably going to read it right the opposite side of that is the things
+44:38
+that the agents write the humans don't read. Yes. Exactly. Yeah. Exactly. So they're
+44:44
+expecting I had thought of it like that. They're expecting us to read everything they
+44:49
+write and we just don't. God. It's so one-sided. You know, long term,
+44:55
+I'm interested in how human relationships differ or get different because we're so used to communicating
+45:01
+with agents, right? I dictate to my agents. So, it's like I'm just sort of talking to a friend or something. I'm really interested in sort of how life
+45:07
+imitates art over time and stuff. I don't know. That's fascinating to me. So, okay. And I think I'm going to ask
+45:14
+you maybe the final question, and it's a sort of fairly beefy one. Um, if that's all right, finalish. Um,
+45:22
+I'm gonna go John Alart again because John has a great definition for
+45:27
+different types of programming, right? You've got the tactical programming. Are you going to get it?
+45:33
+I I just have to You've mentioned I've got to pull this book down. Wait. Uh,
+45:39
+it's it's here somewhere. Where's mine? I've got mine. Oh, good. Okay. All right. There you go. I've got mine. There it is. Yep.
+45:45
+I got it. Okay. Done. um tactical versus strategic
+45:50
+programming. Yeah. So tactical is the sergeant on the ground, the person kind of fighting the battle. The strategic stuff is the
+45:58
+general kind of the person directing the course of the war. Now I think we both agree that's a good
+46:04
+framing, right, for different types of programming. And agents are really good at tactical, really bad at strategic.
+46:10
+Yeah. Now, for people who are just starting out and AI has now eaten all of
+46:16
+the tactical stuff, how do they learn to do strategic programming? Because I
+46:23
+think a lot of people here, that's kind of what they want from you, Bob. They want, please just give me your brain so
+46:30
+that I can inject into it, understand why mutation testing is so good, tell me how to explain these modules. Like,
+46:36
+that's what they want, I think. So that's your job now is to give people your brain. How how how did they learn
+46:42
+that stuff? Okay. So, um I get this question a lot. I don't have
+46:47
+perfect answers to it because I really don't know. But but here's how I would think about this. Here's here's how I do
+46:53
+think about this. First of all, the um the way a programmer should learn
+46:59
+whether it's in university or somewhere else, right? It should be to write code. You should you should be writing code
+47:06
+right for a year. I don't know how long but you should be writing code so that you know what the agents are dealing
+47:13
+with. The next thing that I think should happen is that when you get hired into a
+47:19
+company where that company is making heavy use of agents, you the young young person just coming
+47:26
+out of training should be treated like an agent.
+47:31
+the uh the the guy who's running the you know maybe the lead engineer or whoever
+47:37
+the guy who's got bunch of agents running and he's being strategic. He should look at you as an agent and he
+47:43
+should give you the same kind of tasks that the agents have and subject you to the same kind of deterministic tools
+47:49
+that the agent have agents have to use. And you should spend several months in
+47:55
+that state being horribly unproductive but learning a hell of a lot. And by the
+48:02
+time you've gone through that gauntlet, maybe you can be trusted to run an agent
+48:07
+of your own. I don't know. It's going to be something like that. You cannot lose the code
+48:15
+entirely. I used to tell people um 10 years ago used to tell people um
+48:23
+if you've never written assembly language, you should spend the weekend writing assembly language just so that you know what's really going on behind
+48:30
+the scenes because if if all you're doing is writing Java all day long, you live in a fantasy world. There is still
+48:36
+magic yet that you don't understand. Spend a weekend doing assembly language
+48:42
+and you will finally understand what's really going on. And I I think that remains true
+48:48
+somehow during this educational pathway. You've got to go from the basics binary
+48:55
+all the way through assembly language some basic code like C some higher level code like Python or something and then
+49:04
+deal with uh agent kind of work and deterministic tools and finally be able to strategically run an agent under
+49:12
+supervision. Yeah, [snorts] I don't know how better to say that. It's so hard though, right? because
+49:19
+there's two there's two things going on there, right? Like there's the agent is
+49:24
+a kind of abstraction layer, right, over the code. And so you got the code and then it's interesting you were talking
+49:29
+about an abstraction layer like a sort of um module viewer, right? Like I think that's super interesting. That's a
+49:36
+really good way to learn getting these kind of abstractions over the code so when you dive in you understand it more
+49:42
+deeply. But if you have someone who's just like sitting on your books just doing tactical work, surely as a company
+49:49
+you're going to look at that and go, why are we hiring this person when we've got, you know, we've got Uncle Bob's
+49:56
+swarm of five hardeners and stuff that can beat it, you know, a fraction of the
+50:01
+cost, right? I'm I I just I I'm so Okay. What What like resources or books can or
+50:08
+approaches or Sorry, there's one more question here which is [laughter]
+50:15
+I'm I'm I'm trying to like work out how people get this information because the
+50:20
+feedback loop on strategic programming is so long, right? Or traditionally it has been very long. So you you can often
+50:27
+like people who just like quit jobs after six months or something, they might never learn strategic programming,
+50:33
+right? Because their mistakes are maybe nine months away, you know, so they just never see the their own mistakes. But I
+50:40
+think with agents, you can, right? Because it's sped up so much, you can actually get more feedback on your
+50:47
+mistakes sooner. And I suppose what I'm interested in is how did you know that your agents were making mistakes back in
+50:54
+December when you were looking at them and going this is dog? How did you identify that?
+50:59
+Um early on I was just looking at the code and seeing the dog do. That wasn't the important part. The important part
+51:05
+was the next step where I watched them thrash. I could see the agent struggle
+51:11
+[snorts] and I recognized the struggle since I have been through that struggle. Right? And that's one of the issues is
+51:18
+the novice would come in and not recognize the struggle. Now, how do you learn that? How do you
+51:24
+learn? You know, I learned it the hard way. School of hard knocks. How do you learn that as a young person coming in?
+51:30
+How do you recognize that? There is a wealth of information about this. Um the the old
+51:39
+books, the ones that nobody reads because they're old. Uh the old books on this topic are terrific, right? you go
+51:45
+to the works by Tom DeMarco or or the works by Ed Yordan or you know go go
+51:52
+read you know um gez I can't think of the names right now but
+51:58
+pragmatic programmer you know the pragmatic programmer um the the
+52:05
+there's a lot there's a lot of these older books they're very good um that if you if you study them when
+52:13
+you're young you will get may feel for what this higher level strategic play
+52:19
+is. You'll have to filter out some of the archaic stuff because a lot of these books were written in the 70s or the
+52:25
+80s, right? But that's when these lessons were learned.
+52:30
+And so I, you know, that's that's where I would go initially. I would go to
+52:35
+those books and learn that stuff that way. And then, of course, you're going to have to learn it by feeling it.
+52:40
+Yeah. That's why I think they ought to play play uh agents for a few months so they can learn what that's really like.
+52:47
+Become the agent. Have the agent delegate to you. Yeah. You become a sub agent of the agent. I like that.
+52:52
+[laughter] So, okay. I do have one more question. It's I suppose a short one. Sure.
+52:58
+Um which is sounds like then software fundamentals
+53:04
+still matter, right? Yeah. And why is that?
+53:09
+And what do you say to the people who say that they don't matter?
+53:15
+Why is that? Um software fundamentals matter for the
+53:21
+reason they have always mattered. The let's see who said this. It was um
+53:29
+uh Dystra I think who said it. I'm I'm going to get this wrong, but
+53:36
+software is the most complicated thing that humans have ever attempted to do.
+53:41
+More complicated than you know any other task that we've tried. Software is the
+53:46
+most complicated thing. And therefore, the fundamentals are the are way of
+53:51
+organizing that complexity into a form that can be conceived not just by
+53:56
+humans, but by our models as well. Since our models are modeled after humans after all.
+54:04
+So the fundamentals still apply because that's the way we organize complexity to
+54:10
+be conceived or be to be conceived of. There are folks right now who think that
+54:16
+the fundamentals don't matter. They will learn and they will learn that the hard way and and it won't take very long.
+54:22
+Might take longer than I think it'll take because the agents are pretty good. But I've watched them hit the hit the uh
+54:29
+wall. So I know that wall is there and I don't want to hit that again.
+54:36
+It's a very interesting interesting set of parallels that we're in at the moment. We you had mentioned the the
+54:43
+abstraction layer, right? And you know we're we're now at a at a level where
+54:48
+we're above the compiler. We used to our our our abstraction layer used to be the
+54:53
+compiler. Before that it was assembly language. Before that it was binary. And now it's up here at this level of the
+55:00
+model. At every one of those steps up up the abstraction layer. The people
+55:07
+at the at the lower step complaint said, "Oh, this is going to ruin everything.
+55:12
+We're not even going to have jobs anymore. It's become so easy that five-year-olds will be able to write the
+55:18
+code." And you know, back then they were still talking about like binary. [laughter] Yes.
+55:24
+At every step it's the same. And and so we're at this next step and the people
+55:29
+down here are saying, "Oh, it's going to ruin everything." No, it's not. The same
+55:34
+rules apply. All the same fundamentals exist for all the same reasons. The
+55:39
+rules you throw away are the ones you're going to pick up off the floor in a year and dust off and remember why you need
+55:46
+them. Yeah. Thank you so much, Bob. There's a
+55:52
+there's a great quote from I think Plato where he says that writing is going to
+55:57
+make people stupider. Right? So people have had that same abstraction argument since you know the Greeks, right?
+56:03
+Ridiculous. I think everyone uh watching, how many folks have we got on this stream? Uh
+56:09
+we've got 1,500 people watching. Incredible. Uh I think we can all agree that was a fantastic conversation. Um
+56:16
+Bob, thank you so much. Um, hold up your book one more time so folks can uh can
+56:22
+get it. Let's see. [laughter] Clean code. And I think what is 11:00
+56:28
+a.m. now your time? Back to the bathrobe. Uh, yeah. Yeah, it is. [laughter]
+56:33
+Perfect. So, folks, thank you so much. I'm going to end the stream here. Me and Bob are gonna stay on for a
