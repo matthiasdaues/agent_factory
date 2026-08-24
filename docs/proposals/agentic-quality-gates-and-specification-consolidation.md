@@ -261,6 +261,8 @@ The skill populates the scope map with `implemented` entries. The source column 
 
 ### 3. QA Strategy Document — `qa-strategy-from-spec`
 
+**Skill file:** `factory/skills/qa-strategy-from-spec/SKILL.md`
+
 A new document produced by the `requirements-agent` at the end of Phase 1, alongside the consolidated Gherkin file.
 
 **File:** `docs/spec/qa-strategy.md` (or `docs/spec/<feature-name>-qa-strategy.md` for cross-component features)
@@ -364,6 +366,7 @@ This check uses Phase 1 outputs only — it does not depend on story files or im
 - `docs/spec/scope-map.md` — persistent scope map tracking all Rules across slices (status, slice assignment, feature file link)
 - `docs/spec/<feature-name>.feature` — per-slice Gherkin feature file, structured by Cockburn Rules; transient (archived after implementation)
 - `docs/spec/<feature-name>-gaps.md` — completeness report: actor-goal matrix, missing Rules, empty Rules, ambiguous wording (invoke via requirements-agent)
+- `factory/skills/qa-strategy-from-spec/SKILL.md` — QA strategy skill; produces per-feature QA plan from `.feature` file and supplementary specs
 - `docs/spec/<feature-name>-qa-strategy.md` — per-feature QA strategy output (invoke via requirements-agent)
 - Updated `factory/agents/requirements-agent.md`: replace `derive-spec` invocation with `derive-feature`; add scope map, `.feature` file, gaps report, and QA strategy to the outputs list
 - Updated `factory/agents/developer-agent.md` workflow: developer reads `.feature` file as acceptance spec, writes step definitions that wire to `@`-referenced code, runs `.feature` through test framework as TDD cycle; gate scripts run on committed artifacts; dispatcher spawns fresh developer for fixes
@@ -376,6 +379,7 @@ This check uses Phase 1 outputs only — it does not depend on story files or im
 - Updated `factory/playbooks/brownfield-onboarding.md`: terminal condition is scope-map (backfilled) + `architecture.dsl` (reverse-engineered) + arc42 prose; all feature work enters through `feature-addition`
 - Amended [testing-strategy.md](../../factory/rulebooks/conventions/testing-strategy.md): clarify that composite structural risk scores using coverage as one input are admissible as acceptance gates; recognise `.feature` file execution as the acceptance test layer
 - Amended [cross-reference-format.md](../../factory/rulebooks/conventions/cross-reference-format.md): document `@`-reference notation for `.feature` files (path + optional `::Symbol.member` qualifier)
+- Updated `factory/scripts/validate`: reject `@`-ref syntax (`# @<path>`) in `.md` files; enforce `.feature`-only scope for `@`-references
 - `factory/skills/scope-map-migration/SKILL.md` — one-time backfill from `derive-spec` output artifacts for existing projects adopting `derive-feature`
 
 ### Test Fixtures
