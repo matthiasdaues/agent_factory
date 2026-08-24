@@ -4,7 +4,7 @@ title: "Agentic Quality Gates and Requirements Consolidation"
 status: open
 owner: matthiasdaues
 created: 2026-08-24
-updated: 2026-08-24  # third critique pass resolved
+updated: 2026-08-24  # colleague enhancements: @-refs, executable spec, playbook terminals
 supersedes:
 
 impact:
@@ -13,6 +13,7 @@ impact:
   external_contract_change: false
   boundaries:
     - factory/rulebooks/conventions/testing-strategy.md (amended)
+    - factory/rulebooks/conventions/cross-reference-format.md (amended — @-reference notation)
     - factory/skills/derive-spec/SKILL.md (superseded by derive-feature)
     - factory/agents/requirements-agent.md
     - factory/agents/qa-agent.md
@@ -21,6 +22,8 @@ impact:
     - factory/agents/reconciliation-agent.md
     - factory/scripts/premerge-check
     - factory/playbooks/feature-addition.md
+    - factory/playbooks/greenfield-development.md (updated terminal condition)
+    - factory/playbooks/brownfield-onboarding.md (updated terminal condition)
     - factory/rulebooks/templates/story.md
 
 governance:
@@ -159,11 +162,12 @@ A replacement for the current `derive-spec` → `consolidate-gherkin` chain. Ins
 
 **Internal reasoning process (Cockburn chain as working discipline, not document production):**
 
-1. **Identify actors and goals** — enumerate who interacts with the feature and what they want. Hold in working context; do not commit as a separate artifact.
-2. **For each actor-goal pair, derive a Rule** — each Rule in the `.feature` file corresponds to one actor-goal pair. The Rule name states the goal; a comment line below it identifies the actor.
-3. **Under each Rule, enumerate Scenarios** — decompose the goal into Given/When/Then scenarios, applying the Cockburn workflow-to-edge-case progression: main success path first, then extensions and failure modes.
-4. **Cross-check completeness** — every actor-goal pair must have at least one Rule; every Rule must have at least one Scenario. Failures go to the gaps report.
-5. **Detect ambiguous Given/When/Then wording** — flag as an open question in the gaps report, do not silently fix.
+1. **Scan existing code** — read the proposal's `impact.boundaries` and scan `src/` for modules, classes, and functions that the feature touches or extends. Build a symbol index of existing code that may be referenced by Scenarios. This step is a read-only discovery pass; it does not modify code.
+2. **Identify actors and goals** — enumerate who interacts with the feature and what they want. Hold in working context; do not commit as a separate artifact.
+3. **For each actor-goal pair, derive a Rule** — each Rule in the `.feature` file corresponds to one actor-goal pair. The Rule name states the goal; a comment line below it identifies the actor. If the Rule extends existing code, annotate it with an `@`-reference to the implementing module or class (see [Design § 8](#8-code-traceability--reference-convention)).
+4. **Under each Rule, enumerate Scenarios** — decompose the goal into Given/When/Then scenarios, applying the Cockburn workflow-to-edge-case progression: main success path first, then extensions and failure modes. Scenarios that exercise existing functions carry `@`-references to those functions; Scenarios for new behavior carry no `@`-reference (absence means "to be implemented").
+5. **Cross-check completeness** — every actor-goal pair must have at least one Rule; every Rule must have at least one Scenario. Failures go to the gaps report.
+6. **Detect ambiguous Given/When/Then wording** — flag as an open question in the gaps report, do not silently fix.
 
 **Output structure:**
 
@@ -172,13 +176,15 @@ Feature: <feature-name>
 
   Rule: <actor-goal statement>
     # actor: <who>
+    # @src/auth/sso.py::SSOHandler
 
     Scenario: <main success path>
       Given ...
       When ...
       Then ...
+      # @src/auth/sso.py::SSOHandler.authenticate
 
-    Scenario: <extension or failure mode>
+    Scenario: <new behavior — no code exists yet>
       Given ...
       When ...
       Then ...
@@ -188,7 +194,7 @@ Feature: <feature-name>
     ...
 ```
 
-Reading the Rules gives the actor-goal matrix. Reading the Scenarios under each Rule gives the behavioral specification. The `.feature` file IS the traceability artifact — the Cockburn chain's completeness-checking power is preserved without intermediate documents.
+Reading the Rules gives the actor-goal matrix. Reading the Scenarios under each Rule gives the behavioral specification. The `@`-references give the code traceability map — which module, class, or function implements which Rule or Scenario. A Scenario without an `@`-reference is new behavior to be implemented. The `.feature` file IS the traceability artifact — the Cockburn chain's completeness-checking power is preserved without intermediate documents, and the code linkage is embedded in the same file.
 
 **Output location:** `docs/spec/<feature-name>.feature` and `docs/spec/<feature-name>-gaps.md`
 
@@ -213,7 +219,7 @@ The `.feature` files are live during the entire slice lifecycle (Phases 1–5). 
 ```markdown
 | Rule                                      | Status      | Slice | Feature file              |
 | ----------------------------------------- | ----------- | ----- | ------------------------- |
-| Rule: User authenticates via SSO          | implemented | 1     | ~archive/slice-1.feature  |
+| Rule: User authenticates via SSO          | implemented | 1     | docs/~archive/spec/slice-1.feature  |
 | Rule: Admin configures tenant settings    | specified   | 2     | docs/spec/slice-2.feature |
 | Rule: System exports audit log            | deferred    | —     | —                         |
 ```
@@ -358,38 +364,45 @@ This check uses Phase 1 outputs only — it does not depend on story files or im
 - `docs/spec/<feature-name>-gaps.md` — completeness report: actor-goal matrix, missing Rules, empty Rules, ambiguous wording (invoke via requirements-agent)
 - `docs/spec/<feature-name>-qa-strategy.md` — per-feature QA strategy output (invoke via requirements-agent)
 - Updated `factory/agents/requirements-agent.md`: replace `derive-spec` invocation with `derive-feature`; add scope map, `.feature` file, gaps report, and QA strategy to the outputs list
-- Updated `factory/agents/developer-agent.md` workflow: developer produces code and tests; gate scripts run on committed artifacts; dispatcher spawns fresh developer for fixes
+- Updated `factory/agents/developer-agent.md` workflow: developer reads `.feature` file as acceptance spec, writes step definitions that wire to `@`-referenced code, runs `.feature` through test framework as TDD cycle; gate scripts run on committed artifacts; dispatcher spawns fresh developer for fixes
+- Updated `factory/agents/reconciliation-agent.md` workflow: fills missing `@`-references in `.feature` file after implementation; every Rule must have at least one `@`-ref after reconciliation
+- Updated `factory/agents/qa-agent.md` workflow: runs `.feature` file through test framework as acceptance test; uses `@`-references to locate code for inspection
 - Updated `factory/scripts/premerge-check`: add `crap-score`, `mutation-analysis`, and `dependency-check` as independent hard gates
 - Updated `factory/rulebooks/templates/story.md`: add `quality-gates` field (which gates apply to this story's outputs)
 - Updated `feature-addition.md` Step 0.3: mechanical module-graph check before Phase 2 routing
-- Amended [testing-strategy.md](../../factory/rulebooks/conventions/testing-strategy.md): clarify that composite structural risk scores using coverage as one input are admissible as acceptance gates
-- Scope-map migration skill: one-time backfill from `derive-spec` output artifacts for existing projects adopting `derive-feature`
+- Updated `factory/playbooks/greenfield-development.md`: terminal condition is scope-map + `architecture.dsl` + arc42 prose; all feature work enters through `feature-addition`
+- Updated `factory/playbooks/brownfield-onboarding.md`: terminal condition is scope-map (backfilled) + `architecture.dsl` (reverse-engineered) + arc42 prose; all feature work enters through `feature-addition`
+- Amended [testing-strategy.md](../../factory/rulebooks/conventions/testing-strategy.md): clarify that composite structural risk scores using coverage as one input are admissible as acceptance gates; recognise `.feature` file execution as the acceptance test layer
+- Amended [cross-reference-format.md](../../factory/rulebooks/conventions/cross-reference-format.md): document `@`-reference notation for `.feature` files (path + optional `::Symbol.member` qualifier)
+- `factory/skills/scope-map-migration/SKILL.md` — one-time backfill from `derive-spec` output artifacts for existing projects adopting `derive-feature`
 
 ### Test Fixtures
 
 Each gate script ships with a minimal fixture project under `factory/fixtures/quality-gates/` that exercises the known-defect baseline. The `validate` skill treats these as implementation artifacts alongside the scripts themselves.
 
-| Fixture                                                | Known defect                                                                                                                                 | Expected gate output                                                                                 |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `factory/fixtures/quality-gates/high-crap/`            | One function with cyclomatic complexity ≥ 10 and 0 % test coverage (CRAP > 100). One function with complexity 2 and full coverage (CRAP < 6) | `crap-score` reports the first function as FAIL (CRAP > 30), the second as PASS                      |
-| `factory/fixtures/quality-gates/surviving-mutant/`     | One arithmetic operator (`+`) whose mutation (`-`) is not detected by any test. One operator whose mutation is killed by the test suite      | `mutation-analysis` reports one surviving mutant on the first operator, zero survivors on the second |
-| `factory/fixtures/quality-gates/dependency-violation/` | Module A imports module B; a `dependency-rules.yaml` declares A must not depend on B. A second import that conforms to the declared rules    | `dependency-check` reports one violation for the illegal import, zero violations for the legal one   |
+| Fixture                                                | Known defect                                                                                                                                     | Expected gate output                                                                                 |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `factory/fixtures/quality-gates/high-crap/`            | One function with cyclomatic complexity ≥ 10 and 0 % test coverage (CRAP > 100). One function with complexity 2 and full coverage (CRAP < 6)     | `crap-score` reports the first function as FAIL (CRAP > 30), the second as PASS                      |
+| `factory/fixtures/quality-gates/surviving-mutant/`     | One arithmetic operator (`+`) whose mutation (`-`) is not detected by any test. One operator whose mutation is killed by the test suite          | `mutation-analysis` reports one surviving mutant on the first operator, zero survivors on the second |
+| `factory/fixtures/quality-gates/dependency-violation/` | Module A imports module B; the fixture's `architecture.dsl` declares A must not depend on B. A second import that conforms to the declared rules | `dependency-check` reports one violation for the illegal import, zero violations for the legal one   |
 
 Each fixture directory is a self-contained project with source files, a test suite, and (where needed) a coverage report and dependency-rules declaration. The completion criteria "runs against a test project" refer to these fixture directories.
 
 ### Archive Path Convention
 
-The `~archive/` directory referenced by the scope map and the [handoff convention](../../factory/rulebooks/rules.md#handoffs) is a project-root-relative path: `~archive/` sits at the repository root alongside `docs/`, `src/`, and `factory/`. Archived artifacts preserve their original relative path below that root — for example, `docs/spec/slice-1.feature` archives to `~archive/docs/spec/slice-1.feature`. This convention applies to both `.feature` files archived after implementation and superseded documentation artifacts archived per the handoff rule.
+The `~archive/` directory referenced by the scope map and the [handoff convention](../../factory/rulebooks/rules.md#handoffs) lives under `docs/`: `docs/~archive/`. Archived artifacts preserve their original path relative to `docs/` — for example, `docs/spec/slice-1.feature` archives to `docs/~archive/spec/slice-1.feature`. This convention applies to both `.feature` files archived after implementation and superseded documentation artifacts archived per the handoff rule.
 
 **Delivery order within the release:** The scope is one release, but stories should be sequenced by dependency:
 
-1. Amend `testing-strategy.md` (unblocks CRAP gate design)
-2. `derive-feature` skill + QA strategy document (supersedes `derive-spec` for features; unblocks QA agent update)
+1. Amend `testing-strategy.md` and `cross-reference-format.md` (unblocks CRAP gate design + `@`-ref convention)
+2. `derive-feature` skill with code-scan step and `@`-references + QA strategy document (supersedes `derive-spec` for features; unblocks QA agent update)
 3. `quality-gates` story field in `story.md` (unblocks dispatcher gate loop)
 4. Three semantic gate scripts (`crap-score`, `mutation-analysis`, `dependency-check`)
 5. Dispatcher gate-check loop extension in `implementation-agent`
 6. `premerge-check` integration
 7. Module-graph mechanical check + `feature-addition.md` Step 0.3 update
+8. Greenfield + brownfield playbook terminal condition updates
+9. Developer-agent step definition workflow + reconciliation-agent `@`-ref backfill
 
 **Explicitly deferred:**
 
@@ -447,6 +460,65 @@ quality-gates:
 
 **Effect on dispatch:** The `implementation-agent` reads `quality-gates` from the story file before spawning the developer-agent. After the developer commits, the dispatcher runs only the listed gates. The `premerge-check` script also reads the field to know which gate results to require before allowing the merge.
 
+### 8. Code Traceability — Reference Convention
+
+The `.feature` file carries `@`-references that link Rules and Scenarios to the source code that implements them. The notation is a Gherkin comment beginning with `@`, followed by a repository-relative path and an optional `::` symbol qualifier:
+
+```
+# @<path>::<Symbol>           → class or top-level function
+# @<path>::<Symbol>.<member>  → method or nested function
+# @<path>                     → module-level (no specific symbol)
+```
+
+Examples: `# @src/auth/sso.py::SSOHandler`, `# @src/auth/sso.py::SSOHandler.authenticate`, `# @src/api/routes.py`.
+
+**Lifecycle across phases:**
+
+| Phase                    | Who writes `@`-refs    | What is annotated                                                                                                                                                                                               |
+| ------------------------ | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Phase 1 (Requirements)   | `derive-feature` skill | Scenarios and Rules that touch **existing** code. The skill scans `src/` against the proposal's `impact.boundaries` and annotates what already exists. New behavior carries no `@`-ref                          |
+| Phase 4 (Implementation) | `developer-agent`      | Step definitions reference `@`-annotated code. New code written by the developer is not yet annotated in the `.feature` file — the developer writes code and tests, not spec                                    |
+| Phase 5 (Reconciliation) | `reconciliation-agent` | Fills in **missing** `@`-refs for Rules and Scenarios that were implemented but had no `@`-ref (new behavior). After reconciliation, every Rule MUST have at least one `@`-ref. A Rule without one is a finding |
+
+**Absence semantics:** A Scenario without an `@`-ref in the Phase 1 `.feature` file means "this behavior does not exist yet — it will be implemented." After reconciliation, a Scenario without an `@`-ref means "this behavior was specified but no code was found that implements it" — a finding.
+
+**Convention home:** The `@`-reference notation is documented in [cross-reference-format.md](../../factory/rulebooks/conventions/cross-reference-format.md) alongside the existing markdown link convention. The `@`-ref is scoped to `.feature` files only — it is not a general cross-reference format for prose documents, which continue to use full markdown links.
+
+### 9. Executable Specification — `.feature` as Test Input
+
+The `.feature` file is not only a specification document — it is a test specification that the test framework reads and executes directly. The Gherkin syntax is designed for this: `behave` (Python), `cucumber` (JS/Java/Ruby), and `godog` (Go) all consume `.feature` files as their primary input.
+
+**Developer-agent workflow:**
+
+1. Read `docs/spec/<feature-name>.feature` — the Rule/Scenario structure defines what to implement and test.
+2. Write step definitions that wire each Given/When/Then step to code. The `@`-references in the `.feature` file tell the developer which existing modules and functions the steps should call or extend.
+3. Run the `.feature` file through the test framework (`behave`, `cucumber`, etc.) as part of the TDD cycle. A passing `.feature` means the behavioral specification is satisfied.
+
+**QA-agent workflow:**
+
+1. Run `docs/spec/<feature-name>.feature` through the test framework as the first QA step — this is the acceptance test, not a separate artifact.
+2. Use the `.feature` file's Scenarios as the basis for the bug-hunt step: each Scenario is a contract to verify. The `@`-references point at the code to inspect.
+
+**Step definition location:** Step definitions live alongside the project's test suite (e.g., `tests/features/steps/`). They are implementation artifacts, not specification artifacts — the `.feature` file is the spec; the step definitions are the glue.
+
+**Effect on `testing-strategy.md`:** The convention is amended to recognise `.feature` file execution as the acceptance test layer. The `.feature` file owns the behavioral contract; unit and integration tests own internal contracts. The two layers do not overlap — a `.feature` Scenario tests the observable behavior; a unit test tests the internal mechanism.
+
+### 10. Playbook Terminal Conditions — Greenfield and Brownfield
+
+Both the `greenfield-development` and `brownfield-onboarding` playbooks produce the same terminal state: a project that is ready to receive feature work through `feature-addition`. The terminal artifacts are:
+
+| Artifact                      | Description                                                                                            |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `docs/spec/scope-map.md`      | All known actor-goal pairs as Rules, with status `deferred` (greenfield) or `implemented` (brownfield) |
+| `docs/arc42/architecture.dsl` | Structurizr C4 model of the system's module structure and dependencies                                 |
+| Arc42 prose (chapters 01–12)  | Architecture documentation derived from `architecture.dsl`                                             |
+
+**Greenfield terminal condition:** The playbook ends when the scope map exists with all Rules from the initial specification marked `deferred`, `architecture.dsl` models the planned module structure, and arc42 prose passes architecture review. No `.feature` files exist yet — those are produced per-slice when `feature-addition` begins.
+
+**Brownfield terminal condition:** The playbook ends when the scope map exists with Rules backfilled from the existing codebase (all marked `implemented`), `architecture.dsl` models the as-built module structure (reverse-engineered from code), and arc42 prose passes architecture review. The scope-map migration skill handles the backfill if `derive-spec` artifacts exist; otherwise the scope map is populated directly from code inspection.
+
+**Effect on playbook flow:** After either playbook completes, all feature work enters through `feature-addition`. The `feature-addition` playbook's Phase 1 produces per-slice `.feature` files from `deferred` Rules in the scope map. This separation means greenfield and brownfield are *onboarding* playbooks — they establish the project's architectural and specification baseline. Feature delivery is a single pipeline regardless of how the project started.
+
 ## Resolved Questions
 
 01. **Threshold calibration:** Thresholds live in `docs/charter/house-rules.md` as project-level settings. The Factory provides defaults; each project overrides in its charter. *Assumption: the project charter does not exist yet. Threshold defaults are hardcoded in each gate skill (`crap-score`, `mutation-analysis`, `dependency-check`) until a charter is scaffolded; the skills read `house-rules.md` overrides when present.*
@@ -486,18 +558,26 @@ quality-gates:
 - [ ] `factory/skills/dependency-check/SKILL.md` exists and documents the dependency-rule gate
 - [ ] `factory/scripts/dependency-check` runs against a project with a known dependency violation and flags it
 - [ ] `premerge-check` blocks a merge when any of the three gate scripts fails independently
-- [ ] `factory/skills/derive-feature/SKILL.md` exists and documents the Cockburn-as-Rules reasoning process, scope map lifecycle, and slice workflow
+- [ ] `factory/skills/derive-feature/SKILL.md` exists and documents the Cockburn-as-Rules reasoning process, code-scan step, `@`-reference annotation, scope map lifecycle, and slice workflow
+- [ ] `derive-feature` scans `src/` against the proposal's `impact.boundaries` and annotates existing code with `@`-references in the `.feature` output
+- [ ] Scenarios for new behavior carry no `@`-reference; absence means "to be implemented"
 - [ ] `requirements-agent` produces `docs/spec/scope-map.md` with all Rules from the accepted proposal, each with status, slice, and feature-file link
 - [ ] `requirements-agent` produces `docs/spec/<feature-name>.feature` with Rule-per-actor-goal structure for the current slice (no intermediate UC documents)
 - [ ] `.feature` file Rules map 1:1 to actor-goal pairs; each Rule has at least one Scenario
+- [ ] `developer-agent` reads `.feature` file and writes step definitions (`tests/features/steps/`) that wire Given/When/Then to `@`-referenced code
+- [ ] `developer-agent` runs `.feature` file through the test framework (`behave`/`cucumber`/equivalent) as part of the TDD cycle
+- [ ] `reconciliation-agent` fills missing `@`-references in the `.feature` file after implementation; every Rule has at least one `@`-ref after reconciliation
+- [ ] `reconciliation-agent` files a finding for any Rule without an `@`-ref after its pass
 - [ ] `reconciliation-agent` diffs scope-map Rules against `.feature` file Rules at feature-branch merge to dev: newly discovered Rules enter the scope map as `implemented` with a filed finding; scope-map Rules marked `specified` but absent from `.feature` are surfaced as drift
 - [ ] Agent-opened PRs against dev include newly discovered Rules in the PR body so human reviewers see scope changes before approving
 - [ ] `requirements-agent` produces `docs/spec/<feature-name>-gaps.md` with actor-goal matrix and at least one detected gap (missing Rule or empty Rule)
 - [ ] `requirements-agent` produces `docs/spec/<feature-name>-qa-strategy.md` with all template sections filled for a test feature
+- [ ] `qa-agent` runs `.feature` file through the test framework as acceptance test and uses `@`-references to locate code for inspection
 - [ ] `qa-agent` bug-hunt step reads `docs/spec/<feature-name>.feature` and references it in bug findings (not UC files)
 - [ ] `feature-addition.md` Step 0.3 mechanical check skips Phase 2 for a feature that touches no module boundaries
 - [ ] `feature-addition.md` Step 0.3 mechanical check routes to Phase 2 for a feature that creates a new module directory
-- [ ] `testing-strategy.md` amended to admit composite structural risk scores as acceptance gates
+- [ ] `cross-reference-format.md` amended with `@`-reference notation for `.feature` files (syntax: `# @<path>::<Symbol>.<member>`)
+- [ ] `testing-strategy.md` amended to admit composite structural risk scores as acceptance gates and recognise `.feature` file execution as the acceptance test layer
 - [ ] `story.md` template includes `quality-gates` field with documentation of defaults and override semantics
 - [ ] `implementation-agent` dispatcher gate-check loop documented and implemented (commit → gate → fix-or-merge)
 - [ ] Module-graph check script runs against `interface-contracts.md` and `entity-model.md`, not `story.outputs`
@@ -505,6 +585,8 @@ quality-gates:
 - [ ] Scope-map migration skill reads all `derive-spec` output artifacts (`actor-goal-list.md`, `UC-XX-short-name.md`, `system-use-cases.md`, `entity-model.md`, `interface-contracts.md`, `state-machines.md`, `validation-rules.md`) and populates scope map with `implemented` entries pointing at UC-XX source files
 - [ ] Reconciliation-agent skips Rule-level diff for scope-map rows pointing at UC-XX sources (old-format entries)
 - [ ] `quality-gates` precedence resolves as: story field > `house-rules.md` default > Factory hardcoded default (all three)
+- [ ] `greenfield-development.md` terminal condition: playbook ends when `scope-map.md` + `architecture.dsl` + arc42 prose exist; all feature work enters through `feature-addition`
+- [ ] `brownfield-onboarding.md` terminal condition: playbook ends when `scope-map.md` (backfilled) + `architecture.dsl` (reverse-engineered) + arc42 prose exist; all feature work enters through `feature-addition`
 - [ ] All new artifacts pass `factory/scripts/validate`
 
 ## Guiding Rule
