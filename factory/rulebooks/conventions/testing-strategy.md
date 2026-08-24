@@ -11,14 +11,15 @@ Keep the smallest suite that makes every important observable contract fail
 loudly at its lowest sufficient layer. Test count and coverage percentage are
 diagnostics, not quality targets.
 
-## Four layers
+## Five layers
 
-| Layer                 | Owns                                                                                      |
-| --------------------- | ----------------------------------------------------------------------------------------- |
-| Deterministic linter  | Declarative structure: frontmatter, indexes, schemas, traceability, and formatting        |
-| Contract test         | Pure behavior: parsing, normalization, policy, state transitions, and security invariants |
-| Integration test      | Boundaries: installation, removal, persistence, subprocesses, and filesystems             |
-| End-to-end smoke test | One representative journey through a CLI or major workflow                                |
+| Layer                 | Owns                                                                                                                               |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Deterministic linter  | Declarative structure: frontmatter, indexes, schemas, traceability, and formatting                                                 |
+| Acceptance test       | Observable behavior: `.feature` file execution via Gherkin runner (behave, cucumber, godog) owns the feature's behavioral contract |
+| Contract test         | Internal behavior: parsing, normalization, policy, state transitions, and security invariants                                      |
+| Integration test      | Boundaries: installation, removal, persistence, subprocesses, and filesystems                                                      |
+| End-to-end smoke test | One representative journey through a CLI or major workflow                                                                         |
 
 ## One contract, one owner
 
@@ -27,6 +28,14 @@ Shared behavior belongs to the shared core; an adapter proves only its distinct
 translation, accounting, wiring, or boundary behavior. A higher layer may
 exercise the same path as part of a journey, but it must not duplicate the
 lower-layer assertions.
+
+The acceptance test layer (`.feature` files executed through a Gherkin test runner)
+owns the feature's behavioral contract — what end users or the system observe. The
+contract test layer owns internal behavior: parsing, normalization, policy, and
+state transitions. These two layers do not overlap: a `.feature` Scenario tests
+observable behavior; a contract test tests the internal mechanism. Contract tests
+strengthen the design of individual components; acceptance tests verify that the
+assembled system delivers the promised behavior.
 
 Record the contract, its risk, owning layer, owner, known overlap, and retained
 case close to the relevant tests or subsystem documentation. A regression
@@ -45,6 +54,19 @@ If none applies, strengthen the existing owner. Do not add pytest coverage for
 a rule already owned by a deterministic linter. Do not use a fixed coverage
 percentage, a minimum case count, or a cosmetic reduction target as an
 acceptance gate.
+
+## Composite structural risk scores as acceptance gates
+
+Test count and coverage percentage are diagnostics, not quality targets.
+Composite structural risk scores — such as CRAP (Change Risk Analysis and
+Predictions) — that use coverage as one input to a composite risk metric are not
+coverage targets and are admissible as acceptance gates. CRAP combines cyclomatic
+complexity with test coverage into a single risk signal: a high score means the
+function is both complex and under-tested. The gate threshold is on the composite
+score, not on coverage itself; the pressure it applies is toward smaller code
+rather than higher coverage numbers. A structural risk gate admits code that is
+simple and well-tested, simple and untested (dead code), or complex and highly
+tested — and blocks code that is both complex and under-tested.
 
 ## Choose cases by behavior
 
