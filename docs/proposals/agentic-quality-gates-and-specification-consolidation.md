@@ -4,7 +4,7 @@ title: "Agentic Quality Gates and Requirements Consolidation"
 status: open
 owner: matthiasdaues
 created: 2026-08-24
-updated: 2026-08-24
+updated: 2026-08-24  # grilling resolved all open questions
 supersedes:
 
 impact:
@@ -440,7 +440,8 @@ quality-gates:
 - [ ] `requirements-agent` produces `docs/spec/scope-map.md` with all Rules from the accepted proposal, each with status, slice, and feature-file link
 - [ ] `requirements-agent` produces `docs/spec/<feature-name>.feature` with Rule-per-actor-goal structure for the current slice (no intermediate UC documents)
 - [ ] `.feature` file Rules map 1:1 to actor-goal pairs; each Rule has at least one Scenario
-- [ ] `reconciliation-agent` diffs scope-map Rules against `.feature` file Rules: surfaces new Rules in `.feature` not in scope map, and scope-map Rules marked `specified` but absent from `.feature`
+- [ ] `reconciliation-agent` diffs scope-map Rules against `.feature` file Rules at feature-branch merge to dev: newly discovered Rules enter the scope map as `implemented` with a filed finding; scope-map Rules marked `specified` but absent from `.feature` are surfaced as drift
+- [ ] Agent-opened PRs against dev include newly discovered Rules in the PR body so human reviewers see scope changes before approving
 - [ ] `requirements-agent` produces `docs/spec/<feature-name>-gaps.md` with actor-goal matrix and at least one detected gap (missing Rule or empty Rule)
 - [ ] `requirements-agent` produces `docs/spec/<feature-name>-qa-strategy.md` with all template sections filled for a test feature
 - [ ] `qa-agent` bug-hunt step reads `docs/spec/<feature-name>.feature` and references it in bug findings (not UC files)
