@@ -13,11 +13,12 @@ impact:
   external_contract_change: false
   boundaries:
     - factory/rulebooks/conventions/testing-strategy.md (amended)
-    - factory/skills/derive-spec/SKILL.md (superseded for feature workflows)
+    - factory/skills/derive-spec/SKILL.md (superseded by derive-feature)
     - factory/agents/requirements-agent.md
     - factory/agents/qa-agent.md
     - factory/agents/developer-agent.md
     - factory/agents/implementation-agent.md
+    - factory/agents/reconciliation-agent.md
     - factory/scripts/premerge-check
     - factory/playbooks/feature-addition.md
     - factory/rulebooks/templates/story.md
@@ -203,7 +204,34 @@ The `.feature` file becomes the primary input for:
 
 Each gap is either a missing scenario (turns into a story acceptance criterion) or an unspecified actor-goal pair (turns into a clarification requirement before the feature goes to planning).
 
-**Effect on `derive-spec`:** The current `derive-spec` skill is superseded for features that use this workflow. The supplementary specs (`interface-contracts.md`, `entity-model.md`) are still produced — they carry structural facts the `.feature` file does not. The UC-XX document chain is no longer produced.
+**Scope map and slice lifecycle:**
+
+The `.feature` files are transient implementation artifacts — they live on the feature branch, merge to dev with the code, and are removable from dev/main after the slice's tests become the durable behavioral spec. A persistent **scope map** at `docs/spec/scope-map.md` tracks all Rules across all slices:
+
+```markdown
+| Rule                                      | Status      | Slice | Feature file              |
+| ----------------------------------------- | ----------- | ----- | ------------------------- |
+| Rule: User authenticates via SSO          | implemented | 1     | ~archive/slice-1.feature  |
+| Rule: Admin configures tenant settings    | specified   | 2     | docs/spec/slice-2.feature |
+| Rule: System exports audit log            | deferred    | —     | —                         |
+```
+
+The Rule column is parseable — the `reconciliation-agent` can grep `^  Rule:` in every `.feature` file and diff against the scope map. This reconciliation step catches drift in both directions:
+
+- A `.feature` file contains a Rule not in the scope map → a new actor-goal pair was discovered during implementation. The reconciliation step surfaces it so the scope map is updated and the new Rule enters the backlog.
+- The scope map has a Rule marked `specified` but the `.feature` file dropped it → a scenario was found unnecessary or merged into another Rule. The reconciliation step flags it so the scope map reflects reality.
+
+Rules with status `deferred` have no `.feature` file. Rules with status `specified` point to a live `.feature` file on a feature branch or dev. Rules with status `implemented` point to an archived `.feature` file under `~archive/`.
+
+**Slice workflow:**
+
+1. The requirements-agent derives the scope map from the accepted proposal (all actor-goal pairs as Rules, all initially `deferred`).
+2. For each slice, the requirements-agent produces a per-slice `.feature` file containing only the Rules being implemented in that slice, with full Scenarios. The scope map is updated: those Rules move from `deferred` to `specified`, with a link to the `.feature` file.
+3. After implementation, the slice's `.feature` file is moved to `~archive/` and the scope map is updated: Rules move from `specified` to `implemented`.
+
+The scope map is the persistent artifact that survives across slices. The `.feature` files are consumed during implementation and archived afterward.
+
+**Effect on `derive-spec`:** The current `derive-spec` skill is superseded. The supplementary specs (`interface-contracts.md`, `entity-model.md`) are still produced — they carry structural facts the `.feature` file does not. The UC-XX document chain is no longer produced.
 
 ### 3. QA Strategy Document — `qa-strategy-from-spec`
 
@@ -300,11 +328,12 @@ This check uses Phase 1 outputs only — it does not depend on story files or im
 - `factory/scripts/crap-score` — CLI wrapper for the CRAP skill, callable from premerge-check
 - `factory/scripts/mutation-analysis` — CLI wrapper for the mutation skill, callable from premerge-check
 - `factory/scripts/dependency-check` — CLI wrapper for the dependency skill, callable from premerge-check
-- `factory/skills/derive-feature/SKILL.md` — new skill replacing `derive-spec` for feature workflows; uses Cockburn reasoning as internal process, outputs Gherkin directly with Rule-per-actor-goal structure
-- `docs/spec/<feature-name>.feature` — Gherkin feature file per feature, structured by Cockburn Rules (invoke via requirements-agent)
+- `factory/skills/derive-feature/SKILL.md` — new skill superseding `derive-spec`; uses Cockburn reasoning as internal process, outputs Gherkin directly with Rule-per-actor-goal structure
+- `docs/spec/scope-map.md` — persistent scope map tracking all Rules across slices (status, slice assignment, feature file link)
+- `docs/spec/<feature-name>.feature` — per-slice Gherkin feature file, structured by Cockburn Rules; transient (archived after implementation)
 - `docs/spec/<feature-name>-gaps.md` — completeness report: actor-goal matrix, missing Rules, empty Rules, ambiguous wording (invoke via requirements-agent)
 - `docs/spec/<feature-name>-qa-strategy.md` — per-feature QA strategy output (invoke via requirements-agent)
-- Updated `factory/agents/requirements-agent.md`: replace `derive-spec` invocation with `derive-feature` for feature workflows; add the three new outputs to the outputs list
+- Updated `factory/agents/requirements-agent.md`: replace `derive-spec` invocation with `derive-feature`; add scope map, `.feature` file, gaps report, and QA strategy to the outputs list
 - Updated `factory/agents/developer-agent.md` workflow: developer produces code and tests; gate scripts run on committed artifacts; dispatcher spawns fresh developer for fixes
 - Updated `factory/scripts/premerge-check`: add `crap-score`, `mutation-analysis`, and `dependency-check` as independent hard gates
 - Updated `factory/rulebooks/templates/story.md`: add `quality-gates` field (which gates apply to this story's outputs)
@@ -394,7 +423,7 @@ quality-gates:
 
 3. **Module-graph check granularity:** The mechanical check reads `interface-contracts.md` and `entity-model.md`. If a feature introduces a new entity that maps to an existing module, does that count as a module-graph change? Current answer: no — only new modules, changed public interfaces, and inverted dependencies trigger Phase 2. This may need revisiting after real usage.
 
-4. **`derive-spec` coexistence:** The `derive-feature` skill supersedes `derive-spec` for feature workflows. Should `derive-spec` be retained for non-feature contexts (greenfield development, brownfield onboarding) where the full Cockburn document chain may still be useful for stakeholder communication? Or should all specification work move to `derive-feature`?
+4. **Scope-map reconciliation detail:** The `reconciliation-agent` should diff scope-map Rules against `.feature` file Rules after implementation. Open sub-questions: should this reconciliation step run once per slice (at slice completion) or continuously (after every story merge)? Should newly discovered Rules in the `.feature` file auto-enter the scope map as `implemented`, or enter as `specified` pending stakeholder confirmation?
 
 ## Completion Criteria
 
@@ -405,9 +434,11 @@ quality-gates:
 - [ ] `factory/skills/dependency-check/SKILL.md` exists and documents the dependency-rule gate
 - [ ] `factory/scripts/dependency-check` runs against a project with a known dependency violation and flags it
 - [ ] `premerge-check` blocks a merge when any of the three gate scripts fails independently
-- [ ] `factory/skills/derive-feature/SKILL.md` exists and documents the Cockburn-as-Rules reasoning process
-- [ ] `requirements-agent` produces `docs/spec/<feature-name>.feature` with Rule-per-actor-goal structure from an accepted proposal (no intermediate UC documents)
+- [ ] `factory/skills/derive-feature/SKILL.md` exists and documents the Cockburn-as-Rules reasoning process, scope map lifecycle, and slice workflow
+- [ ] `requirements-agent` produces `docs/spec/scope-map.md` with all Rules from the accepted proposal, each with status, slice, and feature-file link
+- [ ] `requirements-agent` produces `docs/spec/<feature-name>.feature` with Rule-per-actor-goal structure for the current slice (no intermediate UC documents)
 - [ ] `.feature` file Rules map 1:1 to actor-goal pairs; each Rule has at least one Scenario
+- [ ] `reconciliation-agent` diffs scope-map Rules against `.feature` file Rules: surfaces new Rules in `.feature` not in scope map, and scope-map Rules marked `specified` but absent from `.feature`
 - [ ] `requirements-agent` produces `docs/spec/<feature-name>-gaps.md` with actor-goal matrix and at least one detected gap (missing Rule or empty Rule)
 - [ ] `requirements-agent` produces `docs/spec/<feature-name>-qa-strategy.md` with all template sections filled for a test feature
 - [ ] `qa-agent` bug-hunt step reads `docs/spec/<feature-name>.feature` and references it in bug findings (not UC files)
