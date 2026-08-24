@@ -13,7 +13,7 @@ impact:
   external_contract_change: false
   boundaries:
     - factory/rulebooks/conventions/testing-strategy.md (amended)
-    - factory/skills/derive-spec/SKILL.md
+    - factory/skills/derive-spec/SKILL.md (superseded for feature workflows)
     - factory/agents/requirements-agent.md
     - factory/agents/qa-agent.md
     - factory/agents/developer-agent.md
@@ -148,21 +148,44 @@ Each developer iteration starts with a clean context. The `premerge-check` scrip
 - **Mutation analysis** is a code-smell gate, not a coverage target. A surviving mutant means code does something no test observes. The response is investigation (remove dead code or add the missing contract test), not unconditional test creation. When the developer agent cannot resolve a survivor through either action, it files a finding for the QA agent — the developer does not self-suppress.
 - **Dependency check** enforces what `architecture.dsl` already declares. Neither TDD nor the testing strategy addresses dependency direction; this skill fills an unoccupied gap.
 
-### 2. Consolidated Gherkin Feature File — `consolidate-gherkin`
+### 2. Specification as Gherkin Feature File — `derive-feature`
 
-A new step at the end of Phase 1 (Requirements), produced by the `requirements-agent`.
+A replacement for the current `derive-spec` → `consolidate-gherkin` chain. Instead of producing intermediate Cockburn documents (actor-goal list, persona UCs, system UCs) and then extracting Gherkin from them, the requirements-agent uses the Cockburn reasoning sequence as an internal working process and writes the `.feature` file directly.
 
-**Trigger:** After Step 4 of `derive-spec` completes (all `UC-XX-short-name.md` files written), invoke `consolidate-gherkin`.
+**Trigger:** After the proposal is accepted, the requirements-agent runs `derive-feature` as its primary specification step.
 
-**What it does:**
+**Internal reasoning process (Cockburn chain as working discipline, not document production):**
 
-1. Read every `docs/spec/use_cases/UC-XX-short-name.md`.
-2. Extract all `Gherkin` blocks (`gherkin ... ` fences).
-3. Deduplicate scenarios that are identical across use cases.
-4. Detect ambiguous Given/When/Then wording — flag as an open question, do not silently fix.
-5. Detect coverage gaps: any UC without Gherkin, any Gherkin scenario not traceable to a UC.
-6. Write `docs/spec/<feature-name>.feature` — a canonical `.feature` file in standard Gherkin format (Feature / Scenario / Background / Rule).
-7. Write a coverage gap report as `docs/spec/<feature-name>-gaps.md`.
+1. **Identify actors and goals** — enumerate who interacts with the feature and what they want. Hold in working context; do not commit as a separate artifact.
+2. **For each actor-goal pair, derive a Rule** — each Rule in the `.feature` file corresponds to one actor-goal pair. The Rule name states the goal; a comment line below it identifies the actor.
+3. **Under each Rule, enumerate Scenarios** — decompose the goal into Given/When/Then scenarios, applying the Cockburn workflow-to-edge-case progression: main success path first, then extensions and failure modes.
+4. **Cross-check completeness** — every actor-goal pair must have at least one Rule; every Rule must have at least one Scenario. Failures go to the gaps report.
+5. **Detect ambiguous Given/When/Then wording** — flag as an open question in the gaps report, do not silently fix.
+
+**Output structure:**
+
+```gherkin
+Feature: <feature-name>
+
+  Rule: <actor-goal statement>
+    # actor: <who>
+
+    Scenario: <main success path>
+      Given ...
+      When ...
+      Then ...
+
+    Scenario: <extension or failure mode>
+      Given ...
+      When ...
+      Then ...
+
+  Rule: <next actor-goal statement>
+    # actor: <who>
+    ...
+```
+
+Reading the Rules gives the actor-goal matrix. Reading the Scenarios under each Rule gives the behavioral specification. The `.feature` file IS the traceability artifact — the Cockburn chain's completeness-checking power is preserved without intermediate documents.
 
 **Output location:** `docs/spec/<feature-name>.feature` and `docs/spec/<feature-name>-gaps.md`
 
@@ -171,7 +194,16 @@ The `.feature` file becomes the primary input for:
 - `developer-agent` — reads it instead of re-reading UCs for acceptance criteria
 - `qa-agent` — the bug-hunt step ("Hunt: break the system, verify Gherkin criteria") now reads this file directly
 
-**Gaps report** feeds the completion criteria: each gap is either a missing scenario (turns into a story acceptance criterion) or a UC without Gherkin (turns into a clarification requirement before the feature goes to planning).
+**Gaps report** contains:
+
+- The actor-goal matrix derived during step 1 (traceability evidence that the completeness check ran)
+- Actor-goal pairs without a corresponding Rule (missing use cases)
+- Rules without Scenarios (identified but unspecified behavior)
+- Ambiguous wording flagged during step 5
+
+Each gap is either a missing scenario (turns into a story acceptance criterion) or an unspecified actor-goal pair (turns into a clarification requirement before the feature goes to planning).
+
+**Effect on `derive-spec`:** The current `derive-spec` skill is superseded for features that use this workflow. The supplementary specs (`interface-contracts.md`, `entity-model.md`) are still produced — they carry structural facts the `.feature` file does not. The UC-XX document chain is no longer produced.
 
 ### 3. QA Strategy Document — `qa-strategy-from-spec`
 
@@ -208,11 +240,11 @@ which owner survives and why. Reference to `testing-strategy.md § Delete
 overlapping tests safely` as the protocol.
 ```
 
-**Source inputs:** `docs/spec/actor-goal-list.md`, `docs/spec/<feature-name>.feature`, `docs/spec/supplementary_specs/entity-model.md`, `docs/spec/supplementary_specs/interface-contracts.md`
+**Source inputs:** `docs/spec/<feature-name>.feature` (the Rule groupings provide the actor-goal matrix), `docs/spec/supplementary_specs/entity-model.md`, `docs/spec/supplementary_specs/interface-contracts.md`
 
 **What it is not:** It is not a generic testing policy. It is not `testing-strategy.md` reformatted. It is a per-feature QA plan that tells the `qa-agent` how to specialise the generic strategy for this feature's specific contracts and risk profile.
 
-**Effect on phase routing:** Phase 5 (QA) receives the `qa-strategy.md` as a formal input alongside `docs/spec/use_cases/` and `src/`. The qa-agent reads it at the top of its workflow and uses it to scope its Fagan inspection, security review, and bug hunt. The phase gate remains; the phase is better informed.
+**Effect on phase routing:** Phase 5 (QA) receives the `qa-strategy.md` as a formal input alongside `docs/spec/<feature-name>.feature` and `src/`. The qa-agent reads it at the top of its workflow and uses it to scope its Fagan inspection, security review, and bug hunt. The phase gate remains; the phase is better informed.
 
 ### 4. Architecture Phase as Conditional Concern
 
@@ -268,10 +300,11 @@ This check uses Phase 1 outputs only — it does not depend on story files or im
 - `factory/scripts/crap-score` — CLI wrapper for the CRAP skill, callable from premerge-check
 - `factory/scripts/mutation-analysis` — CLI wrapper for the mutation skill, callable from premerge-check
 - `factory/scripts/dependency-check` — CLI wrapper for the dependency skill, callable from premerge-check
-- `docs/spec/<feature-name>.feature` — consolidated Gherkin output per feature (invoke via requirements-agent)
-- `docs/spec/<feature-name>-gaps.md` — coverage gap report (invoke via requirements-agent)
+- `factory/skills/derive-feature/SKILL.md` — new skill replacing `derive-spec` for feature workflows; uses Cockburn reasoning as internal process, outputs Gherkin directly with Rule-per-actor-goal structure
+- `docs/spec/<feature-name>.feature` — Gherkin feature file per feature, structured by Cockburn Rules (invoke via requirements-agent)
+- `docs/spec/<feature-name>-gaps.md` — completeness report: actor-goal matrix, missing Rules, empty Rules, ambiguous wording (invoke via requirements-agent)
 - `docs/spec/<feature-name>-qa-strategy.md` — per-feature QA strategy output (invoke via requirements-agent)
-- Updated `factory/agents/requirements-agent.md` frontmatter: add the three new outputs to the outputs list
+- Updated `factory/agents/requirements-agent.md`: replace `derive-spec` invocation with `derive-feature` for feature workflows; add the three new outputs to the outputs list
 - Updated `factory/agents/developer-agent.md` workflow: developer produces code and tests; gate scripts run on committed artifacts; dispatcher spawns fresh developer for fixes
 - Updated `factory/scripts/premerge-check`: add `crap-score`, `mutation-analysis`, and `dependency-check` as independent hard gates
 - Updated `factory/rulebooks/templates/story.md`: add `quality-gates` field (which gates apply to this story's outputs)
@@ -281,7 +314,7 @@ This check uses Phase 1 outputs only — it does not depend on story files or im
 **Delivery order within the release:** The scope is one release, but stories should be sequenced by dependency:
 
 1. Amend `testing-strategy.md` (unblocks CRAP gate design)
-2. Consolidated Gherkin skill + QA strategy document (no code dependencies; unblocks QA agent update)
+2. `derive-feature` skill + QA strategy document (supersedes `derive-spec` for features; unblocks QA agent update)
 3. `quality-gates` story field in `story.md` (unblocks dispatcher gate loop)
 4. Three semantic gate scripts (`crap-score`, `mutation-analysis`, `dependency-check`)
 5. Dispatcher gate-check loop extension in `implementation-agent`
@@ -361,6 +394,8 @@ quality-gates:
 
 3. **Module-graph check granularity:** The mechanical check reads `interface-contracts.md` and `entity-model.md`. If a feature introduces a new entity that maps to an existing module, does that count as a module-graph change? Current answer: no — only new modules, changed public interfaces, and inverted dependencies trigger Phase 2. This may need revisiting after real usage.
 
+4. **`derive-spec` coexistence:** The `derive-feature` skill supersedes `derive-spec` for feature workflows. Should `derive-spec` be retained for non-feature contexts (greenfield development, brownfield onboarding) where the full Cockburn document chain may still be useful for stakeholder communication? Or should all specification work move to `derive-feature`?
+
 ## Completion Criteria
 
 - [ ] `factory/skills/crap-score/SKILL.md` exists and documents the CRAP scoring gate
@@ -370,10 +405,12 @@ quality-gates:
 - [ ] `factory/skills/dependency-check/SKILL.md` exists and documents the dependency-rule gate
 - [ ] `factory/scripts/dependency-check` runs against a project with a known dependency violation and flags it
 - [ ] `premerge-check` blocks a merge when any of the three gate scripts fails independently
-- [ ] `requirements-agent` produces `docs/spec/<feature-name>.feature` from two or more UC files
-- [ ] `requirements-agent` produces `docs/spec/<feature-name>-gaps.md` with at least one coverage gap detected from a UC without Gherkin
+- [ ] `factory/skills/derive-feature/SKILL.md` exists and documents the Cockburn-as-Rules reasoning process
+- [ ] `requirements-agent` produces `docs/spec/<feature-name>.feature` with Rule-per-actor-goal structure from an accepted proposal (no intermediate UC documents)
+- [ ] `.feature` file Rules map 1:1 to actor-goal pairs; each Rule has at least one Scenario
+- [ ] `requirements-agent` produces `docs/spec/<feature-name>-gaps.md` with actor-goal matrix and at least one detected gap (missing Rule or empty Rule)
 - [ ] `requirements-agent` produces `docs/spec/<feature-name>-qa-strategy.md` with all template sections filled for a test feature
-- [ ] `qa-agent` bug-hunt step reads `docs/spec/<feature-name>.feature` and references it in bug findings (not UC files directly)
+- [ ] `qa-agent` bug-hunt step reads `docs/spec/<feature-name>.feature` and references it in bug findings (not UC files)
 - [ ] `feature-addition.md` Step 0.3 mechanical check skips Phase 2 for a feature that touches no module boundaries
 - [ ] `feature-addition.md` Step 0.3 mechanical check routes to Phase 2 for a feature that creates a new module directory
 - [ ] `testing-strategy.md` amended to admit composite structural risk scores as acceptance gates
