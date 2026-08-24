@@ -9,7 +9,7 @@ supersedes:
 
 impact:
   scope: cross_component
-  architecture_change: true
+  architecture_change: false
   external_contract_change: true
   boundaries:
     - factory/scripts/structurizr

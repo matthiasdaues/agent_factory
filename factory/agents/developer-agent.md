@@ -68,7 +68,7 @@ phase is exempt and may continue in the current session.
 1. **Analyse** — Read story, trace to Use Cases, record analysis in the story's `## Analysis` section. Read the charter from `docs/charter/*.md` to learn what to install, how to run tests, and what conventions to follow.
 2. **Agree seams** — Identify test boundaries; prefer existing seams, highest level possible. If the story's `tests:` field is present and non-empty, those listed test files are your specification — read them as your acceptance criteria.
 3. **Red-Green-Refactor** — If `tests:` is present and non-empty, go straight to Green phase only (skip Red; read the tests as the spec and implement code to make them pass). If `tests:` is absent or empty, follow the full **Red-Green-Refactor** cycle using **London** or **Chicago School**, vertical slices; refactor is its own phase, not mid-loop.
-4. **Commit** — Per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `feat: <description> (ST-NNNN)`, set `status: done`.
+4. **Commit** — Per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `feat: <description> (ST-NNNN)`, set `status: done`. If invoked with `--no-commit`: stage all changed files (`git add`), skip the commit, and return a summary of staged changes and passing tests. Do not set `status: done` — the human commits after review.
 5. **Spec feedback** — Check for drift, update docs if needed, invoke `write-adr` for new decisions.
 
 **Pause points:** Analysis confirmation before coding · Seams confirmation before tests.
@@ -77,7 +77,7 @@ phase is exempt and may continue in the current session.
 
 - All acceptance criteria tests pass, all existing tests still pass
 - Story references Use Case IDs
-- Conventional Commit with story ID, `status: done`
+- Conventional Commit with story ID, `status: done` (or all changes staged and tests green if `--no-commit`)
 - Spec matches implementation
 
 ## Note: Epic 0 Stories

@@ -1,6 +1,6 @@
-# Todos — Factory Specification
+# Todos — Factory Flow Control
 
-Deferred decisions and named gaps found while specifying the Factory's flow-control and architecture-modeling mechanisms, per [rules.md § Todos](../../factory/rulebooks/rules.md#todos). None of these block the mechanisms documented in [use_cases/](use_cases/) — each is a known, intentional gap in the current implementation, not a defect this spec papers over.
+Deferred decisions and named gaps found while reverse-engineering this specification from `factory/`'s code, per [rules.md § Todos](../../factory/rulebooks/rules.md#todos). None of these block the mechanisms documented in [use_cases/](use_cases/) — each is a known, intentional gap in the current implementation, not a defect this spec papers over.
 
 ## T-01: No CLI-failure classification in `trigger`
 
@@ -62,18 +62,6 @@ Under Pi the git-safety guardrail is a project-local extension loaded only after
 Per the build order, the `run_agent` single-agent primitive shipped and was validated first; `dispatch_wave` (parallel, worktree-isolated dispatch with `premerge-check` integration, FR-J4) followed. The tool takes one caller-planned, file-disjoint wave — output-file overlap and dependency ordering stay with the calling agent, as `implementation-agent` documents.
 
 - [x] Land `dispatch_wave` and its two-parallel-agent validation.
-
-## T-11: No restricted reverse mode flag in first release
-
-`bausteinsicht sync` performs a full reverse sync — it carries back whatever Bausteinsicht's reverse pass produces, not just labels and descriptions. The Factory workflow relies on `bausteinsicht validate` and `bausteinsicht lint` to catch structural drift introduced via draw.io edits, rather than on a `--reverse-mode=labels-only` flag in the Bausteinsicht binary. The flag is a desirable future Bausteinsicht product feature but is not required for the first release. See [BR-051](supplementary_specs/validation-rules.md#architecture-model-invariants-br-050-br-051-br-052).
-
-- [ ] Track upstream Bausteinsicht support for `--reverse-mode=labels-only` and adopt it when available.
-
-## T-12: Agent draw.io edit restriction is instruction-enforced, not mechanically gated
-
-BR-052 states that factory agents work in the JSONC model exclusively and never edit the draw.io file directly. This restriction is enforced by skill and agent instructions (`maintain-architecture`, `model-slice`), not by a mechanical gate (`block-dangerous-git.sh` pattern or a pre-tool-use check). An agent ignoring its instructions could write to the draw.io file.
-
-- [ ] Decide whether to add a `block-dangerous-git.sh` pattern for draw.io edits by agents, or whether instruction-level enforcement is sufficient given the pre-commit validation safety net.
 
 ## Referenced from
 
