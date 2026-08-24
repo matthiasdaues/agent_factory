@@ -415,15 +415,17 @@ quality-gates:
 
 5. **Architecture mechanical check override authority:** Any human in the loop (the current session host) can override the mechanical module-graph check in either direction. The machine result is the default; the override is an explicit act by the session host, not an agent decision.
 
-## Open Questions
+## Resolved Questions (from grilling 2026-08-24)
 
-1. **Mutation testing scope restriction:** Should `mutation-analysis` run against all production code in the story's diff, or only against files that the story's tests import? The former catches untested code; the latter is faster. Collect experience from the Python reference implementation before deciding.
+5. **Mutation testing scope restriction:** `mutation-analysis` runs against all production files in the story's diff, not only files the story's tests import. Excluding untested files defeats the gate's purpose — a surviving mutant in an untested file is the highest-signal finding the gate can produce. The performance cost is bounded by the diff size and acceptable for a once-per-story pre-merge gate.
 
-2. **Gate iteration cap:** The dispatcher blocks a story after 3 failed fix iterations (default). Is 3 the right number? Too low and fixable stories get blocked; too high and token spend balloons on unfixable code. The default is tunable in `house-rules.md`; the question is what the Factory default should be.
+6. **Gate iteration cap:** 3 iterations is the correct Factory default for the inner fix loop (developer commits → gate fails → fresh developer with gate report). When the cap is hit, the story receives `mark-failed --class acceptance_unmet`, feeding into the evidence-gated escalation predicate from [cost-aware-agent-delegation.md](cost-aware-agent-delegation.md). A stronger model gets one shot at the same gates with the same 3-iteration cap. Effective maximum: 6 developer spawns (3 x current tier + 3 x tier+1) before the story is terminal. The cap is tunable per project in `house-rules.md`.
 
-3. **Module-graph check granularity:** The mechanical check reads `interface-contracts.md` and `entity-model.md`. If a feature introduces a new entity that maps to an existing module, does that count as a module-graph change? Current answer: no — only new modules, changed public interfaces, and inverted dependencies trigger Phase 2. This may need revisiting after real usage.
+7. **Module-graph check granularity:** A new entity in an existing module does not trigger Phase 2. The mechanical check tests module-graph topology only: new modules, changed public interfaces, and inverted dependency directions. A misplaced entity is a specification defect, caught by spec review or by the reconciliation-agent post-implementation — routing it through architecture review is the wrong mechanism.
 
-4. **Scope-map reconciliation detail:** The `reconciliation-agent` should diff scope-map Rules against `.feature` file Rules after implementation. Open sub-questions: should this reconciliation step run once per slice (at slice completion) or continuously (after every story merge)? Should newly discovered Rules in the `.feature` file auto-enter the scope map as `implemented`, or enter as `specified` pending stakeholder confirmation?
+8. **Scope-map reconciliation timing:** The reconciliation-agent diffs scope-map Rules against `.feature` file Rules when the feature branch merges to dev — one feature branch = one slice = one `.feature` file = one reconciliation pass. This avoids partial-Rule noise from individual story merges and aligns with the reconciliation-agent's Phase 5 pass on the branch.
+
+9. **Auto-status of newly discovered Rules:** Rules found in the `.feature` file but absent from the scope map enter as `implemented` (the code exists; the scope map is descriptive). The reconciliation-agent files a finding for each discovery. If the PR against dev is opened by an agent, the PR body includes the discovery so the human reviewer sees the scope change before approving.
 
 ## Completion Criteria
 
