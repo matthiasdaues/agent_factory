@@ -4,7 +4,7 @@ title: "Agentic Quality Gates and Requirements Consolidation"
 status: open
 owner: matthiasdaues
 created: 2026-08-24
-updated: 2026-08-24  # grilling resolved all open questions
+updated: 2026-08-24  # second critique pass resolved
 supersedes:
 
 impact:
@@ -114,8 +114,10 @@ Verifies that test coverage is real — not just line-hit but behaviorally meani
 | **Skill file**       | `factory/skills/mutation-analysis/SKILL.md`                                                                                    |
 | **Tool candidates**  | `mutmut` (Python; reference implementation for first release). Other languages (`mutant` for Rust, `pitest` for Java) deferred |
 | **What it enforces** | Every surviving mutant resolved: dead code removed, missing contract tested, or finding filed for QA. Zero survivors to pass   |
-| **Inputs**           | Source files, test suite                                                                                                       |
+| **Inputs**           | Source files (diff-scoped — see below), test suite                                                                             |
 | **Outputs**          | JSON report per mutant (killed/survived, resolution action), logged to `.agent-factory/mutation-analysis/<story-id>.json`      |
+
+**Diff-scoping contract:** The CLI wrapper `factory/scripts/mutation-analysis` accepts a `--diff-base <ref>` argument. The dispatcher supplies the story branch's merge-base commit (the point where the feature branch diverged from its target). The script runs `git diff --name-only --diff-filter=ACMR <ref> HEAD` to obtain the changed file set, then filters to **production files** — files that are not test files. A file is a test file if it matches any of: `test_*.py`, `*_test.py`, `*_test.go`, `*.test.ts`, `*.test.js`, `*.spec.ts`, `*.spec.js`, or lives under a directory named `tests/` or `__tests__/`. Everything else in the diff is a production file and is passed to the mutation engine. When `--diff-base` is omitted, the script falls back to the full module (the pre-proposal behavior) so the gate remains usable outside the dispatcher loop.
 
 #### `dependency-check` — Architectural integrity
 
@@ -231,7 +233,21 @@ Rules with status `deferred` have no `.feature` file. Rules with status `specifi
 
 The scope map is the persistent artifact that survives across slices.
 
-**Migration from `derive-spec` projects:** Projects with existing UC-XX documents from `derive-spec` adopt the scope map via a one-time backfill. A migration skill reads all `derive-spec` output artifacts — `actor-goal-list.md` (primary source: one Rule per actor-goal row), `UC-XX-short-name.md` files (Gherkin scenarios, traced via `Realizes: AG-##`), `system-use-cases.md`, `entity-model.md`, `interface-contracts.md`, `state-machines.md`, and `validation-rules.md` (cross-check inputs) — and populates the scope map with `implemented` entries. The source column points at the originating UC-XX file, not a `.feature` file. The reconciliation-agent skips Rule-level diff for rows pointing at UC-XX sources. No `.feature` files are created for old features; UC-XX documents stay as-is.
+**Migration from `derive-spec` projects:** Projects with existing UC-XX documents from `derive-spec` adopt the scope map via a one-time backfill.
+
+**Migration skill:** `factory/skills/scope-map-migration/SKILL.md`
+
+**Trigger:** Invoked once per existing project adopting `derive-feature`, before the first new feature is specified via `derive-feature`. The `requirements-agent` checks for an existing `docs/spec/scope-map.md` before running `derive-feature`; if the scope map does not exist but `derive-spec` output artifacts are present (any `UC-XX-*.md` file under `docs/spec/`), it runs `scope-map-migration` first.
+
+**Inputs and partial-input handling:** The skill reads all available `derive-spec` output artifacts in priority order:
+
+1. `actor-goal-list.md` (primary source: one Rule per actor-goal row)
+2. `UC-XX-short-name.md` files (Gherkin scenarios, traced via `Realizes: AG-##`)
+3. `system-use-cases.md`, `entity-model.md`, `interface-contracts.md`, `state-machines.md`, `validation-rules.md` (cross-check inputs)
+
+When `actor-goal-list.md` is missing, the skill falls back to deriving Rules from `UC-XX-short-name.md` filenames and their `Summary` fields — one Rule per UC file. When both are missing but other spec artifacts exist, the skill creates a scope map with a single `NOTE: manual population required — no actor-goal or UC source found` entry and exits without error.
+
+The skill populates the scope map with `implemented` entries. The source column points at the originating UC-XX file, not a `.feature` file. The reconciliation-agent skips Rule-level diff for rows pointing at UC-XX sources. No `.feature` files are created for old features; UC-XX documents stay as-is.
 
 **Effect on `derive-spec`:** The current `derive-spec` skill is superseded. All four supplementary specs are still produced — `entity-model.md`, `interface-contracts.md`, `state-machines.md`, and `validation-rules.md` carry structural facts the `.feature` file does not (entity lifecycles, cross-cutting validation rules, boundary schemas, domain relationships). The UC-XX document chain and the `actor-goal-list.md` are no longer produced as separate artifacts; their content is encoded in the `.feature` file's Rule-per-actor-goal structure.
 
@@ -323,7 +339,7 @@ This check uses Phase 1 outputs only — it does not depend on story files or im
 **Override semantics:**
 
 - Field was `false`, machine says `true` → machine wins; field updated to `true`, annotated `# mechanical detection`.
-- Field was `true`, machine says `false` → prior human declaration respected conservatively; machine result logged but field stays `true`.
+- Field was `true`, machine says `false` → prior human declaration respected conservatively; machine result logged but field stays `true`. The conserved `true` persists through Phase 2 — if the architecture review produces no changes (no ADR, no DSL edit, no finding), the reconciliation-agent notes the empty Phase 2 pass as an informational finding so the human can set the field to `false` for future reference. The flag does not auto-clear.
 - Human explicitly overrides after seeing the machine result → override recorded as a comment on the field (e.g., `architecture_change: false  # manual override — no boundary change despite new interface`).
 
 ## Scope
@@ -365,7 +381,7 @@ This check uses Phase 1 outputs only — it does not depend on story files or im
 - Per-language dependency-rule toolchain (different ecosystems have different tools; the skill structure is language-agnostic but the tool calls are not)
 - Gate integration into the brownfield-onboarding pipeline (the onboarding reads `architecture.dsl` after it's built; the gates could run against the existing codebase to establish baseline quality scores)
 - Automated module map update when a new directory is created (currently the DSL is the source of truth; there is no auto-update on `mkdir`)
-- Mutation testing performance flags (`--fast-only`, `--jobs N`) — collect experience from real usage first
+- Mutation testing performance flags (`--fast-only`, `--jobs N`) — collect experience from real usage first. Risk: a Python-only mutation gate that cannot parallelise may become a bottleneck for projects with test suites longer than ~30s; if real usage confirms this, `--jobs N` is the first mitigation to implement
 
 ### 5. Gate Execution Lifecycle
 
@@ -419,6 +435,14 @@ quality-gates:
 
 1. **Threshold calibration:** Thresholds live in `docs/charter/house-rules.md` as project-level settings. The Factory provides defaults; each project overrides in its charter. *Assumption: the project charter does not exist yet. Threshold defaults are hardcoded in each gate skill (`crap-score`, `mutation-analysis`, `dependency-check`) until a charter is scaffolded; the skills read `house-rules.md` overrides when present.*
 
+   **Factory defaults:**
+
+   | Gate                | Threshold                                                        | Rationale                                                                                  |
+   | ------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+   | `crap-score`        | CRAP ≤ 30 per function                                           | Industry standard; functions above 30 are both complex and under-tested                    |
+   | `mutation-analysis` | 0 surviving mutants (all killed, removed as dead code, or filed) | The gate's value is exhaustive — partial survival defeats the purpose                      |
+   | `dependency-check`  | 0 violations against `architecture.dsl` dependency rules         | Architectural rules are binary; a "tolerated" violation is a missing rule, not a threshold |
+
 2. **Mutation testing on slow test suites:** Deferred. The first release runs mutation testing in its default mode without `--fast-only` or `--jobs N` flags. Collect experience from real usage before deciding on fast-mode semantics and parallelisation defaults.
 
 3. **Consolidated Gherkin file naming:** `docs/spec/<feature-name>.feature`. Discoverability over rename-stability — the file name matches the proposal and feature name as understood at requirements time.
@@ -429,15 +453,15 @@ quality-gates:
 
 ### From grilling 2026-08-24
 
-5. **Mutation testing scope restriction:** `mutation-analysis` runs against all production files in the story's diff, not only files the story's tests import. Excluding untested files defeats the gate's purpose — a surviving mutant in an untested file is the highest-signal finding the gate can produce. The performance cost is bounded by the diff size and acceptable for a once-per-story pre-merge gate.
+06. **Mutation testing scope restriction:** `mutation-analysis` runs against all production files in the story's diff, not only files the story's tests import. Excluding untested files defeats the gate's purpose — a surviving mutant in an untested file is the highest-signal finding the gate can produce. The performance cost is bounded by the diff size and acceptable for a once-per-story pre-merge gate.
 
-6. **Gate iteration cap:** 3 iterations is the correct Factory default for the inner fix loop (developer commits → gate fails → fresh developer with gate report). When the cap is hit, the story receives `mark-failed --class acceptance_unmet`, feeding into the evidence-gated escalation predicate from [cost-aware-agent-delegation.md](cost-aware-agent-delegation.md). A stronger model gets one shot at the same gates with the same 3-iteration cap. Effective maximum: 6 developer spawns (3 x current tier + 3 x tier+1) before the story is terminal. The cap is tunable per project in `house-rules.md`.
+07. **Gate iteration cap:** 3 iterations is the correct Factory default for the inner fix loop (developer commits → gate fails → fresh developer with gate report). When the cap is hit, the story receives `mark-failed --class acceptance_unmet`, feeding into the evidence-gated escalation predicate from [cost-aware-agent-delegation.md](cost-aware-agent-delegation.md). A stronger model gets one shot at the same gates with the same 3-iteration cap. Effective maximum: 6 developer spawns (3 x current tier + 3 x tier+1) before the story is terminal. The cap is tunable per project in `house-rules.md`.
 
-7. **Module-graph check granularity:** A new entity in an existing module does not trigger Phase 2. The mechanical check tests module-graph topology only: new modules, changed public interfaces, and inverted dependency directions. A misplaced entity is a specification defect, caught by spec review or by the reconciliation-agent post-implementation — routing it through architecture review is the wrong mechanism.
+08. **Module-graph check granularity:** A new entity in an existing module does not trigger Phase 2. The mechanical check tests module-graph topology only: new modules, changed public interfaces, and inverted dependency directions. A misplaced entity is a specification defect, caught by spec review or by the reconciliation-agent post-implementation — routing it through architecture review is the wrong mechanism.
 
-8. **Scope-map reconciliation timing:** The reconciliation-agent diffs scope-map Rules against `.feature` file Rules when the feature branch merges to dev — one feature branch = one slice = one `.feature` file = one reconciliation pass. This avoids partial-Rule noise from individual story merges and aligns with the reconciliation-agent's Phase 5 pass on the branch.
+09. **Scope-map reconciliation timing:** The reconciliation-agent diffs scope-map Rules against `.feature` file Rules when the feature branch merges to dev — one feature branch = one slice = one `.feature` file = one reconciliation pass. This avoids partial-Rule noise from individual story merges and aligns with the reconciliation-agent's Phase 5 pass on the branch.
 
-9. **Auto-status of newly discovered Rules:** Rules found in the `.feature` file but absent from the scope map enter as `implemented` (the code exists; the scope map is descriptive). The reconciliation-agent files a finding for each discovery. If the PR against dev is opened by an agent, the PR body includes the discovery so the human reviewer sees the scope change before approving.
+10. **Auto-status of newly discovered Rules:** Rules found in the `.feature` file but absent from the scope map enter as `implemented` (the code exists; the scope map is descriptive). The reconciliation-agent files a finding for each discovery. If the PR against dev is opened by an agent, the PR body includes the discovery so the human reviewer sees the scope change before approving.
 
 ## Completion Criteria
 
