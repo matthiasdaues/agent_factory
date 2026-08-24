@@ -153,7 +153,7 @@ A developer agent running its own quality gates is self-validation. The same pri
 
 The Factory's [testing-strategy.md](../../factory/rulebooks/conventions/testing-strategy.md) says "Test count and coverage percentage are diagnostics, not quality targets." The semantic gates respect this:
 
-- **CRAP score** is a composite structural gate. Coverage enters as a counterweight to cyclomatic complexity; the threshold is on the composite score, not on coverage itself. The pressure it applies is toward smaller code.
+- **CRAP score** is a composite structural gate. Coverage enters as a counterweight to cyclomatic complexity; the threshold is on the composite score (CRAP ≤ 8 by default), not on coverage itself. The pressure it applies is toward smaller code — not toward higher coverage percentages.
 - **Mutation analysis** is a code-smell gate. A surviving mutant means code does something no test observes. The response is investigation (remove dead code or add the missing contract test), not unconditional test creation.
 - **Dependency check** enforces what `architecture.dsl` already declares. Neither TDD nor the testing strategy addresses dependency direction; this gate fills an unoccupied gap.
 

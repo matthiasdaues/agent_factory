@@ -104,22 +104,23 @@ def _block(text: str, start_marker: str) -> str:
 
 
 def dsl_core_components(dsl: str) -> set[str]:
-    """Application services of the dispatch core, however the core is modelled.
+    """Application-level components from the DSL.
 
-    Two shapes carry the same information. An expanded model gives the core its
-    own container (`core = container`) whose components are the services. A
-    deflated model makes the core a *component* of a coarser container and keeps
-    its services as same-level components inside a `group` named after the core
-    -- Structurizr has no level below component, so a group is the only way to
-    express ownership there. Accept either rather than forcing the model into
-    one shape.
+    Pattern-agnostic: extracts every `= component "Name"` declaration.
+    Returns an empty set only when the DSL has no component declarations at
+    all (a genuine parse failure), not when the parent-container pattern does
+    not match a particular model shape.
     """
+    names = set(re.findall(r'=\s*component\s+"([^"]+)"', dsl))
+    # If the parent-container pattern finds nothing, fall back to full-DSL scan.
+    # This makes the extractor architecture-pattern agnostic.
     block = _block(dsl, "core = container")
-    if not block:
-        m = re.search(r'\bcore\s*=\s*component\s+"([^"]+)"', dsl)
-        if m:
-            block = _block(dsl, f'group "{m.group(1)}"')
-    return set(re.findall(r'=\s*component\s+"([^"]+)"', block))
+    if block:
+        block_components = set(re.findall(r'=\s*component\s+"([^"]+)"', block))
+        if block_components:
+            return block_components
+    # Normalize: strip trailing parentheticals so prose tables match DSL names
+    return {n.split("(", 1)[0].strip() for n in names}
 
 
 def dsl_ports(dsl: str) -> set[str]:
@@ -144,10 +145,11 @@ def _section(md: str, start: str, end: str) -> str:
 
 
 def ch5_core_components(md: str) -> set[str]:
-    sec = _section(md, "## 5.2", "## 5.3")
+    # Scan all §5.x component tables: Validator (§5.2), State Manager (§5.3), Dispatcher (§5.4)
+    sec = _section(md, "## 5.2", "## 5.5")  # §5.5 is the Interfaces Summary, not a component table
     names = set()
     for line in sec.splitlines():
-        m = re.match(r"\|\s*\*\*([^*|]+)\*\*\s*\|", line)
+        m = re.search(r"\|\s*\*\*([^*]+)\*\*.*?\|", line)
         if m:
             names.add(m.group(1).strip())
     return names
