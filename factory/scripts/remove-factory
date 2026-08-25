@@ -455,6 +455,7 @@ def _codex_artifact_owned(path: Path, rel: str, target: Path, manifest: dict) ->
 
 
 def delete_paths(target: Path, manifest: dict, remove_paths: list[str]) -> None:
+    merged_dirs = set(manifest.get("merged_dirs", []))
     for rel in remove_paths:
         path = target / rel
         if (
@@ -466,6 +467,12 @@ def delete_paths(target: Path, manifest: dict, remove_paths: list[str]) -> None:
         if path.is_symlink():
             path.unlink()
         elif path.is_dir():
+            # Directories that were merged (project owned the dir, factory
+            # added individual symlinks) must NOT be removed wholesale —
+            # the individual child symlinks are tracked as their own entries.
+            if rel in merged_dirs:
+                log(f"skip merged dir (project-owned): {rel}")
+                continue
             shutil.rmtree(path)
         elif path.exists():
             path.unlink()

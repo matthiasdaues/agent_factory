@@ -283,6 +283,10 @@ def ensure_symlink(
         raise Collision(f"{link} is already a symlink to {current}, not to {dest}")
 
     if link.exists():
+        # When both sides are directories, merge factory entries individually
+        # instead of requiring a wholesale symlink.
+        if link.is_dir() and dest.is_dir() and install is not None:
+            return _merge_into_existing_dir(link, dest, report, install)
         raise Collision(f"{link} already exists and is not a symlink to {dest}")
 
     link.symlink_to(rel)
@@ -290,6 +294,48 @@ def ensure_symlink(
         install["remove_paths"].append(_relpath(link, install))
     log(report, f"linked: {link} -> {rel}")
     return True
+
+
+def _merge_into_existing_dir(
+    link: Path, dest: Path, report: list[str], install: dict
+) -> bool:
+    """Symlink each entry from *dest* into the existing *link* directory.
+
+    Used when the project already owns a directory at a path the factory would
+    normally replace with a single directory symlink (e.g. `.github/scripts`
+    already contains project scripts).  Individual entries are tracked in
+    ``install["remove_paths"]`` for removal, and the parent is recorded in
+    ``install["merged_dirs"]`` so remove-factory knows NOT to ``rmtree`` it.
+    """
+    created_any = False
+    merged_key = _relpath(link, install)
+    install.setdefault("merged_dirs", []).append(merged_key)
+
+    for child in sorted(dest.iterdir()):
+        child_link = link / child.name
+        child_rel = os.path.relpath(child, start=child_link.parent)
+
+        if child_link.is_symlink():
+            current = (child_link.parent / os.readlink(child_link)).resolve()
+            if current == child.resolve():
+                install["remove_paths"].append(_relpath(child_link, install))
+                log(report, f"skip (already merged): {child_link}")
+                continue
+            raise Collision(
+                f"{child_link} is already a symlink to {current}, not to {child}"
+            )
+
+        if child_link.exists():
+            log(report, f"skip (project owns): {child_link}")
+            continue
+
+        child_link.symlink_to(child_rel)
+        install["remove_paths"].append(_relpath(child_link, install))
+        log(report, f"merged: {child_link} -> {child_rel}")
+        created_any = True
+
+    log(report, f"merged factory entries into existing dir: {link}")
+    return created_any
 
 
 def _relpath(path: Path, install: dict) -> str:
@@ -308,7 +354,14 @@ def symlink_factory_content(target: Path, install: dict, report: list[str]) -> N
             # would hide the project's own workflows); .claude and .pi are ignored
             # wholesale.
             if dot_dir == ".github":
-                install["github_ignored_entries"].add(f".github/{name}")
+                merged_key = _relpath(base / name, install)
+                if merged_key in install.get("merged_dirs", []):
+                    # Dir was merged — ignore each child symlink, not the dir
+                    for child_rel in install["remove_paths"]:
+                        if child_rel.startswith(merged_key + "/"):
+                            install["github_ignored_entries"].add(child_rel)
+                else:
+                    install["github_ignored_entries"].add(f".github/{name}")
 
         _link_orientation(target, dot_dir, factory, install, report)
 
@@ -1298,6 +1351,7 @@ def load_prior_manifest(target: Path, install: dict, report: list[str]) -> None:
         return
 
     install["remove_paths"] = list(prior.get("remove_paths", []))
+    install["merged_dirs"] = list(prior.get("merged_dirs", []))
     install["orientation"] = dict(prior.get("orientation", {}))
     if prior.get("precommit"):
         install["precommit"] = prior["precommit"]
@@ -1392,6 +1446,7 @@ def write_manifest(target: Path, install: dict, report: list[str]) -> None:
         ),
         "ignored_paths": install.get("ignored_paths", []),
         "remove_paths": _dedup(install["remove_paths"]),
+        "merged_dirs": sorted(set(install.get("merged_dirs", []))),
         "factory_source": install.get("factory_source"),
     }
     manifest_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
