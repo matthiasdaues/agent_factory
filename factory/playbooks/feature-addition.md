@@ -4,6 +4,158 @@ category: orchestration
 type: runbook
 scenario: feature-addition
 version: 1.2.0
+steps:
+  - name: clarify-requirements
+    inputs:
+      - 'docs/proposals/**/*.md'
+      - 'docs/spec/**/*.md'
+      - 'docs/charter/**/*.md'
+    outputs:
+      - 'docs/proposals/**/*.md'
+    max_input_tokens: 40000
+  - name: charter-amendment-check
+    inputs:
+      - 'docs/proposals/**/*.md'
+      - 'docs/charter/**/*.md'
+    outputs:
+      - 'docs/charter/**/*.md'
+      - 'backlog/ST-0*.md'
+    max_input_tokens: 40000
+  - name: accept-proposal
+    inputs:
+      - 'docs/proposals/**/*.md'
+    outputs:
+      - 'docs/proposals/**/*.md'
+    max_input_tokens: 20000
+  - name: route-from-declared-impact
+    inputs:
+      - 'docs/proposals/**/*.md'
+    outputs: []
+    max_input_tokens: 20000
+  - name: update-specification
+    inputs:
+      - 'docs/proposals/**/*.md'
+      - 'docs/spec/**/*.md'
+    outputs:
+      - 'docs/spec/**/*.md'
+    max_input_tokens: 40000
+  - name: spec-review
+    inputs:
+      - 'docs/proposals/**/*.md'
+      - 'docs/spec/**/*.md'
+    outputs:
+      - 'docs/findings/SPEC-*.md'
+    max_input_tokens: 40000
+  - name: decision-point-1-3
+    inputs:
+      - 'docs/findings/SPEC-*.md'
+    outputs: []
+    max_input_tokens: 20000
+  - name: update-architecture
+    inputs:
+      - 'docs/proposals/**/*.md'
+      - 'docs/spec/**/*.md'
+      - 'docs/adr/**/*.md'
+      - 'docs/arc42/**/*.md'
+    outputs:
+      - 'docs/adr/**/*.md'
+      - 'docs/arc42/**/*.md'
+    max_input_tokens: 40000
+  - name: architecture-review
+    inputs:
+      - 'docs/adr/**/*.md'
+      - 'docs/arc42/**/*.md'
+    outputs:
+      - 'docs/findings/ATAM-*.md'
+    max_input_tokens: 40000
+  - name: decision-point-2-3
+    inputs:
+      - 'docs/findings/ATAM-*.md'
+    outputs: []
+    max_input_tokens: 20000
+  - name: create-stories
+    inputs:
+      - 'docs/proposals/**/*.md'
+      - 'docs/spec/**/*.md'
+      - 'docs/arc42/**/*.md'
+    outputs:
+      - 'backlog/ST-*.md'
+    max_input_tokens: 40000
+  - name: validate-backlog
+    inputs:
+      - 'backlog/ST-*.md'
+    outputs: []
+    max_input_tokens: 20000
+  - name: reconcile-plan-with-proposal
+    inputs:
+      - 'backlog/ST-*.md'
+      - 'docs/proposals/**/*.md'
+    outputs:
+      - 'docs/proposals/**/*.md'
+    max_input_tokens: 20000
+  - name: approve-backlog
+    inputs:
+      - 'backlog/ST-*.md'
+      - 'docs/proposals/**/*.md'
+    outputs: []
+    max_input_tokens: 20000
+  - name: implement-stories
+    inputs:
+      - 'backlog/ST-*.md'
+      - 'docs/spec/**/*.md'
+      - 'factory/**/*.py'
+      - 'orchestrator/**/*.py'
+      - 'tests/**/*.py'
+      - 'config/**/*.json'
+    outputs:
+      - 'factory/**/*.py'
+      - 'orchestrator/**/*.py'
+      - 'tests/**/*.py'
+      - 'config/**/*.json'
+      - 'docs/**/*.md'
+      - 'backlog/ST-*.md'
+    max_input_tokens: 100000
+  - name: reconcile
+    inputs:
+      - 'backlog/ST-*.md'
+      - 'docs/spec/**/*.md'
+      - 'factory/**/*.py'
+      - 'orchestrator/**/*.py'
+      - 'tests/**/*.py'
+      - 'config/**/*.json'
+    outputs:
+      - 'factory/**/*.py'
+      - 'orchestrator/**/*.py'
+      - 'tests/**/*.py'
+      - 'config/**/*.json'
+      - 'docs/**/*.md'
+      - 'backlog/ST-*.md'
+    max_input_tokens: 100000
+  - name: decision-point-4-3
+    inputs:
+      - 'docs/findings/RECON-*.md'
+    outputs: []
+    max_input_tokens: 20000
+  - name: qa
+    inputs:
+      - 'factory/**/*.py'
+      - 'orchestrator/**/*.py'
+      - 'tests/**/*.py'
+      - 'docs/**/*.md'
+      - 'config/**/*.json'
+    outputs:
+      - 'docs/findings/FAGAN-*.md'
+      - 'docs/findings/BUG-*.md'
+      - 'docs/findings/SEC-*.md'
+      - 'docs/reviews/**/*.md'
+    max_input_tokens: 100000
+  - name: decision-point-5-2
+    inputs:
+      - 'docs/findings/FAGAN-*.md'
+      - 'docs/findings/BUG-*.md'
+      - 'docs/findings/SEC-*.md'
+    outputs: []
+    max_input_tokens: 20000
 ---
 
 # Feature Addition Playbook
