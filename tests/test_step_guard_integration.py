@@ -26,15 +26,21 @@ def _guard_env(tmp_path: Path) -> dict[str, str]:
 
 def _run_guard(
     guard_type: str,
-    path: str,
     cwd: Path,
     *,
+    event: dict[str, object] | None = None,
     tool: str = "Read",
+    path: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Invoke step-guard with one JSON tool event on stdin."""
+    payload: dict[str, object] = {"tool": tool}
+    if event is not None:
+        payload.update(event)
+    elif path is not None:
+        payload["path"] = path
     return subprocess.run(
         [str(STEP_GUARD), "--guard-type", guard_type],
-        input=json.dumps({"tool": tool, "path": path}),
+        input=json.dumps(payload),
         capture_output=True,
         text=True,
         cwd=cwd,
@@ -58,7 +64,7 @@ def test_read_allows_declared_input(tmp_path: Path) -> None:
         """inputs:\n  - docs/spec/prd.md\noutputs:\n  - src/**/*.py\n""",
     )
 
-    result = _run_guard("read", "docs/spec/prd.md", repo)
+    result = _run_guard("read", repo, path="docs/spec/prd.md")
 
     assert result.returncode == 0, result.stderr
 
@@ -68,7 +74,7 @@ def test_read_allows_factory_prefix(tmp_path: Path) -> None:
     repo.mkdir()
     _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - src/**/*.py\n")
 
-    result = _run_guard("read", "factory/rulebooks/rules.md", repo)
+    result = _run_guard("read", repo, path="factory/rulebooks/rules.md")
 
     assert result.returncode == 0, result.stderr
 
@@ -78,7 +84,7 @@ def test_read_denies_out_of_scope_path(tmp_path: Path) -> None:
     repo.mkdir()
     _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - src/**/*.py\n")
 
-    result = _run_guard("read", "src/main.py", repo)
+    result = _run_guard("read", repo, path="src/main.py")
 
     assert result.returncode == 1
 
@@ -87,7 +93,7 @@ def test_read_allows_when_manifest_absent(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
 
-    result = _run_guard("read", "src/main.py", repo)
+    result = _run_guard("read", repo, path="src/main.py")
 
     assert result.returncode == 0, result.stderr
 
@@ -97,7 +103,7 @@ def test_write_allows_declared_output(tmp_path: Path) -> None:
     repo.mkdir()
     _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - src/**/*.py\n")
 
-    result = _run_guard("write", "src/module_a/handler.py", repo, tool="Write")
+    result = _run_guard("write", repo, tool="Write", path="src/module_a/handler.py")
 
     assert result.returncode == 0, result.stderr
 
@@ -107,7 +113,7 @@ def test_write_allows_findings(tmp_path: Path) -> None:
     repo.mkdir()
     _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - src/**/*.py\n")
 
-    result = _run_guard("write", "docs/findings/IMPL-0001.md", repo, tool="Write")
+    result = _run_guard("write", repo, tool="Write", path="docs/findings/IMPL-0001.md")
 
     assert result.returncode == 0, result.stderr
 
@@ -117,7 +123,7 @@ def test_write_allows_gate_marker(tmp_path: Path) -> None:
     repo.mkdir()
     _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - src/**/*.py\n")
 
-    result = _run_guard("write", ".current_work/verify-base-ok", repo, tool="Write")
+    result = _run_guard("write", repo, tool="Write", path=".current_work/verify-base-ok")
 
     assert result.returncode == 0, result.stderr
 
@@ -128,7 +134,7 @@ def test_write_denies_ledger(tmp_path: Path) -> None:
     _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n")
 
     result = _run_guard(
-        "write", ".current_work/dispatch-ledger.yaml", repo, tool="Write"
+        "write", repo, tool="Write", path=".current_work/dispatch-ledger.yaml"
     )
 
     assert result.returncode == 1
@@ -139,7 +145,7 @@ def test_write_denies_manifest(tmp_path: Path) -> None:
     repo.mkdir()
     _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n")
 
-    result = _run_guard("write", ".current_work/current-step.yml", repo, tool="Write")
+    result = _run_guard("write", repo, tool="Write", path=".current_work/current-step.yml")
 
     assert result.returncode == 1
 
@@ -149,7 +155,7 @@ def test_write_denies_out_of_scope_path(tmp_path: Path) -> None:
     repo.mkdir()
     _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - src/**/*.py\n")
 
-    result = _run_guard("write", "docs/spec/prd.md", repo, tool="Write")
+    result = _run_guard("write", repo, tool="Write", path="docs/spec/prd.md")
 
     assert result.returncode == 1
 
@@ -158,7 +164,7 @@ def test_write_allows_when_manifest_absent(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
 
-    result = _run_guard("write", "docs/spec/prd.md", repo, tool="Write")
+    result = _run_guard("write", repo, tool="Write", path="docs/spec/prd.md")
 
     assert result.returncode == 0, result.stderr
 
@@ -169,7 +175,7 @@ def test_security_denies_ledger_even_if_output_glob_matches(tmp_path: Path) -> N
     _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n")
 
     result = _run_guard(
-        "write", ".current_work/dispatch-ledger.yaml", repo, tool="Write"
+        "write", repo, tool="Write", path=".current_work/dispatch-ledger.yaml"
     )
 
     assert result.returncode == 1
@@ -180,6 +186,91 @@ def test_security_denies_manifest_even_if_output_glob_matches(tmp_path: Path) ->
     repo.mkdir()
     _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n")
 
-    result = _run_guard("write", ".current_work/current-step.yml", repo, tool="Write")
+    result = _run_guard("write", repo, tool="Write", path=".current_work/current-step.yml")
 
     assert result.returncode == 1
+
+
+def test_bash_allows_declared_read_path(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - src/**/*.py\n")
+
+    result = _run_guard(
+        "bash",
+        repo,
+        tool="Bash",
+        event={"command": "cat docs/spec/prd.md"},
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_bash_allows_declared_write_path(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - src/**/*.py\n")
+
+    result = _run_guard(
+        "bash",
+        repo,
+        tool="Bash",
+        event={"command": "echo x > src/module_a/new.py"},
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_bash_denies_out_of_scope_path(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - src/**/*.py\n")
+
+    result = _run_guard(
+        "bash",
+        repo,
+        tool="Bash",
+        event={"command": "echo x > docs/spec/prd.md"},
+    )
+
+    assert result.returncode == 1
+
+
+def test_bash_denies_manifest_write(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n")
+
+    result = _run_guard(
+        "bash",
+        repo,
+        tool="Bash",
+        event={"command": "tee .current_work/current-step.yml"},
+    )
+
+    assert result.returncode == 1
+
+
+def test_bash_denies_ledger_write(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n")
+
+    result = _run_guard(
+        "bash",
+        repo,
+        tool="Bash",
+        event={"command": "echo x > .current_work/dispatch-ledger.yaml"},
+    )
+
+    assert result.returncode == 1
+
+
+def test_bash_allows_opaque_command(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - src/**/*.py\n")
+
+    result = _run_guard("bash", repo, tool="Bash", event={"command": "git status"})
+
+    assert result.returncode == 0, result.stderr
