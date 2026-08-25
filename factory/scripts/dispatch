@@ -226,6 +226,141 @@ def _save_ledger(ledger: Ledger, ledger_path: Path) -> int:
     return 0
 
 
+def _current_branch_name() -> str | None:
+    """Return the current branch name, or None outside a named branch."""
+    code, out, _ = _git("rev-parse", "--abbrev-ref", "HEAD")
+    if code != 0 or out == "HEAD":
+        return None
+    return out
+
+
+def _verify_worktree_registration(worktree_path: Path) -> bool:
+    """Return True when git reports *worktree_path* in worktree porcelain output."""
+    code, out, _ = _git("worktree", "list", "--porcelain")
+    if code != 0:
+        return False
+    needle = str(worktree_path.resolve())
+    return f"worktree {needle}" in out.splitlines()
+
+
+def _run_verify_base(worktree_path: Path, target_branch: str, base_sha: str) -> tuple[int, str]:
+    """Run verify-base inside one prepared story worktree."""
+    result = subprocess.run(
+        [
+            str(SCRIPT_DIR / "verify-base"),
+            target_branch,
+            "--expect-base",
+            base_sha,
+        ],
+        capture_output=True,
+        text=True,
+        cwd=worktree_path,
+        check=False,
+    )
+    output = "\n".join(
+        part for part in (result.stdout.strip(), result.stderr.strip()) if part
+    )
+    return result.returncode, output
+
+
+def cmd_prepare_wave(args: argparse.Namespace) -> int:
+    """Prepare every eligible story in one wave."""
+    ledger_path = Path(args.ledger)
+    ledger = _load_ledger(ledger_path)
+    if ledger is None:
+        return 1
+
+    wave = args.wave
+    blocking = [
+        entry
+        for entry in ledger.stories.values()
+        if entry.wave is not None
+        and entry.wave < wave
+        and entry.status not in {StoryState.DONE, StoryState.FAILED, StoryState.BLOCKED}
+    ]
+    if blocking:
+        blockers = ", ".join(
+            f"{entry.id} ({entry.status.value})" for entry in sorted(blocking, key=lambda e: e.id)
+        )
+        print(
+            f"error: wave {wave} blocked by non-terminal prior-wave stories: {blockers}",
+            file=sys.stderr,
+        )
+        return 1
+
+    target_branch = _current_branch_name()
+    if not target_branch:
+        print("error: prepare-wave requires a named current branch", file=sys.stderr)
+        return 1
+
+    code, base_sha, err = _git("rev-parse", "HEAD")
+    if code != 0:
+        print(f"error: failed to resolve HEAD: {err}", file=sys.stderr)
+        return 1
+
+    project_root = _project_root()
+    stories_in_wave = sorted(
+        (entry for entry in ledger.stories.values() if entry.wave == wave),
+        key=lambda entry: entry.id,
+    )
+    wave_story_ids = {entry.id for entry in stories_in_wave}
+
+    for entry in stories_in_wave:
+        if entry.status == StoryState.PREPARED:
+            continue
+
+        same_wave_deps = [dep for dep in entry.deps if dep in wave_story_ids]
+        if same_wave_deps:
+            continue
+
+        branch_name = f"story/{entry.id}"
+        worktree_path = project_root / ".agent-factory" / "worktrees" / f"story-{entry.id}"
+
+        code, _, err = _git("branch", branch_name, "HEAD")
+        if code != 0:
+            print(
+                f"error: failed to create branch {branch_name!r} for {entry.id}: {err}",
+                file=sys.stderr,
+            )
+            return 1
+
+        code, _, err = _git("worktree", "add", str(worktree_path), branch_name)
+        if code != 0:
+            print(
+                f"error: failed to create worktree for {entry.id}: {err}",
+                file=sys.stderr,
+            )
+            return 1
+
+        if not _verify_worktree_registration(worktree_path):
+            print(
+                f"error: git worktree list did not report {worktree_path} for {entry.id}",
+                file=sys.stderr,
+            )
+            return 1
+
+        verify_code, verify_output = _run_verify_base(worktree_path, target_branch, base_sha)
+        if verify_code != 0:
+            if verify_output:
+                print(verify_output, file=sys.stderr)
+            print(f"error: verify-base failed for {entry.id}", file=sys.stderr)
+            return 1
+
+        entry.branch = branch_name
+        entry.worktree = str(worktree_path)
+        entry.base_sha = base_sha
+        try:
+            ledger.transition(entry.id, StoryState.PREPARED)
+        except TransitionError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 1
+        save_code = _save_ledger(ledger, ledger_path)
+        if save_code != 0:
+            return save_code
+
+    return 0
+
+
 def _transition(
     args: argparse.Namespace,
     target: StoryState,
@@ -352,6 +487,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_init(args)
     if args.subcommand == "plan":
         return cmd_plan(args)
+    if args.subcommand == "prepare-wave":
+        return cmd_prepare_wave(args)
     if args.subcommand == "mark-dispatching":
         return cmd_mark_dispatching(args)
     if args.subcommand == "mark-dispatched":
