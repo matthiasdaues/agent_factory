@@ -597,7 +597,9 @@ def _glob_match_recursive(pattern: str, path: str, pi: int, si: int) -> bool:
 # ---------------------------------------------------------------------------
 
 MANIFEST_FILENAME = "current-step.yml"
+HANDOFF_CONTRACT_FILENAME = "handoff-contract.md"
 DEFAULT_MAX_INPUT_TOKENS = 100_000
+DEFAULT_HANDOFF_TOKEN_BUDGET = 800
 
 
 def _manifest_path(worktree_path: Path, feature_branch: str, story_branch: str) -> Path:
@@ -704,6 +706,120 @@ def clear_manifest_force(
             }
         )
     return existed
+
+
+@dataclass(frozen=True)
+class HandoffContract:
+    """Rendered seven-part subagent handoff contract."""
+
+    text: str
+    normalized_tokens: int
+
+
+def normalized_token_count(text: str) -> int:
+    """Estimate normalized tokens using the repository's bytes÷4 rule."""
+    return len(text.encode("utf-8")) // 4
+
+
+def ensure_handoff_contract_budget(
+    text: str,
+    *,
+    max_normalized_tokens: int = DEFAULT_HANDOFF_TOKEN_BUDGET,
+) -> None:
+    """Raise ValueError when *text* exceeds the seven-part budget."""
+    max_bytes = max_normalized_tokens * 4
+    actual_bytes = len(text.encode("utf-8"))
+    if actual_bytes > max_bytes:
+        raise ValueError(
+            "handoff contract exceeds budget: "
+            f"{actual_bytes} bytes > {max_bytes} bytes"
+        )
+
+
+def handoff_contract_path(
+    worktree_path: Path, feature_branch: str, story_branch: str
+) -> Path:
+    """Return the runtime path that stores one story's handoff contract."""
+    return (
+        Path(worktree_path)
+        / ".current_work"
+        / feature_branch
+        / story_branch
+        / HANDOFF_CONTRACT_FILENAME
+    )
+
+
+def render_handoff_contract(
+    *,
+    story_id: str,
+    story_title: str,
+    acceptance_criteria_path: Path,
+    worktree_path: Path,
+    story_branch: str,
+    outputs: list[str],
+    test_command: str,
+    strategy: str | None = None,
+    max_normalized_tokens: int = DEFAULT_HANDOFF_TOKEN_BUDGET,
+) -> HandoffContract:
+    """Render the seven-part prompt for one prepared story."""
+    del strategy
+    lines = [
+        "Part 1 — Outcome",
+        f"- Story ID: {story_id}",
+        f"- Title: {story_title}",
+        f"- Acceptance criteria: {acceptance_criteria_path.as_posix()}",
+        "",
+        "Part 2 — Workspace",
+        f"- Worktree: {Path(worktree_path).as_posix()}",
+        f"- Story branch: {story_branch}",
+        "",
+        "Part 3 — Allowed writes",
+    ]
+    if outputs:
+        lines.extend(f"- {output}" for output in outputs)
+    else:
+        lines.append("-")
+    lines.extend(
+        [
+            "",
+            "Part 4 — Forbidden actions",
+            "- merge",
+            "- push",
+            "- branch creation",
+            "- ledger writes",
+            "- hook bypass",
+            "",
+            "Part 5 — Required checks",
+            f"- test_command: {test_command}",
+            "",
+            "Part 6 — Stop conditions",
+            "- ambiguous criterion",
+            "- missing input",
+            "- out-of-scope write needed",
+            "- suspect test",
+            "",
+            "Part 7 — Return envelope",
+            "- status",
+            "- commit_sha",
+            "- files_changed",
+            "- checks",
+            "- blockers",
+            "- failure_class",
+        ]
+    )
+    text = "\n".join(lines).rstrip() + "\n"
+    ensure_handoff_contract_budget(text, max_normalized_tokens=max_normalized_tokens)
+    return HandoffContract(text=text, normalized_tokens=normalized_token_count(text))
+
+
+def write_handoff_contract(
+    worktree_path: Path, feature_branch: str, story_branch: str, contract_text: str
+) -> Path:
+    """Persist a rendered handoff contract beside the story manifest."""
+    contract_path = handoff_contract_path(worktree_path, feature_branch, story_branch)
+    contract_path.parent.mkdir(parents=True, exist_ok=True)
+    contract_path.write_text(contract_text)
+    return contract_path
 
 
 # ---------------------------------------------------------------------------
