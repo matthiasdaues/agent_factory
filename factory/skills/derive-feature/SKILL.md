@@ -107,8 +107,8 @@ For each Rule, decompose the goal into Given/When/Then scenarios:
 
 ```
 Scenario: Valid SSO token presented
-  Given the user holds a valid SSO token
   # @src/auth/sso.py::SSOHandler.authenticate
+  Given the user holds a valid SSO token
   When the user authenticates
   Then the session is established
 
@@ -224,14 +224,11 @@ Source: <proposal file path>
 | `PROPOSAL_NOT_FOUND`  | Path does not exist                         |
 | `PROPOSAL_UNREADABLE` | Path exists but cannot be read              |
 | `NO_BOUNDARIES`       | `impact.boundaries` absent from frontmatter |
-| `NO_SOURCE_DIR`       | `src/` or equivalent not found              |
 
 ## References
 
 - [cross-reference-format.md](../../rulebooks/conventions/cross-reference-format.md) — @-reference notation
 - [testing-strategy.md](../../rulebooks/conventions/testing-strategy.md) — acceptance test layer
-- [COCKBURN.md](../derive-spec/COCKBURN.md) — Cockburn format reference (for internal reasoning)
-- [derive-spec/SKILL.md](../derive-spec/SKILL.md) — predecessor skill (reference only)
 
 ## Scope Map Integration
 
@@ -247,5 +244,33 @@ exists. For each Rule in the new feature:
 If `docs/spec/scope-map.md` does not exist, create it from scratch with
 Rules derived from this feature as initial `specified` entries.
 
-See [agentic-quality-gates-and-specification-consolidation.md](../../../docs/proposals/agentic-quality-gates-and-specification-consolidation.md)
-§ Design 2 for the scope map lifecycle.
+## Slice Lifecycle
+
+Each invocation of this skill produces a per-slice `.feature` file containing
+only the Rules being implemented in that slice. The `.feature` file is live
+during the slice lifecycle (Phases 1–5) and is read by the developer-agent,
+qa-agent, and reconciliation-agent.
+
+**Status transitions in the scope map:**
+
+| Transition                  | When                                   |
+| --------------------------- | -------------------------------------- |
+| `deferred` → `specified`    | This skill writes the `.feature` file  |
+| `specified` → `implemented` | Feature branch merges to dev (Phase 5) |
+
+After merge, the `.feature` file may be deleted or moved to `docs/~archive/`
+at human discretion. The scope map is the persistent record that survives
+across slices.
+
+**@-reference lifecycle across phases:**
+
+| Phase                | Who writes @-refs      | What is annotated                                |
+| -------------------- | ---------------------- | ------------------------------------------------ |
+| Phase 1 (this skill) | `derive-feature`       | Scenarios that touch existing code               |
+| Phase 4              | `developer-agent`      | Step definitions reference @-annotated code      |
+| Phase 5              | `reconciliation-agent` | Fills missing @-refs for newly implemented Rules |
+
+After reconciliation, every Rule in the current slice's `.feature` file must
+have at least one @-reference. A Rule without one is a finding. Rules in the
+scope map that remain `deferred` (their slice has not been worked on yet)
+carry no @-reference and no `.feature` file — that is expected, not a gap.

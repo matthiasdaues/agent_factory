@@ -29,7 +29,7 @@ agents:
     description: "Capture a project vision, clarify requirements through adversarial interview, and produce a complete specification: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models."
     path: agents/requirements-agent.md
     tokens: 1777
-    total_tokens: 9256
+    total_tokens: 9484
   - name: spec-review-agent
     title: Specification Review Agent
     phase: 1
@@ -165,7 +165,7 @@ skills:
     category: requirements
     description: Derive a Gherkin .feature file from a proposal using Cockburn reasoning as internal process. Outputs a Rule-per-actor-goal .feature file with @-references to existing code and a gaps report.
     path: skills/derive-feature/SKILL.md
-    tokens: 2116
+    tokens: 2344
   - name: derive-spec
     category: requirements
     description: Derive the full specification chain from a PRD — actor-goal list, persona use cases, system use cases, supplementary specs.
@@ -414,7 +414,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 2646
-    total_tokens: 57427
+    total_tokens: 57655
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -432,7 +432,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2786
-    total_tokens: 58641
+    total_tokens: 58869
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
