@@ -161,6 +161,11 @@ skills:
     description: Selects and runs the right requirements-clarification interview — Socratic (inline), grill-me (greenfield), or grill-with-docs (brownfield).
     path: skills/clarify-requirements/SKILL.md
     tokens: 426
+  - name: derive-feature
+    category: requirements
+    description: Derive a Gherkin .feature file from a proposal using Cockburn reasoning as internal process. Outputs a Rule-per-actor-goal .feature file with @-references to existing code and a gaps report.
+    path: skills/derive-feature/SKILL.md
+    tokens: 2116
   - name: derive-spec
     category: requirements
     description: Derive the full specification chain from a PRD — actor-goal list, persona use cases, system use cases, supplementary specs.
