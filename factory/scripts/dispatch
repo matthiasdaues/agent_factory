@@ -30,17 +30,22 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 from dispatch_lib import (  # noqa: E402
     FAILURE_CLASSES,
+    MANIFEST_FILENAME,
     TIER_RANK,
     Ledger,
+    ManifestExistsError,
     ShaFormatError,
     StoryEntry,
     StoryState,
     TransitionError,
+    clear_manifest_force,
     compute_wave_plan,
     load_project_config,
     load_stories,
     parse_story_frontmatter,
+    remove_manifest,
     suggest_tier,
+    write_manifest,
 )
 
 import json
@@ -133,6 +138,51 @@ def _check_tier_mismatches(
             )
 
     return report
+
+
+def _story_meta_for_manifest(project_root: Path, story_id: str) -> dict:
+    """Read backlog frontmatter for *story_id* to seed a step manifest.
+
+    Returns a dict with ``deps``, ``traces``, ``outputs``, and optional
+    ``max_input_tokens``. Missing or unparsable backlog files yield an empty
+    dict — the manifest is still written, just with empty declarations.
+    """
+    story_path = project_root / "backlog" / f"{story_id}.md"
+    if not story_path.exists():
+        return {}
+    fm = parse_story_frontmatter(story_path.read_text())
+    if fm is None:
+        return {}
+    raw_traces = fm.get("traces")
+    traces = raw_traces if isinstance(raw_traces, list) else ([raw_traces] if raw_traces else [])
+    raw_max_tokens = fm.get("max_input_tokens")
+    meta: dict = {
+        "deps": fm.get("deps") or [],
+        "traces": traces,
+        "outputs": fm.get("outputs") or [],
+    }
+    if raw_max_tokens:
+        meta["max_input_tokens"] = int(raw_max_tokens)
+    return meta
+
+
+def _write_story_manifest(
+    project_root: Path,
+    entry: StoryEntry,
+    feature_branch: str,
+    worktree_path: Path,
+) -> tuple[int, str | None]:
+    """Write the step manifest for *entry*, recording feature_branch on it.
+
+    Returns (0, None) on success, (1, error_message) on no-supersede failure.
+    """
+    story_meta = _story_meta_for_manifest(project_root, entry.id)
+    try:
+        write_manifest(worktree_path, feature_branch, entry.branch, story_meta)
+    except ManifestExistsError as e:
+        return 1, str(e)
+    entry.feature_branch = feature_branch
+    return 0, None
 
 
 def cmd_init(args: argparse.Namespace) -> int:
@@ -418,6 +468,14 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
         entry.branch = branch_name
         entry.worktree = str(worktree_path)
         entry.base_sha = base_sha
+
+        manifest_code, manifest_err = _write_story_manifest(
+            project_root, entry, target_branch, worktree_path
+        )
+        if manifest_code != 0:
+            print(f"error: {manifest_err}", file=sys.stderr)
+            return 1
+
         try:
             ledger.transition(entry.id, StoryState.PREPARED)
         except TransitionError as e:
@@ -512,6 +570,22 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
     entry.branch = branch_name
     entry.worktree = str(worktree_path)
     entry.base_sha = merge_sha
+
+    feature_branch = predecessor.feature_branch or _current_branch_name()
+    if not feature_branch:
+        print(
+            f"error: unable to determine feature branch for {entry.id}",
+            file=sys.stderr,
+        )
+        return 1
+
+    manifest_code, manifest_err = _write_story_manifest(
+        project_root, entry, feature_branch, worktree_path
+    )
+    if manifest_code != 0:
+        print(f"error: {manifest_err}", file=sys.stderr)
+        return 1
+
     try:
         ledger.transition(entry.id, StoryState.PREPARED)
     except TransitionError as e:
@@ -550,6 +624,71 @@ def cmd_mark_dispatching(args: argparse.Namespace) -> int:
 
 def cmd_mark_dispatched(args: argparse.Namespace) -> int:
     return _transition(args, StoryState.DISPATCHED)
+
+
+def cmd_mark_done(args: argparse.Namespace) -> int:
+    """Mark a story done and remove its step manifest (guards deactivate)."""
+    ledger_path = Path(args.ledger)
+    ledger = _load_ledger(ledger_path)
+    if ledger is None:
+        return 1
+    entry = ledger.stories.get(args.story_id)
+    if entry is None:
+        print(f"error: story not found: {args.story_id}", file=sys.stderr)
+        return 1
+
+    try:
+        ledger.transition(args.story_id, StoryState.DONE)
+    except TransitionError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+
+    if entry.worktree and entry.feature_branch and entry.branch:
+        remove_manifest(Path(entry.worktree), entry.feature_branch, entry.branch)
+
+    return _save_ledger(ledger, ledger_path)
+
+
+def cmd_clear_manifest(args: argparse.Namespace) -> int:
+    """Force-remove a stale step manifest under a given worktree."""
+    if not args.force:
+        print("error: clear-manifest requires --force", file=sys.stderr)
+        return 1
+
+    worktree_path = Path(args.worktree)
+    if not worktree_path.exists():
+        print(f"error: worktree not found: {worktree_path}", file=sys.stderr)
+        return 1
+
+    ledger_path = Path(args.ledger)
+    ledger = _load_ledger(ledger_path)
+    if ledger is None:
+        return 1
+
+    current_work_dir = worktree_path / ".current_work"
+    manifest_paths = (
+        sorted(current_work_dir.glob(f"**/{MANIFEST_FILENAME}"))
+        if current_work_dir.is_dir()
+        else []
+    )
+    if not manifest_paths:
+        print(f"error: no step manifest found under {worktree_path}", file=sys.stderr)
+        return 1
+    if len(manifest_paths) > 1:
+        print(
+            f"error: multiple step manifests found under {worktree_path}; "
+            "expected exactly one",
+            file=sys.stderr,
+        )
+        return 1
+
+    manifest_path = manifest_paths[0]
+    rel_parts = manifest_path.relative_to(current_work_dir).parts[:-1]
+    feature_branch = rel_parts[0]
+    story_branch = "/".join(rel_parts[1:])
+
+    clear_manifest_force(worktree_path, feature_branch, story_branch, ledger)
+    return _save_ledger(ledger, ledger_path)
 
 
 def cmd_mark_blocked(args: argparse.Namespace) -> int:
@@ -701,6 +840,13 @@ def main(argv: list[str] | None = None) -> int:
     p_mdd = sub.add_parser("mark-dispatched", help="mark story as dispatched")
     p_mdd.add_argument("story_id")
 
+    p_mdn = sub.add_parser("mark-done", help="mark story as done, remove its step manifest")
+    p_mdn.add_argument("story_id")
+
+    p_cm = sub.add_parser("clear-manifest", help="force-remove a stale step manifest")
+    p_cm.add_argument("--force", action="store_true", help="required: confirms forced recovery")
+    p_cm.add_argument("--worktree", required=True, help="path to the story's worktree")
+
     p_mb = sub.add_parser("mark-blocked", help="mark story as blocked")
     p_mb.add_argument("story_id")
     p_mb.add_argument("--reason", required=True)
@@ -745,6 +891,10 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_mark_dispatching(args)
     if args.subcommand == "mark-dispatched":
         return cmd_mark_dispatched(args)
+    if args.subcommand == "mark-done":
+        return cmd_mark_done(args)
+    if args.subcommand == "clear-manifest":
+        return cmd_clear_manifest(args)
     if args.subcommand == "mark-blocked":
         return cmd_mark_blocked(args)
     if args.subcommand == "mark-failed":

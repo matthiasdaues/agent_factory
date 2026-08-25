@@ -76,6 +76,10 @@ class ShaFormatError(ValueError):
     pass
 
 
+class ManifestExistsError(Exception):
+    """Raised when a step manifest write is attempted over an existing one."""
+
+
 @dataclass
 class StoryEntry:
     """One story's persisted dispatch lifecycle record."""
@@ -86,6 +90,7 @@ class StoryEntry:
     deps: list[str] = field(default_factory=list)
     branch: str | None = None
     worktree: str | None = None
+    feature_branch: str | None = None
     base_sha: str | None = None
     reason: str | None = None
     gate_results: dict[str, Any] = field(default_factory=dict)
@@ -94,6 +99,7 @@ class StoryEntry:
     commit_sha: str | None = None
     failure_class: str | None = None
     evidence: str | None = None
+    manifest_recoveries: list[dict[str, Any]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.base_sha is not None:
@@ -113,6 +119,7 @@ class StoryEntry:
             "deps": self.deps,
             "branch": self.branch,
             "worktree": self.worktree,
+            "feature_branch": self.feature_branch,
             "base_sha": self.base_sha,
             "reason": self.reason,
             "gate_results": self.gate_results,
@@ -127,6 +134,8 @@ class StoryEntry:
             d["failure_class"] = self.failure_class
         if self.evidence is not None:
             d["evidence"] = self.evidence
+        if self.manifest_recoveries:
+            d["manifest_recoveries"] = self.manifest_recoveries
         return d
 
     @classmethod
@@ -138,6 +147,7 @@ class StoryEntry:
             deps=data.get("deps", []),
             branch=data.get("branch"),
             worktree=data.get("worktree"),
+            feature_branch=data.get("feature_branch"),
             base_sha=data.get("base_sha"),
             reason=data.get("reason"),
             gate_results=data.get("gate_results", {}),
@@ -146,6 +156,7 @@ class StoryEntry:
             commit_sha=data.get("commit_sha"),
             failure_class=data.get("failure_class"),
             evidence=data.get("evidence"),
+            manifest_recoveries=data.get("manifest_recoveries", []),
         )
 
 
@@ -456,6 +467,109 @@ def _glob_match_recursive(pattern: str, path: str, pi: int, si: int) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Step manifest lifecycle
+# ---------------------------------------------------------------------------
+
+MANIFEST_FILENAME = "current-step.yml"
+DEFAULT_MAX_INPUT_TOKENS = 100_000
+
+
+def _manifest_path(worktree_path: Path, feature_branch: str, story_branch: str) -> Path:
+    """Return the per-worktree, per-story manifest path.
+
+    Layout: <worktree_path>/.current_work/<feature-branch>/<story-branch>/current-step.yml
+    """
+    return (
+        Path(worktree_path)
+        / ".current_work"
+        / feature_branch
+        / story_branch
+        / MANIFEST_FILENAME
+    )
+
+
+def write_manifest(
+    worktree_path: Path,
+    feature_branch: str,
+    story_branch: str,
+    story_meta: dict[str, Any],
+) -> Path:
+    """Write the step manifest activating guards for one story's worktree.
+
+    *story_meta* supplies the story's declared ``deps``/``traces`` (folded
+    into the manifest's ``inputs``), ``outputs``, and an optional
+    ``max_input_tokens`` override. Raises ManifestExistsError when a manifest
+    is already present at the target path (no-supersede).
+    """
+    manifest_path = _manifest_path(worktree_path, feature_branch, story_branch)
+    if manifest_path.exists():
+        raise ManifestExistsError(f"manifest already present: {manifest_path}")
+
+    inputs = list(story_meta.get("deps") or []) + list(story_meta.get("traces") or [])
+    outputs = list(story_meta.get("outputs") or [])
+    max_input_tokens = story_meta.get("max_input_tokens") or DEFAULT_MAX_INPUT_TOKENS
+
+    data: dict[str, Any] = {
+        "schema_version": 1,
+        "step": "implement",
+        "playbook": "developer",
+        "phase": "red-green",
+        "inputs": inputs,
+        "outputs": outputs,
+        "max_input_tokens": max_input_tokens,
+    }
+
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(_dump_yaml(data))
+    return manifest_path
+
+
+def remove_manifest(worktree_path: Path, feature_branch: str, story_branch: str) -> bool:
+    """Delete the step manifest, deactivating guards. Returns True if removed."""
+    manifest_path = _manifest_path(worktree_path, feature_branch, story_branch)
+    if manifest_path.exists():
+        manifest_path.unlink()
+        return True
+    return False
+
+
+def clear_manifest_force(
+    worktree_path: Path,
+    feature_branch: str,
+    story_branch: str,
+    ledger: Ledger,
+) -> bool:
+    """Force-remove a stale manifest, logging a warning and recording recovery.
+
+    Used when a step agent died without cleanup. Records the recovery on the
+    ledger entry matching *story_branch* (``story/<id>``) so the operation is
+    auditable, even though the manifest itself carries no ledger link.
+    """
+    import sys as _sys
+
+    manifest_path = _manifest_path(worktree_path, feature_branch, story_branch)
+    existed = manifest_path.exists()
+    if existed:
+        manifest_path.unlink()
+    print(
+        f"warning: force-cleared stale step manifest at {manifest_path}",
+        file=_sys.stderr,
+    )
+
+    story_id = story_branch.rsplit("/", 1)[-1]
+    entry = ledger.stories.get(story_id)
+    if entry is not None:
+        entry.manifest_recoveries.append(
+            {
+                "worktree": str(worktree_path),
+                "manifest_path": str(manifest_path),
+                "existed": existed,
+            }
+        )
+    return existed
+
+
+# ---------------------------------------------------------------------------
 # Wave planning
 # ---------------------------------------------------------------------------
 
@@ -470,6 +584,8 @@ class StoryMeta:
     tier: str = "economy"
     risk_domains: list[str] = field(default_factory=list)
     tests: list[str] = field(default_factory=list)
+    traces: list[str] = field(default_factory=list)
+    max_input_tokens: int | None = None
 
 
 @dataclass
@@ -583,6 +699,10 @@ def load_stories(backlog_dir: Path) -> list[StoryMeta]:
         fm = parse_story_frontmatter(p.read_text())
         if fm is None:
             continue
+        raw_traces = fm.get("traces")
+        traces = raw_traces if isinstance(raw_traces, list) else ([raw_traces] if raw_traces else [])
+        raw_max_tokens = fm.get("max_input_tokens")
+        max_input_tokens = int(raw_max_tokens) if raw_max_tokens else None
         stories.append(
             StoryMeta(
                 id=fm.get("id", p.stem),
@@ -591,6 +711,8 @@ def load_stories(backlog_dir: Path) -> list[StoryMeta]:
                 tier=fm.get("tier", "economy"),
                 risk_domains=fm.get("risk_domains") or [],
                 tests=fm.get("tests") or [],
+                traces=traces,
+                max_input_tokens=max_input_tokens,
             )
         )
     return stories
