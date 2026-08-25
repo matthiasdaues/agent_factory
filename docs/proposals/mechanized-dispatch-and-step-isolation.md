@@ -179,8 +179,10 @@ mutates a potentially shared branch, the script prints the base branch name
 and requires `--yes` or interactive confirmation before committing).
 With `--feature-branch`: skip branch creation and initialize the ledger on
 the named existing branch. The branch must exist and its tip must be
-reachable from `--base`. `--baseline-commit` is incompatible with
-`--feature-branch`.
+reachable from `--base`. If a dispatch ledger already exists for this
+branch under `.current_work/`, initialization is rejected — the operator
+must close or remove the existing dispatch first. `--baseline-commit` is
+incompatible with `--feature-branch`.
 
 **`dispatch prepare-wave <N>`**
 Verify all stories in waves < N are terminal (mechanical wave gate). For each
@@ -206,11 +208,12 @@ paired with its own merge.
 
 **`dispatch merge-story <story-id> [--dry-run]`**
 In the feature-branch worktree: run
-`premerge-check --scope <output-glob>` (scopes derived from the story's
+`premerge-check --scope-glob <output-glob>` (scopes derived from the story's
 `outputs`), immediately merge, update story status to `done` in the merge
 commit, run the test suite (`test_command` from `config/project.json`), clean
 up worktree and branch. On merge conflict: `git merge --abort`, mark blocked.
-On red suite: mark `blocked` with `post-merge test failure`, exit non-zero.
+On red suite: revert the merge commit, restore the feature branch to its
+pre-merge state, mark `blocked` with `post-merge test failure`, exit non-zero.
 With `--dry-run`: run `premerge-check` and report its result without merging,
 modifying the ledger, or cleaning up. Exit zero if the merge would proceed,
 non-zero if `premerge-check` fails.
@@ -383,7 +386,7 @@ parts:
 3. **Allowed writes** — story `outputs` globs, verbatim
 4. **Forbidden actions** — merge, push, branch creation, ledger writes, hook
    bypass
-5. **Required checks** — `test_command`, then `factory/scripts/validate`
+5. **Required checks** — `test_command` from `config/project.json`
 6. **Stop conditions** — ambiguous criterion, missing input, needed write
    outside `outputs`, suspect test
 7. **Return envelope** — `status`, `commit_sha`, `files_changed`, `checks`,
@@ -547,6 +550,11 @@ or `dispatch prepare-story`. If both the ledger and the feature branch are
 lost (e.g., `.current_work/` deleted and branch reset), recovery is manual:
 the operator must inspect `git reflog`, identify surviving story branches,
 and re-initialize the dispatch.
+
+**Wave escalation tracking.** The "no other story in this wave has already
+escalated" predicate is evaluated by scanning all story entries in the wave
+for `escalation_granted: true`. No separate wave-level counter — the
+per-story flag is authoritative.
 
 **Tier arithmetic.** `economy < standard < strong`. Escalation adds one;
 seams-first implementation subtracts one, floored at `economy`. Saturation at

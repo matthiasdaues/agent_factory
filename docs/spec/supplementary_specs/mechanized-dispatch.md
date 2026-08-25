@@ -177,6 +177,12 @@ Feature: Dispatch Initialization
     And a dispatch ledger is initialized at .current_work/<feature-branch>/dispatch-ledger.yaml
     And all named stories are recorded as pending
 
+  Scenario: Existing ledger for the target branch blocks initialization
+    Given a dispatch ledger exists at .current_work/<target-branch>/dispatch-ledger.yaml
+    When the operator runs dispatch init whose target branch resolves to <target-branch>
+    Then dispatch exits non-zero
+    And reports that a dispatch is already active for this branch
+
   Scenario: Untracked target directories block initialization
     Given the base branch has untracked files in a directory a story's outputs touch
     And --baseline-commit is not given
@@ -250,6 +256,12 @@ Feature: Wave Lifecycle
   dispatch prepare-wave gates on prior-wave completion, prepares all
   parallel-safe stories and serial chain heads. dispatch close-wave
   gates on all stories being terminal.
+
+  Scenario: Wave 1 can be prepared without a prior-wave check
+    Given the dispatch has just been initialized with no prior waves
+    When the operator runs dispatch prepare-wave 1
+    Then the prior-wave gate is satisfied vacuously
+    And wave 1 stories are prepared normally
 
   Scenario: Prior wave must be fully terminal before preparing the next
     Given wave 1 has stories ST-001 (done) and ST-002 (dispatched)
@@ -403,14 +415,14 @@ Feature: Story Lifecycle
   # --- mark-blocked ---
 
   Scenario: Record a blocking condition
-    Given ST-003 is in a non-terminal state
+    Given ST-003 is in prepared or dispatched
     When the operator runs dispatch mark-blocked ST-003 --reason "awaiting design decision"
     Then the ledger records ST-003 as blocked with the given reason
 
   # --- mark-failed ---
 
   Scenario: Valid failure class and tracked evidence are recorded
-    Given ST-003 is dispatched or dispatching
+    Given ST-003 is prepared or dispatched
     And docs/findings/IMPL-0001.md is a tracked file
     When the operator runs dispatch mark-failed ST-003 --class acceptance_unmet --evidence docs/findings/IMPL-0001.md
     Then the ledger records ST-003 as failed
@@ -443,6 +455,16 @@ Feature: Story Lifecycle
     When the operator runs dispatch re-dispatch ST-003
     Then dispatch exits non-zero
     And reports that re-dispatch requires a failed or blocked story
+
+  Scenario: Re-dispatch cleans up old branch and worktree before re-preparing
+    Given ST-003 is failed and its story branch and worktree still exist
+    When the operator runs dispatch re-dispatch ST-003
+    Then the old story worktree is removed
+    And the old story branch is deleted
+    And a fresh story branch is cut from the current feature branch tip
+    And a fresh story worktree is created for the new branch
+    And verify-base passes against the feature branch tip
+    And ST-003 transitions from failed to prepared
 
   # Phase 3
   Scenario: context_missing failure re-dispatches at same tier with amended handoff
@@ -870,9 +892,11 @@ Feature: Evidence-Gated Escalation
     Then dispatch exits non-zero
 
   Scenario: Wave escalation slot already taken blocks escalation
-    Given another story in the same wave already escalated
+    Given another story in the same wave has escalation_granted: true in its ledger entry
     When the operator runs dispatch escalate <story-id>
     Then dispatch exits non-zero
+    # The wave escalation predicate scans all story entries in the wave
+    # for escalation_granted: true. No separate wave-level counter.
 
   Scenario: Second escalation for the same story blocks
     Given a story already escalated once
@@ -1117,6 +1141,7 @@ Each decision below resolves an open finding from the adversarial review of the 
 | PROP-0018 | Spec adds clear-manifest subcommand not in proposal | `dispatch clear-manifest --force --worktree <path>` added to the proposal under Phase 2 scope.                                                                                                                                      | Step Manifest Lifecycle: "Stale manifest is cleared"                 |
 | PROP-0019 | `safety_critical_paths` config key unspecified      | `safety_critical_paths` added to proposal as a list of gitignore-style globs in `config/project.json`, under Phase 3 scope.                                                                                                         | Tier Rubric: "Safety-critical output paths produce strong"           |
 | PROP-0020 | Re-dispatch vs. retry distinction unclear           | Proposal distinguishes: re-dispatch (new attempt, full lifecycle restart, in scope) vs. retry/resume (automatic re-run from interrupted point, deferred).                                                                           | Proposal: Design Details and Explicitly Deferred sections            |
+| PROP-0021 | `--feature-branch` can hijack an active dispatch    | `dispatch init` rejects initialization when a dispatch ledger already exists for the target branch under `.current_work/`. Applies to both `--feature-branch` and auto-generated branch paths.                                      | Dispatch Initialization: "Existing ledger blocks initialization"     |
 
 ## Traceability — Proposal Sections to Features
 
