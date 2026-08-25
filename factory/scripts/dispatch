@@ -27,9 +27,38 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from dispatch_lib import Ledger, compute_wave_plan, load_stories  # noqa: E402
+from dispatch_lib import Ledger, StoryEntry, compute_wave_plan, load_stories  # noqa: E402
+
+import json
+import subprocess
 
 DEFAULT_LEDGER = Path(".agent-factory/dispatch-ledger.yaml")
+
+
+def _git(*args: str) -> tuple[int, str, str]:
+    """Run a git command, returning (exit_code, stdout, stderr)."""
+    r = subprocess.run(["git", *args], capture_output=True, text=True, check=False)
+    return r.returncode, r.stdout.strip(), r.stderr.strip()
+
+
+def _project_root() -> Path:
+    """Resolve the project root from git."""
+    code, out, _ = _git("rev-parse", "--show-toplevel")
+    if code != 0:
+        return Path(".")
+    return Path(out)
+
+
+def _read_test_command(project_root: Path) -> str | None:
+    """Read test_command from config/project.json."""
+    config_path = project_root / "config" / "project.json"
+    if not config_path.exists():
+        return None
+    try:
+        data = json.loads(config_path.read_text())
+        return data.get("test_command")
+    except (json.JSONDecodeError, OSError):
+        return None
 
 
 def cmd_status(args: argparse.Namespace) -> int:
@@ -43,6 +72,110 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(f"error: malformed ledger: {e}", file=sys.stderr)
         return 1
     print(ledger.format_status_table())
+    return 0
+
+
+def cmd_init(args: argparse.Namespace) -> int:
+    """Initialize a dispatch run: create feature branch, worktree, and ledger."""
+    feature_branch = getattr(args, "feature_branch", None)
+    baseline_commit = getattr(args, "baseline_commit", False)
+
+    if feature_branch and baseline_commit:
+        print(
+            "error: --baseline-commit and --feature-branch are mutually exclusive",
+            file=sys.stderr,
+        )
+        return 1
+
+    project_root = _project_root()
+    test_cmd = _read_test_command(project_root)
+    if not test_cmd:
+        print(
+            "error: config/project.json must contain a 'test_command' key",
+            file=sys.stderr,
+        )
+        return 1
+
+    story_ids = [s.strip() for s in args.stories.split(",")]
+    base = args.base
+
+    # Verify base exists
+    code, base_sha, _ = _git("rev-parse", f"refs/heads/{base}")
+    if code != 0:
+        code, base_sha, _ = _git("rev-parse", base)
+        if code != 0:
+            print(f"error: base branch '{base}' does not exist", file=sys.stderr)
+            return 1
+
+    if feature_branch:
+        code, fb_sha, _ = _git("rev-parse", f"refs/heads/{feature_branch}")
+        if code != 0:
+            print(f"error: branch '{feature_branch}' does not exist", file=sys.stderr)
+            return 1
+        code, _, _ = _git("merge-base", "--is-ancestor", base_sha, fb_sha)
+        if code != 0:
+            print(
+                f"error: branch '{feature_branch}' is not reachable from '{base}'",
+                file=sys.stderr,
+            )
+            return 1
+        branch_name = feature_branch
+    else:
+        branch_name = f"impl/{'-'.join(story_ids[:3]).lower()}"
+        if len(story_ids) > 3:
+            branch_name += f"-and-{len(story_ids) - 3}-more"
+
+    # Idempotency check
+    ledger_dir = project_root / ".current_work" / branch_name
+    ledger_path = ledger_dir / "dispatch-ledger.yaml"
+    if ledger_path.exists():
+        try:
+            existing = Ledger.load(ledger_path)
+            if set(existing.stories.keys()) == set(story_ids):
+                print(
+                    f"dispatch init: ledger already exists for '{branch_name}' (no-op)"
+                )
+                return 0
+        except Exception:
+            pass
+        print(
+            f"error: dispatch already active for '{branch_name}' at {ledger_path}",
+            file=sys.stderr,
+        )
+        return 1
+
+    if not feature_branch:
+        code, untracked, _ = _git("ls-files", "--others", "--exclude-standard")
+        if untracked and not baseline_commit:
+            print(
+                "error: untracked files in working tree; use --baseline-commit or "
+                "clean them first",
+                file=sys.stderr,
+            )
+            return 1
+        if baseline_commit and untracked:
+            _git("add", "-A")
+            _git("commit", "--no-verify", "-m", "chore: baseline commit before dispatch init")
+            code, base_sha, _ = _git("rev-parse", "HEAD")
+
+        # Create feature branch + worktree
+        worktree_path = project_root / ".agent-factory" / "worktrees" / branch_name
+        code, _, err = _git(
+            "worktree", "add", "-b", branch_name, str(worktree_path), base_sha
+        )
+        if code != 0:
+            print(f"error: failed to create worktree: {err}", file=sys.stderr)
+            return 1
+
+    # Initialize ledger
+    ledger = Ledger()
+    for sid in story_ids:
+        ledger.stories[sid] = StoryEntry(id=sid)
+    ledger_dir.mkdir(parents=True, exist_ok=True)
+    ledger.save(ledger_path)
+
+    print(f"dispatch init: initialized '{branch_name}' with {len(story_ids)} stories")
+    print(f"  ledger: {ledger_path}")
     return 0
 
 
@@ -90,6 +223,8 @@ def main(argv: list[str] | None = None) -> int:
     p_init.add_argument("--base", required=True)
     p_init.add_argument("--stories", required=True)
     p_init.add_argument("--baseline-commit", action="store_true")
+    p_init.add_argument("--feature-branch", default=None)
+    p_init.add_argument("--yes", action="store_true", help="skip confirmation prompts")
 
     p_plan = sub.add_parser("plan", help="compute wave plan from stories")
     p_plan.add_argument("--backlog-dir", required=True)
@@ -132,6 +267,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.subcommand == "status":
         return cmd_status(args)
+    if args.subcommand == "init":
+        return cmd_init(args)
     if args.subcommand == "plan":
         return cmd_plan(args)
     return cmd_not_implemented(args)
