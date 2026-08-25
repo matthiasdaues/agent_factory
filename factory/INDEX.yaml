@@ -29,7 +29,7 @@ agents:
     description: "Capture a project vision, clarify requirements through adversarial interview, and produce a complete specification: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models."
     path: agents/requirements-agent.md
     tokens: 1777
-    total_tokens: 9116
+    total_tokens: 9256
   - name: spec-review-agent
     title: Specification Review Agent
     phase: 1
@@ -414,7 +414,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 2646
-    total_tokens: 57287
+    total_tokens: 57427
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -432,7 +432,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2786
-    total_tokens: 58501
+    total_tokens: 58641
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -573,7 +573,7 @@ rulebooks:
   - name: testing-strategy
     category: conventions
     path: rulebooks/conventions/testing-strategy.md
-    tokens: 786
+    tokens: 926
   - name: todo-format
     category: conventions
     path: rulebooks/conventions/todo-format.md
