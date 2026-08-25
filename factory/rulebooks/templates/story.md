@@ -20,6 +20,9 @@ deps: [ST-0002]                   # story ids that block this one (optional)
 traces: [UC-02, ADR-0003]         # Use Case / ADR / component ids this story implements (optional)
 outputs: [src/orchestrator/entities.py]   # files the story is expected to produce
 tests: [tests/test_entities.py]   # pre-existing test files covering this story (optional)
+risk_domains: [security, reliability]   # optional; closed enum: security, privacy, data_integrity,
+                                       # compatibility, reliability, operations
+strategy: direct                  # optional; closed enum: direct | seams-first; default: direct
 ---
 ```
 
