@@ -1,0 +1,164 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
+"""step-guard — enforce declared step scope for read/write tool events.
+
+The guard reads one JSON event from stdin, loads the active step manifest
+from .current_work/current-step.yml when present, and allows or denies the
+requested path according to the selected guard type.
+"""
+
+from __future__ import annotations
+
+import argparse
+import ast
+import json
+import sys
+from fnmatch import fnmatch
+from pathlib import Path
+from typing import Any
+
+
+READ_ALLOWED_PREFIXES = (
+    "factory/",
+    ".claude/",
+    ".github/",
+    ".pi/",
+    ".codex/",
+    ".current_work/",
+)
+WRITE_ALLOWED_PREFIXES = ("docs/findings/",)
+WRITE_ALLOWED_PATHS = {
+    ".current_work/verify-base-ok",
+    ".current_work/premerge-check-ok",
+}
+WRITE_DENIED_PATHS = {
+    ".current_work/dispatch-ledger.yaml",
+    ".current_work/current-step.yml",
+}
+MANIFEST_RELATIVE_PATH = Path(".current_work") / "current-step.yml"
+
+
+def _manifest_path(cwd: Path) -> Path:
+    """Return the active manifest path for the current working directory."""
+    return cwd / MANIFEST_RELATIVE_PATH
+
+
+def _load_event() -> dict[str, Any]:
+    """Parse one tool event from stdin."""
+    try:
+        event = json.loads(sys.stdin.read())
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid JSON tool event: {exc}") from exc
+    if not isinstance(event, dict):
+        raise ValueError("tool event must be a JSON object")
+    return event
+
+
+def _load_manifest(path: Path) -> dict[str, list[str]]:
+    """Load the step manifest's declared inputs and outputs.
+
+    The manifest format used in this repository is a small YAML subset:
+    top-level ``inputs:`` and ``outputs:`` lists with ``- pattern`` items.
+    """
+    if not path.exists():
+        return {"inputs": [], "outputs": []}
+
+    sections: dict[str, list[str]] = {"inputs": [], "outputs": []}
+    current: str | None = None
+
+    for raw_line in path.read_text().splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line == "inputs:":
+            current = "inputs"
+            continue
+        if line == "outputs:":
+            current = "outputs"
+            continue
+        if current and line.startswith("- "):
+            sections[current].append(line[2:].strip())
+            continue
+        # Accept a simple inline list fallback for robustness.
+        if line.startswith("inputs: [") and line.endswith("]"):
+            sections["inputs"].extend(_parse_inline_list(line))
+            current = None
+            continue
+        if line.startswith("outputs: [") and line.endswith("]"):
+            sections["outputs"].extend(_parse_inline_list(line))
+            current = None
+            continue
+    return sections
+
+
+def _parse_inline_list(line: str) -> list[str]:
+    """Parse a tiny inline YAML list without adding a third-party dependency."""
+    _, _, remainder = line.partition(":")
+    try:
+        value = ast.literal_eval(remainder.strip())
+    except (SyntaxError, ValueError) as exc:
+        raise ValueError(f"invalid inline list in manifest: {line}") from exc
+    if not isinstance(value, list):
+        raise ValueError(f"expected list in manifest line: {line}")
+    return [str(item) for item in value]
+
+
+def _matches_any(patterns: list[str], path: str) -> bool:
+    """Return True when any glob matches the path."""
+    return any(fnmatch(path, pattern) for pattern in patterns)
+
+
+def _read_allowed(path: str, inputs: list[str]) -> bool:
+    """Apply the read guard."""
+    if any(path.startswith(prefix) for prefix in READ_ALLOWED_PREFIXES):
+        return True
+    return _matches_any(inputs, path)
+
+
+def _write_allowed(path: str, outputs: list[str]) -> bool:
+    """Apply the write guard, including the security deny-list."""
+    if path in WRITE_DENIED_PATHS:
+        return False
+    if path in WRITE_ALLOWED_PATHS:
+        return True
+    if any(path.startswith(prefix) for prefix in WRITE_ALLOWED_PREFIXES):
+        return True
+    return _matches_any(outputs, path)
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Return 0 when the requested path is allowed, 1 when denied."""
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--guard-type", choices=("read", "write"), required=True)
+    args = parser.parse_args(argv)
+
+    try:
+        event = _load_event()
+    except ValueError as exc:
+        print(f"step-guard: {exc}", file=sys.stderr)
+        return 2
+
+    path = event.get("path")
+    if not isinstance(path, str) or not path:
+        print("step-guard: tool event must include a string path", file=sys.stderr)
+        return 2
+
+    manifest = _manifest_path(Path.cwd())
+    if not manifest.exists():
+        return 0
+
+    try:
+        declared = _load_manifest(manifest)
+    except ValueError as exc:
+        print(f"step-guard: {exc}", file=sys.stderr)
+        return 2
+
+    if args.guard_type == "read":
+        return 0 if _read_allowed(path, declared["inputs"]) else 1
+    return 0 if _write_allowed(path, declared["outputs"]) else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
