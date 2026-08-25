@@ -66,10 +66,11 @@ estimate:
 
 ## Summary
 
-Move all deterministic orchestration work — git state management, file-access
-enforcement, tier selection, prompt composition, and failure handling — out of
-LLM judgment and into scripts and hooks. Three implementation phases build on
-each other: (1) a dispatch script that owns the full story lifecycle,
+Move deterministic orchestration work — git state management, file-access
+enforcement, tier selection, prompt composition, and failure handling — into
+scripts and hooks. The LLM sequences script calls; the scripts own state
+transitions and validate each step. Three implementation phases build on each
+other: (1) a dispatch script that owns the full story lifecycle,
 (2) per-step file-access guards enforced by hooks, and (3) a tier-aware
 delegation procedure with evidence-gated escalation.
 
@@ -168,12 +169,18 @@ wave plan as YAML. Includes wave assignments, parallel-safe sets, serial
 chains, model tier per story, and a suggested tier from the rubric (Phase 3).
 No state changes.
 
-**`dispatch init --base <branch> --stories ST-0074,...`**
+**`dispatch init --base <branch> --stories ST-0074,... [--feature-branch <name>]`**
 Create the feature branch from `--base` and initialize the dispatch ledger at
 `.current_work/<feature-branch>/dispatch-ledger.yaml`. Preflight
 `test_command` in `config/project.json`. Exit non-zero on untracked target
 directories unless `--baseline-commit` is given (creates an explicit baseline
-commit on the base branch before the feature branch is cut).
+commit on the base branch before the feature branch is cut; because this
+mutates a potentially shared branch, the script prints the base branch name
+and requires `--yes` or interactive confirmation before committing).
+With `--feature-branch`: skip branch creation and initialize the ledger on
+the named existing branch. The branch must exist and its tip must be
+reachable from `--base`. `--baseline-commit` is incompatible with
+`--feature-branch`.
 
 **`dispatch prepare-wave <N>`**
 Verify all stories in waves < N are terminal (mechanical wave gate). For each
@@ -216,15 +223,36 @@ Record a classified failure. `--class` accepts only the seven-value vocabulary
 (see [Phase 3](#phase-3--tier-aware-delegation)). `--evidence` requires a
 tracked artifact path.
 
+**`dispatch re-dispatch <story-id>`**
+Return a `failed` or `blocked` story to `prepared` state for a new attempt.
+Creates a new attempt entry, re-prepares the branch and worktree from the
+current feature-branch tip, and runs verify-base. Phase 1 behavior: any
+`failed` or `blocked` story may be re-dispatched. Phase 3 adds class-aware
+constraints: `acceptance_unmet` and `contradictory_evidence` require prior
+escalation via `dispatch escalate`; `contract_violation` is terminal after
+two occurrences.
+
 **`dispatch close-wave <N>`**
 Verify all stories in wave N are terminal. Append closeout record. Commit.
 
 **`dispatch status`**
 Print the current ledger as a human-readable table.
 
+**`dispatch clear-manifest --force --worktree <path>`**
+Remove a stale step manifest left by a crashed agent. Logs a warning and
+records the recovery in the ledger. Requires `--force` to prevent accidental
+removal of an active manifest.
+
 #### Ledger status lifecycle
 
 `pending → prepared → dispatched → done | blocked | failed`
+
+Additional transitions:
+
+- `prepared → failed` (spawn failure)
+- `prepared → blocked` (operator blocks before dispatch)
+- `failed → prepared` (re-dispatch)
+- `blocked → prepared` (re-dispatch after resolution)
 
 `prepared` means branch and worktree exist, verify-base passed, but no
 subagent has been spawned yet.
@@ -329,12 +357,16 @@ Stories gain one optional field:
 risk_domains: [security]   # optional; closed enum, validated by backlog-lint
 ```
 
-| Condition (first match wins)                                                                                   | Suggested tier |
-| -------------------------------------------------------------------------------------------------------------- | -------------- |
-| `risk_domains` includes `security`, `privacy`, or `data_integrity`; or `outputs` touches safety-critical paths | `strong`       |
-| `outputs` spans 2+ top-level directories, or `deps` has 3+ entries                                             | `standard`     |
-| `tests` non-empty and `outputs` within one top-level directory                                                 | `economy`      |
-| otherwise                                                                                                      | `standard`     |
+| Condition (first match wins)                                                                                            | Suggested tier |
+| ----------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `risk_domains` includes `security`, `privacy`, or `data_integrity`; or `outputs` matches a `safety_critical_paths` glob | `strong`       |
+| `outputs` spans 2+ top-level directories, or `deps` has 3+ entries                                                      | `standard`     |
+| `tests` non-empty and `outputs` within one top-level directory                                                          | `economy`      |
+| otherwise                                                                                                               | `standard`     |
+
+`safety_critical_paths` is a list of gitignore-style globs in
+`config/project.json` (e.g., `["factory/scripts/*", "factory/config/hooks/*"]`). An empty or absent list means the path-match
+rule never fires.
 
 Mismatch disposition: a `strong` suggestion against a lower declared tier
 blocks `dispatch init`. Every other mismatch warns. Both are resolved with
@@ -379,7 +411,11 @@ the agent definition). Budget: 800 normalized tokens, enforced by the script.
 `dispatch escalate <story-id>` succeeds only when: exactly one prior `impl`
 attempt failed, the class is `acceptance_unmet` or `contradictory_evidence`,
 verify-base passed, no scope violation, not already `strong`, and no other
-story in the wave has escalated. One escalation per story, ever.
+story in the same wave has already escalated in this dispatch. One escalation
+per story, ever. The wave escalation slot resets at wave boundaries — a
+story marked `blocked` with `wave_escalation_exhausted` in wave N may
+escalate in wave N+1 if the slot is free and the story's own one-escalation
+limit has not been consumed.
 
 The ledger gains an `attempts` list per story: `session` (`seam`|`impl`),
 `tier`, `failure_class`, `evidence`, `commit_sha`, `normalized_total`.
@@ -407,13 +443,16 @@ one escalation slot. If the seam session fails repeatedly with
 Phase 1:
 
 - `.current_work/` directory layout, added to `.gitignore` by `init-factory`
-- `factory/scripts/dispatch` with all subcommands listed above
+- `factory/scripts/dispatch` with subcommands: `plan`, `init`, `prepare-wave`,
+  `prepare-story`, `mark-dispatched`, `verify-story`, `merge-story`,
+  `mark-blocked`, `mark-failed`, `re-dispatch` (basic: any `failed` or
+  `blocked` story, no class-aware constraints), `close-wave`, `status`
 - `config/project.json`: `test_command` key
 - [implementation-agent.md](../../factory/agents/implementation-agent.md)
   rewritten to call dispatch subcommands
 - [dispatch-contract.md](../../factory/rulebooks/conventions/dispatch-contract.md)
   updated: `prepared` status, script-owned ledger under `.current_work/`,
-  pre-spawn verify-base, `premerge-check --scope`, tier rubric table
+  pre-spawn verify-base, `premerge-check --scope`
 - [branching-policy.md](../../factory/rulebooks/conventions/branching-policy.md)
   updated: verify-base preamble notes script-owned path
 
@@ -421,6 +460,8 @@ Phase 2:
 
 - `factory/scripts/step-guard` — shared enforcement for read, write, Bash,
   and context guards
+- `dispatch clear-manifest --force --worktree <path>` for stale manifest
+  recovery
 - Step manifest schema and lifecycle integrated into `dispatch prepare-wave`
   and `dispatch prepare-story`
 - CLI-specific hook wiring for all four CLIs
@@ -438,9 +479,12 @@ Phase 3:
   `strategy` fields must be annotated before `backlog-lint` validation is
   enabled. This is a rollout prerequisite — Phase 3 stories should include
   a migration task that adds defaults to existing backlogs.
-- Tier rubric in `dispatch plan`, recorded in
+- Tier rubric in `dispatch plan` and `dispatch init` (same code path),
+  recorded in
   [dispatch-contract.md](../../factory/rulebooks/conventions/dispatch-contract.md),
   cited from [planning-agent.md](../../factory/agents/planning-agent.md)
+- `config/project.json`: `safety_critical_paths` key (list of
+  gitignore-style globs for the strong-tier path-match rule)
 - `risk_domains` field on
   [story.md](../../factory/rulebooks/templates/story.md),
   validated by `backlog-lint`
@@ -450,6 +494,9 @@ Phase 3:
   the story's acceptance criteria are expressible as test assertions and
   the implementation path is not obvious from the tests alone; use
   `direct` otherwise
+- Class-aware constraints on `dispatch re-dispatch`: `acceptance_unmet` and
+  `contradictory_evidence` require prior escalation;
+  `contract_violation` terminal after two occurrences
 - Seven-part handoff contract from `prepare-wave`/`prepare-story`, with
   800-token budget gate
 - Failure-class vocabulary on `dispatch mark-failed`
@@ -467,7 +514,9 @@ Phase 3:
   — it may allow inputs that exceed the budget, never block inputs that
   fit; acceptable for ASCII-dominant codebases)
 - Step-level cost reporting or dashboards
-- Retry/resume logic within the dispatch script
+- Retry/resume logic within the dispatch script (automatic re-run of a
+  failed subcommand from its interrupted point within the same attempt;
+  distinct from `re-dispatch`, which starts a new attempt)
 - CI/CD integration
 - Parallelism within the dispatch script itself
 - Migration of the research-orchestrator to use the dispatch script
@@ -518,6 +567,33 @@ proposal.
 before Phase 3 has no `attempts` key; `dispatch escalate` treats absence as
 zero attempts and refuses to escalate.
 
+**Abort signal.** Every dispatch subcommand accepts an optional abort signal
+parameter. When the signal fires, the subcommand stops at the next safe
+point (after a ledger write commits or before the next begins) and leaves
+the ledger reflecting only completed work. When the signal is absent or not
+provided, the subcommand runs to completion normally — callees never assume
+the signal exists.
+
+**Plan/init tier evaluation.** `dispatch plan` and `dispatch init` evaluate
+the tier rubric through the same code path. `plan` is informational — it
+shows the suggestion so the operator can review before committing.
+`init` is authoritative — it gates on mismatches. If stories change between
+`plan` and `init`, the `init` evaluation governs.
+
+**Re-dispatch vs. retry.** Re-dispatch (`dispatch re-dispatch`) returns a
+story to `prepared` and runs the full lifecycle again from branch
+re-preparation. It is in scope. Retry/resume logic — automatically
+re-running a failed subcommand from its interrupted point within the same
+attempt — is deferred.
+
+**Scripts validate, LLM sequences.** The dispatch script owns state
+transitions and validates preconditions. The LLM (implementation-agent)
+sequences the script calls: prepare, mark-dispatched, verify, merge. This
+division is intentional for Phase 1 — a fully automated orchestrator that
+drives the playbook without human intervention is explicitly deferred. The
+current design reduces the LLM's role to sequencing validated steps rather
+than performing both orchestration and validation.
+
 ## Open Questions
 
 None remaining.
@@ -530,6 +606,9 @@ None remaining.
   and file overlaps.
 - `dispatch init` creates feature branch, worktree, and ledger atomically;
   exits non-zero on untracked target directories unless `--baseline-commit`.
+- `dispatch init --feature-branch` initializes the ledger on an existing
+  branch without creating a new one; exits non-zero if the branch does not
+  exist or is unreachable from `--base`.
 - `dispatch init` and `dispatch merge-story` exit non-zero when
   `config/project.json` lacks a usable `test_command`.
 - `dispatch prepare-wave` exits non-zero when prior wave has non-terminal
