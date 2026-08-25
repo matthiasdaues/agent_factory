@@ -52,6 +52,18 @@ See [UC-03](../use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md).
 
 See [UC-04](../use_cases/UC-04-dispatch-an-agent-via-trigger.md).
 
+## `factory/scripts/dispatch`
+
+|               |                                                                                                                                                                                                                                                                                   |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage         | `dispatch mark-dispatching <story-id>`<br>`dispatch mark-dispatched <story-id>`<br>`dispatch mark-blocked <story-id> --reason <text>`<br>`dispatch mark-failed <story-id> [--class CLASS] [--evidence PATH]`<br>`dispatch re-dispatch <story-id>`<br>`dispatch close-wave <wave>` |
+| Reads         | `.agent-factory/dispatch-ledger.yaml` (or `--ledger`)                                                                                                                                                                                                                             |
+| Writes        | The ledger, on successful state transitions that change a story entry                                                                                                                                                                                                             |
+| Exit code     | `0` on success or idempotent no-op; `1` on missing ledger, malformed ledger, missing story, or invalid transition                                                                                                                                                                 |
+| stdout/stderr | Human-readable error to stderr on refusal; no structured output required                                                                                                                                                                                                          |
+
+All subcommands are thin wrappers around the ledger state machine. `mark-failed` accepts `--class` and `--evidence` for CLI compatibility, but Phase 1 only applies the state transition. `close-wave` succeeds only when every story in the requested wave is terminal.
+
 ## `factory/scripts/index-lint`
 
 |           |                                                                                                                                        |
@@ -172,11 +184,15 @@ All stories must have YAML frontmatter with the following fields:
 
 #### Optional fields
 
-| Field    | Type             | Notes                                                                                           |
-| -------- | ---------------- | ----------------------------------------------------------------------------------------------- |
-| `deps`   | array of strings | Story IDs that must complete first; must match pattern `ST-\d{4,}`                              |
-| `traces` | array of strings | Use Case / ADR / component IDs this story implements                                            |
-| `tests`  | array of strings | Pre-existing test file paths covering acceptance criteria; missing files generate warnings only |
+| Field          | Type             | Notes                                                                                              |
+| -------------- | ---------------- | -------------------------------------------------------------------------------------------------- |
+| `deps`         | array of strings | Story IDs that must complete first; must match pattern `ST-\d{4,}`                                 |
+| `traces`       | array of strings | Use Case / ADR / component IDs this story implements                                               |
+| `tests`        | array of strings | Pre-existing test file paths covering acceptance criteria; missing files generate warnings only    |
+| `risk_domains` | array of strings | Closed enum: `security`, `privacy`, `data_integrity`, `compatibility`, `reliability`, `operations` |
+| `strategy`     | string           | Closed enum: `direct`, `seams-first`; defaults to `direct` when absent                             |
+| `seam_outputs` | array of strings | Optional seams-first test outputs; validated only when present                                     |
+| `impl_outputs` | array of strings | Optional seams-first implementation outputs; validated only when present                           |
 
 ### Validation rules
 
@@ -186,6 +202,9 @@ All stories must have YAML frontmatter with the following fields:
 - `outputs` globs are matched relative to the project root; when status is `done`, at least one glob must match an existing file
 - `deps` referential integrity: listed story IDs must exist (warning if missing); no circular dependencies allowed (error)
 - `tests` files are checked for existence; missing files produce `BL-FILE` warnings (not errors — tests may be written after planning)
+- `risk_domains` and `strategy` are closed enums; unknown values produce `BL-ENUM` errors
+- `seam_outputs` and `impl_outputs` are optional arrays of strings; when both are present, they must not share any path
+- `strategy: seams-first` requires `seam_outputs ∪ impl_outputs == outputs`
 - Machine field names (`tier`, `deps`, `traces`, `outputs`) must not appear as prose headings or bold terms in the story body
 
 ## `factory/scripts/charter-lint`

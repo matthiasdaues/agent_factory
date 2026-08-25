@@ -27,7 +27,7 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from dispatch_lib import Ledger, StoryEntry, compute_wave_plan, load_stories  # noqa: E402
+from dispatch_lib import Ledger, StoryEntry, StoryState, TransitionError, compute_wave_plan, load_stories  # noqa: E402
 
 import json
 import subprocess
@@ -205,6 +205,84 @@ def cmd_not_implemented(args: argparse.Namespace) -> int:
     return 1
 
 
+def _load_ledger(ledger_path: Path) -> Ledger | None:
+    """Load a ledger and report user-facing errors."""
+    try:
+        return Ledger.load(ledger_path)
+    except FileNotFoundError:
+        print(f"error: ledger not found: {ledger_path}", file=sys.stderr)
+    except Exception as e:
+        print(f"error: malformed ledger: {e}", file=sys.stderr)
+    return None
+
+
+def _save_ledger(ledger: Ledger, ledger_path: Path) -> int:
+    """Persist a ledger, returning a shell-style status code."""
+    try:
+        ledger.save(ledger_path)
+    except Exception as e:
+        print(f"error: failed to save ledger: {e}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def _transition(
+    args: argparse.Namespace,
+    target: StoryState,
+    *,
+    reason: str | None = None,
+) -> int:
+    ledger_path = Path(args.ledger)
+    ledger = _load_ledger(ledger_path)
+    if ledger is None:
+        return 1
+    current_status = ledger.stories.get(args.story_id).status if args.story_id in ledger.stories else None
+    try:
+        ledger.transition(args.story_id, target)
+    except KeyError:
+        print(f"error: story not found: {args.story_id}", file=sys.stderr)
+        return 1
+    except TransitionError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    if reason is not None and current_status != target:
+        ledger.stories[args.story_id].reason = reason
+    return _save_ledger(ledger, ledger_path)
+
+
+def cmd_mark_dispatching(args: argparse.Namespace) -> int:
+    return _transition(args, StoryState.DISPATCHING)
+
+
+def cmd_mark_dispatched(args: argparse.Namespace) -> int:
+    return _transition(args, StoryState.DISPATCHED)
+
+
+def cmd_mark_blocked(args: argparse.Namespace) -> int:
+    return _transition(args, StoryState.BLOCKED, reason=args.reason)
+
+
+def cmd_mark_failed(args: argparse.Namespace) -> int:
+    return _transition(args, StoryState.FAILED)
+
+
+def cmd_re_dispatch(args: argparse.Namespace) -> int:
+    return _transition(args, StoryState.PREPARED)
+
+
+def cmd_close_wave(args: argparse.Namespace) -> int:
+    ledger_path = Path(args.ledger)
+    ledger = _load_ledger(ledger_path)
+    if ledger is None:
+        return 1
+    wave = args.wave
+    stories_in_wave = [entry for entry in ledger.stories.values() if entry.wave == wave]
+    if not all(entry.status in {StoryState.DONE, StoryState.FAILED, StoryState.BLOCKED} for entry in stories_in_wave):
+        print(f"error: wave {wave} still has non-terminal stories", file=sys.stderr)
+        return 1
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="dispatch",
@@ -249,8 +327,11 @@ def main(argv: list[str] | None = None) -> int:
 
     p_mf = sub.add_parser("mark-failed", help="mark story as failed")
     p_mf.add_argument("story_id")
-    p_mf.add_argument("--class", dest="failure_class", required=True)
-    p_mf.add_argument("--evidence", required=True)
+    p_mf.add_argument("--class", dest="failure_class")
+    p_mf.add_argument("--evidence")
+
+    p_rd = sub.add_parser("re-dispatch", help="return story to prepared")
+    p_rd.add_argument("story_id")
 
     p_vs = sub.add_parser("verify-story", help="verify a story's commit SHA")
     p_vs.add_argument("story_id")
@@ -271,6 +352,18 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_init(args)
     if args.subcommand == "plan":
         return cmd_plan(args)
+    if args.subcommand == "mark-dispatching":
+        return cmd_mark_dispatching(args)
+    if args.subcommand == "mark-dispatched":
+        return cmd_mark_dispatched(args)
+    if args.subcommand == "mark-blocked":
+        return cmd_mark_blocked(args)
+    if args.subcommand == "mark-failed":
+        return cmd_mark_failed(args)
+    if args.subcommand == "re-dispatch":
+        return cmd_re_dispatch(args)
+    if args.subcommand == "close-wave":
+        return cmd_close_wave(args)
     return cmd_not_implemented(args)
 
 
