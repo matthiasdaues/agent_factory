@@ -162,16 +162,16 @@ Feature: Wave Planning
 
 ```gherkin
 Feature: Dispatch Initialization
-  dispatch init creates the invocation branch, worktree, and ledger.
+  dispatch init creates the feature branch, worktree, and ledger.
   It is the entry point for a new dispatch run.
 
-  Scenario: Atomic creation of invocation branch, worktree, and ledger
+  Scenario: Atomic creation of feature branch, worktree, and ledger
     Given the base branch exists and is clean
     And config/project.json contains a valid test_command
     When the operator runs dispatch init --base dev --stories ST-001,ST-002
-    Then an invocation branch is created from the base branch tip
-    And a worktree is created under .agent-factory/worktrees/
-    And a dispatch ledger is initialized at .agent-factory/dispatch-ledger.yaml
+    Then a feature branch is created from the base branch tip
+    And a worktree is created for the feature branch
+    And a dispatch ledger is initialized at .current_work/<feature-branch>/dispatch-ledger.yaml
     And all named stories are recorded as pending
 
   Scenario: Untracked target directories block initialization
@@ -185,7 +185,7 @@ Feature: Dispatch Initialization
     Given the base branch has untracked files in target directories
     When the operator runs dispatch init --baseline-commit
     Then a baseline commit is created on the base branch
-    And the invocation branch is cut from the baseline commit
+    And the feature branch is cut from the baseline commit
 
   Scenario: Missing test_command blocks initialization
     Given config/project.json does not contain a test_command key
@@ -223,8 +223,8 @@ Feature: Wave Lifecycle
     Given wave 1 is fully terminal
     And wave 2 contains parallel-safe stories ST-003 and ST-004
     When the operator runs dispatch prepare-wave 2
-    Then each story gets a feature branch from the invocation branch tip
-    And each gets a worktree under .agent-factory/worktrees/
+    Then each story gets a story branch from the feature branch tip
+    And each gets a story worktree
     And the branch-to-worktree mapping is verified via git worktree list --porcelain
     And verify-base passes for each branch
     And a step manifest is written to each worktree
@@ -236,10 +236,10 @@ Feature: Wave Lifecycle
     Then ST-005 is prepared with a branch, worktree, and manifest
     And ST-006 remains pending
 
-  Scenario: Step manifest is written to the worktree's .agent-factory path
+  Scenario: Step manifest is written to the story worktree
     Given ST-003 is being prepared
     When prepare-wave writes the step manifest
-    Then the manifest exists at .agent-factory/worktrees/<branch>/current-step.yml
+    Then the manifest exists at .current_work/<feature-branch>/<story-branch>/current-step.yml
     And it contains the story's inputs, outputs, and max_input_tokens
 
   Scenario: All stories terminal allows wave closure
@@ -265,7 +265,7 @@ Feature: Story Lifecycle
   Scenario: Chain link is prepared after predecessor is done
     Given ST-005 is done and ST-006 depends on ST-005
     When the operator runs dispatch prepare-story ST-006
-    Then ST-006's feature branch is cut from ST-005's merge commit
+    Then ST-006's story branch is cut from ST-005's merge commit
     And verify-base runs against that merge commit
     And ST-006 is recorded as prepared
 
@@ -311,7 +311,7 @@ Feature: Story Lifecycle
 
   Scenario: Valid SHA on correct branch passes verification
     Given ST-003 reports a 40-character commit SHA
-    And that SHA exists and is on ST-003's feature branch
+    And that SHA exists and is on ST-003's story branch
     When the operator runs dispatch verify-story ST-003 --sha <sha>
     Then the ledger records the verified SHA
 
@@ -321,33 +321,33 @@ Feature: Story Lifecycle
     Then dispatch exits non-zero
 
   Scenario: SHA on wrong branch is rejected
-    Given the SHA exists but is not on ST-003's feature branch
+    Given the SHA exists but is not on ST-003's story branch
     When the operator runs dispatch verify-story ST-003 --sha <sha>
     Then dispatch exits non-zero
 
   # --- merge-story ---
 
   Scenario: Successful merge with green test suite
-    Given ST-003 is verified and its feature branch is clean
+    Given ST-003 is verified and its story branch is clean
     When the operator runs dispatch merge-story ST-003
     Then premerge-check runs with the story's output globs
-    And the feature branch is merged into the invocation branch
+    And the story branch is merged into the feature branch
     And the story status is updated to done in the merge commit
     And the test suite runs and passes
-    And the feature branch and worktree are cleaned up
+    And the story branch and worktree are cleaned up
 
   Scenario: Merge conflict aborts and marks blocked
-    Given ST-003's feature branch conflicts with the invocation branch
+    Given ST-003's story branch conflicts with the feature branch
     When the operator runs dispatch merge-story ST-003
     Then the merge is aborted via git merge --abort
     And ST-003 is marked blocked with reason "merge conflict"
 
   Scenario: Red test suite reverts the merge and marks blocked
-    Given ST-003's feature branch merges cleanly
+    Given ST-003's story branch merges cleanly
     But the test suite fails after the merge commit
     When dispatch merge-story runs the test suite
-    Then the merge commit is reverted on the invocation branch
-    And the invocation branch is restored to its pre-merge state
+    Then the merge commit is reverted on the feature branch
+    And the feature branch is restored to its pre-merge state
     And ST-003 is marked blocked with reason "post-merge test failure"
     And dispatch exits non-zero
 
@@ -356,6 +356,15 @@ Feature: Story Lifecycle
     When dispatch merge-story invokes premerge-check
     Then premerge-check receives the output globs via --scope-glob
     And evaluates changed files using gitignore-style glob semantics
+
+  Scenario: Dry-run reports premerge-check result without merging
+    Given ST-003's story branch is ready to merge
+    When the operator runs dispatch merge-story ST-003 --dry-run
+    Then premerge-check runs and its result is reported
+    And no merge commit is created
+    And the ledger is not modified
+    And the worktree and branch are not cleaned up
+    And exit code is zero if premerge-check passes, non-zero if it fails
 
   # --- mark-blocked ---
 
@@ -499,12 +508,12 @@ ______________________________________________________________________
 Feature: Step Manifest Lifecycle
   The step manifest controls tool-call enforcement for one step agent
   in one worktree. Its presence activates guards; its absence deactivates
-  them. It lives at .agent-factory/worktrees/<branch>/current-step.yml.
+  them. It lives at .current_work/<feature-branch>/<story-branch>/current-step.yml.
 
   Scenario: Manifest is written with story declarations
     Given ST-003 has inputs, outputs, and max_input_tokens declared
     When prepare-wave writes the step manifest
-    Then .agent-factory/worktrees/<branch>/current-step.yml exists
+    Then .current_work/<feature-branch>/<story-branch>/current-step.yml exists
     And it contains the story's inputs, outputs, and max_input_tokens
     And it contains schema_version, step name, playbook, and phase
 
@@ -554,7 +563,7 @@ Feature: Read Guard
     Given the manifest declares inputs ["docs/spec/prd.md"] only
     When the agent issues a Read for factory/rulebooks/rules.md
     Then the read is allowed
-    # Always-allowed read prefixes: factory/, .claude/, .github/, .pi/, .codex/, .agent-factory/
+    # Always-allowed read prefixes: factory/, .claude/, .github/, .pi/, .codex/, .current_work/
 
   Scenario: File outside declared inputs and allowed prefixes is denied
     Given the manifest declares inputs ["docs/spec/prd.md"]
@@ -587,19 +596,19 @@ Feature: Write Guard
 
   Scenario: Gate markers are always allowed
     Given any step manifest is active
-    When the agent issues a Write for .agent-factory/verify-base-ok
+    When the agent issues a Write for .current_work/verify-base-ok
     Then the write is allowed
-    When the agent issues a Write for .agent-factory/premerge-check-ok
+    When the agent issues a Write for .current_work/premerge-check-ok
     Then the write is allowed
 
   Scenario: Dispatch ledger is always denied to step agents
     Given any step manifest is active
-    When the agent issues a Write for .agent-factory/dispatch-ledger.yaml
+    When the agent issues a Write for .current_work/<feature-branch>/dispatch-ledger.yaml
     Then the write is denied
 
   Scenario: Step manifest file is always denied to step agents
     Given any step manifest is active
-    When the agent issues a Write for any current-step.yml under .agent-factory/worktrees/
+    When the agent issues a Write for any current-step.yml under .current_work/
     Then the write is denied
 
   Scenario: File outside declared outputs and allowed paths is denied
@@ -670,7 +679,7 @@ Feature: Context Guard
 
 ______________________________________________________________________
 
-## Bounded Context 3: Cost-Aware Delegation
+## Bounded Context 3: Tier-Aware Delegation
 
 ### Feature: Tier Rubric
 
@@ -746,7 +755,7 @@ Feature: Subagent Handoff Contract
     Given a story is being prepared
     When the handoff contract is generated
     Then Part 1 contains Outcome: story ID, title, path to acceptance criteria
-    And Part 2 contains Workspace: worktree path, feature branch
+    And Part 2 contains Workspace: worktree path, story branch
     And Part 3 contains Allowed writes: story output globs, verbatim
     And Part 4 contains Forbidden actions: merge, push, branch creation, ledger writes, hook bypass
     And Part 5 contains Required checks: test_command from config/project.json
@@ -914,7 +923,7 @@ Feature: Ledger Integrity
 
   Scenario: Write guard denies LLM writes to the ledger
     Given a step agent is executing in a worktree with an active manifest
-    When the agent attempts to write .agent-factory/dispatch-ledger.yaml
+    When the agent attempts to write .current_work/<feature-branch>/dispatch-ledger.yaml
     Then the write guard denies the write
 
   Scenario: Pre-Phase-3 ledger without attempts key
@@ -1013,7 +1022,7 @@ Feature: Verification Immutability
     Then no working-tree file has been added, removed, or modified by the command
 
   Scenario: premerge-check within merge-story does not stage files
-    Given a feature branch with changes ready to merge
+    Given a story branch with changes ready to merge
     When dispatch merge-story invokes premerge-check
     Then premerge-check does not run git add, git checkout, or git reset
     And the index is unchanged after premerge-check returns
@@ -1033,8 +1042,8 @@ Each decision below resolves an open finding from the adversarial review of the 
 | Finding   | Summary                                            | Resolution                                                                                                                                                                 | Scenario                                                             |
 | --------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | PROP-0005 | Phantom dependency on `factory/scripts/validate`   | Part 5 of the handoff contract references only `test_command`. The validate skill is the agent's own responsibility per its agent definition, not a script-enforced check. | Subagent Handoff Contract: "Seven-part contract is generated"        |
-| PROP-0006 | Write guard allows `.agent-factory/` too broadly   | Write guard allows only gate markers (`verify-base-ok`, `premerge-check-ok`) and `docs/findings/*`. Denies `dispatch-ledger.yaml` and `current-step.yml` explicitly.       | Write Guard: "Dispatch ledger is always denied"                      |
-| PROP-0007 | Post-merge test failure leaves branch polluted     | `merge-story` reverts the merge commit on red suite before marking blocked. Invocation branch is restored to pre-merge state.                                              | Story Lifecycle: "Red test suite reverts the merge"                  |
+| PROP-0006 | Write guard allows `.current_work/` too broadly    | Write guard allows only gate markers (`verify-base-ok`, `premerge-check-ok`) and `docs/findings/*`. Denies `dispatch-ledger.yaml` and `current-step.yml` explicitly.       | Write Guard: "Dispatch ledger is always denied"                      |
+| PROP-0007 | Post-merge test failure leaves branch polluted     | `merge-story` reverts the merge commit on red suite before marking blocked. Feature branch is restored to pre-merge state.                                                 | Story Lifecycle: "Red test suite reverts the merge"                  |
 | PROP-0008 | One-escalation-per-wave, no disposition for second | Second qualifying failure in the same wave is marked blocked with reason `wave_escalation_exhausted`, eligible in a subsequent dispatch.                                   | Evidence-Gated Escalation: "Second qualifying failure in wave"       |
 | PROP-0009 | File-overlap algorithm unspecified                 | Expand output globs against the working tree to concrete file sets and intersect. Zero-match globs fall back to their literal directory prefix (conservative).             | Wave Planning: "File overlap is computed by expanding globs"         |
 | PROP-0010 | Glob vs. prefix mismatch in premerge-check         | `premerge-check` gains `--scope-glob` using the same gitignore-style matching as `step-guard`. `merge-story` passes raw output globs.                                      | Glob Matching Consistency: "`premerge-check` accepts `--scope-glob`" |

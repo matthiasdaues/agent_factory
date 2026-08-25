@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: "Artifact Pipeline Discipline"
-status: draft
+status: superseded
 owner: agent-factory
 created: 2026-08-17
 updated: 2026-08-19
@@ -244,7 +244,7 @@ variable expansion, subshells, or obfuscated paths. It handles the common
 patterns that account for the vast majority of agent tool calls. The context
 guard at spawn is the hard cap — the Bash guard is defense-in-depth. This
 follows the precedent of
-[`block-dangerous-git.sh`](../../factory/config/hooks/block-dangerous-git.sh),
+[`block-dangerous-git.sh`](../../../factory/config/hooks/block-dangerous-git.sh),
 which already parses `Bash` commands by pattern matching rather than full shell
 interpretation.
 
@@ -272,7 +272,7 @@ exists at the target path. If it does, the write is refused with an error
 naming the existing step and the target path. The orchestrator must remove the
 old manifest (after the prior agent completes) before writing a new one. This
 turns the existing MUST NOT in
-[rules.md § Dispatch](../../factory/rulebooks/rules.md#dispatch) ("MUST NOT
+[rules.md § Dispatch](../../../factory/rulebooks/rules.md#dispatch) ("MUST NOT
 launch a new agent for the same role while a prior instance is still running")
 into a mechanical gate.
 
@@ -293,14 +293,14 @@ script:
 | Pi                 | `Read`, `Edit`, `Write`, `Bash` | Extension API `args` field | `.pi/extensions/step-guard.ts` | TypeScript wrapper |
 
 This follows the established pattern of
-[`block-dangerous-git.sh`](../../factory/config/hooks/block-dangerous-git.sh),
+[`block-dangerous-git.sh`](../../../factory/config/hooks/block-dangerous-git.sh),
 which already normalizes across Claude Code, Copilot CLI, and Codex using a
 `jq` expression that tries each CLI's field path.
 
 Pi requires a TypeScript extension because its `pre_tool_use` surface is an
 extension API, not a shell hook. The extension calls the shared script via
 `execFileSync`, identical to how
-[`block-dangerous-git.ts`](../../factory/config/extensions/block-dangerous-git.ts)
+[`block-dangerous-git.ts`](../../../factory/config/extensions/block-dangerous-git.ts)
 delegates to its shell counterpart.
 
 ### Playbook step declarations
@@ -470,18 +470,18 @@ pipeline model alone, before any other optimization.
   - GitHub Copilot CLI: hook files in `.github/hooks/` for the same matchers.
   - Pi: `step-guard.ts` extension in `.pi/extensions/`.
 - Step declarations for the
-  [`feature-addition`](../../factory/playbooks/feature-addition.md) playbook
+  [`feature-addition`](../../../factory/playbooks/feature-addition.md) playbook
   (the reference implementation).
-- Updated [`feature-addition.md`](../../factory/playbooks/feature-addition.md)
+- Updated [`feature-addition.md`](../../../factory/playbooks/feature-addition.md)
   with `steps:` block.
-- Updated [`rules.md`](../../factory/rulebooks/rules.md) with step-boundary
+- Updated [`rules.md`](../../../factory/rulebooks/rules.md) with step-boundary
   rules.
 - Updated
-  [`dispatch-contract.md`](../../factory/rulebooks/conventions/dispatch-contract.md)
+  [`dispatch-contract.md`](../../../factory/rulebooks/conventions/dispatch-contract.md)
   with manifest and guard conventions.
-- Updated [`init-factory`](../../factory/scripts/init-factory) to install the
+- Updated [`init-factory`](../../../factory/scripts/init-factory) to install the
   step-guard wiring alongside existing hooks.
-- Updated [`factory-guide.md`](../../factory/docs/factory-guide.md) with
+- Updated [`factory-guide.md`](../../../factory/docs/factory-guide.md) with
   pipeline discipline documentation.
 - Epic-0 spike story verifying the GitHub Copilot CLI `pre_tool_use` event
   surface for `Read`/`Edit`/`Write` matchers (currently unverified — recorded
@@ -559,9 +559,9 @@ All resolved — no open questions remain.
 - All four CLIs (Claude Code, Codex, GitHub Copilot CLI, Pi) wire the step
   guard into their native `PreToolUse` event surfaces for `Read`, `Edit`,
   `Write`, and `Bash` matchers.
-- [`init-factory`](../../factory/scripts/init-factory) installs the step-guard
+- [`init-factory`](../../../factory/scripts/init-factory) installs the step-guard
   wiring alongside existing hooks.
-- The [`feature-addition`](../../factory/playbooks/feature-addition.md) playbook
+- The [`feature-addition`](../../../factory/playbooks/feature-addition.md) playbook
   has a complete `steps:` block covering all phases.
 - A step agent is blocked from reading project files outside its declared inputs
   via `Read` tool calls (verified by test). Factory machinery under `factory/`,

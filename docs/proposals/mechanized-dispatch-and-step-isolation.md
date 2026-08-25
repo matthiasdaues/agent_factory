@@ -4,7 +4,7 @@ title: Mechanized Dispatch and Step Isolation
 status: accepted
 owner: md@matthiasdaues.de
 created: 2026-08-21
-updated: 2026-08-21
+updated: 2026-08-26
 supersedes:
   - docs/proposals/mechanize-dispatch-orchestration.md
   - docs/proposals/artifact-pipeline-discipline.md
@@ -36,6 +36,7 @@ impact:
     - .codex/hooks.json
     - .github/hooks/
     - .pi/extensions/
+    - .gitignore
 
 governance:
   assurance: high
@@ -69,7 +70,7 @@ Move all deterministic orchestration work — git state management, file-access
 enforcement, tier selection, prompt composition, and failure handling — out of
 LLM judgment and into scripts and hooks. Three implementation phases build on
 each other: (1) a dispatch script that owns the full story lifecycle,
-(2) per-step file-access guards enforced by hooks, and (3) a cost-aware
+(2) per-step file-access guards enforced by hooks, and (3) a tier-aware
 delegation procedure with evidence-gated escalation.
 
 ## Motivation
@@ -106,10 +107,49 @@ themselves.
 - File-access enforcement is layered: deterministic for `Read`/`Edit`/`Write`
   tool calls, best-effort for `Bash`, hard-capped by input-size guard at spawn.
   The bound targets project artifacts, not Factory machinery.
-- Missing context is a handoff defect, not a capability defect. Only two of
-  seven failure classes may raise the model tier.
+- Missing context is a handoff defect, not a capability defect. Five of
+  seven failure classes (context_missing, contract_violation, environment,
+  spend_death, seam_defect) are handoff or environment defects and never
+  raise the model tier. Only `acceptance_unmet` and
+  `contradictory_evidence` may escalate — they are proxies for a possible
+  capability gap, not proof of one. The escalation is a bounded bet:
+  one tier, once, with evidence.
 - One manifest per working directory, one agent per manifest, one escalation
   per story, one escalation per wave.
+
+## Working Directory: `.current_work/`
+
+All ephemeral dispatch state lives under `.current_work/`, gitignored in its
+entirety. This directory is runtime state — never committed, never shared
+across clones.
+
+All dispatch state is namespaced by feature branch, with per-story
+subdirectories:
+
+```
+.current_work/
+  <feature-branch>/
+    dispatch-ledger.yaml
+    <story-branch>/
+      current-step.yml
+```
+
+Each `dispatch init` creates a namespace keyed by the feature branch name. Two
+concurrent feature-addition runs on different feature branches write to
+separate subdirectories — no locking, no collision, no merge conflict on the
+ledger.
+
+`dispatch status` without arguments detects the current feature branch and
+reads the matching ledger. With `--all`, it lists every active dispatch.
+
+The durable record is git itself: branches, merges, story-file status fields,
+and commit messages. The ledger is a convenient index that `dispatch` maintains
+for its own bookkeeping. If lost (crashed session, deleted `.current_work/`),
+the script can reconstruct terminal states from the branch and merge history;
+non-terminal states require re-preparation.
+
+`dispatch close-wave` and the final merge clean up the namespace directory.
+`.current_work/` is added to `.gitignore` by `init-factory`.
 
 ## Design
 
@@ -117,7 +157,8 @@ themselves.
 
 A single `factory/scripts/dispatch` script (Python, stdlib only) with
 subcommands covering the full story lifecycle. Each subcommand is atomic and
-idempotent: it does its work, updates the ledger, and commits.
+idempotent: it does its work, updates the ledger, and writes any durable
+state changes to git.
 
 #### Subcommands
 
@@ -128,19 +169,19 @@ chains, model tier per story, and a suggested tier from the rubric (Phase 3).
 No state changes.
 
 **`dispatch init --base <branch> --stories ST-0074,...`**
-Create invocation branch and worktree. Initialize the dispatch ledger at
-`.agent-factory/dispatch-ledger.yaml`. Preflight `test_command` in
-`config/project.json`. Exit non-zero on untracked target directories unless
-`--baseline-commit` is given (creates an explicit baseline commit on the base
-branch before the invocation branch is cut).
+Create the feature branch from `--base` and initialize the dispatch ledger at
+`.current_work/<feature-branch>/dispatch-ledger.yaml`. Preflight
+`test_command` in `config/project.json`. Exit non-zero on untracked target
+directories unless `--baseline-commit` is given (creates an explicit baseline
+commit on the base branch before the feature branch is cut).
 
 **`dispatch prepare-wave <N>`**
 Verify all stories in waves < N are terminal (mechanical wave gate). For each
-story being prepared: create feature branch and worktree, verify the mapping
-with `git worktree list --porcelain`, run
-`factory/scripts/verify-base <invocation-branch> --expect-base <sha>`, write
+story being prepared: create story branch and worktree off the feature branch,
+verify the mapping with `git worktree list --porcelain`, run
+`factory/scripts/verify-base <feature-branch> --expect-base <sha>`, write
 the step manifest (Phase 2), and record `prepared` in the ledger. Parallel-safe
-stories and serial-chain heads are prepared from the invocation branch tip;
+stories and serial-chain heads are prepared from the feature branch tip;
 chain links stay `pending`.
 
 **`dispatch prepare-story <story-id>`**
@@ -156,20 +197,23 @@ SHA verification: `git cat-file -e`, `git branch --contains`. Update ledger.
 `premerge-check` is deliberately not here — it runs inside `merge-story`,
 paired with its own merge.
 
-**`dispatch merge-story <story-id>`**
-In the invocation-branch worktree: run
+**`dispatch merge-story <story-id> [--dry-run]`**
+In the feature-branch worktree: run
 `premerge-check --scope <output-glob>` (scopes derived from the story's
 `outputs`), immediately merge, update story status to `done` in the merge
 commit, run the test suite (`test_command` from `config/project.json`), clean
 up worktree and branch. On merge conflict: `git merge --abort`, mark blocked.
 On red suite: mark `blocked` with `post-merge test failure`, exit non-zero.
+With `--dry-run`: run `premerge-check` and report its result without merging,
+modifying the ledger, or cleaning up. Exit zero if the merge would proceed,
+non-zero if `premerge-check` fails.
 
 **`dispatch mark-blocked <story-id> --reason <text>`**
 Record a blocking condition (human decision, free text).
 
 **`dispatch mark-failed <story-id> --class <class> --evidence <path>`**
 Record a classified failure. `--class` accepts only the seven-value vocabulary
-(see [Phase 3](#phase-3--cost-aware-delegation)). `--evidence` requires a
+(see [Phase 3](#phase-3--tier-aware-delegation)). `--evidence` requires a
 tracked artifact path.
 
 **`dispatch close-wave <N>`**
@@ -201,9 +245,9 @@ boundary.
 #### Step manifest
 
 `prepare-wave` and `prepare-story` write a YAML manifest at
-`.agent-factory/worktrees/<branch>/current-step.yml` (resolved via
-`git rev-parse --show-toplevel`, so each worktree gets its own). The manifest
-is git-ignored — local runtime state, never committed.
+`.current_work/<feature-branch>/<story-branch>/current-step.yml`.
+The manifest is local runtime state inside the gitignored `.current_work/`
+tree, never committed.
 
 ```yaml
 schema_version: 1
@@ -235,10 +279,10 @@ adapters normalize tool input before calling it, following the pattern of
 
 **Read guard** (`PreToolUse` on `Read`): file path must match a declared
 `inputs` glob or an always-allowed prefix. Always-allowed: `factory/`,
-`.claude/`, `.github/`, `.pi/`, `.codex/`, `.agent-factory/`.
+`.claude/`, `.github/`, `.pi/`, `.codex/`, `.current_work/`.
 
 **Write guard** (`PreToolUse` on `Edit`, `Write`): file path must match a
-declared `outputs` glob. Always-allowed writes: `.agent-factory/`,
+declared `outputs` glob. Always-allowed writes: `.current_work/`,
 `docs/findings/*`.
 
 **Bash guard** (`PreToolUse` on `Bash`): best-effort path extraction from
@@ -267,10 +311,14 @@ outputs, and context cap. The `dispatch` script reads these when writing the
 manifest for non-dispatch steps. For dispatch steps, the story's `outputs`
 and `tests` fields serve the same purpose.
 
-### Phase 3 — Cost-aware delegation
+### Phase 3 — Tier-aware delegation
 
 Three mechanisms that extend `dispatch` with tier selection, prompt
-composition, and failure handling.
+composition, and failure handling. The mechanisms are tier-aware with
+retrospective measurement — they select and enforce model tiers, they do
+not set or enforce per-story token budgets or cost caps. Cost reduction
+is an expected outcome of correct tier assignment, not a direct input to
+routing decisions.
 
 #### Tier rubric
 
@@ -299,7 +347,7 @@ parts:
 
 1. **Outcome** — story ID, title, path to acceptance criteria (referenced, not
    inlined)
-2. **Workspace** — worktree path, feature branch
+2. **Workspace** — worktree path, story branch
 3. **Allowed writes** — story `outputs` globs, verbatim
 4. **Forbidden actions** — merge, push, branch creation, ledger writes, hook
    bypass
@@ -346,8 +394,11 @@ strategy: direct | seams-first   # default: direct
 
 `seams-first` runs two sessions: a seam session (declared tier) writes only
 test files, then an implementation session (one tier lower, floored at
-`economy`) makes them pass. A `seam_defect` failure returns to the seam
-session without consuming the implementation session's one escalation.
+`economy`) makes them pass. Escalation counts `impl` attempts only — the
+seam session has no independent escalation budget. A `seam_defect` failure
+returns to the seam session at the same tier without consuming the story's
+one escalation slot. If the seam session fails repeatedly with
+`seam_defect`, the story is blocked for human decision, not escalated.
 
 ## Scope
 
@@ -355,13 +406,14 @@ session without consuming the implementation session's one escalation.
 
 Phase 1:
 
+- `.current_work/` directory layout, added to `.gitignore` by `init-factory`
 - `factory/scripts/dispatch` with all subcommands listed above
 - `config/project.json`: `test_command` key
 - [implementation-agent.md](../../factory/agents/implementation-agent.md)
   rewritten to call dispatch subcommands
 - [dispatch-contract.md](../../factory/rulebooks/conventions/dispatch-contract.md)
-  updated: `prepared` status, script-owned ledger, pre-spawn verify-base,
-  `premerge-check --scope`, tier rubric table
+  updated: `prepared` status, script-owned ledger under `.current_work/`,
+  pre-spawn verify-base, `premerge-check --scope`, tier rubric table
 - [branching-policy.md](../../factory/rulebooks/conventions/branching-policy.md)
   updated: verify-base preamble notes script-owned path
 
@@ -382,6 +434,10 @@ Phase 2:
 
 Phase 3:
 
+- **Backlog migration:** existing stories without `risk_domains` or
+  `strategy` fields must be annotated before `backlog-lint` validation is
+  enabled. This is a rollout prerequisite — Phase 3 stories should include
+  a migration task that adds defaults to existing backlogs.
 - Tier rubric in `dispatch plan`, recorded in
   [dispatch-contract.md](../../factory/rulebooks/conventions/dispatch-contract.md),
   cited from [planning-agent.md](../../factory/agents/planning-agent.md)
@@ -390,7 +446,10 @@ Phase 3:
   validated by `backlog-lint`
 - `strategy` field on
   [story.md](../../factory/rulebooks/templates/story.md),
-  validated by `backlog-lint`
+  validated by `backlog-lint`; selection guidance: use `seams-first` when
+  the story's acceptance criteria are expressible as test assertions and
+  the implementation path is not obvious from the tests alone; use
+  `direct` otherwise
 - Seven-part handoff contract from `prepare-wave`/`prepare-story`, with
   800-token budget gate
 - Failure-class vocabulary on `dispatch mark-failed`
@@ -403,7 +462,10 @@ Phase 3:
 - Step declarations for playbooks other than feature-addition
 - Automated orchestrator that drives the playbook without human intervention
 - Output format validation (schema-checking step output content)
-- Token counting via the fixed tokenizer (context guard uses bytes ÷ 4)
+- Token counting via the fixed tokenizer (context guard uses bytes ÷ 4;
+  this underestimates tokens on non-ASCII text, so the guard is permissive
+  — it may allow inputs that exceed the budget, never block inputs that
+  fit; acceptable for ASCII-dominant codebases)
 - Step-level cost reporting or dashboards
 - Retry/resume logic within the dispatch script
 - CI/CD integration
@@ -414,7 +476,7 @@ Phase 3:
 - Inheriting `risk_domains` from proposals
 - Escalation beyond one tier or second escalation per story
 - Per-wave escalation budget in tokens
-- Cost-aware behavior for dispatchers other than the implementation agent
+- Tier-aware behavior for dispatchers other than the implementation agent
 
 ## Design Details
 
@@ -423,11 +485,19 @@ success is a no-op; re-running after failure resumes from recorded state.
 
 **Script-generated commits.** Follow
 [commit-conventions.md](../../factory/rulebooks/conventions/commit-conventions.md):
-merge commits, ledger commits, status-correction commits, and baseline commits
-each have a defined format.
+merge commits, status-correction commits, and baseline commits each have a
+defined format. The ledger itself is not committed — it is ephemeral state
+under `.current_work/`.
 
-**Crash recovery.** A stale step manifest (agent died without cleanup) blocks
-subsequent writes. `--clear --force` removes it with a warning.
+**Crash recovery.** A stale step manifest under `.current_work/` (agent died
+without cleanup) blocks subsequent writes. `--clear --force` removes it with
+a warning. A missing or corrupt ledger can be partially reconstructed from
+git branch and merge history for terminal states (done, merged branches).
+Non-terminal story states require re-preparation via `dispatch prepare-wave`
+or `dispatch prepare-story`. If both the ledger and the feature branch are
+lost (e.g., `.current_work/` deleted and branch reset), recovery is manual:
+the operator must inspect `git reflog`, identify surviving story branches,
+and re-initialize the dispatch.
 
 **Tier arithmetic.** `economy < standard < strong`. Escalation adds one;
 seams-first implementation subtracts one, floored at `economy`. Saturation at
@@ -450,8 +520,7 @@ zero attempts and refuses to escalate.
 
 ## Open Questions
 
-- Should the dispatch script support `--dry-run` on destructive subcommands
-  (`init`, `merge-story`)?
+None remaining.
 
 ## Completion Criteria
 
@@ -459,7 +528,7 @@ zero attempts and refuses to escalate.
 
 - `dispatch plan` produces a correct wave plan from stories with dependencies
   and file overlaps.
-- `dispatch init` creates invocation branch, worktree, and ledger atomically;
+- `dispatch init` creates feature branch, worktree, and ledger atomically;
   exits non-zero on untracked target directories unless `--baseline-commit`.
 - `dispatch init` and `dispatch merge-story` exit non-zero when
   `config/project.json` lacks a usable `test_command`.
@@ -475,10 +544,12 @@ zero attempts and refuses to escalate.
   `done`; cuts from the predecessor's merge commit with verify-base.
 - `dispatch verify-story` catches missing SHA and wrong-branch failures.
 - `dispatch merge-story` runs `premerge-check --scope` immediately before its
-  own merge, in the invocation-branch worktree.
+  own merge, in the feature-branch worktree.
 - `dispatch merge-story` updates story status in the merge commit and runs the
   full test suite after.
 - `dispatch merge-story` marks `blocked` and exits non-zero on red suite.
+- `dispatch merge-story --dry-run` runs `premerge-check` and reports pass/fail
+  without merging or modifying the ledger.
 - `dispatch mark-blocked`/`mark-failed` close the lifecycle for non-done
   stories.
 - `dispatch close-wave` exits non-zero when any story is non-terminal.
@@ -531,8 +602,17 @@ zero attempts and refuses to escalate.
 - `backlog-lint` rejects `seams-first` when test paths fall outside `outputs`.
 - A `seams-first` story runs two sessions; the implementation session runs one
   tier below.
-- First wave after landing records an A/B comparing `normalized_total` per
-  merged story and rework count.
+- First wave after landing records an A/B comparison:
+  - **Hypothesis:** rubric-assigned tiers produce lower `normalized_total`
+    per merged story and equal or fewer rework attempts than the pre-rubric
+    baseline.
+  - **Control:** the last three dispatches before Phase 3 landing, using
+    human-assigned tiers.
+  - **Minimum sample:** at least 8 merged stories under rubric-assigned
+    tiers before drawing a conclusion.
+  - **Decision trigger:** if rubric-assigned tiers show higher
+    `normalized_total` or more rework than the control, revise the rubric
+    rules before the next dispatch; if equal or better, the rubric stands.
 
 ## Guiding Rule
 
