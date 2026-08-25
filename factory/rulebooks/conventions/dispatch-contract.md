@@ -2,7 +2,7 @@
 title: Dispatch Contract
 category: implementation
 enforcement: dispatch-prompt clause (human/agent-authored discipline) — not mechanically gate-checked
-version: 1.2.0
+version: 1.3.0
 ---
 
 # Dispatch Contract
@@ -84,16 +84,15 @@ Motivating example: the binder-to-OCR research run dispatched ~60–80 research 
 
 ### Verify Sub-Agent Reports Against State
 
-A sub-agent's success report is a claim, not proof. Before treating a dispatched unit of work as done, verify it against observable state — the branch tip and `git log`, the actual test run, and the mechanical gates ([verify-base](branching-policy.md#verify-base-preamble), [premerge-check](branching-policy.md#pre-merge-diff-check)) — never the self-report alone.
+A sub-agent's success report is a claim, not proof. Before treating a dispatched unit of work as done, verify it against observable state — the branch tip and `git log`, the actual test run, and the mechanical gates that the dispatch script owns — never the self-report alone.
 
-For every commit SHA a sub-agent reports, run both checks before proceeding:
+For a mechanized implementation dispatch, the script-enforced checkpoints are:
 
-```bash
-git cat-file -e <sha>^{commit}       # SHA exists as a commit object
-git branch --contains <sha>          # SHA lives on the expected branch
-```
+1. `dispatch prepare-wave` / `dispatch prepare-story` record the declared base SHA and run `verify-base` **before** the developer-agent is spawned.
+2. `dispatch verify-story <story-id> --sha <sha>` confirms the reported commit object exists and belongs to the expected story branch.
+3. `dispatch merge-story <story-id>` runs `premerge-check <target> <branch> --scope ...` immediately before merge, then runs the post-merge test command.
 
-A SHA that fails either check means the sub-agent's report is false or the work landed somewhere unexpected — investigate before merging or closing the story.
+Any failed checkpoint means the report is false or incomplete, or the work landed somewhere unexpected — investigate before merging or closing the story.
 
 ### Do Not Supersede A Running Agent
 
@@ -141,11 +140,12 @@ This eliminates the drift pattern (wave N+1 dispatching against stale state) wit
 
 ### Hard Checkpoint Per Story
 
-Every story in a wave must reach a terminal state — merged commit on the target branch, or an explicit blocked/failed record — before the next wave launches. "Terminal state" means:
+Every story in a wave must reach a terminal state — merged commit on the target branch, or an explicit blocked/failed record — before the next wave launches. `prepared` is the required pre-spawn state: the story branch/worktree exists, the declared base SHA is recorded, the step manifest exists, and the dispatch script already ran `verify-base` successfully. "Terminal state" means:
 
-1. The story's commit SHA is verified on the expected branch (see [Verify Sub-Agent Reports Against State](#verify-sub-agent-reports-against-state)).
-2. `premerge-check` passed and the merge is complete, OR the story is recorded as blocked/failed with a reason.
-3. The story file's `status` field is updated in the same commit that delivers the implementation (for done) or in a dedicated status-update commit (for blocked/failed).
+1. The story reached `dispatched` only after the dispatcher marked the handoff around a real subagent spawn.
+2. The story's reported commit SHA passed `dispatch verify-story`.
+3. `dispatch merge-story` ran `premerge-check --scope ...`, the merge completed, and the post-merge tests passed, OR the story was recorded as blocked/failed with a reason.
+4. The story file's `status` field is updated in the same commit that delivers the implementation (for done) or in a dedicated status-update commit (for blocked/failed).
 
 No new wave may launch while any story from the prior wave is in an unresolved state. This eliminates the drift pattern where later waves dispatch against progressively staler bases.
 
@@ -157,33 +157,33 @@ This ensures the backlog file is always consistent with the repository's actual 
 
 ### Dispatch Ledger
 
-The dispatcher must maintain a machine-readable ledger at `.agent-factory/dispatch-ledger.yaml` tracking every story in the current dispatch. The ledger is committed after each story reaches its terminal state and serves as the authoritative record of what was dispatched, what succeeded, and what failed.
+The dispatcher must maintain a machine-readable ledger at `.current_work/<feature-branch>/dispatch-ledger.yaml` tracking every story in the current dispatch. The ledger is **script-owned runtime state**: agents read it to resume and report, but only `factory/scripts/dispatch` subcommands mutate it. The ledger is committed or refreshed after each story reaches a mechanically observable state transition and serves as the authoritative record of what was prepared, dispatched, merged, blocked, and failed.
 
 Schema:
 
 ```yaml
 invocation_branch: <branch-name>
 branch_root: <40-char SHA>
-branch_head: <40-char SHA>  # updated after each merge
+branch_head: <40-char SHA>  # updated after each merge or wave closeout
 stories:
   - id: <story-id>
     branch: <feature-branch-name>
     worktree: <worktree-path>
     declared_base: <40-char SHA>
-    verify_base: pass | fail
+    verify_base: pass | fail | pending
     premerge_check: pass | fail | pending
     commit_sha: <40-char SHA or null>
     merge_sha: <40-char SHA or null>
-    status: dispatched | done | blocked | failed
+    status: pending | prepared | dispatching | dispatched | done | blocked | failed
     wave: <wave-number>
     reason: <null or explanation for blocked/failed>
 ```
 
-The ledger is the dispatcher's working memory across session boundaries — on resume, the dispatcher reads the ledger to determine which stories completed, which failed, and what the current base SHA is, rather than reconstructing state from git log heuristics.
+The ledger is the dispatcher's working memory across session boundaries — on resume, the dispatcher reads it to determine which stories completed, which failed, what is merely prepared, and what the current base SHA is, rather than reconstructing state from git log heuristics.
 
 ### Wave Closeout Record
 
-At the end of each wave (even a single-story wave), the dispatcher produces a brief closeout summary committed alongside the ledger update:
+At the end of each wave (even a single-story wave), the dispatcher calls `dispatch close-wave <wave>` so the script appends a brief closeout summary to the same ledger namespace:
 
 1. Stories completed this wave, with merge SHAs.
 2. Stories blocked or failed this wave, with reasons.
@@ -208,7 +208,7 @@ waves:
 
 ## Enforcement
 
-Human/agent-authored discipline, not a git hook or lint gate — a sub-agent's addressing choice and a dispatcher's scope-splitting decision both happen inside the dispatching agent's own prompt-composition step, before any tool call a hook could intercept. Enforced by including the clauses above, verbatim, in every dispatch prompt that spawns sub-agents or covers more than one module/directory. See [implementation-agent.md § Workflow](../../agents/implementation-agent.md#workflow) for the current concrete application.
+Human/agent-authored discipline, not a git hook or lint gate — a sub-agent's addressing choice and a dispatcher's scope-splitting decision both happen inside the dispatching agent's own prompt-composition step, before any tool call a hook could intercept. Mechanized implementation dispatch adds a stricter runtime rule: the ledger under `.current_work/` is script-owned, and the dispatcher must advance story state through `dispatch init`, `dispatch prepare-wave` / `prepare-story`, `dispatch mark-dispatching`, `dispatch mark-dispatched`, `dispatch verify-story`, `dispatch merge-story`, and `dispatch close-wave` instead of handwritten bookkeeping. See [implementation-agent.md § Workflow](../../agents/implementation-agent.md#workflow) for the current concrete application.
 
 ## References
 
