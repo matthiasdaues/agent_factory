@@ -1,97 +1,89 @@
-# Copilot CLI `preToolUse` event surface spike
+---
+id: COPILOT-PRETOOLUSE-SPIKE
+title: Copilot CLI `PreToolUse` surface for step-guard
+status: resolved
+source: spike
+created: 2026-08-26
+---
+
+# Copilot CLI `PreToolUse` event surface spike
 
 ## Sources checked
 
 - `factory/config/hooks/block-dangerous-git.sh`
 - `factory/config/hooks/block-dangerous-git.json`
-- `.github/hooks/pre-push`
-- `factory/scripts/init-factory`
-- `docs/spec/use_cases/UC-07-block-a-dangerous-git-command.md`
-- `docs/spec/supplementary_specs/interface-contracts.md`
-- `docs/spec/supplementary_specs/mechanized-dispatch.md`
-- GitHub Copilot CLI docs and cached SDK package `1.0.80`
+- `.github/hooks/block-dangerous-git.sh`
+- GitHub Docs: `content/copilot/how-tos/copilot-sdk/hooks/pre-tool-use.md`
+- GitHub Docs: `content/copilot/how-tos/copilot-sdk/features/hooks.md`
+- VS Code Copilot SDK source: `src/vs/platform/agentHost/node/copilot/copilotAgentSession.ts`
+- VS Code Copilot SDK source: `src/vs/platform/agentHost/node/copilot/copilotToolDisplay.ts`
+- `docs/proposals/superseded/artifact-pipeline-discipline.md`
 
-## 1. Event surface documentation
+## 1. Event envelope
 
-Copilot CLI exposes a hook surface that can fire before tool execution.
-The public SDK handler is `onPreToolUse(input, invocation)`, where:
+Copilot CLI exposes a `preToolUse` hook with a JSON payload that includes:
 
-- `input.toolName` is the tool name
-- `input.toolArgs` is the tool argument object
-- `input.timestamp` and `input.workingDirectory` are also supplied
+```json
+{
+  "timestamp": 1234567890,
+  "cwd": "/repo/root",
+  "toolName": "read_file",
+  "toolArgs": {
+    "path": "docs/spec/prd.md"
+  }
+}
+```
 
-The underlying hook transport uses a `HookType` of `preToolUse` and carries
-an opaque `input` payload.
+The documented input fields are `timestamp`, `cwd`, `toolName`, and
+`toolArgs`. The repo's existing hook adapter already demonstrates that the
+payload is consumed through `toolArgs` rather than Claude Code's `tool_input`.
 
-In this repository, the existing hook pattern is:
+## 2. Schema for Read, Edit, Write
 
-- shell adapter under `factory/config/hooks/block-dangerous-git.sh`
-- Copilot hook config under `factory/config/hooks/block-dangerous-git.json`
-- repo hook wiring under `.github/hooks/`
+For the file-oriented tools, the hook surface is the same shape and the file
+path sits at `toolArgs.path`:
 
-`block-dangerous-git.sh` is the useful pattern: read JSON from stdin, use `jq`
-to normalize runtime-specific fields, and emit allow/deny behavior without
-needing the caller to know the CLI-specific payload shape.
+| Tool call | `toolName` example | `toolArgs` shape | File path field |
+| --- | --- | --- | --- |
+| Read | `read_file` or `view` | `{ "path": "…" }` | `toolArgs.path` |
+| Edit | `edit` | `{ "path": "…" }` | `toolArgs.path` |
+| Write | `write_file` or `create` | `{ "path": "…" }` | `toolArgs.path` |
 
-## 2. JSON schema
+The VS Code Copilot SDK source confirms that file tools resolve edit paths from
+`toolArgs.path`, and that edit tracking treats `edit` / `create` as file tools.
 
-The confirmed Copilot hook surface is not a single rigid JSON schema for all
-tools; it is an SDK callback contract with a shared wrapper and tool-specific
-`toolArgs`.
+## 3. jq-extractable path
 
-Confirmed fields:
+Yes. The path is extractable with `jq` as:
 
-- `toolName`
-- `toolArgs`
-- `timestamp`
-- `workingDirectory`
+```bash
+jq -r '.toolArgs.path'
+```
 
-Observed field access patterns from the SDK docs:
+That is sufficient for read/write guardrails that need the target path before
+allowing the tool call.
 
-- Bash: `toolArgs.command`
-- Read/edit file tools: `toolArgs.path`
-- The write/permission prompt schema uses `fileName`, but that is a separate
-  permission-request payload, not the `preToolUse` hook input
+## 4. Differences from Claude Code
 
-Repo-side Copilot wiring also uses lowercase `preToolUse` in JSON config, not
-Claude Code's `PreToolUse`.
+The shared adapter still needs normalization because the hook payloads are not
+isomorphic:
 
-## 3. Feasibility assessment
+- Claude Code uses `PreToolUse`; Copilot CLI uses lowercase `preToolUse` in
+  its hook config.
+- Claude Code guardrail payloads route through `tool_input`; Copilot CLI uses
+  `toolArgs`.
+- Claude Code examples in this repository read file paths from
+  `.tool_input.file_path`; Copilot CLI file tools expose `toolArgs.path`.
+- Tool naming differs: Copilot docs show `read_file` / `write_file`, while the
+  SDK source also treats `view`, `edit`, and `create` as file tools.
+- Copilot's hook input includes `cwd`; the adapter should not rely on a Claude
+  Code-only field name.
 
-Yes — `step-guard` can consume Copilot CLI `preToolUse` events with `jq`.
-The file path is extractable from `toolArgs.path` for file tools, and shell
-commands remain extractable from `toolArgs.command`.
+## 5. Feasibility conclusion
 
-The main difference from Claude Code is naming and nesting:
+Shared adapter approach: **feasible**.
 
-- Claude Code: `.claude/settings.json` uses `hooks.PreToolUse`
-- Copilot CLI: the documented SDK handler uses `toolName` + `toolArgs`
-- Copilot file tools are documented as `create` / `edit` in examples, not as a
-  literal `Write` tool name
-- Copilot hook config uses lowercase `preToolUse`
-
-So the shared adapter is feasible, but it must normalize Copilot's tool names
-and field paths before `step-guard` sees them.
-
-## 4. Adapter requirements
-
-Minimal adapter logic:
-
-1. Read the Copilot hook JSON from stdin.
-2. Match `toolName` against the tool class.
-3. Normalize file tools:
-   - `read` → read path from `toolArgs.path`
-   - `edit` / `create` → write-class path from `toolArgs.path`
-4. Normalize shell tools:
-   - `bash` → command from `toolArgs.command`
-5. Emit the normalized event shape that `step-guard` expects.
-
-No extra adapter is needed for the event transport itself; the only required
-work is field normalization and tool-name mapping.
-
-## Conclusion
-
-Copilot CLI exposes a usable `preToolUse` surface for `Read`, `Edit`, and the
-file-creation/write path. `step-guard` can consume it with a small adapter
-that normalizes `toolName` and extracts `toolArgs.path` / `toolArgs.command`
-via `jq`.
+`step-guard` can consume Copilot CLI `PreToolUse` events after a small
+normalization layer maps the file-tool names and extracts `toolArgs.path`.
+No new transport is required; the only work is adapter logic for field and tool
+name normalization.
