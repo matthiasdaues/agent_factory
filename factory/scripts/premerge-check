@@ -51,9 +51,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(SCRIPT_DIR))
+
+from dispatch_lib import glob_match
+
 
 def run_git(args: list[str]) -> tuple[int, str, str]:
-    result = subprocess.run(["git", *args], capture_output=True, text=True)
+    result = subprocess.run(["git", *args], capture_output=True, text=True, check=False)
     return result.returncode, result.stdout.strip(), result.stderr.strip()
 
 
@@ -112,15 +117,20 @@ def check_blowout(files: list[str], max_files: int) -> tuple[bool, str]:
     )
 
 
-def check_out_of_scope(files: list[str], scopes: list[str]) -> tuple[bool, str]:
-    if not scopes:
+def check_out_of_scope(
+    files: list[str],
+    scopes: list[str],
+    scope_globs: list[str] | None = None,
+) -> tuple[bool, str]:
+    if not scopes and not scope_globs:
         return True, "SKIP out-of-scope-paths: no --scope declared"
 
-    out_of_scope = [
-        f
-        for f in files
-        if not any(f == s or f.startswith(s.rstrip("/") + "/") for s in scopes)
-    ]
+    def _in_scope(f: str) -> bool:
+        if any(f == s or f.startswith(s.rstrip("/") + "/") for s in scopes):
+            return True
+        return bool(scope_globs and any(glob_match(g, f) for g in scope_globs))
+
+    out_of_scope = [f for f in files if not _in_scope(f)]
 
     if out_of_scope:
         listed = ", ".join(out_of_scope[:10])
@@ -143,6 +153,13 @@ def main(argv: list[str] | None = None) -> int:
         default=[],
         metavar="PATH",
         help="declared path prefix the dispatch said it would touch; repeatable",
+    )
+    ap.add_argument(
+        "--scope-glob",
+        action="append",
+        default=[],
+        metavar="PATTERN",
+        help="gitignore-style glob pattern for scope matching; repeatable",
     )
     ap.add_argument(
         "--max-files",
@@ -175,7 +192,7 @@ def main(argv: list[str] | None = None) -> int:
     print(line)
     findings.append(ok)
 
-    ok, line = check_out_of_scope(files, args.scope)
+    ok, line = check_out_of_scope(files, args.scope, args.scope_glob)
     print(line)
     findings.append(ok)
 

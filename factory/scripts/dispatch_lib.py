@@ -1,4 +1,4 @@
-"""Dispatch ledger model and story lifecycle state machine.
+"""Dispatch ledger model, story lifecycle state machine, and shared utilities.
 
 Shared library for factory/scripts/dispatch. No third-party dependencies.
 """
@@ -325,3 +325,77 @@ def _parse_scalar(text: str) -> Any:
     except ValueError:
         pass
     return text
+
+
+# ---------------------------------------------------------------------------
+# Gitignore-style glob matching
+# ---------------------------------------------------------------------------
+
+
+def glob_match(pattern: str, path: str) -> bool:
+    """Match *path* against a gitignore-style *pattern*.
+
+    Rules:
+      - ``*`` matches zero or more characters within a single path segment
+        (does not cross ``/``).
+      - ``**`` matches zero or more complete path segments (crosses ``/``).
+      - ``?`` matches exactly one character that is not ``/``.
+      - All other characters are literal and matched case-sensitively.
+
+    Returns True if the pattern matches the entire path.
+    """
+    if not pattern:
+        return not path
+    return _glob_match_recursive(pattern, path, 0, 0)
+
+
+def _glob_match_recursive(pattern: str, path: str, pi: int, si: int) -> bool:
+    """Recursive backtracking matcher for gitignore-style globs."""
+    plen = len(pattern)
+    slen = len(path)
+
+    while pi < plen:
+        # Check for **
+        if pattern[pi : pi + 2] == "**":
+            # Consume any adjacent slashes: **/ or /**/
+            npi = pi + 2
+            while npi < plen and pattern[npi] == "/":
+                npi += 1
+            # Also consume leading slash before **
+            # ** matches zero or more segments
+            if npi >= plen:
+                # ** at end matches everything remaining
+                return True
+            # Try matching ** against zero or more segments
+            for i in range(si, slen + 1):
+                if _glob_match_recursive(pattern, path, npi, i):
+                    return True
+            return False
+
+        if si >= slen:
+            return False
+
+        if pattern[pi] == "?":
+            # Match one char that is not /
+            if path[si] == "/":
+                return False
+            pi += 1
+            si += 1
+        elif pattern[pi] == "*":
+            # * matches zero or more chars within one segment (no /)
+            # (already ruled out ** above)
+            npi = pi + 1
+            # Try matching * against zero or more non-slash chars
+            for i in range(si, slen + 1):
+                if i > si and path[i - 1] == "/":
+                    break
+                if _glob_match_recursive(pattern, path, npi, i):
+                    return True
+            return False
+        else:
+            if pattern[pi] != path[si]:
+                return False
+            pi += 1
+            si += 1
+
+    return si >= slen
