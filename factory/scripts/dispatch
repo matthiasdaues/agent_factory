@@ -44,7 +44,9 @@ from dispatch_lib import (  # noqa: E402
     load_stories,
     parse_story_frontmatter,
     remove_manifest,
+    render_handoff_contract,
     suggest_tier,
+    write_handoff_contract,
     write_manifest,
 )
 
@@ -167,6 +169,41 @@ def _story_meta_for_manifest(project_root: Path, story_id: str) -> dict:
     return meta
 
 
+def _story_handoff_contract(
+    project_root: Path,
+    entry: StoryEntry,
+    feature_branch: str,
+    worktree_path: Path,
+) -> tuple[object | None, str | None]:
+    """Render and persist the story's seven-part handoff contract."""
+    story_path = project_root / "backlog" / f"{entry.id}.md"
+    story_fm = parse_story_frontmatter(story_path.read_text()) if story_path.exists() else {}
+    story_title = (story_fm or {}).get("title") or entry.id
+    outputs = list((story_fm or {}).get("outputs") or [])
+    strategy = (story_fm or {}).get("strategy")
+    test_command = _read_test_command(project_root)
+    if not test_command:
+        return None, "error: config/project.json must contain a 'test_command' key"
+
+    try:
+        contract = render_handoff_contract(
+            story_id=entry.id,
+            story_title=story_title,
+            acceptance_criteria_path=story_path.relative_to(project_root)
+            if story_path.is_relative_to(project_root)
+            else story_path,
+            worktree_path=worktree_path,
+            story_branch=entry.branch or f"story/{entry.id}",
+            outputs=outputs,
+            test_command=test_command,
+            strategy=strategy,
+        )
+    except ValueError as e:
+        return None, str(e)
+
+    return contract, None
+
+
 def _write_story_manifest(
     project_root: Path,
     entry: StoryEntry,
@@ -177,11 +214,22 @@ def _write_story_manifest(
 
     Returns (0, None) on success, (1, error_message) on no-supersede failure.
     """
+    contract, contract_err = _story_handoff_contract(
+        project_root, entry, feature_branch, worktree_path
+    )
+    if contract_err is not None:
+        return 1, contract_err
+
     story_meta = _story_meta_for_manifest(project_root, entry.id)
     try:
         write_manifest(worktree_path, feature_branch, entry.branch, story_meta)
     except ManifestExistsError as e:
         return 1, str(e)
+
+    if contract is not None:
+        write_handoff_contract(
+            worktree_path, feature_branch, entry.branch or f"story/{entry.id}", contract.text
+        )
     entry.feature_branch = feature_branch
     return 0, None
 
