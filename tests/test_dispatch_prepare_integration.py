@@ -209,3 +209,105 @@ def test_prepare_wave_resumes_after_partial_failure(tmp_path: Path) -> None:
     porcelain = _git(repo, tmp_path, "worktree", "list", "--porcelain").stdout
     assert porcelain.count(f"worktree {first_worktree.resolve()}") == 1
     assert porcelain.count(f"worktree {second_worktree.resolve()}") == 1
+
+
+def test_prepare_story_after_predecessor_done(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    merge_sha = _git(repo, tmp_path, "rev-parse", "HEAD").stdout.strip()
+    _write_ledger(
+        repo,
+        StoryEntry(
+            id="ST-005",
+            wave=1,
+            status=StoryState.DONE,
+            commit_sha=merge_sha,
+        ),
+        StoryEntry(
+            id="ST-006",
+            wave=1,
+            status=StoryState.PENDING,
+            deps=["ST-005"],
+        ),
+    )
+
+    result = _run_dispatch("prepare-story", "ST-006", cwd=repo, tmp_path=tmp_path)
+
+    assert result.returncode == 0, result.stderr
+
+    branch_sha = _git(repo, tmp_path, "rev-parse", "story/ST-006").stdout.strip()
+    assert branch_sha == merge_sha
+
+    worktree = _worktree_path(repo, "ST-006")
+    assert worktree.exists()
+    porcelain = _git(repo, tmp_path, "worktree", "list", "--porcelain").stdout
+    assert f"worktree {worktree.resolve()}" in porcelain
+    assert (worktree / ".agent-factory" / "verify-base-ok").exists()
+
+    ledger = _load_ledger(repo)
+    prepared = ledger.stories["ST-006"]
+    assert prepared.status == StoryState.PREPARED
+    assert prepared.branch == "story/ST-006"
+    assert prepared.worktree == str(worktree)
+    assert prepared.base_sha == merge_sha
+
+
+def test_prepare_story_predecessor_not_done_blocked(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    head_sha = _git(repo, tmp_path, "rev-parse", "HEAD").stdout.strip()
+    _write_ledger(
+        repo,
+        StoryEntry(
+            id="ST-005",
+            wave=1,
+            status=StoryState.DISPATCHED,
+            commit_sha=head_sha,
+        ),
+        StoryEntry(
+            id="ST-006",
+            wave=1,
+            status=StoryState.PENDING,
+            deps=["ST-005"],
+        ),
+    )
+
+    result = _run_dispatch("prepare-story", "ST-006", cwd=repo, tmp_path=tmp_path)
+
+    assert result.returncode != 0
+    assert "ST-005" in result.stderr
+
+    ledger = _load_ledger(repo)
+    assert ledger.stories["ST-006"].status == StoryState.PENDING
+
+
+def test_prepare_story_idempotent(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    merge_sha = _git(repo, tmp_path, "rev-parse", "HEAD").stdout.strip()
+    _write_ledger(
+        repo,
+        StoryEntry(
+            id="ST-005",
+            wave=1,
+            status=StoryState.DONE,
+            commit_sha=merge_sha,
+        ),
+        StoryEntry(
+            id="ST-006",
+            wave=1,
+            status=StoryState.PENDING,
+            deps=["ST-005"],
+        ),
+    )
+
+    first = _run_dispatch("prepare-story", "ST-006", cwd=repo, tmp_path=tmp_path)
+    assert first.returncode == 0, first.stderr
+    before = (repo / ".agent-factory" / "dispatch-ledger.yaml").read_text()
+
+    second = _run_dispatch("prepare-story", "ST-006", cwd=repo, tmp_path=tmp_path)
+
+    assert second.returncode == 0, second.stderr
+    after = (repo / ".agent-factory" / "dispatch-ledger.yaml").read_text()
+    assert after == before
+
+    worktree = _worktree_path(repo, "ST-006")
+    porcelain = _git(repo, tmp_path, "worktree", "list", "--porcelain").stdout
+    assert porcelain.count(f"worktree {worktree.resolve()}") == 1
