@@ -49,6 +49,7 @@ from dispatch_lib import (  # noqa: E402
 )
 
 import json
+import re
 import subprocess
 
 DEFAULT_LEDGER = Path(".agent-factory/dispatch-ledger.yaml")
@@ -789,6 +790,202 @@ def cmd_verify_story(args: argparse.Namespace) -> int:
     return _save_ledger(ledger, ledger_path)
 
 
+def _update_story_status_in_file(project_root: Path, story_id: str, status: str) -> bool:
+    """Rewrite the ``status:`` frontmatter field in the story's backlog file.
+
+    Returns True if the file was found, parsed, and rewritten; False otherwise.
+    Only the frontmatter ``status:`` line is touched — the rest of the file
+    (including the frontmatter delimiters) is left byte-for-byte identical.
+    """
+    story_path = project_root / "backlog" / f"{story_id}.md"
+    if not story_path.exists():
+        return False
+    text = story_path.read_text()
+    lines = text.split("\n")
+    if not lines or lines[0].strip() != "---":
+        return False
+    end = None
+    for i, ln in enumerate(lines[1:], start=1):
+        if ln.strip() == "---":
+            end = i
+            break
+    if end is None:
+        return False
+    for i in range(1, end):
+        if re.match(r"^status\s*:\s*", lines[i]):
+            lines[i] = f"status: {status}"
+            story_path.write_text("\n".join(lines))
+            return True
+    return False
+
+
+def cmd_merge_story(args: argparse.Namespace) -> int:
+    """Merge a story's feature branch into the current branch.
+
+    Runs ``premerge-check`` with the story's declared output globs
+    immediately before merging (`--scope-glob`, gitignore-style matching).
+    On a merge conflict, aborts the merge and marks the story ``blocked``
+    with reason "merge conflict"; the current branch is left unchanged. On a
+    red test suite after a clean merge, resets the current branch back to
+    its pre-merge commit and marks the story ``blocked`` with reason
+    "post-merge test failure". ``--dry-run`` runs premerge-check only and
+    never merges, touches the ledger, or cleans up the worktree/branch.
+    Idempotent across interruption: if the story branch is already merged
+    into HEAD (a prior run created the merge commit but was interrupted
+    before the test suite finished), the merge is not repeated — the test
+    suite runs directly against the existing merge commit.
+    """
+    ledger_path = Path(args.ledger)
+    ledger = _load_ledger(ledger_path)
+    if ledger is None:
+        return 1
+
+    entry = ledger.stories.get(args.story_id)
+    if entry is None:
+        print(f"error: story not found: {args.story_id}", file=sys.stderr)
+        return 1
+
+    if entry.status != StoryState.DISPATCHED:
+        print(
+            f"error: story {args.story_id} is not ready to merge "
+            f"(status: {entry.status.value}, expected: dispatched)",
+            file=sys.stderr,
+        )
+        return 1
+
+    if not entry.branch:
+        print(f"error: story {args.story_id} has no branch recorded", file=sys.stderr)
+        return 1
+
+    project_root = _project_root()
+    target_branch = _current_branch_name()
+    if not target_branch:
+        print("error: unable to determine current branch", file=sys.stderr)
+        return 1
+
+    story_path = project_root / "backlog" / f"{entry.id}.md"
+    fm = parse_story_frontmatter(story_path.read_text()) if story_path.exists() else None
+    raw_outputs = (fm or {}).get("outputs")
+    outputs = raw_outputs if isinstance(raw_outputs, list) else ([raw_outputs] if raw_outputs else [])
+
+    already_merged_code, _, _ = _git(
+        "merge-base", "--is-ancestor", entry.branch, "HEAD"
+    )
+    # Interrupted-merge recovery: a prior run created the merge commit (and
+    # amended the status update into it) but was interrupted before the
+    # test suite completed. Detect it via ancestry rather than re-running
+    # premerge-check and re-merging, and run the test suite directly
+    # against the existing merge commit instead of duplicating it.
+    already_merged = already_merged_code == 0
+
+    if not already_merged:
+        premerge_cmd = [str(SCRIPT_DIR / "premerge-check"), target_branch, entry.branch]
+        for glob in outputs:
+            premerge_cmd += ["--scope-glob", glob]
+
+        premerge_result = subprocess.run(
+            premerge_cmd, capture_output=True, text=True, cwd=project_root, check=False
+        )
+        if premerge_result.stdout:
+            print(premerge_result.stdout)
+        if premerge_result.stderr:
+            print(premerge_result.stderr, file=sys.stderr)
+
+        if premerge_result.returncode != 0:
+            print(f"error: premerge-check failed for {entry.branch}", file=sys.stderr)
+            return 1
+
+    if args.dry_run:
+        if already_merged:
+            print(f"dry-run: {entry.branch} is already merged into {target_branch}")
+        else:
+            print(
+                f"dry-run: premerge-check passed for {entry.branch} -> {target_branch}; "
+                "no merge performed"
+            )
+        return 0
+
+    if already_merged:
+        pre_merge_sha = _git("rev-parse", "HEAD^1")[1]
+        merge_sha = _git("rev-parse", "HEAD")[1]
+    else:
+        pre_merge_sha = _git("rev-parse", "HEAD")[1]
+        merge_code, _, merge_err = _git(
+            "merge",
+            "--no-ff",
+            entry.branch,
+            "-m",
+            f"merge: story/{entry.id} into {target_branch}",
+        )
+        if merge_code != 0:
+            _git("merge", "--abort")
+            entry.reason = "merge conflict"
+            try:
+                ledger.transition(entry.id, StoryState.BLOCKED)
+            except TransitionError as e:
+                print(f"error: {e}", file=sys.stderr)
+                return 1
+            _save_ledger(ledger, ledger_path)
+            print(
+                f"error: merge conflict merging {entry.branch} into {target_branch}; "
+                f"aborted ({merge_err})",
+                file=sys.stderr,
+            )
+            return 1
+
+        _update_story_status_in_file(project_root, entry.id, "done")
+        _git("add", "--", str(story_path.relative_to(project_root)))
+        amend_code, _, amend_err = _git("commit", "--amend", "--no-edit")
+        if amend_code != 0:
+            print(f"error: failed to amend merge commit: {amend_err}", file=sys.stderr)
+            return 1
+
+        merge_sha = _git("rev-parse", "HEAD")[1]
+
+    test_command = _read_test_command(project_root)
+    if test_command:
+        test_result = subprocess.run(
+            test_command,
+            shell=True,
+            cwd=project_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if test_result.stdout:
+            print(test_result.stdout)
+        if test_result.stderr:
+            print(test_result.stderr, file=sys.stderr)
+
+        if test_result.returncode != 0:
+            _git("reset", "--hard", pre_merge_sha)
+            entry.reason = "post-merge test failure"
+            try:
+                ledger.transition(entry.id, StoryState.BLOCKED)
+            except TransitionError as e:
+                print(f"error: {e}", file=sys.stderr)
+                return 1
+            _save_ledger(ledger, ledger_path)
+            print(
+                f"error: test suite failed after merging {entry.branch}; "
+                f"reverted to {pre_merge_sha}",
+                file=sys.stderr,
+            )
+            return 1
+
+    if entry.worktree:
+        _git("worktree", "remove", entry.worktree)
+    _git("branch", "-d", entry.branch)
+
+    entry.commit_sha = merge_sha
+    try:
+        ledger.transition(entry.id, StoryState.DONE)
+    except TransitionError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    return _save_ledger(ledger, ledger_path)
+
+
 def cmd_close_wave(args: argparse.Namespace) -> int:
     ledger_path = Path(args.ledger)
     ledger = _load_ledger(ledger_path)
@@ -870,6 +1067,11 @@ def main(argv: list[str] | None = None) -> int:
 
     p_ms = sub.add_parser("merge-story", help="merge a story's feature branch")
     p_ms.add_argument("story_id")
+    p_ms.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="run premerge-check and report pass/fail without merging",
+    )
 
     sub.add_parser("close-wave", help="close a completed wave").add_argument(
         "wave", type=int
@@ -903,6 +1105,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_re_dispatch(args)
     if args.subcommand == "verify-story":
         return cmd_verify_story(args)
+    if args.subcommand == "merge-story":
+        return cmd_merge_story(args)
     if args.subcommand == "close-wave":
         return cmd_close_wave(args)
     return cmd_not_implemented(args)
