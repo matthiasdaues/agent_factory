@@ -27,7 +27,15 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from dispatch_lib import Ledger, StoryEntry, StoryState, TransitionError, compute_wave_plan, load_stories  # noqa: E402
+from dispatch_lib import (  # noqa: E402
+    Ledger,
+    ShaFormatError,
+    StoryEntry,
+    StoryState,
+    TransitionError,
+    compute_wave_plan,
+    load_stories,
+)
 
 import json
 import subprocess
@@ -405,6 +413,65 @@ def cmd_re_dispatch(args: argparse.Namespace) -> int:
     return _transition(args, StoryState.PREPARED)
 
 
+def _validate_sha_format(sha: str) -> None:
+    """Raise ShaFormatError if *sha* is not exactly 40 lowercase hex chars."""
+    import re
+
+    if not re.match(r"^[0-9a-f]{40}$", sha):
+        raise ShaFormatError(f"SHA must be exactly 40 lowercase hex characters, got: {sha!r}")
+
+
+def cmd_verify_story(args: argparse.Namespace) -> int:
+    """Verify a story's reported commit SHA exists and is on its branch.
+
+    Performs read-only git plumbing checks (`git cat-file -e`, `git branch
+    --contains`) and records the outcome in the ledger. Never touches the
+    working tree, index, or HEAD.
+    """
+    sha = args.sha
+    try:
+        _validate_sha_format(sha)
+    except ShaFormatError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+
+    code, _, err = _git("cat-file", "-e", f"{sha}^{{commit}}")
+    if code != 0:
+        print(f"error: SHA does not exist: {sha}", file=sys.stderr)
+        return 1
+
+    ledger_path = Path(args.ledger)
+    ledger = _load_ledger(ledger_path)
+    if ledger is None:
+        return 1
+
+    entry = ledger.stories.get(args.story_id)
+    if entry is None:
+        print(f"error: story not found: {args.story_id}", file=sys.stderr)
+        return 1
+
+    if not entry.branch:
+        print(f"error: story {args.story_id} has no branch recorded", file=sys.stderr)
+        return 1
+
+    code, out, err = _git("branch", "--contains", sha)
+    if code != 0:
+        print(f"error: failed to list branches containing {sha}: {err}", file=sys.stderr)
+        return 1
+
+    branch_names = {line.strip().lstrip("* ").strip() for line in out.splitlines()}
+    if entry.branch not in branch_names:
+        print(
+            f"error: SHA {sha} is not on branch '{entry.branch}' for {args.story_id}",
+            file=sys.stderr,
+        )
+        return 1
+
+    entry.verify_base = "pass"
+    entry.commit_sha = sha
+    return _save_ledger(ledger, ledger_path)
+
+
 def cmd_close_wave(args: argparse.Namespace) -> int:
     ledger_path = Path(args.ledger)
     ledger = _load_ledger(ledger_path)
@@ -499,6 +566,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_mark_failed(args)
     if args.subcommand == "re-dispatch":
         return cmd_re_dispatch(args)
+    if args.subcommand == "verify-story":
+        return cmd_verify_story(args)
     if args.subcommand == "close-wave":
         return cmd_close_wave(args)
     return cmd_not_implemented(args)
