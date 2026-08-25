@@ -38,9 +38,13 @@ class StoryState(str, Enum):
 
 
 VALID_TRANSITIONS: dict[StoryState, set[StoryState]] = {
-    StoryState.PENDING: {StoryState.PREPARED},
-    StoryState.PREPARED: {StoryState.DISPATCHING},
-    StoryState.DISPATCHING: {StoryState.DISPATCHED, StoryState.FAILED},
+    StoryState.PENDING: {StoryState.PREPARED, StoryState.BLOCKED},
+    StoryState.PREPARED: {StoryState.DISPATCHING, StoryState.BLOCKED},
+    StoryState.DISPATCHING: {
+        StoryState.DISPATCHED,
+        StoryState.FAILED,
+        StoryState.BLOCKED,
+    },
     StoryState.DISPATCHED: {StoryState.DONE, StoryState.BLOCKED, StoryState.FAILED},
     StoryState.DONE: set(),
     StoryState.FAILED: {StoryState.PREPARED},
@@ -64,6 +68,7 @@ class StoryEntry:
     branch: str | None = None
     worktree: str | None = None
     base_sha: str | None = None
+    reason: str | None = None
     gate_results: dict[str, Any] = field(default_factory=dict)
     attempts: list[dict[str, Any]] = field(default_factory=list)
 
@@ -83,6 +88,7 @@ class StoryEntry:
             "branch": self.branch,
             "worktree": self.worktree,
             "base_sha": self.base_sha,
+            "reason": self.reason,
             "gate_results": self.gate_results,
         }
         if self.attempts:
@@ -98,6 +104,7 @@ class StoryEntry:
             branch=data.get("branch"),
             worktree=data.get("worktree"),
             base_sha=data.get("base_sha"),
+            reason=data.get("reason"),
             gate_results=data.get("gate_results", {}),
             attempts=data.get("attempts", []),
         )
@@ -118,6 +125,14 @@ class Ledger:
                 f"for story {story_id}"
             )
         entry.status = target
+
+    def is_terminal(self, story_id: str) -> bool:
+        """Return True when the story is in a terminal lifecycle state."""
+        return self.stories[story_id].status in {
+            StoryState.DONE,
+            StoryState.FAILED,
+            StoryState.BLOCKED,
+        }
 
     def save(self, path: Path) -> None:
         for entry in self.stories.values():

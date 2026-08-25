@@ -11,6 +11,7 @@ from __future__ import annotations
 # via a companion module or inline importability.
 # For now, we insert the script's directory and import the module.
 import importlib
+import subprocess
 import sys
 import textwrap
 from pathlib import Path
@@ -27,6 +28,8 @@ Ledger = dispatch_mod.Ledger
 TransitionError = dispatch_mod.TransitionError
 ShaFormatError = dispatch_mod.ShaFormatError
 
+DISPATCH_SCRIPT = Path(__file__).resolve().parent.parent / "factory" / "scripts" / "dispatch"
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -40,6 +43,7 @@ def story_factory(
     branch: str | None = None,
     worktree: str | None = None,
     base_sha: str | None = None,
+    reason: str | None = None,
     attempts: list | None = None,
 ) -> StoryEntry:
     """Generate a StoryEntry with configurable fields for reuse by later stories."""
@@ -50,6 +54,7 @@ def story_factory(
         branch=branch,
         worktree=worktree,
         base_sha=base_sha,
+        reason=reason,
         gate_results={},
         attempts=attempts if attempts is not None else [],
     )
@@ -69,9 +74,12 @@ def ledger_with(*stories: StoryEntry) -> Ledger:
 
 VALID_TRANSITIONS = [
     (StoryState.PENDING, StoryState.PREPARED),
+    (StoryState.PENDING, StoryState.BLOCKED),
     (StoryState.PREPARED, StoryState.DISPATCHING),
+    (StoryState.PREPARED, StoryState.BLOCKED),
     (StoryState.DISPATCHING, StoryState.DISPATCHED),
     (StoryState.DISPATCHING, StoryState.FAILED),
+    (StoryState.DISPATCHING, StoryState.BLOCKED),
     (StoryState.DISPATCHED, StoryState.DONE),
     (StoryState.DISPATCHED, StoryState.BLOCKED),
     (StoryState.DISPATCHED, StoryState.FAILED),
@@ -233,7 +241,13 @@ def test_save_rejects_invalid_sha(tmp_path):
 def test_ledger_round_trip(tmp_path):
     path = tmp_path / "dispatch-ledger.yaml"
     original = ledger_with(
-        story_factory("ST-001", StoryState.PREPARED, wave=1, branch="feat/ST-001"),
+        story_factory(
+            "ST-001",
+            StoryState.PREPARED,
+            wave=1,
+            branch="feat/ST-001",
+            reason="awaiting review",
+        ),
         story_factory("ST-002", StoryState.DISPATCHED, wave=1, branch="feat/ST-002"),
     )
     original.stories["ST-002"].base_sha = "a" * 40
@@ -244,6 +258,7 @@ def test_ledger_round_trip(tmp_path):
         assert loaded.stories[sid].wave == original.stories[sid].wave
         assert loaded.stories[sid].branch == original.stories[sid].branch
         assert loaded.stories[sid].base_sha == original.stories[sid].base_sha
+    assert loaded.stories["ST-001"].reason == "awaiting review"
 
 
 def test_ledger_round_trip_preserves_attempts(tmp_path):
@@ -294,3 +309,203 @@ def test_save_creates_parent_directories(tmp_path):
     assert path.exists()
     loaded = Ledger.load(path)
     assert "ST-001" in loaded.stories
+
+
+# ---------------------------------------------------------------------------
+# CLI lifecycle subcommands
+# ---------------------------------------------------------------------------
+
+
+def _run_dispatch(*args: str, cwd: Path, ledger: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(DISPATCH_SCRIPT), "--ledger", str(ledger), *args],
+        capture_output=True,
+        text=True,
+        cwd=cwd,
+        check=False,
+    )
+
+
+def _write_ledger(path: Path, ledger: Ledger) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    ledger.save(path)
+
+
+def _loaded_status(path: Path, story_id: str) -> StoryState:
+    return Ledger.load(path).stories[story_id].status
+
+
+def test_mark_dispatching_happy_path_and_idempotency(tmp_path):
+    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    _write_ledger(ledger_path, ledger_with(story_factory(status=StoryState.PREPARED)))
+
+    first = _run_dispatch("mark-dispatching", "ST-001", cwd=tmp_path, ledger=ledger_path)
+    second = _run_dispatch("mark-dispatching", "ST-001", cwd=tmp_path, ledger=ledger_path)
+
+    assert first.returncode == 0, first.stderr
+    assert second.returncode == 0
+    assert _loaded_status(ledger_path, "ST-001") == StoryState.DISPATCHING
+
+
+def test_mark_dispatching_rejects_wrong_source_state(tmp_path):
+    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    _write_ledger(ledger_path, ledger_with(story_factory(status=StoryState.DONE)))
+
+    result = _run_dispatch("mark-dispatching", "ST-001", cwd=tmp_path, ledger=ledger_path)
+
+    assert result.returncode == 1
+    assert "invalid transition" in result.stderr
+
+
+def test_mark_dispatched_happy_path_and_idempotency(tmp_path):
+    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    _write_ledger(
+        ledger_path,
+        ledger_with(story_factory(status=StoryState.DISPATCHING)),
+    )
+
+    first = _run_dispatch("mark-dispatched", "ST-001", cwd=tmp_path, ledger=ledger_path)
+    second = _run_dispatch("mark-dispatched", "ST-001", cwd=tmp_path, ledger=ledger_path)
+
+    assert first.returncode == 0, first.stderr
+    assert second.returncode == 0
+    assert _loaded_status(ledger_path, "ST-001") == StoryState.DISPATCHED
+
+
+def test_mark_dispatched_rejects_wrong_source_state(tmp_path):
+    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    _write_ledger(ledger_path, ledger_with(story_factory(status=StoryState.PREPARED)))
+
+    result = _run_dispatch("mark-dispatched", "ST-001", cwd=tmp_path, ledger=ledger_path)
+
+    assert result.returncode == 1
+    assert "invalid transition" in result.stderr
+
+
+def test_mark_blocked_records_reason_and_allows_rerun(tmp_path):
+    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    _write_ledger(ledger_path, ledger_with(story_factory(status=StoryState.PREPARED)))
+
+    first = _run_dispatch(
+        "mark-blocked",
+        "ST-001",
+        "--reason",
+        "awaiting design decision",
+        cwd=tmp_path,
+        ledger=ledger_path,
+    )
+    second = _run_dispatch(
+        "mark-blocked",
+        "ST-001",
+        "--reason",
+        "ignored on rerun",
+        cwd=tmp_path,
+        ledger=ledger_path,
+    )
+
+    ledger = Ledger.load(ledger_path)
+    assert first.returncode == 0, first.stderr
+    assert second.returncode == 0
+    assert ledger.stories["ST-001"].status == StoryState.BLOCKED
+    assert ledger.stories["ST-001"].reason == "awaiting design decision"
+
+
+def test_mark_blocked_rejects_terminal_story(tmp_path):
+    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    _write_ledger(ledger_path, ledger_with(story_factory(status=StoryState.DONE)))
+
+    result = _run_dispatch(
+        "mark-blocked",
+        "ST-001",
+        "--reason",
+        "should fail",
+        cwd=tmp_path,
+        ledger=ledger_path,
+    )
+
+    assert result.returncode == 1
+
+
+def test_mark_failed_happy_path_and_idempotency(tmp_path):
+    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    _write_ledger(
+        ledger_path,
+        ledger_with(story_factory(status=StoryState.DISPATCHING)),
+    )
+
+    first = _run_dispatch(
+        "mark-failed",
+        "ST-001",
+        "--class",
+        "environment",
+        "--evidence",
+        "ignored.txt",
+        cwd=tmp_path,
+        ledger=ledger_path,
+    )
+    second = _run_dispatch("mark-failed", "ST-001", cwd=tmp_path, ledger=ledger_path)
+
+    assert first.returncode == 0, first.stderr
+    assert second.returncode == 0
+    assert _loaded_status(ledger_path, "ST-001") == StoryState.FAILED
+
+
+def test_mark_failed_rejects_wrong_source_state(tmp_path):
+    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    _write_ledger(ledger_path, ledger_with(story_factory(status=StoryState.PREPARED)))
+
+    result = _run_dispatch("mark-failed", "ST-001", cwd=tmp_path, ledger=ledger_path)
+
+    assert result.returncode == 1
+
+
+def test_re_dispatch_happy_path_and_idempotency(tmp_path):
+    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    _write_ledger(ledger_path, ledger_with(story_factory(status=StoryState.FAILED)))
+
+    first = _run_dispatch("re-dispatch", "ST-001", cwd=tmp_path, ledger=ledger_path)
+    second = _run_dispatch("re-dispatch", "ST-001", cwd=tmp_path, ledger=ledger_path)
+
+    assert first.returncode == 0, first.stderr
+    assert second.returncode == 0
+    assert _loaded_status(ledger_path, "ST-001") == StoryState.PREPARED
+
+
+def test_re_dispatch_rejects_wrong_source_state(tmp_path):
+    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    _write_ledger(ledger_path, ledger_with(story_factory(status=StoryState.DISPATCHED)))
+
+    result = _run_dispatch("re-dispatch", "ST-001", cwd=tmp_path, ledger=ledger_path)
+
+    assert result.returncode == 1
+
+
+def test_close_wave_succeeds_when_all_terminal(tmp_path):
+    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    _write_ledger(
+        ledger_path,
+        ledger_with(
+            story_factory("ST-001", status=StoryState.DONE, wave=2),
+            story_factory("ST-002", status=StoryState.BLOCKED, wave=2),
+            story_factory("ST-003", status=StoryState.FAILED, wave=2),
+        ),
+    )
+
+    result = _run_dispatch("close-wave", "2", cwd=tmp_path, ledger=ledger_path)
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_close_wave_rejects_non_terminal_story(tmp_path):
+    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    _write_ledger(
+        ledger_path,
+        ledger_with(
+            story_factory("ST-001", status=StoryState.DONE, wave=2),
+            story_factory("ST-002", status=StoryState.PREPARED, wave=2),
+        ),
+    )
+
+    result = _run_dispatch("close-wave", "2", cwd=tmp_path, ledger=ledger_path)
+
+    assert result.returncode == 1
