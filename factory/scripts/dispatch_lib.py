@@ -160,9 +160,43 @@ class StoryEntry:
         )
 
 
+@dataclass
+class WaveCloseout:
+    """One recorded wave closeout entry in the dispatch ledger."""
+
+    number: int
+    completed: list[dict[str, Any]] = field(default_factory=list)
+    blocked: list[dict[str, Any]] = field(default_factory=list)
+    failed: list[dict[str, Any]] = field(default_factory=list)
+    next_ready: list[str] = field(default_factory=list)
+    branch_head: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "number": self.number,
+            "completed": self.completed,
+            "blocked": self.blocked,
+            "failed": self.failed,
+            "next_ready": self.next_ready,
+            "branch_head": self.branch_head,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> WaveCloseout:
+        return cls(
+            number=int(data["number"]),
+            completed=data.get("completed", []),
+            blocked=data.get("blocked", []),
+            failed=data.get("failed", []),
+            next_ready=data.get("next_ready", []),
+            branch_head=data.get("branch_head"),
+        )
+
+
 class Ledger:
     def __init__(self) -> None:
         self.stories: dict[str, StoryEntry] = {}
+        self.waves: list[WaveCloseout] = []
 
     def transition(self, story_id: str, target: StoryState) -> None:
         entry = self.stories[story_id]
@@ -184,6 +218,57 @@ class Ledger:
             StoryState.BLOCKED,
         }
 
+    def close_wave(self, wave: int, branch_head: str) -> tuple[WaveCloseout, bool]:
+        """Record a terminal wave closeout and return (record, created)."""
+        for record in self.waves:
+            if record.number == wave:
+                return record, False
+
+        wave_stories = [entry for entry in self.stories.values() if entry.wave == wave]
+        if not wave_stories:
+            raise TransitionError(f"wave {wave} has no stories")
+
+        non_terminal = [
+            entry.id
+            for entry in wave_stories
+            if entry.status not in {StoryState.DONE, StoryState.FAILED, StoryState.BLOCKED}
+        ]
+        if non_terminal:
+            raise TransitionError(
+                f"wave {wave} still has non-terminal stories: {', '.join(non_terminal)}"
+            )
+
+        record = WaveCloseout(
+            number=wave,
+            completed=[
+                {"id": entry.id, "merge_sha": entry.commit_sha}
+                for entry in wave_stories
+                if entry.status == StoryState.DONE
+            ],
+            blocked=[
+                {"id": entry.id, "reason": entry.reason}
+                for entry in wave_stories
+                if entry.status == StoryState.BLOCKED
+            ],
+            failed=[
+                {"id": entry.id, "reason": entry.reason}
+                for entry in wave_stories
+                if entry.status == StoryState.FAILED
+            ],
+            next_ready=[
+                entry.id
+                for entry in self.stories.values()
+                if entry.status == StoryState.PENDING
+                and all(
+                    dep not in self.stories or self.is_terminal(dep)
+                    for dep in entry.deps
+                )
+            ],
+            branch_head=branch_head,
+        )
+        self.waves.append(record)
+        return record, True
+
     def save(self, path: Path) -> None:
         for entry in self.stories.values():
             if entry.base_sha is not None:
@@ -192,6 +277,8 @@ class Ledger:
         data = {
             "stories": {sid: e.to_dict() for sid, e in self.stories.items()},
         }
+        if self.waves:
+            data["waves"] = [wave.to_dict() for wave in self.waves]
         path.write_text(_dump_yaml(data))
 
     @classmethod
@@ -202,6 +289,8 @@ class Ledger:
         ledger = cls()
         for sid, sdata in raw.get("stories", {}).items():
             ledger.stories[sid] = StoryEntry.from_dict(sdata)
+        for wave_data in raw.get("waves", []) or []:
+            ledger.waves.append(WaveCloseout.from_dict(wave_data))
         return ledger
 
     def format_status_table(self) -> str:

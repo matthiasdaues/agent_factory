@@ -112,3 +112,10 @@ The `script_exit_zero` condition evaluator (currently stubbed per [T-03](../todo
 - [UC-08](../use_cases/UC-08-initialize-agent-factory-into-a-project.md)
 - [UC-09](../use_cases/UC-09-run-tests-via-hook.md)
 - [UC-11](../use_cases/UC-11-cross-a-phase-boundary.md)
+
+## Dispatch ledger (`dispatch`)
+
+- `mark-dispatching`, `mark-dispatched`, `mark-blocked`, `mark-failed`, and `re-dispatch` are idempotent no-ops when the story is already in the target state.
+- `mark-failed` in Phase 1 accepts omitted `--class` and `--evidence` arguments; when present, they are validated for CLI compatibility only.
+- `close-wave <N>` refuses if any story in wave N is non-terminal.
+- `close-wave <N>` appends at most one closeout record for the wave. Re-running a successful close-wave is a no-op and does not duplicate the record.
