@@ -430,6 +430,96 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_prepare_story(args: argparse.Namespace) -> int:
+    """Prepare one serial chain link from its predecessor's merge commit."""
+    ledger_path = Path(args.ledger)
+    ledger = _load_ledger(ledger_path)
+    if ledger is None:
+        return 1
+
+    story_id = args.story_id
+    entry = ledger.stories.get(story_id)
+    if entry is None:
+        print(f"error: story not found: {story_id}", file=sys.stderr)
+        return 1
+
+    if entry.status == StoryState.PREPARED:
+        return 0
+
+    if not entry.deps:
+        print(
+            f"error: story {story_id} has no chain predecessor recorded",
+            file=sys.stderr,
+        )
+        return 1
+
+    predecessor_id = entry.deps[0]
+    predecessor = ledger.stories.get(predecessor_id)
+    if predecessor is None:
+        print(f"error: predecessor not found: {predecessor_id}", file=sys.stderr)
+        return 1
+
+    if predecessor.status != StoryState.DONE:
+        print(
+            f"error: predecessor {predecessor_id} is not done "
+            f"(status: {predecessor.status.value})",
+            file=sys.stderr,
+        )
+        return 1
+
+    merge_sha = predecessor.commit_sha
+    if not merge_sha:
+        print(
+            f"error: predecessor {predecessor_id} has no recorded merge commit",
+            file=sys.stderr,
+        )
+        return 1
+
+    project_root = _project_root()
+    branch_name = f"story/{entry.id}"
+    worktree_path = project_root / ".agent-factory" / "worktrees" / f"story-{entry.id}"
+
+    code, _, err = _git("branch", branch_name, merge_sha)
+    if code != 0:
+        print(
+            f"error: failed to create branch {branch_name!r} for {entry.id}: {err}",
+            file=sys.stderr,
+        )
+        return 1
+
+    code, _, err = _git("worktree", "add", str(worktree_path), branch_name)
+    if code != 0:
+        print(
+            f"error: failed to create worktree for {entry.id}: {err}",
+            file=sys.stderr,
+        )
+        return 1
+
+    if not _verify_worktree_registration(worktree_path):
+        print(
+            f"error: git worktree list did not report {worktree_path} for {entry.id}",
+            file=sys.stderr,
+        )
+        return 1
+
+    verify_code, verify_output = _run_verify_base(worktree_path, merge_sha, merge_sha)
+    if verify_code != 0:
+        if verify_output:
+            print(verify_output, file=sys.stderr)
+        print(f"error: verify-base failed for {entry.id}", file=sys.stderr)
+        return 1
+
+    entry.branch = branch_name
+    entry.worktree = str(worktree_path)
+    entry.base_sha = merge_sha
+    try:
+        ledger.transition(entry.id, StoryState.PREPARED)
+    except TransitionError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    return _save_ledger(ledger, ledger_path)
+
+
 def _transition(
     args: argparse.Namespace,
     target: StoryState,
@@ -649,6 +739,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_plan(args)
     if args.subcommand == "prepare-wave":
         return cmd_prepare_wave(args)
+    if args.subcommand == "prepare-story":
+        return cmd_prepare_story(args)
     if args.subcommand == "mark-dispatching":
         return cmd_mark_dispatching(args)
     if args.subcommand == "mark-dispatched":
