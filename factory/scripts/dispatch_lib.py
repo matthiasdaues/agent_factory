@@ -62,9 +62,12 @@ class ShaFormatError(ValueError):
 
 @dataclass
 class StoryEntry:
+    """One story's persisted dispatch lifecycle record."""
+
     id: str
     wave: int | None = None
     status: StoryState = StoryState.PENDING
+    deps: list[str] = field(default_factory=list)
     branch: str | None = None
     worktree: str | None = None
     base_sha: str | None = None
@@ -85,6 +88,7 @@ class StoryEntry:
             "id": self.id,
             "wave": self.wave,
             "status": self.status.value,
+            "deps": self.deps,
             "branch": self.branch,
             "worktree": self.worktree,
             "base_sha": self.base_sha,
@@ -101,6 +105,7 @@ class StoryEntry:
             id=data["id"],
             wave=data.get("wave"),
             status=StoryState(data["status"]),
+            deps=data.get("deps", []),
             branch=data.get("branch"),
             worktree=data.get("worktree"),
             base_sha=data.get("base_sha"),
