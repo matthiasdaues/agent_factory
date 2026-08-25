@@ -399,3 +399,290 @@ def _glob_match_recursive(pattern: str, path: str, pi: int, si: int) -> bool:
             si += 1
 
     return si >= slen
+
+
+# ---------------------------------------------------------------------------
+# Wave planning
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class StoryMeta:
+    """Parsed story metadata for planning purposes."""
+
+    id: str
+    deps: list[str] = field(default_factory=list)
+    outputs: list[str] = field(default_factory=list)
+    tier: str = "economy"
+
+
+@dataclass
+class WavePlan:
+    """Result of wave planning: waves with parallel sets and serial chains."""
+
+    waves: list[dict[str, Any]] = field(default_factory=list)
+
+    def to_yaml(self) -> str:
+        lines: list[str] = ["waves:"]
+        for wave in self.waves:
+            lines.append(f"  - wave: {wave['wave']}")
+            lines.append("    stories:")
+            for s in wave.get("stories", []):
+                lines.append(f"      - id: {s['id']}")
+                lines.append(f"        tier: {s['tier']}")
+                lines.append(f"        group: {s['group']}")
+            if "serial_chains" in wave:
+                lines.append("    serial_chains:")
+                for chain in wave["serial_chains"]:
+                    lines.append(f"      - [{', '.join(chain)}]")
+        return "\n".join(lines) + "\n"
+
+
+def parse_story_frontmatter(text: str) -> dict[str, Any] | None:
+    """Parse YAML frontmatter from a story file. Returns dict or None."""
+    lines = text.split("\n")
+    if not lines or lines[0].strip() != "---":
+        return None
+    end = None
+    for i, ln in enumerate(lines[1:], start=1):
+        if ln.strip() == "---":
+            end = i
+            break
+    if end is None:
+        return None
+
+    import re as _re
+
+    fm: dict[str, Any] = {}
+    current_key: str | None = None
+    current_list: list[str] | None = None
+
+    for ln in lines[1:end]:
+        list_item = _re.match(r"^\s+-\s+(.+)$", ln)
+        if list_item and current_key is not None:
+            if current_list is None:
+                current_list = []
+            val = list_item.group(1).strip()
+            if len(val) >= 2 and val[0] == val[-1] and val[0] in ('"', "'"):
+                val = val[1:-1]
+            current_list.append(val)
+            continue
+
+        if current_key is not None and current_list is not None:
+            fm[current_key] = current_list
+            current_list = None
+            current_key = None
+
+        m = _re.match(r"^([A-Za-z_][A-Za-z0-9_-]*)\s*:\s*(.*)?$", ln)
+        if m:
+            key = m.group(1)
+            raw_val = (m.group(2) or "").strip()
+            if not raw_val:
+                current_key = key
+                current_list = None
+                fm[key] = None
+            else:
+                current_key = key
+                current_list = None
+                # Inline list [a, b]
+                if raw_val.startswith("[") and raw_val.endswith("]"):
+                    inner = raw_val[1:-1]
+                    if not inner.strip():
+                        fm[key] = []
+                    else:
+                        items = []
+                        for t in inner.split(","):
+                            t = t.strip()
+                            if len(t) >= 2 and t[0] == t[-1] and t[0] in ('"', "'"):
+                                t = t[1:-1]
+                            items.append(t)
+                        fm[key] = items
+                elif raw_val in ("null", "~"):
+                    fm[key] = None
+                elif raw_val in ("true", "True"):
+                    fm[key] = True
+                elif raw_val in ("false", "False"):
+                    fm[key] = False
+                else:
+                    if (
+                        len(raw_val) >= 2
+                        and raw_val[0] == raw_val[-1]
+                        and raw_val[0] in ('"', "'")
+                    ):
+                        raw_val = raw_val[1:-1]
+                    fm[key] = raw_val
+
+    if current_key is not None and current_list is not None:
+        fm[current_key] = current_list
+
+    return fm
+
+
+def load_stories(backlog_dir: Path) -> list[StoryMeta]:
+    """Load all story files from a backlog directory."""
+    stories: list[StoryMeta] = []
+    for p in sorted(backlog_dir.glob("ST-*.md")):
+        fm = parse_story_frontmatter(p.read_text())
+        if fm is None:
+            continue
+        stories.append(
+            StoryMeta(
+                id=fm.get("id", p.stem),
+                deps=fm.get("deps") or [],
+                outputs=fm.get("outputs") or [],
+                tier=fm.get("tier", "economy"),
+            )
+        )
+    return stories
+
+
+def _expand_outputs(outputs: list[str], project_root: Path) -> set[str]:
+    """Expand output globs against the working tree. Returns relative paths."""
+    expanded: set[str] = set()
+    for pattern in outputs:
+        if not pattern:
+            continue
+        matched = list(project_root.glob(pattern))
+        if matched:
+            for m in matched:
+                if m.is_file():
+                    expanded.add(str(m.relative_to(project_root)))
+        else:
+            # Conservative fallback: use directory prefix
+            # Extract the prefix before any wildcard
+            prefix = pattern.split("*")[0].split("?")[0].rstrip("/")
+            if prefix:
+                expanded.add(f"__prefix__:{prefix}")
+    return expanded
+
+
+def _files_overlap(a: set[str], b: set[str]) -> bool:
+    """Check if two expanded output sets overlap (including prefix overlap)."""
+    # Direct file overlap
+    direct = a & b
+    if direct:
+        return True
+    # Check prefix overlaps
+    a_prefixes = {s.split(":", 1)[1] for s in a if s.startswith("__prefix__:")}
+    b_prefixes = {s.split(":", 1)[1] for s in b if s.startswith("__prefix__:")}
+    a_files = {s for s in a if not s.startswith("__prefix__:")}
+    b_files = {s for s in b if not s.startswith("__prefix__:")}
+
+    for prefix in a_prefixes:
+        if any(f.startswith(prefix) for f in b_files):
+            return True
+        if any(p.startswith(prefix) or prefix.startswith(p) for p in b_prefixes):
+            return True
+    for prefix in b_prefixes:
+        if any(f.startswith(prefix) for f in a_files):
+            return True
+    return False
+
+
+def compute_wave_plan(
+    stories: list[StoryMeta],
+    project_root: Path,
+    filter_ids: list[str] | None = None,
+) -> WavePlan:
+    """Compute a wave plan from stories with dependency and file-overlap analysis.
+
+    If *filter_ids* is provided, only those stories are included in the plan.
+    """
+    if filter_ids:
+        id_set = set(filter_ids)
+        stories = [s for s in stories if s.id in id_set]
+
+    by_id = {s.id: s for s in stories}
+    planned_ids = set(by_id.keys())
+
+    # Expand outputs for each story
+    expanded: dict[str, set[str]] = {}
+    for s in stories:
+        expanded[s.id] = _expand_outputs(s.outputs, project_root)
+
+    # Assign waves based on dependencies
+    wave_of: dict[str, int] = {}
+
+    def _wave_for(sid: str, visited: set[str] | None = None) -> int:
+        if sid in wave_of:
+            return wave_of[sid]
+        if visited is None:
+            visited = set()
+        if sid in visited:
+            # Cycle — break it
+            return 1
+        visited.add(sid)
+        story = by_id.get(sid)
+        if story is None:
+            return 0  # External dep, already done
+        if not story.deps:
+            return 1
+        dep_waves = []
+        for d in story.deps:
+            if d in planned_ids:
+                dep_waves.append(_wave_for(d, visited))
+            # else: external dep, assumed done (wave 0)
+        return max(dep_waves, default=0) + 1
+
+    for s in stories:
+        wave_of[s.id] = _wave_for(s.id)
+
+    # Group by wave
+    max_wave = max(wave_of.values(), default=0)
+    waves: list[dict[str, Any]] = []
+
+    for w in range(1, max_wave + 1):
+        wave_stories = [sid for sid, wn in wave_of.items() if wn == w]
+
+        # Within a wave, find serial chains (file-overlapping pairs)
+        # Build overlap graph within the wave
+        overlap_edges: dict[str, set[str]] = {sid: set() for sid in wave_stories}
+        for i, a in enumerate(wave_stories):
+            for b in wave_stories[i + 1 :]:
+                if _files_overlap(expanded[a], expanded[b]):
+                    overlap_edges[a].add(b)
+                    overlap_edges[b].add(a)
+
+        # Connected components of the overlap graph become serial chains
+        visited_w: set[str] = set()
+        serial_chains: list[list[str]] = []
+        parallel: list[str] = []
+
+        for sid in wave_stories:
+            if sid in visited_w:
+                continue
+            if not overlap_edges[sid]:
+                parallel.append(sid)
+                visited_w.add(sid)
+            else:
+                # BFS to find connected component
+                chain: list[str] = []
+                queue = [sid]
+                while queue:
+                    node = queue.pop(0)
+                    if node in visited_w:
+                        continue
+                    visited_w.add(node)
+                    chain.append(node)
+                    for neighbor in overlap_edges[node]:
+                        if neighbor not in visited_w:
+                            queue.append(neighbor)
+                serial_chains.append(chain)
+
+        wave_entry: dict[str, Any] = {"wave": w, "stories": []}
+        for sid in parallel:
+            wave_entry["stories"].append(
+                {"id": sid, "tier": by_id[sid].tier, "group": "parallel"}
+            )
+        for chain in serial_chains:
+            for sid in chain:
+                wave_entry["stories"].append(
+                    {"id": sid, "tier": by_id[sid].tier, "group": "serial"}
+                )
+        if serial_chains:
+            wave_entry["serial_chains"] = [
+                [sid for sid in chain] for chain in serial_chains
+            ]
+        waves.append(wave_entry)
+
+    return WavePlan(waves=waves)

@@ -27,7 +27,7 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from dispatch_lib import Ledger  # noqa: E402
+from dispatch_lib import Ledger, compute_wave_plan, load_stories  # noqa: E402
 
 DEFAULT_LEDGER = Path(".agent-factory/dispatch-ledger.yaml")
 
@@ -43,6 +43,27 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(f"error: malformed ledger: {e}", file=sys.stderr)
         return 1
     print(ledger.format_status_table())
+    return 0
+
+
+def cmd_plan(args: argparse.Namespace) -> int:
+    backlog_dir = Path(args.backlog_dir)
+    if not backlog_dir.is_dir():
+        print(f"error: backlog directory not found: {backlog_dir}", file=sys.stderr)
+        return 1
+
+    stories = load_stories(backlog_dir)
+    if not stories:
+        print("error: no stories found in backlog directory", file=sys.stderr)
+        return 1
+
+    filter_ids = None
+    if args.stories:
+        filter_ids = [s.strip() for s in args.stories.split(",")]
+
+    project_root = backlog_dir.resolve().parent
+    plan = compute_wave_plan(stories, project_root, filter_ids)
+    print(plan.to_yaml())
     return 0
 
 
@@ -72,6 +93,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p_plan = sub.add_parser("plan", help="compute wave plan from stories")
     p_plan.add_argument("--backlog-dir", required=True)
+    p_plan.add_argument("--stories", default=None, help="comma-separated story IDs to include")
 
     sub.add_parser("prepare-wave", help="prepare all stories in a wave").add_argument(
         "wave", type=int
@@ -110,6 +132,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.subcommand == "status":
         return cmd_status(args)
+    if args.subcommand == "plan":
+        return cmd_plan(args)
     return cmd_not_implemented(args)
 
 
