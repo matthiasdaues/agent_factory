@@ -220,3 +220,63 @@ def test_merge_story_premerge_check_does_not_use_mutating_git_commands(tmp_path:
     log_lines = log_path.read_text().splitlines()
     forbidden = {"git add", "git checkout", "git reset"}
     assert all(not any(line.startswith(prefix) for prefix in forbidden) for line in log_lines)
+
+
+
+def test_escalate_does_not_mutate_git_state(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path, test_command="true")
+    env = _git_env(tmp_path)
+    log_path, _, wrapped_env = _git_wrapper(tmp_path)
+
+    backlog_dir = repo / "backlog"
+    backlog_dir.mkdir(exist_ok=True)
+    (backlog_dir / "ST-001.md").write_text(
+        "---\n"
+        "id: ST-001\n"
+        "tier: economy\n"
+        "status: failed\n"
+        "outputs:\n"
+        "  - src/foo.py\n"
+        "---\n"
+        "# ST-001\n"
+    )
+    _git(repo, tmp_path, "add", "-A", env=env)
+    _git(repo, tmp_path, "commit", "-m", "add backlog story", env=env)
+    base_sha = _git(repo, tmp_path, "rev-parse", "HEAD", env=env).stdout.strip()
+
+    (repo / "src").mkdir(exist_ok=True)
+    story_sha = _commit_on_story_branch(repo, tmp_path, "story/ST-001", "src/foo.py")
+    worktree = repo / ".agent-factory" / "worktrees" / "story-ST-001"
+    _git(repo, tmp_path, "worktree", "add", str(worktree), "story/ST-001", env=env)
+    _write_ledger(
+        repo,
+        StoryEntry(
+            id="ST-001",
+            wave=1,
+            status=StoryState.FAILED,
+            branch="story/ST-001",
+            worktree=str(worktree),
+            base_sha=base_sha,
+            tier="economy",
+            attempts=[
+                {
+                    "session": "impl",
+                    "tier": "economy",
+                    "failure_class": "acceptance_unmet",
+                    "evidence": "docs/findings/IMPL-0001.md",
+                    "commit_sha": story_sha,
+                    "normalized_total": 11,
+                }
+            ],
+        ),
+    )
+    before_status = _git(repo, tmp_path, "status", "--porcelain", env=env).stdout
+
+    result = _run_dispatch("escalate", "ST-001", cwd=repo, tmp_path=tmp_path, env=wrapped_env)
+
+    assert result.returncode == 0, result.stderr
+    after_status = _git(repo, tmp_path, "status", "--porcelain", env=env).stdout
+    assert after_status == before_status
+    log_lines = log_path.read_text().splitlines()
+    forbidden_prefixes = ("git add ", "git commit ", "git reset ", "git checkout ", "git merge ", "git branch -d ", "git worktree remove")
+    assert all(not any(line.startswith(prefix) for prefix in forbidden_prefixes) for line in log_lines)

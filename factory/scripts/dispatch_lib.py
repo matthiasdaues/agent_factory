@@ -66,6 +66,11 @@ FAILURE_CLASSES: tuple[str, ...] = (
     "acceptance_unmet",
     "contradictory_evidence",
 )
+QUALIFYING_ESCALATION_FAILURE_CLASSES: tuple[str, ...] = (
+    "acceptance_unmet",
+    "contradictory_evidence",
+)
+TIER_NEXT = {"economy": "standard", "standard": "strong"}
 
 
 class TransitionError(Exception):
@@ -80,6 +85,51 @@ class ManifestExistsError(Exception):
     """Raised when a step manifest write is attempted over an existing one."""
 
 
+def next_tier(current_tier: str | None) -> str | None:
+    """Return the next tier after *current_tier*, or None at saturation."""
+    if current_tier is None:
+        return None
+    return TIER_NEXT.get(current_tier)
+
+
+def attempts_for_session(entry: StoryEntry, session: str | None = None) -> list[dict[str, Any]]:
+    """Return the story's attempts, optionally filtered by session type."""
+    if session is None:
+        return list(entry.attempts)
+    return [attempt for attempt in entry.attempts if attempt.get("session") == session]
+
+
+def latest_attempt_for_session(
+    entry: StoryEntry, session: str | None = None
+) -> dict[str, Any] | None:
+    """Return the latest attempt, optionally restricted to one session type."""
+    attempts = attempts_for_session(entry, session)
+    return attempts[-1] if attempts else None
+
+
+def append_attempt(
+    entry: StoryEntry,
+    *,
+    session: str,
+    tier: str | None,
+    failure_class: str | None,
+    evidence: str | None,
+    commit_sha: str | None,
+    normalized_total: int,
+) -> dict[str, Any]:
+    """Append one attempt record to *entry* and return the stored mapping."""
+    attempt: dict[str, Any] = {
+        "session": session,
+        "tier": tier,
+        "failure_class": failure_class,
+        "evidence": evidence,
+        "commit_sha": commit_sha,
+        "normalized_total": normalized_total,
+    }
+    entry.attempts.append(attempt)
+    return attempt
+
+
 @dataclass
 class StoryEntry:
     """One story's persisted dispatch lifecycle record."""
@@ -92,9 +142,11 @@ class StoryEntry:
     worktree: str | None = None
     feature_branch: str | None = None
     base_sha: str | None = None
+    tier: str | None = None
     reason: str | None = None
     gate_results: dict[str, Any] = field(default_factory=dict)
     attempts: list[dict[str, Any]] = field(default_factory=list)
+    escalation_granted: bool = False
     verify_base: str | None = None
     commit_sha: str | None = None
     failure_class: str | None = None
@@ -121,11 +173,14 @@ class StoryEntry:
             "worktree": self.worktree,
             "feature_branch": self.feature_branch,
             "base_sha": self.base_sha,
+            "tier": self.tier,
             "reason": self.reason,
             "gate_results": self.gate_results,
         }
         if self.attempts:
             d["attempts"] = self.attempts
+        if self.escalation_granted:
+            d["escalation_granted"] = self.escalation_granted
         if self.verify_base is not None:
             d["verify_base"] = self.verify_base
         if self.commit_sha is not None:
@@ -149,9 +204,11 @@ class StoryEntry:
             worktree=data.get("worktree"),
             feature_branch=data.get("feature_branch"),
             base_sha=data.get("base_sha"),
+            tier=data.get("tier"),
             reason=data.get("reason"),
             gate_results=data.get("gate_results", {}),
             attempts=data.get("attempts", []),
+            escalation_granted=bool(data.get("escalation_granted", False)),
             verify_base=data.get("verify_base"),
             commit_sha=data.get("commit_sha"),
             failure_class=data.get("failure_class"),
