@@ -66,6 +66,11 @@ FAILURE_CLASSES: tuple[str, ...] = (
     "acceptance_unmet",
     "contradictory_evidence",
 )
+QUALIFYING_ESCALATION_FAILURE_CLASSES: tuple[str, ...] = (
+    "acceptance_unmet",
+    "contradictory_evidence",
+)
+TIER_NEXT = {"economy": "standard", "standard": "strong"}
 
 
 class TransitionError(Exception):
@@ -80,6 +85,51 @@ class ManifestExistsError(Exception):
     """Raised when a step manifest write is attempted over an existing one."""
 
 
+def next_tier(current_tier: str | None) -> str | None:
+    """Return the next tier after *current_tier*, or None at saturation."""
+    if current_tier is None:
+        return None
+    return TIER_NEXT.get(current_tier)
+
+
+def attempts_for_session(entry: StoryEntry, session: str | None = None) -> list[dict[str, Any]]:
+    """Return the story's attempts, optionally filtered by session type."""
+    if session is None:
+        return list(entry.attempts)
+    return [attempt for attempt in entry.attempts if attempt.get("session") == session]
+
+
+def latest_attempt_for_session(
+    entry: StoryEntry, session: str | None = None
+) -> dict[str, Any] | None:
+    """Return the latest attempt, optionally restricted to one session type."""
+    attempts = attempts_for_session(entry, session)
+    return attempts[-1] if attempts else None
+
+
+def append_attempt(
+    entry: StoryEntry,
+    *,
+    session: str,
+    tier: str | None,
+    failure_class: str | None,
+    evidence: str | None,
+    commit_sha: str | None,
+    normalized_total: int,
+) -> dict[str, Any]:
+    """Append one attempt record to *entry* and return the stored mapping."""
+    attempt: dict[str, Any] = {
+        "session": session,
+        "tier": tier,
+        "failure_class": failure_class,
+        "evidence": evidence,
+        "commit_sha": commit_sha,
+        "normalized_total": normalized_total,
+    }
+    entry.attempts.append(attempt)
+    return attempt
+
+
 @dataclass
 class StoryEntry:
     """One story's persisted dispatch lifecycle record."""
@@ -92,9 +142,11 @@ class StoryEntry:
     worktree: str | None = None
     feature_branch: str | None = None
     base_sha: str | None = None
+    tier: str | None = None
     reason: str | None = None
     gate_results: dict[str, Any] = field(default_factory=dict)
     attempts: list[dict[str, Any]] = field(default_factory=list)
+    escalation_granted: bool = False
     verify_base: str | None = None
     commit_sha: str | None = None
     failure_class: str | None = None
@@ -121,11 +173,14 @@ class StoryEntry:
             "worktree": self.worktree,
             "feature_branch": self.feature_branch,
             "base_sha": self.base_sha,
+            "tier": self.tier,
             "reason": self.reason,
             "gate_results": self.gate_results,
         }
         if self.attempts:
             d["attempts"] = self.attempts
+        if self.escalation_granted:
+            d["escalation_granted"] = self.escalation_granted
         if self.verify_base is not None:
             d["verify_base"] = self.verify_base
         if self.commit_sha is not None:
@@ -149,9 +204,11 @@ class StoryEntry:
             worktree=data.get("worktree"),
             feature_branch=data.get("feature_branch"),
             base_sha=data.get("base_sha"),
+            tier=data.get("tier"),
             reason=data.get("reason"),
             gate_results=data.get("gate_results", {}),
             attempts=data.get("attempts", []),
+            escalation_granted=bool(data.get("escalation_granted", False)),
             verify_base=data.get("verify_base"),
             commit_sha=data.get("commit_sha"),
             failure_class=data.get("failure_class"),
@@ -160,9 +217,43 @@ class StoryEntry:
         )
 
 
+@dataclass
+class WaveCloseout:
+    """One recorded wave closeout entry in the dispatch ledger."""
+
+    number: int
+    completed: list[dict[str, Any]] = field(default_factory=list)
+    blocked: list[dict[str, Any]] = field(default_factory=list)
+    failed: list[dict[str, Any]] = field(default_factory=list)
+    next_ready: list[str] = field(default_factory=list)
+    branch_head: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "number": self.number,
+            "completed": self.completed,
+            "blocked": self.blocked,
+            "failed": self.failed,
+            "next_ready": self.next_ready,
+            "branch_head": self.branch_head,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> WaveCloseout:
+        return cls(
+            number=int(data["number"]),
+            completed=data.get("completed", []),
+            blocked=data.get("blocked", []),
+            failed=data.get("failed", []),
+            next_ready=data.get("next_ready", []),
+            branch_head=data.get("branch_head"),
+        )
+
+
 class Ledger:
     def __init__(self) -> None:
         self.stories: dict[str, StoryEntry] = {}
+        self.waves: list[WaveCloseout] = []
 
     def transition(self, story_id: str, target: StoryState) -> None:
         entry = self.stories[story_id]
@@ -184,6 +275,57 @@ class Ledger:
             StoryState.BLOCKED,
         }
 
+    def close_wave(self, wave: int, branch_head: str) -> tuple[WaveCloseout, bool]:
+        """Record a terminal wave closeout and return (record, created)."""
+        for record in self.waves:
+            if record.number == wave:
+                return record, False
+
+        wave_stories = [entry for entry in self.stories.values() if entry.wave == wave]
+        if not wave_stories:
+            raise TransitionError(f"wave {wave} has no stories")
+
+        non_terminal = [
+            entry.id
+            for entry in wave_stories
+            if entry.status not in {StoryState.DONE, StoryState.FAILED, StoryState.BLOCKED}
+        ]
+        if non_terminal:
+            raise TransitionError(
+                f"wave {wave} still has non-terminal stories: {', '.join(non_terminal)}"
+            )
+
+        record = WaveCloseout(
+            number=wave,
+            completed=[
+                {"id": entry.id, "merge_sha": entry.commit_sha}
+                for entry in wave_stories
+                if entry.status == StoryState.DONE
+            ],
+            blocked=[
+                {"id": entry.id, "reason": entry.reason}
+                for entry in wave_stories
+                if entry.status == StoryState.BLOCKED
+            ],
+            failed=[
+                {"id": entry.id, "reason": entry.reason}
+                for entry in wave_stories
+                if entry.status == StoryState.FAILED
+            ],
+            next_ready=[
+                entry.id
+                for entry in self.stories.values()
+                if entry.status == StoryState.PENDING
+                and all(
+                    dep not in self.stories or self.is_terminal(dep)
+                    for dep in entry.deps
+                )
+            ],
+            branch_head=branch_head,
+        )
+        self.waves.append(record)
+        return record, True
+
     def save(self, path: Path) -> None:
         for entry in self.stories.values():
             if entry.base_sha is not None:
@@ -192,6 +334,8 @@ class Ledger:
         data = {
             "stories": {sid: e.to_dict() for sid, e in self.stories.items()},
         }
+        if self.waves:
+            data["waves"] = [wave.to_dict() for wave in self.waves]
         path.write_text(_dump_yaml(data))
 
     @classmethod
@@ -202,6 +346,8 @@ class Ledger:
         ledger = cls()
         for sid, sdata in raw.get("stories", {}).items():
             ledger.stories[sid] = StoryEntry.from_dict(sdata)
+        for wave_data in raw.get("waves", []) or []:
+            ledger.waves.append(WaveCloseout.from_dict(wave_data))
         return ledger
 
     def format_status_table(self) -> str:
@@ -240,6 +386,43 @@ def _load_yaml(text: str) -> dict[str, Any]:
     if not isinstance(result, dict):
         raise TypeError(f"expected mapping, got {type(result).__name__}")
     return result
+
+
+def _extract_frontmatter(text: str) -> str | None:
+    """Return the YAML frontmatter body from a Markdown document."""
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None
+    for index, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            return "\n".join(lines[1:index])
+    return None
+
+
+def load_playbook_step_declarations(playbook_path: Path) -> list[dict[str, Any]]:
+    """Load ordered step declarations from a playbook Markdown file."""
+    frontmatter = _extract_frontmatter(playbook_path.read_text())
+    if frontmatter is None:
+        return []
+    data = _load_yaml(frontmatter)
+    steps = data.get("steps")
+    if not isinstance(steps, list):
+        return []
+    declarations: list[dict[str, Any]] = []
+    for step in steps:
+        if isinstance(step, dict) and step.get("name"):
+            declarations.append(step)
+    return declarations
+
+
+def load_playbook_step_declaration(
+    playbook_path: Path, step_name: str
+) -> dict[str, Any] | None:
+    """Return the named playbook step declaration, if present."""
+    for declaration in load_playbook_step_declarations(playbook_path):
+        if declaration.get("name") == step_name:
+            return declaration
+    return None
 
 
 def _stdlib_dump(data: dict[str, Any], indent: int = 0) -> str:
@@ -471,7 +654,9 @@ def _glob_match_recursive(pattern: str, path: str, pi: int, si: int) -> bool:
 # ---------------------------------------------------------------------------
 
 MANIFEST_FILENAME = "current-step.yml"
+HANDOFF_CONTRACT_FILENAME = "handoff-contract.md"
 DEFAULT_MAX_INPUT_TOKENS = 100_000
+DEFAULT_HANDOFF_TOKEN_BUDGET = 800
 
 
 def _manifest_path(worktree_path: Path, feature_branch: str, story_branch: str) -> Path:
@@ -493,21 +678,32 @@ def write_manifest(
     feature_branch: str,
     story_branch: str,
     story_meta: dict[str, Any],
+    *,
+    step_declaration: dict[str, Any] | None = None,
 ) -> Path:
     """Write the step manifest activating guards for one story's worktree.
 
     *story_meta* supplies the story's declared ``deps``/``traces`` (folded
     into the manifest's ``inputs``), ``outputs``, and an optional
-    ``max_input_tokens`` override. Raises ManifestExistsError when a manifest
-    is already present at the target path (no-supersede).
+    ``max_input_tokens`` override. When *step_declaration* is provided, the
+    manifest uses that playbook step's ``inputs``, ``outputs``, and
+    ``max_input_tokens`` instead. Raises ManifestExistsError when a manifest is
+    already present at the target path (no-supersede).
     """
     manifest_path = _manifest_path(worktree_path, feature_branch, story_branch)
     if manifest_path.exists():
         raise ManifestExistsError(f"manifest already present: {manifest_path}")
 
-    inputs = list(story_meta.get("deps") or []) + list(story_meta.get("traces") or [])
-    outputs = list(story_meta.get("outputs") or [])
-    max_input_tokens = story_meta.get("max_input_tokens") or DEFAULT_MAX_INPUT_TOKENS
+    if step_declaration is not None:
+        inputs = list(step_declaration.get("inputs") or [])
+        outputs = list(step_declaration.get("outputs") or [])
+        max_input_tokens = (
+            step_declaration.get("max_input_tokens") or DEFAULT_MAX_INPUT_TOKENS
+        )
+    else:
+        inputs = list(story_meta.get("deps") or []) + list(story_meta.get("traces") or [])
+        outputs = list(story_meta.get("outputs") or [])
+        max_input_tokens = story_meta.get("max_input_tokens") or DEFAULT_MAX_INPUT_TOKENS
 
     data: dict[str, Any] = {
         "schema_version": 1,
@@ -567,6 +763,120 @@ def clear_manifest_force(
             }
         )
     return existed
+
+
+@dataclass(frozen=True)
+class HandoffContract:
+    """Rendered seven-part subagent handoff contract."""
+
+    text: str
+    normalized_tokens: int
+
+
+def normalized_token_count(text: str) -> int:
+    """Estimate normalized tokens using the repository's bytes÷4 rule."""
+    return len(text.encode("utf-8")) // 4
+
+
+def ensure_handoff_contract_budget(
+    text: str,
+    *,
+    max_normalized_tokens: int = DEFAULT_HANDOFF_TOKEN_BUDGET,
+) -> None:
+    """Raise ValueError when *text* exceeds the seven-part budget."""
+    max_bytes = max_normalized_tokens * 4
+    actual_bytes = len(text.encode("utf-8"))
+    if actual_bytes > max_bytes:
+        raise ValueError(
+            "handoff contract exceeds budget: "
+            f"{actual_bytes} bytes > {max_bytes} bytes"
+        )
+
+
+def handoff_contract_path(
+    worktree_path: Path, feature_branch: str, story_branch: str
+) -> Path:
+    """Return the runtime path that stores one story's handoff contract."""
+    return (
+        Path(worktree_path)
+        / ".current_work"
+        / feature_branch
+        / story_branch
+        / HANDOFF_CONTRACT_FILENAME
+    )
+
+
+def render_handoff_contract(
+    *,
+    story_id: str,
+    story_title: str,
+    acceptance_criteria_path: Path,
+    worktree_path: Path,
+    story_branch: str,
+    outputs: list[str],
+    test_command: str,
+    strategy: str | None = None,
+    max_normalized_tokens: int = DEFAULT_HANDOFF_TOKEN_BUDGET,
+) -> HandoffContract:
+    """Render the seven-part prompt for one prepared story."""
+    del strategy
+    lines = [
+        "Part 1 — Outcome",
+        f"- Story ID: {story_id}",
+        f"- Title: {story_title}",
+        f"- Acceptance criteria: {acceptance_criteria_path.as_posix()}",
+        "",
+        "Part 2 — Workspace",
+        f"- Worktree: {Path(worktree_path).as_posix()}",
+        f"- Story branch: {story_branch}",
+        "",
+        "Part 3 — Allowed writes",
+    ]
+    if outputs:
+        lines.extend(f"- {output}" for output in outputs)
+    else:
+        lines.append("-")
+    lines.extend(
+        [
+            "",
+            "Part 4 — Forbidden actions",
+            "- merge",
+            "- push",
+            "- branch creation",
+            "- ledger writes",
+            "- hook bypass",
+            "",
+            "Part 5 — Required checks",
+            f"- test_command: {test_command}",
+            "",
+            "Part 6 — Stop conditions",
+            "- ambiguous criterion",
+            "- missing input",
+            "- out-of-scope write needed",
+            "- suspect test",
+            "",
+            "Part 7 — Return envelope",
+            "- status",
+            "- commit_sha",
+            "- files_changed",
+            "- checks",
+            "- blockers",
+            "- failure_class",
+        ]
+    )
+    text = "\n".join(lines).rstrip() + "\n"
+    ensure_handoff_contract_budget(text, max_normalized_tokens=max_normalized_tokens)
+    return HandoffContract(text=text, normalized_tokens=normalized_token_count(text))
+
+
+def write_handoff_contract(
+    worktree_path: Path, feature_branch: str, story_branch: str, contract_text: str
+) -> Path:
+    """Persist a rendered handoff contract beside the story manifest."""
+    contract_path = handoff_contract_path(worktree_path, feature_branch, story_branch)
+    contract_path.parent.mkdir(parents=True, exist_ok=True)
+    contract_path.write_text(contract_text)
+    return contract_path
 
 
 # ---------------------------------------------------------------------------

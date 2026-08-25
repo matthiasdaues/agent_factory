@@ -31,7 +31,12 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from dispatch_lib import (  # noqa: E402
     FAILURE_CLASSES,
     MANIFEST_FILENAME,
+    QUALIFYING_ESCALATION_FAILURE_CLASSES,
     TIER_RANK,
+    append_attempt,
+    attempts_for_session,
+    glob_match,
+    next_tier,
     Ledger,
     ManifestExistsError,
     ShaFormatError,
@@ -44,7 +49,9 @@ from dispatch_lib import (  # noqa: E402
     load_stories,
     parse_story_frontmatter,
     remove_manifest,
+    render_handoff_contract,
     suggest_tier,
+    write_handoff_contract,
     write_manifest,
 )
 
@@ -79,6 +86,69 @@ def _read_test_command(project_root: Path) -> str | None:
         return data.get("test_command")
     except (json.JSONDecodeError, OSError):
         return None
+
+
+def _story_frontmatter(project_root: Path, story_id: str) -> dict | None:
+    """Return the parsed frontmatter for one backlog story, if available."""
+    story_path = project_root / "backlog" / f"{story_id}.md"
+    if not story_path.exists():
+        return None
+    return parse_story_frontmatter(story_path.read_text())
+
+
+def _story_declared_tier(project_root: Path, story_id: str) -> str | None:
+    """Return the backlog-declared tier for *story_id*, if any."""
+    frontmatter = _story_frontmatter(project_root, story_id)
+    if not frontmatter:
+        return None
+    tier = frontmatter.get("tier")
+    return tier if isinstance(tier, str) else None
+
+
+def _story_output_globs(project_root: Path, story_id: str) -> list[str]:
+    """Return the backlog-declared output globs for *story_id*."""
+    frontmatter = _story_frontmatter(project_root, story_id)
+    if not frontmatter:
+        return []
+    outputs = frontmatter.get("outputs") or []
+    return outputs if isinstance(outputs, list) else []
+
+
+def _attempt_session_for_story(frontmatter: dict | None, failure_class: str | None) -> str:
+    """Infer the attempt session type from story metadata and failure class."""
+    if failure_class == "seam_defect":
+        return "seam"
+    if frontmatter and frontmatter.get("strategy") == "seams-first":
+        return "impl"
+    return "impl"
+
+
+def _commit_changed_paths(commit_sha: str) -> list[str]:
+    """Return the tracked paths changed by *commit_sha*."""
+    if not commit_sha:
+        return []
+    code, out, _ = _git("show", "--name-only", "--format=", commit_sha)
+    if code != 0:
+        return []
+    return [line.strip() for line in out.splitlines() if line.strip()]
+
+
+def _story_scope_violation(
+    project_root: Path, story_id: str, commit_sha: str | None
+) -> bool:
+    """Return True when a commit touches files outside the story's outputs."""
+    if not commit_sha:
+        return True
+    outputs = _story_output_globs(project_root, story_id)
+    if not outputs:
+        return True
+    changed_paths = _commit_changed_paths(commit_sha)
+    if not changed_paths:
+        return True
+    for path in changed_paths:
+        if not any(glob_match(pattern, path) for pattern in outputs):
+            return True
+    return False
 
 
 def cmd_status(args: argparse.Namespace) -> int:
@@ -167,6 +237,41 @@ def _story_meta_for_manifest(project_root: Path, story_id: str) -> dict:
     return meta
 
 
+def _story_handoff_contract(
+    project_root: Path,
+    entry: StoryEntry,
+    feature_branch: str,
+    worktree_path: Path,
+) -> tuple[object | None, str | None]:
+    """Render and persist the story's seven-part handoff contract."""
+    story_path = project_root / "backlog" / f"{entry.id}.md"
+    story_fm = parse_story_frontmatter(story_path.read_text()) if story_path.exists() else {}
+    story_title = (story_fm or {}).get("title") or entry.id
+    outputs = list((story_fm or {}).get("outputs") or [])
+    strategy = (story_fm or {}).get("strategy")
+    test_command = _read_test_command(project_root)
+    if not test_command:
+        return None, "error: config/project.json must contain a 'test_command' key"
+
+    try:
+        contract = render_handoff_contract(
+            story_id=entry.id,
+            story_title=story_title,
+            acceptance_criteria_path=story_path.relative_to(project_root)
+            if story_path.is_relative_to(project_root)
+            else story_path,
+            worktree_path=worktree_path,
+            story_branch=entry.branch or f"story/{entry.id}",
+            outputs=outputs,
+            test_command=test_command,
+            strategy=strategy,
+        )
+    except ValueError as e:
+        return None, str(e)
+
+    return contract, None
+
+
 def _write_story_manifest(
     project_root: Path,
     entry: StoryEntry,
@@ -177,11 +282,22 @@ def _write_story_manifest(
 
     Returns (0, None) on success, (1, error_message) on no-supersede failure.
     """
+    contract, contract_err = _story_handoff_contract(
+        project_root, entry, feature_branch, worktree_path
+    )
+    if contract_err is not None:
+        return 1, contract_err
+
     story_meta = _story_meta_for_manifest(project_root, entry.id)
     try:
         write_manifest(worktree_path, feature_branch, entry.branch, story_meta)
     except ManifestExistsError as e:
         return 1, str(e)
+
+    if contract is not None:
+        write_handoff_contract(
+            worktree_path, feature_branch, entry.branch or f"story/{entry.id}", contract.text
+        )
     entry.feature_branch = feature_branch
     return 0, None
 
@@ -290,7 +406,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     # Initialize ledger
     ledger = Ledger()
     for sid in story_ids:
-        ledger.stories[sid] = StoryEntry(id=sid)
+        ledger.stories[sid] = StoryEntry(id=sid, tier=_story_declared_tier(project_root, sid))
     ledger_dir.mkdir(parents=True, exist_ok=True)
     ledger.save(ledger_path)
 
@@ -697,13 +813,14 @@ def cmd_mark_blocked(args: argparse.Namespace) -> int:
 
 
 def cmd_mark_failed(args: argparse.Namespace) -> int:
-    code, out, _ = _git("ls-files", "--", args.evidence)
-    if code != 0 or not out.strip():
-        print(
-            f"error: evidence path is not tracked in git: {args.evidence}",
-            file=sys.stderr,
-        )
-        return 1
+    if args.evidence is not None:
+        code, out, _ = _git("ls-files", "--", args.evidence)
+        if code != 0 or not out.strip():
+            print(
+                f"error: evidence path is not tracked in git: {args.evidence}",
+                file=sys.stderr,
+            )
+            return 1
 
     ledger_path = Path(args.ledger)
     ledger = _load_ledger(ledger_path)
@@ -724,11 +841,112 @@ def cmd_mark_failed(args: argparse.Namespace) -> int:
     if current_status != StoryState.FAILED:
         entry.failure_class = args.failure_class
         entry.evidence = args.evidence
+        frontmatter = _story_frontmatter(_project_root(), args.story_id)
+        session = _attempt_session_for_story(frontmatter, args.failure_class)
+        tier = entry.tier or _story_declared_tier(_project_root(), args.story_id)
+        append_attempt(
+            entry,
+            session=session,
+            tier=tier,
+            failure_class=args.failure_class,
+            evidence=args.evidence,
+            commit_sha=entry.commit_sha,
+            normalized_total=0,
+        )
     return _save_ledger(ledger, ledger_path)
 
 
 def cmd_re_dispatch(args: argparse.Namespace) -> int:
     return _transition(args, StoryState.PREPARED)
+
+
+def cmd_escalate(args: argparse.Namespace) -> int:
+    """Escalate a failed story to the next tier when all six conditions pass."""
+    ledger_path = Path(args.ledger)
+    ledger = _load_ledger(ledger_path)
+    if ledger is None:
+        return 1
+
+    project_root = _project_root()
+    entry = ledger.stories.get(args.story_id)
+    if entry is None:
+        print(f"error: story not found: {args.story_id}", file=sys.stderr)
+        return 1
+
+    story_tier = entry.tier or _story_declared_tier(project_root, args.story_id) or "economy"
+    if story_tier == "strong":
+        print(f"error: story {args.story_id} is already at strong tier", file=sys.stderr)
+        return 1
+
+    impl_attempts = attempts_for_session(entry, "impl")
+    if len(impl_attempts) != 1:
+        print(
+            f"error: story {args.story_id} requires exactly one prior impl attempt",
+            file=sys.stderr,
+        )
+        return 1
+
+    attempt = impl_attempts[0]
+    failure_class = attempt.get("failure_class")
+    if failure_class not in QUALIFYING_ESCALATION_FAILURE_CLASSES:
+        print(
+            f"error: story {args.story_id} has non-qualifying failure class: {failure_class}",
+            file=sys.stderr,
+        )
+        return 1
+
+    if entry.escalation_granted:
+        print(f"error: story {args.story_id} has already escalated", file=sys.stderr)
+        return 1
+
+    if any(
+        other.id != entry.id and other.wave == entry.wave and other.escalation_granted
+        for other in ledger.stories.values()
+    ):
+        entry.status = StoryState.BLOCKED
+        entry.reason = "wave_escalation_exhausted"
+        if _save_ledger(ledger, ledger_path) != 0:
+            return 1
+        print(
+            f"error: wave escalation slot already taken for wave {entry.wave}",
+            file=sys.stderr,
+        )
+        return 1
+
+    if not entry.branch or not entry.worktree or not entry.base_sha:
+        print(
+            f"error: story {args.story_id} is missing prepared branch metadata",
+            file=sys.stderr,
+        )
+        return 1
+
+    verify_code, verify_output = _run_verify_base(
+        Path(entry.worktree), entry.branch, entry.base_sha
+    )
+    if verify_code != 0:
+        if verify_output:
+            print(verify_output, file=sys.stderr)
+        print(f"error: verify-base failed for {args.story_id}", file=sys.stderr)
+        return 1
+
+    commit_sha = attempt.get("commit_sha") or entry.commit_sha
+    if _story_scope_violation(project_root, args.story_id, commit_sha):
+        print(f"error: scope violation blocks escalation for {args.story_id}", file=sys.stderr)
+        return 1
+
+    next_story_tier = next_tier(story_tier)
+    if next_story_tier is None:
+        print(f"error: story {args.story_id} is already at strong tier", file=sys.stderr)
+        return 1
+
+    entry.tier = next_story_tier
+    entry.escalation_granted = True
+    if _save_ledger(ledger, ledger_path) != 0:
+        return 1
+    print(
+        f"dispatch escalate: {args.story_id} escalated {story_tier} -> {next_story_tier}",
+    )
+    return 0
 
 
 def _validate_sha_format(sha: str) -> None:
@@ -787,6 +1005,10 @@ def cmd_verify_story(args: argparse.Namespace) -> int:
 
     entry.verify_base = "pass"
     entry.commit_sha = sha
+    if entry.attempts:
+        latest = entry.attempts[-1]
+        if latest.get("commit_sha") is None:
+            latest["commit_sha"] = sha
     return _save_ledger(ledger, ledger_path)
 
 
@@ -991,10 +1213,39 @@ def cmd_close_wave(args: argparse.Namespace) -> int:
     ledger = _load_ledger(ledger_path)
     if ledger is None:
         return 1
+
+    branch_head_code, branch_head, branch_head_err = _git("rev-parse", "HEAD")
+    if branch_head_code != 0:
+        print(f"error: unable to read current branch head: {branch_head_err}", file=sys.stderr)
+        return 1
+
     wave = args.wave
-    stories_in_wave = [entry for entry in ledger.stories.values() if entry.wave == wave]
-    if not all(entry.status in {StoryState.DONE, StoryState.FAILED, StoryState.BLOCKED} for entry in stories_in_wave):
-        print(f"error: wave {wave} still has non-terminal stories", file=sys.stderr)
+    try:
+        record, created = ledger.close_wave(wave, branch_head)
+    except TransitionError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+
+    if not created:
+        return 0
+
+    if _save_ledger(ledger, ledger_path) != 0:
+        return 1
+
+    project_root = _project_root()
+    rel_ledger_path = ledger_path.relative_to(project_root)
+    add_code, _, add_err = _git("add", "--", str(rel_ledger_path))
+    if add_code != 0:
+        print(f"error: failed to stage ledger for wave {wave} closeout: {add_err}", file=sys.stderr)
+        return 1
+
+    commit_code, _, commit_err = _git(
+        "commit",
+        "-m",
+        f"chore: dispatch ledger wave {wave} closeout",
+    )
+    if commit_code != 0:
+        print(f"error: failed to commit wave {wave} closeout: {commit_err}", file=sys.stderr)
         return 1
     return 0
 
@@ -1053,10 +1304,11 @@ def main(argv: list[str] | None = None) -> int:
     p_mf.add_argument(
         "--class",
         dest="failure_class",
-        required=True,
+        required=False,
+        default=None,
         choices=FAILURE_CLASSES,
     )
-    p_mf.add_argument("--evidence", required=True)
+    p_mf.add_argument("--evidence", required=False, default=None)
 
     p_rd = sub.add_parser("re-dispatch", help="return story to prepared")
     p_rd.add_argument("story_id")
@@ -1064,6 +1316,9 @@ def main(argv: list[str] | None = None) -> int:
     p_vs = sub.add_parser("verify-story", help="verify a story's commit SHA")
     p_vs.add_argument("story_id")
     p_vs.add_argument("--sha", required=True)
+
+    p_es = sub.add_parser("escalate", help="escalate a story to the next tier")
+    p_es.add_argument("story_id")
 
     p_ms = sub.add_parser("merge-story", help="merge a story's feature branch")
     p_ms.add_argument("story_id")
@@ -1105,6 +1360,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_re_dispatch(args)
     if args.subcommand == "verify-story":
         return cmd_verify_story(args)
+    if args.subcommand == "escalate":
+        return cmd_escalate(args)
     if args.subcommand == "merge-story":
         return cmd_merge_story(args)
     if args.subcommand == "close-wave":
