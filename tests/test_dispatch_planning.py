@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "factory" / "scr
 from dispatch_lib import (
     StoryMeta,
     compute_wave_plan,
+    suggest_tier,
 )
 
 # ---------------------------------------------------------------------------
@@ -184,3 +185,56 @@ class TestPlanOutput:
         output = plan.to_yaml()
         assert "waves:" in output
         assert "ST-001" in output
+
+
+# ---------------------------------------------------------------------------
+# Tier rubric (first-match-wins)
+# ---------------------------------------------------------------------------
+
+
+class TestTierRubric:
+    def test_security_risk_domain_suggests_strong(self) -> None:
+        fm = {"risk_domains": ["security"], "outputs": ["src/a.py"]}
+        assert suggest_tier(fm, {}) == "strong"
+
+    def test_privacy_risk_domain_suggests_strong(self) -> None:
+        fm = {"risk_domains": ["privacy"], "outputs": ["src/a.py"]}
+        assert suggest_tier(fm, {}) == "strong"
+
+    def test_data_integrity_risk_domain_suggests_strong(self) -> None:
+        fm = {"risk_domains": ["data_integrity"], "outputs": ["src/a.py"]}
+        assert suggest_tier(fm, {}) == "strong"
+
+    def test_safety_critical_paths_suggests_strong(self) -> None:
+        fm = {"outputs": ["factory/scripts/dispatch"]}
+        project_config = {"safety_critical_paths": ["factory/scripts/*"]}
+        assert suggest_tier(fm, project_config) == "strong"
+
+    def test_multi_directory_outputs_suggests_standard(self) -> None:
+        fm = {"outputs": ["src/a.py", "tests/test_a.py"]}
+        assert suggest_tier(fm, {}) == "standard"
+
+    def test_three_deps_suggests_standard(self) -> None:
+        fm = {
+            "outputs": ["src/a.py"],
+            "deps": ["ST-001", "ST-002", "ST-003"],
+        }
+        assert suggest_tier(fm, {}) == "standard"
+
+    def test_single_dir_with_tests_suggests_economy(self) -> None:
+        fm = {
+            "outputs": ["src/a.py"],
+            "tests": ["tests/test_a.py"],
+        }
+        assert suggest_tier(fm, {}) == "economy"
+
+    def test_no_match_defaults_standard(self) -> None:
+        fm = {"outputs": ["src/a.py"]}
+        assert suggest_tier(fm, {}) == "standard"
+
+    def test_first_match_wins(self) -> None:
+        fm = {
+            "risk_domains": ["security"],
+            "outputs": ["src/a.py", "tests/test_a.py"],
+        }
+        assert suggest_tier(fm, {}) == "strong"

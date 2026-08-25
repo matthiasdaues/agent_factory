@@ -210,3 +210,82 @@ class TestDispatchInitMutualExclusion:
         )
         assert result.returncode == 1
         assert "mutually exclusive" in result.stderr
+
+
+def _add_backlog_story(
+    repo: Path,
+    story_id: str,
+    *,
+    tier: str,
+    risk_domains: list[str] | None = None,
+    outputs: list[str] | None = None,
+    deps: list[str] | None = None,
+    tests: list[str] | None = None,
+) -> None:
+    """Write and commit a minimal backlog story file with the given frontmatter."""
+    backlog_dir = repo / "backlog"
+    backlog_dir.mkdir(exist_ok=True)
+    lines = ["---", f"id: {story_id}", f"tier: {tier}", "status: pending"]
+    if risk_domains:
+        lines.append("risk_domains:")
+        lines.extend(f"  - {d}" for d in risk_domains)
+    if outputs:
+        lines.append("outputs:")
+        lines.extend(f"  - {o}" for o in outputs)
+    if deps:
+        lines.append("deps:")
+        lines.extend(f"  - {d}" for d in deps)
+    if tests:
+        lines.append("tests:")
+        lines.extend(f"  - {t}" for t in tests)
+    lines.append("---")
+    lines.append(f"# {story_id}")
+    (backlog_dir / f"{story_id}.md").write_text("\n".join(lines) + "\n")
+
+    env = _git_env(repo.parent)
+    subprocess.run(
+        ["git", "add", "-A"], cwd=repo, capture_output=True, check=True, env=env
+    )
+    subprocess.run(
+        ["git", "commit", "--no-verify", "-m", f"add {story_id}"],
+        cwd=repo,
+        capture_output=True,
+        check=True,
+        env=env,
+    )
+
+
+class TestDispatchInitTierMismatch:
+    def test_strong_suggestion_lower_declared_blocks_init(
+        self, tmp_path: Path
+    ) -> None:
+        repo = _init_repo(tmp_path)
+        _add_backlog_story(
+            repo,
+            "ST-100",
+            tier="economy",
+            risk_domains=["security"],
+            outputs=["src/a.py"],
+        )
+        result = _run_dispatch(
+            "init", "--base", "main", "--stories", "ST-100", cwd=repo
+        )
+        assert result.returncode == 1
+        assert "ST-100" in result.stderr
+        assert "strong" in result.stderr
+
+    def test_nonblocking_mismatch_warns_but_proceeds(self, tmp_path: Path) -> None:
+        repo = _init_repo(tmp_path)
+        _add_backlog_story(
+            repo,
+            "ST-101",
+            tier="standard",
+            outputs=["src/a.py"],
+            tests=["tests/test_a.py"],
+        )
+        result = _run_dispatch(
+            "init", "--base", "main", "--stories", "ST-101", cwd=repo
+        )
+        assert result.returncode == 0, result.stderr
+        assert "ST-101" in result.stderr
+        assert "economy" in result.stderr
