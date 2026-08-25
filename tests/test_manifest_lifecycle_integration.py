@@ -202,6 +202,51 @@ def test_prepare_story_writes_manifest(tmp_path: Path) -> None:
     assert manifest["schema_version"] == 1
     assert manifest["outputs"] == ["src/foo.py"]
 
+def test_playbook_step_declaration_writes_manifest(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    worktree = repo / "worktree-ST-777"
+    branch = "story/ST-777"
+    _git(repo, tmp_path, "branch", branch, "HEAD")
+    _git(repo, tmp_path, "worktree", "add", str(worktree), branch)
+
+    playbook = repo / "factory" / "playbooks" / "feature-addition.md"
+    playbook.parent.mkdir(parents=True, exist_ok=True)
+    playbook.write_text(
+        "---\n"
+        "title: Feature Addition Playbook\n"
+        "category: orchestration\n"
+        "type: runbook\n"
+        "scenario: feature-addition\n"
+        "version: 1.2.0\n"
+        "steps:\n"
+        "  - name: implement-stories\n"
+        "    inputs:\n"
+        "      - 'docs/proposals/**/*.md'\n"
+        "    outputs:\n"
+        "      - 'factory/**/*.py'\n"
+        "      - 'tests/**/*.py'\n"
+        "    max_input_tokens: 64000\n"
+        "---\n\n"
+        "# Feature Addition Playbook\n"
+    )
+
+    step_decl = dispatch_lib.load_playbook_step_declaration(playbook, "implement-stories")
+    assert step_decl is not None
+
+    story_meta = {
+        "deps": ["ST-001"],
+        "traces": ["Feature: Widget"],
+        "outputs": ["src/ignored.py"],
+        "max_input_tokens": 100_000,
+    }
+    write_manifest(worktree, "main", branch, story_meta, step_declaration=step_decl)
+
+    manifest_path = _manifest_path(worktree, "main", branch)
+    manifest = yaml.safe_load(manifest_path.read_text())
+    assert manifest["inputs"] == ["docs/proposals/**/*.md"]
+    assert manifest["outputs"] == ["factory/**/*.py", "tests/**/*.py"]
+    assert manifest["max_input_tokens"] == 64_000
+
 
 def test_no_supersede_blocks_second_write(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)

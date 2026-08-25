@@ -242,6 +242,43 @@ def _load_yaml(text: str) -> dict[str, Any]:
     return result
 
 
+def _extract_frontmatter(text: str) -> str | None:
+    """Return the YAML frontmatter body from a Markdown document."""
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None
+    for index, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            return "\n".join(lines[1:index])
+    return None
+
+
+def load_playbook_step_declarations(playbook_path: Path) -> list[dict[str, Any]]:
+    """Load ordered step declarations from a playbook Markdown file."""
+    frontmatter = _extract_frontmatter(playbook_path.read_text())
+    if frontmatter is None:
+        return []
+    data = _load_yaml(frontmatter)
+    steps = data.get("steps")
+    if not isinstance(steps, list):
+        return []
+    declarations: list[dict[str, Any]] = []
+    for step in steps:
+        if isinstance(step, dict) and step.get("name"):
+            declarations.append(step)
+    return declarations
+
+
+def load_playbook_step_declaration(
+    playbook_path: Path, step_name: str
+) -> dict[str, Any] | None:
+    """Return the named playbook step declaration, if present."""
+    for declaration in load_playbook_step_declarations(playbook_path):
+        if declaration.get("name") == step_name:
+            return declaration
+    return None
+
+
 def _stdlib_dump(data: dict[str, Any], indent: int = 0) -> str:
     lines: list[str] = []
     prefix = "  " * indent
@@ -493,21 +530,32 @@ def write_manifest(
     feature_branch: str,
     story_branch: str,
     story_meta: dict[str, Any],
+    *,
+    step_declaration: dict[str, Any] | None = None,
 ) -> Path:
     """Write the step manifest activating guards for one story's worktree.
 
     *story_meta* supplies the story's declared ``deps``/``traces`` (folded
     into the manifest's ``inputs``), ``outputs``, and an optional
-    ``max_input_tokens`` override. Raises ManifestExistsError when a manifest
-    is already present at the target path (no-supersede).
+    ``max_input_tokens`` override. When *step_declaration* is provided, the
+    manifest uses that playbook step's ``inputs``, ``outputs``, and
+    ``max_input_tokens`` instead. Raises ManifestExistsError when a manifest is
+    already present at the target path (no-supersede).
     """
     manifest_path = _manifest_path(worktree_path, feature_branch, story_branch)
     if manifest_path.exists():
         raise ManifestExistsError(f"manifest already present: {manifest_path}")
 
-    inputs = list(story_meta.get("deps") or []) + list(story_meta.get("traces") or [])
-    outputs = list(story_meta.get("outputs") or [])
-    max_input_tokens = story_meta.get("max_input_tokens") or DEFAULT_MAX_INPUT_TOKENS
+    if step_declaration is not None:
+        inputs = list(step_declaration.get("inputs") or [])
+        outputs = list(step_declaration.get("outputs") or [])
+        max_input_tokens = (
+            step_declaration.get("max_input_tokens") or DEFAULT_MAX_INPUT_TOKENS
+        )
+    else:
+        inputs = list(story_meta.get("deps") or []) + list(story_meta.get("traces") or [])
+        outputs = list(story_meta.get("outputs") or [])
+        max_input_tokens = story_meta.get("max_input_tokens") or DEFAULT_MAX_INPUT_TOKENS
 
     data: dict[str, Any] = {
         "schema_version": 1,
