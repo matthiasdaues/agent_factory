@@ -64,6 +64,20 @@ See [UC-04](../use_cases/UC-04-dispatch-an-agent-via-trigger.md).
 
 All subcommands are thin wrappers around the ledger state machine. `mark-failed` accepts `--class` and `--evidence` for CLI compatibility, but Phase 1 only applies the state transition. `close-wave` succeeds only when every story in the requested wave is terminal.
 
+## `factory/scripts/step-guard`
+
+|             |                                                                                                                                                                                                                                                                              |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage       | `step-guard --guard-type read\|write\|bash\|context`                                                                                                                                                                                                                         |
+| Reads       | One JSON tool event on stdin; `.current_work/current-step.yml` when present; declared inputs/outputs and `max_input_tokens` from the event or manifest                                                                                                                       |
+| Writes      | Nothing — read-only; deny reasons to stderr on refusal                                                                                                                                                                                                                       |
+| Exit code   | `0` on allow; `1` on scope/budget denial; `2` on malformed JSON or malformed event/manifest                                                                                                                                                                                  |
+| Guard types | `read` checks one path against declared inputs and always-allowed prefixes; `write` checks one path against declared outputs plus the security deny-list; `bash` extracts obvious read/write paths from common shell commands; `context` compares estimated tokens to budget |
+
+`step-guard` is intentionally best-effort for Bash path extraction. It allows commands with no extractable path, and it treats declared input size as file bytes divided by 4 when estimating context usage.
+
+See [UC-12](../use_cases/UC-12-audit-dispatch-safeguards.md).
+
 ## `factory/scripts/index-lint`
 
 |           |                                                                                                                                        |
