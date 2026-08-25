@@ -74,10 +74,14 @@ class StoryEntry:
     reason: str | None = None
     gate_results: dict[str, Any] = field(default_factory=dict)
     attempts: list[dict[str, Any]] = field(default_factory=list)
+    verify_base: str | None = None
+    commit_sha: str | None = None
 
     def __post_init__(self) -> None:
         if self.base_sha is not None:
             _validate_sha(self.base_sha)
+        if self.commit_sha is not None:
+            _validate_sha(self.commit_sha)
 
     def set_sha(self, sha: str) -> None:
         _validate_sha(sha)
@@ -97,6 +101,10 @@ class StoryEntry:
         }
         if self.attempts:
             d["attempts"] = self.attempts
+        if self.verify_base is not None:
+            d["verify_base"] = self.verify_base
+        if self.commit_sha is not None:
+            d["commit_sha"] = self.commit_sha
         return d
 
     @classmethod
@@ -112,6 +120,8 @@ class StoryEntry:
             reason=data.get("reason"),
             gate_results=data.get("gate_results", {}),
             attempts=data.get("attempts", []),
+            verify_base=data.get("verify_base"),
+            commit_sha=data.get("commit_sha"),
         )
 
 
