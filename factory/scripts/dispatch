@@ -28,6 +28,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from dispatch_lib import (  # noqa: E402
+    FAILURE_CLASSES,
     Ledger,
     ShaFormatError,
     StoryEntry,
@@ -406,7 +407,34 @@ def cmd_mark_blocked(args: argparse.Namespace) -> int:
 
 
 def cmd_mark_failed(args: argparse.Namespace) -> int:
-    return _transition(args, StoryState.FAILED)
+    code, out, _ = _git("ls-files", "--", args.evidence)
+    if code != 0 or not out.strip():
+        print(
+            f"error: evidence path is not tracked in git: {args.evidence}",
+            file=sys.stderr,
+        )
+        return 1
+
+    ledger_path = Path(args.ledger)
+    ledger = _load_ledger(ledger_path)
+    if ledger is None:
+        return 1
+    entry = ledger.stories.get(args.story_id)
+    if entry is None:
+        print(f"error: story not found: {args.story_id}", file=sys.stderr)
+        return 1
+
+    current_status = entry.status
+    try:
+        ledger.transition(args.story_id, StoryState.FAILED)
+    except TransitionError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+
+    if current_status != StoryState.FAILED:
+        entry.failure_class = args.failure_class
+        entry.evidence = args.evidence
+    return _save_ledger(ledger, ledger_path)
 
 
 def cmd_re_dispatch(args: argparse.Namespace) -> int:
@@ -529,8 +557,13 @@ def main(argv: list[str] | None = None) -> int:
 
     p_mf = sub.add_parser("mark-failed", help="mark story as failed")
     p_mf.add_argument("story_id")
-    p_mf.add_argument("--class", dest="failure_class")
-    p_mf.add_argument("--evidence")
+    p_mf.add_argument(
+        "--class",
+        dest="failure_class",
+        required=True,
+        choices=FAILURE_CLASSES,
+    )
+    p_mf.add_argument("--evidence", required=True)
 
     p_rd = sub.add_parser("re-dispatch", help="return story to prepared")
     p_rd.add_argument("story_id")

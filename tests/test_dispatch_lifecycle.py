@@ -426,8 +426,25 @@ def test_mark_blocked_rejects_terminal_story(tmp_path):
     assert result.returncode == 1
 
 
+def _init_git_repo_with_tracked_file(repo_path: Path, file_name: str = "evidence.txt") -> Path:
+    """Initialize a git repo at *repo_path* with one tracked file, return its path."""
+    subprocess.run(["git", "init", "-q"], cwd=repo_path, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"], cwd=repo_path, check=True
+    )
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=repo_path, check=True)
+    evidence_path = repo_path / file_name
+    evidence_path.write_text("evidence contents\n")
+    subprocess.run(["git", "add", file_name], cwd=repo_path, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "add evidence"], cwd=repo_path, check=True
+    )
+    return evidence_path
+
+
 def test_mark_failed_happy_path_and_idempotency(tmp_path):
     ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    _init_git_repo_with_tracked_file(tmp_path)
     _write_ledger(
         ledger_path,
         ledger_with(story_factory(status=StoryState.DISPATCHING)),
@@ -439,24 +456,191 @@ def test_mark_failed_happy_path_and_idempotency(tmp_path):
         "--class",
         "environment",
         "--evidence",
-        "ignored.txt",
+        "evidence.txt",
         cwd=tmp_path,
         ledger=ledger_path,
     )
-    second = _run_dispatch("mark-failed", "ST-001", cwd=tmp_path, ledger=ledger_path)
+    second = _run_dispatch(
+        "mark-failed",
+        "ST-001",
+        "--class",
+        "environment",
+        "--evidence",
+        "evidence.txt",
+        cwd=tmp_path,
+        ledger=ledger_path,
+    )
 
     assert first.returncode == 0, first.stderr
     assert second.returncode == 0
     assert _loaded_status(ledger_path, "ST-001") == StoryState.FAILED
+    loaded = Ledger.load(ledger_path)
+    assert loaded.stories["ST-001"].failure_class == "environment"
+    assert loaded.stories["ST-001"].evidence == "evidence.txt"
 
 
 def test_mark_failed_rejects_wrong_source_state(tmp_path):
     ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    _init_git_repo_with_tracked_file(tmp_path)
     _write_ledger(ledger_path, ledger_with(story_factory(status=StoryState.PREPARED)))
 
-    result = _run_dispatch("mark-failed", "ST-001", cwd=tmp_path, ledger=ledger_path)
+    result = _run_dispatch(
+        "mark-failed",
+        "ST-001",
+        "--class",
+        "environment",
+        "--evidence",
+        "evidence.txt",
+        cwd=tmp_path,
+        ledger=ledger_path,
+    )
 
     assert result.returncode == 1
+
+
+def test_valid_failure_class_and_tracked_evidence_recorded(tmp_path):
+    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    _init_git_repo_with_tracked_file(tmp_path, "proof.log")
+    _write_ledger(
+        ledger_path,
+        ledger_with(story_factory(status=StoryState.DISPATCHING)),
+    )
+
+    result = _run_dispatch(
+        "mark-failed",
+        "ST-001",
+        "--class",
+        "seam_defect",
+        "--evidence",
+        "proof.log",
+        cwd=tmp_path,
+        ledger=ledger_path,
+    )
+
+    assert result.returncode == 0, result.stderr
+    loaded = Ledger.load(ledger_path)
+    assert loaded.stories["ST-001"].status == StoryState.FAILED
+    assert loaded.stories["ST-001"].failure_class == "seam_defect"
+    assert loaded.stories["ST-001"].evidence == "proof.log"
+
+
+@pytest.mark.parametrize(
+    "failure_class",
+    [
+        "context_missing",
+        "contract_violation",
+        "environment",
+        "spend_death",
+        "seam_defect",
+        "acceptance_unmet",
+        "contradictory_evidence",
+    ],
+)
+def test_all_seven_classes_accepted(tmp_path, failure_class):
+    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    _init_git_repo_with_tracked_file(tmp_path)
+    _write_ledger(
+        ledger_path,
+        ledger_with(story_factory(status=StoryState.DISPATCHING)),
+    )
+
+    result = _run_dispatch(
+        "mark-failed",
+        "ST-001",
+        "--class",
+        failure_class,
+        "--evidence",
+        "evidence.txt",
+        cwd=tmp_path,
+        ledger=ledger_path,
+    )
+
+    assert result.returncode == 0, result.stderr
+    loaded = Ledger.load(ledger_path)
+    assert loaded.stories["ST-001"].failure_class == failure_class
+
+
+def test_unknown_class_rejected(tmp_path):
+    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    _init_git_repo_with_tracked_file(tmp_path)
+    _write_ledger(
+        ledger_path,
+        ledger_with(story_factory(status=StoryState.DISPATCHING)),
+    )
+
+    result = _run_dispatch(
+        "mark-failed",
+        "ST-001",
+        "--class",
+        "not_a_real_class",
+        "--evidence",
+        "evidence.txt",
+        cwd=tmp_path,
+        ledger=ledger_path,
+    )
+
+    assert result.returncode != 0
+    assert _loaded_status(ledger_path, "ST-001") == StoryState.DISPATCHING
+
+
+def test_untracked_evidence_rejected(tmp_path):
+    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    _init_git_repo_with_tracked_file(tmp_path)
+    untracked = tmp_path / "untracked.txt"
+    untracked.write_text("not tracked\n")
+    _write_ledger(
+        ledger_path,
+        ledger_with(story_factory(status=StoryState.DISPATCHING)),
+    )
+
+    result = _run_dispatch(
+        "mark-failed",
+        "ST-001",
+        "--class",
+        "environment",
+        "--evidence",
+        "untracked.txt",
+        cwd=tmp_path,
+        ledger=ledger_path,
+    )
+
+    assert result.returncode != 0
+    assert "not tracked" in result.stderr
+    assert _loaded_status(ledger_path, "ST-001") == StoryState.DISPATCHING
+
+
+def test_class_and_evidence_required(tmp_path):
+    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    _init_git_repo_with_tracked_file(tmp_path)
+    _write_ledger(
+        ledger_path,
+        ledger_with(story_factory(status=StoryState.DISPATCHING)),
+    )
+
+    missing_class = _run_dispatch(
+        "mark-failed",
+        "ST-001",
+        "--evidence",
+        "evidence.txt",
+        cwd=tmp_path,
+        ledger=ledger_path,
+    )
+    missing_evidence = _run_dispatch(
+        "mark-failed",
+        "ST-001",
+        "--class",
+        "environment",
+        cwd=tmp_path,
+        ledger=ledger_path,
+    )
+    missing_both = _run_dispatch(
+        "mark-failed", "ST-001", cwd=tmp_path, ledger=ledger_path
+    )
+
+    assert missing_class.returncode != 0
+    assert missing_evidence.returncode != 0
+    assert missing_both.returncode != 0
+    assert _loaded_status(ledger_path, "ST-001") == StoryState.DISPATCHING
 
 
 def test_re_dispatch_happy_path_and_idempotency(tmp_path):
