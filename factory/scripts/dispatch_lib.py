@@ -52,6 +52,17 @@ VALID_TRANSITIONS: dict[StoryState, set[StoryState]] = {
 }
 
 
+FAILURE_CLASSES: tuple[str, ...] = (
+    "context_missing",
+    "contract_violation",
+    "environment",
+    "spend_death",
+    "seam_defect",
+    "acceptance_unmet",
+    "contradictory_evidence",
+)
+
+
 class TransitionError(Exception):
     pass
 
@@ -76,6 +87,8 @@ class StoryEntry:
     attempts: list[dict[str, Any]] = field(default_factory=list)
     verify_base: str | None = None
     commit_sha: str | None = None
+    failure_class: str | None = None
+    evidence: str | None = None
 
     def __post_init__(self) -> None:
         if self.base_sha is not None:
@@ -105,6 +118,10 @@ class StoryEntry:
             d["verify_base"] = self.verify_base
         if self.commit_sha is not None:
             d["commit_sha"] = self.commit_sha
+        if self.failure_class is not None:
+            d["failure_class"] = self.failure_class
+        if self.evidence is not None:
+            d["evidence"] = self.evidence
         return d
 
     @classmethod
@@ -122,6 +139,8 @@ class StoryEntry:
             attempts=data.get("attempts", []),
             verify_base=data.get("verify_base"),
             commit_sha=data.get("commit_sha"),
+            failure_class=data.get("failure_class"),
+            evidence=data.get("evidence"),
         )
 
 
