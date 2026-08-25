@@ -697,13 +697,14 @@ def cmd_mark_blocked(args: argparse.Namespace) -> int:
 
 
 def cmd_mark_failed(args: argparse.Namespace) -> int:
-    code, out, _ = _git("ls-files", "--", args.evidence)
-    if code != 0 or not out.strip():
-        print(
-            f"error: evidence path is not tracked in git: {args.evidence}",
-            file=sys.stderr,
-        )
-        return 1
+    if args.evidence is not None:
+        code, out, _ = _git("ls-files", "--", args.evidence)
+        if code != 0 or not out.strip():
+            print(
+                f"error: evidence path is not tracked in git: {args.evidence}",
+                file=sys.stderr,
+            )
+            return 1
 
     ledger_path = Path(args.ledger)
     ledger = _load_ledger(ledger_path)
@@ -991,10 +992,39 @@ def cmd_close_wave(args: argparse.Namespace) -> int:
     ledger = _load_ledger(ledger_path)
     if ledger is None:
         return 1
+
+    branch_head_code, branch_head, branch_head_err = _git("rev-parse", "HEAD")
+    if branch_head_code != 0:
+        print(f"error: unable to read current branch head: {branch_head_err}", file=sys.stderr)
+        return 1
+
     wave = args.wave
-    stories_in_wave = [entry for entry in ledger.stories.values() if entry.wave == wave]
-    if not all(entry.status in {StoryState.DONE, StoryState.FAILED, StoryState.BLOCKED} for entry in stories_in_wave):
-        print(f"error: wave {wave} still has non-terminal stories", file=sys.stderr)
+    try:
+        record, created = ledger.close_wave(wave, branch_head)
+    except TransitionError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+
+    if not created:
+        return 0
+
+    if _save_ledger(ledger, ledger_path) != 0:
+        return 1
+
+    project_root = _project_root()
+    rel_ledger_path = ledger_path.relative_to(project_root)
+    add_code, _, add_err = _git("add", "--", str(rel_ledger_path))
+    if add_code != 0:
+        print(f"error: failed to stage ledger for wave {wave} closeout: {add_err}", file=sys.stderr)
+        return 1
+
+    commit_code, _, commit_err = _git(
+        "commit",
+        "-m",
+        f"chore: dispatch ledger wave {wave} closeout",
+    )
+    if commit_code != 0:
+        print(f"error: failed to commit wave {wave} closeout: {commit_err}", file=sys.stderr)
         return 1
     return 0
 
@@ -1053,10 +1083,11 @@ def main(argv: list[str] | None = None) -> int:
     p_mf.add_argument(
         "--class",
         dest="failure_class",
-        required=True,
+        required=False,
+        default=None,
         choices=FAILURE_CLASSES,
     )
-    p_mf.add_argument("--evidence", required=True)
+    p_mf.add_argument("--evidence", required=False, default=None)
 
     p_rd = sub.add_parser("re-dispatch", help="return story to prepared")
     p_rd.add_argument("story_id")

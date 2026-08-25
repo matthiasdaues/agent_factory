@@ -28,7 +28,9 @@ Ledger = dispatch_mod.Ledger
 TransitionError = dispatch_mod.TransitionError
 ShaFormatError = dispatch_mod.ShaFormatError
 
-DISPATCH_SCRIPT = Path(__file__).resolve().parent.parent / "factory" / "scripts" / "dispatch"
+DISPATCH_SCRIPT = (
+    Path(__file__).resolve().parent.parent / "factory" / "scripts" / "dispatch"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -316,7 +318,9 @@ def test_save_creates_parent_directories(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def _run_dispatch(*args: str, cwd: Path, ledger: Path) -> subprocess.CompletedProcess[str]:
+def _run_dispatch(
+    *args: str, cwd: Path, ledger: Path
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(DISPATCH_SCRIPT), "--ledger", str(ledger), *args],
         capture_output=True,
@@ -339,8 +343,12 @@ def test_mark_dispatching_happy_path_and_idempotency(tmp_path):
     ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
     _write_ledger(ledger_path, ledger_with(story_factory(status=StoryState.PREPARED)))
 
-    first = _run_dispatch("mark-dispatching", "ST-001", cwd=tmp_path, ledger=ledger_path)
-    second = _run_dispatch("mark-dispatching", "ST-001", cwd=tmp_path, ledger=ledger_path)
+    first = _run_dispatch(
+        "mark-dispatching", "ST-001", cwd=tmp_path, ledger=ledger_path
+    )
+    second = _run_dispatch(
+        "mark-dispatching", "ST-001", cwd=tmp_path, ledger=ledger_path
+    )
 
     assert first.returncode == 0, first.stderr
     assert second.returncode == 0
@@ -351,7 +359,9 @@ def test_mark_dispatching_rejects_wrong_source_state(tmp_path):
     ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
     _write_ledger(ledger_path, ledger_with(story_factory(status=StoryState.DONE)))
 
-    result = _run_dispatch("mark-dispatching", "ST-001", cwd=tmp_path, ledger=ledger_path)
+    result = _run_dispatch(
+        "mark-dispatching", "ST-001", cwd=tmp_path, ledger=ledger_path
+    )
 
     assert result.returncode == 1
     assert "invalid transition" in result.stderr
@@ -365,7 +375,9 @@ def test_mark_dispatched_happy_path_and_idempotency(tmp_path):
     )
 
     first = _run_dispatch("mark-dispatched", "ST-001", cwd=tmp_path, ledger=ledger_path)
-    second = _run_dispatch("mark-dispatched", "ST-001", cwd=tmp_path, ledger=ledger_path)
+    second = _run_dispatch(
+        "mark-dispatched", "ST-001", cwd=tmp_path, ledger=ledger_path
+    )
 
     assert first.returncode == 0, first.stderr
     assert second.returncode == 0
@@ -376,7 +388,9 @@ def test_mark_dispatched_rejects_wrong_source_state(tmp_path):
     ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
     _write_ledger(ledger_path, ledger_with(story_factory(status=StoryState.PREPARED)))
 
-    result = _run_dispatch("mark-dispatched", "ST-001", cwd=tmp_path, ledger=ledger_path)
+    result = _run_dispatch(
+        "mark-dispatched", "ST-001", cwd=tmp_path, ledger=ledger_path
+    )
 
     assert result.returncode == 1
     assert "invalid transition" in result.stderr
@@ -426,7 +440,9 @@ def test_mark_blocked_rejects_terminal_story(tmp_path):
     assert result.returncode == 1
 
 
-def _init_git_repo_with_tracked_file(repo_path: Path, file_name: str = "evidence.txt") -> Path:
+def _init_git_repo_with_tracked_file(
+    repo_path: Path, file_name: str = "evidence.txt"
+) -> Path:
     """Initialize a git repo at *repo_path* with one tracked file, return its path."""
     subprocess.run(["git", "init", "-q"], cwd=repo_path, check=True)
     subprocess.run(
@@ -442,6 +458,17 @@ def _init_git_repo_with_tracked_file(repo_path: Path, file_name: str = "evidence
     return evidence_path
 
 
+def _git_head(repo_path: Path) -> str:
+    """Return HEAD SHA for a git repository rooted at *repo_path*."""
+    return subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+
 def test_mark_failed_happy_path_and_idempotency(tmp_path):
     ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
     _init_git_repo_with_tracked_file(tmp_path)
@@ -450,33 +477,15 @@ def test_mark_failed_happy_path_and_idempotency(tmp_path):
         ledger_with(story_factory(status=StoryState.DISPATCHING)),
     )
 
-    first = _run_dispatch(
-        "mark-failed",
-        "ST-001",
-        "--class",
-        "environment",
-        "--evidence",
-        "evidence.txt",
-        cwd=tmp_path,
-        ledger=ledger_path,
-    )
-    second = _run_dispatch(
-        "mark-failed",
-        "ST-001",
-        "--class",
-        "environment",
-        "--evidence",
-        "evidence.txt",
-        cwd=tmp_path,
-        ledger=ledger_path,
-    )
+    first = _run_dispatch("mark-failed", "ST-001", cwd=tmp_path, ledger=ledger_path)
+    second = _run_dispatch("mark-failed", "ST-001", cwd=tmp_path, ledger=ledger_path)
 
     assert first.returncode == 0, first.stderr
     assert second.returncode == 0
     assert _loaded_status(ledger_path, "ST-001") == StoryState.FAILED
     loaded = Ledger.load(ledger_path)
-    assert loaded.stories["ST-001"].failure_class == "environment"
-    assert loaded.stories["ST-001"].evidence == "evidence.txt"
+    assert loaded.stories["ST-001"].failure_class is None
+    assert loaded.stories["ST-001"].evidence is None
 
 
 def test_mark_failed_rejects_wrong_source_state(tmp_path):
@@ -609,7 +618,7 @@ def test_untracked_evidence_rejected(tmp_path):
     assert _loaded_status(ledger_path, "ST-001") == StoryState.DISPATCHING
 
 
-def test_class_and_evidence_required(tmp_path):
+def test_basic_failure_transition_does_not_require_metadata(tmp_path):
     ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
     _init_git_repo_with_tracked_file(tmp_path)
     _write_ledger(
@@ -617,30 +626,10 @@ def test_class_and_evidence_required(tmp_path):
         ledger_with(story_factory(status=StoryState.DISPATCHING)),
     )
 
-    missing_class = _run_dispatch(
-        "mark-failed",
-        "ST-001",
-        "--evidence",
-        "evidence.txt",
-        cwd=tmp_path,
-        ledger=ledger_path,
-    )
-    missing_evidence = _run_dispatch(
-        "mark-failed",
-        "ST-001",
-        "--class",
-        "environment",
-        cwd=tmp_path,
-        ledger=ledger_path,
-    )
-    missing_both = _run_dispatch(
-        "mark-failed", "ST-001", cwd=tmp_path, ledger=ledger_path
-    )
+    result = _run_dispatch("mark-failed", "ST-001", cwd=tmp_path, ledger=ledger_path)
 
-    assert missing_class.returncode != 0
-    assert missing_evidence.returncode != 0
-    assert missing_both.returncode != 0
-    assert _loaded_status(ledger_path, "ST-001") == StoryState.DISPATCHING
+    assert result.returncode == 0, result.stderr
+    assert _loaded_status(ledger_path, "ST-001") == StoryState.FAILED
 
 
 def test_re_dispatch_happy_path_and_idempotency(tmp_path):
@@ -664,20 +653,66 @@ def test_re_dispatch_rejects_wrong_source_state(tmp_path):
     assert result.returncode == 1
 
 
-def test_close_wave_succeeds_when_all_terminal(tmp_path):
+def test_close_wave_records_summary_and_commits(tmp_path):
     ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    _init_git_repo_with_tracked_file(tmp_path, "placeholder.txt")
+    branch_head = _git_head(tmp_path)
     _write_ledger(
         ledger_path,
         ledger_with(
             story_factory("ST-001", status=StoryState.DONE, wave=2),
-            story_factory("ST-002", status=StoryState.BLOCKED, wave=2),
-            story_factory("ST-003", status=StoryState.FAILED, wave=2),
+            story_factory(
+                "ST-002", status=StoryState.BLOCKED, wave=2, reason="blocked"
+            ),
+            story_factory("ST-003", status=StoryState.FAILED, wave=2, reason="failed"),
+            story_factory("ST-004", status=StoryState.PENDING, wave=3),
         ),
     )
+    ledger = Ledger.load(ledger_path)
+    ledger.stories["ST-001"].commit_sha = "a" * 40
+    ledger.save(ledger_path)
 
+    before = _git_head(tmp_path)
     result = _run_dispatch("close-wave", "2", cwd=tmp_path, ledger=ledger_path)
+    after = _git_head(tmp_path)
 
     assert result.returncode == 0, result.stderr
+    assert before != after
+    assert after != branch_head
+
+    loaded = Ledger.load(ledger_path)
+    assert len(loaded.waves) == 1
+    record = loaded.waves[0]
+    assert record.number == 2
+    assert record.branch_head == before
+    assert record.completed == [{"id": "ST-001", "merge_sha": "a" * 40}]
+    assert record.blocked == [{"id": "ST-002", "reason": "blocked"}]
+    assert record.failed == [{"id": "ST-003", "reason": "failed"}]
+    assert record.next_ready == ["ST-004"]
+
+
+def test_close_wave_is_idempotent(tmp_path):
+    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    _init_git_repo_with_tracked_file(tmp_path, "placeholder.txt")
+    _write_ledger(
+        ledger_path,
+        ledger_with(
+            story_factory("ST-001", status=StoryState.DONE, wave=2),
+        ),
+    )
+    ledger = Ledger.load(ledger_path)
+    ledger.stories["ST-001"].commit_sha = "b" * 40
+    ledger.save(ledger_path)
+
+    first = _run_dispatch("close-wave", "2", cwd=tmp_path, ledger=ledger_path)
+    head_after_first = _git_head(tmp_path)
+    second = _run_dispatch("close-wave", "2", cwd=tmp_path, ledger=ledger_path)
+    head_after_second = _git_head(tmp_path)
+
+    assert first.returncode == 0, first.stderr
+    assert second.returncode == 0
+    assert head_after_first == head_after_second
+    assert len(Ledger.load(ledger_path).waves) == 1
 
 
 def test_close_wave_rejects_non_terminal_story(tmp_path):
