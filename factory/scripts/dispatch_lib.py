@@ -5,11 +5,16 @@ Shared library for factory/scripts/dispatch. No third-party dependencies.
 
 from __future__ import annotations
 
+import fnmatch
+import json
 import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
+
+_STRONG_RISK_DOMAINS = {"security", "privacy", "data_integrity"}
+TIER_RANK = {"economy": 0, "standard": 1, "strong": 2}
 
 try:
     import yaml
@@ -463,6 +468,8 @@ class StoryMeta:
     deps: list[str] = field(default_factory=list)
     outputs: list[str] = field(default_factory=list)
     tier: str = "economy"
+    risk_domains: list[str] = field(default_factory=list)
+    tests: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -480,6 +487,8 @@ class WavePlan:
                 lines.append(f"      - id: {s['id']}")
                 lines.append(f"        tier: {s['tier']}")
                 lines.append(f"        group: {s['group']}")
+                if "suggested_tier" in s:
+                    lines.append(f"        suggested_tier: {s['suggested_tier']}")
             if "serial_chains" in wave:
                 lines.append("    serial_chains:")
                 for chain in wave["serial_chains"]:
@@ -580,9 +589,67 @@ def load_stories(backlog_dir: Path) -> list[StoryMeta]:
                 deps=fm.get("deps") or [],
                 outputs=fm.get("outputs") or [],
                 tier=fm.get("tier", "economy"),
+                risk_domains=fm.get("risk_domains") or [],
+                tests=fm.get("tests") or [],
             )
         )
     return stories
+
+
+def load_project_config(project_root: Path) -> dict[str, Any]:
+    """Load config/project.json from *project_root*. Returns {} if absent/invalid."""
+    config_path = project_root / "config" / "project.json"
+    if not config_path.exists():
+        return {}
+    try:
+        data = json.loads(config_path.read_text())
+        return data if isinstance(data, dict) else {}
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def suggest_tier(
+    story_frontmatter: dict[str, Any], project_config: dict[str, Any]
+) -> str:
+    """Suggest a model tier for a story using a first-match-wins rubric.
+
+    Rules, evaluated in order (first match wins):
+      1. risk_domains includes security, privacy, or data_integrity -> strong
+      2. outputs match a safety_critical_paths glob -> strong
+      3. outputs span 2+ top-level directories -> standard
+      4. deps has 3+ entries -> standard
+      5. single directory with non-empty tests -> economy
+      6. default -> standard
+    """
+    risk_domains = story_frontmatter.get("risk_domains") or []
+    if any(d in _STRONG_RISK_DOMAINS for d in risk_domains):
+        return "strong"
+
+    outputs = story_frontmatter.get("outputs") or []
+    safety_critical_paths = project_config.get("safety_critical_paths") or []
+    if safety_critical_paths:
+        for output in outputs:
+            for pattern in safety_critical_paths:
+                if fnmatch.fnmatch(output, pattern):
+                    return "strong"
+
+    top_dirs = set()
+    for output in outputs:
+        parts = Path(output).parts
+        top_dirs.add(parts[0] if parts else output)
+
+    if len(top_dirs) >= 2:
+        return "standard"
+
+    deps = story_frontmatter.get("deps") or []
+    if len(deps) >= 3:
+        return "standard"
+
+    tests = story_frontmatter.get("tests") or []
+    if len(top_dirs) <= 1 and tests:
+        return "economy"
+
+    return "standard"
 
 
 def _expand_outputs(outputs: list[str], project_root: Path) -> set[str]:
@@ -628,15 +695,32 @@ def _files_overlap(a: set[str], b: set[str]) -> bool:
     return False
 
 
+def _story_meta_to_frontmatter(story: StoryMeta) -> dict[str, Any]:
+    """Project a StoryMeta back into the frontmatter shape suggest_tier expects."""
+    return {
+        "risk_domains": story.risk_domains,
+        "outputs": story.outputs,
+        "deps": story.deps,
+        "tests": story.tests,
+    }
+
+
 def compute_wave_plan(
     stories: list[StoryMeta],
     project_root: Path,
     filter_ids: list[str] | None = None,
+    project_config: dict[str, Any] | None = None,
 ) -> WavePlan:
     """Compute a wave plan from stories with dependency and file-overlap analysis.
 
     If *filter_ids* is provided, only those stories are included in the plan.
+    Each story's ``suggested_tier`` is computed via :func:`suggest_tier`, using
+    *project_config* (loaded from ``config/project.json`` under *project_root*
+    when not explicitly provided).
     """
+    if project_config is None:
+        project_config = load_project_config(project_root)
+
     if filter_ids:
         id_set = set(filter_ids)
         stories = [s for s in stories if s.id in id_set]
@@ -720,13 +804,29 @@ def compute_wave_plan(
 
         wave_entry: dict[str, Any] = {"wave": w, "stories": []}
         for sid in parallel:
+            story = by_id[sid]
             wave_entry["stories"].append(
-                {"id": sid, "tier": by_id[sid].tier, "group": "parallel"}
+                {
+                    "id": sid,
+                    "tier": story.tier,
+                    "group": "parallel",
+                    "suggested_tier": suggest_tier(
+                        _story_meta_to_frontmatter(story), project_config
+                    ),
+                }
             )
         for chain in serial_chains:
             for sid in chain:
+                story = by_id[sid]
                 wave_entry["stories"].append(
-                    {"id": sid, "tier": by_id[sid].tier, "group": "serial"}
+                    {
+                        "id": sid,
+                        "tier": story.tier,
+                        "group": "serial",
+                        "suggested_tier": suggest_tier(
+                            _story_meta_to_frontmatter(story), project_config
+                        ),
+                    }
                 )
         if serial_chains:
             wave_entry["serial_chains"] = [

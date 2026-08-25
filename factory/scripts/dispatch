@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -29,13 +30,17 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 from dispatch_lib import (  # noqa: E402
     FAILURE_CLASSES,
+    TIER_RANK,
     Ledger,
     ShaFormatError,
     StoryEntry,
     StoryState,
     TransitionError,
     compute_wave_plan,
+    load_project_config,
     load_stories,
+    parse_story_frontmatter,
+    suggest_tier,
 )
 
 import json
@@ -84,6 +89,52 @@ def cmd_status(args: argparse.Namespace) -> int:
     return 0
 
 
+@dataclass
+class TierMismatchReport:
+    """Blocking and non-blocking tier-mismatch findings for a set of stories."""
+
+    blocking: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+
+
+def _check_tier_mismatches(
+    project_root: Path, story_ids: list[str]
+) -> TierMismatchReport:
+    """Compare each story's declared tier against the rubric-suggested tier.
+
+    Stories are looked up under ``<project_root>/backlog/<story_id>.md``. A
+    story whose backlog file cannot be found or parsed is skipped silently —
+    there is no frontmatter to evaluate the rubric against.
+    """
+    report = TierMismatchReport()
+    project_config = load_project_config(project_root)
+    backlog_dir = project_root / "backlog"
+
+    for sid in story_ids:
+        story_path = backlog_dir / f"{sid}.md"
+        if not story_path.exists():
+            continue
+        fm = parse_story_frontmatter(story_path.read_text())
+        if fm is None:
+            continue
+
+        declared_tier = fm.get("tier") or "economy"
+        suggested = suggest_tier(fm, project_config)
+        if suggested == declared_tier:
+            continue
+
+        if suggested == "strong" and TIER_RANK.get(declared_tier, 0) < TIER_RANK["strong"]:
+            report.blocking.append(
+                f"{sid}: rubric suggests 'strong' but declared tier is '{declared_tier}'"
+            )
+        else:
+            report.warnings.append(
+                f"{sid}: rubric suggests '{suggested}' but declared tier is '{declared_tier}'"
+            )
+
+    return report
+
+
 def cmd_init(args: argparse.Namespace) -> int:
     """Initialize a dispatch run: create feature branch, worktree, and ledger."""
     feature_branch = getattr(args, "feature_branch", None)
@@ -106,6 +157,15 @@ def cmd_init(args: argparse.Namespace) -> int:
         return 1
 
     story_ids = [s.strip() for s in args.stories.split(",")]
+
+    tier_check = _check_tier_mismatches(project_root, story_ids)
+    if tier_check.blocking:
+        for msg in tier_check.blocking:
+            print(f"error: {msg}", file=sys.stderr)
+        return 1
+    for msg in tier_check.warnings:
+        print(f"warning: {msg}", file=sys.stderr)
+
     base = args.base
 
     # Verify base exists
