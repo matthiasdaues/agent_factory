@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -126,3 +127,147 @@ def test_UC_12_BR_046_unknown_branch_is_invocation_error(tmp_path):
     assert result.returncode == 2
     assert "unknown revision" in result.stderr.lower()
     assert not _marker(repo).exists()
+
+
+# Semantic gates tests (ST-0105)
+
+
+def _create_story_file(repo: Path, story_id: str, quality_gates: list[str] | None = None) -> Path:
+    """Create a story file with optional quality-gates field."""
+    backlog_dir = repo / "backlog"
+    backlog_dir.mkdir(exist_ok=True)
+
+    gates_field = ""
+    if quality_gates is not None:
+        gates_list = "\n  - ".join(quality_gates)
+        gates_field = f"\nquality-gates:\n  - {gates_list}"
+
+    content = f"""---
+id: {story_id}
+epic: Test Epic
+title: Test Story
+tier: economy
+status: pending
+outputs: [test.py]{gates_field}
+---
+
+# Test Story
+
+Test body.
+"""
+    story_file = backlog_dir / f"{story_id}.md"
+    story_file.write_text(content)
+    return story_file
+
+
+def _create_gate_result(repo: Path, gate_name: str, story_id: str, passed: bool = True) -> Path:
+    """Create a gate result JSON file."""
+    gates_dir = repo / ".agent-factory" / gate_name
+    gates_dir.mkdir(parents=True, exist_ok=True)
+
+    result = {
+        "gate": gate_name,
+        "story_id": story_id,
+        "passed": passed,
+        "findings": [],
+    }
+    result_file = gates_dir / f"{story_id}.json"
+    result_file.write_text(json.dumps(result))
+    return result_file
+
+
+def test_semantic_gates_pass_when_all_gates_pass(tmp_path):
+    """Should pass when all required gates pass."""
+    repo, base = _repo(tmp_path)
+    story_id = "ST-9999"
+
+    _create_story_file(repo, story_id)
+    _create_gate_result(repo, "crap-score", story_id, passed=True)
+    _create_gate_result(repo, "mutation-analysis", story_id, passed=True)
+    _create_gate_result(repo, "dependency-check", story_id, passed=True)
+
+    _git(repo, "switch", "-q", "-c", "story/ST-9999", base)
+    head = _commit(repo, {"test.py": "# test\n"}, "test change")
+
+    result = _run(repo, "target", "story/ST-9999")
+
+    assert result.returncode == 0, f"Expected exit 0. stdout={result.stdout}, stderr={result.stderr}"
+    assert "premerge-check: PASS" in result.stdout
+
+
+def test_semantic_gates_fail_when_gate_missing(tmp_path):
+    """Should fail when a required gate result is missing."""
+    repo, base = _repo(tmp_path)
+    story_id = "ST-9998"
+
+    _create_story_file(repo, story_id)
+    _create_gate_result(repo, "crap-score", story_id, passed=True)
+    _create_gate_result(repo, "mutation-analysis", story_id, passed=True)
+    # dependency-check is missing
+
+    _git(repo, "switch", "-q", "-c", "story/ST-9998", base)
+    _commit(repo, {"test.py": "# test\n"}, "test change")
+
+    result = _run(repo, "target", "story/ST-9998")
+
+    assert result.returncode == 1
+    assert "dependency-check" in result.stdout or "dependency-check" in result.stderr
+
+
+def test_semantic_gates_fail_when_gate_fails(tmp_path):
+    """Should fail when a gate result shows failure."""
+    repo, base = _repo(tmp_path)
+    story_id = "ST-9997"
+
+    _create_story_file(repo, story_id)
+    _create_gate_result(repo, "crap-score", story_id, passed=True)
+    _create_gate_result(repo, "mutation-analysis", story_id, passed=False)
+    _create_gate_result(repo, "dependency-check", story_id, passed=True)
+
+    _git(repo, "switch", "-q", "-c", "story/ST-9997", base)
+    _commit(repo, {"test.py": "# test\n"}, "test change")
+
+    result = _run(repo, "target", "story/ST-9997")
+
+    assert result.returncode == 1
+    assert "mutation-analysis" in result.stdout or "mutation-analysis" in result.stderr
+
+
+def test_semantic_gates_respect_story_quality_gates_field(tmp_path):
+    """Should only check gates listed in story quality-gates field."""
+    repo, base = _repo(tmp_path)
+    story_id = "ST-9996"
+
+    # Only require crap-score
+    _create_story_file(repo, story_id, quality_gates=["crap-score"])
+    _create_gate_result(repo, "crap-score", story_id, passed=True)
+    # mutation-analysis and dependency-check are not required and not created
+
+    _git(repo, "switch", "-q", "-c", "story/ST-9996", base)
+    head = _commit(repo, {"test.py": "# test\n"}, "test change")
+
+    result = _run(repo, "target", "story/ST-9996")
+
+    assert result.returncode == 0, f"Expected exit 0. stdout={result.stdout}, stderr={result.stderr}"
+    assert "premerge-check: PASS" in result.stdout
+
+
+def test_semantic_gates_use_default_when_field_absent(tmp_path):
+    """Should use default gates (all three) when quality-gates field is absent."""
+    repo, base = _repo(tmp_path)
+    story_id = "ST-9995"
+
+    # Create story WITHOUT quality-gates field
+    _create_story_file(repo, story_id, quality_gates=None)
+    # Create all three gate results
+    _create_gate_result(repo, "crap-score", story_id, passed=True)
+    _create_gate_result(repo, "mutation-analysis", story_id, passed=True)
+    _create_gate_result(repo, "dependency-check", story_id, passed=True)
+
+    _git(repo, "switch", "-q", "-c", "story/ST-9995", base)
+    _commit(repo, {"test.py": "# test\n"}, "test change")
+
+    result = _run(repo, "target", "story/ST-9995")
+
+    assert result.returncode == 0, f"Expected exit 0. stdout={result.stdout}, stderr={result.stderr}"
+    assert "premerge-check: PASS" in result.stdout
