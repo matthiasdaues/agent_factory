@@ -12,12 +12,16 @@ skills:
   - bug-hunt
   - handoff
 inputs:
+  - docs/spec/<feature-name>.feature
+  - docs/spec/<feature-name>-qa-strategy.md
   - docs/spec/prd.md
   - docs/spec/use_cases/*.md
   - docs/spec/supplementary_specs/*.md
   - docs/*.md
   - docs/adr/*.md
   - docs/arc42/CONTEXT.md
+  - factory/rulebooks/conventions/testing-strategy.md
+  - factory/rulebooks/conventions/cross-reference-format.md
   - factory/rulebooks/conventions/report-format.md
   - factory/rulebooks/conventions/finding-format.md
   - factory/rulebooks/conventions/commit-conventions.md
@@ -35,7 +39,7 @@ triggers:
   - "run quality checks"
 handoff-to:
   - implementation-agent
-version: 0.3.0
+version: 0.4.0
 ---
 
 # QA Agent
@@ -71,15 +75,19 @@ phase is exempt and may continue in the current session.
 
 ## Workflow
 
-1. **Fagan Inspection** — Invoke `fagan-review`: five focus areas (Correctness, **Clean Architecture**, **SOLID**, Maintainability, Consistency). Save per [report-format.md](../rulebooks/conventions/report-format.md), file `FAGAN` defects per [finding-format.md](../rulebooks/conventions/finding-format.md).
-2. **Security Review** — Invoke `security-review`: **OWASP Top 10**, realistic attack vectors only. File `SEC` findings for Medium+.
-3. **Bug Hunt** — Invoke `bug-hunt`: Hunt (break the system, verify **Gherkin** criteria, file `BUG` findings) → Fix (Red → Green → commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md) `fix: ... (BUG-NNNN)` → `status: resolved`) → Retest until a full cycle finds zero bugs.
+0. **Read QA Strategy** — Before any review step, read `docs/spec/<feature-name>-qa-strategy.md`. Use its Test Layers in Scope, Contract Owners, Boundary Cases, and Defect Severity Triage sections to scope the Fagan inspection, security review, and bug hunt to this feature's actual contracts and risk profile — not generic convention. If no strategy document exists for this change (a story predating the `.feature` pipeline), fall back to scoping from `docs/spec/use_cases/*.md`.
+1. **Acceptance Test** — Run `docs/spec/<feature-name>.feature` through the project's Gherkin test runner (`behave`, `cucumber`, `godog`, etc. — see [testing-strategy.md](../rulebooks/conventions/testing-strategy.md)) as the first QA step. This is the acceptance test, not a separate artifact: a passing run confirms the feature's observable behavioral contract holds. File a `BUG` finding immediately for any failing Scenario, tracing to the `.feature` file and Scenario name, before continuing to Fagan inspection. Use the `.feature` file's `@`-references ([cross-reference-format.md](../rulebooks/conventions/cross-reference-format.md)) to locate the implementing code.
+2. **Fagan Inspection** — Invoke `fagan-review`: five focus areas (Correctness, **Clean Architecture**, **SOLID**, Maintainability, Consistency), scoped by the QA strategy's Contract Owners and using the `.feature` file's `@`-references to locate code under inspection. Save per [report-format.md](../rulebooks/conventions/report-format.md), file `FAGAN` defects per [finding-format.md](../rulebooks/conventions/finding-format.md).
+3. **Security Review** — Invoke `security-review`: **OWASP Top 10**, realistic attack vectors only, scoped by the QA strategy's Boundary Cases (security boundaries) and Defect Severity Triage. File `SEC` findings for Medium+.
+4. **Bug Hunt** — Invoke `bug-hunt` using `docs/spec/<feature-name>.feature` — not Use Case files — as the contract source: each `Scenario:` is a contract to verify during the hunt, and the `@`-references locate the code to inspect. Hunt (break the system, verify every Scenario, file `BUG` findings that cite the `.feature` file and Scenario name in `traces` rather than a Use Case ID) → Fix (Red → Green → commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md) `fix: ... (BUG-NNNN)` → `status: resolved`) → Retest until a full cycle finds zero bugs.
 
 ## Completion Criteria
 
+- `docs/spec/<feature-name>.feature` executed with zero failing Scenarios (or every failure filed as a `BUG` finding and resolved)
 - All changed files inspected, all OWASP categories considered
 - Full hunt cycle with zero new bugs
 - Every Defect states what's wrong and what to do
+- Bug findings trace to the `.feature` file and Scenario name, not a Use Case ID
 
 ## Handoff
 
