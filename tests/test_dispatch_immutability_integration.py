@@ -1,4 +1,4 @@
-'''Integration tests for dispatch verification immutability.'''
+"""Integration tests for dispatch verification immutability."""
 
 from __future__ import annotations
 
@@ -9,7 +9,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-DISPATCH_SCRIPT = Path(__file__).resolve().parent.parent / "factory" / "scripts" / "dispatch"
+DISPATCH_SCRIPT = (
+    Path(__file__).resolve().parent.parent / "factory" / "scripts" / "dispatch"
+)
 SCRIPT_DIR = Path(__file__).resolve().parent.parent / "factory" / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 dispatch_lib = importlib.import_module("dispatch_lib")
@@ -20,7 +22,7 @@ StoryState = dispatch_lib.StoryState
 
 
 def _git_env(tmp_path: Path) -> dict[str, str]:
-    '''Return a git environment isolated from user-level configuration.'''
+    """Return a git environment isolated from user-level configuration."""
     return {
         **os.environ,
         "GIT_CONFIG_NOSYSTEM": "1",
@@ -28,8 +30,10 @@ def _git_env(tmp_path: Path) -> dict[str, str]:
     }
 
 
-def _run_dispatch(*args: str, cwd: Path, tmp_path: Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
-    '''Invoke the dispatch CLI as a subprocess.'''
+def _run_dispatch(
+    *args: str, cwd: Path, tmp_path: Path, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
+    """Invoke the dispatch CLI as a subprocess."""
     return subprocess.run(
         [sys.executable, str(DISPATCH_SCRIPT), *args],
         capture_output=True,
@@ -40,8 +44,10 @@ def _run_dispatch(*args: str, cwd: Path, tmp_path: Path, env: dict[str, str] | N
     )
 
 
-def _git(repo: Path, tmp_path: Path, *args: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
-    '''Run a git command inside the temporary repository.'''
+def _git(
+    repo: Path, tmp_path: Path, *args: str, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
+    """Run a git command inside the temporary repository."""
     return subprocess.run(
         ["git", *args],
         capture_output=True,
@@ -53,7 +59,7 @@ def _git(repo: Path, tmp_path: Path, *args: str, env: dict[str, str] | None = No
 
 
 def _init_repo(tmp_path: Path, test_command: str = "true") -> Path:
-    '''Create a minimal git repository for immutability integration tests.'''
+    """Create a minimal git repository for immutability integration tests."""
     repo = tmp_path / "repo"
     repo.mkdir()
 
@@ -81,7 +87,7 @@ def _init_repo(tmp_path: Path, test_command: str = "true") -> Path:
 
 
 def _write_ledger(repo: Path, *entries: StoryEntry) -> Path:
-    '''Persist a dispatch ledger containing the provided entries.'''
+    """Persist a dispatch ledger containing the provided entries."""
     ledger = Ledger()
     for entry in entries:
         ledger.stories[entry.id] = entry
@@ -91,12 +97,14 @@ def _write_ledger(repo: Path, *entries: StoryEntry) -> Path:
 
 
 def _load_ledger(repo: Path) -> Ledger:
-    '''Load the repository's default dispatch ledger.'''
+    """Load the repository's default dispatch ledger."""
     return Ledger.load(repo / ".agent-factory" / "dispatch-ledger.yaml")
 
 
-def _commit_on_story_branch(repo: Path, tmp_path: Path, branch: str, filename: str) -> str:
-    '''Create a branch commit and return its SHA.'''
+def _commit_on_story_branch(
+    repo: Path, tmp_path: Path, branch: str, filename: str
+) -> str:
+    """Create a branch commit and return its SHA."""
     _git(repo, tmp_path, "checkout", "-b", branch)
     (repo / filename).write_text("content\n")
     _git(repo, tmp_path, "add", "-A")
@@ -107,14 +115,16 @@ def _commit_on_story_branch(repo: Path, tmp_path: Path, branch: str, filename: s
 
 
 def _git_wrapper(tmp_path: Path) -> tuple[Path, Path, dict[str, str]]:
-    '''Write a git proxy that records commands for later assertions.'''
-    real_git = subprocess.run(["which", "git"], capture_output=True, text=True, check=True).stdout.strip()
+    """Write a git proxy that records commands for later assertions."""
+    real_git = subprocess.run(
+        ["which", "git"], capture_output=True, text=True, check=True
+    ).stdout.strip()
     wrapper_dir = tmp_path / "bin"
     wrapper_dir.mkdir()
     log_path = tmp_path / "git-log.txt"
     wrapper_path = wrapper_dir / "git"
     wrapper_path.write_text(
-        f'''#!/usr/bin/env python3
+        f"""#!/usr/bin/env python3
 from __future__ import annotations
 
 import os
@@ -127,7 +137,7 @@ args = sys.argv[1:]
 with LOG_PATH.open("a", encoding="utf-8") as fh:
     fh.write("git " + " ".join(args) + "\\n")
 os.execv(REAL_GIT, [REAL_GIT, *args])
-''',
+""",
         encoding="utf-8",
     )
     wrapper_path.chmod(0o755)
@@ -179,14 +189,18 @@ def test_verify_story_preserves_working_tree_contents(tmp_path: Path) -> None:
     assert not (repo / "feature.txt").exists()
 
 
-def test_merge_story_premerge_check_does_not_use_mutating_git_commands(tmp_path: Path) -> None:
+def test_merge_story_premerge_check_does_not_use_mutating_git_commands(
+    tmp_path: Path,
+) -> None:
     repo = _init_repo(tmp_path, test_command="true")
     log_path, _, env = _git_wrapper(tmp_path)
 
     backlog_dir = repo / "backlog"
     backlog_dir.mkdir(exist_ok=True)
     story_path = backlog_dir / "ST-002.md"
-    story_path.write_text("---\nid: ST-002\nstatus: dispatched\noutputs:\n  - src/foo.py\n---\n# ST-002\n")
+    story_path.write_text(
+        "---\nid: ST-002\nstatus: dispatched\nquality-gates: []\noutputs:\n  - src/foo.py\n---\n# ST-002\n"
+    )
     _git(repo, tmp_path, "add", "--", "backlog/ST-002.md", env=_git_env(tmp_path))
     _git(repo, tmp_path, "commit", "-m", "backlog: add ST-002", env=_git_env(tmp_path))
     _git(repo, tmp_path, "branch", "story/ST-002", "HEAD", env=_git_env(tmp_path))
@@ -197,7 +211,15 @@ def test_merge_story_premerge_check_does_not_use_mutating_git_commands(tmp_path:
     _git(repo, tmp_path, "commit", "-m", "feat: ST-002", env=_git_env(tmp_path))
     _git(repo, tmp_path, "checkout", "main", env=_git_env(tmp_path))
     worktree = repo / ".agent-factory" / "worktrees" / "story-ST-002"
-    _git(repo, tmp_path, "worktree", "add", str(worktree), "story/ST-002", env=_git_env(tmp_path))
+    _git(
+        repo,
+        tmp_path,
+        "worktree",
+        "add",
+        str(worktree),
+        "story/ST-002",
+        env=_git_env(tmp_path),
+    )
     _write_ledger(
         repo,
         StoryEntry(
@@ -211,7 +233,9 @@ def test_merge_story_premerge_check_does_not_use_mutating_git_commands(tmp_path:
     )
     before_index = _git(repo, tmp_path, "ls-files", "--stage").stdout
 
-    result = _run_dispatch("merge-story", "ST-002", "--dry-run", cwd=repo, tmp_path=tmp_path, env=env)
+    result = _run_dispatch(
+        "merge-story", "ST-002", "--dry-run", cwd=repo, tmp_path=tmp_path, env=env
+    )
 
     assert result.returncode == 0, result.stderr
     after_index = _git(repo, tmp_path, "ls-files", "--stage").stdout
@@ -219,8 +243,9 @@ def test_merge_story_premerge_check_does_not_use_mutating_git_commands(tmp_path:
 
     log_lines = log_path.read_text().splitlines()
     forbidden = {"git add", "git checkout", "git reset"}
-    assert all(not any(line.startswith(prefix) for prefix in forbidden) for line in log_lines)
-
+    assert all(
+        not any(line.startswith(prefix) for prefix in forbidden) for line in log_lines
+    )
 
 
 def test_escalate_does_not_mutate_git_state(tmp_path: Path) -> None:
@@ -272,11 +297,24 @@ def test_escalate_does_not_mutate_git_state(tmp_path: Path) -> None:
     )
     before_status = _git(repo, tmp_path, "status", "--porcelain", env=env).stdout
 
-    result = _run_dispatch("escalate", "ST-001", cwd=repo, tmp_path=tmp_path, env=wrapped_env)
+    result = _run_dispatch(
+        "escalate", "ST-001", cwd=repo, tmp_path=tmp_path, env=wrapped_env
+    )
 
     assert result.returncode == 0, result.stderr
     after_status = _git(repo, tmp_path, "status", "--porcelain", env=env).stdout
     assert after_status == before_status
     log_lines = log_path.read_text().splitlines()
-    forbidden_prefixes = ("git add ", "git commit ", "git reset ", "git checkout ", "git merge ", "git branch -d ", "git worktree remove")
-    assert all(not any(line.startswith(prefix) for prefix in forbidden_prefixes) for line in log_lines)
+    forbidden_prefixes = (
+        "git add ",
+        "git commit ",
+        "git reset ",
+        "git checkout ",
+        "git merge ",
+        "git branch -d ",
+        "git worktree remove",
+    )
+    assert all(
+        not any(line.startswith(prefix) for prefix in forbidden_prefixes)
+        for line in log_lines
+    )

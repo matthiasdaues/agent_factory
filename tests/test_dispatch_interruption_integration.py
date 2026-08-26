@@ -1,4 +1,4 @@
-'''Integration tests for dispatch interruption safety.'''
+"""Integration tests for dispatch interruption safety."""
 
 from __future__ import annotations
 
@@ -11,7 +11,9 @@ import sys
 import time
 from pathlib import Path
 
-DISPATCH_SCRIPT = Path(__file__).resolve().parent.parent / "factory" / "scripts" / "dispatch"
+DISPATCH_SCRIPT = (
+    Path(__file__).resolve().parent.parent / "factory" / "scripts" / "dispatch"
+)
 SCRIPT_DIR = Path(__file__).resolve().parent.parent / "factory" / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 dispatch_lib = importlib.import_module("dispatch_lib")
@@ -22,7 +24,7 @@ StoryState = dispatch_lib.StoryState
 
 
 def _git_env(tmp_path: Path) -> dict[str, str]:
-    '''Return a git environment isolated from user-level configuration.'''
+    """Return a git environment isolated from user-level configuration."""
     return {
         **os.environ,
         "GIT_CONFIG_NOSYSTEM": "1",
@@ -30,8 +32,10 @@ def _git_env(tmp_path: Path) -> dict[str, str]:
     }
 
 
-def _run_dispatch(*args: str, cwd: Path, tmp_path: Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
-    '''Invoke the dispatch CLI as a subprocess.'''
+def _run_dispatch(
+    *args: str, cwd: Path, tmp_path: Path, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
+    """Invoke the dispatch CLI as a subprocess."""
     return subprocess.run(
         [sys.executable, str(DISPATCH_SCRIPT), *args],
         capture_output=True,
@@ -42,8 +46,10 @@ def _run_dispatch(*args: str, cwd: Path, tmp_path: Path, env: dict[str, str] | N
     )
 
 
-def _spawn_dispatch(*args: str, cwd: Path, tmp_path: Path, env: dict[str, str] | None = None) -> subprocess.Popen[str]:
-    '''Start a dispatch CLI subprocess for interruption tests.'''
+def _spawn_dispatch(
+    *args: str, cwd: Path, tmp_path: Path, env: dict[str, str] | None = None
+) -> subprocess.Popen[str]:
+    """Start a dispatch CLI subprocess for interruption tests."""
     return subprocess.Popen(
         [sys.executable, str(DISPATCH_SCRIPT), *args],
         stdout=subprocess.PIPE,
@@ -55,7 +61,7 @@ def _spawn_dispatch(*args: str, cwd: Path, tmp_path: Path, env: dict[str, str] |
 
 
 def _git(repo: Path, tmp_path: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    '''Run a git command inside the temporary repository.'''
+    """Run a git command inside the temporary repository."""
     return subprocess.run(
         ["git", *args],
         capture_output=True,
@@ -67,7 +73,7 @@ def _git(repo: Path, tmp_path: Path, *args: str) -> subprocess.CompletedProcess[
 
 
 def _init_repo(tmp_path: Path, test_command: str = "true") -> Path:
-    '''Create a minimal git repository for interruption integration tests.'''
+    """Create a minimal git repository for interruption integration tests."""
     repo = tmp_path / "repo"
     repo.mkdir()
 
@@ -96,7 +102,7 @@ def _init_repo(tmp_path: Path, test_command: str = "true") -> Path:
 
 
 def _write_ledger(repo: Path, *entries: StoryEntry) -> Path:
-    '''Persist a dispatch ledger containing the provided entries.'''
+    """Persist a dispatch ledger containing the provided entries."""
     ledger = Ledger()
     for entry in entries:
         ledger.stories[entry.id] = entry
@@ -106,7 +112,7 @@ def _write_ledger(repo: Path, *entries: StoryEntry) -> Path:
 
 
 def _load_ledger(repo: Path) -> Ledger:
-    '''Load the repository's default dispatch ledger.'''
+    """Load the repository's default dispatch ledger."""
     return Ledger.load(repo / ".agent-factory" / "dispatch-ledger.yaml")
 
 
@@ -116,15 +122,17 @@ def _write_git_wrapper(
     sleep_match: list[str] | None = None,
     sleep_seconds: float = 5.0,
 ) -> tuple[Path, Path, Path, dict[str, str]]:
-    '''Write a git proxy that logs commands and can pause on a chosen call.'''
-    real_git = subprocess.run(["which", "git"], capture_output=True, text=True, check=True).stdout.strip()
+    """Write a git proxy that logs commands and can pause on a chosen call."""
+    real_git = subprocess.run(
+        ["which", "git"], capture_output=True, text=True, check=True
+    ).stdout.strip()
     wrapper_dir = tmp_path / "bin"
     wrapper_dir.mkdir()
     log_path = tmp_path / "git-log.txt"
     marker_path = tmp_path / "git-sleeping.marker"
     wrapper_path = wrapper_dir / "git"
     wrapper_path.write_text(
-        f'''#!/usr/bin/env python3
+        f"""#!/usr/bin/env python3
 from __future__ import annotations
 
 import json
@@ -145,7 +153,7 @@ if SLEEP_MATCH is not None and args == SLEEP_MATCH:
     MARKER_PATH.write_text("sleeping\\n", encoding="utf-8")
     time.sleep(SLEEP_SECONDS)
 os.execv(REAL_GIT, [REAL_GIT, *args])
-''',
+""",
         encoding="utf-8",
     )
     wrapper_path.chmod(0o755)
@@ -157,7 +165,9 @@ os.execv(REAL_GIT, [REAL_GIT, *args])
     return wrapper_dir, log_path, marker_path, env
 
 
-def test_prepare_wave_runs_from_scratch_when_nothing_was_written(tmp_path: Path) -> None:
+def test_prepare_wave_runs_from_scratch_when_nothing_was_written(
+    tmp_path: Path,
+) -> None:
     repo = _init_repo(tmp_path)
     _write_ledger(repo, StoryEntry(id="ST-001", wave=1, status=StoryState.PENDING))
     conflicting = _git(repo, tmp_path, "branch", "story/ST-001", "HEAD")
@@ -207,17 +217,19 @@ def test_prepare_wave_resumes_after_partial_ledger_write(tmp_path: Path) -> None
     assert resumed.stories["ST-002"].status == StoryState.PREPARED
 
 
-def test_merge_story_reuses_existing_merge_commit_after_interruption(tmp_path: Path) -> None:
+def test_merge_story_reuses_existing_merge_commit_after_interruption(
+    tmp_path: Path,
+) -> None:
     repo = _init_repo(tmp_path, test_command=str(tmp_path / "run-suite.sh"))
     suite = tmp_path / "run-suite.sh"
     suite.write_text(
-        "#!/usr/bin/env sh\n"
-        "set -eu\n"
-        "printf 'ran\\n' > .agent-factory/test-suite-ran\n"
+        "#!/usr/bin/env sh\nset -eu\nprintf 'ran\\n' > .agent-factory/test-suite-ran\n"
     )
     suite.chmod(0o755)
     story_path = repo / "backlog" / "ST-777.md"
-    story_path.write_text("---\nid: ST-777\nstatus: dispatched\noutputs:\n  - src/foo.py\n---\n# ST-777\n")
+    story_path.write_text(
+        "---\nid: ST-777\nstatus: dispatched\nquality-gates: []\noutputs:\n  - src/foo.py\n---\n# ST-777\n"
+    )
     _git(repo, tmp_path, "add", "--", "backlog/ST-777.md")
     _git(repo, tmp_path, "commit", "-m", "backlog: add ST-777")
     _git(repo, tmp_path, "branch", "story/ST-777", "HEAD")
@@ -287,7 +299,9 @@ def test_prepare_wave_stops_at_safe_point_after_first_story(tmp_path: Path) -> N
     assert rerun_ledger.stories["ST-002"].status == StoryState.PREPARED
 
 
-def test_prepare_wave_exits_immediately_when_signal_is_already_aborted(tmp_path: Path) -> None:
+def test_prepare_wave_exits_immediately_when_signal_is_already_aborted(
+    tmp_path: Path,
+) -> None:
     repo = _init_repo(tmp_path)
     _write_ledger(repo, StoryEntry(id="ST-001", wave=1, status=StoryState.PENDING))
     _, _, _, env = _write_git_wrapper(

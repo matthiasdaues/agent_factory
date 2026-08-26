@@ -30,7 +30,9 @@ def _git_env(tmp_path: Path) -> dict[str, str]:
     }
 
 
-def _run_dispatch(*args: str, cwd: Path, tmp_path: Path) -> subprocess.CompletedProcess[str]:
+def _run_dispatch(
+    *args: str, cwd: Path, tmp_path: Path
+) -> subprocess.CompletedProcess[str]:
     """Invoke the dispatch CLI as a subprocess."""
     return subprocess.run(
         [sys.executable, str(DISPATCH_SCRIPT), *args],
@@ -93,6 +95,7 @@ def _write_story_file(
         "---\n"
         f"id: {story_id}\n"
         f"status: {status}\n"
+        "quality-gates: []\n"
         "outputs:\n"
         f"{outputs_yaml}\n"
         "---\n\n"
@@ -150,9 +153,7 @@ def _make_story_branch(
 def _make_story_worktree(repo: Path, tmp_path: Path, story_id: str) -> Path:
     """Register a worktree for the story branch, as prepare-story would."""
     worktree = repo / ".agent-factory" / "worktrees" / f"story-{story_id}"
-    result = _git(
-        repo, tmp_path, "worktree", "add", str(worktree), f"story/{story_id}"
-    )
+    result = _git(repo, tmp_path, "worktree", "add", str(worktree), f"story/{story_id}")
     assert result.returncode == 0, result.stderr
     return worktree
 
@@ -395,7 +396,9 @@ def test_interrupted_merge_resumes_without_duplicating(tmp_path: Path) -> None:
     )
     assert result.returncode == 0, result.stderr
     story_path = repo / "backlog" / "ST-782.md"
-    story_path.write_text(story_path.read_text().replace("status: dispatched", "status: done"))
+    story_path.write_text(
+        story_path.read_text().replace("status: dispatched", "status: done")
+    )
     _git(repo, tmp_path, "add", "--", "backlog/ST-782.md")
     _git(repo, tmp_path, "commit", "--amend", "--no-edit")
 
