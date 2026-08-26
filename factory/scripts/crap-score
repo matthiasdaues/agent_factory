@@ -1,0 +1,267 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["radon>=5.1"]
+# ///
+"""crap-score — deterministic CRAP metric gate.
+
+What: Computes CRAP (Change Risk Anti-Patterns) per function by combining
+      cyclomatic complexity with test coverage.
+When: After a developer commit and on demand while building semantic
+      gate support.
+By:   implementation-agent dispatcher or a human/operator session.
+
+Formula
+  CRAP(m) = comp(m)^2 * (1 - cov(m)/100)^3 + comp(m)
+
+Output
+  Writes JSON to .agent-factory/crap-score/<story-id>.json and to
+  stdout. Exits 1 when any function exceeds the threshold.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+from dataclasses import asdict, dataclass
+from pathlib import Path
+
+from radon.complexity import cc_visit
+
+DEFAULT_THRESHOLD = 30.0
+EXCLUDED_DIRS = {
+    ".agent-factory",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".venv",
+    "__pycache__",
+    "node_modules",
+}
+
+
+@dataclass(frozen=True)
+class FunctionCrap:
+    file: str
+    function: str
+    complexity: int
+    coverage_pct: float
+    crap_score: float
+    pass_fail: str
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "--source-root",
+        default=".",
+        help="root directory to scan for Python files (default: .)",
+    )
+    parser.add_argument(
+        "--coverage-json",
+        default=None,
+        help="path to coverage.json (coverage.py JSON format)",
+    )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=None,
+        help="CRAP threshold per function (default: 30)",
+    )
+    parser.add_argument(
+        "--story-id",
+        default=None,
+        help="story identifier for JSON log file",
+    )
+    parser.add_argument(
+        "--report-dir",
+        default=".agent-factory/crap-score",
+        help="directory where JSON reports are written",
+    )
+    return parser.parse_args(argv)
+
+
+def read_threshold_from_house_rules(source_root: Path) -> float | None:
+    candidate = source_root
+    for _ in range(10):
+        rules_path = candidate / "docs" / "charter" / "house-rules.md"
+        if rules_path.is_file():
+            text = rules_path.read_text(encoding="utf-8")
+            match = re.search(
+                r"crap[_-]threshold\s*[:=]\s*(\d+(?:\.\d+)?)",
+                text,
+                re.IGNORECASE,
+            )
+            if match:
+                return float(match.group(1))
+            return None
+        parent = candidate.parent
+        if parent == candidate:
+            break
+        candidate = parent
+    return None
+
+
+def resolve_threshold(cli_threshold: float | None, source_root: Path) -> float:
+    if cli_threshold is not None:
+        return cli_threshold
+    house_rules = read_threshold_from_house_rules(source_root)
+    if house_rules is not None:
+        return house_rules
+    return DEFAULT_THRESHOLD
+
+
+def iter_python_files(source_root: Path) -> list[Path]:
+    files: list[Path] = []
+    for path in source_root.rglob("*.py"):
+        relative_parts = path.relative_to(source_root).parts
+        if any(part in EXCLUDED_DIRS for part in relative_parts):
+            continue
+        files.append(path)
+    return sorted(files)
+
+
+def load_coverage(coverage_json_path: Path) -> dict:
+    data = json.loads(coverage_json_path.read_text(encoding="utf-8"))
+    return data.get("files", {})
+
+
+def function_coverage(
+    file_key: str,
+    func_start: int,
+    func_end: int,
+    coverage_files: dict,
+) -> float:
+    file_cov = coverage_files.get(file_key)
+    if file_cov is None:
+        return 0.0
+
+    executed = set(file_cov.get("executed_lines", []))
+    missing = set(file_cov.get("missing_lines", []))
+
+    body_start = func_start + 1
+    executable_count = 0
+    covered_count = 0
+    for line in range(body_start, func_end + 1):
+        if line in executed or line in missing:
+            executable_count += 1
+            if line in executed:
+                covered_count += 1
+
+    if executable_count == 0:
+        return 100.0
+
+    return (covered_count / executable_count) * 100.0
+
+
+def crap_formula(complexity: int, coverage_pct: float) -> float:
+    return complexity**2 * (1 - coverage_pct / 100) ** 3 + complexity
+
+
+def flatten_blocks(blocks: list) -> list:
+    flat: list = []
+    for block in blocks:
+        if hasattr(block, "methods"):
+            flat.extend(block.methods)
+        else:
+            flat.append(block)
+    return flat
+
+
+def detect_story_id(explicit: str | None) -> str:
+    if explicit:
+        return explicit
+    env_id = os.environ.get("STORY_ID")
+    if env_id:
+        return env_id
+    try:
+        branch = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except Exception:
+        return "adhoc"
+    match = re.search(r"(ST-\d{4,})", branch)
+    return match.group(1) if match else "adhoc"
+
+
+def write_report(report_dir: Path, story_id: str, results: list[FunctionCrap]) -> Path:
+    report_dir.mkdir(parents=True, exist_ok=True)
+    report_path = report_dir / f"{story_id}.json"
+    report_path.write_text(
+        json.dumps([asdict(r) for r in results], indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return report_path
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    source_root = Path(args.source_root).resolve()
+    report_dir = Path(args.report_dir).resolve()
+
+    if not source_root.is_dir():
+        print(f"crap-score: source root not found: {source_root}", file=sys.stderr)
+        return 2
+
+    coverage_files: dict = {}
+    if args.coverage_json:
+        cov_path = Path(args.coverage_json).resolve()
+        if not cov_path.is_file():
+            print(f"crap-score: coverage.json not found: {cov_path}", file=sys.stderr)
+            return 2
+        coverage_files = load_coverage(cov_path)
+
+    threshold = resolve_threshold(args.threshold, source_root)
+    results: list[FunctionCrap] = []
+
+    for file_path in iter_python_files(source_root):
+        relative = str(file_path.relative_to(source_root))
+        try:
+            source = file_path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+
+        blocks = flatten_blocks(cc_visit(source))
+        for block in blocks:
+            cov = function_coverage(
+                relative,
+                block.lineno,
+                block.endline,
+                coverage_files,
+            )
+            score = crap_formula(block.complexity, cov)
+            results.append(
+                FunctionCrap(
+                    file=relative,
+                    function=block.name,
+                    complexity=block.complexity,
+                    coverage_pct=round(cov, 2),
+                    crap_score=round(score, 2),
+                    pass_fail="pass" if score <= threshold else "fail",
+                )
+            )
+
+    story_id = detect_story_id(args.story_id)
+    report_path = write_report(report_dir, story_id, results)
+
+    payload = json.dumps([asdict(r) for r in results], indent=2)
+    print(payload)
+    print(f"crap-score: threshold={threshold} wrote {report_path}", file=sys.stderr)
+
+    if any(r.pass_fail == "fail" for r in results):
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
