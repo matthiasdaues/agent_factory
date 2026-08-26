@@ -1,3 +1,4 @@
+# ruff: noqa — intentional high-complexity fixture for the crap-score gate
 def simple_add(a, b):
     if a < 0:
         a = 0

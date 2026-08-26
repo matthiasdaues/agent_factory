@@ -9,7 +9,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-DISPATCH_SCRIPT = Path(__file__).resolve().parent.parent / "factory" / "scripts" / "dispatch"
+DISPATCH_SCRIPT = (
+    Path(__file__).resolve().parent.parent / "factory" / "scripts" / "dispatch"
+)
 SCRIPT_DIR = Path(__file__).resolve().parent.parent / "factory" / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 dispatch_lib = importlib.import_module("dispatch_lib")
@@ -28,7 +30,9 @@ def _git_env(tmp_path: Path) -> dict[str, str]:
     }
 
 
-def _run_dispatch(*args: str, cwd: Path, tmp_path: Path) -> subprocess.CompletedProcess[str]:
+def _run_dispatch(
+    *args: str, cwd: Path, tmp_path: Path
+) -> subprocess.CompletedProcess[str]:
     """Invoke the dispatch CLI as a subprocess."""
     return subprocess.run(
         [sys.executable, str(DISPATCH_SCRIPT), *args],

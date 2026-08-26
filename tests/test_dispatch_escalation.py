@@ -111,7 +111,9 @@ def _patch(monkeypatch: pytest.MonkeyPatch, *, ledger: Ledger, project_root: Pat
     return saved
 
 
-def test_ledger_round_trip_preserves_attempts_and_escalation_fields(tmp_path: Path) -> None:
+def test_ledger_round_trip_preserves_attempts_and_escalation_fields(
+    tmp_path: Path,
+) -> None:
     path = tmp_path / "ledger.yaml"
     original = _ledger_with(
         _story_entry(
@@ -137,7 +139,9 @@ def test_ledger_round_trip_preserves_attempts_and_escalation_fields(tmp_path: Pa
     assert loaded.stories["ST-001"].tier == "economy"
 
 
-def test_mark_failed_appends_full_attempt_record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_mark_failed_appends_full_attempt_record(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     project_root = tmp_path / "project"
     project_root.mkdir()
     _story_file(project_root, "ST-001", tier="economy")
@@ -282,7 +286,11 @@ def test_escalate_happy_path_updates_tier_and_grants_once(
     monkeypatch.setattr(
         dispatch,
         "_git",
-        lambda *args: (0, "src/foo.py\n", "") if args[:3] == ("show", "--name-only", "--format=") else (0, "", ""),
+        lambda *args: (
+            (0, "src/foo.py\n", "")
+            if args[:3] == ("show", "--name-only", "--format=")
+            else (0, "", "")
+        ),
     )
 
     result = dispatch.cmd_escalate(
@@ -414,7 +422,11 @@ def test_escalate_blocks_when_wave_slot_taken_and_marks_blocked(
     monkeypatch.setattr(
         dispatch,
         "_git",
-        lambda *args: (0, "src/foo.py\n", "") if args[:3] == ("show", "--name-only", "--format=") else (0, "", ""),
+        lambda *args: (
+            (0, "src/foo.py\n", "")
+            if args[:3] == ("show", "--name-only", "--format=")
+            else (0, "", "")
+        ),
     )
 
     result = dispatch.cmd_escalate(
@@ -448,7 +460,9 @@ def test_escalate_rejects_verify_base_failure(
         )
     )
     _patch(monkeypatch, ledger=ledger, project_root=project_root)
-    monkeypatch.setattr(dispatch, "_run_verify_base", lambda *args, **kwargs: (1, "verify-base failed"))
+    monkeypatch.setattr(
+        dispatch, "_run_verify_base", lambda *args, **kwargs: (1, "verify-base failed")
+    )
 
     result = dispatch.cmd_escalate(
         argparse.Namespace(ledger=tmp_path / "ledger.yaml", story_id="ST-001")
@@ -482,7 +496,11 @@ def test_escalate_rejects_scope_violation(
     monkeypatch.setattr(
         dispatch,
         "_git",
-        lambda *args: (0, "src/other.py\n", "") if args[:3] == ("show", "--name-only", "--format=") else (0, "", ""),
+        lambda *args: (
+            (0, "src/other.py\n", "")
+            if args[:3] == ("show", "--name-only", "--format=")
+            else (0, "", "")
+        ),
     )
 
     result = dispatch.cmd_escalate(

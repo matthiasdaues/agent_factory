@@ -43,7 +43,9 @@ def _git_env(tmp_path: Path) -> dict[str, str]:
     }
 
 
-def _run_dispatch(*args: str, cwd: Path, tmp_path: Path) -> subprocess.CompletedProcess[str]:
+def _run_dispatch(
+    *args: str, cwd: Path, tmp_path: Path
+) -> subprocess.CompletedProcess[str]:
     """Invoke the dispatch CLI as a subprocess."""
     return subprocess.run(
         [sys.executable, str(DISPATCH_SCRIPT), *args],
@@ -161,7 +163,9 @@ def _worktree_path(repo: Path, story_id: str) -> Path:
 
 def _manifest_path(worktree: Path, feature_branch: str, story_branch: str) -> Path:
     """Return the expected manifest path for one worktree/story branch."""
-    return worktree / ".current_work" / feature_branch / story_branch / MANIFEST_FILENAME
+    return (
+        worktree / ".current_work" / feature_branch / story_branch / MANIFEST_FILENAME
+    )
 
 
 def test_prepare_wave_writes_manifest(tmp_path: Path) -> None:
@@ -216,7 +220,9 @@ def test_prepare_story_writes_manifest(tmp_path: Path) -> None:
     assert manifest["outputs"] == ["src/foo.py"]
 
 
-def test_prepare_wave_writes_seam_manifest_for_seams_first_story(tmp_path: Path) -> None:
+def test_prepare_wave_writes_seam_manifest_for_seams_first_story(
+    tmp_path: Path,
+) -> None:
     repo = _init_repo(tmp_path)
     _write_backlog_story(
         repo,
@@ -228,7 +234,10 @@ def test_prepare_wave_writes_seam_manifest_for_seams_first_story(tmp_path: Path)
         seam_outputs=["tests/test_widget.py"],
         impl_outputs=["src/widget.py"],
     )
-    _write_ledger(repo, StoryEntry(id="ST-101", wave=1, status=StoryState.PENDING, tier="standard"))
+    _write_ledger(
+        repo,
+        StoryEntry(id="ST-101", wave=1, status=StoryState.PENDING, tier="standard"),
+    )
 
     result = _run_dispatch("prepare-wave", "1", cwd=repo, tmp_path=tmp_path)
     assert result.returncode == 0, result.stderr
@@ -275,7 +284,14 @@ def test_prepare_story_writes_impl_manifest_with_seam_inputs_and_lower_tier(
         ),
     )
     _git(repo, tmp_path, "branch", "story/ST-102", "HEAD")
-    _git(repo, tmp_path, "worktree", "add", str(_worktree_path(repo, "ST-102")), "story/ST-102")
+    _git(
+        repo,
+        tmp_path,
+        "worktree",
+        "add",
+        str(_worktree_path(repo, "ST-102")),
+        "story/ST-102",
+    )
     write_manifest(
         _worktree_path(repo, "ST-102"),
         "main",
@@ -293,7 +309,9 @@ def test_prepare_story_writes_impl_manifest_with_seam_inputs_and_lower_tier(
     result = _run_dispatch("prepare-story", "ST-102", cwd=repo, tmp_path=tmp_path)
     assert result.returncode == 0, result.stderr
 
-    manifest_path = _manifest_path(_worktree_path(repo, "ST-102"), "main", "story/ST-102")
+    manifest_path = _manifest_path(
+        _worktree_path(repo, "ST-102"), "main", "story/ST-102"
+    )
     manifest = yaml.safe_load(manifest_path.read_text())
 
     assert manifest["inputs"] == ["docs/spec/prd.md", "tests/test_widget.py"]
@@ -303,6 +321,7 @@ def test_prepare_story_writes_impl_manifest_with_seam_inputs_and_lower_tier(
     assert ledger.stories["ST-102"].status == StoryState.PREPARED
     assert ledger.stories["ST-102"].active_session == "impl"
     assert ledger.stories["ST-102"].active_tier == "standard"
+
 
 def test_playbook_step_declaration_writes_manifest(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
@@ -332,7 +351,9 @@ def test_playbook_step_declaration_writes_manifest(tmp_path: Path) -> None:
         "# Feature Addition Playbook\n"
     )
 
-    step_decl = dispatch_lib.load_playbook_step_declaration(playbook, "implement-stories")
+    step_decl = dispatch_lib.load_playbook_step_declaration(
+        playbook, "implement-stories"
+    )
     assert step_decl is not None
 
     story_meta = {
@@ -376,7 +397,9 @@ def test_manifest_removed_on_completion(tmp_path: Path) -> None:
     manifest_path = _manifest_path(worktree, "main", "story/ST-001")
     assert manifest_path.exists()
 
-    dispatching = _run_dispatch("mark-dispatching", "ST-001", cwd=repo, tmp_path=tmp_path)
+    dispatching = _run_dispatch(
+        "mark-dispatching", "ST-001", cwd=repo, tmp_path=tmp_path
+    )
     assert dispatching.returncode == 0, dispatching.stderr
     dispatched = _run_dispatch("mark-dispatched", "ST-001", cwd=repo, tmp_path=tmp_path)
     assert dispatched.returncode == 0, dispatched.stderr
@@ -403,7 +426,12 @@ def test_clear_manifest_force_removes_stale(tmp_path: Path) -> None:
     assert manifest_path.exists()
 
     cleared = _run_dispatch(
-        "clear-manifest", "--force", "--worktree", str(worktree), cwd=repo, tmp_path=tmp_path
+        "clear-manifest",
+        "--force",
+        "--worktree",
+        str(worktree),
+        cwd=repo,
+        tmp_path=tmp_path,
     )
     assert cleared.returncode == 0, cleared.stderr
     assert "warning" in cleared.stderr.lower()

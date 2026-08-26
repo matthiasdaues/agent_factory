@@ -17,8 +17,8 @@ def iter_markdown_files(paths: list[str]) -> list[Path]:
     for raw in paths:
         path = Path(raw)
         if path.is_dir():
-            files.extend(sorted(path.rglob('*.md')))
-        elif path.is_file() and path.suffix.lower() == '.md':
+            files.extend(sorted(path.rglob("*.md")))
+        elif path.is_file() and path.suffix.lower() == ".md":
             files.append(path)
     return files
 
@@ -26,8 +26,10 @@ def iter_markdown_files(paths: list[str]) -> list[Path]:
 def check_markdown(path: Path) -> list[str]:
     """Flag any line that uses @-reference syntax in Markdown prose."""
     findings: list[str] = []
-    for line_number, line in enumerate(path.read_text(encoding='utf-8').splitlines(), start=1):
-        if line.lstrip().startswith('# @'):
+    for line_number, line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(), start=1
+    ):
+        if line.lstrip().startswith("# @"):
             findings.append(
                 f"{path}:{line_number}: @-reference syntax is scoped to .feature files only"
             )
@@ -36,7 +38,9 @@ def check_markdown(path: Path) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('paths', nargs='*', help='Markdown files or directories to check')
+    parser.add_argument(
+        "paths", nargs="*", help="Markdown files or directories to check"
+    )
     args = parser.parse_args(argv)
 
     errors: list[str] = []
@@ -50,5 +54,5 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     raise SystemExit(main())

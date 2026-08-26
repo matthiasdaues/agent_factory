@@ -29,7 +29,9 @@ def _git_env(tmp_path: Path) -> dict[str, str]:
     }
 
 
-def _run_dispatch(*args: str, cwd: Path, tmp_path: Path) -> subprocess.CompletedProcess[str]:
+def _run_dispatch(
+    *args: str, cwd: Path, tmp_path: Path
+) -> subprocess.CompletedProcess[str]:
     """Invoke the dispatch CLI as a subprocess."""
     return subprocess.run(
         [sys.executable, str(DISPATCH_SCRIPT), *args],
@@ -185,7 +187,9 @@ def test_verify_leaves_index_unchanged(tmp_path: Path) -> None:
         if "dispatch-ledger.yaml" not in line
     ]
     before_status_lines = [
-        line for line in before_status.splitlines() if "dispatch-ledger.yaml" not in line
+        line
+        for line in before_status.splitlines()
+        if "dispatch-ledger.yaml" not in line
     ]
     assert after_status_excluding_ledger == before_status_lines
 
@@ -197,7 +201,9 @@ def test_verify_leaves_working_tree_unchanged(tmp_path: Path) -> None:
         repo,
         StoryEntry(id="ST-001", status=StoryState.DISPATCHED, branch="story/ST-001"),
     )
-    current_branch_before = _git(repo, tmp_path, "rev-parse", "--abbrev-ref", "HEAD").stdout
+    current_branch_before = _git(
+        repo, tmp_path, "rev-parse", "--abbrev-ref", "HEAD"
+    ).stdout
     head_before = _git(repo, tmp_path, "rev-parse", "HEAD").stdout
     readme_before = (repo / "README.md").read_text()
 
@@ -206,7 +212,9 @@ def test_verify_leaves_working_tree_unchanged(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 0, result.stderr
-    current_branch_after = _git(repo, tmp_path, "rev-parse", "--abbrev-ref", "HEAD").stdout
+    current_branch_after = _git(
+        repo, tmp_path, "rev-parse", "--abbrev-ref", "HEAD"
+    ).stdout
     head_after = _git(repo, tmp_path, "rev-parse", "HEAD").stdout
     readme_after = (repo / "README.md").read_text()
 

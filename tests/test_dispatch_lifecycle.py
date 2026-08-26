@@ -95,7 +95,9 @@ def _patch_ledger_io(
     monkeypatch.setattr(
         dispatch,
         "_save_ledger",
-        lambda current, _path: (saved.setdefault("ledger", copy.deepcopy(current)), 0)[1],
+        lambda current, _path: (saved.setdefault("ledger", copy.deepcopy(current)), 0)[
+            1
+        ],
     )
     monkeypatch.setattr(dispatch, "_project_root", lambda: project_root)
     return saved

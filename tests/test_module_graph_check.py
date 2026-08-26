@@ -22,16 +22,21 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
-SCRIPT = Path(__file__).resolve().parent.parent / "factory" / "scripts" / "module-graph-check"
+SCRIPT = (
+    Path(__file__).resolve().parent.parent
+    / "factory"
+    / "scripts"
+    / "module-graph-check"
+)
 
 
 def _load_module():
     """Import module-graph-check script as a Python module."""
     loader = importlib.machinery.SourceFileLoader("module_graph_check", str(SCRIPT))
     spec = importlib.util.spec_from_file_location(
-        "module_graph_check", str(SCRIPT), loader=loader,
+        "module_graph_check",
+        str(SCRIPT),
+        loader=loader,
     )
     mod = importlib.util.module_from_spec(spec)
     sys.modules["module_graph_check"] = mod
@@ -272,6 +277,7 @@ impact:
 # DSL Parsing — AC 02
 # ---------------------------------------------------------------------------
 
+
 class TestParseDsl:
     """Verify DSL parsing extracts containers, components, and relationships."""
 
@@ -321,6 +327,7 @@ class TestParseDsl:
 # Interface Contracts Parsing — AC 03
 # ---------------------------------------------------------------------------
 
+
 class TestParseInterfaceContracts:
     """Verify interface-contracts.md parsing extracts script display names."""
 
@@ -334,7 +341,7 @@ class TestParseInterfaceContracts:
         assert "user-api" in names
 
     def test_handles_backtick_paths(self, tmp_path):
-        content = '# Contracts\n\n## `factory/scripts/my-script`\n\nSome text.\n'
+        content = "# Contracts\n\n## `factory/scripts/my-script`\n\nSome text.\n"
         contracts = tmp_path / "interface-contracts.md"
         contracts.write_text(content, encoding="utf-8")
         infos = mgc.parse_interface_contracts(contracts)
@@ -346,13 +353,14 @@ class TestParseInterfaceContracts:
         contracts.write_text(MINIMAL_CONTRACTS, encoding="utf-8")
         infos = mgc.parse_interface_contracts(contracts)
         # auth-service reads user-store
-        auth = [c for c in infos if c.name == "auth-service"][0]
+        auth = next(c for c in infos if c.name == "auth-service")
         assert "user-store" in auth.references
 
 
 # ---------------------------------------------------------------------------
 # Entity Model Parsing — AC 03
 # ---------------------------------------------------------------------------
+
 
 class TestParseEntityModel:
     """Verify entity-model.md parsing extracts entity names."""
@@ -375,6 +383,7 @@ class TestParseEntityModel:
 # ---------------------------------------------------------------------------
 # Architecture Change Check — AC 04, 05, 06
 # ---------------------------------------------------------------------------
+
 
 class TestCheckArchitectureChange:
     """Verify architecture change detection logic."""
@@ -451,6 +460,7 @@ class TestCheckArchitectureChange:
 # ---------------------------------------------------------------------------
 # Proposal Frontmatter Update — AC 07, 08
 # ---------------------------------------------------------------------------
+
 
 class TestUpdateProposal:
     """Verify proposal frontmatter update with override semantics."""
@@ -533,11 +543,19 @@ class TestUpdateProposal:
 # Integration — AC 01, 09, 10
 # ---------------------------------------------------------------------------
 
+
 class TestMainIntegration:
     """Verify script end-to-end with subprocess."""
 
-    def _setup_files(self, tmp_path, *, dsl=MINIMAL_DSL, contracts=MINIMAL_CONTRACTS,
-                     entity_model=MINIMAL_ENTITY_MODEL, proposal=PROPOSAL_FALSE):
+    def _setup_files(
+        self,
+        tmp_path,
+        *,
+        dsl=MINIMAL_DSL,
+        contracts=MINIMAL_CONTRACTS,
+        entity_model=MINIMAL_ENTITY_MODEL,
+        proposal=PROPOSAL_FALSE,
+    ):
         """Create all input files in tmp_path."""
         (tmp_path / "architecture.dsl").write_text(dsl, encoding="utf-8")
         (tmp_path / "interface-contracts.md").write_text(contracts, encoding="utf-8")
@@ -549,12 +567,18 @@ class TestMainIntegration:
         self._setup_files(tmp_path)
         result = subprocess.run(
             [
-                sys.executable, str(SCRIPT),
-                "--dsl-path", str(tmp_path / "architecture.dsl"),
-                "--interface-contracts", str(tmp_path / "interface-contracts.md"),
-                "--entity-model", str(tmp_path / "entity-model.md"),
-                "--proposal", str(tmp_path / "proposal.md"),
-                "--report-dir", str(tmp_path / "reports"),
+                sys.executable,
+                str(SCRIPT),
+                "--dsl-path",
+                str(tmp_path / "architecture.dsl"),
+                "--interface-contracts",
+                str(tmp_path / "interface-contracts.md"),
+                "--entity-model",
+                str(tmp_path / "entity-model.md"),
+                "--proposal",
+                str(tmp_path / "proposal.md"),
+                "--report-dir",
+                str(tmp_path / "reports"),
             ],
             capture_output=True,
             text=True,
@@ -568,12 +592,18 @@ class TestMainIntegration:
         self._setup_files(tmp_path, contracts=CONTRACTS_WITH_NEW_MODULE)
         result = subprocess.run(
             [
-                sys.executable, str(SCRIPT),
-                "--dsl-path", str(tmp_path / "architecture.dsl"),
-                "--interface-contracts", str(tmp_path / "interface-contracts.md"),
-                "--entity-model", str(tmp_path / "entity-model.md"),
-                "--proposal", str(tmp_path / "proposal.md"),
-                "--report-dir", str(tmp_path / "reports"),
+                sys.executable,
+                str(SCRIPT),
+                "--dsl-path",
+                str(tmp_path / "architecture.dsl"),
+                "--interface-contracts",
+                str(tmp_path / "interface-contracts.md"),
+                "--entity-model",
+                str(tmp_path / "entity-model.md"),
+                "--proposal",
+                str(tmp_path / "proposal.md"),
+                "--report-dir",
+                str(tmp_path / "reports"),
             ],
             capture_output=True,
             text=True,
@@ -587,13 +617,20 @@ class TestMainIntegration:
         self._setup_files(tmp_path)
         subprocess.run(
             [
-                sys.executable, str(SCRIPT),
-                "--dsl-path", str(tmp_path / "architecture.dsl"),
-                "--interface-contracts", str(tmp_path / "interface-contracts.md"),
-                "--entity-model", str(tmp_path / "entity-model.md"),
-                "--proposal", str(tmp_path / "proposal.md"),
-                "--report-dir", str(tmp_path / "reports"),
-                "--story-id", "ST-9999",
+                sys.executable,
+                str(SCRIPT),
+                "--dsl-path",
+                str(tmp_path / "architecture.dsl"),
+                "--interface-contracts",
+                str(tmp_path / "interface-contracts.md"),
+                "--entity-model",
+                str(tmp_path / "entity-model.md"),
+                "--proposal",
+                str(tmp_path / "proposal.md"),
+                "--report-dir",
+                str(tmp_path / "reports"),
+                "--story-id",
+                "ST-9999",
             ],
             capture_output=True,
             text=True,
@@ -609,11 +646,16 @@ class TestMainIntegration:
         self._setup_files(tmp_path)
         result = subprocess.run(
             [
-                sys.executable, str(SCRIPT),
-                "--dsl-path", str(tmp_path / "missing.dsl"),
-                "--interface-contracts", str(tmp_path / "interface-contracts.md"),
-                "--entity-model", str(tmp_path / "entity-model.md"),
-                "--proposal", str(tmp_path / "proposal.md"),
+                sys.executable,
+                str(SCRIPT),
+                "--dsl-path",
+                str(tmp_path / "missing.dsl"),
+                "--interface-contracts",
+                str(tmp_path / "interface-contracts.md"),
+                "--entity-model",
+                str(tmp_path / "entity-model.md"),
+                "--proposal",
+                str(tmp_path / "proposal.md"),
             ],
             capture_output=True,
             text=True,
@@ -626,12 +668,18 @@ class TestMainIntegration:
         self._setup_files(tmp_path, contracts=CONTRACTS_WITH_NEW_MODULE)
         subprocess.run(
             [
-                sys.executable, str(SCRIPT),
-                "--dsl-path", str(tmp_path / "architecture.dsl"),
-                "--interface-contracts", str(tmp_path / "interface-contracts.md"),
-                "--entity-model", str(tmp_path / "entity-model.md"),
-                "--proposal", str(tmp_path / "proposal.md"),
-                "--report-dir", str(tmp_path / "reports"),
+                sys.executable,
+                str(SCRIPT),
+                "--dsl-path",
+                str(tmp_path / "architecture.dsl"),
+                "--interface-contracts",
+                str(tmp_path / "interface-contracts.md"),
+                "--entity-model",
+                str(tmp_path / "entity-model.md"),
+                "--proposal",
+                str(tmp_path / "proposal.md"),
+                "--report-dir",
+                str(tmp_path / "reports"),
             ],
             capture_output=True,
             text=True,

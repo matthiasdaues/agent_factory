@@ -12,7 +12,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-STEP_GUARD = Path(__file__).resolve().parent.parent / "factory" / "scripts" / "step-guard"
+STEP_GUARD = (
+    Path(__file__).resolve().parent.parent / "factory" / "scripts" / "step-guard"
+)
 
 
 def _guard_env(tmp_path: Path) -> dict[str, str]:
@@ -123,7 +125,9 @@ def test_write_allows_gate_marker(tmp_path: Path) -> None:
     repo.mkdir()
     _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - src/**/*.py\n")
 
-    result = _run_guard("write", repo, tool="Write", path=".current_work/verify-base-ok")
+    result = _run_guard(
+        "write", repo, tool="Write", path=".current_work/verify-base-ok"
+    )
 
     assert result.returncode == 0, result.stderr
 
@@ -131,7 +135,9 @@ def test_write_allows_gate_marker(tmp_path: Path) -> None:
 def test_write_denies_ledger(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
-    _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n")
+    _write_manifest(
+        repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n"
+    )
 
     result = _run_guard(
         "write", repo, tool="Write", path=".current_work/dispatch-ledger.yaml"
@@ -143,9 +149,13 @@ def test_write_denies_ledger(tmp_path: Path) -> None:
 def test_write_denies_manifest(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
-    _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n")
+    _write_manifest(
+        repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n"
+    )
 
-    result = _run_guard("write", repo, tool="Write", path=".current_work/current-step.yml")
+    result = _run_guard(
+        "write", repo, tool="Write", path=".current_work/current-step.yml"
+    )
 
     assert result.returncode == 1
 
@@ -172,7 +182,9 @@ def test_write_allows_when_manifest_absent(tmp_path: Path) -> None:
 def test_security_denies_ledger_even_if_output_glob_matches(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
-    _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n")
+    _write_manifest(
+        repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n"
+    )
 
     result = _run_guard(
         "write", repo, tool="Write", path=".current_work/dispatch-ledger.yaml"
@@ -184,9 +196,13 @@ def test_security_denies_ledger_even_if_output_glob_matches(tmp_path: Path) -> N
 def test_security_denies_manifest_even_if_output_glob_matches(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
-    _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n")
+    _write_manifest(
+        repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n"
+    )
 
-    result = _run_guard("write", repo, tool="Write", path=".current_work/current-step.yml")
+    result = _run_guard(
+        "write", repo, tool="Write", path=".current_work/current-step.yml"
+    )
 
     assert result.returncode == 1
 
@@ -239,7 +255,9 @@ def test_bash_denies_out_of_scope_path(tmp_path: Path) -> None:
 def test_bash_denies_manifest_write(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
-    _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n")
+    _write_manifest(
+        repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n"
+    )
 
     result = _run_guard(
         "bash",
@@ -254,7 +272,9 @@ def test_bash_denies_manifest_write(tmp_path: Path) -> None:
 def test_bash_denies_ledger_write(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
-    _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n")
+    _write_manifest(
+        repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n"
+    )
 
     result = _run_guard(
         "bash",

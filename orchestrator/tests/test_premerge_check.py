@@ -132,7 +132,9 @@ def test_UC_12_BR_046_unknown_branch_is_invocation_error(tmp_path):
 # Semantic gates tests (ST-0105)
 
 
-def _create_story_file(repo: Path, story_id: str, quality_gates: list[str] | None = None) -> Path:
+def _create_story_file(
+    repo: Path, story_id: str, quality_gates: list[str] | None = None
+) -> Path:
     """Create a story file with optional quality-gates field."""
     backlog_dir = repo / "backlog"
     backlog_dir.mkdir(exist_ok=True)
@@ -160,7 +162,9 @@ Test body.
     return story_file
 
 
-def _create_gate_result(repo: Path, gate_name: str, story_id: str, passed: bool = True) -> Path:
+def _create_gate_result(
+    repo: Path, gate_name: str, story_id: str, passed: bool = True
+) -> Path:
     """Create a gate result JSON file."""
     gates_dir = repo / ".agent-factory" / gate_name
     gates_dir.mkdir(parents=True, exist_ok=True)
@@ -187,11 +191,13 @@ def test_semantic_gates_pass_when_all_gates_pass(tmp_path):
     _create_gate_result(repo, "dependency-check", story_id, passed=True)
 
     _git(repo, "switch", "-q", "-c", "story/ST-9999", base)
-    head = _commit(repo, {"test.py": "# test\n"}, "test change")
+    _commit(repo, {"test.py": "# test\n"}, "test change")
 
     result = _run(repo, "target", "story/ST-9999")
 
-    assert result.returncode == 0, f"Expected exit 0. stdout={result.stdout}, stderr={result.stderr}"
+    assert result.returncode == 0, (
+        f"Expected exit 0. stdout={result.stdout}, stderr={result.stderr}"
+    )
     assert "premerge-check: PASS" in result.stdout
 
 
@@ -244,11 +250,13 @@ def test_semantic_gates_respect_story_quality_gates_field(tmp_path):
     # mutation-analysis and dependency-check are not required and not created
 
     _git(repo, "switch", "-q", "-c", "story/ST-9996", base)
-    head = _commit(repo, {"test.py": "# test\n"}, "test change")
+    _commit(repo, {"test.py": "# test\n"}, "test change")
 
     result = _run(repo, "target", "story/ST-9996")
 
-    assert result.returncode == 0, f"Expected exit 0. stdout={result.stdout}, stderr={result.stderr}"
+    assert result.returncode == 0, (
+        f"Expected exit 0. stdout={result.stdout}, stderr={result.stderr}"
+    )
     assert "premerge-check: PASS" in result.stdout
 
 
@@ -269,5 +277,7 @@ def test_semantic_gates_use_default_when_field_absent(tmp_path):
 
     result = _run(repo, "target", "story/ST-9995")
 
-    assert result.returncode == 0, f"Expected exit 0. stdout={result.stdout}, stderr={result.stderr}"
+    assert result.returncode == 0, (
+        f"Expected exit 0. stdout={result.stdout}, stderr={result.stderr}"
+    )
     assert "premerge-check: PASS" in result.stdout

@@ -12,8 +12,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 DISPATCH_SCRIPT = (
     Path(__file__).resolve().parent.parent / "factory" / "scripts" / "dispatch"
 )
@@ -141,9 +139,12 @@ class TestDispatchInitFeatureBranch:
         )
         result = _run_dispatch(
             "init",
-            "--base", "main",
-            "--feature-branch", "feature/my-work",
-            "--stories", "ST-001",
+            "--base",
+            "main",
+            "--feature-branch",
+            "feature/my-work",
+            "--stories",
+            "ST-001",
             cwd=repo,
         )
         assert result.returncode == 0, result.stderr
@@ -154,9 +155,12 @@ class TestDispatchInitFeatureBranch:
         repo = _init_repo(tmp_path)
         result = _run_dispatch(
             "init",
-            "--base", "main",
-            "--feature-branch", "feature/missing",
-            "--stories", "ST-001",
+            "--base",
+            "main",
+            "--feature-branch",
+            "feature/missing",
+            "--stories",
+            "ST-001",
             cwd=repo,
         )
         assert result.returncode == 1
@@ -188,9 +192,12 @@ class TestDispatchInitFeatureBranch:
         )
         result = _run_dispatch(
             "init",
-            "--base", "main",
-            "--feature-branch", "feature/orphan",
-            "--stories", "ST-001",
+            "--base",
+            "main",
+            "--feature-branch",
+            "feature/orphan",
+            "--stories",
+            "ST-001",
             cwd=repo,
         )
         assert result.returncode == 1
@@ -202,10 +209,13 @@ class TestDispatchInitMutualExclusion:
         repo = _init_repo(tmp_path)
         result = _run_dispatch(
             "init",
-            "--base", "main",
-            "--feature-branch", "feature/x",
+            "--base",
+            "main",
+            "--feature-branch",
+            "feature/x",
             "--baseline-commit",
-            "--stories", "ST-001",
+            "--stories",
+            "ST-001",
             cwd=repo,
         )
         assert result.returncode == 1
@@ -256,9 +266,7 @@ def _add_backlog_story(
 
 
 class TestDispatchInitTierMismatch:
-    def test_strong_suggestion_lower_declared_blocks_init(
-        self, tmp_path: Path
-    ) -> None:
+    def test_strong_suggestion_lower_declared_blocks_init(self, tmp_path: Path) -> None:
         repo = _init_repo(tmp_path)
         _add_backlog_story(
             repo,

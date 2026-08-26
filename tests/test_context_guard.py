@@ -7,7 +7,9 @@ import os
 import subprocess
 from pathlib import Path
 
-STEP_GUARD = Path(__file__).resolve().parent.parent / "factory" / "scripts" / "step-guard"
+STEP_GUARD = (
+    Path(__file__).resolve().parent.parent / "factory" / "scripts" / "step-guard"
+)
 
 
 def _guard_env(tmp_path: Path) -> dict[str, str]:
@@ -32,7 +34,9 @@ def _write_manifest(cwd: Path, text: str) -> None:
     manifest.write_text(text)
 
 
-def _run_context(cwd: Path, event: dict[str, object]) -> subprocess.CompletedProcess[str]:
+def _run_context(
+    cwd: Path, event: dict[str, object]
+) -> subprocess.CompletedProcess[str]:
     """Invoke step-guard in context mode with one JSON event on stdin."""
     return subprocess.run(
         [str(STEP_GUARD), "--guard-type", "context"],

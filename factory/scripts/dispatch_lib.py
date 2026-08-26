@@ -5,8 +5,8 @@ Shared library for factory/scripts/dispatch. No third-party dependencies.
 
 from __future__ import annotations
 
-import fnmatch
 import ast
+import fnmatch
 import json
 import re
 from dataclasses import dataclass, field
@@ -107,7 +107,9 @@ def implementation_session_tier(declared_tier: str | None) -> str:
     return TIER_ORDER[max(0, tier_index - 1)]
 
 
-def attempts_for_session(entry: StoryEntry, session: str | None = None) -> list[dict[str, Any]]:
+def attempts_for_session(
+    entry: StoryEntry, session: str | None = None
+) -> list[dict[str, Any]]:
     """Return the story's attempts, optionally filtered by session type."""
     if session is None:
         return list(entry.attempts)
@@ -364,7 +366,8 @@ class Ledger:
         non_terminal = [
             entry.id
             for entry in wave_stories
-            if entry.status not in {StoryState.DONE, StoryState.FAILED, StoryState.BLOCKED}
+            if entry.status
+            not in {StoryState.DONE, StoryState.FAILED, StoryState.BLOCKED}
         ]
         if non_terminal:
             raise TransitionError(
@@ -782,7 +785,9 @@ def write_manifest(
         if declared_inputs:
             inputs = declared_inputs
         else:
-            inputs = list(story_meta.get("deps") or []) + list(story_meta.get("traces") or [])
+            inputs = list(story_meta.get("deps") or []) + list(
+                story_meta.get("traces") or []
+            )
 
         outputs = list(story_meta.get("outputs") or [])
         if (story_meta.get("strategy") or "direct") == "seams-first":
@@ -797,7 +802,9 @@ def write_manifest(
                     if item not in deduped_inputs:
                         deduped_inputs.append(item)
                 inputs = deduped_inputs
-        max_input_tokens = story_meta.get("max_input_tokens") or DEFAULT_MAX_INPUT_TOKENS
+        max_input_tokens = (
+            story_meta.get("max_input_tokens") or DEFAULT_MAX_INPUT_TOKENS
+        )
 
     data: dict[str, Any] = {
         "schema_version": 1,
@@ -814,7 +821,9 @@ def write_manifest(
     return manifest_path
 
 
-def remove_manifest(worktree_path: Path, feature_branch: str, story_branch: str) -> bool:
+def remove_manifest(
+    worktree_path: Path, feature_branch: str, story_branch: str
+) -> bool:
     """Delete the step manifest, deactivating guards. Returns True if removed."""
     manifest_path = _manifest_path(worktree_path, feature_branch, story_branch)
     if manifest_path.exists():
@@ -882,8 +891,7 @@ def ensure_handoff_contract_budget(
     actual_bytes = len(text.encode("utf-8"))
     if actual_bytes > max_bytes:
         raise ValueError(
-            "handoff contract exceeds budget: "
-            f"{actual_bytes} bytes > {max_bytes} bytes"
+            f"handoff contract exceeds budget: {actual_bytes} bytes > {max_bytes} bytes"
         )
 
 
@@ -1104,7 +1112,11 @@ def load_stories(backlog_dir: Path) -> list[StoryMeta]:
         if fm is None:
             continue
         raw_traces = fm.get("traces")
-        traces = raw_traces if isinstance(raw_traces, list) else ([raw_traces] if raw_traces else [])
+        traces = (
+            raw_traces
+            if isinstance(raw_traces, list)
+            else ([raw_traces] if raw_traces else [])
+        )
         raw_max_tokens = fm.get("max_input_tokens")
         max_input_tokens = int(raw_max_tokens) if raw_max_tokens else None
         stories.append(
