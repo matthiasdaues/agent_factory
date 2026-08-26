@@ -84,6 +84,7 @@ class TestFreshTarget:
     def test_all_installed_pi_modules_export_extension_factories(self):
         for name in (
             "block-dangerous-git.ts",
+            "step-guard.ts",
             "capture-usage.ts",
             "dispatch-wave.ts",
             "pi-usage.ts",

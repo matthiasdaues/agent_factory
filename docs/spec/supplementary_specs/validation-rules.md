@@ -112,3 +112,11 @@ The `script_exit_zero` condition evaluator (currently stubbed per [T-03](../todo
 - [UC-08](../use_cases/UC-08-initialize-agent-factory-into-a-project.md)
 - [UC-09](../use_cases/UC-09-run-tests-via-hook.md)
 - [UC-11](../use_cases/UC-11-cross-a-phase-boundary.md)
+
+## Dispatch ledger (`dispatch`)
+
+- `mark-dispatching`, `mark-dispatched`, `mark-blocked`, `mark-failed`, `re-dispatch`, and `escalate` are idempotent no-ops when the story is already in the target state or tier outcome.
+- `mark-failed` records an attempt entry with `session`, `tier`, `failure_class`, `evidence`, `commit_sha`, and `normalized_total`; a legacy ledger without `attempts` still loads as zero attempts.
+- `escalate` requires exactly one prior impl attempt with `acceptance_unmet` or `contradictory_evidence`, a passing `verify-base`, no scope violation, a non-strong current tier, and no earlier escalation in the same wave.
+- `close-wave <N>` refuses if any story in wave N is non-terminal.
+- `close-wave <N>` appends at most one closeout record for the wave. Re-running a successful close-wave is a no-op and does not duplicate the record.

@@ -20,6 +20,12 @@ deps: [ST-0002]                   # story ids that block this one (optional)
 traces: [UC-02, ADR-0003]         # Use Case / ADR / component ids this story implements (optional)
 outputs: [src/orchestrator/entities.py]   # files the story is expected to produce
 tests: [tests/test_entities.py]   # pre-existing test files covering this story (optional)
+risk_domains: [security, reliability]   # optional; choose the smallest closed set that directly
+                                       # affects the story's risk posture: security, privacy,
+                                       # data_integrity, compatibility, reliability, operations
+strategy: direct                  # optional; choose seams-first only when acceptance criteria are
+                                  # testable assertions and the implementation path is not obvious
+                                  # from the tests alone; use direct otherwise
 ---
 ```
 
@@ -47,6 +53,14 @@ tests: [tests/test_entities.py]   # pre-existing test files covering this story 
 
 Array of pre-existing test file paths that cover this story's acceptance criteria.\
 When `tests:` is present and non-empty, the developer-agent reads these tests as the specification and implements code to make them pass (Green phase only, skipping Red). Test files may not exist at planning time (backlog-lint warns but does not error on missing test files).
+
+### risk_domains (optional)
+
+Use `risk_domains` only when the story materially touches one or more closed risk domains. Pick the smallest set that changes implementation or review posture; leave it empty when no listed risk domain applies.
+
+### strategy (optional)
+
+Use `seams-first` when acceptance criteria can be expressed as test assertions and the implementation path is not obvious from those tests alone. Use `direct` when the story is straightforward or the seam is already obvious.
 
 ## Referenced from
 

@@ -224,9 +224,12 @@ states:
     
     outputs:
       - src/**/*
+      - factory/scripts/*
       - tests/**/*
+      - backlog/ST-*.md
+      - docs/spec/supplementary_specs/*qa-strategy*
       - git commits
-    
+
     on:
       ImplementationComplete:
         exit_conditions:

@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "matcher": "read_file",
+        "bash": "GUARD_TYPE=read ./.github/hooks/step-guard.sh",
+        "cwd": ".",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "matcher": "view",
+        "bash": "GUARD_TYPE=read ./.github/hooks/step-guard.sh",
+        "cwd": ".",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "matcher": "edit",
+        "bash": "GUARD_TYPE=write ./.github/hooks/step-guard.sh",
+        "cwd": ".",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "matcher": "write_file",
+        "bash": "GUARD_TYPE=write ./.github/hooks/step-guard.sh",
+        "cwd": ".",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "matcher": "create",
+        "bash": "GUARD_TYPE=write ./.github/hooks/step-guard.sh",
+        "cwd": ".",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "matcher": "bash",
+        "bash": "GUARD_TYPE=bash ./.github/hooks/step-guard.sh",
+        "cwd": ".",
+        "timeoutSec": 10
+      }
+    ]
+  }
+}
