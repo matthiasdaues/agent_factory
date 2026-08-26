@@ -255,6 +255,18 @@ All stories must have YAML frontmatter with the following fields:
 - Section content is extracted between `## Section` markers; empty or comment-only sections fail validation
 - "To be decided" entries are detected case-insensitively and block planning gate unless in house-rules.md
 
+## `factory/scripts/module-graph-check`
+
+|           |                                                                                                                                                                                     |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage     | `module-graph-check [--dsl-path PATH] [--interface-contracts PATH] [--entity-model PATH] [--proposal PATH] [--story-id ID] [--report-dir DIR]`                                      |
+| Reads     | `docs/arc42/architecture.dsl`; `docs/spec/supplementary_specs/interface-contracts.md`; `docs/spec/supplementary_specs/entity-model.md`; the proposal file (when `--proposal` given) |
+| Writes    | `.agent-factory/module-graph-check/<story-id>.json`; updates `impact.architecture_change` in proposal frontmatter (when `--proposal` given and override semantics apply)            |
+| Exit code | `0` on success (regardless of architecture_change result); `2` on missing input file                                                                                                |
+| stdout    | `architecture_change=true\|false`; optional `new_modules=`, `new_dependency=`, `inverted_dependency=` lines                                                                         |
+
+The script derives the module map from `architecture.dsl` (containers, components, relationships), compares it against Phase 1 outputs, and checks three conditions: (a) new module not in DSL, (b) changed public interface, (c) new or inverted dependency direction. Override semantics: `false`→`true` machine wins (annotated `# mechanical detection`); `true`→`false` prior human declaration respected conservatively. A new entity in an existing module does not trigger `architecture_change=true`.
+
 ## Referenced from
 
 - [entity-model.md](entity-model.md)
