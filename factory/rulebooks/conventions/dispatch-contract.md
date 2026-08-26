@@ -82,6 +82,18 @@ A sub-agent **inherits the dispatching session's model unless the dispatch sets 
 
 Motivating example: the binder-to-OCR research run dispatched ~60–80 research and review sub-agents that all inherited the strongest tier, in waves up to 20 wide; it hit the org monthly spend limit repeatedly, and several agents completed their analysis but died at the write step, forcing full re-runs. Routing the fan-out to standard or economy in waves of six would have cut the spend several-fold and made each failure cheap. See [agent-dispatch-token-efficiency.md](../../../docs/proposals/agent-dispatch-token-efficiency.md) and [research-workflow-efficiency-and-atomicity.md](../../../docs/proposals/implemented/research-workflow-efficiency-and-atomicity.md).
 
+### Tier Rubric
+
+The tier rubric is first-match-wins. Use this table as the single authoritative source for tier suggestions; other docs should cite it, not restate it.
+
+| Order | When | Suggested tier | Notes |
+| --- | --- | --- | --- |
+| 1 | `risk_domains` contains `security`, `privacy`, or `data_integrity` | `strong` | Closed risk domains override all weaker signals. |
+| 2 | `outputs` match any glob in `config/project.json`'s `safety_critical_paths` list | `strong` | An empty or absent list never fires this rule. |
+| 3 | `outputs` span two or more top-level directories, or `deps` has three or more entries | `standard` | Structural breadth raises coordination cost but not enough for `strong`. |
+| 4 | `outputs` stay within one top-level directory and `tests` is non-empty | `economy` | Tracer-bullet stories with test coverage can stay cheap. |
+| default | No earlier rule matches | `standard` | Use the middle tier when nothing stronger or cheaper applies. |
+
 ### Verify Sub-Agent Reports Against State
 
 A sub-agent's success report is a claim, not proof. Before treating a dispatched unit of work as done, verify it against observable state — the branch tip and `git log`, the actual test run, and the mechanical gates that the dispatch script owns — never the self-report alone.
