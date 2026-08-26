@@ -16,7 +16,7 @@ DISPATCH_SCRIPT = (
 SCRIPT_DIR = Path(__file__).resolve().parent.parent / "factory" / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 
-import dispatch_lib  # noqa: E402
+import dispatch_lib
 
 Ledger = dispatch_lib.Ledger
 
@@ -31,7 +31,9 @@ def _git_env(tmp_path: Path) -> dict[str, str]:
     }
 
 
-def _run_dispatch(*args: str, cwd: Path, tmp_path: Path) -> subprocess.CompletedProcess[str]:
+def _run_dispatch(
+    *args: str, cwd: Path, tmp_path: Path
+) -> subprocess.CompletedProcess[str]:
     """Invoke the dispatch CLI as a subprocess."""
     return subprocess.run(
         [sys.executable, str(DISPATCH_SCRIPT), *args],
@@ -80,7 +82,10 @@ def _init_repo(tmp_path: Path) -> Path:
     config_dir.mkdir()
     (config_dir / "project.json").write_text(
         json.dumps(
-            {"project_name": "test", "test_command": "uv run -- python -m unittest discover -s tests -q"}
+            {
+                "project_name": "test",
+                "test_command": "uv run -- python -m unittest discover -s tests -q",
+            }
         )
     )
 
@@ -91,6 +96,7 @@ def _init_repo(tmp_path: Path) -> Path:
 id: ST-001
 tier: economy
 status: pending
+quality-gates: []
 deps: []
 outputs:
   - src/stories/ST-001.txt
@@ -108,6 +114,7 @@ traces:
 id: ST-002
 tier: economy
 status: pending
+quality-gates: []
 deps:
   - ST-001
 outputs:
@@ -152,7 +159,9 @@ def _write_story_commit(
 
     result = _git(worktree, tmp_path, "add", "--", str(output.relative_to(worktree)))
     assert result.returncode == 0, result.stderr
-    result = _git(worktree, tmp_path, "commit", "--no-verify", "-m", f"feat: {story_id}")
+    result = _git(
+        worktree, tmp_path, "commit", "--no-verify", "-m", f"feat: {story_id}"
+    )
     assert result.returncode == 0, result.stderr
     sha = _git(worktree, tmp_path, "rev-parse", "HEAD").stdout.strip()
     result = _git(repo, tmp_path, "update-ref", f"refs/heads/story/{story_id}", sha)
@@ -185,7 +194,9 @@ def _clean_worktree(worktree: Path) -> None:
         shutil.rmtree(current_work)
 
 
-def _cleanup_story_leftovers(repo: Path, tmp_path: Path, story_id: str, worktree: Path) -> None:
+def _cleanup_story_leftovers(
+    repo: Path, tmp_path: Path, story_id: str, worktree: Path
+) -> None:
     """Force-remove leftover story worktree or branch state after merge."""
     result = _git(repo, tmp_path, "worktree", "remove", "--force", str(worktree))
     if result.returncode != 0:
@@ -200,10 +211,20 @@ def test_smoke_two_story_two_wave_dispatch_to_completion(tmp_path: Path) -> None
     started = time.monotonic()
     repo = _init_repo(tmp_path)
 
-    init = _run_dispatch("init", "--base", "main", "--stories", "ST-001,ST-002", cwd=repo, tmp_path=tmp_path)
+    init = _run_dispatch(
+        "init",
+        "--base",
+        "main",
+        "--stories",
+        "ST-001,ST-002",
+        cwd=repo,
+        tmp_path=tmp_path,
+    )
     assert init.returncode == 0, init.stderr
 
-    plan = _run_dispatch("plan", "--backlog-dir", "backlog", cwd=repo, tmp_path=tmp_path)
+    plan = _run_dispatch(
+        "plan", "--backlog-dir", "backlog", cwd=repo, tmp_path=tmp_path
+    )
     assert plan.returncode == 0, plan.stderr
     assert "wave: 1" in plan.stdout
     assert "ST-001" in plan.stdout
@@ -214,7 +235,9 @@ def test_smoke_two_story_two_wave_dispatch_to_completion(tmp_path: Path) -> None
     assert ledger_path.exists()
     _assign_waves(ledger_path)
 
-    prepare_1 = _run_dispatch_with_ledger(ledger_path, "prepare-wave", "1", cwd=repo, tmp_path=tmp_path)
+    prepare_1 = _run_dispatch_with_ledger(
+        ledger_path, "prepare-wave", "1", cwd=repo, tmp_path=tmp_path
+    )
     assert prepare_1.returncode == 0, prepare_1.stderr
 
     story_1_worktree = _story_worktree(repo, "ST-001")
@@ -313,7 +336,9 @@ def test_smoke_two_story_two_wave_dispatch_to_completion(tmp_path: Path) -> None
 
     status = _git(repo, tmp_path, "status", "--porcelain").stdout.splitlines()
     tracked_status = [
-        line for line in status if ".agent-factory/" not in line and "__pycache__" not in line
+        line
+        for line in status
+        if ".agent-factory/" not in line and "__pycache__" not in line
     ]
     assert tracked_status == []
 
@@ -338,7 +363,9 @@ def test_smoke_failure_escalation_and_redispatch_to_completion(
     evidence_path.write_text("acceptance_unmet: story output missing expected line\n")
     result = _git(repo, tmp_path, "add", "--", str(evidence_path.relative_to(repo)))
     assert result.returncode == 0, result.stderr
-    result = _git(repo, tmp_path, "commit", "--no-verify", "-m", "docs: add ST-001 finding")
+    result = _git(
+        repo, tmp_path, "commit", "--no-verify", "-m", "docs: add ST-001 finding"
+    )
     assert result.returncode == 0, result.stderr
 
     init = _run_dispatch(
@@ -352,7 +379,9 @@ def test_smoke_failure_escalation_and_redispatch_to_completion(
     )
     assert init.returncode == 0, init.stderr
 
-    plan = _run_dispatch("plan", "--backlog-dir", "backlog", cwd=repo, tmp_path=tmp_path)
+    plan = _run_dispatch(
+        "plan", "--backlog-dir", "backlog", cwd=repo, tmp_path=tmp_path
+    )
     assert plan.returncode == 0, plan.stderr
     assert "wave: 1" in plan.stdout
     assert "ST-001" in plan.stdout
@@ -535,222 +564,9 @@ def test_smoke_failure_escalation_and_redispatch_to_completion(
 
     status = _git(repo, tmp_path, "status", "--porcelain").stdout.splitlines()
     tracked_status = [
-        line for line in status if ".agent-factory/" not in line and "__pycache__" not in line
-    ]
-    assert tracked_status == []
-
-    story_worktrees = _git(repo, tmp_path, "worktree", "list", "--porcelain").stdout
-    assert ".agent-factory/worktrees/story-ST-001" not in story_worktrees
-    story_branches = _git(repo, tmp_path, "branch", "--list", "story/*").stdout
-    assert story_branches == ""
-
-    assert time.monotonic() - started < 60
-
-
-def test_smoke_failure_escalation_and_redispatch_to_completion(
-    tmp_path: Path,
-) -> None:
-    """Exercise the Smoke 2 failure, escalation, and retry journey end to end."""
-    started = time.monotonic()
-    repo = _init_repo(tmp_path)
-
-    evidence_path = repo / "docs" / "findings" / "ST-001-finding.md"
-    evidence_path.parent.mkdir(parents=True, exist_ok=True)
-    evidence_path.write_text("acceptance_unmet: story output missing expected line\n")
-    result = _git(repo, tmp_path, "add", "--", str(evidence_path.relative_to(repo)))
-    assert result.returncode == 0, result.stderr
-    result = _git(repo, tmp_path, "commit", "--no-verify", "-m", "docs: add ST-001 finding")
-    assert result.returncode == 0, result.stderr
-
-    init = _run_dispatch(
-        "init",
-        "--base",
-        "main",
-        "--stories",
-        "ST-001,ST-002",
-        cwd=repo,
-        tmp_path=tmp_path,
-    )
-    assert init.returncode == 0, init.stderr
-
-    plan = _run_dispatch("plan", "--backlog-dir", "backlog", cwd=repo, tmp_path=tmp_path)
-    assert plan.returncode == 0, plan.stderr
-    assert "wave: 1" in plan.stdout
-    assert "ST-001" in plan.stdout
-    assert "wave: 2" in plan.stdout
-    assert "ST-002" in plan.stdout
-
-    ledger_path = _ledger_path(repo)
-    assert ledger_path.exists()
-    _assign_waves(ledger_path)
-
-    prepare = _run_dispatch_with_ledger(ledger_path, "prepare-wave", "1", cwd=repo, tmp_path=tmp_path)
-    assert prepare.returncode == 0, prepare.stderr
-
-    story_worktree = _story_worktree(repo, "ST-001")
-    assert story_worktree.exists()
-
-    dispatching = _run_dispatch_with_ledger(
-        ledger_path, "mark-dispatching", "ST-001", cwd=repo, tmp_path=tmp_path
-    )
-    assert dispatching.returncode == 0, dispatching.stderr
-
-    story_output = story_worktree / "src" / "stories" / "ST-001.txt"
-    story_output.parent.mkdir(parents=True, exist_ok=True)
-    story_output.write_text("print('ST-001 first attempt')\n")
-    result = _git(
-        story_worktree,
-        tmp_path,
-        "add",
-        "--",
-        str(story_output.relative_to(story_worktree)),
-    )
-    assert result.returncode == 0, result.stderr
-    result = _git(
-        story_worktree,
-        tmp_path,
-        "commit",
-        "--no-verify",
-        "-m",
-        "feat: ST-001 first attempt",
-    )
-    assert result.returncode == 0, result.stderr
-    first_sha = _git(story_worktree, tmp_path, "rev-parse", "HEAD").stdout.strip()
-    result = _git(repo, tmp_path, "update-ref", "refs/heads/story/ST-001", first_sha)
-    assert result.returncode == 0, result.stderr
-
-    dispatched = _run_dispatch_with_ledger(
-        ledger_path, "mark-dispatched", "ST-001", cwd=repo, tmp_path=tmp_path
-    )
-    assert dispatched.returncode == 0, dispatched.stderr
-
-    verify_first = _run_dispatch_with_ledger(
-        ledger_path,
-        "verify-story",
-        "ST-001",
-        "--sha",
-        first_sha,
-        cwd=story_worktree,
-        tmp_path=tmp_path,
-    )
-    assert verify_first.returncode == 0, verify_first.stderr
-
-    failed = _run_dispatch_with_ledger(
-        ledger_path,
-        "mark-failed",
-        "ST-001",
-        "--class",
-        "acceptance_unmet",
-        "--evidence",
-        str(evidence_path.relative_to(repo)),
-        cwd=repo,
-        tmp_path=tmp_path,
-    )
-    assert failed.returncode == 0, failed.stderr
-
-    ledger = Ledger.load(ledger_path)
-    first_entry = ledger.stories["ST-001"]
-    assert first_entry.status == dispatch_lib.StoryState.FAILED
-    assert first_entry.escalation_granted is False
-    assert first_entry.tier == "economy"
-    assert first_entry.attempts == [
-        {
-            "session": "impl",
-            "tier": "economy",
-            "failure_class": "acceptance_unmet",
-            "evidence": str(evidence_path.relative_to(repo)),
-            "commit_sha": first_sha,
-            "normalized_total": 0,
-        }
-    ]
-
-    escalate = _run_dispatch_with_ledger(
-        ledger_path, "escalate", "ST-001", cwd=repo, tmp_path=tmp_path
-    )
-    assert escalate.returncode == 0, escalate.stderr
-    assert "economy -> standard" in escalate.stdout
-
-    ledger = Ledger.load(ledger_path)
-    escalated_entry = ledger.stories["ST-001"]
-    assert escalated_entry.tier == "standard"
-    assert escalated_entry.escalation_granted is True
-
-    redispatch = _run_dispatch_with_ledger(
-        ledger_path, "re-dispatch", "ST-001", cwd=repo, tmp_path=tmp_path
-    )
-    assert redispatch.returncode == 0, redispatch.stderr
-
-    redispatched_entry = Ledger.load(ledger_path).stories["ST-001"]
-    assert redispatched_entry.status == dispatch_lib.StoryState.PREPARED
-    assert redispatched_entry.tier == "standard"
-
-    redispatching = _run_dispatch_with_ledger(
-        ledger_path, "mark-dispatching", "ST-001", cwd=repo, tmp_path=tmp_path
-    )
-    assert redispatching.returncode == 0, redispatching.stderr
-
-    story_output.write_text("print('ST-001 second attempt at standard tier')\n")
-    result = _git(
-        story_worktree,
-        tmp_path,
-        "add",
-        "--",
-        str(story_output.relative_to(story_worktree)),
-    )
-    assert result.returncode == 0, result.stderr
-    result = _git(
-        story_worktree,
-        tmp_path,
-        "commit",
-        "--no-verify",
-        "-m",
-        "feat: ST-001 retry at standard tier",
-    )
-    assert result.returncode == 0, result.stderr
-    second_sha = _git(story_worktree, tmp_path, "rev-parse", "HEAD").stdout.strip()
-    result = _git(repo, tmp_path, "update-ref", "refs/heads/story/ST-001", second_sha)
-    assert result.returncode == 0, result.stderr
-
-    redispatched = _run_dispatch_with_ledger(
-        ledger_path,
-        "mark-dispatched",
-        "ST-001",
-        cwd=repo,
-        tmp_path=tmp_path,
-    )
-    assert redispatched.returncode == 0, redispatched.stderr
-
-    verify_second = _run_dispatch_with_ledger(
-        ledger_path,
-        "verify-story",
-        "ST-001",
-        "--sha",
-        second_sha,
-        cwd=story_worktree,
-        tmp_path=tmp_path,
-    )
-    assert verify_second.returncode == 0, verify_second.stderr
-
-    merge = _run_dispatch_with_ledger(ledger_path, "merge-story", "ST-001", cwd=repo, tmp_path=tmp_path)
-    assert merge.returncode == 0, merge.stderr
-    assert "status: done" in (repo / "backlog" / "ST-001.md").read_text()
-
-    close = _run_dispatch_with_ledger(ledger_path, "close-wave", "1", cwd=repo, tmp_path=tmp_path)
-    assert close.returncode == 0, close.stderr
-
-    _cleanup_story_leftovers(repo, tmp_path, "ST-001", story_worktree)
-
-    final_ledger = Ledger.load(ledger_path)
-    final_entry = final_ledger.stories["ST-001"]
-    assert final_entry.status == dispatch_lib.StoryState.DONE
-    assert final_entry.tier == "standard"
-    assert final_entry.escalation_granted is True
-    assert final_entry.attempts[0]["failure_class"] == "acceptance_unmet"
-    assert final_entry.attempts[0]["tier"] == "economy"
-
-    status = _git(repo, tmp_path, "status", "--porcelain").stdout.splitlines()
-    tracked_status = [
-        line for line in status if ".agent-factory/" not in line and "__pycache__" not in line
+        line
+        for line in status
+        if ".agent-factory/" not in line and "__pycache__" not in line
     ]
     assert tracked_status == []
 
