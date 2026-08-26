@@ -36,6 +36,7 @@ from dispatch_lib import (  # noqa: E402
     append_attempt,
     attempts_for_session,
     glob_match,
+    implementation_session_tier,
     next_tier,
     Ledger,
     ManifestExistsError,
@@ -114,8 +115,14 @@ def _story_output_globs(project_root: Path, story_id: str) -> list[str]:
     return outputs if isinstance(outputs, list) else []
 
 
-def _attempt_session_for_story(frontmatter: dict | None, failure_class: str | None) -> str:
+def _attempt_session_for_story(
+    frontmatter: dict | None,
+    failure_class: str | None,
+    active_session: str | None = None,
+) -> str:
     """Infer the attempt session type from story metadata and failure class."""
+    if active_session in {"seam", "impl"}:
+        return active_session
     if failure_class == "seam_defect":
         return "seam"
     if frontmatter and frontmatter.get("strategy") == "seams-first":
@@ -228,9 +235,13 @@ def _story_meta_for_manifest(project_root: Path, story_id: str) -> dict:
     traces = raw_traces if isinstance(raw_traces, list) else ([raw_traces] if raw_traces else [])
     raw_max_tokens = fm.get("max_input_tokens")
     meta: dict = {
+        "inputs": fm.get("inputs") or [],
         "deps": fm.get("deps") or [],
         "traces": traces,
         "outputs": fm.get("outputs") or [],
+        "strategy": fm.get("strategy") or "direct",
+        "seam_outputs": fm.get("seam_outputs") or [],
+        "impl_outputs": fm.get("impl_outputs") or [],
     }
     if raw_max_tokens:
         meta["max_input_tokens"] = int(raw_max_tokens)
@@ -242,6 +253,8 @@ def _story_handoff_contract(
     entry: StoryEntry,
     feature_branch: str,
     worktree_path: Path,
+    *,
+    session: str = "impl",
 ) -> tuple[object | None, str | None]:
     """Render and persist the story's seven-part handoff contract."""
     story_path = project_root / "backlog" / f"{entry.id}.md"
@@ -249,6 +262,11 @@ def _story_handoff_contract(
     story_title = (story_fm or {}).get("title") or entry.id
     outputs = list((story_fm or {}).get("outputs") or [])
     strategy = (story_fm or {}).get("strategy")
+    if strategy == "seams-first":
+        if session == "seam":
+            outputs = list((story_fm or {}).get("seam_outputs") or [])
+        else:
+            outputs = list((story_fm or {}).get("impl_outputs") or [])
     test_command = _read_test_command(project_root)
     if not test_command:
         return None, "error: config/project.json must contain a 'test_command' key"
@@ -277,20 +295,28 @@ def _write_story_manifest(
     entry: StoryEntry,
     feature_branch: str,
     worktree_path: Path,
+    *,
+    session: str = "impl",
 ) -> tuple[int, str | None]:
     """Write the step manifest for *entry*, recording feature_branch on it.
 
     Returns (0, None) on success, (1, error_message) on no-supersede failure.
     """
     contract, contract_err = _story_handoff_contract(
-        project_root, entry, feature_branch, worktree_path
+        project_root, entry, feature_branch, worktree_path, session=session
     )
     if contract_err is not None:
         return 1, contract_err
 
     story_meta = _story_meta_for_manifest(project_root, entry.id)
     try:
-        write_manifest(worktree_path, feature_branch, entry.branch, story_meta)
+        write_manifest(
+            worktree_path,
+            feature_branch,
+            entry.branch,
+            story_meta,
+            session=session,
+        )
     except ManifestExistsError as e:
         return 1, str(e)
 
@@ -299,6 +325,38 @@ def _write_story_manifest(
             worktree_path, feature_branch, entry.branch or f"story/{entry.id}", contract.text
         )
     entry.feature_branch = feature_branch
+    return 0, None
+
+
+def _story_declared_or_current_tier(project_root: Path, entry: StoryEntry) -> str:
+    """Return the story's current declared/elevated tier."""
+    return entry.tier or _story_declared_tier(project_root, entry.id) or "economy"
+
+
+def _prepare_seams_first_session(
+    project_root: Path,
+    entry: StoryEntry,
+    feature_branch: str,
+    worktree_path: Path,
+    *,
+    session: str,
+) -> tuple[int, str | None]:
+    """Write the manifest and record the active seams-first session metadata."""
+    manifest_code, manifest_err = _write_story_manifest(
+        project_root,
+        entry,
+        feature_branch,
+        worktree_path,
+        session=session,
+    )
+    if manifest_code != 0:
+        return manifest_code, manifest_err
+
+    declared_tier = _story_declared_or_current_tier(project_root, entry)
+    entry.active_session = session
+    entry.active_tier = (
+        declared_tier if session == "seam" else implementation_session_tier(declared_tier)
+    )
     return 0, None
 
 
@@ -586,9 +644,22 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
         entry.worktree = str(worktree_path)
         entry.base_sha = base_sha
 
-        manifest_code, manifest_err = _write_story_manifest(
-            project_root, entry, target_branch, worktree_path
-        )
+        story_meta = _story_meta_for_manifest(project_root, entry.id)
+        if story_meta.get("strategy") == "seams-first":
+            manifest_code, manifest_err = _prepare_seams_first_session(
+                project_root,
+                entry,
+                target_branch,
+                worktree_path,
+                session="seam",
+            )
+        else:
+            manifest_code, manifest_err = _write_story_manifest(
+                project_root, entry, target_branch, worktree_path
+            )
+            if manifest_code == 0:
+                entry.active_session = "impl"
+                entry.active_tier = _story_declared_or_current_tier(project_root, entry)
         if manifest_code != 0:
             print(f"error: {manifest_err}", file=sys.stderr)
             return 1
@@ -617,6 +688,48 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
     if entry is None:
         print(f"error: story not found: {story_id}", file=sys.stderr)
         return 1
+
+    project_root = _project_root()
+    story_meta = _story_meta_for_manifest(project_root, story_id)
+    if story_meta.get("strategy") == "seams-first":
+        if entry.status == StoryState.PREPARED and entry.active_session == "impl":
+            return 0
+        if entry.status != StoryState.DISPATCHED or entry.active_session != "seam":
+            print(
+                f"error: seams-first story {story_id} requires a completed seam session",
+                file=sys.stderr,
+            )
+            return 1
+        if not entry.worktree or not entry.branch:
+            print(
+                f"error: seams-first story {story_id} is missing prepared worktree metadata",
+                file=sys.stderr,
+            )
+            return 1
+
+        worktree_path = Path(entry.worktree)
+        feature_branch = entry.feature_branch or _current_branch_name()
+        if not feature_branch:
+            print(
+                f"error: unable to determine feature branch for {entry.id}",
+                file=sys.stderr,
+            )
+            return 1
+
+        remove_manifest(worktree_path, feature_branch, entry.branch)
+        manifest_code, manifest_err = _prepare_seams_first_session(
+            project_root,
+            entry,
+            feature_branch,
+            worktree_path,
+            session="impl",
+        )
+        if manifest_code != 0:
+            print(f"error: {manifest_err}", file=sys.stderr)
+            return 1
+
+        entry.status = StoryState.PREPARED
+        return _save_ledger(ledger, ledger_path)
 
     if entry.status == StoryState.PREPARED:
         return 0
@@ -650,7 +763,6 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
         )
         return 1
 
-    project_root = _project_root()
     branch_name = f"story/{entry.id}"
     worktree_path = project_root / ".agent-factory" / "worktrees" / f"story-{entry.id}"
 
@@ -702,6 +814,8 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
     if manifest_code != 0:
         print(f"error: {manifest_err}", file=sys.stderr)
         return 1
+    entry.active_session = "impl"
+    entry.active_tier = _story_declared_or_current_tier(project_root, entry)
 
     try:
         ledger.transition(entry.id, StoryState.PREPARED)
@@ -759,6 +873,9 @@ def cmd_mark_done(args: argparse.Namespace) -> int:
     except TransitionError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
+
+    entry.active_session = None
+    entry.active_tier = None
 
     if entry.worktree and entry.feature_branch and entry.branch:
         remove_manifest(Path(entry.worktree), entry.feature_branch, entry.branch)
@@ -832,18 +949,28 @@ def cmd_mark_failed(args: argparse.Namespace) -> int:
         return 1
 
     current_status = entry.status
+    frontmatter = _story_frontmatter(_project_root(), args.story_id)
+    session = _attempt_session_for_story(frontmatter, args.failure_class, entry.active_session)
+    target_state = StoryState.FAILED
+    if args.failure_class == "seam_defect" and session == "seam":
+        prior_seam_defects = [
+            attempt
+            for attempt in entry.attempts
+            if attempt.get("session") == "seam"
+            and attempt.get("failure_class") == "seam_defect"
+        ]
+        if prior_seam_defects:
+            target_state = StoryState.BLOCKED
     try:
-        ledger.transition(args.story_id, StoryState.FAILED)
+        ledger.transition(args.story_id, target_state)
     except TransitionError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
 
-    if current_status != StoryState.FAILED:
+    if current_status != target_state:
         entry.failure_class = args.failure_class
         entry.evidence = args.evidence
-        frontmatter = _story_frontmatter(_project_root(), args.story_id)
-        session = _attempt_session_for_story(frontmatter, args.failure_class)
-        tier = entry.tier or _story_declared_tier(_project_root(), args.story_id)
+        tier = entry.active_tier or entry.tier or _story_declared_tier(_project_root(), args.story_id)
         append_attempt(
             entry,
             session=session,
@@ -853,6 +980,8 @@ def cmd_mark_failed(args: argparse.Namespace) -> int:
             commit_sha=entry.commit_sha,
             normalized_total=0,
         )
+        if target_state == StoryState.BLOCKED:
+            entry.reason = "seam_defect_human_decision"
     return _save_ledger(ledger, ledger_path)
 
 

@@ -21,7 +21,12 @@ dispatch = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = dispatch
 loader.exec_module(dispatch)
 
-from dispatch_lib import Ledger, StoryEntry, StoryState  # noqa: E402
+from dispatch_lib import (  # noqa: E402
+    Ledger,
+    StoryEntry,
+    StoryState,
+    implementation_session_tier,
+)
 
 
 def _story_file(
@@ -62,6 +67,8 @@ def _story_entry(
     base_sha: str = "a" * 40,
     attempts: list[dict] | None = None,
     escalation_granted: bool = False,
+    active_session: str | None = None,
+    active_tier: str | None = None,
 ) -> StoryEntry:
     return StoryEntry(
         id=story_id,
@@ -73,6 +80,8 @@ def _story_entry(
         tier=tier,
         attempts=attempts if attempts is not None else [],
         escalation_granted=escalation_granted,
+        active_session=active_session,
+        active_tier=active_tier,
     )
 
 
@@ -157,6 +166,95 @@ def test_mark_failed_appends_full_attempt_record(tmp_path: Path, monkeypatch: py
             "normalized_total": 0,
         }
     ]
+
+
+def test_implementation_session_tier_drops_one_level_and_floors_at_economy() -> None:
+    assert implementation_session_tier("strong") == "standard"
+    assert implementation_session_tier("standard") == "economy"
+    assert implementation_session_tier("economy") == "economy"
+
+
+def test_mark_failed_records_seam_defect_without_consuming_escalation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    _story_file(project_root, "ST-001", tier="standard", strategy="seams-first")
+    ledger = _ledger_with(
+        _story_entry(
+            status=StoryState.DISPATCHING,
+            tier="standard",
+            active_session="seam",
+            active_tier="standard",
+        )
+    )
+    saved = _patch(monkeypatch, ledger=ledger, project_root=project_root)
+
+    result = dispatch.cmd_mark_failed(
+        argparse.Namespace(
+            ledger=tmp_path / "ledger.yaml",
+            story_id="ST-001",
+            failure_class="seam_defect",
+            evidence=None,
+        )
+    )
+
+    assert result == 0
+    entry = saved["ledger"].stories["ST-001"]
+    assert entry.status == StoryState.FAILED
+    assert entry.escalation_granted is False
+    assert entry.attempts[-1] == {
+        "session": "seam",
+        "tier": "standard",
+        "failure_class": "seam_defect",
+        "evidence": None,
+        "commit_sha": None,
+        "normalized_total": 0,
+    }
+
+
+def test_mark_failed_blocks_repeated_seam_defect_for_human_decision(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    _story_file(project_root, "ST-001", tier="standard", strategy="seams-first")
+    ledger = _ledger_with(
+        _story_entry(
+            status=StoryState.DISPATCHING,
+            tier="standard",
+            active_session="seam",
+            active_tier="standard",
+            attempts=[
+                {
+                    "session": "seam",
+                    "tier": "standard",
+                    "failure_class": "seam_defect",
+                    "evidence": None,
+                    "commit_sha": None,
+                    "normalized_total": 0,
+                }
+            ],
+        )
+    )
+    saved = _patch(monkeypatch, ledger=ledger, project_root=project_root)
+
+    result = dispatch.cmd_mark_failed(
+        argparse.Namespace(
+            ledger=tmp_path / "ledger.yaml",
+            story_id="ST-001",
+            failure_class="seam_defect",
+            evidence=None,
+        )
+    )
+
+    assert result == 0
+    entry = saved["ledger"].stories["ST-001"]
+    assert entry.status == StoryState.BLOCKED
+    assert entry.reason == "seam_defect_human_decision"
+    assert entry.escalation_granted is False
+    assert len(entry.attempts) == 2
+    assert entry.attempts[-1]["session"] == "seam"
 
 
 def test_escalate_happy_path_updates_tier_and_grants_once(

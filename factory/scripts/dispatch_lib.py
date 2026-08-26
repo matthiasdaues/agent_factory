@@ -15,6 +15,7 @@ from typing import Any
 
 _STRONG_RISK_DOMAINS = {"security", "privacy", "data_integrity"}
 TIER_RANK = {"economy": 0, "standard": 1, "strong": 2}
+TIER_ORDER = ("economy", "standard", "strong")
 
 try:
     import yaml
@@ -92,6 +93,18 @@ def next_tier(current_tier: str | None) -> str | None:
     return TIER_NEXT.get(current_tier)
 
 
+def implementation_session_tier(declared_tier: str | None) -> str:
+    """Return the seams-first implementation tier, floored at economy.
+
+    A seams-first implementation session always runs one tier below the
+    declared story tier, with ``economy`` as the floor.
+    """
+    if declared_tier not in TIER_RANK:
+        return "economy"
+    tier_index = TIER_RANK[declared_tier]
+    return TIER_ORDER[max(0, tier_index - 1)]
+
+
 def attempts_for_session(entry: StoryEntry, session: str | None = None) -> list[dict[str, Any]]:
     """Return the story's attempts, optionally filtered by session type."""
     if session is None:
@@ -152,6 +165,8 @@ class StoryEntry:
     failure_class: str | None = None
     evidence: str | None = None
     manifest_recoveries: list[dict[str, Any]] = field(default_factory=list)
+    active_session: str | None = None
+    active_tier: str | None = None
 
     def __post_init__(self) -> None:
         if self.base_sha is not None:
@@ -191,6 +206,10 @@ class StoryEntry:
             d["evidence"] = self.evidence
         if self.manifest_recoveries:
             d["manifest_recoveries"] = self.manifest_recoveries
+        if self.active_session is not None:
+            d["active_session"] = self.active_session
+        if self.active_tier is not None:
+            d["active_tier"] = self.active_tier
         return d
 
     @classmethod
@@ -214,6 +233,8 @@ class StoryEntry:
             failure_class=data.get("failure_class"),
             evidence=data.get("evidence"),
             manifest_recoveries=data.get("manifest_recoveries", []),
+            active_session=data.get("active_session"),
+            active_tier=data.get("active_tier"),
         )
 
 
@@ -680,6 +701,7 @@ def write_manifest(
     story_meta: dict[str, Any],
     *,
     step_declaration: dict[str, Any] | None = None,
+    session: str = "impl",
 ) -> Path:
     """Write the step manifest activating guards for one story's worktree.
 
@@ -701,8 +723,25 @@ def write_manifest(
             step_declaration.get("max_input_tokens") or DEFAULT_MAX_INPUT_TOKENS
         )
     else:
-        inputs = list(story_meta.get("deps") or []) + list(story_meta.get("traces") or [])
+        declared_inputs = list(story_meta.get("inputs") or [])
+        if declared_inputs:
+            inputs = declared_inputs
+        else:
+            inputs = list(story_meta.get("deps") or []) + list(story_meta.get("traces") or [])
+
         outputs = list(story_meta.get("outputs") or [])
+        if (story_meta.get("strategy") or "direct") == "seams-first":
+            seam_outputs = list(story_meta.get("seam_outputs") or [])
+            impl_outputs = list(story_meta.get("impl_outputs") or [])
+            if session == "seam":
+                outputs = seam_outputs
+            else:
+                outputs = impl_outputs
+                deduped_inputs: list[str] = []
+                for item in [*inputs, *seam_outputs]:
+                    if item not in deduped_inputs:
+                        deduped_inputs.append(item)
+                inputs = deduped_inputs
         max_input_tokens = story_meta.get("max_input_tokens") or DEFAULT_MAX_INPUT_TOKENS
 
     data: dict[str, Any] = {
