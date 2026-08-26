@@ -29,7 +29,7 @@ agents:
     description: "Capture a project vision, clarify requirements through adversarial interview, and produce a complete specification: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models."
     path: agents/requirements-agent.md
     tokens: 1777
-    total_tokens: 9484
+    total_tokens: 12145
   - name: spec-review-agent
     title: Specification Review Agent
     phase: 1
@@ -64,8 +64,8 @@ agents:
     tier: strong
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
-    tokens: 456
-    total_tokens: 1706
+    tokens: 496
+    total_tokens: 1746
   - name: implementation-agent
     title: Implementation Agent (Dispatcher)
     phase: 4
@@ -73,8 +73,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints. Each subagent implements one story using TDD on its own feature branch. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 3011
-    total_tokens: 9465
+    tokens: 2368
+    total_tokens: 9302
   - name: reconciliation-agent
     title: Reconciliation Agent
     phase: 4
@@ -83,7 +83,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 1115
-    total_tokens: 10015
+    total_tokens: 10463
   - name: qa-agent
     title: QA Agent
     phase: 5
@@ -91,8 +91,8 @@ agents:
     tier: strong
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
-    tokens: 826
-    total_tokens: 5271
+    tokens: 1295
+    total_tokens: 7254
   - name: claim-reviewer
     title: Claim Reviewer
     phase: 6
@@ -110,7 +110,7 @@ agents:
     description: Selects survey or falsification research from the brief, advances the chosen validated playbook, and enforces its role boundaries and release gate.
     path: agents/research-orchestrator.md
     tokens: 1320
-    total_tokens: 6480
+    total_tokens: 6928
   - name: research-report-writer
     title: Research Report Writer
     phase: 6
@@ -186,6 +186,16 @@ skills:
     description: Two-pass specification review — deterministic spec-lint then LLM semantic inspection. Files findings as local markdown files.
     path: skills/inspect-spec/SKILL.md
     tokens: 678
+  - name: qa-strategy-from-spec
+    category: requirements
+    description: Derive a per-feature QA strategy document from a consolidated .feature file and supplementary specs.
+    path: skills/qa-strategy-from-spec/SKILL.md
+    tokens: 1738
+  - name: scope-map-migration
+    category: requirements
+    description: Backfill docs/spec/scope-map.md from existing derive-spec artifacts before the first derive-feature run.
+    path: skills/scope-map-migration/SKILL.md
+    tokens: 785
   - name: write-prd
     category: requirements
     description: Synthesise a Product Requirements Document from clarified requirements.
@@ -226,6 +236,16 @@ skills:
     description: Break specification and architecture into a local backlog of markdown stories — EPICs and User Stories with INVEST criteria and MoSCoW priority.
     path: skills/create-backlog/SKILL.md
     tokens: 1250
+  - name: crap-score
+    category: implementation
+    description: Compute CRAP (Change Risk Anti-Patterns) per function and block when any exceeds the threshold.
+    path: skills/crap-score/SKILL.md
+    tokens: 640
+  - name: dependency-check
+    category: implementation
+    description: Enforce architecture.dsl dependency rules by scanning source imports and writing a JSON gate report.
+    path: skills/dependency-check/SKILL.md
+    tokens: 598
   - name: implement-issue
     category: implementation
     description: Implement a single backlog story with TDD — analyse, red-green, commit, check docs.
@@ -251,6 +271,11 @@ skills:
     description: Structured code review following the Fagan Inspection method — correctness, Clean Architecture, SOLID, maintainability.
     path: skills/fagan-review/SKILL.md
     tokens: 467
+  - name: mutation-analysis
+    category: quality
+    description: Run mutmut against production code, scope mutations to a story diff when requested, and block unresolved surviving mutants.
+    path: skills/mutation-analysis/SKILL.md
+    tokens: 921
   - name: security-review
     category: quality
     description: Security-focused code review based on the OWASP Top 10.
@@ -375,7 +400,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 2304
-    total_tokens: 27206
+    total_tokens: 27654
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -386,7 +411,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 777
-    total_tokens: 9468
+    total_tokens: 11451
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -398,7 +423,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 952
-    total_tokens: 30185
+    total_tokens: 30470
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -413,8 +438,8 @@ playbooks:
       - implementation-agent
       - reconciliation-agent
       - qa-agent
-    tokens: 2646
-    total_tokens: 57655
+    tokens: 3812
+    total_tokens: 63790
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -432,7 +457,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2786
-    total_tokens: 58869
+    total_tokens: 63838
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -448,7 +473,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1281
-    total_tokens: 9972
+    total_tokens: 11955
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -461,7 +486,7 @@ playbooks:
       - research-synthesizer
       - research-orchestrator
     tokens: 1018
-    total_tokens: 9999
+    total_tokens: 10447
   - name: research-topic
     title: Research Topic Playbook
     category: orchestration
@@ -482,7 +507,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 3026
-    total_tokens: 15102
+    total_tokens: 15550
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration
@@ -493,11 +518,11 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 2742
+    tokens: 2870
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
-    tokens: 2530
+    tokens: 2562
   - name: cache-hygiene
     category: conventions
     path: rulebooks/conventions/cache-hygiene.md
@@ -513,11 +538,11 @@ rulebooks:
   - name: cross-reference-format
     category: conventions
     path: rulebooks/conventions/cross-reference-format.md
-    tokens: 450
+    tokens: 588
   - name: dispatch-contract
     category: conventions
     path: rulebooks/conventions/dispatch-contract.md
-    tokens: 3304
+    tokens: 3752
   - name: finding-format
     category: conventions
     path: rulebooks/conventions/finding-format.md
