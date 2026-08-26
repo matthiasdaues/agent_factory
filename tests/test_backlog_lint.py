@@ -30,6 +30,8 @@ def _base_story(
     *,
     risk_domains: str | None = None,
     strategy: str | None = None,
+    quality_gates: str | None = None,
+    notes: str | None = None,
     seam_outputs: str | None = None,
     impl_outputs: str | None = None,
     outputs: str = "[src/feature.py]",
@@ -48,6 +50,10 @@ def _base_story(
         lines.append(f"risk_domains: {risk_domains}")
     if strategy is not None:
         lines.append(f"strategy: {strategy}")
+    if quality_gates is not None:
+        lines.append(f"quality-gates: {quality_gates}")
+    if notes is not None:
+        lines.append(f"notes: {notes}")
     if seam_outputs is not None:
         lines.append(f"seam_outputs: {seam_outputs}")
     if impl_outputs is not None:
@@ -100,6 +106,77 @@ def test_unknown_strategy_is_rejected(tmp_path: Path) -> None:
     assert result.returncode == 1
     assert "strategy" in result.stdout
     assert "seams" in result.stdout
+
+
+def test_quality_gates_accepts_known_gate_names(tmp_path: Path) -> None:
+    """quality_gates accepts the known semantic gate names."""
+    backlog_dir = tmp_path / "backlog"
+    backlog_dir.mkdir()
+    _write_story(
+        backlog_dir,
+        "ST-9999",
+        _base_story(
+            quality_gates="[crap-score, mutation-analysis, dependency-check]",
+        ),
+    )
+
+    result = _run_backlog_lint(backlog_dir)
+
+    assert result.returncode == 0, result.stdout
+
+
+def test_quality_gates_rejects_unknown_gate_names(tmp_path: Path) -> None:
+    """quality_gates uses a closed gate set."""
+    backlog_dir = tmp_path / "backlog"
+    backlog_dir.mkdir()
+    _write_story(
+        backlog_dir,
+        "ST-9999",
+        _base_story(
+            quality_gates="[crap-score, mutation-analysis, dependency-check, rainbow-gate]"
+        ),
+    )
+
+    result = _run_backlog_lint(backlog_dir)
+
+    assert result.returncode == 1
+    assert "quality-gates" in result.stdout
+    assert "rainbow-gate" in result.stdout
+
+
+def test_quality_gates_subset_requires_justification_notes(tmp_path: Path) -> None:
+    """Omitting a default gate requires a notes justification."""
+    backlog_dir = tmp_path / "backlog"
+    backlog_dir.mkdir()
+    _write_story(
+        backlog_dir,
+        "ST-9999",
+        _base_story(quality_gates="[crap-score, dependency-check]"),
+    )
+
+    result = _run_backlog_lint(backlog_dir)
+
+    assert result.returncode == 1
+    assert "notes" in result.stdout
+    assert "mutation-analysis" in result.stdout
+
+
+def test_quality_gates_subset_with_justification_notes_passes(tmp_path: Path) -> None:
+    """A notes justification satisfies the omission requirement."""
+    backlog_dir = tmp_path / "backlog"
+    backlog_dir.mkdir()
+    _write_story(
+        backlog_dir,
+        "ST-9999",
+        _base_story(
+            quality_gates="[crap-score, dependency-check]",
+            notes="mutation-analysis excluded: no production code changes.",
+        ),
+    )
+
+    result = _run_backlog_lint(backlog_dir)
+
+    assert result.returncode == 0, result.stdout
 
 
 def test_overlapping_seam_and_impl_outputs_are_rejected(tmp_path: Path) -> None:

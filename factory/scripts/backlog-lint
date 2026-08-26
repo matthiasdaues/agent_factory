@@ -49,6 +49,8 @@ VALID_RISK_DOMAINS = {
     "operations",
 }
 VALID_STRATEGIES = {"direct", "seams-first"}
+VALID_QUALITY_GATES = {"crap-score", "mutation-analysis", "dependency-check"}
+FACTORY_DEFAULT_QUALITY_GATES = ("crap-score", "mutation-analysis", "dependency-check")
 RE_STORY_ID = re.compile(r"^ST-\d{4,}$")
 REQUIRED_FIELDS = {"id", "epic", "title", "tier", "status", "outputs"}
 OPTIONAL_FIELDS = {
@@ -57,6 +59,8 @@ OPTIONAL_FIELDS = {
     "tests",
     "risk_domains",
     "strategy",
+    "quality-gates",
+    "notes",
     "seam_outputs",
     "impl_outputs",
 }
@@ -299,10 +303,48 @@ def check_story(
                 "BL-ENUM",
                 "error",
                 rel,
-                "strategy "
-                f"'{strategy}' not in {{direct, seams-first}}",
+                f"strategy '{strategy}' not in {{direct, seams-first}}",
             )
         )
+
+    # --- quality-gates: type, enum, and default-coverage notes ---
+    quality_gates = fm.get("quality-gates")
+    if quality_gates is not None:
+        quality_gate_values = _string_set(quality_gates)
+        if quality_gate_values is None:
+            out.append(
+                Finding("BL-TYPE", "error", rel, "quality-gates must be an array")
+            )
+        else:
+            for value in sorted(quality_gate_values):
+                if value not in VALID_QUALITY_GATES:
+                    out.append(
+                        Finding(
+                            "BL-ENUM",
+                            "error",
+                            rel,
+                            "quality-gates value "
+                            f"'{value}' not in {{crap-score, mutation-analysis, dependency-check}}",
+                        )
+                    )
+
+            missing_default_gates = [
+                gate
+                for gate in FACTORY_DEFAULT_QUALITY_GATES
+                if gate not in quality_gate_values
+            ]
+            if missing_default_gates:
+                notes = fm.get("notes")
+                for gate in missing_default_gates:
+                    if not isinstance(notes, str) or gate not in notes:
+                        out.append(
+                            Finding(
+                                "BL-NOTES",
+                                "error",
+                                rel,
+                                f"notes must justify excluding default gate '{gate}'",
+                            )
+                        )
 
     # --- deps: type, pattern, and referential integrity ---
     deps = fm.get("deps")
@@ -401,16 +443,17 @@ def check_story(
         if declared_outputs is None:
             out.append(Finding("BL-TYPE", "error", rel, "outputs must be an array"))
         else:
-            partition = (
-                (seam_values if seam_outputs is not None else set())
-                | (impl_values if impl_outputs is not None else set())
+            partition = (seam_values if seam_outputs is not None else set()) | (
+                impl_values if impl_outputs is not None else set()
             )
             if partition != declared_outputs:
                 missing = sorted(declared_outputs - partition)
                 extra = sorted(partition - declared_outputs)
                 details = []
                 if missing:
-                    details.append(f"missing from seam_outputs+impl_outputs: {', '.join(missing)}")
+                    details.append(
+                        f"missing from seam_outputs+impl_outputs: {', '.join(missing)}"
+                    )
                 if extra:
                     details.append(f"not declared in outputs: {', '.join(extra)}")
                 out.append(
