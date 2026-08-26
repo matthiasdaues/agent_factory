@@ -1,11 +1,11 @@
 # FAGAN-0028 — Suggest Tier Nested Conditionals
 
-**Date:** 2026-08-26  
-**Severity:** Trivial  
-**Category:** Maintainability  
+**Date:** 2026-08-26\
+**Severity:** Trivial\
+**Category:** Maintainability\
 **Status:** Improvement opportunity
 
----
+______________________________________________________________________
 
 ## Summary
 
@@ -15,11 +15,13 @@
 
 ```python
 # factory/scripts/dispatch_lib.py:1137
-def suggest_tier(story_frontmatter: dict[str, Any], project_config: dict[str, Any]) -> str:
+def suggest_tier(
+    story_frontmatter: dict[str, Any], project_config: dict[str, Any]
+) -> str:
     risk_domains = story_frontmatter.get("risk_domains") or []
     if any(d in _STRONG_RISK_DOMAINS for d in risk_domains):
         return "strong"
-    
+
     outputs = story_frontmatter.get("outputs") or []
     safety_critical_paths = project_config.get("safety_critical_paths") or []
     if safety_critical_paths:
@@ -27,23 +29,23 @@ def suggest_tier(story_frontmatter: dict[str, Any], project_config: dict[str, An
             for pattern in safety_critical_paths:
                 if fnmatch.fnmatch(output, pattern):
                     return "strong"
-    
+
     top_dirs = set()
     for output in outputs:
         parts = Path(output).parts
         top_dirs.add(parts[0] if parts else output)
-    
+
     if len(top_dirs) >= 2:
         return "standard"
-    
+
     deps = story_frontmatter.get("deps") or []
     if len(deps) >= 3:
         return "standard"
-    
+
     tests = story_frontmatter.get("tests") or []
     if len(top_dirs) <= 1 and tests:
         return "economy"
-    
+
     return "standard"
 ```
 

@@ -403,6 +403,7 @@ factory/scripts/module-graph-check
 **Routing result:**
 
 Proceed based on the (possibly updated) `impact.architecture_change` value:
+
 - If `true`, go to Phase 2
 - If `false`, skip Phase 2 and go to Phase 3
 

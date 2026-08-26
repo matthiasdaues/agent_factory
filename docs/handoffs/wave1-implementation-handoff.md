@@ -40,17 +40,17 @@ Open items:
 
 ## Story completion status
 
-| Story   | Title                                                     | Status  | Evidence                                                                                                 |
-| ------- | --------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------- |
-| ST-0094 | Amend testing-strategy.md                                 | done    | `factory/rulebooks/conventions/testing-strategy.md` amended                                              |
-| ST-0095 | Amend cross-reference-format.md + validate enforcement    | done    | `factory/rulebooks/conventions/cross-reference-format.md` has `@`-ref section; `factory/scripts/validate` has check |
-| ST-0096 | Create derive-feature skill                               | done    | `factory/skills/derive-feature/SKILL.md` exists                                                          |
-| ST-0097 | Create qa-strategy-from-spec skill                        | done    | Merged at `6c6dea6`; `factory/skills/qa-strategy-from-spec/SKILL.md` (207 lines)                        |
-| ST-0099 | Create scope-map-migration skill                          | done    | `factory/skills/scope-map-migration/SKILL.md` exists (commit `8c5a8f9`)                                 |
-| ST-0100 | Add quality-gates field to story.md template              | done    | Merged at `0d6452e`; `factory/rulebooks/templates/story.md` has `quality-gates` field                    |
-| ST-0101 | Create crap-score gate skill, script, and fixture         | pending | Fixture `factory/fixtures/quality-gates/high-crap/` exists; SKILL.md and script missing                  |
-| ST-0102 | Create mutation-analysis gate skill, script, and fixture  | pending | No artifacts                                                                                             |
-| ST-0103 | Create dependency-check gate skill, script, and fixture   | pending | Branch `story/ST-0103` has commit `0fbafcb` with full implementation; needs rebase and merge             |
+| Story   | Title                                                    | Status  | Evidence                                                                                                            |
+| ------- | -------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------- |
+| ST-0094 | Amend testing-strategy.md                                | done    | `factory/rulebooks/conventions/testing-strategy.md` amended                                                         |
+| ST-0095 | Amend cross-reference-format.md + validate enforcement   | done    | `factory/rulebooks/conventions/cross-reference-format.md` has `@`-ref section; `factory/scripts/validate` has check |
+| ST-0096 | Create derive-feature skill                              | done    | `factory/skills/derive-feature/SKILL.md` exists                                                                     |
+| ST-0097 | Create qa-strategy-from-spec skill                       | done    | Merged at `6c6dea6`; `factory/skills/qa-strategy-from-spec/SKILL.md` (207 lines)                                    |
+| ST-0099 | Create scope-map-migration skill                         | done    | `factory/skills/scope-map-migration/SKILL.md` exists (commit `8c5a8f9`)                                             |
+| ST-0100 | Add quality-gates field to story.md template             | done    | Merged at `0d6452e`; `factory/rulebooks/templates/story.md` has `quality-gates` field                               |
+| ST-0101 | Create crap-score gate skill, script, and fixture        | pending | Fixture `factory/fixtures/quality-gates/high-crap/` exists; SKILL.md and script missing                             |
+| ST-0102 | Create mutation-analysis gate skill, script, and fixture | pending | No artifacts                                                                                                        |
+| ST-0103 | Create dependency-check gate skill, script, and fixture  | pending | Branch `story/ST-0103` has commit `0fbafcb` with full implementation; needs rebase and merge                        |
 
 ## Artifacts
 

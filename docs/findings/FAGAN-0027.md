@@ -1,11 +1,11 @@
 # FAGAN-0027 — Read/Write Guard Path Prefixes
 
-**Date:** 2026-08-26  
-**Severity:** Trivial  
-**Category:** Correctness  
+**Date:** 2026-08-26\
+**Severity:** Trivial\
+**Category:** Correctness\
 **Status:** Not a defect — working as designed
 
----
+______________________________________________________________________
 
 ## Summary
 
@@ -37,8 +37,9 @@ WRITE_DENIED_PATHS = {
 ## Specification Alignment
 
 From `mechanized-dispatch.md`:
-> "Factory machinery paths are always allowed"  
-> "Dispatch ledger is always denied to step agents"  
+
+> "Factory machinery paths are always allowed"\
+> "Dispatch ledger is always denied to step agents"\
 > "Step manifest file is always denied to step agents"
 
 ## Conclusion

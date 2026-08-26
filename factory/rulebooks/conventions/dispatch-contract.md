@@ -86,13 +86,13 @@ Motivating example: the binder-to-OCR research run dispatched ~60–80 research 
 
 The tier rubric is first-match-wins. Use this table as the single authoritative source for tier suggestions; other docs should cite it, not restate it.
 
-| Order | When | Suggested tier | Notes |
-| --- | --- | --- | --- |
-| 1 | `risk_domains` contains `security`, `privacy`, or `data_integrity` | `strong` | Closed risk domains override all weaker signals. |
-| 2 | `outputs` match any glob in `config/project.json`'s `safety_critical_paths` list | `strong` | An empty or absent list never fires this rule. |
-| 3 | `outputs` span two or more top-level directories, or `deps` has three or more entries | `standard` | Structural breadth raises coordination cost but not enough for `strong`. |
-| 4 | `outputs` stay within one top-level directory and `tests` is non-empty | `economy` | Tracer-bullet stories with test coverage can stay cheap. |
-| default | No earlier rule matches | `standard` | Use the middle tier when nothing stronger or cheaper applies. |
+| Order   | When                                                                                  | Suggested tier | Notes                                                                    |
+| ------- | ------------------------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------ |
+| 1       | `risk_domains` contains `security`, `privacy`, or `data_integrity`                    | `strong`       | Closed risk domains override all weaker signals.                         |
+| 2       | `outputs` match any glob in `config/project.json`'s `safety_critical_paths` list      | `strong`       | An empty or absent list never fires this rule.                           |
+| 3       | `outputs` span two or more top-level directories, or `deps` has three or more entries | `standard`     | Structural breadth raises coordination cost but not enough for `strong`. |
+| 4       | `outputs` stay within one top-level directory and `tests` is non-empty                | `economy`      | Tracer-bullet stories with test coverage can stay cheap.                 |
+| default | No earlier rule matches                                                               | `standard`     | Use the middle tier when nothing stronger or cheaper applies.            |
 
 ### Verify Sub-Agent Reports Against State
 

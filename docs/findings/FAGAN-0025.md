@@ -1,11 +1,11 @@
 # FAGAN-0025 — Wave Escalation Slot Exhaustion
 
-**Date:** 2026-08-26  
-**Severity:** Minor  
-**Category:** Correctness  
+**Date:** 2026-08-26\
+**Severity:** Minor\
+**Category:** Correctness\
 **Status:** Not a defect — working as designed
 
----
+______________________________________________________________________
 
 ## Summary
 
@@ -26,6 +26,7 @@ if any(
 ## Specification Alignment
 
 From `mechanized-dispatch.md`:
+
 > "Second qualifying failure in wave after escalation slot is taken marks the story `blocked` with reason `wave_escalation_exhausted`."
 
 ## Conclusion

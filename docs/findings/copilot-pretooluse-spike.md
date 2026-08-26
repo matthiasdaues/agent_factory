@@ -43,11 +43,11 @@ payload is consumed through `toolArgs` rather than Claude Code's `tool_input`.
 For the file-oriented tools, the hook surface is the same shape and the file
 path sits at `toolArgs.path`:
 
-| Tool call | `toolName` example | `toolArgs` shape | File path field |
-| --- | --- | --- | --- |
-| Read | `read_file` or `view` | `{ "path": "…" }` | `toolArgs.path` |
-| Edit | `edit` | `{ "path": "…" }` | `toolArgs.path` |
-| Write | `write_file` or `create` | `{ "path": "…" }` | `toolArgs.path` |
+| Tool call | `toolName` example       | `toolArgs` shape  | File path field |
+| --------- | ------------------------ | ----------------- | --------------- |
+| Read      | `read_file` or `view`    | `{ "path": "…" }` | `toolArgs.path` |
+| Edit      | `edit`                   | `{ "path": "…" }` | `toolArgs.path` |
+| Write     | `write_file` or `create` | `{ "path": "…" }` | `toolArgs.path` |
 
 The VS Code Copilot SDK source confirms that file tools resolve edit paths from
 `toolArgs.path`, and that edit tracking treats `edit` / `create` as file tools.

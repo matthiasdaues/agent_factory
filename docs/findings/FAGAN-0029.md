@@ -1,11 +1,11 @@
 # FAGAN-0029 — Commit Message Format Inconsistency
 
-**Date:** 2026-08-26  
-**Severity:** Trivial  
-**Category:** Consistency  
+**Date:** 2026-08-26\
+**Severity:** Trivial\
+**Category:** Consistency\
 **Status:** Improvement opportunity
 
----
+______________________________________________________________________
 
 ## Summary
 
@@ -14,6 +14,7 @@ Commit messages in `feature/mechanize-dispatch` use conventional format (`feat:`
 ## Evidence
 
 From `git log feature/mechanize-dispatch --oneline`:
+
 - `6431c8c feat: document tier rubric and story guidance (ST-0138)`
 - `38f5145 merge: story/ST-0138 — convention docs update (ST-0138)`
 - Other commits follow `feat:`, `fix:`, `chore:`, `docs:`, `merge:` patterns
