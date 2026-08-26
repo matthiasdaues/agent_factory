@@ -1,0 +1,354 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
+"""dependency-check — deterministic dependency-direction gate.
+
+What: Reads dependency rules from architecture.dsl and flags forbidden
+      Python imports.
+When: After a developer commit and on demand while building semantic
+      gate support.
+By:   implementation-agent dispatcher or a human/operator session.
+
+Rule format
+  <module> must_not_depend_on <module>
+
+Output
+  Writes JSON to .agent-factory/dependency-check/<story-id>.json and to
+  stdout. Exits 1 when any violation is found.
+"""
+
+from __future__ import annotations
+
+import argparse
+import ast
+import json
+import os
+import re
+import subprocess
+import sys
+from dataclasses import asdict, dataclass
+from pathlib import Path
+
+RULE_PATTERN = re.compile(
+    r"^(?P<source>[A-Za-z0-9_./-]+)\s+must_not_depend_on\s+(?P<target>[A-Za-z0-9_./-]+)$"
+)
+EXCLUDED_DIRS = {
+    ".agent-factory",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".venv",
+    "__pycache__",
+    "node_modules",
+}
+
+
+@dataclass(frozen=True)
+class DependencyRule:
+    """Forbidden dependency declaration extracted from architecture.dsl."""
+
+    source_module: str
+    target_module: str
+
+    @property
+    def rule_name(self) -> str:
+        return f"{self.source_module} must_not_depend_on {self.target_module}"
+
+
+@dataclass(frozen=True)
+class ImportOccurrence:
+    """Resolved import occurrence discovered in a Python file."""
+
+    file: str
+    line: int
+    imported_module: str
+
+
+@dataclass(frozen=True)
+class RuleResult:
+    """Serialized report row for one rule outcome."""
+
+    rule_name: str
+    pass_fail: str
+    violating_import: dict[str, object] | None
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse CLI arguments for the dependency gate."""
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "--dsl-path",
+        default="docs/arc42/architecture.dsl",
+        help="path to architecture.dsl (default: docs/arc42/architecture.dsl)",
+    )
+    parser.add_argument(
+        "--source-root",
+        default=".",
+        help="root directory to scan for Python files (default: current directory)",
+    )
+    parser.add_argument(
+        "--story-id",
+        default=None,
+        help="story identifier for the JSON log file (default: env/branch/adhoc)",
+    )
+    parser.add_argument(
+        "--report-dir",
+        default=".agent-factory/dependency-check",
+        help="directory where JSON reports are written",
+    )
+    return parser.parse_args(argv)
+
+
+def strip_inline_comment(line: str) -> str:
+    """Remove trailing # or // comments from a DSL line."""
+    for marker in ("#", "//"):
+        if marker in line:
+            line = line.split(marker, 1)[0]
+    return line.strip()
+
+
+def normalize_boundary_name(name: str) -> str:
+    """Normalize rule and module names to a comparable root token."""
+    cleaned = name.strip().replace("/", ".")
+    return cleaned.split(".", 1)[0]
+
+
+def parse_rules(dsl_path: Path) -> list[DependencyRule]:
+    """Return every must_not_depend_on rule declared in the DSL."""
+    rules: list[DependencyRule] = []
+
+    for raw_line in dsl_path.read_text(encoding="utf-8").splitlines():
+        line = strip_inline_comment(raw_line)
+        if not line:
+            continue
+        match = RULE_PATTERN.match(line)
+        if match:
+            rules.append(
+                DependencyRule(
+                    source_module=normalize_boundary_name(match.group("source")),
+                    target_module=normalize_boundary_name(match.group("target")),
+                )
+            )
+    return rules
+
+
+def iter_python_files(source_root: Path) -> list[Path]:
+    """Collect Python files under source_root, excluding cache and VCS dirs."""
+    files: list[Path] = []
+    for path in source_root.rglob("*.py"):
+        relative_parts = path.relative_to(source_root).parts
+        if any(part in EXCLUDED_DIRS for part in relative_parts):
+            continue
+        files.append(path)
+    return sorted(files)
+
+
+def module_boundary_for_file(source_root: Path, file_path: Path) -> str | None:
+    """Map a file path to its top-level module boundary."""
+    try:
+        relative = file_path.relative_to(source_root)
+    except ValueError:
+        return None
+    if not relative.parts:
+        return None
+    return normalize_boundary_name(relative.parts[0])
+
+
+def package_parts_for_file(source_root: Path, file_path: Path) -> list[str]:
+    """Return the package path used for relative-import resolution."""
+    relative = file_path.relative_to(source_root)
+    parts = list(relative.with_suffix("").parts)
+    if not parts:
+        return []
+    if parts[-1] == "__init__":
+        return parts[:-1]
+    return parts[:-1]
+
+
+def resolve_relative_import(
+    package_parts: list[str], module: str | None, level: int
+) -> str | None:
+    """Resolve an ImportFrom node to an absolute module path when possible."""
+    if level <= 0:
+        return module
+    if level > len(package_parts) + 1:
+        return None
+    anchor = package_parts[: len(package_parts) - (level - 1)]
+    if module:
+        anchor.extend(module.split("."))
+    return ".".join(anchor) if anchor else None
+
+
+def collect_imports(source_root: Path) -> list[tuple[str, ImportOccurrence]]:
+    """Parse Python files and return comparable roots with import details."""
+    imports: list[tuple[str, ImportOccurrence]] = []
+
+    for file_path in iter_python_files(source_root):
+        relative = file_path.relative_to(source_root)
+        try:
+            tree = ast.parse(
+                file_path.read_text(encoding="utf-8"), filename=str(relative)
+            )
+        except SyntaxError:
+            continue
+
+        package_parts = package_parts_for_file(source_root, file_path)
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    imported_module = alias.name
+                    imports.append(
+                        (
+                            normalize_boundary_name(imported_module),
+                            ImportOccurrence(
+                                file=str(relative),
+                                line=node.lineno,
+                                imported_module=imported_module,
+                            ),
+                        )
+                    )
+            elif isinstance(node, ast.ImportFrom):
+                imported_module = resolve_relative_import(
+                    package_parts, node.module, node.level
+                )
+                if not imported_module:
+                    continue
+                imports.append(
+                    (
+                        normalize_boundary_name(imported_module),
+                        ImportOccurrence(
+                            file=str(relative),
+                            line=node.lineno,
+                            imported_module=imported_module,
+                        ),
+                    )
+                )
+    return imports
+
+
+def evaluate_rules(rules: list[DependencyRule], source_root: Path) -> list[RuleResult]:
+    """Evaluate forbidden imports against the collected Python import graph."""
+    imports_by_file: dict[str, list[tuple[str, ImportOccurrence]]] = {}
+    for imported_root, occurrence in collect_imports(source_root):
+        imports_by_file.setdefault(occurrence.file, []).append(
+            (imported_root, occurrence)
+        )
+
+    results: list[RuleResult] = []
+    failing_rule_names: set[str] = set()
+
+    for file_path in iter_python_files(source_root):
+        boundary = module_boundary_for_file(source_root, file_path)
+        if boundary is None:
+            continue
+        relative_name = str(file_path.relative_to(source_root))
+        file_imports = imports_by_file.get(relative_name, [])
+        for rule in rules:
+            if boundary != rule.source_module:
+                continue
+            violations = [
+                occurrence
+                for imported_root, occurrence in file_imports
+                if imported_root == rule.target_module
+            ]
+            if violations:
+                failing_rule_names.add(rule.rule_name)
+            for violation in violations:
+                results.append(
+                    RuleResult(
+                        rule_name=rule.rule_name,
+                        pass_fail="fail",
+                        violating_import=asdict(violation),
+                    )
+                )
+
+    for rule in rules:
+        if rule.rule_name not in failing_rule_names:
+            results.append(
+                RuleResult(
+                    rule_name=rule.rule_name,
+                    pass_fail="pass",
+                    violating_import=None,
+                )
+            )
+
+    return sorted(
+        results,
+        key=lambda item: (
+            item.rule_name,
+            item.pass_fail,
+            json.dumps(item.violating_import, sort_keys=True)
+            if item.violating_import
+            else "",
+        ),
+    )
+
+
+def detect_story_id(explicit_story_id: str | None) -> str:
+    """Resolve the story ID from CLI, environment, branch, or fallback."""
+    if explicit_story_id:
+        return explicit_story_id
+    env_story_id = os.environ.get("STORY_ID")
+    if env_story_id:
+        return env_story_id
+    try:
+        branch = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except Exception:
+        return "adhoc"
+    match = re.search(r"(ST-\d{4,})", branch)
+    return match.group(1) if match else "adhoc"
+
+
+def write_report(report_dir: Path, story_id: str, results: list[RuleResult]) -> Path:
+    """Write the JSON report and return its path."""
+    report_dir.mkdir(parents=True, exist_ok=True)
+    report_path = report_dir / f"{story_id}.json"
+    report_path.write_text(
+        json.dumps([asdict(result) for result in results], indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return report_path
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run the dependency gate and return a shell-friendly exit code."""
+    args = parse_args(argv)
+    dsl_path = Path(args.dsl_path).resolve()
+    source_root = Path(args.source_root).resolve()
+    report_dir = Path(args.report_dir).resolve()
+
+    if not dsl_path.is_file():
+        print(f"dependency-check: DSL file not found: {dsl_path}", file=sys.stderr)
+        return 2
+    if not source_root.is_dir():
+        print(
+            f"dependency-check: source root not found: {source_root}", file=sys.stderr
+        )
+        return 2
+
+    rules = parse_rules(dsl_path)
+    results = evaluate_rules(rules, source_root)
+    story_id = detect_story_id(args.story_id)
+    report_path = write_report(report_dir, story_id, results)
+
+    payload = json.dumps([asdict(result) for result in results], indent=2)
+    print(payload)
+    print(f"dependency-check: wrote {report_path}", file=sys.stderr)
+
+    if any(result.pass_fail == "fail" for result in results):
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
