@@ -27,6 +27,7 @@ models/
 /.claude/
 /.pi/
 /.agent-factory/
+/.current_work/
 /session-scratchpad.md
 /config/project.json
 /AGENTS.md
