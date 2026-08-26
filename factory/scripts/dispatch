@@ -51,6 +51,7 @@ from dispatch_lib import (  # noqa: E402
     parse_story_frontmatter,
     remove_manifest,
     render_handoff_contract,
+    re_dispatch_disposition,
     suggest_tier,
     write_handoff_contract,
     write_manifest,
@@ -986,7 +987,36 @@ def cmd_mark_failed(args: argparse.Namespace) -> int:
 
 
 def cmd_re_dispatch(args: argparse.Namespace) -> int:
-    return _transition(args, StoryState.PREPARED)
+    ledger_path = Path(args.ledger)
+    ledger = _load_ledger(ledger_path)
+    if ledger is None:
+        return 1
+
+    entry = ledger.stories.get(args.story_id)
+    if entry is None:
+        print(f"error: story not found: {args.story_id}", file=sys.stderr)
+        return 1
+
+    disposition = re_dispatch_disposition(entry)
+    if disposition == "requires_escalation":
+        print(
+            f"error: story {args.story_id} requires escalation before re-dispatch",
+            file=sys.stderr,
+        )
+        return 1
+    if disposition == "terminal":
+        print(
+            f"error: story {args.story_id} is terminal after two contract_violation failures",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        ledger.transition(args.story_id, StoryState.PREPARED)
+    except TransitionError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    return _save_ledger(ledger, ledger_path)
 
 
 def cmd_escalate(args: argparse.Namespace) -> int:

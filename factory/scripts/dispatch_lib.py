@@ -6,6 +6,7 @@ Shared library for factory/scripts/dispatch. No third-party dependencies.
 from __future__ import annotations
 
 import fnmatch
+import ast
 import json
 import re
 from dataclasses import dataclass, field
@@ -72,6 +73,7 @@ QUALIFYING_ESCALATION_FAILURE_CLASSES: tuple[str, ...] = (
     "contradictory_evidence",
 )
 TIER_NEXT = {"economy": "standard", "standard": "strong"}
+RE_DISPATCH_TERMINAL_FAILURE_CLASS = "contract_violation"
 
 
 class TransitionError(Exception):
@@ -118,6 +120,59 @@ def latest_attempt_for_session(
     """Return the latest attempt, optionally restricted to one session type."""
     attempts = attempts_for_session(entry, session)
     return attempts[-1] if attempts else None
+
+
+def _coerce_sequence(value: Any) -> list[Any]:
+    """Return *value* as a list, accepting legacy stringified list payloads."""
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            return []
+        if isinstance(parsed, list):
+            return parsed
+    return []
+
+
+def failure_class_for_re_dispatch(entry: StoryEntry) -> str | None:
+    """Return the failure class that governs *entry*'s next re-dispatch.
+
+    The direct field wins because ``mark-failed`` records it explicitly.
+    Falling back to the latest attempt keeps legacy ledgers and partially
+    reconstructed entries usable.
+    """
+    if entry.failure_class is not None:
+        return entry.failure_class
+    latest_attempt = latest_attempt_for_session(entry)
+    if latest_attempt is None:
+        return None
+    failure_class = latest_attempt.get("failure_class")
+    return failure_class if isinstance(failure_class, str) else None
+
+
+def re_dispatch_disposition(entry: StoryEntry) -> str:
+    """Classify whether the story may re-dispatch now.
+
+    Returns one of:
+
+    - ``same_tier`` — proceed normally.
+    - ``requires_escalation`` — block until escalation is granted.
+    - ``terminal`` — block because the failure is terminal.
+    """
+    failure_class = failure_class_for_re_dispatch(entry)
+    if failure_class in QUALIFYING_ESCALATION_FAILURE_CLASSES:
+        return "same_tier" if entry.escalation_granted else "requires_escalation"
+    if failure_class == RE_DISPATCH_TERMINAL_FAILURE_CLASS:
+        terminal_count = sum(
+            1
+            for attempt in entry.attempts
+            if attempt.get("failure_class") == RE_DISPATCH_TERMINAL_FAILURE_CLASS
+        )
+        if terminal_count >= 2:
+            return "terminal"
+    return "same_tier"
 
 
 def append_attempt(
@@ -226,13 +281,13 @@ class StoryEntry:
             tier=data.get("tier"),
             reason=data.get("reason"),
             gate_results=data.get("gate_results", {}),
-            attempts=data.get("attempts", []),
+            attempts=_coerce_sequence(data.get("attempts", [])),
             escalation_granted=bool(data.get("escalation_granted", False)),
             verify_base=data.get("verify_base"),
             commit_sha=data.get("commit_sha"),
             failure_class=data.get("failure_class"),
             evidence=data.get("evidence"),
-            manifest_recoveries=data.get("manifest_recoveries", []),
+            manifest_recoveries=_coerce_sequence(data.get("manifest_recoveries", [])),
             active_session=data.get("active_session"),
             active_tier=data.get("active_tier"),
         )
@@ -263,10 +318,10 @@ class WaveCloseout:
     def from_dict(cls, data: dict[str, Any]) -> WaveCloseout:
         return cls(
             number=int(data["number"]),
-            completed=data.get("completed", []),
-            blocked=data.get("blocked", []),
-            failed=data.get("failed", []),
-            next_ready=data.get("next_ready", []),
+            completed=_coerce_sequence(data.get("completed", [])),
+            blocked=_coerce_sequence(data.get("blocked", [])),
+            failed=_coerce_sequence(data.get("failed", [])),
+            next_ready=_coerce_sequence(data.get("next_ready", [])),
             branch_head=data.get("branch_head"),
         )
 
