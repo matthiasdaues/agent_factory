@@ -21,6 +21,18 @@ Where the target artifact has distinct sections or entries — a heading, a `## 
 
 Applies to prose/body content. Does **not** apply to structured frontmatter fields (`traces: [NFR-01]`, `id: SPEC-0001`) — those are data, not rendered markdown, and a link there would be meaningless.
 
+## `@`-references in `.feature` files
+
+`@`-references are the Gherkin counterpart to markdown links. They appear only in `.feature` files, usually as comments attached to a Rule or Scenario, and they point to implementation code.
+
+Syntax:
+
+- `# @<path>::<Symbol>` for a class or top-level function
+- `# @<path>::<Symbol>.<member>` for a method or nested function
+- `# @<path>` for a module-level target when no symbol is needed
+
+These references are scoped to `.feature` files only. In `.md` prose, continue using full markdown links from the rule above.
+
 ## Examples
 
 Wrong: `See the QA Agent for how findings hand off downstream.`
