@@ -4,8 +4,8 @@ merges into its target. Replaces "the orchestrating session remembers to
 diff the branch against its target" with a deterministic check
 (docs/reviews/retro-2026-07-12.md action item #3, proposal §4).
 
-What: Runs the stale-base and contaminated-diff checks on a finished branch
-      and writes the premerge-check-ok marker on success.
+What: Runs the stale-base, contaminated-diff, and semantic gate checks on
+      a finished branch and writes the premerge-check-ok marker on success.
 When: Before every branch merge into its target.
 By:   run by the merging session; enforced by block-dangerous-git, which
       denies `git merge` without the marker.
@@ -13,7 +13,9 @@ By:   run by the merging session; enforced by block-dangerous-git, which
 Catches the two contaminated diffs the 2026-07-12 session hit by hand
 (`git diff --stat` run manually, after the fact) and turns that habit into
 a required step run before every merge, not after a full agent run is
-already finished.
+already finished. Also enforces semantic quality gates (CRAP score, mutation
+testing, dependency rules) before merge (proposal: Agentic Quality Gates
+§ Design 5 — Gate Execution Lifecycle).
 
 Checks
   1. Stale-base signature: `<branch>` must contain every commit reachable
@@ -27,6 +29,11 @@ Checks
      signature of a stale-base run that touched far more than intended.
   3. Out-of-scope paths (only if `--scope` given): every changed file must
      fall under at least one declared `--scope` prefix.
+  4. Semantic gates (story branches only): if `<branch>` matches the pattern
+     `story/ST-NNNN`, reads the story file's `quality-gates` field (with
+     precedence: story field > house-rules.md > Factory default of all three
+     gates) and checks for passing results in `.agent-factory/<gate>/<story-id>.json`.
+     Each gate is a hard gate — failure of any one blocks the merge.
 
 Usage
   premerge-check <target> <branch> [--scope PATH ...] [--max-files N]
