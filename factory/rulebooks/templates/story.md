@@ -26,6 +26,13 @@ risk_domains: [security, reliability]   # optional; choose the smallest closed s
 strategy: direct                  # optional; choose seams-first only when acceptance criteria are
                                   # testable assertions and the implementation path is not obvious
                                   # from the tests alone; use direct otherwise
+quality-gates: [crap-score, mutation-analysis, dependency-check]
+                                  # optional; list the semantic gates that apply to this story
+                                  # outputs. Default precedence: story field > house-rules.md
+                                  # default_quality_gates > Factory hardcoded default.
+notes: mutation-analysis excluded: no production code changes.
+                                  # optional; required justification when quality-gates omits
+                                  # any default gate
 ---
 ```
 
@@ -61,6 +68,17 @@ Use `risk_domains` only when the story materially touches one or more closed ris
 ### strategy (optional)
 
 Use `seams-first` when acceptance criteria can be expressed as test assertions and the implementation path is not obvious from those tests alone. Use `direct` when the story is straightforward or the seam is already obvious.
+
+### quality-gates (optional)
+
+List the semantic gates that apply to the story outputs: `crap-score`, `mutation-analysis`, and `dependency-check`.
+When the field is absent, the dispatcher falls back to `docs/charter/house-rules.md`'s
+`default_quality_gates`, then to the Factory hardcoded default of all three gates.
+If the story excludes any default gate, add a justification line in `notes:`.
+
+### notes (optional)
+
+Use `notes` to record a brief justification when `quality-gates` omits one or more default gates.
 
 ## Referenced from
 
