@@ -995,7 +995,7 @@ def cmd_verify_story(args: argparse.Namespace) -> int:
         print(f"error: failed to list branches containing {sha}: {err}", file=sys.stderr)
         return 1
 
-    branch_names = {line.strip().lstrip("* ").strip() for line in out.splitlines()}
+    branch_names = {line.strip().lstrip("*+ ").strip() for line in out.splitlines()}
     if entry.branch not in branch_names:
         print(
             f"error: SHA {sha} is not on branch '{entry.branch}' for {args.story_id}",
@@ -1104,6 +1104,9 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
         premerge_cmd = [str(SCRIPT_DIR / "premerge-check"), target_branch, entry.branch]
         for glob in outputs:
             premerge_cmd += ["--scope-glob", glob]
+        # The dispatch contract requires updating the story's own backlog file
+        # (status: done) in the implementation commit — always in scope.
+        premerge_cmd += ["--scope-glob", f"backlog/{entry.id}.md"]
 
         premerge_result = subprocess.run(
             premerge_cmd, capture_output=True, text=True, cwd=project_root, check=False
