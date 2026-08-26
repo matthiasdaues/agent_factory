@@ -246,7 +246,7 @@ def get_quality_gates(story_id: str) -> list[str]:
     story_data = read_story_file(story_id)
     if story_data and "quality-gates" in story_data:
         gates = story_data["quality-gates"]
-        if gates:
+        if gates is not None:
             return gates if isinstance(gates, list) else [gates]
 
     # Try to read from house-rules.md (if it exists)
