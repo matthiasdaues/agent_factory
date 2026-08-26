@@ -1,72 +1,138 @@
 invocation_branch: feature/mechanize-dispatch
 branch_root: 5075066
-branch_head: 2943b6a3103c9e98b7e2c5f6d4b7227198e7c83b
+branch_head: 54af553e8f2a422d668b8a9ad99b235fda074426
 mode: autonomous
 stories:
-  - id: ST-0120
-    branch: story/ST-0120
-    declared_base: 107f0fdb41facddac6495b27c939a8d579e377cd
-    commit_sha: 2605383d99d732540a43d9e3bfba4ffa19af5c39
-    merge_sha: cd571bd34afbe78ea42c87dc8583890cf5d63b00
-    status: done
-    wave: 3a
-    tier: economy
-  - id: ST-0133
-    branch: story/ST-0133
-    declared_base: cd571bd34afbe78ea42c87dc8583890cf5d63b00
-    commit_sha: f312cdd37e5bf05076ebb90624a4f17b9a89fedc
-    merge_sha: a69a984712e85a03e3f7f16ca72ae7b51381f495
-    status: done
-    wave: 3a
-    tier: economy
-  - id: ST-0132
-    branch: story/ST-0132
-    declared_base: a69a984712e85a03e3f7f16ca72ae7b51381f495
-    commit_sha: c64ef207fb036dbcaff440b63220de2672685cf7
-    merge_sha: 38559feb50910422fe13760ac334fdbb59c3099c
-    status: done
-    wave: 3a
-    tier: economy
-  - id: ST-0119
-    branch: story/ST-0119
-    declared_base: 1adb6270c51560e23bdceef0a3518a8eb6c57978
-    commit_sha: 83d7d9059f8989f67f337b599bccd004d0f7843a
-    merge_sha: 46c3a9438d6ac2efd58c7cdc216738b66ff6659c
-    status: done
-    wave: 3b
-    tier: standard
-  - id: ST-0128
-    branch: story/ST-0128
-    declared_base: 46c3a9438d6ac2efd58c7cdc216738b66ff6659c
-    commit_sha: 0eeb9c1d213076dbb0c93dc0a942f2decebae2ae
-    merge_sha: 690d627edf1fb3582180dd6a2128f990b94f2340
-    status: done
-    wave: 3b
-    tier: economy
-  - id: ST-0121
-    branch: story/ST-0121
-    declared_base: 690d627edf1fb3582180dd6a2128f990b94f2340
-    commit_sha: 90d65196af8c9e39cb6da79d849c076211afbfc7
-    merge_sha: 2943b6a3103c9e98b7e2c5f6d4b7227198e7c83b
-    status: done
-    wave: 3b
-    tier: standard
+- id: ST-0120
+  branch: story/ST-0120
+  declared_base: 107f0fdb41facddac6495b27c939a8d579e377cd
+  commit_sha: 2605383d99d732540a43d9e3bfba4ffa19af5c39
+  merge_sha: cd571bd34afbe78ea42c87dc8583890cf5d63b00
+  status: done
+  wave: 3a
+  tier: economy
+- id: ST-0133
+  branch: story/ST-0133
+  declared_base: cd571bd34afbe78ea42c87dc8583890cf5d63b00
+  commit_sha: f312cdd37e5bf05076ebb90624a4f17b9a89fedc
+  merge_sha: a69a984712e85a03e3f7f16ca72ae7b51381f495
+  status: done
+  wave: 3a
+  tier: economy
+- id: ST-0132
+  branch: story/ST-0132
+  declared_base: a69a984712e85a03e3f7f16ca72ae7b51381f495
+  commit_sha: c64ef207fb036dbcaff440b63220de2672685cf7
+  merge_sha: 38559feb50910422fe13760ac334fdbb59c3099c
+  status: done
+  wave: 3a
+  tier: economy
+- id: ST-0119
+  branch: story/ST-0119
+  declared_base: 1adb6270c51560e23bdceef0a3518a8eb6c57978
+  commit_sha: 83d7d9059f8989f67f337b599bccd004d0f7843a
+  merge_sha: 46c3a9438d6ac2efd58c7cdc216738b66ff6659c
+  status: done
+  wave: 3b
+  tier: standard
+- id: ST-0128
+  branch: story/ST-0128
+  declared_base: 46c3a9438d6ac2efd58c7cdc216738b66ff6659c
+  commit_sha: 0eeb9c1d213076dbb0c93dc0a942f2decebae2ae
+  merge_sha: 690d627edf1fb3582180dd6a2128f990b94f2340
+  status: done
+  wave: 3b
+  tier: economy
+- id: ST-0121
+  branch: story/ST-0121
+  declared_base: 690d627edf1fb3582180dd6a2128f990b94f2340
+  commit_sha: 90d65196af8c9e39cb6da79d849c076211afbfc7
+  merge_sha: 2943b6a3103c9e98b7e2c5f6d4b7227198e7c83b
+  status: done
+  wave: 3b
+  tier: standard
+- id: ST-0123
+  branch: story/ST-0123
+  declared_base: 0fba64256dba93ce38c4382530f4621e31917158
+  commit_sha: 7868995cfe3402adc86adb57fc058ecb682d61d0
+  merge_sha: 17def97
+  status: done
+  wave: 4b
+  tier: standard
+- id: ST-0135
+  branch: story/ST-0135
+  declared_base: 0fba64256dba93ce38c4382530f4621e31917158
+  commit_sha: 7fe7177b7400fdc91df00973e6bfc101cd6691b9
+  merge_sha: fc407b4
+  status: done
+  wave: 4b
+  tier: economy
+- id: ST-0134
+  branch: story/ST-0134
+  declared_base: fc407b4a82402e6b41f44a6c1a8dddd79250cd8a
+  commit_sha: 0e4b7f8
+  merge_sha: 9b79719
+  status: done
+  wave: 4b
+  tier: economy
 waves:
-  - number: 3a
-    completed:
-      - {id: ST-0120, merge_sha: cd571bd34afbe78ea42c87dc8583890cf5d63b00}
-      - {id: ST-0133, merge_sha: a69a984712e85a03e3f7f16ca72ae7b51381f495}
-      - {id: ST-0132, merge_sha: 38559feb50910422fe13760ac334fdbb59c3099c}
-    blocked: []
-    failed: []
-    next_ready: [ST-0119, ST-0128, ST-0121]
-    branch_head: 38559feb50910422fe13760ac334fdbb59c3099c
-  - number: 3b
-    completed:
-      - {id: ST-0119, merge_sha: 46c3a9438d6ac2efd58c7cdc216738b66ff6659c}
-      - {id: ST-0128, merge_sha: 690d627edf1fb3582180dd6a2128f990b94f2340}
-      - {id: ST-0121, merge_sha: 2943b6a3103c9e98b7e2c5f6d4b7227198e7c83b}
-    blocked: []
-    failed: []
-    next_ready: []
-    branch_head: 2943b6a3103c9e98b7e2c5f6d4b7227198e7c83b
+- number: 3a
+  completed:
+  - id: ST-0120
+    merge_sha: cd571bd34afbe78ea42c87dc8583890cf5d63b00
+  - id: ST-0133
+    merge_sha: a69a984712e85a03e3f7f16ca72ae7b51381f495
+  - id: ST-0132
+    merge_sha: 38559feb50910422fe13760ac334fdbb59c3099c
+  blocked: []
+  failed: []
+  next_ready:
+  - ST-0119
+  - ST-0128
+  - ST-0121
+  branch_head: 38559feb50910422fe13760ac334fdbb59c3099c
+- number: 3b
+  completed:
+  - id: ST-0119
+    merge_sha: 46c3a9438d6ac2efd58c7cdc216738b66ff6659c
+  - id: ST-0128
+    merge_sha: 690d627edf1fb3582180dd6a2128f990b94f2340
+  - id: ST-0121
+    merge_sha: 2943b6a3103c9e98b7e2c5f6d4b7227198e7c83b
+  blocked: []
+  failed: []
+  next_ready: []
+  branch_head: 2943b6a3103c9e98b7e2c5f6d4b7227198e7c83b
+- number: 4a
+  completed:
+  - id: ST-0117
+    merge_sha: 71f1909
+  - id: ST-0125
+    merge_sha: 5e9aeaa
+  - id: ST-0131
+    merge_sha: 359d845
+  - id: ST-0130
+    merge_sha: a72018c
+  - id: ST-0122
+    merge_sha: 37ed690
+  - id: ST-0126
+    merge_sha: 0fba642
+  blocked: []
+  failed: []
+  next_ready:
+  - ST-0123
+  - ST-0135
+  - ST-0134
+  branch_head: 0fba64256dba93ce38c4382530f4621e31917158
+- number: 4b
+  completed:
+  - id: ST-0123
+    merge_sha: 17def97
+  - id: ST-0135
+    merge_sha: fc407b4
+  - id: ST-0134
+    merge_sha: 9b79719
+  blocked: []
+  failed: []
+  next_ready: []
+  branch_head: 9b79719c6951194dd67420ba86ae14138bed8b4c
