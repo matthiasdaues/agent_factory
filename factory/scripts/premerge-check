@@ -4,8 +4,8 @@ merges into its target. Replaces "the orchestrating session remembers to
 diff the branch against its target" with a deterministic check
 (docs/reviews/retro-2026-07-12.md action item #3, proposal §4).
 
-What: Runs the stale-base and contaminated-diff checks on a finished branch
-      and writes the premerge-check-ok marker on success.
+What: Runs the stale-base, contaminated-diff, and semantic gate checks on
+      a finished branch and writes the premerge-check-ok marker on success.
 When: Before every branch merge into its target.
 By:   run by the merging session; enforced by block-dangerous-git, which
       denies `git merge` without the marker.
@@ -13,7 +13,9 @@ By:   run by the merging session; enforced by block-dangerous-git, which
 Catches the two contaminated diffs the 2026-07-12 session hit by hand
 (`git diff --stat` run manually, after the fact) and turns that habit into
 a required step run before every merge, not after a full agent run is
-already finished.
+already finished. Also enforces semantic quality gates (CRAP score, mutation
+testing, dependency rules) before merge (proposal: Agentic Quality Gates
+§ Design 5 — Gate Execution Lifecycle).
 
 Checks
   1. Stale-base signature: `<branch>` must contain every commit reachable
@@ -27,6 +29,11 @@ Checks
      signature of a stale-base run that touched far more than intended.
   3. Out-of-scope paths (only if `--scope` given): every changed file must
      fall under at least one declared `--scope` prefix.
+  4. Semantic gates (story branches only): if `<branch>` matches the pattern
+     `story/ST-NNNN`, reads the story file's `quality-gates` field (with
+     precedence: story field > house-rules.md > Factory default of all three
+     gates) and checks for passing results in `.agent-factory/<gate>/<story-id>.json`.
+     Each gate is a hard gate — failure of any one blocks the merge.
 
 Usage
   premerge-check <target> <branch> [--scope PATH ...] [--max-files N]
@@ -47,6 +54,8 @@ instruction.
 from __future__ import annotations
 
 import argparse
+import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -55,6 +64,11 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from dispatch_lib import glob_match
+
+try:
+    import yaml
+except ImportError:
+    yaml = None  # type: ignore[assignment]
 
 
 def run_git(args: list[str]) -> tuple[int, str, str]:
@@ -143,6 +157,151 @@ def check_out_of_scope(
     )
 
 
+def extract_story_id(branch: str) -> str | None:
+    """Extract story ID from branch name (e.g., 'story/ST-0105' -> 'ST-0105')."""
+    match = re.match(r"^story/(ST-\d+)$", branch)
+    return match.group(1) if match else None
+
+
+def _parse_yaml_frontmatter(frontmatter: str) -> dict:
+    """Minimal YAML parser for story frontmatter. Handles lists and simple scalars."""
+    result = {}
+    lines = frontmatter.strip().split("\n")
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if not line.strip() or line.strip().startswith("#"):
+            i += 1
+            continue
+
+        # Parse key: value or key: [list items]
+        if ":" in line:
+            key, _, value = line.partition(":")
+            key = key.strip()
+            value = value.strip()
+
+            # Handle list syntax: key: [item1, item2]
+            if value.startswith("[") and value.endswith("]"):
+                items = value[1:-1].split(",")
+                result[key] = [item.strip() for item in items]
+            # Handle list items on next lines
+            elif value == "" or value.startswith("-"):
+                items = []
+                if value.startswith("-"):
+                    items.append(value[1:].strip())
+                i += 1
+                while i < len(lines):
+                    line = lines[i]
+                    stripped = line.strip()
+                    if stripped.startswith("-"):
+                        items.append(stripped[1:].strip())
+                        i += 1
+                    elif stripped and not ":" in line:
+                        i += 1
+                    else:
+                        break
+                if items:
+                    result[key] = items
+                continue
+            else:
+                result[key] = value
+
+        i += 1
+
+    return result
+
+
+def read_story_file(story_id: str) -> dict | None:
+    """Read story YAML frontmatter. Returns dict with parsed YAML or None."""
+    code, top, _ = run_git(["rev-parse", "--show-toplevel"])
+    if code != 0:
+        return None
+
+    story_file = Path(top) / "backlog" / f"{story_id}.md"
+    if not story_file.exists():
+        return None
+
+    try:
+        content = story_file.read_text()
+        # Extract YAML frontmatter between --- delimiters
+        if not content.startswith("---"):
+            return None
+        end_of_front = content.find("\n---\n", 3)
+        if end_of_front == -1:
+            return None
+        frontmatter = content[3:end_of_front]
+
+        # Try to use yaml library if available, fall back to simple parser
+        if yaml:
+            return yaml.safe_load(frontmatter)
+        else:
+            return _parse_yaml_frontmatter(frontmatter)
+    except Exception:
+        return None
+
+
+def get_quality_gates(story_id: str) -> list[str]:
+    """Resolve quality-gates with precedence: story field > house-rules > default."""
+    # Try to read from story file
+    story_data = read_story_file(story_id)
+    if story_data and "quality-gates" in story_data:
+        gates = story_data["quality-gates"]
+        if gates is not None:
+            return gates if isinstance(gates, list) else [gates]
+
+    # Try to read from house-rules.md (if it exists)
+    code, top, _ = run_git(["rev-parse", "--show-toplevel"])
+    if code == 0:
+        house_rules_file = Path(top) / "docs" / "charter" / "house-rules.md"
+        if house_rules_file.exists():
+            try:
+                content = house_rules_file.read_text()
+                if "default_quality_gates:" in content:
+                    # Simple YAML extraction for this one field
+                    for line in content.splitlines():
+                        if "default_quality_gates:" in line:
+                            start = line.find("[")
+                            if start != -1:
+                                end = line.find("]", start)
+                                if end != -1:
+                                    gates_str = line[start + 1:end]
+                                    gates = [g.strip() for g in gates_str.split(",")]
+                                    return gates
+            except Exception:
+                pass
+
+    # Factory hardcoded default: all three gates
+    return ["crap-score", "mutation-analysis", "dependency-check"]
+
+
+def check_semantic_gates(story_id: str) -> tuple[bool, list[str]]:
+    """Check semantic gate results. Returns (passed, list_of_failed_gates)."""
+    gates = get_quality_gates(story_id)
+    failed_gates = []
+
+    code, top, _ = run_git(["rev-parse", "--show-toplevel"])
+    if code != 0:
+        return False, gates
+
+    for gate in gates:
+        gate_result_file = Path(top) / ".agent-factory" / gate / f"{story_id}.json"
+
+        # Check if file exists
+        if not gate_result_file.exists():
+            failed_gates.append(f"{gate} (result not found)")
+            continue
+
+        # Read and check pass status
+        try:
+            data = json.loads(gate_result_file.read_text())
+            if not data.get("passed", False):
+                failed_gates.append(f"{gate} (failed)")
+        except Exception:
+            failed_gates.append(f"{gate} (invalid result)")
+
+    return len(failed_gates) == 0, failed_gates
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("target", help="merge target branch, e.g. dev")
@@ -195,6 +354,19 @@ def main(argv: list[str] | None = None) -> int:
     ok, line = check_out_of_scope(files, args.scope, args.scope_glob)
     print(line)
     findings.append(ok)
+
+    # Check semantic gates if branch is a story branch
+    story_id = extract_story_id(args.branch)
+    if story_id:
+        gates_ok, failed_gates = check_semantic_gates(story_id)
+        if gates_ok:
+            print(f"PASS semantic-gates: all gates passed for {story_id}")
+        else:
+            print(f"BLOCK semantic-gates: {', '.join(failed_gates)} for {story_id}")
+        findings.append(gates_ok)
+    else:
+        # Non-story branches skip semantic gates
+        print("SKIP semantic-gates: branch does not match story/ST-NNNN pattern")
 
     if all(findings):
         print(
