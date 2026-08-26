@@ -64,16 +64,23 @@ def test_fresh_install_wires_step_guard_for_all_clis(tmp_path: Path) -> None:
     codex = json.loads((tmp_path / ".codex" / "hooks.json").read_text(encoding="utf-8"))
     assert codex["hooks"]["PreToolUse"]
     codex_commands = _commands(codex, "PreToolUse")
-    assert 'GUARD_TYPE=read "$(git rev-parse --show-toplevel)"/.codex/hooks/step-guard.sh' in codex_commands
-    assert 'GUARD_TYPE=write "$(git rev-parse --show-toplevel)"/.codex/hooks/step-guard.sh' in codex_commands
-    assert 'GUARD_TYPE=bash "$(git rev-parse --show-toplevel)"/.codex/hooks/step-guard.sh' in codex_commands
+    assert (
+        'GUARD_TYPE=read "$(git rev-parse --show-toplevel)"/.codex/hooks/step-guard.sh'
+        in codex_commands
+    )
+    assert (
+        'GUARD_TYPE=write "$(git rev-parse --show-toplevel)"/.codex/hooks/step-guard.sh'
+        in codex_commands
+    )
+    assert (
+        'GUARD_TYPE=bash "$(git rev-parse --show-toplevel)"/.codex/hooks/step-guard.sh'
+        in codex_commands
+    )
 
     copilot_hook = tmp_path / ".github" / "hooks" / "step-guard.sh"
     assert copilot_hook.is_symlink()
     copilot_config = json.loads(
-        (tmp_path / ".github" / "hooks" / "step-guard.json").read_text(
-            encoding="utf-8"
-        )
+        (tmp_path / ".github" / "hooks" / "step-guard.json").read_text(encoding="utf-8")
     )
     assert copilot_config["version"] == 1
     assert len(copilot_config["hooks"]["preToolUse"]) == 6
