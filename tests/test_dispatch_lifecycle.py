@@ -10,7 +10,9 @@ from __future__ import annotations
 # Import will work once the dispatch script exposes its internals
 # via a companion module or inline importability.
 # For now, we insert the script's directory and import the module.
+import argparse
 import importlib
+import copy
 import subprocess
 import sys
 import textwrap
@@ -21,16 +23,19 @@ import pytest
 SCRIPT_DIR = Path(__file__).resolve().parent.parent / "factory" / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 dispatch_mod = importlib.import_module("dispatch_lib")
+DISPATCH_SCRIPT = SCRIPT_DIR / "dispatch"
+
+loader = importlib.machinery.SourceFileLoader("dispatch_script", str(DISPATCH_SCRIPT))
+spec = importlib.util.spec_from_loader(loader.name, loader)
+dispatch = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = dispatch
+loader.exec_module(dispatch)
 
 StoryState = dispatch_mod.StoryState
 StoryEntry = dispatch_mod.StoryEntry
 Ledger = dispatch_mod.Ledger
 TransitionError = dispatch_mod.TransitionError
 ShaFormatError = dispatch_mod.ShaFormatError
-
-DISPATCH_SCRIPT = (
-    Path(__file__).resolve().parent.parent / "factory" / "scripts" / "dispatch"
-)
 
 
 # ---------------------------------------------------------------------------
@@ -47,6 +52,11 @@ def story_factory(
     base_sha: str | None = None,
     reason: str | None = None,
     attempts: list | None = None,
+    failure_class: str | None = None,
+    escalation_granted: bool = False,
+    active_session: str | None = None,
+    active_tier: str | None = None,
+    tier: str | None = None,
 ) -> StoryEntry:
     """Generate a StoryEntry with configurable fields for reuse by later stories."""
     return StoryEntry(
@@ -56,9 +66,14 @@ def story_factory(
         branch=branch,
         worktree=worktree,
         base_sha=base_sha,
+        tier=tier,
         reason=reason,
         gate_results={},
         attempts=attempts if attempts is not None else [],
+        escalation_granted=escalation_granted,
+        failure_class=failure_class,
+        active_session=active_session,
+        active_tier=active_tier,
     )
 
 
@@ -68,6 +83,22 @@ def ledger_with(*stories: StoryEntry) -> Ledger:
     for s in stories:
         ledger.stories[s.id] = s
     return ledger
+
+
+def _patch_ledger_io(
+    monkeypatch: pytest.MonkeyPatch, *, ledger: Ledger, project_root: Path
+) -> dict[str, Ledger]:
+    """Stub ledger persistence for command-level lifecycle tests."""
+    saved: dict[str, Ledger] = {}
+
+    monkeypatch.setattr(dispatch, "_load_ledger", lambda _path: ledger)
+    monkeypatch.setattr(
+        dispatch,
+        "_save_ledger",
+        lambda current, _path: (saved.setdefault("ledger", copy.deepcopy(current)), 0)[1],
+    )
+    monkeypatch.setattr(dispatch, "_project_root", lambda: project_root)
+    return saved
 
 
 # ---------------------------------------------------------------------------
@@ -642,6 +673,124 @@ def test_re_dispatch_happy_path_and_idempotency(tmp_path):
     assert first.returncode == 0, first.stderr
     assert second.returncode == 0
     assert _loaded_status(ledger_path, "ST-001") == StoryState.PREPARED
+
+
+@pytest.mark.parametrize(
+    "failure_class,attempts,escalation_granted,active_session,expected_status,expected_returncode",
+    [
+        (
+            "context_missing",
+            [{"failure_class": "context_missing", "session": "impl"}],
+            False,
+            "impl",
+            StoryState.PREPARED,
+            0,
+        ),
+        (
+            "environment",
+            [{"failure_class": "environment", "session": "impl"}],
+            False,
+            "impl",
+            StoryState.PREPARED,
+            0,
+        ),
+        (
+            "spend_death",
+            [{"failure_class": "spend_death", "session": "impl"}],
+            False,
+            "impl",
+            StoryState.PREPARED,
+            0,
+        ),
+        (
+            "seam_defect",
+            [{"failure_class": "seam_defect", "session": "seam"}],
+            False,
+            "seam",
+            StoryState.PREPARED,
+            0,
+        ),
+        (
+            "contract_violation",
+            [{"failure_class": "contract_violation", "session": "impl"}],
+            False,
+            "impl",
+            StoryState.PREPARED,
+            0,
+        ),
+        (
+            "contract_violation",
+            [
+                {"failure_class": "contract_violation", "session": "impl"},
+                {"failure_class": "contract_violation", "session": "impl"},
+            ],
+            False,
+            "impl",
+            StoryState.FAILED,
+            1,
+        ),
+        (
+            "acceptance_unmet",
+            [{"failure_class": "acceptance_unmet", "session": "impl"}],
+            False,
+            "impl",
+            StoryState.FAILED,
+            1,
+        ),
+        (
+            "contradictory_evidence",
+            [{"failure_class": "contradictory_evidence", "session": "impl"}],
+            False,
+            "impl",
+            StoryState.FAILED,
+            1,
+        ),
+        (
+            "acceptance_unmet",
+            [{"failure_class": "acceptance_unmet", "session": "impl"}],
+            True,
+            "impl",
+            StoryState.PREPARED,
+            0,
+        ),
+    ],
+)
+def test_re_dispatch_disposition_by_failure_class(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure_class: str,
+    attempts: list[dict],
+    escalation_granted: bool,
+    active_session: str,
+    expected_status: StoryState,
+    expected_returncode: int,
+) -> None:
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    ledger = Ledger()
+    ledger.stories["ST-001"] = StoryEntry(
+        id="ST-001",
+        status=StoryState.FAILED,
+        tier="economy",
+        attempts=attempts,
+        escalation_granted=escalation_granted,
+        active_session=active_session,
+        active_tier="economy",
+        failure_class=failure_class,
+    )
+    saved = _patch_ledger_io(monkeypatch, ledger=ledger, project_root=project_root)
+
+    result = dispatch.cmd_re_dispatch(
+        argparse.Namespace(ledger=tmp_path / "ledger.yaml", story_id="ST-001")
+    )
+
+    assert result == expected_returncode
+    if expected_returncode == 0:
+        assert saved["ledger"].stories["ST-001"].status == expected_status
+        assert saved["ledger"].stories["ST-001"].active_session == active_session
+    else:
+        assert "ledger" not in saved
+        assert ledger.stories["ST-001"].status == StoryState.FAILED
 
 
 def test_re_dispatch_rejects_wrong_source_state(tmp_path):
