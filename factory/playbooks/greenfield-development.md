@@ -308,18 +308,30 @@ Return to Step 5.1 (run qa-agent again)
 
 ### Step 5.4 — DONE
 
-✅ **All phases complete**
+✅ **Terminal Condition: Project Ready for Feature Delivery**
 
-Final checklist:
+The playbook ends when the following terminal artifacts exist:
 
-- [ ] All findings resolved (`status: resolved`)
+**Terminal Artifacts:**
+
+- [ ] `docs/spec/scope-map.md` exists with all Rules from the initial specification marked `deferred` (ready to be implemented as features)
+- [ ] `docs/arc42/architecture.dsl` models the planned module structure (C4 components and dependencies as designed)
+- [ ] Arc42 prose chapters (01–12) pass architecture review with no blocking findings
+- [ ] No `.feature` files exist yet (those are produced per-slice when `feature-addition` begins)
+
+**Process Checklist:**
+
+- [ ] All specification review findings resolved (`status: resolved`)
+- [ ] All architecture review findings resolved (`status: resolved`)
 - [ ] `spec-lint` passes
 - [ ] `arch-lint` passes
 - [ ] `backlog-lint` passes
 - [ ] All tests pass
 - [ ] No open findings
 
-**Ready to merge** or proceed to release.
+**Next Phase:**
+
+After this playbook completes, **all feature work enters through the `feature-addition` playbook**. Each feature-addition slice produces a per-feature `.feature` file from one or more deferred Rules in the scope map. The scope map is the specification baseline that guides feature delivery.
 
 ## Halt Conditions
 
