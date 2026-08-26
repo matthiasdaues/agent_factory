@@ -98,16 +98,24 @@ def _write_backlog_story(
     repo: Path,
     story_id: str,
     *,
+    inputs: list[str] | None = None,
     deps: list[str] | None = None,
     traces: list[str] | None = None,
     outputs: list[str] | None = None,
+    tier: str = "economy",
+    strategy: str = "direct",
+    seam_outputs: list[str] | None = None,
+    impl_outputs: list[str] | None = None,
 ) -> None:
     """Write a minimal backlog story file with the given frontmatter."""
     backlog_dir = repo / "backlog"
     backlog_dir.mkdir(exist_ok=True)
+    inputs = inputs or []
     deps = deps or []
     traces = traces or []
     outputs = outputs or []
+    seam_outputs = seam_outputs or []
+    impl_outputs = impl_outputs or []
 
     def _yaml_list(items: list[str]) -> str:
         if not items:
@@ -117,9 +125,14 @@ def _write_backlog_story(
     text = (
         "---\n"
         f"id: {story_id}\n"
+        f"tier: {tier}\n"
+        f"strategy: {strategy}\n"
+        f"inputs: {_yaml_list(inputs)}\n"
         f"deps: {_yaml_list(deps)}\n"
         f"traces: {_yaml_list(traces)}\n"
         f"outputs: {_yaml_list(outputs)}\n"
+        f"seam_outputs: {_yaml_list(seam_outputs)}\n"
+        f"impl_outputs: {_yaml_list(impl_outputs)}\n"
         "---\n\n"
         f"# {story_id}\n"
     )
@@ -201,6 +214,95 @@ def test_prepare_story_writes_manifest(tmp_path: Path) -> None:
     manifest = yaml.safe_load(manifest_path.read_text())
     assert manifest["schema_version"] == 1
     assert manifest["outputs"] == ["src/foo.py"]
+
+
+def test_prepare_wave_writes_seam_manifest_for_seams_first_story(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    _write_backlog_story(
+        repo,
+        "ST-101",
+        tier="standard",
+        strategy="seams-first",
+        inputs=["docs/spec/prd.md"],
+        outputs=["tests/test_widget.py", "src/widget.py"],
+        seam_outputs=["tests/test_widget.py"],
+        impl_outputs=["src/widget.py"],
+    )
+    _write_ledger(repo, StoryEntry(id="ST-101", wave=1, status=StoryState.PENDING, tier="standard"))
+
+    result = _run_dispatch("prepare-wave", "1", cwd=repo, tmp_path=tmp_path)
+    assert result.returncode == 0, result.stderr
+
+    worktree = _worktree_path(repo, "ST-101")
+    manifest_path = _manifest_path(worktree, "main", "story/ST-101")
+    manifest = yaml.safe_load(manifest_path.read_text())
+
+    assert manifest["inputs"] == ["docs/spec/prd.md"]
+    assert manifest["outputs"] == ["tests/test_widget.py"]
+
+    ledger = _load_ledger(repo)
+    assert ledger.stories["ST-101"].active_session == "seam"
+    assert ledger.stories["ST-101"].active_tier == "standard"
+
+
+def test_prepare_story_writes_impl_manifest_with_seam_inputs_and_lower_tier(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    _write_backlog_story(
+        repo,
+        "ST-102",
+        tier="strong",
+        strategy="seams-first",
+        inputs=["docs/spec/prd.md"],
+        outputs=["tests/test_widget.py", "src/widget.py"],
+        seam_outputs=["tests/test_widget.py"],
+        impl_outputs=["src/widget.py"],
+    )
+    _write_ledger(
+        repo,
+        StoryEntry(
+            id="ST-102",
+            wave=1,
+            status=StoryState.DISPATCHED,
+            tier="strong",
+            branch="story/ST-102",
+            worktree=str(_worktree_path(repo, "ST-102")),
+            feature_branch="main",
+            base_sha=_git(repo, tmp_path, "rev-parse", "HEAD").stdout.strip(),
+            active_session="seam",
+            active_tier="strong",
+        ),
+    )
+    _git(repo, tmp_path, "branch", "story/ST-102", "HEAD")
+    _git(repo, tmp_path, "worktree", "add", str(_worktree_path(repo, "ST-102")), "story/ST-102")
+    write_manifest(
+        _worktree_path(repo, "ST-102"),
+        "main",
+        "story/ST-102",
+        {
+            "strategy": "seams-first",
+            "inputs": ["docs/spec/prd.md"],
+            "outputs": ["tests/test_widget.py", "src/widget.py"],
+            "seam_outputs": ["tests/test_widget.py"],
+            "impl_outputs": ["src/widget.py"],
+        },
+        session="seam",
+    )
+
+    result = _run_dispatch("prepare-story", "ST-102", cwd=repo, tmp_path=tmp_path)
+    assert result.returncode == 0, result.stderr
+
+    manifest_path = _manifest_path(_worktree_path(repo, "ST-102"), "main", "story/ST-102")
+    manifest = yaml.safe_load(manifest_path.read_text())
+
+    assert manifest["inputs"] == ["docs/spec/prd.md", "tests/test_widget.py"]
+    assert manifest["outputs"] == ["src/widget.py"]
+
+    ledger = _load_ledger(repo)
+    assert ledger.stories["ST-102"].status == StoryState.PREPARED
+    assert ledger.stories["ST-102"].active_session == "impl"
+    assert ledger.stories["ST-102"].active_tier == "standard"
 
 def test_playbook_step_declaration_writes_manifest(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
