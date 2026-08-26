@@ -82,8 +82,8 @@ agents:
     tier: strong
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
-    tokens: 1115
-    total_tokens: 10463
+    tokens: 2052
+    total_tokens: 11988
   - name: qa-agent
     title: QA Agent
     phase: 5
@@ -400,7 +400,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 2470
-    total_tokens: 27820
+    total_tokens: 29345
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -423,7 +423,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 952
-    total_tokens: 31510
+    total_tokens: 33035
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -439,7 +439,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 3812
-    total_tokens: 64830
+    total_tokens: 66355
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -457,7 +457,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2978
-    total_tokens: 65070
+    total_tokens: 66595
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
