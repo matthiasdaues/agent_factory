@@ -15,6 +15,7 @@ __pycache__/
 *.pyc
 .ruff_cache/
 .pytest_cache/
+uv.lock
 
 
 
@@ -22,10 +23,11 @@ models/
 
 # >>> agent_factory related >>>
 # Added by init-factory; remove with factory/scripts/remove-factory.
-# /factory/
+#/factory/
 /.claude/
 /.pi/
 /.agent-factory/
+/.current_work/
 /session-scratchpad.md
 /config/project.json
 /AGENTS.md

@@ -163,6 +163,9 @@ def test_hooks_merge_guardrail_and_capture_with_git_root_resolution(tmp_path):
         assert _hook_commands(config, event) == [
             init_factory.CODEX_CAPTURE_HOOK_COMMAND
         ]
+    step_guard_commands = _hook_commands(config, "PreToolUse")
+    for command in init_factory.CODEX_STEP_GUARD_HOOK_COMMANDS.values():
+        assert command in step_guard_commands
     manifest = json.loads(
         (tmp_path / ".agent-factory/factory-install.json").read_text()
     )
@@ -172,6 +175,14 @@ def test_hooks_merge_guardrail_and_capture_with_git_root_resolution(tmp_path):
             "matcher": "^Bash$",
             "command": init_factory.CODEX_GUARDRAIL_HOOK_COMMAND,
         },
+        *[
+            {
+                "event": "PreToolUse",
+                "matcher": event,
+                "command": command,
+            }
+            for event, command in init_factory.CODEX_STEP_GUARD_HOOK_COMMANDS.items()
+        ],
         {
             "event": "Stop",
             "command": init_factory.CODEX_CAPTURE_HOOK_COMMAND,
@@ -223,6 +234,8 @@ def test_rerun_is_idempotent_and_refreshes_only_owned_agents(tmp_path):
     )
     guard_commands = _hook_commands(config, "PreToolUse")
     assert guard_commands.count(init_factory.CODEX_GUARDRAIL_HOOK_COMMAND) == 1
+    for command in init_factory.CODEX_STEP_GUARD_HOOK_COMMANDS.values():
+        assert guard_commands.count(command) == 1
 
 
 def test_project_owned_codex_content_and_root_orientation_are_preserved(
@@ -401,7 +414,14 @@ def test_manifest_claims_only_handlers_the_installer_appended(tmp_path):
     manifest = json.loads(
         (tmp_path / ".agent-factory/factory-install.json").read_text()
     )
-    assert manifest["codex_hook_handlers"] == []
+    assert manifest["codex_hook_handlers"] == [
+        {
+            "event": "PreToolUse",
+            "matcher": event,
+            "command": command,
+        }
+        for event, command in init_factory.CODEX_STEP_GUARD_HOOK_COMMANDS.items()
+    ]
 
 
 def test_temporary_consumer_codex_install_is_idempotent_and_traceless(tmp_path):

@@ -9,7 +9,7 @@ Factory Flow Control consists of three primary containers:
 | Container         | Responsibility                                                                                   | Technology                |
 | ----------------- | ------------------------------------------------------------------------------------------------ | ------------------------- |
 | **State Manager** | Reads/writes playbook state marker, resolves FSM transitions, drives phases                      | Bash, Python              |
-| **Validator**     | Enforces gates, permissions, and mechanically triggered test execution                           | Bash, Python              |
+| **Validator**     | Enforces gates, permissions, mechanically triggered test execution, and semantic quality checks  | Bash, Python              |
 | **Dispatcher**    | Resolves agents/models from catalog, spawns CLI sessions with scoped permits                     | Bash, Python              |
 | **Usage Capture** | Normalizes CLI transcripts and appends canonical runtime usage records                           | Python, shell, TypeScript |
 | State Files       | Local git-ignored marker (`.agent-factory/playbook-state.yml`) and FSM defs                      | YAML (storage)            |
@@ -21,13 +21,22 @@ Factory Flow Control consists of three primary containers:
 
 The **Validator** container enforces deterministic gates. Three are hook-triggered — they fire mechanically on a git or CLI event, so an agent cannot skip them:
 
-| Component               | Trigger Point                  | What it validates                                   | Exit codes                           |
-| ----------------------- | ------------------------------ | --------------------------------------------------- | ------------------------------------ |
-| **transition-lint**     | Pre-commit hook (git commit)   | Staged files match current phase's `outputs:` globs | 0 (pass), 1 (findings)               |
-| **block-dangerous-git** | Native hook or Pi extension    | Shell command not in deny list                      | 0 (allow), 2 (deny)                  |
-| **run-tests**           | Pre-commit, pre-push, FSM gate | Project tests pass via auto-detected framework      | 0 (pass), 1 (fail), 2 (no framework) |
+| Component                  | Trigger Point                  | What it validates                                   | Exit codes                           |
+| -------------------------- | ------------------------------ | --------------------------------------------------- | ------------------------------------ |
+| **transition-lint**        | Pre-commit hook (git commit)   | Staged files match current phase's `outputs:` globs | 0 (pass), 1 (findings)               |
+| **block-dangerous-git.sh** | Native hook or Pi extension    | Shell command not in deny list                      | 0 (allow), 2 (deny)                  |
+| **run-tests**              | Pre-commit, pre-push, FSM gate | Project tests pass via auto-detected framework      | 0 (pass), 1 (fail), 2 (no framework) |
 
 Two more — `schema-validate` and `policy-validate` — are on-demand validators invoked by the research skills and agents (and from the CLI) rather than by a hook. They are described in §5.2.2.
+
+Four additional on-demand validators enforce semantic code quality and architecture phase routing. They are invoked by the implementation-agent dispatcher (not by hooks) and are described in §5.2.3:
+
+| Component              | Trigger Point                                     | What it validates                                          | Exit codes                          |
+| ---------------------- | ------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------- |
+| **crap-score**         | Dispatcher, after developer-agent commit          | CRAP score (cyclomatic complexity x coverage) per function | 0 (pass), 1 (fail)                  |
+| **mutation-analysis**  | Dispatcher, after developer-agent commit          | Every code mutant killed by test suite (diff-scoped)       | 0 (pass), 1 (survivors)             |
+| **dependency-check**   | Dispatcher, after developer-agent commit          | Imports conform to architecture.dsl dependency rules       | 0 (pass), 1 (violations)            |
+| **module-graph-check** | Orchestrating session, Phase 1 / Phase 3 boundary | Feature touches no new modules or inverted dependencies    | 0 (skip Phase 2), 1 (enter Phase 2) |
 
 ### 5.2.1 run-tests — Test Execution Component
 
@@ -92,6 +101,51 @@ The falsification-driven research feature validates its JSON artifacts through a
 - [ADR-0006 — Research: flat storage and validation pipeline](../adr/0006-research-flat-storage-and-validation-pipeline.md)
 - [factory/playbooks/research-topic.md § The Validation Gate](../../factory/playbooks/research-topic.md)
 
+### 5.2.3 Semantic quality gates (crap-score, mutation-analysis, dependency-check)
+
+Three deterministic scripts enforce semantic code quality after each developer-agent commit, owned by the implementation-agent dispatcher. They extend the "Agentic Creation, Deterministic Validation" principle from syntactic checks (formatting, phase gating) to code meaning (complexity, behavioral coverage, dependency direction). See [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md) for the execution model decision.
+
+| Component             | What it checks                                                                                                                                           | Inputs                                      | Outputs                                                               |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------- |
+| **crap-score**        | CRAP score per function: `comp(m)^2 x (1 - cov(m)/100)^3 + comp(m)`. Threshold: CRAP ≤ 8 (Bob Martin default, overridable in `house-rules.md`)           | Source files, coverage data                 | JSON report per function, logged to `.agent-factory/crap-score/`      |
+| **mutation-analysis** | Generates code mutants, runs test suite against each. Every surviving mutant must be resolved (dead code removed or test added) or filed as a QA finding | Source files (diff-scoped), test suite      | JSON report per mutant, logged to `.agent-factory/mutation-analysis/` |
+| **dependency-check**  | Validates that module import directions match declarations in `architecture.dsl`                                                                         | `docs/arc42/architecture.dsl`, source files | JSON report per rule, logged to `.agent-factory/dependency-check/`    |
+
+**Invocation model:**
+
+1. The developer-agent writes code and tests, commits.
+2. The implementation-agent dispatcher runs each gate script on the committed artifacts.
+3. If any gate fails, the dispatcher spawns a fresh developer agent with only the gate reports and affected files as input.
+4. The fresh developer fixes, commits. Back to step 2 (maximum three iterations).
+5. When all gates pass, the dispatcher proceeds to `premerge-check` and merge.
+
+The developer agent never runs the gates. Each fix iteration starts with a clean context. This separation prevents context contamination and enforces the trust boundary.
+
+**Diff-scoping contract (mutation-analysis):** The `--diff-base <ref>` argument restricts mutation to production files changed since the story branch diverged. A file is a production file if it does not match test-file patterns (`test_*.py`, `*_test.py`, etc.) and does not live under `tests/` or `__tests__/`.
+
+**Story-level gate configuration:** The `quality-gates` field in the story template declares which gates apply. Precedence: story field > `house-rules.md` project default > Factory hardcoded default (all three gates). Excluding a gate requires justification in the story's `notes:` field.
+
+### 5.2.4 Module-graph check
+
+A deterministic script that replaces the manual `impact.architecture_change` declaration with mechanical detection. It reads the current module map from `architecture.dsl` and compares it against Phase 1 outputs (`interface-contracts.md`, `entity-model.md`) to determine whether the feature changes module boundaries, dependency directions, or public interfaces.
+
+**Interfaces:**
+
+- **IN:** `docs/arc42/architecture.dsl`, `docs/spec/supplementary_specs/interface-contracts.md`, `docs/spec/supplementary_specs/entity-model.md`
+- **OUT (exit code):** 0 (no module-graph change, skip Phase 2), 1 (module-graph change detected, enter Phase 2)
+- **OUT (side effect):** Updates the proposal's `impact.architecture_change` field in frontmatter
+
+**Override semantics:**
+
+- Prior `false`, machine says `true`: machine wins, field updated and annotated `# mechanical detection`.
+- Prior `true`, machine says `false`: human declaration respected conservatively; machine result logged but field unchanged.
+- Human explicit override: recorded as a comment on the field.
+
+**Referenced Specifications:**
+
+- [ADR-0012 — Dispatcher-owned semantic gate loop](../adr/0012-dispatcher-owned-semantic-gate-loop.md)
+- [Proposal: Agentic Quality Gates and Requirements Consolidation](../proposals/agentic-quality-gates-and-specification-consolidation.md)
+
 ## 5.3 Level 2: Component View — State Manager
 
 | Component          | What it does                                                          | Reads                        | Writes               |
@@ -104,34 +158,38 @@ All three read the same marker (`.agent-factory/playbook-state.yml`) and FSM (e.
 
 ## 5.4 Level 2: Component View — Dispatcher
 
-| Component               | What it does                                                                                                                      | Reads                 | Writes                |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------- | --------------------- |
-| **trigger**             | Resolves agent/model, spawns CLI session with scoped permits                                                                      | INDEX.yaml            | (none)                |
-| **index-lint**          | Generates INDEX.yaml from frontmatter with token budget counts; `--check` validates drift                                         | source .md            | INDEX.yaml            |
-| **run-agent** (Pi)      | Pi model-callable tool: spawns a separate `pi` session to run one factory agent                                                   | agent .md, model.conf | (none)                |
-| **dispatch-wave** (Pi)  | Pi model-callable tool: runs a parallel wave of agents, each in its own git worktree, integrating `premerge-check` before merging | agent .md, model.conf | git worktrees, merges |
-| **openrouter-discover** | Operator aid: queries the OpenRouter catalog to curate/validate `pi.*` tier rows in model.conf, offline of the runtime path       | OpenRouter API        | (none)                |
+| Component                        | What it does                                                                                                                      | Reads                 | Writes                |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------- | --------------------- |
+| **trigger**                      | Resolves agent/model, spawns CLI session with scoped permits                                                                      | INDEX.yaml            | (none)                |
+| **index-lint**                   | Generates INDEX.yaml from frontmatter with token budget counts; `--check` validates drift                                         | source .md            | INDEX.yaml            |
+| **run-agent** (Pi extension)     | Pi model-callable tool: spawns a separate `pi` session to run one factory agent                                                   | agent .md, model.conf | (none)                |
+| **dispatch-wave** (Pi extension) | Pi model-callable tool: runs a parallel wave of agents, each in its own git worktree, integrating `premerge-check` before merging | agent .md, model.conf | git worktrees, merges |
+| **openrouter-discover**          | Operator aid: queries the OpenRouter catalog to curate/validate `pi.*` tier rows in model.conf, offline of the runtime path       | OpenRouter API        | (none)                |
 
 ## 5.5 Interfaces Summary
 
 Every building block's entry point, invoked how, and by whom:
 
-| Script / Component     | Invoked by                             | Entry point                                                         | Exit codes                                    |
-| ---------------------- | -------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------- |
-| transition-lint        | Pre-commit hook                        | `factory/scripts/transition-lint`                                   | 0 (pass), 1 (findings)                        |
-| run-tests              | Pre-commit, pre-push, phase advance    | `factory/scripts/run-tests [--changed-only\|--full\|--staged]`      | 0 (pass), 1 (fail), 2 (no framework)          |
-| block-dangerous-git.sh | Claude, Copilot, Codex native hook     | stdin: CLI-specific command JSON, stdout: empty, exit 0 or 2        | 0 (allow), 2 (deny)                           |
-| phase advance          | Human, orchestrator                    | `factory/scripts/phase advance`                                     | 0 (advanced), 1 (conditions unmet), 2 (misc)  |
-| phase retry            | Human, orchestrator                    | `factory/scripts/phase retry [--default-max-iterations]`            | 0 (retried), 2 (cap exceeded)                 |
-| trigger                | Human, orchestrator, run-step skill    | `factory/scripts/trigger agent <name> [--background]`               | 0 (dispatched), 1+ (error)                    |
-| usage-capture          | Native CLI hooks and Pi extensions     | `factory/scripts/usage-capture --cli ... --transcript ...`          | 0 (captured or best-effort no-op)             |
-| index-lint             | Pre-commit hook, CI                    | `factory/scripts/index-lint [--check]`                              | 0 (fresh), 1 (stale)                          |
-| run-step skill         | Any supported CLI (LLM-executed)       | Skill markdown invoked by AI                                        | (N/A — skill is prose)                        |
-| run-agent (Pi)         | Pi session (via `run_agent` tool call) | `.pi/extensions/run-agent.ts` → spawns `pi ... -p <task>`           | (tool result: text + usage, or error)         |
-| dispatch-wave (Pi)     | Pi session (via `dispatch_wave` call)  | `.pi/extensions/dispatch-wave.ts` → worktree + spawn + merge/item   | (tool result: per-item status, or error)      |
-| openrouter-discover    | Human operator, CI (`--check`)         | `factory/scripts/openrouter-discover [--list\|--suggest\|--check]`  | 0 (ok), 1 (drift)                             |
-| schema-validate        | Research skills/agents, CLI            | `factory/scripts/schema-validate <artifact-file> <schema-file>`     | 0 (conforms), 1 (violations), 2 (operational) |
-| policy-validate        | Research skills/agents, CLI            | `factory/scripts/policy-validate [--pipeline] <artifact-or-dir>...` | 0 (pass), 1 (fail), 2 (operational)           |
+| Script / Component           | Invoked by                             | Entry point                                                               | Exit codes                                    |
+| ---------------------------- | -------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------- |
+| transition-lint              | Pre-commit hook                        | `factory/scripts/transition-lint`                                         | 0 (pass), 1 (findings)                        |
+| run-tests                    | Pre-commit, pre-push, phase advance    | `factory/scripts/run-tests [--changed-only\|--full\|--staged]`            | 0 (pass), 1 (fail), 2 (no framework)          |
+| block-dangerous-git.sh       | Claude, Copilot, Codex native hook     | stdin: CLI-specific command JSON, stdout: empty, exit 0 or 2              | 0 (allow), 2 (deny)                           |
+| phase advance                | Human, orchestrator                    | `factory/scripts/phase advance`                                           | 0 (advanced), 1 (conditions unmet), 2 (misc)  |
+| phase retry                  | Human, orchestrator                    | `factory/scripts/phase retry [--default-max-iterations]`                  | 0 (retried), 2 (cap exceeded)                 |
+| trigger                      | Human, orchestrator, run-step skill    | `factory/scripts/trigger agent <name> [--background]`                     | 0 (dispatched), 1+ (error)                    |
+| usage-capture                | Native CLI hooks and Pi extensions     | `factory/scripts/usage-capture --cli ... --transcript ...`                | 0 (captured or best-effort no-op)             |
+| index-lint                   | Pre-commit hook, CI                    | `factory/scripts/index-lint [--check]`                                    | 0 (fresh), 1 (stale)                          |
+| run-step skill               | Any supported CLI (LLM-executed)       | Skill markdown invoked by AI                                              | (N/A — skill is prose)                        |
+| run-agent (Pi extension)     | Pi session (via `run_agent` tool call) | `.pi/extensions/run-agent.ts` → spawns `pi ... -p <task>`                 | (tool result: text + usage, or error)         |
+| dispatch-wave (Pi extension) | Pi session (via `dispatch_wave` call)  | `.pi/extensions/dispatch-wave.ts` → worktree + spawn + merge/item         | (tool result: per-item status, or error)      |
+| openrouter-discover          | Human operator, CI (`--check`)         | `factory/scripts/openrouter-discover [--list\|--suggest\|--check]`        | 0 (ok), 1 (drift)                             |
+| schema-validate              | Research skills/agents, CLI            | `factory/scripts/schema-validate <artifact-file> <schema-file>`           | 0 (conforms), 1 (violations), 2 (operational) |
+| policy-validate              | Research skills/agents, CLI            | `factory/scripts/policy-validate [--pipeline] <artifact-or-dir>...`       | 0 (pass), 1 (fail), 2 (operational)           |
+| crap-score                   | Implementation-agent dispatcher        | `factory/scripts/crap-score [--story-id <id>]`                            | 0 (pass), 1 (fail)                            |
+| mutation-analysis            | Implementation-agent dispatcher        | `factory/scripts/mutation-analysis [--diff-base <ref>] [--story-id <id>]` | 0 (pass), 1 (survivors)                       |
+| dependency-check             | Implementation-agent dispatcher        | `factory/scripts/dependency-check [--story-id <id>]`                      | 0 (pass), 1 (violations)                      |
+| module-graph-check           | Orchestrating session                  | `factory/scripts/module-graph-check <proposal-path>`                      | 0 (no change), 1 (change detected)            |
 
 ## 5.6 Level 2: Runtime Usage Capture
 

@@ -1,0 +1,360 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
+"""step-guard — enforce declared step scope for read/write tool events.
+
+The guard reads one JSON event from stdin, loads the active step manifest
+from .current_work/current-step.yml when present, and allows or denies the
+requested path according to the selected guard type.
+"""
+
+from __future__ import annotations
+
+import argparse
+import ast
+import json
+import shlex
+import sys
+from pathlib import Path
+from typing import Any
+
+from dispatch_lib import glob_match
+
+
+READ_ALLOWED_PREFIXES = (
+    "factory/",
+    ".claude/",
+    ".github/",
+    ".pi/",
+    ".codex/",
+    ".current_work/",
+)
+WRITE_ALLOWED_PREFIXES = ("docs/findings/",)
+WRITE_ALLOWED_PATHS = {
+    ".current_work/verify-base-ok",
+    ".current_work/premerge-check-ok",
+}
+WRITE_DENIED_PATHS = {
+    ".current_work/dispatch-ledger.yaml",
+    ".current_work/current-step.yml",
+}
+READ_COMMANDS = {"cat", "rg", "grep", "head", "tail", "less", "wc"}
+WRITE_COMMANDS = {"tee"}
+MANIFEST_RELATIVE_PATH = Path(".current_work") / "current-step.yml"
+
+
+def _manifest_path(cwd: Path) -> Path:
+    """Return the active manifest path for the current working directory."""
+    return cwd / MANIFEST_RELATIVE_PATH
+
+
+def _load_event() -> dict[str, Any]:
+    """Parse one tool event from stdin."""
+    try:
+        event = json.loads(sys.stdin.read())
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid JSON tool event: {exc}") from exc
+    if not isinstance(event, dict):
+        raise ValueError("tool event must be a JSON object")
+    return event
+
+
+def _load_manifest(path: Path) -> dict[str, Any]:
+    """Load the step manifest's declared inputs and outputs.
+
+    The manifest format used in this repository is a small YAML subset:
+    top-level ``inputs:`` and ``outputs:`` lists with ``- pattern`` items.
+    """
+    if not path.exists():
+        return {"inputs": [], "outputs": [], "max_input_tokens": None}
+
+    sections: dict[str, Any] = {
+        "inputs": [],
+        "outputs": [],
+        "max_input_tokens": None,
+    }
+    current: str | None = None
+
+    for raw_line in path.read_text().splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line == "inputs:":
+            current = "inputs"
+            continue
+        if line == "outputs:":
+            current = "outputs"
+            continue
+        if line.startswith("max_input_tokens:"):
+            _, _, remainder = line.partition(":")
+            try:
+                sections["max_input_tokens"] = int(remainder.strip())
+            except ValueError:
+                sections["max_input_tokens"] = None
+            current = None
+            continue
+        if current and line.startswith("- "):
+            sections[current].append(line[2:].strip())
+            continue
+        # Accept a simple inline list fallback for robustness.
+        if line.startswith("inputs: [") and line.endswith("]"):
+            sections["inputs"].extend(_parse_inline_list(line))
+            current = None
+            continue
+        if line.startswith("outputs: [") and line.endswith("]"):
+            sections["outputs"].extend(_parse_inline_list(line))
+            current = None
+            continue
+    return sections
+
+
+def _parse_inline_list(line: str) -> list[str]:
+    """Parse a tiny inline YAML list without adding a third-party dependency."""
+    _, _, remainder = line.partition(":")
+    try:
+        value = ast.literal_eval(remainder.strip())
+    except (SyntaxError, ValueError) as exc:
+        raise ValueError(f"invalid inline list in manifest: {line}") from exc
+    if not isinstance(value, list):
+        raise ValueError(f"expected list in manifest line: {line}")
+    return [str(item) for item in value]
+
+
+def _matches_any(patterns: list[str], path: str) -> bool:
+    """Return True when any glob matches the path."""
+    return any(glob_match(pattern, path) for pattern in patterns)
+
+
+def _read_allowed(path: str, inputs: list[str]) -> bool:
+    """Apply the read guard."""
+    if any(path.startswith(prefix) for prefix in READ_ALLOWED_PREFIXES):
+        return True
+    return _matches_any(inputs, path)
+
+
+def _write_allowed(path: str, outputs: list[str]) -> bool:
+    """Apply the write guard, including the security deny-list."""
+    if path in WRITE_DENIED_PATHS:
+        return False
+    if path in WRITE_ALLOWED_PATHS:
+        return True
+    if any(path.startswith(prefix) for prefix in WRITE_ALLOWED_PREFIXES):
+        return True
+    return _matches_any(outputs, path)
+
+
+def _tokenize(command: str) -> list[str]:
+    """Split a shell command into tokens, or return no tokens on syntax errors."""
+    try:
+        return shlex.split(command, posix=True)
+    except ValueError:
+        return []
+
+
+def _is_control_token(token: str) -> bool:
+    """Return True for tokens that separate shell command segments."""
+    return token in {"|", "||", "&&", ";"}
+
+
+def _path_target(token: str) -> bool:
+    """Return True when *token* looks like a file path or glob."""
+    if not token or token.startswith("-"):
+        return False
+    return (
+        token in {".", ".."}
+        or "/" in token
+        or token.startswith(".")
+        or any(ch in token for ch in "*?[]")
+        or "." in Path(token).name
+    )
+
+
+def _extract_bash_paths(command: str) -> tuple[list[str], list[str]]:
+    """Best-effort extract read and write paths from a shell command."""
+    tokens = _tokenize(command)
+    reads: list[str] = []
+    writes: list[str] = []
+    index = 0
+
+    while index < len(tokens):
+        token = tokens[index]
+
+        if _is_control_token(token):
+            index += 1
+            continue
+
+        if token in READ_COMMANDS:
+            command_name = token
+            cursor = index + 1
+            non_option_index = 0
+            while cursor < len(tokens) and not _is_control_token(tokens[cursor]):
+                current = tokens[cursor]
+                if current in {">", ">>"}:
+                    if cursor + 1 < len(tokens) and _path_target(tokens[cursor + 1]):
+                        writes.append(tokens[cursor + 1])
+                    cursor += 2
+                    continue
+                if current.startswith("-"):
+                    cursor += 1
+                    continue
+                if command_name in {"rg", "grep"} and non_option_index == 0:
+                    non_option_index += 1
+                    cursor += 1
+                    continue
+                if _path_target(current):
+                    reads.append(current)
+                non_option_index += 1
+                cursor += 1
+            index = cursor
+            continue
+
+        if token in WRITE_COMMANDS:
+            cursor = index + 1
+            while cursor < len(tokens) and not _is_control_token(tokens[cursor]):
+                current = tokens[cursor]
+                if current.startswith("-"):
+                    cursor += 1
+                    continue
+                if _path_target(current):
+                    writes.append(current)
+                cursor += 1
+            index = cursor
+            continue
+
+        if token in {">", ">>"}:
+            if index + 1 < len(tokens) and _path_target(tokens[index + 1]):
+                writes.append(tokens[index + 1])
+            index += 2
+            continue
+
+        index += 1
+
+    return reads, writes
+
+
+def _expand_inputs(patterns: list[str], cwd: Path) -> set[Path]:
+    """Expand declared input globs against files under *cwd*."""
+    matches: set[Path] = set()
+    normalized_patterns = [pattern[2:] if pattern.startswith("./") else pattern for pattern in patterns]
+
+    for candidate in cwd.rglob("*"):
+        if not candidate.is_file():
+            continue
+        rel = candidate.relative_to(cwd).as_posix()
+        if any(glob_match(pattern, rel) for pattern in normalized_patterns):
+            matches.add(candidate)
+    return matches
+
+
+def _estimate_input_tokens(patterns: list[str], cwd: Path) -> int:
+    """Estimate normalized tokens from matching input files."""
+    total_bytes = sum(path.stat().st_size for path in _expand_inputs(patterns, cwd))
+    return total_bytes // 4
+
+
+def _context_allowed(
+    event: dict[str, Any],
+    manifest: dict[str, Any],
+    cwd: Path,
+) -> tuple[bool, str | None]:
+    """Evaluate the context budget against event or manifest declarations."""
+    inputs_value = event["inputs"] if "inputs" in event else manifest["inputs"]
+    budget_value = (
+        event["max_input_tokens"]
+        if "max_input_tokens" in event
+        else manifest["max_input_tokens"]
+    )
+
+    inputs = inputs_value if isinstance(inputs_value, list) else []
+    input_patterns = [item for item in inputs if isinstance(item, str)]
+
+    try:
+        max_input_tokens = int(budget_value) if budget_value is not None else 0
+    except (TypeError, ValueError):
+        max_input_tokens = 0
+
+    estimated_tokens = _estimate_input_tokens(input_patterns, cwd)
+    if estimated_tokens > max_input_tokens:
+        return (
+            False,
+            (
+                "step-guard: context budget exceeded: "
+                f"estimated {estimated_tokens} tokens > budget {max_input_tokens}"
+            ),
+        )
+    return True, None
+
+
+def _bash_allowed(command: str, inputs: list[str], outputs: list[str]) -> bool:
+    """Apply best-effort Bash path checking."""
+    read_paths, write_paths = _extract_bash_paths(command)
+    if not read_paths and not write_paths:
+        return True
+    if any(not _read_allowed(path, inputs) for path in read_paths):
+        return False
+    if any(not _write_allowed(path, outputs) for path in write_paths):
+        return False
+    return True
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Return 0 when the requested path is allowed, 1 when denied."""
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "--guard-type", choices=("read", "write", "bash", "context"), required=True
+    )
+    args = parser.parse_args(argv)
+
+    try:
+        event = _load_event()
+    except ValueError as exc:
+        print(f"step-guard: {exc}", file=sys.stderr)
+        return 2
+
+    path = event.get("path")
+
+    manifest = _manifest_path(Path.cwd())
+    if manifest.exists():
+        try:
+            manifest_data = _load_manifest(manifest)
+        except ValueError as exc:
+            print(f"step-guard: {exc}", file=sys.stderr)
+            return 2
+    else:
+        manifest_data = None
+
+    if args.guard_type in {"read", "write"}:
+        if not isinstance(path, str) or not path:
+            print("step-guard: tool event must include a string path", file=sys.stderr)
+            return 2
+        if manifest_data is None:
+            return 0
+        declared = manifest_data
+        if args.guard_type == "read":
+            return 0 if _read_allowed(path, declared["inputs"]) else 1
+        return 0 if _write_allowed(path, declared["outputs"]) else 1
+
+    if args.guard_type == "bash":
+        if manifest_data is None:
+            return 0
+        command = event.get("command")
+        if not isinstance(command, str) or not command:
+            print("step-guard: tool event must include a bash command", file=sys.stderr)
+            return 2
+        return 0 if _bash_allowed(command, manifest_data["inputs"], manifest_data["outputs"]) else 1
+
+    if args.guard_type == "context":
+        if manifest_data is None and "inputs" not in event and "max_input_tokens" not in event:
+            return 0
+        allowed, message = _context_allowed(event, manifest_data or {}, Path.cwd())
+        if not allowed:
+            print(message, file=sys.stderr)
+            return 1
+        return 0
+
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

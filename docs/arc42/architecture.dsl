@@ -20,12 +20,16 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
             }
             
             # Validation container
-            validator = container "Validator" "Enforces gates, permissions, and test execution" "Bash/Python" {
+            validator = container "Validator" "Enforces gates, permissions, test execution, and semantic quality checks" "Bash/Python" {
                 transitionLint = component "transition-lint" "Pre-commit hook blocking out-of-phase files" "Python"
                 blockDangerousGit = component "block-dangerous-git.sh" "PreToolUse hook blocking destructive commands" "Bash"
                 runTests = component "run-tests" "Framework-agnostic test runner for hooks" "Python"
                 schemaValidate = component "schema-validate" "Deterministic JSON-Schema validator for research artifacts: stage 1 of the schema->policy->semantic validation order" "Python"
                 policyValidate = component "policy-validate" "Deterministic research-policy validator: stage 2; --pipeline runs schema then policy in order, stopping at the first failure" "Python"
+                crapScore = component "crap-score" "CRAP scoring gate: cyclomatic complexity weighted against test coverage, diff-scoped per story" "Bash/Python"
+                mutationAnalysis = component "mutation-analysis" "Mutation analysis gate: generates code mutants, verifies test suite kills each one, diff-scoped per story" "Bash/Python"
+                dependencyCheck = component "dependency-check" "Dependency-rule enforcement gate: validates imports against architecture.dsl dependency declarations" "Bash/Python"
+                moduleGraphCheck = component "module-graph-check" "Derives module map from architecture.dsl, compares against Phase 1 outputs to determine architecture phase routing" "Bash/Python"
             }
             
             # Dispatch container
@@ -84,6 +88,17 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
         dispatchWave -> catalog "Resolves each item's agent by name; tier via model.conf"
         dispatchWave -> cliAgent "Spawns parallel pi sessions, one per worktree"
 
+        # Relationships - Semantic Quality Gates (dispatcher-invoked, on-demand)
+        cliAgent -> crapScore "Implementation-agent dispatcher runs after developer commit"
+        cliAgent -> mutationAnalysis "Implementation-agent dispatcher runs after developer commit"
+        cliAgent -> dependencyCheck "Implementation-agent dispatcher runs after developer commit"
+        crapScore -> stateFiles "Writes JSON report to .agent-factory/crap-score/"
+        mutationAnalysis -> stateFiles "Writes JSON report to .agent-factory/mutation-analysis/"
+        dependencyCheck -> stateFiles "Writes JSON report to .agent-factory/dependency-check/"
+
+        # Relationships - Module-graph check (orchestrating session, on-demand)
+        cliAgent -> moduleGraphCheck "Orchestrating session runs at Phase 1 / Phase 3 boundary"
+
         # Relationships - CLI Agent
         cliAgent -> blockDangerousGit "Every shell command routed through PreToolUse (or Pi extension)"
         cliAgent -> transitionLint "Commits trigger pre-commit hooks"
@@ -100,7 +115,7 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
             autoLayout lr
         }
 
-        component validator "TestExecutionComponents" "Test execution validation components" {
+        component validator "ValidationComponents" "Validation components: hook-triggered gates, on-demand validators, and semantic quality gates" {
             include *
             include git
             include phaseAdvance
@@ -122,6 +137,15 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
             humanOperator -> phaseAdvance "8. phase advance evaluates entry conditions"
             phaseAdvance -> runTests "9. Evaluates script_exit_zero gate"
             runTests -> phaseAdvance "10. Exit code determines condition met/unmet"
+        }
+
+        dynamic validator "SemanticGateLoop" "Dispatcher-owned semantic gate execution after developer commit" {
+            cliAgent -> crapScore "1. Dispatcher runs crap-score on committed artifacts"
+            crapScore -> stateFiles "2. Writes CRAP report (pass/fail per function)"
+            cliAgent -> mutationAnalysis "3. Dispatcher runs mutation-analysis (diff-scoped)"
+            mutationAnalysis -> stateFiles "4. Writes mutation report (killed/survived per mutant)"
+            cliAgent -> dependencyCheck "5. Dispatcher runs dependency-check against architecture.dsl"
+            dependencyCheck -> stateFiles "6. Writes dependency report (pass/fail per rule)"
         }
 
         theme default

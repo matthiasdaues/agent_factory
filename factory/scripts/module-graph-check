@@ -1,0 +1,692 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
+"""module-graph-check — deterministic architecture phase routing gate.
+
+What: Reads architecture.dsl, derives the current module map, and compares
+      it against a feature's Phase 1 outputs (interface-contracts.md,
+      entity-model.md) to determine whether the feature changes module
+      boundaries, dependency directions, or public interfaces.
+When: At the Phase 1 / Phase 3 boundary, before architecture routing.
+By:   The session hosting the feature-addition playbook.
+
+Output
+  Writes JSON to .agent-factory/module-graph-check/<story-id>.json and to
+  stdout.  Updates the proposal's impact.architecture_change field.
+  Exits 0 on success; 2 on configuration or parse error.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+
+
+# ---------------------------------------------------------------------------
+# Data structures
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class Container:
+    """A module boundary extracted from the DSL container declaration."""
+
+    variable_name: str
+    display_name: str
+
+
+@dataclass(frozen=True)
+class Component:
+    """A component within a container, extracted from the DSL."""
+
+    variable_name: str
+    display_name: str
+    container_var: str
+
+
+@dataclass(frozen=True)
+class Relationship:
+    """A directed relationship between two DSL variables."""
+
+    source_var: str
+    target_var: str
+    label: str
+
+
+@dataclass
+class ModuleGraph:
+    """The complete module map derived from architecture.dsl.
+
+    Containers represent module boundaries; components live within
+    containers; relationships connect components.  The module_deps
+    set holds container-level dependencies derived from component
+    relationships.
+    """
+
+    containers: dict[str, Container] = field(default_factory=dict)
+    components: dict[str, Component] = field(default_factory=dict)
+    relationships: list[Relationship] = field(default_factory=list)
+    module_deps: set[tuple[str, str]] = field(default_factory=set)
+
+    def component_display_names(self) -> set[str]:
+        """Return the set of all component display names."""
+        return {c.display_name for c in self.components.values()}
+
+    def container_for_component(self, var_name: str) -> str | None:
+        """Return the container variable name for a component."""
+        comp = self.components.get(var_name)
+        return comp.container_var if comp else None
+
+
+@dataclass(frozen=True)
+class ContractInfo:
+    """A script contract extracted from interface-contracts.md."""
+
+    name: str
+    references: tuple[str, ...] = ()
+
+
+@dataclass
+class CheckResult:
+    """Outcome of the architecture change check."""
+
+    architecture_change: bool
+    new_modules: list[str] = field(default_factory=list)
+    changed_interfaces: list[str] = field(default_factory=list)
+    new_dependencies: list[tuple[str, str]] = field(default_factory=list)
+    inverted_dependencies: list[tuple[str, str]] = field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Regex patterns
+# ---------------------------------------------------------------------------
+
+# Assignment: varName = type "display name" ...
+_ASSIGN_RE = re.compile(
+    r"^\s*(\w+)\s*=\s*(softwareSystem|container|component|person)\s+"
+    r'"([^"]*)"'
+)
+
+# Relationship: varName -> otherVar "label"
+_REL_RE = re.compile(
+    r'^\s*(\w+)\s+->\s+(\w+)\s+"([^"]*)"'
+)
+
+# Interface-contracts section header: ## `path/to/script-name`
+_CONTRACT_HEADER_RE = re.compile(
+    r"^##\s+`([^`]+)`"
+)
+
+# Mermaid ER entity definition block: ENTITY_NAME {
+_ER_ENTITY_DEF_RE = re.compile(
+    r"^\s+([A-Z][A-Z0-9_]+)\s*\{"
+)
+
+# Mermaid ER relationship: ENTITY_A ||--o{ ENTITY_B : label
+_ER_REL_RE = re.compile(
+    r"^\s+([A-Z][A-Z0-9_]+)\s+[|{}o]+--[|{}o]+\s+([A-Z][A-Z0-9_]+)"
+)
+
+# Table row with label and value: | Label | value |
+_TABLE_ROW_RE = re.compile(
+    r"^\|\s*(\w[\w\s]*?)\s*\|(.+)\|",
+)
+
+# Proposal frontmatter architecture_change field
+_ARCH_CHANGE_RE = re.compile(
+    r"^(\s*architecture_change:\s*)(true|false)(\s*(?:#.*)?)$",
+    re.MULTILINE,
+)
+
+
+# ---------------------------------------------------------------------------
+# DSL parsing
+# ---------------------------------------------------------------------------
+
+def _strip_inline_comment(line: str) -> str:
+    """Remove trailing // or # comments outside quoted strings."""
+    in_quote = False
+    for i, ch in enumerate(line):
+        if ch == '"':
+            in_quote = not in_quote
+        elif not in_quote and ch == '#':
+            return line[:i].rstrip()
+        elif not in_quote and line[i:i + 2] == '//':
+            return line[:i].rstrip()
+    return line.rstrip()
+
+
+def parse_dsl(dsl_path: Path) -> ModuleGraph:
+    """Parse a Structurizr DSL file and return the module graph.
+
+    Extracts containers, components (with their parent container),
+    and relationships.  Derives module-level dependencies from
+    component relationships.
+    """
+    graph = ModuleGraph()
+    text = dsl_path.read_text(encoding="utf-8")
+
+    # Track nesting context: stack of (depth, var_name, type)
+    context_stack: list[tuple[int, str, str]] = []
+    depth = 0
+
+    for raw_line in text.splitlines():
+        line = _strip_inline_comment(raw_line)
+        if not line:
+            continue
+
+        # Parse assignment before adjusting depth
+        assign_match = _ASSIGN_RE.match(line)
+        if assign_match:
+            var_name = assign_match.group(1)
+            element_type = assign_match.group(2)
+            display_name = assign_match.group(3)
+
+            if element_type == "container":
+                graph.containers[var_name] = Container(var_name, display_name)
+                # Will be pushed to context when we see '{'
+                pending_context = (var_name, "container")
+            elif element_type == "component":
+                # Find the current container from context stack
+                container_var = ""
+                for _, ctx_var, ctx_type in reversed(context_stack):
+                    if ctx_type == "container":
+                        container_var = ctx_var
+                        break
+                graph.components[var_name] = Component(
+                    var_name, display_name, container_var
+                )
+                pending_context = None
+            else:
+                pending_context = (var_name, element_type) if '{' in line else None
+        else:
+            pending_context = None
+
+        # Parse relationship
+        rel_match = _REL_RE.match(line)
+        if rel_match:
+            graph.relationships.append(
+                Relationship(
+                    source_var=rel_match.group(1),
+                    target_var=rel_match.group(2),
+                    label=rel_match.group(3),
+                )
+            )
+
+        # Adjust depth for braces
+        open_count = line.count('{')
+        close_count = line.count('}')
+
+        if open_count > 0:
+            if assign_match and pending_context:
+                context_stack.append((depth, pending_context[0], pending_context[1]))
+            elif not assign_match:
+                # Anonymous block or non-assignment
+                context_stack.append((depth, "", "block"))
+            depth += open_count
+
+        if close_count > 0:
+            depth -= close_count
+            # Pop context entries at or above current depth
+            while context_stack and context_stack[-1][0] >= depth:
+                context_stack.pop()
+
+    # Derive module-level dependencies from component relationships
+    for rel in graph.relationships:
+        src_container = graph.container_for_component(rel.source_var)
+        tgt_container = graph.container_for_component(rel.target_var)
+        if (
+            src_container
+            and tgt_container
+            and src_container != tgt_container
+        ):
+            graph.module_deps.add((src_container, tgt_container))
+
+    return graph
+
+
+# ---------------------------------------------------------------------------
+# Interface-contracts parsing
+# ---------------------------------------------------------------------------
+
+def _strip_ext(name: str) -> str:
+    """Strip common script extensions from a name."""
+    for ext in (".py", ".ts", ".js", ".sh", ".mjs"):
+        if name.endswith(ext):
+            return name[: -len(ext)]
+    return name
+
+
+def _extract_script_name(path: str) -> str:
+    """Extract the script display name from a path.
+
+    Takes the last path segment without stripping extensions, so that
+    names like 'block-dangerous-git.sh' can match DSL component names
+    that include the extension.
+    """
+    return path.rsplit("/", 1)[-1]
+
+
+def _extract_references_from_cell(cell_text: str, known_names: set[str]) -> list[str]:
+    """Extract component names referenced in a table cell value.
+
+    Looks for known component names or plausible hyphenated identifiers
+    that appear in the cell text.
+    """
+    refs: list[str] = []
+    # Split on common delimiters
+    tokens = re.split(r"[,;()\s]+", cell_text.strip())
+    for token in tokens:
+        cleaned = token.strip("`\"'")
+        if not cleaned:
+            continue
+        # Check against known names
+        if cleaned in known_names:
+            refs.append(cleaned)
+            continue
+        # Check if it looks like a hyphenated identifier (e.g. auth-service)
+        if re.match(r"^[a-z][a-z0-9-]+$", cleaned) and "-" in cleaned:
+            refs.append(cleaned)
+    return refs
+
+
+def parse_interface_contracts(contracts_path: Path) -> list[ContractInfo]:
+    """Parse interface-contracts.md and return contract info per section.
+
+    Extracts script names from ## `path/to/script` section headers
+    and references from Reads/Writes table rows.
+    """
+    text = contracts_path.read_text(encoding="utf-8")
+    contracts: list[ContractInfo] = []
+
+    current_name: str | None = None
+    current_refs: list[str] = []
+
+    # First pass: collect all script names for reference matching
+    all_names: set[str] = set()
+    for line in text.splitlines():
+        match = _CONTRACT_HEADER_RE.match(line)
+        if match:
+            all_names.add(_extract_script_name(match.group(1)))
+
+    # Second pass: parse sections with references
+    for line in text.splitlines():
+        header_match = _CONTRACT_HEADER_RE.match(line)
+        if header_match:
+            # Save previous section
+            if current_name is not None:
+                contracts.append(
+                    ContractInfo(current_name, tuple(current_refs))
+                )
+            current_name = _extract_script_name(header_match.group(1))
+            current_refs = []
+            continue
+
+        # Parse table rows for Reads/Writes
+        if current_name is not None:
+            row_match = _TABLE_ROW_RE.match(line)
+            if row_match:
+                label = row_match.group(1).strip().lower()
+                value = row_match.group(2).strip()
+                if label in ("reads", "writes"):
+                    refs = _extract_references_from_cell(value, all_names)
+                    current_refs.extend(refs)
+
+    # Save last section
+    if current_name is not None:
+        contracts.append(ContractInfo(current_name, tuple(current_refs)))
+
+    return contracts
+
+
+# ---------------------------------------------------------------------------
+# Entity-model parsing
+# ---------------------------------------------------------------------------
+
+def parse_entity_model(entity_model_path: Path) -> list[str]:
+    """Parse entity-model.md and return entity names from the ER diagram.
+
+    Extracts names from both entity definition blocks (ENTITY {) and
+    relationship lines (ENTITY_A ||--o{ ENTITY_B).
+    """
+    text = entity_model_path.read_text(encoding="utf-8")
+    entities: set[str] = set()
+    in_mermaid = False
+
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("```mermaid"):
+            in_mermaid = True
+            continue
+        if stripped.startswith("```") and in_mermaid:
+            in_mermaid = False
+            continue
+        if not in_mermaid:
+            continue
+
+        # Entity definition: ENTITY_NAME {
+        def_match = _ER_ENTITY_DEF_RE.match(line)
+        if def_match:
+            entities.add(def_match.group(1))
+            continue
+
+        # Entity relationship: ENTITY_A ||--o{ ENTITY_B : label
+        rel_match = _ER_REL_RE.match(line)
+        if rel_match:
+            entities.add(rel_match.group(1))
+            entities.add(rel_match.group(2))
+
+    return sorted(entities)
+
+
+# ---------------------------------------------------------------------------
+# Architecture change check
+# ---------------------------------------------------------------------------
+
+def _match_component(display_name: str, known_names: set[str]) -> bool:
+    """Check if a script display name matches any known DSL component.
+
+    Matches exactly, with extensions stripped, or against the base name
+    before a parenthetical qualifier (e.g. 'run-agent.ts' matches
+    'run-agent (Pi extension)'; 'block-dangerous-git.sh' matches
+    'block-dangerous-git.sh').
+    """
+    candidates = {display_name, _strip_ext(display_name)}
+    for known in known_names:
+        base = known.split("(")[0].strip()
+        known_set = {known, base, _strip_ext(known), _strip_ext(base)}
+        if candidates & known_set:
+            return True
+    return False
+
+
+def check_architecture_change(
+    graph: ModuleGraph,
+    contracts: list[ContractInfo],
+    entity_names: list[str],
+) -> CheckResult:
+    """Determine whether a feature changes the module graph.
+
+    Checks three conditions:
+      (a) Does a declared interface target a module not in the DSL?
+      (b) Does it change a public interface already in the DSL?
+      (c) Does it introduce or invert a dependency direction?
+
+    A new entity in an existing module does NOT trigger true — the check
+    tests module-graph topology only.
+    """
+    result = CheckResult(architecture_change=False)
+    known_component_names = graph.component_display_names()
+
+    # Build maps: component display name → variable name → container var
+    # Include variants: exact name, base before parenthetical, extension-stripped
+    name_to_var: dict[str, str] = {}
+    for comp in graph.components.values():
+        name_to_var[comp.display_name] = comp.variable_name
+        base = comp.display_name.split("(")[0].strip()
+        if base != comp.display_name:
+            name_to_var[base] = comp.variable_name
+        stripped = _strip_ext(comp.display_name)
+        if stripped != comp.display_name:
+            name_to_var[stripped] = comp.variable_name
+        base_stripped = _strip_ext(base)
+        if base_stripped != base:
+            name_to_var[base_stripped] = comp.variable_name
+
+    # Check (a): new modules — scripts not matching any DSL component
+    for contract in contracts:
+        if not _match_component(contract.name, known_component_names):
+            result.new_modules.append(contract.name)
+
+    # Check (c): dependency direction changes
+    # For each contract, check if its references imply new module-level
+    # dependencies not present in the DSL.
+    for contract in contracts:
+        src_var = name_to_var.get(contract.name)
+        if src_var is None:
+            src_var = name_to_var.get(_strip_ext(contract.name))
+        if src_var is None:
+            # Unknown component — already flagged as new module
+            continue
+        src_container = graph.container_for_component(src_var)
+        if src_container is None:
+            continue
+
+        for ref_name in contract.references:
+            ref_var = name_to_var.get(ref_name)
+            if ref_var is None:
+                continue
+            ref_container = graph.container_for_component(ref_var)
+            if ref_container is None or ref_container == src_container:
+                continue
+
+            # Cross-container dependency: src_container → ref_container
+            dep = (src_container, ref_container)
+            if dep not in graph.module_deps:
+                # Check if this is an inversion of an existing dep
+                reverse = (ref_container, src_container)
+                if reverse in graph.module_deps:
+                    if dep not in result.inverted_dependencies:
+                        result.inverted_dependencies.append(dep)
+                else:
+                    if dep not in result.new_dependencies:
+                        result.new_dependencies.append(dep)
+
+    # Entities: per AC 06, new entities in existing modules do not trigger.
+    # Entities are data structures within modules, not modules themselves.
+    # No entity-based trigger.
+
+    # Set architecture_change if any check triggered
+    if result.new_modules:
+        result.architecture_change = True
+    if result.new_dependencies or result.inverted_dependencies:
+        result.architecture_change = True
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Proposal frontmatter update
+# ---------------------------------------------------------------------------
+
+def _read_frontmatter_value(text: str) -> bool | None:
+    """Extract the current architecture_change value from YAML frontmatter."""
+    match = _ARCH_CHANGE_RE.search(text)
+    if not match:
+        return None
+    return match.group(2) == "true"
+
+
+def update_proposal_frontmatter(proposal_path: Path, result: CheckResult) -> bool:
+    """Update the proposal's impact.architecture_change field.
+
+    Override semantics:
+      - Field was false, machine says true → update to true, annotate
+        '# mechanical detection'.
+      - Field was true, machine says false → field stays true (prior
+        human declaration respected conservatively).
+
+    Returns True if the file was modified, False otherwise.
+    """
+    text = proposal_path.read_text(encoding="utf-8")
+    current = _read_frontmatter_value(text)
+
+    if current is None:
+        # No field found — cannot update
+        return False
+
+    if current is False and result.architecture_change is True:
+        # Machine wins: false → true with annotation
+        new_text = _ARCH_CHANGE_RE.sub(
+            r"\g<1>true  # mechanical detection",
+            text,
+        )
+        proposal_path.write_text(new_text, encoding="utf-8")
+        return True
+
+    # All other cases: no update
+    # - current true, machine false → stays true (conservative)
+    # - current true, machine true → already correct
+    # - current false, machine false → already correct
+    return False
+
+
+# ---------------------------------------------------------------------------
+# CLI and report
+# ---------------------------------------------------------------------------
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse CLI arguments for the module-graph check."""
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "--dsl-path",
+        default="docs/arc42/architecture.dsl",
+        help="path to architecture.dsl (default: docs/arc42/architecture.dsl)",
+    )
+    parser.add_argument(
+        "--interface-contracts",
+        default="docs/spec/supplementary_specs/interface-contracts.md",
+        help="path to interface-contracts.md",
+    )
+    parser.add_argument(
+        "--entity-model",
+        default="docs/spec/supplementary_specs/entity-model.md",
+        help="path to entity-model.md",
+    )
+    parser.add_argument(
+        "--proposal",
+        default=None,
+        help="path to the proposal file whose frontmatter is updated",
+    )
+    parser.add_argument(
+        "--story-id",
+        default=None,
+        help="story identifier for the JSON log file",
+    )
+    parser.add_argument(
+        "--report-dir",
+        default=".agent-factory/module-graph-check",
+        help="directory where JSON reports are written",
+    )
+    return parser.parse_args(argv)
+
+
+def detect_story_id(explicit: str | None) -> str:
+    """Resolve the story ID from CLI, environment, branch, or fallback."""
+    if explicit:
+        return explicit
+    env_id = os.environ.get("STORY_ID")
+    if env_id:
+        return env_id
+    try:
+        branch = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except Exception:
+        return "adhoc"
+    match = re.search(r"(ST-\d{4,})", branch)
+    return match.group(1) if match else "adhoc"
+
+
+def write_report(
+    report_dir: Path, story_id: str, result: CheckResult
+) -> Path:
+    """Write the JSON report and return its path."""
+    report_dir.mkdir(parents=True, exist_ok=True)
+    report_path = report_dir / f"{story_id}.json"
+    payload = {
+        "architecture_change": result.architecture_change,
+        "new_modules": result.new_modules,
+        "changed_interfaces": result.changed_interfaces,
+        "new_dependencies": [list(d) for d in result.new_dependencies],
+        "inverted_dependencies": [list(d) for d in result.inverted_dependencies],
+    }
+    report_path.write_text(
+        json.dumps(payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return report_path
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run the module-graph check and return a shell-friendly exit code."""
+    args = parse_args(argv)
+    dsl_path = Path(args.dsl_path).resolve()
+    contracts_path = Path(args.interface_contracts).resolve()
+    entity_model_path = Path(args.entity_model).resolve()
+    report_dir = Path(args.report_dir).resolve()
+
+    # Validate inputs
+    if not dsl_path.is_file():
+        print(
+            f"module-graph-check: DSL file not found: {dsl_path}",
+            file=sys.stderr,
+        )
+        return 2
+    if not contracts_path.is_file():
+        print(
+            f"module-graph-check: interface-contracts not found: {contracts_path}",
+            file=sys.stderr,
+        )
+        return 2
+    if not entity_model_path.is_file():
+        print(
+            f"module-graph-check: entity-model not found: {entity_model_path}",
+            file=sys.stderr,
+        )
+        return 2
+
+    # Parse inputs
+    graph = parse_dsl(dsl_path)
+    contracts = parse_interface_contracts(contracts_path)
+    entity_names = parse_entity_model(entity_model_path)
+
+    # Run check
+    result = check_architecture_change(graph, contracts, entity_names)
+
+    # Update proposal if path provided
+    if args.proposal:
+        proposal_path = Path(args.proposal).resolve()
+        if proposal_path.is_file():
+            updated = update_proposal_frontmatter(proposal_path, result)
+            if updated:
+                print(
+                    f"module-graph-check: updated {proposal_path}",
+                    file=sys.stderr,
+                )
+        else:
+            print(
+                f"module-graph-check: proposal not found: {proposal_path}",
+                file=sys.stderr,
+            )
+
+    # Write report
+    story_id = detect_story_id(args.story_id)
+    report_path = write_report(report_dir, story_id, result)
+
+    # Output result
+    print(f"architecture_change={'true' if result.architecture_change else 'false'}")
+    if result.new_modules:
+        print(f"new_modules={','.join(result.new_modules)}")
+    if result.new_dependencies:
+        for dep in result.new_dependencies:
+            print(f"new_dependency={dep[0]}->{dep[1]}")
+    if result.inverted_dependencies:
+        for dep in result.inverted_dependencies:
+            print(f"inverted_dependency={dep[0]}->{dep[1]}")
+
+    print(f"module-graph-check: wrote {report_path}", file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

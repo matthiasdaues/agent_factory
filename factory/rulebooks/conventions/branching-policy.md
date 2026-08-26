@@ -2,7 +2,7 @@
 title: Branch and Worktree Scoping
 category: implementation
 enforcement: implementation-agent dispatch logic (T-35)
-version: 2.0.0
+version: 2.1.0
 ---
 
 # Branch and Worktree Scoping
@@ -44,17 +44,17 @@ A feature branch name is not a working directory. The universal branch/worktree 
 
 Worktree isolation guarantees a subagent's commands run in the right *directory*; it does not guarantee that directory's HEAD is actually caught up with the branch it was meant to be cut from. A worktree can materialize against a stale base and reason against code that no longer exists on the target branch — a full agent run's worth of tokens spent before anyone notices. This recurred across three phases of the 2026-07-12 session, twice costing a full discarded run.
 
-Every worktree-isolated dispatch prompt therefore carries a fixed preamble, and the subagent must run it as its **first tool call**, before reading a single source file:
+The verify-base invocation is now **script-owned**, not prompt-owned. `factory/scripts/dispatch prepare-wave` and `factory/scripts/dispatch prepare-story` must run the fixed pre-spawn check before any developer-agent is launched:
 
 ```bash
 factory/scripts/verify-base <target-branch> [--expect-base <declared-base-SHA>]
 ```
 
-Exit `0` means proceed. Any non-zero exit means: **stop — do not read, edit, or commit.** Report the script's printed diagnosis to the dispatcher and wait for instruction. `<target-branch>` is normally `dev` or the invocation branch; `--expect-base` is the declared base SHA from the Declared Base SHA section below, when the dispatcher recorded one.
+Exit `0` means the dispatcher may spawn the subagent into that prepared worktree. Any non-zero exit means: **stop — do not spawn the subagent.** Report the script's printed diagnosis and resolve the base mismatch before continuing. Dispatch prose may mention that the workspace already passed verify-base, but it must not rely on the developer-agent to remember and rerun the check manually.
 
 ### Declared Base SHA
 
-Not-behind-target (checked by the preamble above with no `--expect-base`) proves a worktree isn't missing commits — it does not prove the worktree was cut from the commit the dispatcher actually intended, if the target branch has kept moving. The dispatcher closes that gap by recording the exact SHA each feature branch is meant to be cut from — its **declared base** — in the dispatch record, and passing it to the subagent as `--expect-base`. This is the 2026-07-10 retro's action item #1 (phase branches with a recorded base/head SHA pair), narrowed to the one assertion that catches a wrong-base dispatch on the subagent's first tool call instead of after a full run.
+Not-behind-target (checked by the preamble above with no `--expect-base`) proves a worktree isn't missing commits — it does not prove the worktree was cut from the commit the dispatcher actually intended, if the target branch has kept moving. The dispatcher closes that gap by recording the exact SHA each feature branch is meant to be cut from — its **declared base** — in the dispatch record, and passing it to the script-owned verify-base call as `--expect-base`. This is the 2026-07-10 retro's action item #1 (phase branches with a recorded base/head SHA pair), narrowed to the one assertion that catches a wrong-base dispatch on the subagent's first tool call instead of after a full run.
 
 ### Merge Order Is Overlap-Aware
 
@@ -92,7 +92,7 @@ Feature-branch commits follow [commit-conventions.md](commit-conventions.md) —
 
 Standalone branch creation is mechanically denied by the shared shell and Pi Git guardrails. `git worktree add -b <branch> .agent-factory/worktrees/<branch> <base>` is the supported creation primitive. Overlap-safe merge sequencing is enforced by the implementation-agent's own dispatch algorithm, not a git hook — it needs live backlog state (every ready story's declared outputs) that no static hook has access to. This rulebook states the **what** (branch/worktree pairing, branch scope, merge-order constraint, SHA tracking); `agents/implementation-agent.md` (Steps 1–5) and T-35 own the **how** — the actual overlap-detection and wave-planning algorithm.
 
-The base-safety checks are mechanically enforced, per [foundational-principles.md § Agentic Creation, Deterministic Validation](foundational-principles.md#agentic-creation-deterministic-validation): `factory/scripts/verify-base` and `factory/scripts/premerge-check` each write a marker file on success, and `factory/config/hooks/block-dangerous-git.sh` denies `git commit` (inside a linked worktree with no `verify-base-ok` marker) and `git merge <branch>` (with no `premerge-check-ok` marker for that branch's current head) — a `PreToolUse` hook, not agent compliance with a prompt instruction.
+The base-safety checks are mechanically enforced, per [foundational-principles.md § Agentic Creation, Deterministic Validation](foundational-principles.md#agentic-creation-deterministic-validation): `factory/scripts/dispatch` owns the pre-spawn `verify-base` call, and `factory/scripts/premerge-check` owns the pre-merge scope check. Their success markers are written on success, and `factory/config/hooks/block-dangerous-git.sh` denies `git commit` (inside a linked worktree with no `verify-base-ok` marker) and `git merge <branch>` (with no `premerge-check-ok` marker for that branch's current head) — a `PreToolUse` hook, not agent compliance with a prompt instruction.
 
 ## Example
 

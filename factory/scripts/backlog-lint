@@ -40,9 +40,30 @@ SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
 
 VALID_TIERS = {"economy", "standard", "strong"}
 VALID_STATUSES = {"pending", "in-progress", "review", "blocked", "done"}
+VALID_RISK_DOMAINS = {
+    "security",
+    "privacy",
+    "data_integrity",
+    "compatibility",
+    "reliability",
+    "operations",
+}
+VALID_STRATEGIES = {"direct", "seams-first"}
+VALID_QUALITY_GATES = {"crap-score", "mutation-analysis", "dependency-check"}
+FACTORY_DEFAULT_QUALITY_GATES = ("crap-score", "mutation-analysis", "dependency-check")
 RE_STORY_ID = re.compile(r"^ST-\d{4,}$")
 REQUIRED_FIELDS = {"id", "epic", "title", "tier", "status", "outputs"}
-OPTIONAL_FIELDS = {"deps", "traces", "tests"}
+OPTIONAL_FIELDS = {
+    "deps",
+    "traces",
+    "tests",
+    "risk_domains",
+    "strategy",
+    "quality-gates",
+    "notes",
+    "seam_outputs",
+    "impl_outputs",
+}
 ALL_FIELDS = REQUIRED_FIELDS | OPTIONAL_FIELDS
 
 # Machine fields whose names must not appear as standalone terms in the prose body.
@@ -164,6 +185,18 @@ def _matching_output_paths(project_root: Path, outputs: List[Any]) -> Set[Path]:
     return matches
 
 
+def _string_set(values: Any) -> Optional[Set[str]]:
+    """Return a set of string values when the input is a string list."""
+    if not isinstance(values, list):
+        return None
+    result: Set[str] = set()
+    for value in values:
+        if not isinstance(value, str):
+            return None
+        result.add(value)
+    return result
+
+
 # --- Checks -------------------------------------------------------------------
 
 
@@ -238,6 +271,81 @@ def check_story(
             )
         )
 
+    # --- risk_domains: type and enum ---
+    risk_domains = fm.get("risk_domains")
+    if risk_domains is not None:
+        risk_domain_values = _string_set(risk_domains)
+        if risk_domain_values is None:
+            out.append(
+                Finding("BL-TYPE", "error", rel, "risk_domains must be an array")
+            )
+        else:
+            for value in sorted(risk_domain_values):
+                if value not in VALID_RISK_DOMAINS:
+                    out.append(
+                        Finding(
+                            "BL-ENUM",
+                            "error",
+                            rel,
+                            "risk_domains value "
+                            f"'{value}' not in {{security, privacy, "
+                            "data_integrity, compatibility, reliability, operations}}",
+                        )
+                    )
+
+    # --- strategy: type and enum ---
+    strategy = fm.get("strategy")
+    if strategy is not None and not isinstance(strategy, str):
+        out.append(Finding("BL-TYPE", "error", rel, "strategy must be a string"))
+    elif isinstance(strategy, str) and strategy not in VALID_STRATEGIES:
+        out.append(
+            Finding(
+                "BL-ENUM",
+                "error",
+                rel,
+                f"strategy '{strategy}' not in {{direct, seams-first}}",
+            )
+        )
+
+    # --- quality-gates: type, enum, and default-coverage notes ---
+    quality_gates = fm.get("quality-gates")
+    if quality_gates is not None:
+        quality_gate_values = _string_set(quality_gates)
+        if quality_gate_values is None:
+            out.append(
+                Finding("BL-TYPE", "error", rel, "quality-gates must be an array")
+            )
+        else:
+            for value in sorted(quality_gate_values):
+                if value not in VALID_QUALITY_GATES:
+                    out.append(
+                        Finding(
+                            "BL-ENUM",
+                            "error",
+                            rel,
+                            "quality-gates value "
+                            f"'{value}' not in {{crap-score, mutation-analysis, dependency-check}}",
+                        )
+                    )
+
+            missing_default_gates = [
+                gate
+                for gate in FACTORY_DEFAULT_QUALITY_GATES
+                if gate not in quality_gate_values
+            ]
+            if missing_default_gates:
+                notes = fm.get("notes")
+                for gate in missing_default_gates:
+                    if not isinstance(notes, str) or gate not in notes:
+                        out.append(
+                            Finding(
+                                "BL-NOTES",
+                                "error",
+                                rel,
+                                f"notes must justify excluding default gate '{gate}'",
+                            )
+                        )
+
     # --- deps: type, pattern, and referential integrity ---
     deps = fm.get("deps")
     if deps is not None:
@@ -298,6 +406,65 @@ def check_story(
                     f"outputs match existing file(s): {matched}",
                 )
             )
+
+    # --- seams-first output partitioning ---
+    seam_outputs = fm.get("seam_outputs")
+    impl_outputs = fm.get("impl_outputs")
+    seam_values = _string_set(seam_outputs)
+    impl_values = _string_set(impl_outputs)
+    seam_valid = seam_outputs is None or seam_values is not None
+    impl_valid = impl_outputs is None or impl_values is not None
+
+    if seam_outputs is not None and seam_values is None:
+        out.append(Finding("BL-TYPE", "error", rel, "seam_outputs must be an array"))
+    if impl_outputs is not None and impl_values is None:
+        out.append(Finding("BL-TYPE", "error", rel, "impl_outputs must be an array"))
+
+    if seam_values is not None and impl_values is not None:
+        overlap = sorted(seam_values & impl_values)
+        if overlap:
+            out.append(
+                Finding(
+                    "BL-ENUM",
+                    "error",
+                    rel,
+                    f"seam_outputs and impl_outputs overlap on: {', '.join(overlap)}",
+                )
+            )
+
+    if (
+        isinstance(strategy, str)
+        and strategy == "seams-first"
+        and isinstance(outputs, list)
+        and seam_valid
+        and impl_valid
+    ):
+        declared_outputs = _string_set(outputs)
+        if declared_outputs is None:
+            out.append(Finding("BL-TYPE", "error", rel, "outputs must be an array"))
+        else:
+            partition = (seam_values if seam_outputs is not None else set()) | (
+                impl_values if impl_outputs is not None else set()
+            )
+            if partition != declared_outputs:
+                missing = sorted(declared_outputs - partition)
+                extra = sorted(partition - declared_outputs)
+                details = []
+                if missing:
+                    details.append(
+                        f"missing from seam_outputs+impl_outputs: {', '.join(missing)}"
+                    )
+                if extra:
+                    details.append(f"not declared in outputs: {', '.join(extra)}")
+                out.append(
+                    Finding(
+                        "BL-ENUM",
+                        "error",
+                        rel,
+                        "seams-first outputs must equal seam_outputs ∪ impl_outputs "
+                        + "; ".join(details),
+                    )
+                )
 
     # --- tests: type and file existence ---
     tests = fm.get("tests")

@@ -19,6 +19,8 @@ Derived from [`factory/rulebooks/conventions/foundational-principles.md`](../../
 | Git safety                   | PreToolUse hook runs `block-dangerous-git.sh`                                  | Denies commands before execution, exit 2                                                                       |
 | Phase gates                  | `phase advance` evaluates FSM `entry_conditions`                               | Refuses (exit 1) if any condition unmet, lists all failures                                                    |
 | Research artifacts validated | `schema-validate` (stage 1) and `policy-validate` (stage 2), invoked on demand | Deterministic — exit codes, no judgment; invoked by the research playbook/agents, not hook-enforced (see §8.6) |
+| Semantic code quality gated  | `crap-score`, `mutation-analysis`, `dependency-check`, invoked by dispatcher   | Deterministic — exit codes; dispatcher-owned, not hook-enforced (see §8.7)                                     |
+| Architecture phase routing   | `module-graph-check`, invoked by orchestrating session                         | Deterministic — compares module map from DSL against Phase 1 outputs (see §8.8)                                |
 
 ### Why It Matters
 
@@ -135,9 +137,56 @@ The order is fixed: an artifact must pass stage 1, then stage 2, then stage 3 be
 
 Two distinctions from §8.2 matter. First, these validators are **on demand, not hook-enforced**: the research playbook and agents invoke them, so they are deterministic and reproducible but do not run automatically at an operation boundary the way a pre-commit gate does. Second, the schemas they check against are **data, not prose** — JSON-Schema files under `factory/rulebooks/schemas/`, a rulebook category deliberately outside `INDEX.yaml`. See [ADR-0006](09_architecture_decisions.md) and [`research-topic.md` § The Validation Gate](../../factory/playbooks/research-topic.md).
 
+## 8.7 Semantic Quality Gates
+
+The three semantic gates (`crap-score`, `mutation-analysis`, `dependency-check`) extend the "Agentic Creation, Deterministic Validation" principle from syntactic checks to code meaning. They are **on-demand validators owned by the implementation-agent dispatcher**, not hook-triggered. This placement follows [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md).
+
+### Why Dispatcher-Owned, Not Hook-Triggered
+
+Hook-triggered gates (§8.2) fire at operation boundaries that every commit or push crosses. Semantic gates are too expensive for that: mutation analysis on a 500-line module runs 30--70 minutes. They fire once per developer-agent iteration in the gate loop, after the developer commits, and only for the story's changed files.
+
+### Why Not Developer-Owned
+
+A developer agent running its own quality gates is self-validation. The same principle that led ADR-0003 to block agents from running bare test commands applies here. The developer creates; the dispatcher validates. The developer never sees the gate scripts; it receives only the gate reports when a fix is needed.
+
+### Coherence with Testing Strategy
+
+The Factory's [testing-strategy.md](../../factory/rulebooks/conventions/testing-strategy.md) says "Test count and coverage percentage are diagnostics, not quality targets." The semantic gates respect this:
+
+- **CRAP score** is a composite structural gate. Coverage enters as a counterweight to cyclomatic complexity; the threshold is on the composite score (CRAP ≤ 8 by default), not on coverage itself. The pressure it applies is toward smaller code — not toward higher coverage percentages.
+- **Mutation analysis** is a code-smell gate. A surviving mutant means code does something no test observes. The response is investigation (remove dead code or add the missing contract test), not unconditional test creation.
+- **Dependency check** enforces what `architecture.dsl` already declares. Neither TDD nor the testing strategy addresses dependency direction; this gate fills an unoccupied gap.
+
+## 8.8 Architecture as a Concern, Not a Phase
+
+The `feature-addition` playbook historically routed through the full architecture phase whenever `impact.architecture_change: true` was declared in the proposal. This routing was manual and unverified. The `module-graph-check` script replaces the manual declaration with mechanical detection: it reads the module map from `architecture.dsl`, compares it against the feature's Phase 1 outputs, and determines whether the feature actually changes module boundaries, dependency directions, or public interfaces.
+
+This does not eliminate the architecture phase. It makes the routing decision deterministic. Features that add a new API endpoint to an existing module skip Phase 2; features that introduce a new module or invert a dependency direction enter Phase 2. After implementation, the reconciliation-agent catches any module-graph changes that the Phase 1 check missed.
+
+The pattern is two-pass: coarse structural routing from requirements, precise reconciliation from code.
+
+## 8.9 Consolidated Specification as Executable Artifact
+
+The `.feature` file produced by `derive-feature` is both a specification document and a test input. Gherkin syntax is consumed directly by `behave` (Python), `cucumber` (JS/Java/Ruby), and `godog` (Go). This dual nature creates two distinct integration points:
+
+- The **developer agent** reads the `.feature` file for acceptance criteria and writes step definitions that wire Given/When/Then steps to `@`-referenced code. Running the `.feature` through the test framework is part of the TDD cycle.
+- The **QA agent** runs the `.feature` file as an acceptance test. Each Scenario is a contract to verify; the `@`-references point at the code to inspect.
+
+The behavioral specification and the acceptance test are the same artifact. The [testing-strategy.md](../../factory/rulebooks/conventions/testing-strategy.md) convention recognizes `.feature` file execution as the acceptance test layer, distinct from unit and integration tests that own internal contracts. See [ADR-0011](../adr/0011-gherkin-feature-as-consolidated-specification-format.md).
+
+## 8.10 Code Traceability via @-References
+
+The `@`-reference notation links Gherkin Rules and Scenarios to the source code that implements them. The notation is scoped to `.feature` files only — prose documents continue to use full Markdown links per [cross-reference-format.md](../../factory/rulebooks/conventions/cross-reference-format.md).
+
+**Syntax:** `# @<path>::<Symbol>.<member>` (class or method), `# @<path>` (module-level).
+
+**Lifecycle:** `derive-feature` annotates existing code at Phase 1; the developer agent writes step definitions against `@`-referenced code at Phase 4; the reconciliation agent fills missing `@`-references at Phase 5. After reconciliation, every Rule carries at least one `@`-reference. Absence of an `@`-reference in the Phase 1 `.feature` file means "this behavior does not exist yet." After reconciliation, absence means "this behavior was specified but no code implements it" — a finding.
+
 ## Referenced from
 
 - [foundational-principles.md](../../factory/rulebooks/conventions/foundational-principles.md)
 - [05_building_block_view.md § 5.2.1](05_building_block_view.md#521-run-tests--test-execution-component)
+- [05_building_block_view.md § 5.2.3](05_building_block_view.md#523-semantic-quality-gates-crap-score-mutation-analysis-dependency-check)
 - [06_runtime_view.md § 6.2](06_runtime_view.md#62-test-execution-flow)
+- [06_runtime_view.md § 6.3](06_runtime_view.md#63-semantic-gate-loop)
 - [09_architecture_decisions.md](09_architecture_decisions.md)

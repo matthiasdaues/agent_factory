@@ -86,6 +86,14 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST** maintain a dispatch ledger (`.agent-factory/dispatch-ledger.yaml`) tracking each story's branch, worktree, declared base, gate results, commit SHA, merge SHA, and status.
 - **MUST** update the story file's `status` field in the same commit that delivers the story's implementation.
 
+## Step boundaries
+
+- **MUST** write a step manifest from the playbook's declared `inputs`, `outputs`, and `max_input_tokens` for non-dispatch steps.
+- **MUST** write a step manifest from the story frontmatter's `outputs` and `tests` for dispatch steps.
+- **MUST** treat the active step manifest as the read and write boundary for the running step agent.
+- **MUST NOT** read outside declared manifest inputs or write outside declared manifest outputs while the manifest is active.
+- **MUST** keep the manifest schema aligned with the playbook step declaration block and the guard loader.
+
 ## Commits
 
 → [commit-conventions.md](conventions/commit-conventions.md)

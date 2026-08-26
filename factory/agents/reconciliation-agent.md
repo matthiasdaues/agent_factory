@@ -17,6 +17,8 @@ inputs:
   - docs/spec/prd.md
   - docs/spec/use_cases/*.md
   - docs/spec/supplementary_specs/*.md
+  - docs/spec/*.feature
+  - docs/spec/scope-map.md
   - docs/*.md
   - docs/adr/*.md
   - src/**/*
@@ -26,13 +28,16 @@ inputs:
   - factory/rulebooks/conventions/commit-conventions.md
   - factory/rulebooks/conventions/review-loop-discipline.md
   - factory/rulebooks/conventions/dispatch-contract.md
+  - factory/rulebooks/conventions/cross-reference-format.md
 outputs:
   - docs/reviews/reconciliation-*.md
   - docs/spec/supplementary_specs/*.md (updated)
+  - docs/spec/*.feature (updated — @-ref backfill)
+  - docs/spec/scope-map.md (updated — discovery and drift reconciliation)
   - docs/*.md (updated)
   - docs/adr/*.md (new ADRs if decisions changed)
   - docs/arc42/CONTEXT.md (updated if terminology drifted)
-  - docs/findings/RECON-*.md (code defects found during reconciliation)
+  - docs/findings/RECON-*.md (code defects, missing @-refs, scope-map discovery/drift found during reconciliation)
 triggers:
   - "reconcile spec"
   - "spec back sync"
@@ -43,7 +48,7 @@ handoff-to:
   - qa-agent
   - implementation-agent
   - spec-review-agent
-version: 0.4.0
+version: 0.5.0
 ---
 
 # Reconciliation Agent
@@ -83,9 +88,22 @@ phase is exempt and may continue in the current session.
 
 **Invoke skill:** `reconcile-spec`
 
-1. **Read everything** — `src/`, `tests/` (actual behavior); `docs/spec/supplementary_specs/`, `system-use-cases.md`; `docs/arc42/05_building_block_view.md`, `docs/adr/`; `docs/arc42/CONTEXT.md`.
+**Timing:** one feature branch = one slice = one `.feature` file = one reconciliation pass. This agent runs once per feature branch, at Phase 5, pre-merge to dev — not per story merge within the branch. Running it per-story would surface partial-Rule noise before the slice's `.feature` file is complete.
+
+1. **Read everything** — `src/`, `tests/` (actual behavior); `docs/spec/supplementary_specs/`, `system-use-cases.md`; `docs/arc42/05_building_block_view.md`, `docs/adr/`; `docs/arc42/CONTEXT.md`; the current slice's `docs/spec/<feature-name>.feature`, when one governs the slice; `docs/spec/scope-map.md`, when it exists.
 2. **Reconcile** — Build truth maps from code and spec, diff them, classify discrepancies, update stale docs, file code defects per [finding-format.md](../rulebooks/conventions/finding-format.md). Commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `docs: <description> (RECON-NNNN)`. Report per [report-format.md](../rulebooks/conventions/report-format.md).
-3. **Verify prior findings** (repeat passes) — Per [review-loop-discipline.md](../rulebooks/conventions/review-loop-discipline.md): resolve/annotate each open `RECON` finding, **and** re-reconcile fresh to catch new drift.
+3. **Backfill `@`-references** (when a `.feature` file governs the slice) — Per [cross-reference-format.md § `@`-references in `.feature` files](../rulebooks/conventions/cross-reference-format.md#-references-in-feature-files):
+   - For each Scenario implemented during Phase 4 that carries no `@`-ref, inspect the step definitions and the code they exercise, then add the `# @<path>::<Symbol>` (or `.<member>`, or bare `@<path>`) comment pointing at the implementing code.
+   - After backfill, every Rule in the `.feature` file MUST have at least one `@`-ref (its own, or inherited from one of its Scenarios). A Rule with none — no existing code found for anything it specifies — is filed as a `RECON` finding, not silently left blank.
+   - A Scenario that still carries no `@`-ref after this step means "specified but no implementing code was found" — file it as a `RECON` finding distinct from the missing-Rule-ref case above.
+4. **Reconcile the scope map** (pre-merge to dev, when `docs/spec/scope-map.md` exists) — Per [Design 2 — Scope map reconciliation](../../docs/proposals/agentic-quality-gates-and-specification-consolidation.md#2-specification-as-gherkin-feature-file--derive-feature):
+   - Grep every live `.feature` file on the branch for `^  Rule:` lines and diff the resulting Rule set against the scope map's Rule column.
+   - **Skip migration rows**: a scope-map row whose `Source`/`Feature file` column points at a `UC-XX-*.md` file (an old-format entry from `scope-map-migration`) is exempt from this diff — it has no `.feature` file to compare against.
+   - **Discovery** — a Rule present in the `.feature` file but absent from the scope map means a new actor-goal pair was found during implementation. Add it to the scope map with status `implemented` (the code already exists — the scope map is descriptive, not aspirational) and its `.feature` file link, and file a `RECON` finding recording the discovery.
+   - **Drift** — a scope-map Rule marked `specified` (pointing at this branch's `.feature` file) that no longer appears in the `.feature` file means a scenario was dropped or merged into another Rule. File a `RECON` finding surfacing the drift; do not silently remove the row — the human decides whether to delete it or restore the Rule.
+   - Move every Rule that was `specified` for this slice and is still present in the `.feature` file to `implemented`, and update its link to the archived `.feature` file if one was moved under `docs/~archive/`.
+   - **PR body**: when the merge to dev is opened as an agent-authored pull request, list every newly discovered Rule from this step in the PR body, so the human reviewer sees the scope change before approving. When the merge is a direct script-owned merge with no PR, record the same list in the reconciliation report instead.
+5. **Verify prior findings** (repeat passes) — Per [review-loop-discipline.md](../rulebooks/conventions/review-loop-discipline.md): resolve/annotate each open `RECON` finding, **and** re-reconcile fresh (Steps 2–4) to catch new drift.
 
 **Pause point:** Present the discrepancy table before committing updates. Human decides: update spec or change code?
 
@@ -93,6 +111,8 @@ phase is exempt and may continue in the current session.
 
 - Every discrepancy classified, docs updated (after approval), code defects filed
 - `spec-lint` and `arch-lint` pass
+- Every Rule in the slice's `.feature` file has at least one `@`-ref, or a `RECON` finding is filed for the ones that don't
+- The scope map reflects the `.feature` file's Rules after the merge-time diff: discoveries entered as `implemented` with a filed finding, drift surfaced as a filed finding, migration rows (UC-XX sources) skipped
 - Prior findings resolved or annotated
 
 ## Handoff

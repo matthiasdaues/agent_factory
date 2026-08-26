@@ -4,6 +4,158 @@ category: orchestration
 type: runbook
 scenario: feature-addition
 version: 1.2.0
+steps:
+  - name: clarify-requirements
+    inputs:
+      - 'docs/proposals/**/*.md'
+      - 'docs/spec/**/*.md'
+      - 'docs/charter/**/*.md'
+    outputs:
+      - 'docs/proposals/**/*.md'
+    max_input_tokens: 40000
+  - name: charter-amendment-check
+    inputs:
+      - 'docs/proposals/**/*.md'
+      - 'docs/charter/**/*.md'
+    outputs:
+      - 'docs/charter/**/*.md'
+      - 'backlog/ST-0*.md'
+    max_input_tokens: 40000
+  - name: accept-proposal
+    inputs:
+      - 'docs/proposals/**/*.md'
+    outputs:
+      - 'docs/proposals/**/*.md'
+    max_input_tokens: 20000
+  - name: route-from-declared-impact
+    inputs:
+      - 'docs/proposals/**/*.md'
+    outputs: []
+    max_input_tokens: 20000
+  - name: update-specification
+    inputs:
+      - 'docs/proposals/**/*.md'
+      - 'docs/spec/**/*.md'
+    outputs:
+      - 'docs/spec/**/*.md'
+    max_input_tokens: 40000
+  - name: spec-review
+    inputs:
+      - 'docs/proposals/**/*.md'
+      - 'docs/spec/**/*.md'
+    outputs:
+      - 'docs/findings/SPEC-*.md'
+    max_input_tokens: 40000
+  - name: decision-point-1-3
+    inputs:
+      - 'docs/findings/SPEC-*.md'
+    outputs: []
+    max_input_tokens: 20000
+  - name: update-architecture
+    inputs:
+      - 'docs/proposals/**/*.md'
+      - 'docs/spec/**/*.md'
+      - 'docs/adr/**/*.md'
+      - 'docs/arc42/**/*.md'
+    outputs:
+      - 'docs/adr/**/*.md'
+      - 'docs/arc42/**/*.md'
+    max_input_tokens: 40000
+  - name: architecture-review
+    inputs:
+      - 'docs/adr/**/*.md'
+      - 'docs/arc42/**/*.md'
+    outputs:
+      - 'docs/findings/ATAM-*.md'
+    max_input_tokens: 40000
+  - name: decision-point-2-3
+    inputs:
+      - 'docs/findings/ATAM-*.md'
+    outputs: []
+    max_input_tokens: 20000
+  - name: create-stories
+    inputs:
+      - 'docs/proposals/**/*.md'
+      - 'docs/spec/**/*.md'
+      - 'docs/arc42/**/*.md'
+    outputs:
+      - 'backlog/ST-*.md'
+    max_input_tokens: 40000
+  - name: validate-backlog
+    inputs:
+      - 'backlog/ST-*.md'
+    outputs: []
+    max_input_tokens: 20000
+  - name: reconcile-plan-with-proposal
+    inputs:
+      - 'backlog/ST-*.md'
+      - 'docs/proposals/**/*.md'
+    outputs:
+      - 'docs/proposals/**/*.md'
+    max_input_tokens: 20000
+  - name: approve-backlog
+    inputs:
+      - 'backlog/ST-*.md'
+      - 'docs/proposals/**/*.md'
+    outputs: []
+    max_input_tokens: 20000
+  - name: implement-stories
+    inputs:
+      - 'backlog/ST-*.md'
+      - 'docs/spec/**/*.md'
+      - 'factory/**/*.py'
+      - 'orchestrator/**/*.py'
+      - 'tests/**/*.py'
+      - 'config/**/*.json'
+    outputs:
+      - 'factory/**/*.py'
+      - 'orchestrator/**/*.py'
+      - 'tests/**/*.py'
+      - 'config/**/*.json'
+      - 'docs/**/*.md'
+      - 'backlog/ST-*.md'
+    max_input_tokens: 100000
+  - name: reconcile
+    inputs:
+      - 'backlog/ST-*.md'
+      - 'docs/spec/**/*.md'
+      - 'factory/**/*.py'
+      - 'orchestrator/**/*.py'
+      - 'tests/**/*.py'
+      - 'config/**/*.json'
+    outputs:
+      - 'factory/**/*.py'
+      - 'orchestrator/**/*.py'
+      - 'tests/**/*.py'
+      - 'config/**/*.json'
+      - 'docs/**/*.md'
+      - 'backlog/ST-*.md'
+    max_input_tokens: 100000
+  - name: decision-point-4-3
+    inputs:
+      - 'docs/findings/RECON-*.md'
+    outputs: []
+    max_input_tokens: 20000
+  - name: qa
+    inputs:
+      - 'factory/**/*.py'
+      - 'orchestrator/**/*.py'
+      - 'tests/**/*.py'
+      - 'docs/**/*.md'
+      - 'config/**/*.json'
+    outputs:
+      - 'docs/findings/FAGAN-*.md'
+      - 'docs/findings/BUG-*.md'
+      - 'docs/findings/SEC-*.md'
+      - 'docs/reviews/**/*.md'
+    max_input_tokens: 100000
+  - name: decision-point-5-2
+    inputs:
+      - 'docs/findings/FAGAN-*.md'
+      - 'docs/findings/BUG-*.md'
+      - 'docs/findings/SEC-*.md'
+    outputs: []
+    max_input_tokens: 20000
 ---
 
 # Feature Addition Playbook
@@ -120,15 +272,34 @@ the work using Step 0.3.
 
 ### Step 0.3 — Route from Declared Impact
 
-- Specification work is required when the accepted design changes behavior,
-  use cases, quality requirements, or an external contract. Otherwise, skip to
-  Phase 2.
-- `impact.architecture_change: true` requires Phase 2.
-- `impact.architecture_change: false` skips Phase 2 after required specification
-  work.
+Routing to Phase 1 (Requirements) and Phase 2 (Architecture) is based on the
+proposal's declared impact and refined by a mechanical verification of the
+architecture change declaration after Phase 1 completes.
 
-Do not infer a small/large shortcut independently of the accepted proposal.
-`impact`, `governance`, and Completion Criteria are the planning inputs.
+**Routing to Phase 1:**
+
+Specification work is required when the accepted design changes behavior, use
+cases, quality requirements, or an external contract. Otherwise, specification
+is not required.
+
+- **If specification work is required:** Proceed to Phase 1.
+- **If specification work is not required:** Skip Phase 1 and proceed to Step
+  1.4 (Mechanical Architecture Check).
+
+**Routing to Phase 2 and Phase 3:**
+
+After Phase 1 completes (or is skipped), execute Step 1.4 to run the mechanical
+architecture check. This check examines the proposal's Phase 1 outputs and may
+update the proposal's `impact.architecture_change` field. Then:
+
+- `impact.architecture_change: true` (after possible mechanical update)
+  requires Phase 2.
+- `impact.architecture_change: false` skips Phase 2 and proceeds directly to
+  Phase 3.
+
+**Planning constraint:** Do not infer a small/large shortcut independently of
+the accepted proposal. `impact`, `governance`, and Completion Criteria are the
+routing inputs.
 
 ## Approval Contract
 
@@ -185,13 +356,64 @@ grep -l "status: open" docs/findings/SPEC-*.md
 ```
 
 **If open** → Loop to Step 1.1
-**If clean** → Go to Phase 2
+**If clean** → Proceed to Step 1.4
+
+### Step 1.4 — Mechanical Architecture Check
+
+*Execute this step after Phase 1 is complete (if it ran), or immediately if
+Phase 1 was skipped.*
+
+Run the mechanical module-graph check to verify whether the feature's Phase 1
+outputs declare architectural changes:
+
+```bash
+factory/scripts/module-graph-check
+```
+
+**What the check does:**
+
+1. Reads the current module structure from `docs/arc42/architecture.dsl`
+2. Analyzes the feature's Phase 1 outputs (`docs/spec/supplementary_specs/interface-contracts.md`,
+   `docs/spec/supplementary_specs/entity-model.md`) to identify new or changed
+   interfaces and entities
+3. Determines whether the feature changes module boundaries, dependency
+   directions, or public interfaces
+4. Updates the proposal's `impact.architecture_change` field based on the
+   findings
+
+**Override semantics:**
+
+- **Field is `false`, check detects change (`true`):** Machine detection wins.
+  Update the field to `true`, annotated `# mechanical detection`.
+- **Field is `true`, check detects no change (`false`):** Human declaration
+  stands conservatively. Log the check result, but leave the field as `true`.
+  A later manual review may update it to `false` if Phase 2 produces no changes.
+- **Human override:** After seeing the check result, record any override as a
+  comment on the field
+  (e.g., `architecture_change: false  # manual override — no boundary change despite new interface`).
+
+**Constraints and safety:**
+
+- The check uses Phase 1 outputs only; it does not depend on story files or
+  implementation artifacts.
+- After implementation (Phase 5), the `reconciliation-agent` reconciles
+  `architecture.dsl` and arc42 documentation against the code-as-built, catching
+  any module-graph changes missed by this Phase 1 check.
+
+**Routing result:**
+
+Proceed based on the (possibly updated) `impact.architecture_change` value:
+
+- If `true`, go to Phase 2
+- If `false`, skip Phase 2 and go to Phase 3
 
 ## Phase 2: Architecture (If Architectural Changes Needed)
 
-Enter this phase when `impact.architecture_change` is `true`. If implementation
-discovery contradicts that declaration, the proposal has materially changed:
-return it to `open`, amend it, and repeat acceptance before continuing.
+Enter this phase when `impact.architecture_change` is `true` (as determined by
+Step 0.3 declaration and refined by Step 1.4's mechanical check). If
+implementation discovery contradicts that determination, the proposal has
+materially changed: return it to `open`, amend it, and repeat acceptance before
+continuing.
 
 ### Step 2.1 — Update Architecture
 
