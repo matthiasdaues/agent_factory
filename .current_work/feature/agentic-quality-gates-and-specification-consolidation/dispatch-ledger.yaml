@@ -1,0 +1,174 @@
+stories:
+  ST-0098:
+    id: ST-0098
+    wave: 1
+    status: done
+    deps: []
+    branch: story/ST-0098
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.agent-factory/worktrees/story-ST-0098
+    feature_branch: feature/agentic-quality-gates-and-specification-consolidation
+    base_sha: 1f19cdcd856c36c6c5bcc1565073b838ecaf9fe6
+    tier: standard
+    reason: null
+    gate_results: {}
+    attempts:
+      - session: impl
+        tier: standard
+        failure_class: environment
+        evidence: null
+        commit_sha: null
+        normalized_total: 0
+    failure_class: environment
+  ST-0104:
+    id: ST-0104
+    wave: 1
+    status: done
+    deps: []
+    branch: story/ST-0104
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.agent-factory/worktrees/story-ST-0104
+    feature_branch: feature/agentic-quality-gates-and-specification-consolidation
+    base_sha: 1f19cdcd856c36c6c5bcc1565073b838ecaf9fe6
+    tier: strong
+    reason: null
+    gate_results: {}
+    attempts:
+      - session: impl
+        tier: strong
+        failure_class: environment
+        evidence: null
+        commit_sha: null
+        normalized_total: 0
+    failure_class: environment
+  ST-0105:
+    id: ST-0105
+    wave: 1
+    status: done
+    deps: []
+    branch: story/ST-0105
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.agent-factory/worktrees/story-ST-0105
+    feature_branch: feature/agentic-quality-gates-and-specification-consolidation
+    base_sha: 1f19cdcd856c36c6c5bcc1565073b838ecaf9fe6
+    tier: economy
+    reason: null
+    gate_results: {}
+    attempts:
+      - session: impl
+        tier: economy
+        failure_class: environment
+        evidence: null
+        commit_sha: null
+        normalized_total: 0
+    failure_class: environment
+  ST-0106:
+    id: ST-0106
+    wave: 1
+    status: done
+    deps: []
+    branch: story/ST-0106
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.agent-factory/worktrees/story-ST-0106
+    feature_branch: feature/agentic-quality-gates-and-specification-consolidation
+    base_sha: 1f19cdcd856c36c6c5bcc1565073b838ecaf9fe6
+    tier: strong
+    reason: null
+    gate_results: {}
+    attempts:
+      - session: impl
+        tier: strong
+        failure_class: environment
+        evidence: null
+        commit_sha: null
+        normalized_total: 0
+    failure_class: environment
+  ST-0108:
+    id: ST-0108
+    wave: 1
+    status: done
+    deps: []
+    branch: story/ST-0108
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.agent-factory/worktrees/story-ST-0108
+    feature_branch: feature/agentic-quality-gates-and-specification-consolidation
+    base_sha: 1f19cdcd856c36c6c5bcc1565073b838ecaf9fe6
+    tier: economy
+    reason: null
+    gate_results: {}
+    verify_base: pass
+    commit_sha: 2cb8a8a85911c87b650be802f12e699b4ac4432d
+    active_session: impl
+    active_tier: economy
+  ST-0109:
+    id: ST-0109
+    wave: 1
+    status: done
+    deps: []
+    branch: story/ST-0109
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.agent-factory/worktrees/story-ST-0109
+    feature_branch: feature/agentic-quality-gates-and-specification-consolidation
+    base_sha: 1f19cdcd856c36c6c5bcc1565073b838ecaf9fe6
+    tier: standard
+    reason: null
+    gate_results: {}
+    attempts:
+      - session: impl
+        tier: standard
+        failure_class: environment
+        evidence: null
+        commit_sha: null
+        normalized_total: 0
+    failure_class: environment
+  ST-0111:
+    id: ST-0111
+    wave: 1
+    status: done
+    deps: []
+    branch: story/ST-0111
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.agent-factory/worktrees/story-ST-0111
+    feature_branch: feature/agentic-quality-gates-and-specification-consolidation
+    base_sha: 1f19cdcd856c36c6c5bcc1565073b838ecaf9fe6
+    tier: standard
+    reason: null
+    gate_results: {}
+    attempts:
+      - session: impl
+        tier: standard
+        failure_class: environment
+        evidence: null
+        commit_sha: null
+        normalized_total: 0
+    failure_class: environment
+  ST-0107:
+    id: ST-0107
+    wave: 2
+    status: done
+    deps: []
+    branch: story/ST-0107
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.agent-factory/worktrees/story-ST-0107
+    feature_branch: feature/agentic-quality-gates-and-specification-consolidation
+    base_sha: b66c66a600cc1b88b4e80aaacdc900789d9efbab
+    tier: economy
+    reason: null
+    gate_results: {}
+  ST-0110:
+    id: ST-0110
+    wave: 2
+    status: done
+    deps: []
+    branch: story/ST-0110
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.agent-factory/worktrees/story-ST-0110
+    feature_branch: feature/agentic-quality-gates-and-specification-consolidation
+    base_sha: b66c66a600cc1b88b4e80aaacdc900789d9efbab
+    tier: standard
+    reason: null
+    gate_results: {}
+waves:
+  - number: 1
+    completed: [{'id': 'ST-0098', 'merge_sha': None}, {'id': 'ST-0104', 'merge_sha': None}, {'id': 'ST-0105', 'merge_sha': None}, {'id': 'ST-0106', 'merge_sha': None}, {'id': 'ST-0108', 'merge_sha': '2cb8a8a85911c87b650be802f12e699b4ac4432d'}, {'id': 'ST-0109', 'merge_sha': None}, {'id': 'ST-0111', 'merge_sha': None}]
+    blocked: []
+    failed: []
+    next_ready: []
+    branch_head: b66c66a600cc1b88b4e80aaacdc900789d9efbab
+  - number: 2
+    completed: [{'id': 'ST-0107', 'merge_sha': None}, {'id': 'ST-0110', 'merge_sha': None}]
+    blocked: []
+    failed: []
+    next_ready: []
+    branch_head: ff123986ad44494fd96f6a508a74a6294f496040

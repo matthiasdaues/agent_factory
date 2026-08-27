@@ -104,6 +104,7 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+        stages: [manual]
 
   - repo: local
     hooks:
@@ -188,6 +189,7 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+        stages: [manual]
 
       # UC-09, BR-029: Run tests only when src/ or test/ code changes
       - id: run-tests

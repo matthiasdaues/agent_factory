@@ -27,7 +27,6 @@ models/
 /.claude/
 /.pi/
 /.agent-factory/
-/.current_work/
 /session-scratchpad.md
 /config/project.json
 /AGENTS.md
@@ -59,6 +58,7 @@ models/
 /.codex/hooks.json
 /.codex/hooks/block-dangerous-git.sh
 /.codex/hooks/capture-codex-usage.sh
+/.codex/hooks/step-guard.sh
 /.codex/playbooks
 /.codex/rulebooks
 /.codex/scripts
@@ -71,7 +71,10 @@ models/
 /.agents/skills/claim-formulation
 /.agents/skills/clarify-requirements
 /.agents/skills/commit
+/.agents/skills/crap-score
 /.agents/skills/create-backlog
+/.agents/skills/dependency-check
+/.agents/skills/derive-feature
 /.agents/skills/derive-spec
 /.agents/skills/domain-modeling
 /.agents/skills/fagan-review
@@ -84,8 +87,10 @@ models/
 /.agents/skills/inspect-spec
 /.agents/skills/maintain-architecture
 /.agents/skills/model-structurizr-slice
+/.agents/skills/mutation-analysis
 /.agents/skills/process-transcript
 /.agents/skills/pugh-matrix
+/.agents/skills/qa-strategy-from-spec
 /.agents/skills/reconcile-spec
 /.agents/skills/refutation-design
 /.agents/skills/research-planning
@@ -94,6 +99,7 @@ models/
 /.agents/skills/retrospective
 /.agents/skills/run-step
 /.agents/skills/scaffold-arc42
+/.agents/skills/scope-map-migration
 /.agents/skills/scratchpad
 /.agents/skills/security-review
 /.agents/skills/source-research
