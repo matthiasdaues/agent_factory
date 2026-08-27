@@ -10,6 +10,9 @@ session-scratchpad.md
 # machines or meant to be reviewed; see docs/proposals/.
 .agent-factory/
 
+# Exported architecture diagrams — SVG only, ignore PNGs
+docs/assets/images/*.png
+
 # Python specific folders and files
 __pycache__/
 *.pyc

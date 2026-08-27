@@ -15,7 +15,7 @@ Factory Flow Control consists of three primary containers:
 | State Files       | Local git-ignored marker (`.agent-factory/playbook-state.yml`) and FSM defs                      | YAML (storage)            |
 | Catalog           | Generated `factory/INDEX.yaml` from agent/skill/playbook/rulebook frontmatter, with token counts | YAML (storage)            |
 
-![Containers](../assets/images/Containers.png)
+![Containers](../assets/images/Containers.svg)
 
 ## 5.2 Level 2: Component View — Validator
 
