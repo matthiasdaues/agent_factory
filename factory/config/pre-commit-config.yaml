@@ -23,14 +23,14 @@ repos:
       # lints all python files (skip if the project isn't Python) — zero local install, via uvx
       - id: agent_factory_hook-ruff-check
         name: "agent_factory: ruff check"
-        entry: uvx ruff check --fix
+        entry: uvx ruff@0.16.5 check --fix
         language: system
         types_or: [python, pyi, jupyter]
 
       # lints python code blocks in markdown — zero local install, via uvx
       - id: agent_factory_hook-ruff-format
         name: "agent_factory: ruff format"
-        entry: uvx ruff format
+        entry: uvx ruff@0.16.5 format
         language: system
         types_or: [python, pyi, jupyter]
 

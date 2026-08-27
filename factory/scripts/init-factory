@@ -606,7 +606,10 @@ def preflight_copilot_agents(target: Path, install: dict) -> None:
             if current == canonical:
                 continue  # Old symlink from prior init; will be replaced
         try:
-            if destination.read_bytes() == (factory / "agents" / destination.name).read_bytes():
+            if (
+                destination.read_bytes()
+                == (factory / "agents" / destination.name).read_bytes()
+            ):
                 continue  # Byte-identical copy from prior init
         except OSError:
             pass
@@ -625,7 +628,10 @@ def install_copilot_agents(target: Path, install: dict, report: list[str]) -> No
 
     if agents_dir.is_symlink():
         agents_dir.unlink()
-        log(report, ".github/agents: removed directory symlink (replaced by generated copies)")
+        log(
+            report,
+            ".github/agents: removed directory symlink (replaced by generated copies)",
+        )
 
     agents_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1052,9 +1058,7 @@ def _install_copilot_guardrail(target: Path, install: dict, report: list[str]) -
     ensure_symlink(config_link, config_dest, report, install=install)
 
 
-def _install_copilot_step_guard(
-    target: Path, install: dict, report: list[str]
-) -> None:
+def _install_copilot_step_guard(target: Path, install: dict, report: list[str]) -> None:
     hooks_dir = target / ".github" / "hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
     install["github_ignored_entries"].add(".github/hooks")
@@ -1088,9 +1092,13 @@ def _install_codex_step_guard(target: Path, install: dict, report: list[str]) ->
     changed = False
     for event, command in CODEX_STEP_GUARD_HOOK_COMMANDS.items():
         already_wired = any(
-            isinstance(hook, dict) and hook.get("command") == command
+            isinstance(entry, dict)
+            and entry.get("matcher") == event
+            and any(
+                isinstance(hook, dict) and hook.get("command") == command
+                for hook in (entry.get("hooks", []) if isinstance(entry, dict) else [])
+            )
             for entry in entries
-            for hook in (entry.get("hooks", []) if isinstance(entry, dict) else [])
         )
         if already_wired:
             continue
@@ -1287,8 +1295,14 @@ def _ensure_claude_step_guard_settings(
 
     changed = False
     for tool_name, command in CLAUDE_STEP_GUARD_HOOK_COMMANDS.items():
-        changed = _wire_claude_step_guard_event(path, hooks, tool_name, command, report) or changed
-        changed = _migrate_legacy_step_guard_event(hooks, tool_name, command, report) or changed
+        changed = (
+            _wire_claude_step_guard_event(path, hooks, tool_name, command, report)
+            or changed
+        )
+        changed = (
+            _migrate_legacy_step_guard_event(hooks, tool_name, command, report)
+            or changed
+        )
 
     if changed:
         path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
@@ -1308,7 +1322,10 @@ def _wire_claude_step_guard_event(
         entry_hooks = entry.get("hooks", []) if isinstance(entry, dict) else []
         for hook in entry_hooks:
             if isinstance(hook, dict) and hook.get("command") == command:
-                log(report, f".claude/settings.json: {tool_name} step-guard hook already wired in")
+                log(
+                    report,
+                    f".claude/settings.json: {tool_name} step-guard hook already wired in",
+                )
                 return False
 
     pre_tool_use.append(

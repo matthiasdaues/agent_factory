@@ -272,7 +272,7 @@ def strip_settings_hook(target: Path, manifest: dict) -> None:
         removed_events.append("git-safety PreToolUse")
 
     for event, command in CLAUDE_STEP_GUARD_HOOK_COMMANDS.items():
-        if _strip_hook_command(hooks, "PreToolUse", command):
+        if _strip_hook_command(hooks, event, command):
             removed_events.append(f"step-guard {event}")
         if _strip_hook_command(hooks, event, command):
             removed_events.append(f"step-guard {event} (legacy)")

@@ -372,7 +372,7 @@ export async function spawnPi(
   args: string[],
   cwd: string,
   childDepth: number,
-  signal: AbortSignal,
+  signal: AbortSignal | undefined,
   sessionId: string,
   parentSessionId?: string,
   usageRoot?: string,
@@ -394,7 +394,7 @@ export async function spawnPi(
 
   // Early cancellation: if the parent signal is already aborted, return a
   // distinct cancellation result without ever touching spawn.
-  if (signal.aborted) {
+  if (signal?.aborted) {
     return { status: null, stdout: "", stderr: "", error: null, cancelled: true };
   }
 
@@ -406,11 +406,9 @@ export async function spawnPi(
       detached: process.platform !== "win32",
     }) as ChildProcessWithoutNullStreams;
 
-    // Detached children on non-win32 must be unref'd so they don't keep the
-    // parent event loop alive after the pipes are destroyed (mirrors runPiStreamed).
-    if (process.platform !== "win32") {
-      child.unref();
-    }
+    // Detached: the child runs in its own process group so terminate() can
+    // signal the whole tree. Do NOT unref — the child handle must stay
+    // referenced so the event loop waits for the "close" event to fire.
 
     let stdout = "";
     let stderr = "";
@@ -450,7 +448,7 @@ export async function spawnPi(
     };
 
     // Listen to the parent signal and cancel the running child.
-    signal.addEventListener("abort", terminate, { once: true });
+    signal?.addEventListener("abort", terminate, { once: true });
 
     child.stdout.on("data", (d) => (stdout += d.toString()));
     child.stderr.on("data", (d) => (stderr += d.toString()));
@@ -459,7 +457,7 @@ export async function spawnPi(
     const finish = (result: SpawnResult) => {
       if (settled) return;
       settled = true;
-      signal.removeEventListener("abort", terminate);
+      signal?.removeEventListener("abort", terminate);
       resolve(result);
     };
 

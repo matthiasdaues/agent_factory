@@ -182,8 +182,12 @@ def _parse_yaml_frontmatter(frontmatter: str) -> dict:
 
             # Handle list syntax: key: [item1, item2]
             if value.startswith("[") and value.endswith("]"):
-                items = value[1:-1].split(",")
-                result[key] = [item.strip() for item in items]
+                inner = value[1:-1].strip()
+                result[key] = (
+                    [item.strip() for item in inner.split(",") if item.strip()]
+                    if inner
+                    else []
+                )
             # Handle list items on next lines
             elif value == "" or value.startswith("-"):
                 items = []
@@ -236,7 +240,7 @@ def read_story_file(story_id: str) -> dict | None:
             return yaml.safe_load(frontmatter)
         else:
             return _parse_yaml_frontmatter(frontmatter)
-    except Exception:
+    except (OSError, ValueError, KeyError):
         return None
 
 
@@ -264,10 +268,10 @@ def get_quality_gates(story_id: str) -> list[str]:
                             if start != -1:
                                 end = line.find("]", start)
                                 if end != -1:
-                                    gates_str = line[start + 1:end]
+                                    gates_str = line[start + 1 : end]
                                     gates = [g.strip() for g in gates_str.split(",")]
                                     return gates
-            except Exception:
+            except (OSError, ValueError):
                 pass
 
     # Factory hardcoded default: all three gates
@@ -296,7 +300,7 @@ def check_semantic_gates(story_id: str) -> tuple[bool, list[str]]:
             data = json.loads(gate_result_file.read_text())
             if not data.get("passed", False):
                 failed_gates.append(f"{gate} (failed)")
-        except Exception:
+        except (OSError, ValueError, KeyError):
             failed_gates.append(f"{gate} (invalid result)")
 
     return len(failed_gates) == 0, failed_gates

@@ -50,10 +50,10 @@ fi
 if echo "$COMMAND" | grep -qE '^git[[:space:]]+switch[[:space:]]+([^|&;]*[[:space:]])?-[cC]([[:space:]]|$)' \
    || echo "$COMMAND" | grep -qE '^git[[:space:]]+checkout[[:space:]]+([^|&;]*[[:space:]])?-[bB]([[:space:]]|$)' \
    || echo "$COMMAND" | grep -qE '^git[[:space:]]+branch[[:space:]]+(--track[[:space:]]+|--copy[[:space:]]+|-c[[:space:]]+|-C[[:space:]]+)?[^-[:space:]][^[:space:]|&;]*([[:space:]]+[^[:space:]|&;]+)?([[:space:]]*[|&;]|[[:space:]]*$)'; then
-  deny "standalone branch creation is forbidden. Create the branch and its linked worktree atomically with: git worktree add -b <branch> .agent-factory/worktrees/<branch> <base>."
+  deny "standalone branch creation is forbidden. Create the branch and its linked worktree atomically with: git worktree add -b <branch> .current-work/<branch> <base>."
 fi
 
-# Worktrees must live under .agent-factory/worktrees/.  Deny `git worktree add`
+# Worktrees must live under .current-work/.  Deny `git worktree add`
 # when the path argument does not start with that prefix.
 if echo "$COMMAND" | grep -qE '^git[[:space:]]+worktree[[:space:]]+add[[:space:]]'; then
   WT_PATH=""
@@ -69,8 +69,8 @@ if echo "$COMMAND" | grep -qE '^git[[:space:]]+worktree[[:space:]]+add[[:space:]
   done
   if [ -n "$WT_PATH" ]; then
     case "$WT_PATH" in
-      .agent-factory/worktrees/*) ;; # allowed
-      *) deny "worktrees must be created under .agent-factory/worktrees/. Got: $WT_PATH" ;;
+      .current-work/*) ;; # allowed
+      *) deny "worktrees must be created under .current-work/. Got: $WT_PATH" ;;
     esac
   fi
 fi
