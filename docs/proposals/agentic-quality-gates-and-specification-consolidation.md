@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: "Agentic Quality Gates and Requirements Consolidation"
-status: accepted
+status: implemented
 owner: matthiasdaues
 created: 2026-08-24
 updated: 2026-08-24  # colleague enhancements: @-refs, executable spec, playbook terminals

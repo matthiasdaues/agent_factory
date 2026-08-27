@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: Mechanized Dispatch and Step Isolation
-status: accepted
+status: implemented
 owner: md@matthiasdaues.de
 created: 2026-08-21
 updated: 2026-08-26

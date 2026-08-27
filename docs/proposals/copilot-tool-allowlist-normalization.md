@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: "Copilot Tool Allowlist Normalization"
-status: draft
+status: implemented
 owner: agent-factory
 created: 2026-08-26
 updated: 2026-08-26
