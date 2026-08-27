@@ -1,6 +1,6 @@
 # Mechanized Dispatch and Step Isolation — Behavioral Specification
 
-Origin: [mechanized-dispatch-and-step-isolation.md](../../proposals/mechanized-dispatch-and-step-isolation.md) (accepted 2026-08-21)
+Origin: [mechanized-dispatch-and-step-isolation.md](../../proposals/implemented/mechanized-dispatch-and-step-isolation.md) (accepted 2026-08-21)
 
 This specification describes the behavioral contracts of the mechanized dispatch system as Gherkin scenarios organized by DDD bounded context. Each Feature covers one aggregate or service boundary. Scenarios within a Feature are disjoint; the set of all Features covers the proposal's scope completely.
 

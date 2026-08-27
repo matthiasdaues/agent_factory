@@ -37,9 +37,9 @@ estimate:
 
 ## Problem
 
-Playbooks in [`factory/playbooks/`](../../playbooks/) are prose runbooks: a human reads one, opens an AI-CLI session per step, and drives the phase chain — requirements → spec-review → architecture → architecture-review → planning → implementation → reconciliation → qa — by hand. The deterministic gates ([`spec-lint`](../../scripts/spec-lint), [`arch-lint`](../../scripts/arch-lint), [`backlog-lint`](../../scripts/backlog-lint)) check whether an artifact is *valid*, not *which phase the run is in*. Nothing catches an out-of-order move — architecture artifacts committed before the spec gate passes, for example. Ordering is enforced only by the human following the prose.
+Playbooks in [`factory/playbooks/`](../../factory/playbooks/) are prose runbooks: a human reads one, opens an AI-CLI session per step, and drives the phase chain — requirements → spec-review → architecture → architecture-review → planning → implementation → reconciliation → qa — by hand. The deterministic gates ([`spec-lint`](../../factory/scripts/spec-lint), [`arch-lint`](../../factory/scripts/arch-lint), [`backlog-lint`](../../factory/scripts/backlog-lint)) check whether an artifact is *valid*, not *which phase the run is in*. Nothing catches an out-of-order move — architecture artifacts committed before the spec gate passes, for example. Ordering is enforced only by the human following the prose.
 
-[`greenfield-development.fsm.yml`](../../playbooks/greenfield-development.fsm.yml) already declares states, gate conditions, and legal transitions in YAML — but nothing reads it at commit time. This memo proposes making one such file *authoritative*, enforced by a hook, with no external orchestrator, for a human driving one session at a time.
+[`greenfield-development.fsm.yml`](../../factory/playbooks/greenfield-development.fsm.yml) already declares states, gate conditions, and legal transitions in YAML — but nothing reads it at commit time. This memo proposes making one such file *authoritative*, enforced by a hook, with no external orchestrator, for a human driving one session at a time.
 
 ## 1. State-transition control via pre-commit
 
@@ -60,13 +60,13 @@ A human advances the marker with one command, `factory/scripts/phase advance` (s
 
 The existing gates are untouched: `transition-lint` governs ordering *between* phases, `spec-lint` and friends govern validity *within* one.
 
-**Notation.** [state-machine-notation.md](../../rulebooks/conventions/state-machine-notation.md) governs state machines embedded in spec prose (pseudocode as source of truth). A playbook is a different artifact class — workflow orchestration, not spec content — and keeps the `.fsm.yml` YAML shape instead. If the project disagrees, reconcile this boundary before adopting.
+**Notation.** [state-machine-notation.md](../../factory/rulebooks/conventions/state-machine-notation.md) governs state machines embedded in spec prose (pseudocode as source of truth). A playbook is a different artifact class — workflow orchestration, not spec content — and keeps the `.fsm.yml` YAML shape instead. If the project disagrees, reconcile this boundary before adopting.
 
 ## 2. Parseable handover artifacts
 
-Today a phase hands off through free prose — spec-review-agent's [`## Handoff`](../../agents/spec-review-agent.md) section reads *"Spec review found N open findings. Address them."* A hook cannot parse that.
+Today a phase hands off through free prose — spec-review-agent's [`## Handoff`](../../factory/agents/spec-review-agent.md) section reads *"Spec review found N open findings. Address them."* A hook cannot parse that.
 
-Do not invent a parallel handover format, and do not overload findings frontmatter with it. The [finding frontmatter](../../rulebooks/templates/finding.md#frontmatter) already owns the one fact that decides a review phase's exit — how many findings are open. It stays the authority on defects; a finding is about an artifact, not a run.
+Do not invent a parallel handover format, and do not overload findings frontmatter with it. The [finding frontmatter](../../factory/rulebooks/templates/finding.md#frontmatter) already owns the one fact that decides a review phase's exit — how many findings are open. It stays the authority on defects; a finding is about an artifact, not a run.
 
 So the handover artifact is the run-state marker from §1, extended with a few fields:
 
@@ -123,16 +123,16 @@ sequenceDiagram
 
 Authors: the `.fsm.yml` already carries `states`, `outputs`, `entry_conditions`, and `transitions`; the only new discipline is keeping `outputs:` globs honest, since the hook maps staged files through them. Users: one new habit — run `phase advance` at each phase boundary. The prose playbook stays hand-drivable without it.
 
-**Smallest viable first step:** don't convert every playbook. Make the existing [`greenfield-development.fsm.yml`](../../playbooks/greenfield-development.fsm.yml) enforcing for exactly one rule — architecture artifacts cannot be committed while the spec gate is unpassed — with the marker file and `phase advance` command. Run one real greenfield pass by hand. If the guardrail holds, extend to the remaining transitions, then to other playbooks. If it's fussy, the cost was one hook and one small file, not a rewrite of every runbook.
+**Smallest viable first step:** don't convert every playbook. Make the existing [`greenfield-development.fsm.yml`](../../factory/playbooks/greenfield-development.fsm.yml) enforcing for exactly one rule — architecture artifacts cannot be committed while the spec gate is unpassed — with the marker file and `phase advance` command. Run one real greenfield pass by hand. If the guardrail holds, extend to the remaining transitions, then to other playbooks. If it's fussy, the cost was one hook and one small file, not a rewrite of every runbook.
 
 ## Proof of concept
 
-The smallest viable slice from §3 is implemented and tested against [`greenfield-development.fsm.yml`](../../playbooks/greenfield-development.fsm.yml):
+The smallest viable slice from §3 is implemented and tested against [`greenfield-development.fsm.yml`](../../factory/playbooks/greenfield-development.fsm.yml):
 
-- [`transition-lint`](../../scripts/transition-lint) — the pre-commit hook. It reads the marker, maps each staged file to the state whose `outputs:` globs it matches, and blocks any file that belongs to a state other than the current one. It does not evaluate `entry_conditions`; unlocking the next state is `phase advance`'s job. When the marker is absent the hook is a no-op. Wired as an always-run local hook in both [`factory/config/pre-commit-config.yaml`](../../config/pre-commit-config.yaml) and the repo's own `.pre-commit-config.yaml`.
-- [`phase advance`](../../scripts/phase) — the marker-advance command. It finds the current state's forward transition, checks the target state's `entry_conditions` against the `gate_conditions` library (`file_exists`, `files_exist`, `no_open_findings` implemented; `script_exit_zero` stubbed as passing), and refuses if any is unmet — closing the hand-advance loophole. On success it writes the extended marker of §2, with `recorded_at` taken from the process clock, never agent-supplied.
+- [`transition-lint`](../../factory/scripts/transition-lint) — the pre-commit hook. It reads the marker, maps each staged file to the state whose `outputs:` globs it matches, and blocks any file that belongs to a state other than the current one. It does not evaluate `entry_conditions`; unlocking the next state is `phase advance`'s job. When the marker is absent the hook is a no-op. Wired as an always-run local hook in both [`factory/config/pre-commit-config.yaml`](../../factory/config/pre-commit-config.yaml) and the repo's own `.pre-commit-config.yaml`.
+- [`phase advance`](../../factory/scripts/phase) — the marker-advance command. It finds the current state's forward transition, checks the target state's `entry_conditions` against the `gate_conditions` library (`file_exists`, `files_exist`, `no_open_findings` implemented; `script_exit_zero` stubbed as passing), and refuses if any is unmet — closing the hand-advance loophole. On success it writes the extended marker of §2, with `recorded_at` taken from the process clock, never agent-supplied.
 
-Tests: [`test_transition_lint.py`](../../../orchestrator/tests/test_transition_lint.py) and [`test_phase_advance.py`](../../../orchestrator/tests/test_phase_advance.py) prove the one rule end to end — architecture artifacts are blocked while a `SPEC-*` finding is open, the gate refuses to advance, and both lift once the finding is resolved.
+Tests: [`test_transition_lint.py`](../../tests/orchestrator/test_transition_lint.py) and [`test_phase_advance.py`](../../tests/orchestrator/test_phase_advance.py) prove the one rule end to end — architecture artifacts are blocked while a `SPEC-*` finding is open, the gate refuses to advance, and both lift once the finding is resolved.
 
 ## Alternatives weighed
 
@@ -144,9 +144,9 @@ Tests: [`test_transition_lint.py`](../../../orchestrator/tests/test_transition_l
 
 ## Recommendation
 
-Adopt a git-ignored run-state marker plus a `transition-lint` pre-commit hook, driven by the YAML shape `.fsm.yml` already established. Make the handover artifact that same marker, extended with gate result and next state; derive `open_findings` from the existing [finding](../../rulebooks/templates/finding.md#frontmatter) contract, never duplicate it. Prove it on one playbook, one transition, before touching the rest.
+Adopt a git-ignored run-state marker plus a `transition-lint` pre-commit hook, driven by the YAML shape `.fsm.yml` already established. Make the handover artifact that same marker, extended with gate result and next state; derive `open_findings` from the existing [finding](../../factory/rulebooks/templates/finding.md#frontmatter) contract, never duplicate it. Prove it on one playbook, one transition, before touching the rest.
 
 ## Referenced from
 
 - [session-log-addendum.md § 2. Where the log lives, and how scripts write to it](session-log-addendum.md#2-where-the-log-lives-and-how-scripts-write-to-it)
-- [factory-guide.md § Playbook phase gates](../factory-guide.md#playbook-phase-gates)
+- [factory-guide.md § Playbook phase gates](../../factory/docs/factory-guide.md#playbook-phase-gates)

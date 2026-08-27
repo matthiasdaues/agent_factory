@@ -262,7 +262,7 @@ subagent has been spawned yet.
 
 #### Implementation-agent changes
 
-The [implementation-agent](../../factory/agents/implementation-agent.md)
+The [implementation-agent](../../../factory/agents/implementation-agent.md)
 workflow is rewritten to call dispatch subcommands instead of performing git
 operations directly. The agent's remaining job is: review the plan, spawn
 subagents, and call script subcommands in sequence.
@@ -306,7 +306,7 @@ it. A manifest already present blocks the next write (no-supersede).
 A single shared script `factory/scripts/step-guard` accepts the tool event as
 JSON and a guard type (`read`, `write`, `bash`, `context`). CLI-specific
 adapters normalize tool input before calling it, following the pattern of
-[`block-dangerous-git.sh`](../../factory/config/hooks/block-dangerous-git.sh).
+[`block-dangerous-git.sh`](../../../factory/config/hooks/block-dangerous-git.sh).
 
 **Read guard** (`PreToolUse` on `Read`): file path must match a declared
 `inputs` glob or an always-allowed prefix. Always-allowed: `factory/`,
@@ -451,12 +451,12 @@ Phase 1:
   `mark-blocked`, `mark-failed`, `re-dispatch` (basic: any `failed` or
   `blocked` story, no class-aware constraints), `close-wave`, `status`
 - `config/project.json`: `test_command` key
-- [implementation-agent.md](../../factory/agents/implementation-agent.md)
+- [implementation-agent.md](../../../factory/agents/implementation-agent.md)
   rewritten to call dispatch subcommands
-- [dispatch-contract.md](../../factory/rulebooks/conventions/dispatch-contract.md)
+- [dispatch-contract.md](../../../factory/rulebooks/conventions/dispatch-contract.md)
   updated: `prepared` status, script-owned ledger under `.current_work/`,
   pre-spawn verify-base, `premerge-check --scope`
-- [branching-policy.md](../../factory/rulebooks/conventions/branching-policy.md)
+- [branching-policy.md](../../../factory/rulebooks/conventions/branching-policy.md)
   updated: verify-base preamble notes script-owned path
 
 Phase 2:
@@ -468,11 +468,11 @@ Phase 2:
 - Step manifest schema and lifecycle integrated into `dispatch prepare-wave`
   and `dispatch prepare-story`
 - CLI-specific hook wiring for all four CLIs
-- [init-factory](../../factory/scripts/init-factory) installs step-guard
+- [init-factory](../../../factory/scripts/init-factory) installs step-guard
   wiring alongside existing hooks
 - Step declarations for
-  [feature-addition.md](../../factory/playbooks/feature-addition.md)
-- [rules.md](../../factory/rulebooks/rules.md) updated with step-boundary rules
+  [feature-addition.md](../../../factory/playbooks/feature-addition.md)
+- [rules.md](../../../factory/rulebooks/rules.md) updated with step-boundary rules
 - Epic-0 spike verifying the Copilot CLI `pre_tool_use` event surface for
   `Read`/`Edit`/`Write` matchers
 
@@ -484,15 +484,15 @@ Phase 3:
   a migration task that adds defaults to existing backlogs.
 - Tier rubric in `dispatch plan` and `dispatch init` (same code path),
   recorded in
-  [dispatch-contract.md](../../factory/rulebooks/conventions/dispatch-contract.md),
-  cited from [planning-agent.md](../../factory/agents/planning-agent.md)
+  [dispatch-contract.md](../../../factory/rulebooks/conventions/dispatch-contract.md),
+  cited from [planning-agent.md](../../../factory/agents/planning-agent.md)
 - `config/project.json`: `safety_critical_paths` key (list of
   gitignore-style globs for the strong-tier path-match rule)
 - `risk_domains` field on
-  [story.md](../../factory/rulebooks/templates/story.md),
+  [story.md](../../../factory/rulebooks/templates/story.md),
   validated by `backlog-lint`
 - `strategy` field on
-  [story.md](../../factory/rulebooks/templates/story.md),
+  [story.md](../../../factory/rulebooks/templates/story.md),
   validated by `backlog-lint`; selection guidance: use `seams-first` when
   the story's acceptance criteria are expressible as test assertions and
   the implementation path is not obvious from the tests alone; use
@@ -536,7 +536,7 @@ Phase 3:
 success is a no-op; re-running after failure resumes from recorded state.
 
 **Script-generated commits.** Follow
-[commit-conventions.md](../../factory/rulebooks/conventions/commit-conventions.md):
+[commit-conventions.md](../../../factory/rulebooks/conventions/commit-conventions.md):
 merge commits, status-correction commits, and baseline commits each have a
 defined format. The ledger itself is not committed — it is ephemeral state
 under `.current_work/`.
@@ -567,7 +567,7 @@ file, committed test output, or story file section. Free text is not evidence.
 contract only, not the agent definition or skills. The A/B result revises it.
 
 **Risk vocabulary.** Story `risk_domains` reuses the six values from
-[proposal.md](../../factory/rulebooks/templates/proposal.md) governance.
+[proposal.md](../../../factory/rulebooks/templates/proposal.md) governance.
 The terms match; the values are authored per story and never inherited from a
 proposal.
 

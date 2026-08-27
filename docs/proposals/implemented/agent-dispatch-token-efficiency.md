@@ -163,7 +163,7 @@ None. Existing behavior is the implementation baseline; only verified gaps are p
 
 ## Referenced from
 
-- [`docs/reviews/retro-2026-07-12.md`](../reviews/retro-2026-07-12.md) — the session that motivated every mechanism here.
-- [`docs/reviews/retro-2026-07-10.md`](../reviews/retro-2026-07-10.md) — action item #1 (phase-branch with declared base SHA), which §2 narrows and revives.
-- [`docs/reviews/dispatch-safeguard-audit-2026-08-04.md`](../reviews/dispatch-safeguard-audit-2026-08-04.md) — the completed six-mechanism contract/runtime/test audit.
-- [`docs/reviews/token-efficiency-completion.md`](../reviews/token-efficiency-completion.md) — the exact completion-criterion mapping that supports `implemented` status.
+- [`docs/reviews/retro-2026-07-12.md`](../../reviews/retro-2026-07-12.md) — the session that motivated every mechanism here.
+- [`docs/reviews/retro-2026-07-10.md`](../../reviews/retro-2026-07-10.md) — action item #1 (phase-branch with declared base SHA), which §2 narrows and revives.
+- [`docs/reviews/dispatch-safeguard-audit-2026-08-04.md`](../../reviews/dispatch-safeguard-audit-2026-08-04.md) — the completed six-mechanism contract/runtime/test audit.
+- [`docs/reviews/token-efficiency-completion.md`](../../reviews/token-efficiency-completion.md) — the exact completion-criterion mapping that supports `implemented` status.

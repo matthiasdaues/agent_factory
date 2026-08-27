@@ -42,7 +42,7 @@ estimate:
 
 > **Superseded on 2026-08-10.** This proposal is retained as design history.
 > Its scope is replaced by
-> [Agent Execution Isolation and Optional Container Distribution](agent-execution-isolation-and-distribution.md),
+> [Agent Execution Isolation and Optional Container Distribution](../agent-execution-isolation-and-distribution.md),
 > which makes multi-path host filesystem delegation the primary security goal,
 > treats containers as an optional pinned environment, and leaves privileged
 > Git authorization and publication to a future, separately accepted
@@ -68,7 +68,7 @@ evidence.
 
 The current host-native subprocess model gives an agent the invoking user's
 filesystem and network authority. The
-[sandboxed Factory PoC](../../poc/sandboxed-factory/README.md) demonstrates
+[sandboxed Factory PoC](../../../poc/sandboxed-factory/README.md) demonstrates
 that a rootless container with only the project mounted meaningfully improves
 host-filesystem isolation, preserves project writes and cross-phase state, and
 can enforce a no-network posture. It also establishes that an in-container
@@ -327,7 +327,7 @@ existing initializer with immutable image content as its source:
 
 Initialization retains the current non-interference, collision, idempotency,
 and reversible-removal contracts of
-[`init-factory`](../../factory/scripts/init-factory). It does not overwrite
+[`init-factory`](../../../factory/scripts/init-factory). It does not overwrite
 project-owned configuration or change unrelated modes. Preflight resolves all
 destinations before mutation; a collision stops at the existing documented
 boundary.
@@ -371,7 +371,7 @@ The modes share implementations and differ only in declared scope:
 
 The gate runner, not `.pre-commit-config.yaml`, owns ordering, applicability,
 exit semantics, and reporting. It invokes the current Factory scripts such as
-[`run-tests`](../../factory/scripts/run-tests) and the applicable deterministic
+[`run-tests`](../../../factory/scripts/run-tests) and the applicable deterministic
 linters. Git hooks, pre-commit, pre-push, and phase transitions are thin
 adapters to this interface.
 
@@ -877,7 +877,7 @@ skill: the ten checks applied to a design seed rather than to a falsifiable
 research claim. The review reads this proposal against the security objective
 and acceptance criteria of
 [Factory CLI Security Hardening](factory-cli-security-hardening.md), against
-the [sandboxed Factory PoC](../../poc/sandboxed-factory/README.md) that
+the [sandboxed Factory PoC](../../../poc/sandboxed-factory/README.md) that
 supplies its only evidence, and against the controls this repository already
 ships.
 
@@ -1043,7 +1043,7 @@ the split; only offline gating of foreign project hooks is deferred.
 proposal cites needs one.** The proposal declares `deny` for hooks and
 prepared deterministic gates and `standard` for provider access and `prepare`.
 It assigns no posture to `init`, `update`, or `doctor`. The cited
-[`init-factory`](../../factory/scripts/init-factory) runs
+[`init-factory`](../../../factory/scripts/init-factory) runs
 `uvx pre-commit install` (line 1472), which requires network access on a cold
 cache. Under `deny`, initialization of a fresh project fails; under
 `standard`, the first command run against an untrusted project has network

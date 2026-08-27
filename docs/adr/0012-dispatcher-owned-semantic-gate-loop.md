@@ -67,5 +67,5 @@ Each fix iteration starts a fresh developer context. Gate output from a prior it
 ## Referenced from
 
 - [ADR-0003 — Test execution via mechanically triggered gates](0003-test-execution-via-hooks.md)
-- [Proposal: Agentic Quality Gates and Requirements Consolidation](../proposals/agentic-quality-gates-and-specification-consolidation.md)
+- [Proposal: Agentic Quality Gates and Requirements Consolidation](../proposals/implemented/agentic-quality-gates-and-specification-consolidation.md)
 - [foundational-principles.md](../../factory/rulebooks/conventions/foundational-principles.md)

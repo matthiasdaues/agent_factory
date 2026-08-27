@@ -205,7 +205,7 @@ A long agent session's per-turn input cost should track the work being done, not
 
 ## Implementation Evidence
 
-[`docs/reviews/token-efficiency-completion.md`](../reviews/token-efficiency-completion.md)
+[`docs/reviews/token-efficiency-completion.md`](../../reviews/token-efficiency-completion.md)
 maps every accepted completion criterion exactly once to passing observable
 evidence, including the provider-qualified post-adoption retrospective that
 supports `implemented` status.

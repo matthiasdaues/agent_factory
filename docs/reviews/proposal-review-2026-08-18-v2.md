@@ -2,13 +2,13 @@
 title: Proposal Review — Project Charter (Repeat Pass v2)
 date: 2026-08-18
 reviewer: proposal-review (independent session, author/reviewer separation; fresh session, did not write the document)
-target: "docs/proposals/capture-project-constraints.md (status open, schema_version 2, untracked in git)"
+target: "docs/proposals/implemented/capture-project-constraints.md (status open, schema_version 2, untracked in git)"
 repeat-pass-of: docs/reviews/proposal-review-2026-08-18.md
 ---
 
 # Proposal Review — Project Charter (Repeat Pass v2)
 
-Repeat pass over [capture-project-constraints.md](../proposals/capture-project-constraints.md)
+Repeat pass over [capture-project-constraints.md](../proposals/implemented/capture-project-constraints.md)
 per [review-loop-discipline.md](../../factory/rulebooks/conventions/review-loop-discipline.md):
 every prior finding verified individually (Part 1), then the full eight-check
 inspection re-run fresh against the current text (Part 2). First pass:
@@ -158,11 +158,11 @@ Consumption is now symmetric at the declared 25×.
 All Minor; per [finding-format.md](../../factory/rulebooks/conventions/finding-format.md)
 they stay in this report — no new finding files filed. No Critical or Major.
 
-| Finding                                                                                                                                                                                                                                                                                                                                                                                                    | Artifact                                                           | Category | Severity |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | -------- | -------- |
-| Greenfield insertion table row "Planning" says the planning-agent "schedules Epic 0 as wave 1", but Downstream consumers, Scope ("implementation-agent.md updated: … schedule Epic 0 as wave 1"), and Completion Criterion 9 all assign wave scheduling to the implementation-agent. Reword the Planning row to planning's actual lever — e.g. "marks feature stories' `deps:` on the final Epic 0 story". | docs/proposals/capture-project-constraints.md § Workflow insertion | Defect   | Minor    |
-| Scope line says brownfield `--init --scan` runs "after architecture deepening review", while the body anchors it "after the Phase 5 ATAM architecture review passes"; [brownfield-onboarding.md](../../factory/playbooks/brownfield-onboarding.md) lists "Architecture deepening" and "Review" as distinct steps. Align the Scope wording with the body's Phase 5 ATAM anchor.                             | docs/proposals/capture-project-constraints.md § Scope              | Defect   | Minor    |
-| Design says `charter-lint` is "Integrated into the `validate` skill and pre-commit", but Scope lists only the `validate` skill and no Completion Criterion covers pre-commit. Either add pre-commit integration to Scope with a matching criterion, or drop "and pre-commit" from the Design sentence.                                                                                                     | docs/proposals/capture-project-constraints.md § Deterministic gate | Defect   | Minor    |
+| Finding                                                                                                                                                                                                                                                                                                                                                                                                    | Artifact                                                                       | Category | Severity |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------- | -------- |
+| Greenfield insertion table row "Planning" says the planning-agent "schedules Epic 0 as wave 1", but Downstream consumers, Scope ("implementation-agent.md updated: … schedule Epic 0 as wave 1"), and Completion Criterion 9 all assign wave scheduling to the implementation-agent. Reword the Planning row to planning's actual lever — e.g. "marks feature stories' `deps:` on the final Epic 0 story". | docs/proposals/implemented/capture-project-constraints.md § Workflow insertion | Defect   | Minor    |
+| Scope line says brownfield `--init --scan` runs "after architecture deepening review", while the body anchors it "after the Phase 5 ATAM architecture review passes"; [brownfield-onboarding.md](../../factory/playbooks/brownfield-onboarding.md) lists "Architecture deepening" and "Review" as distinct steps. Align the Scope wording with the body's Phase 5 ATAM anchor.                             | docs/proposals/implemented/capture-project-constraints.md § Scope              | Defect   | Minor    |
+| Design says `charter-lint` is "Integrated into the `validate` skill and pre-commit", but Scope lists only the `validate` skill and no Completion Criterion covers pre-commit. Either add pre-commit integration to Scope with a matching criterion, or drop "and pre-commit" from the Design sentence.                                                                                                     | docs/proposals/implemented/capture-project-constraints.md § Deterministic gate | Defect   | Minor    |
 
 ## Disposition
 

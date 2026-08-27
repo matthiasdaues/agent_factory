@@ -90,5 +90,5 @@ source column for migrated rows.
 
 ## References
 
-- [Agentic Quality Gates and Requirements Consolidation](../../../docs/proposals/agentic-quality-gates-and-specification-consolidation.md)
+- [Agentic Quality Gates and Requirements Consolidation](../../../docs/proposals/implemented/agentic-quality-gates-and-specification-consolidation.md)
 - [ADR-0011](../../../docs/adr/0011-gherkin-feature-as-consolidated-specification-format.md)

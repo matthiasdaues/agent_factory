@@ -62,7 +62,7 @@ Close two gaps in the Factory's process model: (1) add **semantic deterministic 
 
 The Factory's `validate` skill and `transition-lint` pre-commit hook run **syntactic** checks — formatting, frontmatter schema, naming conventions. They catch cosmetic violations. They do not catch code that is syntactically valid but semantically degraded: high cyclomatic complexity, shallow modules, missing test coverage, surviving mutants. These are the defects that matter most in agentic workflows, where code is produced faster than any human reviewer can inspect it.
 
-The operational principle: agents are fast enough to run **CRAP analysis** (cyclomatic complexity weighted against coverage), **mutation testing** (flip every `<` to `>`, every `==` to `!=`, expect the test suite to fail), and **dependency-rule checking** (module A must not import module B — enforced mechanically) at machine speed. The Factory's current gate model trusts agents to self-report on these qualities. The sub-agent self-report is not reliable; the Factory has the [dispatch contract](../../factory/rulebooks/conventions/dispatch-contract.md) to prevent false reports, but it lacks the semantic checks that would make a false report detectable.
+The operational principle: agents are fast enough to run **CRAP analysis** (cyclomatic complexity weighted against coverage), **mutation testing** (flip every `<` to `>`, every `==` to `!=`, expect the test suite to fail), and **dependency-rule checking** (module A must not import module B — enforced mechanically) at machine speed. The Factory's current gate model trusts agents to self-report on these qualities. The sub-agent self-report is not reliable; the Factory has the [dispatch contract](../../../factory/rulebooks/conventions/dispatch-contract.md) to prevent false reports, but it lacks the semantic checks that would make a false report detectable.
 
 The practical consequence: without semantic gates, the reconciliation-agent and qa-agent carry the entire semantic quality burden. Each review cycle burns tokens on findings that a deterministic gate could have caught and flagged automatically, or that the coder's own workflow could have been forced to fix before committing.
 
@@ -148,7 +148,7 @@ The three gate skills are deterministic scripts that run on committed artifacts.
 
 Each developer iteration starts with a clean context. The `premerge-check` script lists all three as independent hard gates before merge.
 
-**Coherence with [testing-strategy.md](../../factory/rulebooks/conventions/testing-strategy.md):** The Factory's testing strategy says *"Test count and coverage percentage are diagnostics, not quality targets."* This proposal amends that convention to clarify that composite structural risk scores — such as CRAP — that use coverage as one input to a risk metric are not coverage targets and are admissible as acceptance gates. The three skills respect the amended convention:
+**Coherence with [testing-strategy.md](../../../factory/rulebooks/conventions/testing-strategy.md):** The Factory's testing strategy says *"Test count and coverage percentage are diagnostics, not quality targets."* This proposal amends that convention to clarify that composite structural risk scores — such as CRAP — that use coverage as one input to a risk metric are not coverage targets and are admissible as acceptance gates. The three skills respect the amended convention:
 
 - **CRAP score** is a composite structural gate. Coverage enters as a counterweight to cyclomatic complexity; the gate threshold is on the composite score, not on coverage itself. The pressure it applies is toward smaller code, not higher coverage numbers.
 - **Mutation analysis** is a code-smell gate, not a coverage target. A surviving mutant means code does something no test observes. The response is investigation (remove dead code or add the missing contract test), not unconditional test creation. When the developer agent cannot resolve a survivor through either action, it files a finding for the QA agent — the developer does not self-suppress.
@@ -377,8 +377,8 @@ This check uses Phase 1 outputs only — it does not depend on story files or im
 - Updated `feature-addition.md` Step 0.3: mechanical module-graph check before Phase 2 routing
 - Updated `factory/playbooks/greenfield-development.md`: terminal condition is scope-map + `architecture.dsl` + arc42 prose; all feature work enters through `feature-addition`
 - Updated `factory/playbooks/brownfield-onboarding.md`: terminal condition is scope-map (backfilled) + `architecture.dsl` (reverse-engineered) + arc42 prose; all feature work enters through `feature-addition`
-- Amended [testing-strategy.md](../../factory/rulebooks/conventions/testing-strategy.md): clarify that composite structural risk scores using coverage as one input are admissible as acceptance gates; recognise `.feature` file execution as the acceptance test layer
-- Amended [cross-reference-format.md](../../factory/rulebooks/conventions/cross-reference-format.md): document `@`-reference notation for `.feature` files (path + optional `::Symbol.member` qualifier)
+- Amended [testing-strategy.md](../../../factory/rulebooks/conventions/testing-strategy.md): clarify that composite structural risk scores using coverage as one input are admissible as acceptance gates; recognise `.feature` file execution as the acceptance test layer
+- Amended [cross-reference-format.md](../../../factory/rulebooks/conventions/cross-reference-format.md): document `@`-reference notation for `.feature` files (path + optional `::Symbol.member` qualifier)
 - Updated `factory/scripts/validate`: reject `@`-ref syntax (`# @<path>`) in `.md` files; enforce `.feature`-only scope for `@`-references
 - `factory/skills/scope-map-migration/SKILL.md` — one-time backfill from `derive-spec` output artifacts for existing projects adopting `derive-feature`
 
@@ -396,7 +396,7 @@ Each fixture directory is a self-contained project with source files, a test sui
 
 ### Archive Path Convention
 
-The `~archive/` directory referenced by the scope map and the [handoff convention](../../factory/rulebooks/rules.md#handoffs) lives under `docs/`: `docs/~archive/`. Archived artifacts preserve their original path relative to `docs/` — for example, `docs/spec/slice-1.feature` archives to `docs/~archive/spec/slice-1.feature`. This convention applies to both `.feature` files archived after implementation and superseded documentation artifacts archived per the handoff rule.
+The `~archive/` directory referenced by the scope map and the [handoff convention](../../../factory/rulebooks/rules.md#handoffs) lives under `docs/`: `docs/~archive/`. Archived artifacts preserve their original path relative to `docs/` — for example, `docs/spec/slice-1.feature` archives to `docs/~archive/spec/slice-1.feature`. This convention applies to both `.feature` files archived after implementation and superseded documentation artifacts archived per the handoff rule.
 
 **Delivery order within the release:** The scope is one release, but stories should be sequenced by dependency:
 
@@ -449,7 +449,7 @@ Mitigations for larger codebases (all deferred to collect real usage data first)
 
 ### 7. Quality-Gates Story Field
 
-The `quality-gates` field in [story.md](../../factory/rulebooks/templates/story.md) declares which semantic gates apply to the story's outputs. It is a list of gate names; each name corresponds to a CLI script under `factory/scripts/`.
+The `quality-gates` field in [story.md](../../../factory/rulebooks/templates/story.md) declares which semantic gates apply to the story's outputs. It is a list of gate names; each name corresponds to a CLI script under `factory/scripts/`.
 
 ```yaml
 quality-gates:
@@ -488,7 +488,7 @@ Examples: `# @src/auth/sso.py::SSOHandler`, `# @src/auth/sso.py::SSOHandler.auth
 
 **Absence semantics:** A Scenario without an `@`-ref in the Phase 1 `.feature` file means "this behavior does not exist yet — it will be implemented." After reconciliation, a Scenario without an `@`-ref means "this behavior was specified but no code was found that implements it" — a finding.
 
-**Convention home:** The `@`-reference notation is documented in [cross-reference-format.md](../../factory/rulebooks/conventions/cross-reference-format.md) alongside the existing markdown link convention. The `@`-ref is scoped to `.feature` files only — it is not a general cross-reference format for prose documents, which continue to use full markdown links.
+**Convention home:** The `@`-reference notation is documented in [cross-reference-format.md](../../../factory/rulebooks/conventions/cross-reference-format.md) alongside the existing markdown link convention. The `@`-ref is scoped to `.feature` files only — it is not a general cross-reference format for prose documents, which continue to use full markdown links.
 
 ### 9. Executable Specification — `.feature` as Test Input
 
@@ -547,7 +547,7 @@ Both the `greenfield-development` and `brownfield-onboarding` playbooks produce 
 
 06. **Mutation testing scope restriction:** `mutation-analysis` runs against all production files in the story's diff, not only files the story's tests import. Excluding untested files defeats the gate's purpose — a surviving mutant in an untested file is the highest-signal finding the gate can produce. The performance cost is bounded by the diff size and acceptable for a once-per-story pre-merge gate.
 
-07. **Gate iteration cap:** 3 iterations is the correct Factory default for the inner fix loop (developer commits → gate fails → fresh developer with gate report). When the cap is hit, the story receives `mark-failed --class acceptance_unmet`, feeding into the evidence-gated escalation predicate from [cost-aware-agent-delegation.md](cost-aware-agent-delegation.md). A stronger model gets one shot at the same gates with the same 3-iteration cap. Effective maximum: 6 developer spawns (3 x current tier + 3 x tier+1) before the story is terminal. The cap is tunable per project in `house-rules.md`.
+07. **Gate iteration cap:** 3 iterations is the correct Factory default for the inner fix loop (developer commits → gate fails → fresh developer with gate report). When the cap is hit, the story receives `mark-failed --class acceptance_unmet`, feeding into the evidence-gated escalation predicate from [cost-aware-agent-delegation.md](../superseded/cost-aware-agent-delegation.md). A stronger model gets one shot at the same gates with the same 3-iteration cap. Effective maximum: 6 developer spawns (3 x current tier + 3 x tier+1) before the story is terminal. The cap is tunable per project in `house-rules.md`.
 
 08. **Module-graph check granularity:** A new entity in an existing module does not trigger Phase 2. The mechanical check tests module-graph topology only: new modules, changed public interfaces, and inverted dependency directions. A misplaced entity is a specification defect, caught by spec review or by the reconciliation-agent post-implementation — routing it through architecture review is the wrong mechanism.
 

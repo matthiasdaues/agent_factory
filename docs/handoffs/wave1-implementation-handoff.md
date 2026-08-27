@@ -22,7 +22,7 @@ Retained work: story/ST-0101 (branch at HEAD, no implementation commits — need
 
 Decisions:
 
-1. Proposal `docs/proposals/agentic-quality-gates-and-specification-consolidation.md` accepted (status: accepted). Routes through all five phases (spec, arch, planning, implementation, QA). Origin: proposal frontmatter.
+1. Proposal `docs/proposals/implemented/agentic-quality-gates-and-specification-consolidation.md` accepted (status: accepted). Routes through all five phases (spec, arch, planning, implementation, QA). Origin: proposal frontmatter.
 2. ADR-0011 (Gherkin .feature as consolidated specification format) accepted. Origin: `docs/adr/0011-gherkin-feature-as-consolidated-specification-format.md`.
 3. ADR-0012 (Dispatcher-owned semantic gate loop) accepted. Origin: `docs/adr/0012-dispatcher-owned-semantic-gate-loop.md`.
 4. Wave 1 approved by stakeholder: ST-0095, ST-0097, ST-0099, ST-0100, ST-0101, ST-0102, ST-0103 — all file-disjoint, parallel-safe.
@@ -54,7 +54,7 @@ Open items:
 
 ## Artifacts
 
-- docs/proposals/agentic-quality-gates-and-specification-consolidation.md
+- docs/proposals/implemented/agentic-quality-gates-and-specification-consolidation.md
 - docs/adr/0011-gherkin-feature-as-consolidated-specification-format.md
 - docs/adr/0012-dispatcher-owned-semantic-gate-loop.md
 - factory/rulebooks/conventions/cross-reference-format.md

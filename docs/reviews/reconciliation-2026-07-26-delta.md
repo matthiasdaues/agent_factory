@@ -43,7 +43,7 @@
   factory/config/hooks/capture-copilot-usage.sh
   factory/config/hooks/capture-usage.sh
   factory/docs/factory-guide.md
-  docs/proposals/factory-cli-security-hardening.md
+  docs/proposals/superseded/factory-cli-security-hardening.md
   docs/proposals/implemented/token-usage-tracking.md
   docs/proposals/usage-processing-and-storage.md
   factory/scripts/usage-capture

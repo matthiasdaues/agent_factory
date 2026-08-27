@@ -58,7 +58,7 @@ Line order in the file is the total order of runs — no separate sequence field
 
 **The timestamp note.** An agent cannot read a wall clock; it sees only the date injected into its context, so any time an agent writes down is untrustworthy. `ts` comes from the gate's own process clock (`datetime.now(timezone.utc)`) at the moment the run ends — a fact the agent cannot forge. That is the whole point of the log: it records what the machine observed, not what the agent said.
 
-A real record, grounded in [`spec-lint`](../../scripts/spec-lint) run with `--graph` (which writes `traceability.json` and exits on the error count):
+A real record, grounded in [`spec-lint`](../../factory/scripts/spec-lint) run with `--graph` (which writes `traceability.json` and exits on the error count):
 
 ```json
 {"ts":"2026-07-11T14:32:07Z","script":"spec-lint","argv":["docs/spec","--graph"],"exit_code":0,"files_changed":[{"path":"docs/spec/traceability.json","status":"M"}],"summary":{"error":0,"warning":2,"info":1}}
@@ -92,7 +92,7 @@ The exit code and args say what ran; they do not say what changed on disk. Two w
 
 ## 4. The reconciliation step
 
-A new deterministic script, `factory/scripts/session-reconcile`, callable exactly the way [`spec-lint`](../factory-guide.md#linting-and-gating) is. It reads two machine facts and compares them: the session log (every run, its exit code, and the tree delta around it), and the phase's real git state — `git diff --name-only` over the invocation's branch-root→branch-head range, per [branching-policy.md § Two SHAs Tracked Per Invocation](../../rulebooks/conventions/branching-policy.md#two-shas-tracked-per-invocation), plus the current working tree.
+A new deterministic script, `factory/scripts/session-reconcile`, callable exactly the way [`spec-lint`](../../factory/docs/factory-guide.md#linting-and-gating) is. It reads two machine facts and compares them: the session log (every run, its exit code, and the tree delta around it), and the phase's real git state — `git diff --name-only` over the invocation's branch-root→branch-head range, per [branching-policy.md § Two SHAs Tracked Per Invocation](../../factory/rulebooks/conventions/branching-policy.md#two-shas-tracked-per-invocation), plus the current working tree.
 
 It flags, with no LLM and no prose-parsing:
 
@@ -100,7 +100,7 @@ It flags, with no LLM and no prose-parsing:
 - a **required phase-boundary gate that never ran**, or last ran before the final edit to what it checks — a stale clean;
 - files a run's `files_changed` shows touched that are **neither staged nor committed** — silent drift.
 
-Its output is a discrepancy report (text, plus `--format json`); blocking discrepancies become findings, filed per [finding-format.md § When to file](../../rulebooks/conventions/finding-format.md#when-to-file).
+Its output is a discrepancy report (text, plus `--format json`); blocking discrepancies become findings, filed per [finding-format.md § When to file](../../factory/rulebooks/conventions/finding-format.md#when-to-file).
 
 The agent's *prose* claims — from the phase review report and the commit messages — are the harder half. A deterministic script cannot judge whether "I updated the traceability graph" is true prose. So reconciliation splits: `session-reconcile` establishes the machine facts and their internal contradictions; the **phase reviewer agent** reads that report as evidence and judges the narration against it — the same way it already runs `spec-lint` first at a phase boundary.
 
@@ -145,10 +145,10 @@ Only then roll the same two-line wrap out to the other Python gates (`arch-lint`
 
 The §5 first slice is built:
 
-- [`factory/scripts/_session_log.py`](../../scripts/_session_log.py) — the `record` context manager and the `AF_SESSION_LOG` gate.
-- [`factory/scripts/spec-lint`](../../scripts/spec-lint) — its `main()` is wrapped (import, call-site wrap, one `set_summary` line).
-- [`factory/scripts/session-reconcile`](../../scripts/session-reconcile) — the reconciliation script.
-- Tests: [`orchestrator/tests/test_session_log.py`](../../../orchestrator/tests/test_session_log.py) and [`orchestrator/tests/test_session_reconcile.py`](../../../orchestrator/tests/test_session_reconcile.py) prove both acceptance scenarios.
+- [`factory/scripts/_session_log.py`](../../factory/scripts/_session_log.py) — the `record` context manager and the `AF_SESSION_LOG` gate.
+- [`factory/scripts/spec-lint`](../../factory/scripts/spec-lint) — its `main()` is wrapped (import, call-site wrap, one `set_summary` line).
+- [`factory/scripts/session-reconcile`](../../factory/scripts/session-reconcile) — the reconciliation script.
+- Tests: `orchestrator/tests/test_session_log.py` and `orchestrator/tests/test_session_reconcile.py` prove both acceptance scenarios.
 
 One design gap in this addendum had to be closed. The sketch in [§2](#2-where-the-log-lives-and-how-scripts-write-to-it) —
 
@@ -165,4 +165,4 @@ Deferred, as §5 intends: the other Python gates and the bash-script CLI shim; a
 
 - [playbook-structured-harness-strategy.md § 1. State-transition control via pre-commit](playbook-structured-harness-strategy.md#1-state-transition-control-via-pre-commit)
 - [playbook-structured-harness-strategy.md § 2. Parseable handover artifacts](playbook-structured-harness-strategy.md#2-parseable-handover-artifacts)
-- [factory-guide.md § Session logging](../factory-guide.md#session-logging)
+- [factory-guide.md § Session logging](../../factory/docs/factory-guide.md#session-logging)

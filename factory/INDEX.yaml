@@ -3,15 +3,6 @@
 # hand, regenerate with scripts/index-lint.
 
 agents:
-  - name: chat-agent
-    title: Chat Agent
-    phase: 0
-    phase_name: Utility
-    tier: standard
-    description: Open-ended conversation that helps an idea find its shape. Starts formless — just talking — and coalesces into the right next step when the idea is ready. The agent you pick before things get serious.
-    path: agents/chat-agent.md
-    tokens: 847
-    total_tokens: 3564
   - name: coaching-agent
     title: Coaching Agent
     phase: 0
@@ -29,16 +20,7 @@ agents:
     description: Help set up the work environment — scaffold or complete the project charter and validate the result. Accepts ad-hoc reference material (repos, files, URLs) and runs a structured interview to fill charter gaps. Runs in the current session so the stakeholder can answer questions directly.
     path: agents/kit-manager.md
     tokens: 1028
-    total_tokens: 6615
-  - name: proposal-review-agent
-    title: Proposal Review Agent
-    phase: 1
-    phase_name: Requirements
-    tier: strong
-    description: Review a feature proposal for clarity, feasibility, and planning readiness — consultative on drafts, adversarial on open proposals. Runs in a separate session from the proposal author.
-    path: agents/proposal-review-agent.md
-    tokens: 1503
-    total_tokens: 2592
+    total_tokens: 6617
   - name: requirements-agent
     title: Requirements Agent
     phase: 1
@@ -47,7 +29,7 @@ agents:
     description: "Capture a project vision, clarify requirements through adversarial interview, and produce a complete specification: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models."
     path: agents/requirements-agent.md
     tokens: 1777
-    total_tokens: 12145
+    total_tokens: 12147
   - name: spec-review-agent
     title: Specification Review Agent
     phase: 1
@@ -100,8 +82,8 @@ agents:
     tier: strong
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
-    tokens: 2052
-    total_tokens: 12011
+    tokens: 2054
+    total_tokens: 12013
   - name: qa-agent
     title: QA Agent
     phase: 5
@@ -168,7 +150,7 @@ skills:
     category: requirements
     description: "Scaffold, scan, or complete the project charter under docs/charter/ — three modes: --init creates the skeleton from templates, --init --scan pre-populates it from an existing codebase, and the completeness sweep (no flag) forces every remaining decision and derives Epic 0 setup stories. Use when starting a new project's charter, onboarding a brownfield codebase, or running the pre-planning completeness sweep."
     path: skills/capture-charter/SKILL.md
-    tokens: 2792
+    tokens: 2794
   - name: capture-vision
     category: requirements
     description: Capture a project vision through structured interview.
@@ -189,11 +171,6 @@ skills:
     description: Derive the full specification chain from a PRD — actor-goal list, persona use cases, system use cases, supplementary specs.
     path: skills/derive-spec/SKILL.md
     tokens: 1148
-  - name: draft-proposal
-    category: requirements
-    description: Crystallize an explored idea into a decision-complete feature proposal. Called by chat-agent (or directly) once the shape of a feature is clear. Runs in the current session with the stakeholder present.
-    path: skills/draft-proposal/SKILL.md
-    tokens: 694
   - name: grill-me
     category: requirements
     description: Interview the user relentlessly about a plan or design until reaching shared understanding, resolving each branch of the decision tree. Use when user wants to stress-test a plan, get grilled on their design, or mentions "grill me".
@@ -218,7 +195,7 @@ skills:
     category: requirements
     description: Backfill docs/spec/scope-map.md from existing derive-spec artifacts before the first derive-feature run.
     path: skills/scope-map-migration/SKILL.md
-    tokens: 785
+    tokens: 787
   - name: write-prd
     category: requirements
     description: Synthesise a Product Requirements Document from clarified requirements.
@@ -423,7 +400,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 2470
-    total_tokens: 29368
+    total_tokens: 29370
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -446,7 +423,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 952
-    total_tokens: 33081
+    total_tokens: 33083
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -462,7 +439,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4451
-    total_tokens: 67040
+    total_tokens: 67044
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -480,7 +457,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2978
-    total_tokens: 66641
+    total_tokens: 66645
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration

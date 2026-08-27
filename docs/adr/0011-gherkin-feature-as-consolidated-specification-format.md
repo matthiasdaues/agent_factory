@@ -60,6 +60,6 @@ Option B dominates. The decisive criteria are executability (weight 3, Gherkin i
 
 ## Referenced from
 
-- [Proposal: Agentic Quality Gates and Requirements Consolidation](../proposals/agentic-quality-gates-and-specification-consolidation.md)
+- [Proposal: Agentic Quality Gates and Requirements Consolidation](../proposals/implemented/agentic-quality-gates-and-specification-consolidation.md)
 - [cross-reference-format.md](../../factory/rulebooks/conventions/cross-reference-format.md) (amended for `@`-reference notation)
 - [testing-strategy.md](../../factory/rulebooks/conventions/testing-strategy.md) (amended for `.feature` as acceptance layer)

@@ -264,11 +264,11 @@ Code's Agent tool (`isolation: "worktree"`, simultaneous subagent spawns).
 - Pi scaffold commit: `e18fa48` on `bug/pi-init-factory`.
 - Factory spec this feature extends: [`docs/spec/prd.md`](../../../docs/spec/prd.md)
   (Factory Flow Control).
-- Guardrail port precedent: [`factory/config/extensions/block-dangerous-git.ts`](../../config/extensions/block-dangerous-git.ts)
+- Guardrail port precedent: [`factory/config/extensions/block-dangerous-git.ts`](../../../factory/config/extensions/block-dangerous-git.ts)
   and its shell twin `factory/config/hooks/block-dangerous-git.sh`.
 - Install/remove precedent: `factory/scripts/init-factory`,
   `factory/scripts/remove-factory`.
-- CLI-safety and Pi caveat prose: [`factory/docs/factory-guide.md`](../factory-guide.md)
+- CLI-safety and Pi caveat prose: [`factory/docs/factory-guide.md`](../../../factory/docs/factory-guide.md)
   (§ CLI safety guardrails).
 - Pi docs (primary source): `earendil-works/pi`,
   `packages/coding-agent/docs/{usage,skills,prompt-templates,extensions,security,json}.md`.

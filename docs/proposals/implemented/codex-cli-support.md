@@ -422,9 +422,9 @@ an operator must still review and trust current hook definitions in Codex.
 
 ## 11. References
 
-- Install/remove precedent: [`factory/scripts/init-factory`](../../scripts/init-factory)
-  and [`factory/scripts/remove-factory`](../../scripts/remove-factory).
-- Factory orientation: [`factory/config/AGENTS.md`](../../config/AGENTS.md).
+- Install/remove precedent: [`factory/scripts/init-factory`](../../../factory/scripts/init-factory)
+  and [`factory/scripts/remove-factory`](../../../factory/scripts/remove-factory).
+- Factory orientation: [`factory/config/AGENTS.md`](../../../factory/config/AGENTS.md).
 - Pi adapter precedent: [`pi-invocation-layer.md`](pi-invocation-layer.md).
 - Official Codex documentation:
   [AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md),

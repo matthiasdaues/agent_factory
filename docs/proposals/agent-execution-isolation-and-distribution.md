@@ -5,7 +5,7 @@ status: open
 owner: agent-factory
 created: 2026-08-10
 updated: 2026-08-10
-supersedes: containerized-agent-factory.md
+supersedes: superseded/containerized-agent-factory.md
 
 impact:
   scope: cross_project
@@ -69,8 +69,8 @@ accident-prevention controls until an independently protected orchestrator
 replacement ships in the same release.
 
 This proposal supersedes the separate
-[Factory CLI Security Hardening](factory-cli-security-hardening.md) and
-[Containerized Agent Factory Distribution](containerized-agent-factory.md)
+[Factory CLI Security Hardening](superseded/factory-cli-security-hardening.md) and
+[Containerized Agent Factory Distribution](superseded/containerized-agent-factory.md)
 proposals. It separates three concerns that those proposals mixed together:
 host filesystem isolation, reproducible execution, and Git/publication
 authority.
@@ -1089,22 +1089,22 @@ grant and what the namespace scopes.
 
 ### Verification of claimed dispositions
 
-| Finding | Verified disposition                                                                                                                      |
-| ------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| B1      | ACCEPTED — four control paths restored to `boundaries`, a no-regression transition rule, and a matching Completion Criterion              |
-| A1      | ACCEPTED — the current orchestrator is named non-authoritative; the future path requires separate identity, location, and pinned artifact |
-| A2      | ACCEPTED at boundary level — project-local gates now make no security claim, which is consistent with the B1 rule                         |
-| A3      | ACCEPTED — human ownership, access and default ACLs, documented umask, bidirectional edit cases; the PoC citation is correctly narrowed   |
-| A4      | ACCEPTED — activity posture table, and the access-versus-disclosure limit reaches the Security Claims, not only the prose                 |
-| A5      | ACCEPTED — mount namespace named as the release-1 reference, Landlock demoted to defense in depth, kernel and ABI recorded per result     |
-| A6      | ACCEPTED — owner-only per-invocation record, fail-closed, matrix case, and the earlier "against the agent, not the owner" qualification   |
-| A7      | ACCEPTED — the dropped controls appear in Non-goals by name, and recovery prerequisites are restored                                      |
-| A8      | ACCEPTED — authoritative agent configuration is immutable, writable state is non-authoritative, with a matrix case                        |
-| A9      | ACCEPTED — hardlinks, nested mounts, and inherited descriptors each have a rule and a case; residue in A18                                |
-| A10     | ACCEPTED — broad roots refused unconditionally, the stale open question removed, and the decoy named                                      |
-| A11     | ACCEPTED — the chain on disk is this proposal, then `containerized-agent-factory.md`, then the hardening proposal, all single-valued      |
-| A12     | PARTIAL, as claimed — the response table is not the twenty-one-finding carry-forward                                                      |
-| A13–A15 | OPEN, as claimed                                                                                                                          |
+| Finding | Verified disposition                                                                                                                            |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| B1      | ACCEPTED — four control paths restored to `boundaries`, a no-regression transition rule, and a matching Completion Criterion                    |
+| A1      | ACCEPTED — the current orchestrator is named non-authoritative; the future path requires separate identity, location, and pinned artifact       |
+| A2      | ACCEPTED at boundary level — project-local gates now make no security claim, which is consistent with the B1 rule                               |
+| A3      | ACCEPTED — human ownership, access and default ACLs, documented umask, bidirectional edit cases; the PoC citation is correctly narrowed         |
+| A4      | ACCEPTED — activity posture table, and the access-versus-disclosure limit reaches the Security Claims, not only the prose                       |
+| A5      | ACCEPTED — mount namespace named as the release-1 reference, Landlock demoted to defense in depth, kernel and ABI recorded per result           |
+| A6      | ACCEPTED — owner-only per-invocation record, fail-closed, matrix case, and the earlier "against the agent, not the owner" qualification         |
+| A7      | ACCEPTED — the dropped controls appear in Non-goals by name, and recovery prerequisites are restored                                            |
+| A8      | ACCEPTED — authoritative agent configuration is immutable, writable state is non-authoritative, with a matrix case                              |
+| A9      | ACCEPTED — hardlinks, nested mounts, and inherited descriptors each have a rule and a case; residue in A18                                      |
+| A10     | ACCEPTED — broad roots refused unconditionally, the stale open question removed, and the decoy named                                            |
+| A11     | ACCEPTED — the chain on disk is this proposal, then `superseded/containerized-agent-factory.md`, then the hardening proposal, all single-valued |
+| A12     | PARTIAL, as claimed — the response table is not the twenty-one-finding carry-forward                                                            |
+| A13–A15 | OPEN, as claimed                                                                                                                                |
 
 ### Verdict by check (re-run)
 

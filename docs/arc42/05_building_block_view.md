@@ -144,7 +144,7 @@ A deterministic script that replaces the manual `impact.architecture_change` dec
 **Referenced Specifications:**
 
 - [ADR-0012 — Dispatcher-owned semantic gate loop](../adr/0012-dispatcher-owned-semantic-gate-loop.md)
-- [Proposal: Agentic Quality Gates and Requirements Consolidation](../proposals/agentic-quality-gates-and-specification-consolidation.md)
+- [Proposal: Agentic Quality Gates and Requirements Consolidation](../proposals/implemented/agentic-quality-gates-and-specification-consolidation.md)
 
 ## 5.3 Level 2: Component View — State Manager
 

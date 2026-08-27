@@ -79,13 +79,13 @@ generated per-CLI copy gets the correct tool names for that CLI.
    generating `.github/agents/*.md` from `factory/agents/*.md`. The
    tool names are resolved from a CLI-specific mapping table:
 
-   | Canonical role | Copilot tool name   |
-   | -------------- | ------------------- |
-   | read           | `read_file`         |
-   | write          | `write_file`        |
-   | edit           | `edit`              |
-   | search         | `search_files`      |
-   | terminal       | `run_in_terminal`   |
+   | Canonical role | Copilot tool name |
+   | -------------- | ----------------- |
+   | read           | `read_file`       |
+   | write          | `write_file`      |
+   | edit           | `edit`            |
+   | search         | `search_files`    |
+   | terminal       | `run_in_terminal` |
 
    Only tools the agent's workflow actually requires are listed.
 
@@ -114,11 +114,11 @@ generated per-CLI copy gets the correct tool names for that CLI.
 
 ## Alternatives Considered
 
-| Alternative                                  | Verdict  | Reason                                                        |
-| -------------------------------------------- | -------- | ------------------------------------------------------------- |
-| Instruct implementation-agent not to restrict | rejected | Discards a useful defence-in-depth layer                      |
-| Add `tools:` to canonical definitions        | rejected | Breaks CLI neutrality; different CLIs have different names     |
-| Ignore the warnings                          | deferred | Acceptable short-term; the scope failure is the real concern  |
+| Alternative                                   | Verdict  | Reason                                                       |
+| --------------------------------------------- | -------- | ------------------------------------------------------------ |
+| Instruct implementation-agent not to restrict | rejected | Discards a useful defence-in-depth layer                     |
+| Add `tools:` to canonical definitions         | rejected | Breaks CLI neutrality; different CLIs have different names   |
+| Ignore the warnings                           | deferred | Acceptable short-term; the scope failure is the real concern |
 
 ## Acceptance Criteria
 

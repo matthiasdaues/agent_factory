@@ -35,7 +35,7 @@ estimate:
 
 > **Superseded on 2026-08-10.** This proposal is retained as design history.
 > Its scope is replaced by
-> [Agent Execution Isolation and Optional Container Distribution](agent-execution-isolation-and-distribution.md),
+> [Agent Execution Isolation and Optional Container Distribution](../agent-execution-isolation-and-distribution.md),
 > which makes multi-path host filesystem delegation the primary security goal,
 > treats containers as an optional pinned environment, and leaves privileged
 > Git authorization and publication to a future, separately accepted
