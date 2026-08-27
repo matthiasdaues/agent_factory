@@ -34,10 +34,12 @@ def _run_init(target: Path) -> int:
     )
 
 
-def _commands(settings: dict, event: str) -> list[str]:
+def _commands(settings: dict, event: str, matcher: str | None = None) -> list[str]:
     return [
         hook.get("command", "")
         for entry in settings.get("hooks", {}).get(event, [])
+        if isinstance(entry, dict)
+        and (matcher is None or entry.get("matcher") == matcher)
         for hook in entry.get("hooks", [])
         if isinstance(hook, dict)
     ]
@@ -51,11 +53,11 @@ def test_fresh_install_wires_step_guard_for_all_clis(tmp_path: Path) -> None:
     claude_settings = json.loads(
         (tmp_path / ".claude" / "settings.json").read_text(encoding="utf-8")
     )
-    assert _commands(claude_settings, "PreToolUse") == [
-        '"$CLAUDE_PROJECT_DIR"/.claude/hooks/block-dangerous-git.sh',
-    ]
-    for event, command in init_factory.CLAUDE_STEP_GUARD_HOOK_COMMANDS.items():
-        assert _commands(claude_settings, event) == [command]
+    assert init_factory.CLAUDE_GUARDRAIL_HOOK_COMMAND in _commands(
+        claude_settings, "PreToolUse", matcher="Bash"
+    )
+    for tool_name, command in init_factory.CLAUDE_STEP_GUARD_HOOK_COMMANDS.items():
+        assert command in _commands(claude_settings, "PreToolUse", matcher=tool_name)
 
     codex_hook = tmp_path / ".codex" / "hooks" / "step-guard.sh"
     assert codex_hook.is_symlink()

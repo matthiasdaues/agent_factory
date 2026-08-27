@@ -16,7 +16,7 @@ DISPATCH_SCRIPT = (
 SCRIPT_DIR = Path(__file__).resolve().parent.parent.parent / "factory" / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 
-import dispatch_lib  # noqa: E402
+import dispatch_lib
 
 Ledger = dispatch_lib.Ledger
 

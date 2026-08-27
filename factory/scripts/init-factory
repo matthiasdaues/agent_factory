@@ -1319,7 +1319,9 @@ def _wire_claude_step_guard_event(
         )
 
     for entry in pre_tool_use:
-        entry_hooks = entry.get("hooks", []) if isinstance(entry, dict) else []
+        if not isinstance(entry, dict) or entry.get("matcher") != tool_name:
+            continue
+        entry_hooks = entry.get("hooks", [])
         for hook in entry_hooks:
             if isinstance(hook, dict) and hook.get("command") == command:
                 log(
@@ -1349,7 +1351,9 @@ def _migrate_legacy_step_guard_event(
     removed = False
     for entry in entries:
         entry_hooks = entry.get("hooks", []) if isinstance(entry, dict) else []
-        if any(isinstance(h, dict) and h.get("command") == command for h in entry_hooks):
+        if any(
+            isinstance(h, dict) and h.get("command") == command for h in entry_hooks
+        ):
             removed = True
         else:
             kept.append(entry)
@@ -1359,7 +1363,10 @@ def _migrate_legacy_step_guard_event(
         hooks[tool_name] = kept
     else:
         del hooks[tool_name]
-    log(report, f".claude/settings.json: migrated legacy {tool_name} step-guard event to PreToolUse")
+    log(
+        report,
+        f".claude/settings.json: migrated legacy {tool_name} step-guard event to PreToolUse",
+    )
     return True
 
 

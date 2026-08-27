@@ -6,7 +6,7 @@ Canonical orientation content for any AI coding CLI working in a project that us
 
 - **MUST — TOP-LEVEL SESSION INSTRUCTION**: At the start of every session, before answering the first prompt or taking any project action, read and ingest [`factory/rulebooks/rules.md`](../rulebooks/rules.md) in full. Treat every `MUST` and `MUST NOT` there as binding for the entire session. If the file is missing or unreadable, stop and tell the user; do not continue with partial Factory guidance.
 
-- **MUST** use `rg` with an explicit hidden-file search, or `bash` ( `find`, `fd`, etc.), when the target may live under a hidden directory or file.
+- **MUST** use `rg` with an explicit hidden-file search, or `bash` ( `find`, `fd`, etc.), when the target may live under a hidden directory or file.
 
 - **MUST** resolve skill invocations through the INDEX.yaml first, and only fall back to the global skill/agent directory if the local INDEX.yaml does not list the skill. If the local INDEX.yaml is missing or unreadable, stop and tell the user; do not continue with partial Factory guidance. Local skill directory, by CLI:
 
@@ -27,14 +27,14 @@ Canonical orientation content for any AI coding CLI working in a project that us
 
 ## Session Entrypoint
 
-At the start of every session, present three choices:
+At the start of every session, greet the user warmly, then present three choices:
 
 > **What do you want to do?**
 >
 > **A** — I want to start something new (prove an idea, research a topic, build a system)\
 > **B** — I want to run an agent or playbook directly\
-> **C** — I want to chat freely
-> /
+> **C** — I just want to talk something through
+>
 > Then act on the user's selection:
 
 ______________________________________________________________________
@@ -67,8 +67,8 @@ Present this expanded tree only after A is chosen:
 > `a` — Survey: what do credible sources say → `research-survey`\
 > `b` — Falsification: test a hypothesis with refutation → `research-topic`
 >
-> **7. Get unstuck / talk it through**\
-> → free-form session
+> **7. Talk it through / explore an idea**\
+> → `chat-agent`
 >
 > **8. Back to the main menu**
 
@@ -90,9 +90,9 @@ If `A` -> list all agents in the local `.*/agents` directory. Append an option t
 
 ______________________________________________________________________
 
-### C — Generic chat
+### C — Let's talk
 
-Start a free-form session. No playbook, no agent — just work with the user directly.
+Spawn the `chat-agent`. It opens with "What's on your mind?" and follows the conversation wherever it leads — no menu, no artifact pressure. When the idea finds its shape, the chat-agent routes to the right next step: a proposal, a spike, a research brief, or a clean ending.
 
 ______________________________________________________________________
 

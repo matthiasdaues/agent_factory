@@ -14,9 +14,8 @@
 #   ./structurizr <subcommand> [args...]
 #
 # Subcommands:
-#   export-png   - Export all views as PNG files to docs/assets/images/
 #   export-svg   - Export all views as SVG files to docs/assets/images/
-#   export-all   - Export all views as both SVG and PNG (svg first, then png)
+#   export-all   - Export all views as SVG (alias for export-svg)
 #   validate     - Validate the DSL model for syntax and semantic errors
 #   list-views   - List all view keys defined in the DSL workspace
 
@@ -62,42 +61,10 @@ strip_prefix() {
 
 # Subcommand dispatcher
 case "${1:-}" in
-    export-png)
-        docker run --rm \
-            -v "${DOCS_DIR}:/workspace" \
-            "${IMAGE}" export -format png -workspace /workspace/arc42/architecture.dsl -output /workspace/assets/images
-        strip_prefix
-        ;;
-    export-svg)
+    export-svg|export-all)
         docker run --rm \
             -v "${DOCS_DIR}:/workspace" \
             "${IMAGE}" export -format svg -workspace /workspace/arc42/architecture.dsl -output /workspace/assets/images
-        strip_prefix
-        ;;
-    export-all)
-        # Run svg export first, then png export.
-        # Both formats are always attempted; exit non-zero if either fails.
-        SVG_EXIT=0
-        PNG_EXIT=0
-
-        docker run --rm \
-            -v "${DOCS_DIR}:/workspace" \
-            "${IMAGE}" export -format svg -workspace /workspace/arc42/architecture.dsl -output /workspace/assets/images \
-            || SVG_EXIT=$?
-
-        [ "${SVG_EXIT}" -eq 0 ] || echo "Warning: SVG export failed (exit ${SVG_EXIT})" >&2
-
-        docker run --rm \
-            -v "${DOCS_DIR}:/workspace" \
-            "${IMAGE}" export -format png -workspace /workspace/arc42/architecture.dsl -output /workspace/assets/images \
-            || PNG_EXIT=$?
-
-        [ "${PNG_EXIT}" -eq 0 ] || echo "Warning: PNG export failed (exit ${PNG_EXIT})" >&2
-
-        if [ "${SVG_EXIT}" -ne 0 ] || [ "${PNG_EXIT}" -ne 0 ]; then
-            # Exit with the larger of the two exit codes to preserve specific failure information
-            exit $(( SVG_EXIT > PNG_EXIT ? SVG_EXIT : PNG_EXIT ))
-        fi
         strip_prefix
         ;;
     validate)
@@ -116,9 +83,8 @@ case "${1:-}" in
 Usage: $(basename "$0") <subcommand> [args...]
 
 Subcommands:
-  export-png   - Export all views as PNG files to docs/assets/images/
   export-svg   - Export all views as SVG files to docs/assets/images/
-  export-all   - Export all views as both SVG and PNG
+  export-all   - Alias for export-svg
   validate     - Validate the DSL model
   list-views   - List all view keys in the workspace
 

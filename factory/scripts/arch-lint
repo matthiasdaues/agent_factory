@@ -397,7 +397,7 @@ def main(argv: list[str] | None = None) -> int:
     docs = args.docs_dir
     dsl_path = docs / "architecture.dsl"
     ch5_path = docs / "05_building_block_view.md"
-    images = sorted((docs.parent / "assets" / "images").glob("*.png"))
+    images = sorted((docs.parent / "assets" / "images").glob("*.svg"))
     adr_dir = docs.parent / "adr"
 
     rep = Report()

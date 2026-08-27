@@ -73,7 +73,7 @@ factory/scripts/structurizr export-all
 Exports SVG and PNG to `docs/assets/images/` (requires Docker; see [STRUCTURIZR.md](STRUCTURIZR.md) for individual-format and `list-views` commands). Embed in the relevant arc42 chapters using relative paths:
 
 ```markdown
-![System Context](../assets/images/SystemContext.png)
+![System Context](../assets/images/SystemContext.svg)
 ```
 
 **Completion**: architecture reflects Clean Architecture boundaries from the spec, diagrams exported to `docs/assets/images/` and embedded in chapters.
