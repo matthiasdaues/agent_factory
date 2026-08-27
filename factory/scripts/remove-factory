@@ -274,6 +274,8 @@ def strip_settings_hook(target: Path, manifest: dict) -> None:
     for event, command in CLAUDE_STEP_GUARD_HOOK_COMMANDS.items():
         if _strip_hook_command(hooks, "PreToolUse", command):
             removed_events.append(f"step-guard {event}")
+        if _strip_hook_command(hooks, event, command):
+            removed_events.append(f"step-guard {event} (legacy)")
 
     for event in CLAUDE_CAPTURE_HOOK_EVENTS:
         if _strip_hook_command(hooks, event, CLAUDE_CAPTURE_HOOK_COMMAND):

@@ -1243,17 +1243,18 @@ def _ensure_claude_step_guard_settings(
     if not path.exists():
         settings = {
             "hooks": {
-                event: [
+                "PreToolUse": [
                     {
+                        "matcher": tool_name,
                         "hooks": [
                             {
                                 "type": "command",
                                 "command": command,
                             }
-                        ]
+                        ],
                     }
+                    for tool_name, command in CLAUDE_STEP_GUARD_HOOK_COMMANDS.items()
                 ]
-                for event, command in CLAUDE_STEP_GUARD_HOOK_COMMANDS.items()
             }
         }
         path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
@@ -1285,32 +1286,63 @@ def _ensure_claude_step_guard_settings(
         )
 
     changed = False
-    for event, command in CLAUDE_STEP_GUARD_HOOK_COMMANDS.items():
-        changed = _wire_claude_step_guard_event(path, hooks, event, command, report) or changed
+    for tool_name, command in CLAUDE_STEP_GUARD_HOOK_COMMANDS.items():
+        changed = _wire_claude_step_guard_event(path, hooks, tool_name, command, report) or changed
+        changed = _migrate_legacy_step_guard_event(hooks, tool_name, command, report) or changed
 
     if changed:
         path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
 
 
 def _wire_claude_step_guard_event(
-    path: Path, hooks: dict, event: str, command: str, report: list[str]
+    path: Path, hooks: dict, tool_name: str, command: str, report: list[str]
 ) -> bool:
-    entries = hooks.setdefault(event, [])
-    if not isinstance(entries, list):
+    pre_tool_use = hooks.setdefault("PreToolUse", [])
+    if not isinstance(pre_tool_use, list):
         raise Collision(
-            f"{path}: 'hooks.{event}' exists but isn't a list — wire the "
+            f"{path}: 'hooks.PreToolUse' exists but isn't a list — wire the "
             "step-guard hook in by hand"
         )
 
-    for entry in entries:
+    for entry in pre_tool_use:
         entry_hooks = entry.get("hooks", []) if isinstance(entry, dict) else []
         for hook in entry_hooks:
             if isinstance(hook, dict) and hook.get("command") == command:
-                log(report, f".claude/settings.json: {event} step-guard hook already wired in")
+                log(report, f".claude/settings.json: {tool_name} step-guard hook already wired in")
                 return False
 
-    entries.append({"hooks": [{"type": "command", "command": command}]})
-    log(report, f".claude/settings.json: added {event} step-guard hook")
+    pre_tool_use.append(
+        {
+            "matcher": tool_name,
+            "hooks": [{"type": "command", "command": command}],
+        }
+    )
+    log(report, f".claude/settings.json: added {tool_name} step-guard hook")
+    return True
+
+
+def _migrate_legacy_step_guard_event(
+    hooks: dict, tool_name: str, command: str, report: list[str]
+) -> bool:
+    """Remove old-format top-level tool-name event keys left by pre-fix installs."""
+    entries = hooks.get(tool_name)
+    if not isinstance(entries, list):
+        return False
+    kept = []
+    removed = False
+    for entry in entries:
+        entry_hooks = entry.get("hooks", []) if isinstance(entry, dict) else []
+        if any(isinstance(h, dict) and h.get("command") == command for h in entry_hooks):
+            removed = True
+        else:
+            kept.append(entry)
+    if not removed:
+        return False
+    if kept:
+        hooks[tool_name] = kept
+    else:
+        del hooks[tool_name]
+    log(report, f".claude/settings.json: migrated legacy {tool_name} step-guard event to PreToolUse")
     return True
 
 
