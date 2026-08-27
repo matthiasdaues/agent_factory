@@ -3,6 +3,15 @@
 # hand, regenerate with scripts/index-lint.
 
 agents:
+  - name: chat-agent
+    title: Chat Agent
+    phase: 0
+    phase_name: Utility
+    tier: standard
+    description: Open-ended conversation that helps an idea find its shape. Starts formless — just talking — and coalesces into the right next step when the idea is ready. The agent you pick before things get serious.
+    path: agents/chat-agent.md
+    tokens: 849
+    total_tokens: 3566
   - name: coaching-agent
     title: Coaching Agent
     phase: 0
@@ -21,6 +30,15 @@ agents:
     path: agents/kit-manager.md
     tokens: 1028
     total_tokens: 6617
+  - name: proposal-review-agent
+    title: Proposal Review Agent
+    phase: 1
+    phase_name: Requirements
+    tier: strong
+    description: Review a feature proposal for clarity, feasibility, and planning readiness — consultative on drafts, adversarial on open proposals. Runs in a separate session from the proposal author.
+    path: agents/proposal-review-agent.md
+    tokens: 1503
+    total_tokens: 2592
   - name: requirements-agent
     title: Requirements Agent
     phase: 1
@@ -171,6 +189,11 @@ skills:
     description: Derive the full specification chain from a PRD — actor-goal list, persona use cases, system use cases, supplementary specs.
     path: skills/derive-spec/SKILL.md
     tokens: 1148
+  - name: draft-proposal
+    category: requirements
+    description: Crystallize an explored idea into a decision-complete feature proposal. Called by chat-agent (or directly) once the shape of a feature is clear. Runs in the current session with the stakeholder present.
+    path: skills/draft-proposal/SKILL.md
+    tokens: 694
   - name: grill-me
     category: requirements
     description: Interview the user relentlessly about a plan or design until reaching shared understanding, resolving each branch of the decision tree. Use when user wants to stress-test a plan, get grilled on their design, or mentions "grill me".
