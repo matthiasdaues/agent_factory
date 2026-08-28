@@ -1,8 +1,9 @@
 # A Beginner's Introduction to Agent Factory
 
 The doorway to Agent Factory for a first-time user — of the factory, or of any AI
-coding workflow. Read it start to finish, once, before you touch a single
-command. The [`factory/README.md`](../../factory/README.md) and
+coding workflow. Your assistant walks you through this page conversationally, one
+section at a time, pausing for questions. The
+[`factory/README.md`](../../factory/README.md) and
 [factory guide](../../factory/docs/factory-guide.md) are references you return to
 afterward; this page is the one you walk through first.
 
@@ -88,19 +89,26 @@ mode, a fresh window between the two.
 Do the setup once, following [`factory/README.md`](../../factory/README.md) — it
 lists the handful of tools you need and the one script that wires everything up.
 When it is done, open your AI assistant in your project folder and say hello. It
-should greet you back and confirm it has read the project's rules. That handshake
-means the factory is live.
+should greet you back with four options:
 
-Now try the gentlest possible task. Tell your assistant:
+- **A — I'm new here — show me around.** This is where you are now. The assistant
+  walks you through this page, section by section, answering questions as you go.
+- **B — I want to start something.** Opens a menu of situations — spike, new
+  project, feature, bug fix, research — and picks the right playbook for you.
+- **C — I want to run an agent or playbook directly.** For when you know the
+  factory well enough to name what you want.
+- **D — I just want to talk something through.** Open conversation — no
+  structure, no artifacts, just thinking out loud until the idea finds its shape.
 
-> "Let's run the poc-spike playbook. I want to see if \<your rough idea> is
-> even worth building."
+If you have been here before (the assistant checks for signs of prior work — a
+completed spike, a charter, earlier playbook outputs), it will acknowledge what
+you have done and offer to skip ahead.
 
-`poc-spike` — "proof-of-concept spike" — is the training-wheels playbook. No
-specification, no architecture, no formal checks. One idea, turned into one small
-thing you can run, in minutes. It exists so you can watch an agent and your
-assistant work together *before* you commit to anything real. What you throw away
-here cost you almost nothing.
+When this tour is done, the assistant offers to run `poc-spike` — the
+training-wheels playbook. No specification, no architecture, no formal checks.
+One idea, turned into one small thing you can run, in minutes. It exists so you
+can watch an agent and your assistant work together *before* you commit to
+anything real. What you throw away here cost you almost nothing.
 
 Watch what happens:
 
@@ -111,6 +119,9 @@ Watch what happens:
 
 That back-and-forth *is* Agent Factory. Everything larger is the same loop, with
 more rigour bolted on.
+
+At any point — during this tour or in a later session — you can ask the assistant
+"where am I?" or "what do I do next?" and it will reorient you.
 
 ## The bigger picture: five phases
 
