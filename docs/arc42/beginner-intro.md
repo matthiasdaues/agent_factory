@@ -55,10 +55,10 @@ the crank.*
   are the visible marker that the step is done. You read them, you decide whether
   the work is good, and you start the next step. Nothing moves without you.
 - **Automatic mode** is where you go once you trust the process. An optional
-  companion tool, the **orchestrator**, does the one thing you were doing by hand
-  between steps: it presses "enter." It reads the playbook, runs the next agent,
-  checks the gate, and moves on — pausing wherever a step genuinely needs a human
-  decision.
+  companion tool, the **orchestrator** (work in progress — not yet operational),
+  does the one thing you were doing by hand between steps: it presses "enter."
+  It reads the playbook, runs the next agent, checks the gate, and moves on —
+  pausing wherever a step genuinely needs a human decision.
 
 Do not reach for automatic mode yet. You cannot trust a process you have never
 watched run. Turn the crank by hand first — a few times, on small tasks — until

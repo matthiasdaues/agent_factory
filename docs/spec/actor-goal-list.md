@@ -5,7 +5,7 @@ Derived from [`prd.md`](prd.md). Goal levels use Cockburn's "does the actor go h
 ## Actors
 
 - **Human Operator** (primary) — a person driving Agent Factory directly by hand.
-- **Orchestrator-as-Trigger** (primary) — the nested `orchestrator/` Python CLI, invoking the same mechanisms programmatically in the Human Operator's place.
+- **Orchestrator-as-Trigger** (primary) — the nested `orchestrator/` Python CLI (work in progress — not yet operational), invoking the same mechanisms programmatically in the Human Operator's place.
 - **CLI-Invoked Agent** (secondary) — the Claude Code, Copilot CLI, or Pi session `trigger` dispatches; a supporting actor with no goal of its own beyond executing the agent definition it was handed. Under Pi it is also the *caller* of `run_agent`, since Pi has no native subagent concept: it spawns a fresh Pi session for the agent it wants to run (AG-10).
 - **Phase Participant** (primary) — a human or factory agent completing one workflow phase and restarting the next from durable artifacts.
 - **Assurance Auditor** (primary) — a requirements, planning, or quality participant proving which accepted dispatch safeguards are complete and identifying only verified gaps.

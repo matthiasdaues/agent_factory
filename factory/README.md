@@ -2,7 +2,7 @@
 
 `factory/` is the Agent Factory toolset itself — agents, skills, playbooks, and checks. `init-factory` copies it wholesale into your own project. You never hand-edit the copy; run `update-factory` to bring it up to date when your `agent_factory` checkout moves forward.
 
-Part of [Agent Factory](../README.md). See also: [orchestrator](../orchestrator/README.md), [architecture docs](../docs/README.md).
+Part of [Agent Factory](../README.md). See also: [orchestrator](../orchestrator/README.md) (work in progress — not yet operational), [architecture docs](../docs/README.md).
 
 This page gets you from zero to a running first playbook. Never used Agent Factory — or any AI coding workflow — before? Read the [beginner's introduction](../docs/arc42/beginner-intro.md) first; it explains what you are about to do before you run any command. For what agents, skills, playbooks, and rulebooks actually are, and how the checks work, see the [factory guide](docs/factory-guide.md).
 
@@ -101,7 +101,8 @@ For every other situation — a new project, an existing codebase, a bug, a feat
 ### Running a playbook automatically
 
 After completing the human-driven requirements phase, let the installed
-orchestrator drive the remaining agent sessions and deterministic gates:
+orchestrator (work in progress — not yet operational) drive the remaining
+agent sessions and deterministic gates:
 
 ```bash
 factory/scripts/run-playbook \

@@ -41,7 +41,7 @@ ______________________________________________________________________
 ## 3. Target Actors
 
 - **Human Operator** (primary) — a person driving Agent Factory directly: running scripts by hand, committing code, approving phase gates.
-- **Orchestrator-as-Trigger** (secondary) — the nested `orchestrator/` Python CLI, a peer of the Human Operator. It invokes the same `factory/scripts/*` mechanisms programmatically instead of a human typing them.
+- **Orchestrator-as-Trigger** (secondary) — the nested `orchestrator/` Python CLI (work in progress — not yet operational), a peer of the Human Operator. It invokes the same `factory/scripts/*` mechanisms programmatically instead of a human typing them.
 - **CLI-Invoked Agent** (secondary) — the Claude Code, GitHub Copilot CLI, Codex, or Pi agent session that `trigger` dispatches, operating under the scoped permission controls available in that runtime. Under Pi, which has no native subagent concept, this actor is also the caller of the `run_agent` tool: it spawns a fresh Pi session to run another factory agent with separate-session semantics (FR-J).
 - **Phase Participant** (primary) — a human or factory agent completing one workflow phase and handing the next phase to a fresh CLI session without replaying the prior transcript.
 - **Assurance Auditor** (primary) — a requirements, planning, or quality participant who maps accepted dispatch safeguards to observable delivery evidence and files only verified gaps.
