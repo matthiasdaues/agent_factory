@@ -461,8 +461,8 @@ playbooks:
       - implementation-agent
       - reconciliation-agent
       - qa-agent
-    tokens: 4451
-    total_tokens: 67034
+    tokens: 4515
+    total_tokens: 67098
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration

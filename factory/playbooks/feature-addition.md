@@ -9,6 +9,7 @@ steps:
     inputs:
       - 'docs/proposals/**/*.md'
       - 'docs/spec/**/*.md'
+      - 'docs/spec/**/*.feature'
       - 'docs/charter/**/*.md'
     outputs:
       - 'docs/proposals/**/*.md'
@@ -36,13 +37,16 @@ steps:
     inputs:
       - 'docs/proposals/**/*.md'
       - 'docs/spec/**/*.md'
+      - 'docs/spec/**/*.feature'
     outputs:
       - 'docs/spec/**/*.md'
+      - 'docs/spec/**/*.feature'
     max_input_tokens: 40000
   - name: spec-review
     inputs:
       - 'docs/proposals/**/*.md'
       - 'docs/spec/**/*.md'
+      - 'docs/spec/**/*.feature'
     outputs:
       - 'docs/findings/SPEC-*.md'
     max_input_tokens: 40000
@@ -55,6 +59,7 @@ steps:
     inputs:
       - 'docs/proposals/**/*.md'
       - 'docs/spec/**/*.md'
+      - 'docs/spec/**/*.feature'
       - 'docs/adr/**/*.md'
       - 'docs/arc42/**/*.md'
     outputs:
@@ -77,6 +82,7 @@ steps:
     inputs:
       - 'docs/proposals/**/*.md'
       - 'docs/spec/**/*.md'
+      - 'docs/spec/**/*.feature'
       - 'docs/arc42/**/*.md'
     outputs:
       - 'backlog/ST-*.md'
@@ -103,6 +109,7 @@ steps:
     inputs:
       - 'backlog/ST-*.md'
       - 'docs/spec/**/*.md'
+      - 'docs/spec/**/*.feature'
       - 'factory/**/*.py'
       - 'orchestrator/**/*.py'
       - 'tests/**/*.py'
@@ -119,6 +126,7 @@ steps:
     inputs:
       - 'backlog/ST-*.md'
       - 'docs/spec/**/*.md'
+      - 'docs/spec/**/*.feature'
       - 'factory/**/*.py'
       - 'orchestrator/**/*.py'
       - 'tests/**/*.py'
