@@ -147,6 +147,18 @@ erDiagram
         int cache_miss_input_tokens "nullable when unavailable"
         float late_early_input_ratio "nullable when unavailable"
     }
+    SCOPE_MAP_ROW {
+        string rule "behavioral claim — one sentence"
+        string status "implemented | specified | deferred"
+        string confidence "nullable — verified | flagged | high | medium-high | medium | medium-low | low | lowest | claimed"
+        string sources "spec or evidence origin — UC file, .feature file, test file, doc"
+        string feature_link "nullable — path to implementing code#59; anchors conceptual rule to codebase"
+    }
+    ANCHOR_FILE_SET {
+        string architecture_dsl "docs/arc42/architecture.dsl"
+        string scope_map "docs/spec/scope-map.md"
+        string context "docs/CONTEXT.md"
+    }
 ```
 
 ## Notes
@@ -162,6 +174,8 @@ erDiagram
 - **HANDOFF** is the restart contract between two phases. It owns phase continuity; **REPOSITORY_STATE** owns the exact revision and validation evidence, and **ARTIFACT_REFERENCE** names durable information instead of embedding it in a transcript. **HANDOFF_SEMANTIC_REVIEW** records the separate human/agent judgment that the mechanically valid handoff omitted or distorted no material fact.
 - **DISPATCH_LEDGER** is the script-owned dispatch record at `.current-work/<feature-branch>/dispatch-ledger.yaml`; each story entry tracks lifecycle fields including `tier`, `attempts`, and the pre-spawn `prepared` state, and each `WaveCloseout` entry records a wave summary (`number`, `completed`, `blocked`, `failed`, `next_ready`, `branch_head`).
 - **CHILD_RESULT_ENVELOPE** is deliberately smaller than the tracked result it references. **SESSION_USAGE_SIGNAL** is retrospective evidence qualified by CLI/provider, never live workflow state.
+- **SCOPE_MAP_ROW** is one row in `docs/spec/scope-map.md`. The table always has five columns: Rule, Status, Confidence, Sources, Feature Link. `confidence` is populated by the `reverse-map` skill during brownfield onboarding; rows created by `derive-feature` or `scope-map-migration` leave it empty. `sources` names the spec or evidence origin (UC file, .feature file, test file). `feature_link` anchors the conceptual rule to the implementing code — the bridge between the specification plane and the codebase. It is empty when the rule is `specified` (not yet implemented) or when the implementing code has not been identified; the `reconciliation-agent` fills it after implementation. The confidence hierarchy follows a forensic evidence model: passing tests are `verified`, code entry points are `high`, external docs are progressively lower. See [newcomer-onboarding.feature](../newcomer-onboarding.feature).
+- **ANCHOR_FILE_SET** is the minimum prerequisite for `feature-addition` after brownfield-lite onboarding. The three files are checked by file existence, not by a gate marker. Their presence signals readiness for feature work; their absence suggests running `brownfield-onboarding` first.
 
 ## Referenced from
 
