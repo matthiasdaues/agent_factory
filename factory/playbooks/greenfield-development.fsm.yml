@@ -19,8 +19,8 @@ gate_conditions:
     type: files_exist
     paths:
       - docs/spec/prd.md
-      - docs/spec/actor-goal-list.md
-      - docs/spec/use_cases/*.md
+      - docs/spec/scope-map.md
+      - docs/spec/*.feature
   
   no_open_spec_findings:
     type: no_open_findings
@@ -91,10 +91,11 @@ states:
     
     outputs:
       - docs/spec/prd.md
-      - docs/spec/actor-goal-list.md
-      - docs/spec/use_cases/*.md
-      - docs/spec/supplementary_specs/*.md
+      - docs/spec/scope-map.md
       - docs/spec/*.feature
+      - docs/spec/*-gaps.md
+      - docs/spec/*-qa-strategy.md
+      - docs/spec/supplementary_specs/*.md
     
     on:
       SpecComplete:
