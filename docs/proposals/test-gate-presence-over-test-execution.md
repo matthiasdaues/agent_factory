@@ -32,6 +32,7 @@ impact:
     - factory/skills/qa-strategy-from-spec/SKILL.md
     - factory/agents/kit-manager.md
     - factory/agents/developer-agent.md
+    - factory/agents/implementation-agent.md
 
 governance:
   assurance: elevated
@@ -65,6 +66,8 @@ The current `factory/scripts/run-tests` detects framework markers (`pyproject.to
 It breaks when the project has its own test infrastructure. The reproducing case is Gigacron: its tests require a Compose environment where `toxiproxy:15432` resolves. The project's entrypoint is `make test` → `./run-dev.sh test` → `docker compose exec app uv run pytest`. Factory's `run-tests` detects `pyproject.toml`, fires `uv run pytest` on the host, and the session migration fixture explodes because the database proxy is unreachable.
 
 The root cause is a boundary violation: Factory imposes its own test execution strategy on the consumer project instead of serving the project's. This contradicts Factory's role as infrastructure that assists consumer projects without owning their runtime topology.
+
+The same release must also close the traceability gap in the QA strategy derivation chain. Today `qa-strategy-from-spec` reads the feature file, entity model, and interface contracts, then applies the Factory testing convention as a generic backbone. It never consults the project's declared testing decisions (`docs/charter/development.md`) or scans the repository's actual test infrastructure. The result is a QA strategy that is coincidentally consistent with the charter, not traceably derived from it. An implementer must bridge the gap between what the QA strategy prescribes and how the repository actually runs tests — that bridging happens silently in each developer-agent session and the knowledge evaporates. These two problems share the same fix point: once the charter declares test infrastructure in `testing.yaml`, the QA strategy chain should read it. Shipping the charter declaration without the traceability wiring would create a new source of truth that nothing consumes, requiring a second cross-component change to wire it in later.
 
 ## Core Principles
 
@@ -172,6 +175,7 @@ The following specification documents reference `factory/scripts/run-tests` by p
 - **interface-contracts.md** (`docs/spec/supplementary_specs/interface-contracts.md`): update guardrail binding references.
 - **validation-rules.md** (`docs/spec/supplementary_specs/validation-rules.md`): revise the entire Test execution section — BR-023 (framework detection), BR-024 (agent allowlist), BR-025 (`--changed-only` mode), BR-026 (`--full` mode), BR-027 (JSON summary), BR-028 (`--staged` mode), and BR-029 (pre-commit trigger conditions). All seven business rules describe the deleted script's behavior and must be rewritten to reflect the charter-declared, project-owned testing model.
 - **ADR-0012** (`docs/adr/0012-dispatcher-owned-semantic-gate-loop.md`): the dispatcher's three-gate quality sequence (`crap-score`, `mutation-analysis`, `dependency-check`) loses its second gate. The sequence becomes two gates (`crap-score`, `dependency-check`). Mutation testing is entirely the project's responsibility — if the project sets it up, it runs through the project's own hooks or CI, not the dispatcher's gate loop. Amend the ADR to document this architectural change to the gate sequence.
+- **implementation-agent** (`factory/agents/implementation-agent.md`): remove `factory/scripts/mutation-analysis` from `inputs:`, change the hardcoded three-gate default to two gates (`crap-score`, `dependency-check`), and remove the `mutation-analysis` CLI invocation from the gate execution section. This agent executes the gate sequence described in ADR-0012 and must stay consistent with the two-gate change.
 
 ### 10. Charter layer bindings in `testing.yaml`
 
@@ -283,7 +287,7 @@ This replaces the manual "representative fault" protocol in the testing strategy
 - Update FSM gate evaluation in `bug-fix.fsm.yml` and `greenfield-development.fsm.yml` to resolve the test command from `docs/charter/testing.yaml`.
 - Create the `detect-test-regime` skill for use during onboarding and wire it into `init-factory`.
 - Rewrite `factory/skills/mutation-analysis/SKILL.md` with setup guidance and contract-ownership classification methodology.
-- Update UC-09, ADR-0003, ADR-0012, prd.md, UC-10, interface-contracts.md, and validation-rules.md.
+- Update UC-09, ADR-0003, ADR-0012, prd.md, UC-10, interface-contracts.md, validation-rules.md, and implementation-agent.md.
 - Extend the `testing.yaml` schema with a `layers` section for layer bindings (tool, infrastructure, entry point, anti-patterns per layer).
 - Update `qa-strategy-from-spec` to read charter layer bindings and scan the repository before assigning contract owners. Emit gap findings for undeclared layers and charter/repo mismatches.
 - Update the developer-agent workflow to invoke `spec-feedback` when test-harness mismatches are found during story implementation.
@@ -410,3 +414,46 @@ All six prior findings (PROP-01 through PROP-06) verified as resolved. The init-
 ### Summary
 
 All six prior findings (PROP-01 through PROP-06) remain resolved. The mutation-analysis scope expansion is internally consistent at the boundary and completion-criteria level. Four new minor findings identify places where Design section 9's documentation update descriptions understate the actual scope of changes needed — particularly for prd.md (G9 and FR-I revision), validation-rules.md (BR-023 through BR-029 revision), and ADR-0012 (gate sequence architectural change). One scope-boundary finding (PROP-09) asks for explicit init-factory wiring in the scope list. No major findings. The proposal is close to planning-ready; addressing the four minor findings would make the documentation update stories precisely sizeable.
+
+## Review — 2026-08-28 (third pass, post-scope-expansion)
+
+Reviewer: proposal-review-agent
+Reviewed commit: c36544dbb2e9acd17226610d95cfd9ac2f7b9516
+Disposition: findings
+
+### Prior findings
+
+All ten prior findings (PROP-01 through PROP-10) verified as resolved at the reviewed commit. The scope expansion that folded in the contract-traced-testing-strategy proposal did not reopen any prior finding. Specifically:
+
+- PROP-01 (init-factory symlink): still resolved — Design section 1 deletes both `run-tests` and `mutation-analysis` entirely.
+- PROP-02 (documentation scope): still resolved — Design section 9 now lists seven documents, including the three added for the mutation-analysis expansion.
+- PROP-03 (allowlist precision): still resolved — Design section 5 specifies all three fields with exact matching.
+- PROP-04 (detection skill location): still resolved — Design section 7 specifies the `detect-test-regime` skill.
+- PROP-05 (template specification): still resolved — template at `factory/rulebooks/templates/charter-testing.yaml`, schema by example.
+- PROP-06 (boundary completeness): still resolved for the 16 original files. The expanded scope added three new boundary files (`factory/skills/qa-strategy-from-spec/SKILL.md`, `factory/agents/kit-manager.md`, `factory/agents/developer-agent.md`), bringing the total to 19. One additional affected artifact is undeclared (PROP-11).
+- PROP-07 (prd.md update scope): still resolved — Design section 9 now names G9 and FR-I1 through FR-I6 explicitly.
+- PROP-08 (validation-rules.md update scope): still resolved — Design section 9 now names BR-023 through BR-029.
+- PROP-09 (init-factory wiring in scope): still resolved — Scope now says "wire it into init-factory."
+- PROP-10 (ADR-0012 gate sequence change): still resolved — Design section 9 now describes the architectural change from three gates to two.
+
+### Eight-check results
+
+1. **Completion criteria testable** — PASS. All 21 criteria are mechanically verifiable without asking the author. The seven new criteria (15–21) added for the expanded scope follow the same precision standard as the original fourteen.
+2. **Scope boundary sharp** — PASS. The In/Deferred partition cleanly separates what ships from what does not. The boundary between "kit-manager populates layer bindings from existing infrastructure" (In) and "full kit-manager onboarding interview for building test infrastructure from scratch" (Deferred) is clear from the design text. The boundary between "file-path-level mutation-to-contract join" (In) and "function-level or AST-level mapping" (Deferred) is mechanically decidable.
+3. **Design decomposable** — PASS. Design sections 10–13 are specific enough for Planning to write INVEST stories: section 10 includes the YAML schema by example, section 11 specifies the two new inputs and the Step 3 change, section 12 names the trigger condition and mechanism, and section 13 defines the three classification statuses and the join method.
+4. **Impact classification consistent** — PASS. `cross_component`, `architecture_change: true`, `external_contract_change: true` all match the expanded Design. The scope expansion strengthens each classification: charter layer bindings add cross-component reach, the ADR-0012 gate sequence change is architectural, and the QA strategy and developer-agent workflow changes affect external contracts.
+5. **Boundary references exist** — FAIL. All 19 declared paths resolve at the reviewed commit. However, one directly affected artifact is undeclared (PROP-11).
+6. **Open questions genuine** — PASS. All questions are resolved with concrete design decisions. The expanded scope introduces no new unresolved questions. The superseded proposal's question about whether testing bindings should live in their own file or in `development.md` is resolved in the Open Questions section.
+7. **Motivation justifies timing** — PASS with one minor finding (PROP-12). The Gigacron reproducer and boundary-violation argument are strong for the original scope. The expanded scope's timing justification is present in the Summary but absent from the Motivation section.
+8. **Estimate plausible** — PASS. Token estimates use `unknown`, which is honest given the scope growth from 10 to 14 In-scope items, 16 to 19 boundary files, 14 to 21 completion criteria, and 29 to 42 feature scenarios. Human review hours (1.0–2.0h) are tight for a cross-component change at this scale but not implausible.
+
+### Findings
+
+| ID      | Severity | Check | Status | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------- | -------- | ----- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-11 | major    | 05    | open   | `factory/agents/implementation-agent.md` is missing from `impact.boundaries` and from the Scope. The implementation-agent lists `factory/scripts/mutation-analysis` as an input (line 28), references the three-gate hardcoded default including `mutation-analysis` (line 129), and shows the `mutation-analysis` CLI invocation in its gate execution section (line 137). This agent is the artifact that executes the gate sequence described in ADR-0012. Deleting the script and amending the ADR without updating the implementation-agent leaves it referencing a deleted script and a superseded three-gate sequence. A planning agent would not generate a story for this update without the boundary reference. The implementation-agent needs: (a) `factory/scripts/mutation-analysis` removed from `inputs:`, (b) the hardcoded default changed to two gates, (c) the `mutation-analysis` CLI invocation removed from the gate execution section, and (d) a Scope item covering this update. |
+| PROP-12 | minor    | 07    | open   | The Motivation section justifies only the original scope (Gigacron reproducer, boundary violation in `run-tests`) but not the expanded scope (Design sections 10–13). The Summary mentions a "traceability gap in the QA strategy derivation chain," but the Motivation section — where the template says "Why now" belongs — does not argue why charter layer bindings, QA strategy grounding, developer-agent feedback, and mutation-analysis classification must ship in this release rather than in a follow-up. The `supersedes` field references `contract-traced-testing-strategy.md`, but the Motivation should stand on its own without requiring the reader to locate the superseded proposal's rationale.                                                                                                                                                                                                                                                                                     |
+
+### Summary
+
+All ten prior findings (PROP-01 through PROP-10) remain resolved. The scope expansion from folding in the contract-traced-testing-strategy proposal is internally consistent at the Design, Scope, completion-criteria, and feature-file level — Design sections 10–13 are decomposable, the 21 completion criteria are testable, and 42 feature scenarios cover the full scope. One major finding: the implementation-agent — the artifact that executes the gate sequence being changed — is missing from boundaries and scope (PROP-11). One minor finding: the Motivation section does not justify the timing for the expanded scope (PROP-12). Address PROP-11 before planning; PROP-12 is a documentation gap that does not block planning.
