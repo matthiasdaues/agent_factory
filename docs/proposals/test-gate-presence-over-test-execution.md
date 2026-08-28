@@ -346,7 +346,7 @@ No remaining open questions. The contract-traced-testing-strategy proposal asked
 - UC-09 documents testing as project-owned infrastructure.
 - ADR-0003 carries an amendment recording this design change.
 - `factory/skills/mutation-analysis/SKILL.md` describes how to set up project-owned mutation testing, not a prescribed tool chain.
-- prd.md, UC-10, ADR-0012, interface-contracts.md, and validation-rules.md are updated to reference charter-declared commands instead of `factory/scripts/run-tests`.
+- prd.md, UC-10, ADR-0012, interface-contracts.md, validation-rules.md, and implementation-agent.md are updated to reference charter-declared commands instead of `factory/scripts/run-tests`. The implementation-agent no longer lists `factory/scripts/mutation-analysis` as an input, uses a two-gate default (`crap-score`, `dependency-check`), and does not invoke `mutation-analysis` in its gate execution section.
 - The Gigacron reproducer (`make test` via Compose) works correctly when declared in `docs/charter/testing.yaml`.
 - `remove-factory` leaves `docs/charter/testing.yaml` and project-owned test infrastructure intact.
 - The `testing.yaml` template includes the `layers` section schema defined by example.
@@ -457,3 +457,40 @@ All ten prior findings (PROP-01 through PROP-10) verified as resolved at the rev
 ### Summary
 
 All ten prior findings (PROP-01 through PROP-10) remain resolved. The scope expansion from folding in the contract-traced-testing-strategy proposal is internally consistent at the Design, Scope, completion-criteria, and feature-file level — Design sections 10–13 are decomposable, the 21 completion criteria are testable, and 42 feature scenarios cover the full scope. One major finding: the implementation-agent — the artifact that executes the gate sequence being changed — is missing from boundaries and scope (PROP-11). One minor finding: the Motivation section does not justify the timing for the expanded scope (PROP-12). Address PROP-11 before planning; PROP-12 is a documentation gap that does not block planning.
+
+## Review — 2026-08-28 (fourth pass)
+
+Reviewer: proposal-review-agent
+Reviewed commit: 671315705204e812a51cb8f308b7c56b004aa7e4
+Disposition: findings
+
+### Prior findings
+
+All twelve prior findings (PROP-01 through PROP-12) verified as resolved at the reviewed commit.
+
+- PROP-01 through PROP-10: remain resolved. No changes to the sections they addressed between the third review commit and the current HEAD.
+- PROP-11 (major, check 05): RESOLVED. `factory/agents/implementation-agent.md` added to `impact.boundaries` (line 35 of frontmatter). Design section 9 includes a specific entry describing three changes: remove `factory/scripts/mutation-analysis` from `inputs:`, change three-gate default to two gates (`crap-score`, `dependency-check`), remove `mutation-analysis` CLI invocation from the gate execution section. Scope list updated to include `implementation-agent.md`. The actual implementation-agent.md confirms the references exist at lines 28, 129, and 137 as described.
+- PROP-12 (minor, check 07): RESOLVED. Motivation section now includes a paragraph arguing that the charter declaration and QA strategy traceability share the same fix point, and shipping one without the other creates a new source of truth that nothing consumes — a genuine "why now" argument for the expanded scope.
+
+### Eight-check results
+
+1. **Completion criteria testable** — PASS with one minor finding (PROP-13). All 20 criteria are mechanically verifiable without asking the author. However, the implementation-agent update described in Design section 9 and listed in Scope has no corresponding completion criterion.
+2. **Scope boundary sharp** — PASS. The In/Deferred partition cleanly separates what ships from what does not. All 14 In-scope items are mechanically distinguishable from the 8 Deferred items.
+3. **Design decomposable** — PASS. All 13 Design sections are specific enough for Planning to write INVEST stories without re-deriving the design.
+4. **Impact classification consistent** — PASS. `cross_component`, `architecture_change: true`, `external_contract_change: true` all match the Design. The 20 boundary files span scripts, config, skills, agents, ADRs, specs, and playbooks — consistent with cross-component scope.
+5. **Boundary references exist** — PASS. All 20 declared paths resolve at the reviewed commit.
+6. **Open questions genuine** — PASS. All questions resolved with concrete design decisions. No padding.
+7. **Motivation justifies timing** — PASS. The Gigacron reproducer provides a concrete failure for the original scope. The new Motivation paragraph justifies the expanded scope with a shared-fix-point argument.
+8. **Estimate plausible** — PASS. Token estimates use `unknown`, which is honest given the 20-boundary, 14-item scope. Human review hours (1.0–2.0h) are tight but not implausible at `medium` confidence with `judgment` basis.
+
+### Findings
+
+| ID      | Severity | Check | Status   | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------- | -------- | ----- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-11 | major    | 05    | resolved | `factory/agents/implementation-agent.md` added to boundaries, Design section 9, and Scope. The three specific changes (remove mutation-analysis input, change three-gate to two-gate default, remove CLI invocation) are accurately described.                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| PROP-12 | minor    | 07    | resolved | Motivation section now justifies the expanded scope timing with a shared-fix-point argument.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| PROP-13 | minor    | 01    | open     | The implementation-agent update is in the Scope and described with three specific changes in Design section 9 but has no corresponding completion criterion. The documentation-update criterion (criterion 12) names prd.md, UC-10, ADR-0012, interface-contracts.md, and validation-rules.md — five documents. UC-09 and ADR-0003 have separate criteria. The implementation-agent is the eighth document in the Scope's documentation update list with no verifiable completion check. The changes it requires (remove an input, change a gate count, remove a CLI invocation) are structurally different from the five documents in criterion 12 (which update references from `run-tests` to charter-declared commands). |
+
+### Summary
+
+All twelve prior findings (PROP-01 through PROP-12) are resolved. One new minor finding: the implementation-agent update has no completion criterion (PROP-13). All eight checks pass, with PROP-13 the sole open item. The proposal is planning-ready once the implementation-agent completion criterion is added — a one-line addition to the Completion Criteria section.
