@@ -113,20 +113,20 @@ Factory stops owning test execution entirely. The `factory/scripts/run-tests` sc
 
 **Positive:**
 
-- **Tests run automatically on ordinary Git operations** — pre-commit catches failures immediately (changed files), pre-push runs the full suite, and phase gates block advancement on red tests. No agent amnesia, no partial runs mistaken for complete ones.
-- **Single validation path** — hook result is the only result. No "agent says pass, hook says fail" conflict. Single source of truth.
-- **Trust boundary enforced mechanically** — agents blocked at PreToolUse before command executes. No reliance on agent restraint or judgment.
-- **Consistent with existing pattern** — follows the same mechanically triggered hook shape as `transition-lint` and `block-dangerous-git.sh`. Test execution is not special-cased.
+- **Project-owned test gates run at Git boundaries and phase advances** — the project declares its test commands in `docs/charter/testing.yaml`; hooks and FSM gates invoke them. No agent amnesia, no partial runs mistaken for complete ones.
+- **Single validation path** — the charter-declared command's exit code is the only result. No "agent says pass, gate says fail" conflict. Single source of truth.
+- **Trust boundary enforced mechanically** — bare test commands blocked at PreToolUse before the command executes. Charter-declared commands are allowlisted with exact-string matching (BR-024). No reliance on agent restraint or judgment.
+- **Consistent with existing pattern** — follows the same mechanically triggered hook shape as `transition-lint` and `block-dangerous-git.sh`. Test gates are not special-cased.
+- **No boundary violation** — Factory reads the project's test declaration; it does not detect, construct, or override test commands. Projects with custom test topologies (Compose, remote runners, etc.) work unchanged.
 
 **Negative / risks:**
 
 - **Client-side hooks are bypassable by humans** — both commit and push accept `--no-verify`. This is an operational gate for normal workflows, not a repository security boundary. Enforce organization-wide policy with required CI or server-side controls.
-- **Framework detection is heuristic** — `run-tests` scans for known markers; unrecognized frameworks report "no framework detected." Projects must use a supported framework or extend `run-tests`. Not every test setup auto-detects.
-- **Monorepo multi-framework limitation** — detecting multiple frameworks fails loudly rather than running all. Multi-framework orchestration deferred as future work (T-06). Single-framework projects unaffected.
+- **Project must declare test commands** — no `docs/charter/testing.yaml` means no test gates. The `detect-test-regime` skill scans for existing entrypoints during onboarding, but the project is responsible for the declaration.
 - **Phase advance becomes test-dependent** — a single failing test blocks phase transition. Deliberately strict; the alternative (advancing with red tests) violates the gate's purpose. Operator can fix tests or temporarily remove the `script_exit_zero` condition from FSM if gate is incorrect.
 
 ## Referenced from
 
-- [UC-09 — Run Tests via Hook](../spec/use_cases/UC-09-run-tests-via-hook.md)
+- [UC-09 — Ensure Project-Owned Test Gates Exist](../spec/use_cases/UC-09-run-tests-via-hook.md)
 - [foundational-principles.md § Agentic Creation, Deterministic Validation](../../factory/rulebooks/conventions/foundational-principles.md#agentic-creation-deterministic-validation)
 - [08_crosscutting_concepts.md § 8.1](../arc42/08_crosscutting_concepts.md#81-agentic-creation-deterministic-validation)

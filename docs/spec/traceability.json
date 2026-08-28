@@ -507,17 +507,7 @@
     {
       "from": "UC-09",
       "rel": "references_br",
-      "to": "BR-023"
-    },
-    {
-      "from": "UC-09",
-      "rel": "references_br",
       "to": "BR-024"
-    },
-    {
-      "from": "UC-09",
-      "rel": "references_br",
-      "to": "BR-029"
     },
     {
       "from": "UC-09",
@@ -543,6 +533,11 @@
       "from": "UC-09",
       "rel": "references_br",
       "to": "BR-027"
+    },
+    {
+      "from": "UC-09",
+      "rel": "references_br",
+      "to": "BR-028"
     },
     {
       "from": "UC-09",

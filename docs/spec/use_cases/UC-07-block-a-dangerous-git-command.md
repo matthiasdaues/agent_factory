@@ -59,7 +59,7 @@ executes.
 - The pattern list covers three groups:
   1. Commands that discard or overwrite work or history (`git push`, `git reset --hard`, `git clean -f`/`-fd`, `git branch -D`, `git checkout .`, `git restore .`, bare `push --force`/`reset --hard` fragments)
   2. Commands that bypass this repo's own commit gates (`--no-verify`, `git commit -n`, reassigning `core.hooksPath`, `pre-commit uninstall`, `SKIP=...` on `git commit`/`pre-commit`)
-  3. Commands that run tests directly, bypassing hook-triggered validation (see [UC-09](UC-09-run-tests-via-hook.md) / BR-024)
+  3. Bare test commands that bypass the project's charter-declared test entrypoints (see [UC-09](UC-09-run-tests-via-hook.md) / BR-024)
 - This is a backstop, not a security boundary: it catches an accidental or under-pressure bypass, not a determined one — a user with shell access outside the CLI, or anyone who edits the CLI's own configuration, can always route around it.
 
 ## Activity Diagram

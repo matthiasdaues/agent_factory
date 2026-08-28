@@ -24,7 +24,7 @@ Derived from [`prd.md`](prd.md). Goal levels use Cockburn's "does the actor go h
 | AG-06 | Human Operator, Orchestrator-as-Trigger | Keep the machine-readable catalog of every agent, skill, and playbook consistent with their source frontmatter                  | User Goal   |
 | AG-07 | Human Operator, CLI-Invoked Agent       | Be stopped from running a destructive or gate-bypassing git command before it executes                                          | User Goal   |
 | AG-08 | Human Operator                          | Wire Agent Factory's tooling, guardrail hook, and gate config into a project without disturbing what is already there           | User Goal   |
-| AG-09 | Human Operator                          | Run project tests deterministically via mechanically triggered gates, never via agent-commanded shell execution                 | User Goal   |
+| AG-09 | Human Operator                          | Ensure project-owned test gates exist; agents may run only charter-declared test commands, never bare test commands             | User Goal   |
 | AG-10 | Human Operator, CLI-Invoked Agent       | Invoke a factory agent under Pi in a genuinely separate session, preserving the author/reviewer independence Pi otherwise lacks | User Goal   |
 | AG-11 | Phase Participant                       | Continue a multi-phase workflow in a fresh session with bounded context while preserving every material fact needed downstream  | User Goal   |
 | AG-12 | Assurance Auditor                       | Establish auditable completion evidence for every accepted dispatch safeguard without reopening already delivered behavior      | User Goal   |

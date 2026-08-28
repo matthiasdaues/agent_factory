@@ -34,10 +34,9 @@ Deferred decisions and named gaps found while reverse-engineering this specifica
 
 ## T-06: Multi-framework test orchestration not yet supported
 
-`run-tests` detects all framework markers but fails loudly (exit 2) when multiple frameworks are present, rather than running all detected frameworks in sequence. This prevents silent partial coverage in monorepo contexts but blocks multi-framework projects entirely. Long-term solution: detect all frameworks, run each, aggregate results, exit 0 only if all pass. See ATAM-0002 resolution.
+- status: superseded
 
-- [ ] Implement multi-framework orchestration: detect all, run all, aggregate results (passed/failed counts sum across frameworks).
-- [ ] Add optional explicit config (`.current-work/test-config.yml`) to override auto-detection for complex monorepo cases.
+Superseded by the Test Gate Presence over Test Execution feature ([proposal](../proposals/test-gate-presence-over-test-execution.md)). Factory no longer detects or constructs test commands; `factory/scripts/run-tests` is deleted. Framework selection is entirely the project's responsibility, declared in `docs/charter/testing.yaml`. Multi-framework orchestration, if needed, is the project's own test entrypoint's concern.
 
 ## T-07: `verify-base` and `premerge-check` were prompt-required, not hook-enforced
 

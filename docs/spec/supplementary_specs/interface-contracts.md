@@ -92,12 +92,12 @@ See [UC-06](../use_cases/UC-06-regenerate-the-catalog.md).
 
 ## `factory/config/hooks/block-dangerous-git.sh`
 
-|            |                                                                                                           |
-| ---------- | --------------------------------------------------------------------------------------------------------- |
-| Invocation | Native `PreToolUse` hook for Claude Code, GitHub Copilot CLI, and Codex; command JSON on stdin            |
-| Reads      | `.tool_input.command`, `.toolArgs.command`, or `.tool_input.cmd`, according to the calling runtime        |
-| Writes     | Deny reason to stderr; `{"permissionDecision":"deny","permissionDecisionReason":"..."}` to stdout on deny |
-| Exit code  | `0` allow; `2` deny (shared by the three native-hook CLIs)                                                |
+|            |                                                                                                                                                                                                   |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Invocation | Native `PreToolUse` hook for Claude Code, GitHub Copilot CLI, and Codex; command JSON on stdin                                                                                                    |
+| Reads      | `.tool_input.command`, `.toolArgs.command`, or `.tool_input.cmd`, according to the calling runtime; `docs/charter/testing.yaml` (charter-declared test commands for the agent allowlist — BR-024) |
+| Writes     | Deny reason to stderr; `{"permissionDecision":"deny","permissionDecisionReason":"..."}` to stdout on deny                                                                                         |
+| Exit code  | `0` allow; `2` deny (shared by the three native-hook CLIs)                                                                                                                                        |
 
 See [UC-07](../use_cases/UC-07-block-a-dangerous-git-command.md).
 
