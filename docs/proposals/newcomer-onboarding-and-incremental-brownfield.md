@@ -10,7 +10,7 @@ supersedes:
 
 impact:
   scope: cross_component
-  architecture_change: false
+  architecture_change: false  # manual override — no boundary change despite entity-model additions
   external_contract_change: false
   boundaries:
     - docs/arc42/beginner-intro.md
