@@ -1,0 +1,83 @@
+---
+# Testing Charter Template
+#
+# This template defines the schema for a project's testing configuration.
+# The file declares all test commands the project uses and, optionally,
+# a detailed description of each test layer employed.
+#
+# See: factory/rulebooks/conventions/testing-strategy.md
+
+# Required: Full test suite command.
+# This command runs from the repository root and must exit 0 when all tests pass.
+# Factory gates use this command to validate phase advancement.
+test_command: "uv run pytest --tb=short --quiet"
+
+# Optional: Test command for staged files only.
+# Used by agents during TDD iteration on Git-staged changes.
+# When omitted, agents cannot run staged-only test workflows.
+test_staged_command: "uv run pytest --tb=short --quiet"
+
+# Optional: Test command for changed files only.
+# Used by agents for fast feedback on uncommitted changes.
+# When omitted, agents cannot run changed-only test workflows.
+# test_changed_command: "uv run pytest --tb=short --quiet --co -q"
+
+# Optional: Detailed layer configuration.
+# Document which test layers your project employs and how they work.
+# Omit unused layers entirely (do not set them to null).
+# Layer names come from factory/rulebooks/conventions/testing-strategy.md.
+
+layers:
+  deterministic_linter:
+    # Tool used to verify declarative structure and formatting.
+    tool: "ruff"
+    # What infrastructure or environment is assumed (e.g., "none", "mock", "real").
+    infrastructure: "none"
+    # How to invoke this layer: command pattern, entry point, or test runner directive.
+    entry_point: "uvx ruff check --fix && uvx ruff format"
+    # What NOT to do at this layer.
+    anti_patterns:
+      - "Assert business logic correctness"
+      - "Verify state transitions"
+      - "Test external service calls"
+    # What is real vs mocked/stubbed in the test environment.
+    fidelity:
+      filesystem: "real"
+      imports: "real"
+      tool_output: "real"
+
+  contract_test:
+    # Tool used to verify internal behavior: parsing, state, policy, invariants.
+    tool: "pytest"
+    # What infrastructure is mocked or stubbed.
+    infrastructure: "mock"
+    # How to invoke this layer.
+    entry_point: "uv run pytest tests/ -m contract"
+    # What NOT to do at this layer.
+    anti_patterns:
+      - "Test user-observable behavior (use acceptance_test instead)"
+      - "Depend on external service availability"
+      - "Test CI/CD pipeline orchestration"
+    # Fidelity: what is real, what is substituted.
+    fidelity:
+      filesystem: "real"
+      external_services: "mocked"
+      configuration: "mocked"
+
+  integration_test:
+    # Tool used to verify boundaries: file I/O, subprocess, persistence, adapters.
+    tool: "pytest"
+    # Infrastructure includes real filesystems or test doubles.
+    infrastructure: "real"
+    # How to invoke this layer.
+    entry_point: "uv run pytest tests/ -m integration"
+    # What NOT to do at this layer.
+    anti_patterns:
+      - "Test end-to-end user workflows (use e2e_smoke_test)"
+      - "Assert unit-level correctness (use contract_test)"
+    # Fidelity: mostly real, selective mocking.
+    fidelity:
+      filesystem: "real"
+      subprocess: "real"
+      persistence: "real"
+      external_services: "mocked"
