@@ -229,6 +229,12 @@ Feature: Test Gate Presence over Test Execution
       Then each layer declares tool, infrastructure, entry_point, and optional anti_patterns
       And unused layers are omitted, not set to null
 
+    Scenario: Layer declares fidelity for environment reality
+      Given docs/charter/testing.yaml declares an integration_test layer
+      When the operator adds a fidelity map to the layer
+      Then each entry names a dependency and whether it is real or substituted
+      And qa-strategy-from-spec checks fidelity against contract requirements
+
     Scenario: Kit-manager populates layer bindings during onboarding
       Given a project with existing test infrastructure
       When the kit-manager runs charter completeness sweep
@@ -271,6 +277,26 @@ Feature: Test Gate Presence over Test Execution
       And a declared entry_point or infrastructure does not match what exists
       Then it records a mismatch as a gap finding
 
+    Scenario: QA strategy uses layer status states instead of add/strengthen/out
+      Given qa-strategy-from-spec derives a per-feature QA strategy
+      When it writes the Test Layers in Scope table
+      Then each layer status is one of available, partially covered, planned, blocked, or out
+      And available means the harness works but tests may not exist yet
+      And planned means neither harness nor tests exist
+
+    Scenario: QA strategy emits test IDs for contract-owner rows
+      Given qa-strategy-from-spec assigns a contract to an owning layer
+      When it writes the contract-owner table
+      Then each row includes a test ID following the pattern scope-ID-layer-abbreviation-sequence
+      And the test ID is a stable identifier tied to the scope ID
+
+    Scenario: QA strategy checks fidelity before assigning contract ownership
+      Given docs/charter/testing.yaml declares a layer with fidelity declarations
+      And a contract requires real transactions
+      When qa-strategy-from-spec assigns the contract to a layer
+      Then it verifies the layer's fidelity covers the contract's requirements
+      And emits a gap finding if the layer's fidelity is insufficient
+
   Rule: Developer-agent feeds back test-harness mismatches
     # actor: CLI-Invoked Agent
     # @factory/agents/developer-agent.md
@@ -311,6 +337,19 @@ Feature: Test Gate Presence over Test Execution
       When the mutation-analysis skill classifies the survivor
       Then the status is uncaught
       And existing resolution actions apply directed at the declared owner
+
+    Scenario: Mutation analysis joins by spec marker when available
+      Given tests carry spec markers linking them to scope IDs
+      And a per-feature QA strategy with a contract-owner table is provided
+      When the mutation-analysis skill classifies a survivor
+      Then it joins the mutant to its contract via the spec marker
+      And the marker-based join takes precedence over file-path join
+
+    Scenario: Mutation analysis falls back to file-path join without markers
+      Given tests do not carry spec markers
+      And a per-feature QA strategy with a contract-owner table is provided
+      When the mutation-analysis skill classifies a survivor
+      Then it joins the mutant to its contract by file path
 
     Scenario: Mutation analysis without contract-owner table uses existing classification
       Given no per-feature QA strategy is provided

@@ -215,12 +215,34 @@ layers:
   e2e_smoke_test:
     tool: "pytest + docker compose"
     infrastructure: "full stack"
-    entry_point: "make test"
+    entry_point: "make test-e2e"
     anti_patterns:
       - "no browser e2e beyond single smoke"
+    fidelity:
+      server_restart: "real process restart"
+      authentication: "real authorization path"
 ```
 
 The top-level command fields are what gates and guardrails consume — unchanged from Design section 3. The `layers` section is read by `qa-strategy-from-spec` when grounding contract-owner assignments and by the `detect-test-regime` skill during onboarding. If `layers` is absent, `qa-strategy-from-spec` falls back to the Factory convention's generic five layers.
+
+Each layer may declare an optional `fidelity` map that records what is real and what may be substituted in that layer's test environment. This prevents a mocked test from quietly claiming ownership of a durability or infrastructure guarantee. For example:
+
+```yaml
+  integration_test:
+    tool: "pytest"
+    infrastructure: "PostgreSQL, NATS JetStream, Toxiproxy"
+    entry_point: "make test-integration"
+    anti_patterns:
+      - "no mocked broker custody"
+    fidelity:
+      postgresql: "real, migrated test database"
+      transactions: "real commits and rollbacks"
+      nats_jetstream: "real service, not in-memory mock"
+      network_failure: "Toxiproxy fault injection"
+      clock: "controlled/fake clock"
+```
+
+When `qa-strategy-from-spec` assigns a contract to a layer, it checks the layer's fidelity declarations against the contract's requirements. A contract that requires real transactions cannot be owned by a layer whose fidelity declares transactions as mocked.
 
 The kit-manager populates the `layers` section during charter completeness sweep and brownfield onboarding by scanning the repository's test infrastructure (conftest.py, test directories, Makefile targets, runner configs). The `detect-test-regime` skill shares this scan surface and records both command fields and layer bindings.
 
@@ -245,6 +267,48 @@ The "Generated from" header in the QA strategy output adds:
 
 When `docs/charter/testing.yaml` is missing or lacks a `layers` section, `qa-strategy-from-spec` falls back to the Factory convention and emits a gap finding noting the absence. It does not fail — the charter-grounded path is preferred, not mandatory.
 
+#### Layer status states
+
+The QA strategy's "Test Layers in Scope" table replaces the current `add / strengthen / out` status with states that distinguish infrastructure readiness from test coverage:
+
+- `available` — the test layer and harness work; tests can be written and run today.
+- `partially covered` — some contracts have tests at this layer; others remain unimplemented.
+- `planned` — the harness or tests do not yet exist; an explicit gap, not missing coverage.
+- `blocked` — a production capability must exist before the test can be written.
+- `out` — this layer is not used for the feature.
+
+This prevents infrastructure readiness from being confused with test coverage. A layer whose harness exists but has no tests is `available`, not `add`.
+
+#### Test-ID convention
+
+Each contract-owner row in the QA strategy emits a recommended test ID following the pattern `<scope-ID>-<layer-abbreviation>-<sequence>`:
+
+| Abbreviation | Layer                 |
+| ------------ | --------------------- |
+| LN           | Deterministic linter  |
+| AC           | Acceptance test       |
+| CT           | Contract test         |
+| IT           | Integration test      |
+| E2           | End-to-end smoke test |
+
+Example: `DSP-01-IT-01` is the first integration test for scope contract DSP-01.
+
+The test ID is a stable identifier tied to the scope ID, not to mutable scenario prose. Projects that use pytest should carry the scope ID as a marker:
+
+```python
+@pytest.mark.spec("DSP-01")
+@pytest.mark.integration
+def test_dispatch_rolls_back_when_outbox_write_fails(): ...
+```
+
+The marker taxonomy (`acceptance`, `contract`, `integration`, `e2e`) and the test-ID naming convention are project-owned — Factory recommends the convention through the QA strategy output, but the project wires the markers into its own test configuration. The contract-owner table in the QA strategy extends to include:
+
+| Contract | Source scenario or gap | Owner layer | Test ID      | Test location                        | Command                 | State   |
+| -------- | ---------------------- | ----------- | ------------ | ------------------------------------ | ----------------------- | ------- |
+| DSP-01   | `Scenario: ...`        | Integration | DSP-01-IT-01 | `tests/integration/test_dispatch.py` | `make test-integration` | planned |
+
+The `State` column uses the same states as the layer status (available, partially covered, planned, blocked). This makes it mechanically answerable which rows are implemented and which remain gaps.
+
 ### 12. Developer-agent test-harness feedback
 
 When the developer-agent implements a story's tests and encounters a mismatch between the QA strategy's prescribed layer or tooling and the repository's actual test harness (missing fixture pattern, no marker support, wrong entry point, missing infrastructure), it invokes `spec-feedback` against the QA strategy document. The finding names the contract, the prescribed layer, and the concrete obstacle.
@@ -265,7 +329,7 @@ The mutation-analysis skill (`factory/skills/mutation-analysis/SKILL.md`) is rew
    - `owner_failed` — the declared owner did not kill the mutant, but another layer did. The ownership assignment in the QA strategy is wrong. File a `spec-feedback` finding against the contract-owner row.
    - `uncaught` — no layer caught the mutant. Existing resolution actions apply (`add-missing-test`, `remove-dead-code`, `file-qa-finding`), directed at the declared owner.
 
-The contract-owner table maps contracts to source scenarios. The join between mutants and contracts is by file path: a mutant in a file that a contract's source scenario exercises is attributed to that contract. This is approximate — a file may contain code for multiple contracts — but sufficient for the first release. Finer-grained mapping (function-level, AST-level) is deferred.
+The contract-owner table maps contracts to source scenarios and test IDs (Design section 11). When tests carry `@pytest.mark.spec("DSP-01")` or equivalent markers, the mutation-analysis classification uses the marker to join mutants to contracts — this is the preferred join. When markers are absent, the join falls back to file path: a mutant in a file that a contract's source scenario exercises is attributed to that contract. The file-path join is approximate — a file may contain code for multiple contracts — but sufficient as a fallback. Finer-grained mapping (function-level, AST-level) is deferred.
 
 This replaces the manual "representative fault" protocol in the testing strategy's safe-deletion procedure with a mechanical equivalent. When the developer-agent or a QA consolidation pass wants to delete overlapping tests, the mutation-analysis classification provides the evidence that the surviving owner still detects the fault class.
 
@@ -355,6 +419,11 @@ No remaining open questions. The contract-traced-testing-strategy proposal asked
 - The mutation-analysis skill describes contract-ownership classification (`owner_held`, `owner_failed`, `uncaught`) for use when a QA strategy's contract-owner table is available.
 - The developer-agent invokes `spec-feedback` when a test-harness mismatch is found during story implementation, naming the contract, prescribed layer, and concrete obstacle.
 - The kit-manager populates layer bindings in `testing.yaml` during charter completeness sweep, and a human reviewer confirms the bindings match the repository's actual test infrastructure.
+- The `testing.yaml` layer schema supports an optional `fidelity` map per layer declaring what is real and what is substituted in that layer's test environment.
+- The QA strategy's "Test Layers in Scope" table uses status states (`available`, `partially covered`, `planned`, `blocked`, `out`) that distinguish infrastructure readiness from test coverage.
+- The QA strategy's contract-owner table emits a test ID per row following the pattern `<scope-ID>-<layer-abbreviation>-<sequence>`, with a recommended `@pytest.mark.spec("<scope-ID>")` marker convention.
+- When `qa-strategy-from-spec` assigns a contract to a layer, it checks the layer's fidelity declarations against the contract's requirements and emits a gap finding if fidelity is insufficient.
+- The mutation-analysis classification joins mutants to contracts via spec markers when tests carry them, falling back to file-path join when markers are absent.
 
 ## Guiding Rule
 
