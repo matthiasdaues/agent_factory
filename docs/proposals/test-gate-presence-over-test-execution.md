@@ -158,11 +158,11 @@ The following specification documents reference `factory/scripts/run-tests` by p
 
 - **UC-09** (`docs/spec/use_cases/UC-09-run-tests-via-hook.md`): rewrite to reflect that testing is project-owned infrastructure, with Factory's role limited to guardrail enforcement (agent test prohibition via charter-declared allowlist) and FSM gate evaluation via the charter declaration.
 - **ADR-0003** (`docs/adr/0003-test-execution-via-hooks.md`): amend to record this design change — Factory no longer owns test execution, only structural gates. The "Agentic Creation, Deterministic Validation" principle still holds, but the validation mechanism for tests is project-owned, not Factory-owned.
-- **prd.md** (`docs/spec/prd.md`): update FSM gate condition references from `factory/scripts/run-tests` to charter-resolved `test_command`.
+- **prd.md** (`docs/spec/prd.md`): revise G9 (goal statement naming `run-tests`) and FR-I (six sub-requirements FR-I1 through FR-I6 describing auto-detection, modes, JSON summary, and gate invocation). These describe the deleted script's behavior and must be rewritten to reflect project-owned testing via charter declaration. FSM gate condition references update from `factory/scripts/run-tests` to charter-resolved `test_command`.
 - **UC-10** (`docs/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md`): update BR-033 allowlist reference and acceptance criteria from `factory/scripts/run-tests --staged` to charter-declared `test_staged_command`.
 - **interface-contracts.md** (`docs/spec/supplementary_specs/interface-contracts.md`): update guardrail binding references.
-- **validation-rules.md** (`docs/spec/supplementary_specs/validation-rules.md`): update BR-024 allowlist description from hardcoded path to charter-declared commands.
-- **ADR-0012** (`docs/adr/0012-dispatcher-owned-semantic-gate-loop.md`): update mutation-analysis invocation references from `factory/scripts/mutation-analysis` to project-owned mutation testing.
+- **validation-rules.md** (`docs/spec/supplementary_specs/validation-rules.md`): revise the entire Test execution section — BR-023 (framework detection), BR-024 (agent allowlist), BR-025 (`--changed-only` mode), BR-026 (`--full` mode), BR-027 (JSON summary), BR-028 (`--staged` mode), and BR-029 (pre-commit trigger conditions). All seven business rules describe the deleted script's behavior and must be rewritten to reflect the charter-declared, project-owned testing model.
+- **ADR-0012** (`docs/adr/0012-dispatcher-owned-semantic-gate-loop.md`): the dispatcher's three-gate quality sequence (`crap-score`, `mutation-analysis`, `dependency-check`) loses its second gate. The sequence becomes two gates (`crap-score`, `dependency-check`). Mutation testing is entirely the project's responsibility — if the project sets it up, it runs through the project's own hooks or CI, not the dispatcher's gate loop. Amend the ADR to document this architectural change to the gate sequence.
 
 ### What stays
 
@@ -180,7 +180,7 @@ The following specification documents reference `factory/scripts/run-tests` by p
 - Create Factory's own `docs/charter/testing.yaml`.
 - Update `block-dangerous-git.sh` to read the agent test allowlist from `docs/charter/testing.yaml`, with exact matching on all declared command fields.
 - Update FSM gate evaluation in `bug-fix.fsm.yml` and `greenfield-development.fsm.yml` to resolve the test command from `docs/charter/testing.yaml`.
-- Create the `detect-test-regime` skill for use during onboarding.
+- Create the `detect-test-regime` skill for use during onboarding and wire it into `init-factory`.
 - Rewrite `factory/skills/mutation-analysis/SKILL.md` as setup guidance rather than a prescribed tool chain.
 - Update UC-09, ADR-0003, ADR-0012, prd.md, UC-10, interface-contracts.md, and validation-rules.md.
 
@@ -261,3 +261,37 @@ Disposition: findings
 ### Summary
 
 All six findings resolved in the revision following the first review pass.
+
+## Review — 2026-08-28 (repeat pass)
+
+Reviewer: proposal-review-agent
+Reviewed commit: 054432f92be8736cabe9ad5fa2093bb62141b7c7
+Disposition: findings
+
+### Prior findings
+
+All six prior findings (PROP-01 through PROP-06) verified as resolved. The init-factory symlink concern (PROP-01) now covers both `run-tests` and `mutation-analysis`. The documentation scope (PROP-02) has been extended to seven documents including ADR-0012. The allowlist precision (PROP-03), detection skill location (PROP-04), template specification (PROP-05), and boundary completeness (PROP-06) all hold after the mutation-analysis additions.
+
+### Eight-check results
+
+1. **Completion criteria testable** — PASS. All 14 criteria are mechanically verifiable.
+2. **Scope boundary sharp** — PASS with one minor finding (PROP-09). The In/Deferred partition is clear except for init-factory wiring.
+3. **Design decomposable** — PASS with three minor findings (PROP-07, PROP-08, PROP-10). Design is decomposable overall, but the documentation update descriptions in section 9 understate the scope of changes needed for three files.
+4. **Impact classification consistent** — PASS. `cross_component`, `architecture_change: true`, `external_contract_change: true` all match the Design.
+5. **Boundary references exist** — PASS. All 16 paths resolve at the reviewed commit.
+6. **Open questions genuine** — PASS. Three questions resolved with concrete design decisions; no padding.
+7. **Motivation justifies timing** — PASS. Concrete reproducer (Gigacron) with demonstrated failure.
+8. **Estimate plausible** — PASS. Uses `unknown` for token estimates; human review hours (1-2h) reasonable for the scope.
+
+### Findings
+
+| ID      | Severity | Check | Status | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------- | -------- | ----- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-07 | minor    | 03    | open   | Design section 9 understates prd.md update scope. It says "update FSM gate condition references from factory/scripts/run-tests to charter-resolved test_command" but prd.md's G9 (goal statement naming run-tests) and FR-I (six sub-requirements describing auto-detection, modes, JSON summary, and gate invocation) all need substantial revision or removal. A planning agent reading "update FSM gate condition references" would undersize the prd.md story, leaving G9 and FR-I1 through FR-I6 describing the deleted script's behavior.                                                                                  |
+| PROP-08 | minor    | 03    | open   | Design section 9 understates validation-rules.md update scope. It says "update BR-024 allowlist description from hardcoded path to charter-declared commands" but the Test execution section contains BR-023 through BR-029 (seven business rules). BR-023 (framework detection), BR-025 (--changed-only mode), BR-026 (--full mode), BR-027 (JSON summary), BR-028 (--staged mode), and BR-029 (pre-commit trigger conditions) all describe deleted or obsolete behavior, not just BR-024.                                                                                                                                      |
+| PROP-09 | minor    | 02    | open   | Scope does not explicitly state init-factory modification. Design section 7 says detect-test-regime is "invoked by init-factory," and init-factory is a boundary file, but the scope list says only "Create the detect-test-regime skill for use during onboarding." A planning agent cannot determine from scope alone whether wiring the skill into init-factory is part of skill creation or a separate story.                                                                                                                                                                                                                |
+| PROP-10 | minor    | 03    | open   | Design section 9 understates ADR-0012 update scope. It says "update mutation-analysis invocation references from factory/scripts/mutation-analysis to project-owned mutation testing," but the dispatcher's three-gate sequence (crap-score, mutation-analysis, dependency-check) loses its second gate with no charter-based replacement. The actual change removes a gate from the dispatcher's quality loop — an architectural change to the gate sequence, not a reference update. The Design should state whether the sequence becomes two gates or whether a project-declared mutation command is conditionally evaluated. |
+
+### Summary
+
+All six prior findings (PROP-01 through PROP-06) remain resolved. The mutation-analysis scope expansion is internally consistent at the boundary and completion-criteria level. Four new minor findings identify places where Design section 9's documentation update descriptions understate the actual scope of changes needed — particularly for prd.md (G9 and FR-I revision), validation-rules.md (BR-023 through BR-029 revision), and ADR-0012 (gate sequence architectural change). One scope-boundary finding (PROP-09) asks for explicit init-factory wiring in the scope list. No major findings. The proposal is close to planning-ready; addressing the four minor findings would make the documentation update stories precisely sizeable.
