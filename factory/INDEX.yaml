@@ -91,8 +91,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints. Each subagent implements one story using TDD on its own feature branch. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 3377
-    total_tokens: 10326
+    tokens: 3406
+    total_tokens: 10355
   - name: reconciliation-agent
     title: Reconciliation Agent
     phase: 4
@@ -446,7 +446,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 952
-    total_tokens: 33044
+    total_tokens: 33073
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -462,7 +462,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4451
-    total_tokens: 67005
+    total_tokens: 67034
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -480,7 +480,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2978
-    total_tokens: 66606
+    total_tokens: 66635
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
