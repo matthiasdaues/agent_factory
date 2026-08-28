@@ -5,7 +5,7 @@
 ```mermaid
 graph LR
     Human["Human Operator"] -->|invokes| RP["run-playbook"]
-    RP -->|reads| Marker[".agent-factory/playbook-state.yml"]
+    RP -->|reads| Marker[".current-work/playbook-state.yml"]
     RP -->|reads| FSM["factory/playbooks/*.fsm.yml"]
     RP -->|calls| PA["factory/scripts/phase advance"]
     RP -->|calls| PR["factory/scripts/phase retry"]
@@ -14,7 +14,7 @@ graph LR
     PA -->|writes| Marker
     PA -->|reads| FSM
     PR -->|reads/writes| Marker
-    RP -->|appends| Audit[".agent-factory/audit.log"]
+    RP -->|appends| Audit[".current-work/audit.log"]
 ```
 
 ## Level 2: run-playbook internals
@@ -29,6 +29,6 @@ The module has no internal decomposition worth diagramming. It is a single funct
 | Dispatch agent                   | `trigger agent <name> --background --cli <cli>` |
 | Advance marker on gate pass      | `phase advance`                                 |
 | Enforce iteration cap            | `phase retry`                                   |
-| Write audit entry                | Direct append to `.agent-factory/audit.log`     |
+| Write audit entry                | Direct append to `.current-work/audit.log`      |
 
 The orchestrator itself contains no condition evaluation, no prompt composition, no agent resolution, and no marker writing logic.

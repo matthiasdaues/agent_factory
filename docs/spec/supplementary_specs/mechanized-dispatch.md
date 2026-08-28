@@ -607,7 +607,7 @@ Feature: Step Manifest Lifecycle
 
   Scenario: Manifest is removed after agent completion
     Given a step manifest exists in the worktree
-    When the orchestrator marks the agent as complete
+    When the dispatcher marks the agent as complete
     Then the manifest file is deleted
     And tool calls in that worktree become unrestricted
 

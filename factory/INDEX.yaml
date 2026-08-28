@@ -56,7 +56,7 @@ agents:
     description: Review the specification for consistency, completeness, and traceability using spec-lint plus semantic inspection, in a separate session from the author.
     path: agents/spec-review-agent.md
     tokens: 816
-    total_tokens: 4181
+    total_tokens: 4170
   - name: architecture-agent
     title: Architecture Agent
     phase: 2
@@ -74,7 +74,7 @@ agents:
     description: Review architecture against quality attributes using ATAM in a separate session from the architecture author.
     path: agents/architecture-review-agent.md
     tokens: 819
-    total_tokens: 5572
+    total_tokens: 5561
   - name: planning-agent
     title: Planning Agent
     phase: 3
@@ -92,7 +92,7 @@ agents:
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints. Each subagent implements one story using TDD on its own feature branch. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
     tokens: 3406
-    total_tokens: 10355
+    total_tokens: 10354
   - name: reconciliation-agent
     title: Reconciliation Agent
     phase: 4
@@ -101,7 +101,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 2054
-    total_tokens: 12013
+    total_tokens: 12001
   - name: qa-agent
     title: QA Agent
     phase: 5
@@ -110,7 +110,7 @@ agents:
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
     tokens: 1295
-    total_tokens: 7254
+    total_tokens: 7243
   - name: claim-reviewer
     title: Claim Reviewer
     phase: 6
@@ -128,7 +128,7 @@ agents:
     description: Selects survey or falsification research from the brief, advances the chosen validated playbook, and enforces its role boundaries and release gate.
     path: agents/research-orchestrator.md
     tokens: 1320
-    total_tokens: 6951
+    total_tokens: 6950
   - name: research-report-writer
     title: Research Report Writer
     phase: 6
@@ -348,7 +348,7 @@ skills:
     category: utility
     description: Resolve and run the next agent or playbook step, deciding what "resume" means from observable state (the phase-gate marker, gate results, open findings) rather than a separately persisted execution status.
     path: skills/run-step/SKILL.md
-    tokens: 1187
+    tokens: 1144
   - name: scratchpad
     category: utility
     description: Append a quick note to session-scratchpad.md, sectioned by date. Use when the user says "note this down:", "make a note of this:", or invokes "/scratchpad" or "/scratch".
@@ -410,8 +410,8 @@ playbooks:
       - architecture-review-agent
       - architecture-agent
       - architecture-review-agent
-    tokens: 1108
-    total_tokens: 15995
+    tokens: 1117
+    total_tokens: 15993
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -423,7 +423,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 2470
-    total_tokens: 29370
+    total_tokens: 29347
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -433,8 +433,8 @@ playbooks:
     agents:
       - developer-agent
       - qa-agent
-    tokens: 777
-    total_tokens: 12043
+    tokens: 784
+    total_tokens: 12039
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -445,8 +445,8 @@ playbooks:
       - implementation-agent
       - spec-review-agent
       - architecture-review-agent
-    tokens: 952
-    total_tokens: 33073
+    tokens: 964
+    total_tokens: 33050
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -461,8 +461,8 @@ playbooks:
       - implementation-agent
       - reconciliation-agent
       - qa-agent
-    tokens: 4451
-    total_tokens: 67034
+    tokens: 4430
+    total_tokens: 66967
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -479,8 +479,8 @@ playbooks:
       - reconciliation-agent
       - qa-agent
       - coaching-agent
-    tokens: 2978
-    total_tokens: 66635
+    tokens: 3018
+    total_tokens: 66629
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -495,8 +495,8 @@ playbooks:
     agents:
       - developer-agent
       - qa-agent
-    tokens: 1281
-    total_tokens: 12547
+    tokens: 1287
+    total_tokens: 12542
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -509,7 +509,7 @@ playbooks:
       - research-synthesizer
       - research-orchestrator
     tokens: 1018
-    total_tokens: 10470
+    total_tokens: 10469
   - name: research-topic
     title: Research Topic Playbook
     category: orchestration
@@ -530,7 +530,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 3026
-    total_tokens: 15573
+    total_tokens: 15572
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration
@@ -565,11 +565,11 @@ rulebooks:
   - name: dispatch-contract
     category: conventions
     path: rulebooks/conventions/dispatch-contract.md
-    tokens: 3775
+    tokens: 3774
   - name: finding-format
     category: conventions
     path: rulebooks/conventions/finding-format.md
-    tokens: 867
+    tokens: 861
   - name: foundational-principles
     category: conventions
     path: rulebooks/conventions/foundational-principles.md
@@ -593,7 +593,7 @@ rulebooks:
   - name: report-format
     category: conventions
     path: rulebooks/conventions/report-format.md
-    tokens: 912
+    tokens: 907
   - name: research-claim-admission-policy
     category: conventions
     path: rulebooks/conventions/research-claim-admission-policy.md

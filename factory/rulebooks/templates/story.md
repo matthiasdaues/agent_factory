@@ -18,7 +18,7 @@ tier: economy                     # economy | standard | strong — the model ti
 status: pending                   # pending | in_progress | review | blocked | done
 deps: [ST-0002]                   # story ids that block this one (optional)
 traces: [UC-02, ADR-0003]         # Use Case / ADR / component ids this story implements (optional)
-outputs: [src/orchestrator/entities.py]   # files the story is expected to produce
+outputs: [src/models/entities.py]   # files the story is expected to produce
 tests: [tests/test_entities.py]   # pre-existing test files covering this story (optional)
 risk_domains: [security, reliability]   # optional; choose the smallest closed set that directly
                                        # affects the story's risk posture: security, privacy,

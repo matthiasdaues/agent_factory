@@ -1,7 +1,7 @@
 ---
 title: Review Report Format
 category: review
-enforcement: none — human-consumed; the findings a report cites are what the orchestrator mechanically ingests, per finding-format.md
+enforcement: none — human-consumed; the findings a report cites are what the phase gate mechanically ingests, per finding-format.md
 version: 1.0.0
 ---
 
@@ -29,7 +29,7 @@ Every finding must state **what is wrong** and **what to do** — no "this looks
 
 ## Findings drive the loop
 
-File each Defect and blocking-severity finding as its own `docs/findings/*.md` per [finding-format.md](finding-format.md). Under the orchestrator, the review loop reads those files directly — an `open` finding loops back to the author, a `resolved` one drops out — so the report table is for the reader and the finding files are what the tool acts on.
+File each Defect and blocking-severity finding as its own `docs/findings/*.md` per [finding-format.md](finding-format.md). The review loop reads those files directly — an `open` finding loops back to the author, a `resolved` one drops out — so the report table is for the reader and the finding files are what the tool acts on.
 
 ## Child-result envelope
 

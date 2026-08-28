@@ -4,6 +4,8 @@ status: accepted
 evaluation: none
 ---
 
+> **Addendum (2026-08-28):** The orchestrator-scoped hooks described here were removed in dd4b964. The main hooks now cover all files without `exclude: ^orchestrator/` carve-outs. This ADR is retained as a historical record.
+
 # Pre-commit monorepo scoping: one root config, namespaced and scoped hooks
 
 ## Context
@@ -22,7 +24,7 @@ additional configs. A per-subproject discovered config (e.g.
 config) therefore cannot coexist: only the root file is ever picked up by
 `pre-commit run`, `pre-commit install`, or the CI invocation, and any
 subproject-local config silently never runs. This has already surfaced
-once — orchestrator's own [ST-0067](../../orchestrator/backlog/ST-0067.md)
+once — orchestrator's own ST-0067
 had to fold its dev-scoped hooks into the shared root file for exactly this
 reason.
 
@@ -35,7 +37,7 @@ subproject that joins the monorepo later, hence a root-level ADR sequence
 (`docs/adr/`), separate from `orchestrator/docs/adr/`'s own 0001-0019.
 
 This decision generalizes
-[orchestrator/docs/adr/0003-pre-commit-as-gate-bus.md](../../orchestrator/docs/adr/0003-pre-commit-as-gate-bus.md),
+orchestrator/docs/adr/0003-pre-commit-as-gate-bus.md (no longer present),
 which decided `pre-commit` as the deterministic gate bus for a single
 project (orchestrator). That decision still holds for *why* pre-commit is
 the gate; this ADR answers the orthogonal, whole-repo question of how

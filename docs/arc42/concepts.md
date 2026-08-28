@@ -43,22 +43,17 @@ agent_factory/
 │   ├── scripts/                      # Deterministic gates (*-lint, plus schema-validate/policy-validate) and setup tooling (init-factory, update-factory, remove-factory, mdformat, ...)
 │   ├── config/                       # Templates: AGENTS.md, pre-commit-config.yaml, model.conf
 │   └── INDEX.yaml                     # Generated catalog of every agent, skill, playbook, and rulebook with token counts — regenerate with index-lint
-├── orchestrator/                     # Versioned Python tool package; invoked from consumer projects through factory/scripts/run-playbook and uvx
-│   ├── src/                          # CLI source code
-│   ├── tests/                        # CLI tests
-│   ├── docs/                         # CLI documentation (own arc42 set, own docs/adr/, own docs/spec/)
-│   ├── backlog/                      # CLI backlog and stories
-│   └── pyproject.toml                # CLI package configuration
-├── backlog/                          # Whole-repo backlog — cross-cutting stories, distinct from orchestrator/backlog/
-├── docs/                             # This repo's own whole-repo, cross-cutting docs — distinct from orchestrator/docs/
+├── orchestrator/                     # Stub — an earlier experiment at a standalone Python CLI; not functional
+├── backlog/                          # Whole-repo backlog — cross-cutting stories
+├── docs/                             # This repo's own docs
 │   ├── beginner-intro.md             # Plain-language on-ramp for first-time users — read before any command
 │   ├── concepts.md                   # This file
-│   ├── CONTEXT-MAP.md                # Bounded-context map for this multi-context repo (orchestrator, factory, factory_api)
+│   ├── CONTEXT-MAP.md                # Bounded-context map for this repo
 │   ├── README.md                     # arc42 architecture documentation for Factory Flow Control — table of contents
 │   ├── 01_introduction_and_goals.md  # ...through 12_glossary.md — the 12 arc42 chapters
 │   ├── architecture.dsl              # Structurizr C4 model — versioned source of truth for the diagrams
 │   ├── spec/                         # Factory Flow Control's specification (PRD, use cases, supplementary specs)
-│   ├── adr/                          # Whole-repo Architecture Decision Records — own sequence, separate from orchestrator/docs/adr/
+│   ├── adr/                          # Architecture Decision Records
 │   ├── findings/                     # Filed findings (e.g. RECON-*.md, FAGAN-*.md), created lazily as needed
 │   ├── reviews/                      # Retrospective and reconciliation reports
 │   └── assets/                       # Diagrams and exported images

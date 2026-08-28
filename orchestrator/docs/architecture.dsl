@@ -13,7 +13,7 @@ workspace "Orchestrator" "run-playbook — step-at-a-time FSM runner" {
             trigger = container "trigger" "Agent resolution + CLI dispatch" "Python"
         }
 
-        marker = softwareSystem "Playbook State Marker" ".agent-factory/playbook-state.yml" {
+        marker = softwareSystem "Playbook State Marker" ".current-work/playbook-state.yml" {
             tags "File"
         }
 

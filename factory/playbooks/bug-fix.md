@@ -71,7 +71,7 @@ Fix BUG-NNNN
 - [ ] No regression in other tests
 EOF
 
-orchestrator run-phase implementation
+factory/scripts/phase advance --playbook implementation
 ```
 
 **Agent**: `developer-agent`
@@ -97,7 +97,7 @@ go test ./...
 ### Step 3.1 — Run QA Agent
 
 ```bash
-orchestrator run-phase qa
+factory/scripts/phase advance --playbook qa
 ```
 
 **Agent**: `qa-agent`
@@ -139,7 +139,7 @@ Final checks:
 
 ## Fast-Track: Hotfix
 
-For **critical production bugs**, skip orchestrator:
+For **critical production bugs**, skip the phase gate:
 
 ```bash
 # 1. Write failing test

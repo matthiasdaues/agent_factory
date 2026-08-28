@@ -28,7 +28,7 @@ vendor-specific tool call. Every assignment declares:
 Every concurrent assignment has a unique output path. A wave must not dispatch
 two assignments that can write the same artifact.
 
-Before dispatch, the orchestrator preflights the capabilities needed by the
+Before dispatch, the dispatch scripts preflight the capabilities needed by the
 research mode:
 
 1. Required source access must be available in every mode. If it is

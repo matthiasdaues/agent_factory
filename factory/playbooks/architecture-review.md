@@ -66,7 +66,7 @@ factory/scripts/arch-lint --docs-dir docs/arc42
 ### Step 2.1 — Execute ATAM Review
 
 ```bash
-orchestrator run-phase architecture-review
+factory/scripts/phase advance --playbook architecture-review
 # OR manual: Start new session, activate architecture-review-agent
 ```
 
@@ -134,7 +134,7 @@ EOF
 ### Step 4.1 — Run Architecture Agent
 
 ```bash
-orchestrator run-phase architecture
+factory/scripts/phase advance --playbook architecture
 ```
 
 **Agent**: `architecture-agent`
@@ -143,7 +143,7 @@ orchestrator run-phase architecture
 ### Step 4.2 — Re-review
 
 ```bash
-orchestrator run-phase architecture-review
+factory/scripts/phase advance --playbook architecture-review
 ```
 
 **Agent**: `architecture-review-agent`

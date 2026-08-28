@@ -319,14 +319,19 @@ by a real change, and each diff small enough for an enterprise PR review.
 
 ## Open Questions
 
-- Should the guided tour be a standalone skill (invocable as
-  `/guided-tour`) or only reachable through the entrypoint menu? A skill
-  would make it discoverable from any context, but it adds a file to
-  maintain.
-- Does the Stage 1 / Stage 2 split need a gate marker (a file that records
-  "Stage 1 complete, user chose to stop here") for downstream playbooks to
-  detect, or is the presence of `architecture.dsl` + `scope-map.md` without
-  full spec artifacts sufficient signal?
+- ~~Should the guided tour be a standalone skill (invocable as
+  `/guided-tour`) or only reachable through the entrypoint menu?~~
+  **Resolved:** standalone skill, invocable from any context. Natural
+  triggers include "where am I", "how do we proceed", "what do I do now."
+  The entrypoint menu's option A invokes this skill.
+- ~~Does the Stage 1 / Stage 2 split need a gate marker (a file that
+  records "Stage 1 complete, user chose to stop here") for downstream
+  playbooks to detect, or is the presence of `architecture.dsl` +
+  `scope-map.md` without full spec artifacts sufficient signal?~~
+  **Resolved:** no gate marker. The presence of the three anchor files
+  (`architecture.dsl`, `scope-map.md`, `CONTEXT.md`) without full spec
+  artifacts is sufficient signal. Onboarding depth is a continuous
+  materialization process, not a discrete state to stamp.
 - ~~Scope-map population without derive-spec artifacts.~~ **Resolved:**
   the `reverse-map` skill (Design Section 4) populates the scope map from
   code, tests, and unstructured sources. `scope-map-migration` remains
@@ -412,9 +417,9 @@ All seven findings from the initial review have been verified as resolved:
 
 ### Findings
 
-| ID                                    | Severity | Check | Status | Finding                                                                                                                                                                                               |
-| ------------------------------------- | -------- | ----- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [PROP-0020](../findings/PROP-0020.md) | minor    | 05    | open   | `factory/skills/reverse-map/SKILL.md` listed in `impact.boundaries` but does not exist at the reviewed commit. The skill is a new artifact created by this proposal, not an existing file to inspect. |
+| ID                                    | Severity | Check | Status   | Finding                                                                                                                                                                                               |
+| ------------------------------------- | -------- | ----- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [PROP-0020](../findings/PROP-0020.md) | minor    | 05    | resolved | `factory/skills/reverse-map/SKILL.md` listed in `impact.boundaries` but does not exist at the reviewed commit. The skill is a new artifact created by this proposal, not an existing file to inspect. |
 
 ### Check Results
 

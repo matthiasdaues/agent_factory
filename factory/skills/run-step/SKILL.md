@@ -56,9 +56,7 @@ A refusal means: stop, tell the user, do not loop again — the exact scenario t
 
 ## What this deliberately does not do (yet)
 
-**No CLI-failure classification.** `factory/scripts/trigger` returns the invoked CLI's raw exit code; it does not distinguish an auth failure from a config error from a genuine task failure the way `orchestrator`'s `CopilotAdapter` does (regex-matched stderr, ADR-0002). A non-zero exit means: read the output, don't auto-retry.
-
-Known, named gap — not a silent regression from what `orchestrator` did. Fold it in here if it turns out to matter in practice; don't build it ahead of a real case (YAGNI).
+**No CLI-failure classification.** `factory/scripts/trigger` returns the invoked CLI's raw exit code; it does not distinguish an auth failure from a config error from a genuine task failure. A non-zero exit means: read the output, don't auto-retry. Fold richer classification in here if it turns out to matter in practice; don't build it ahead of a real case (YAGNI).
 
 ## Referenced from
 

@@ -31,7 +31,7 @@ Run this playbook when:
 ### Step 1.1 — Code vs Spec Reconciliation
 
 ```bash
-orchestrator run-phase reconciliation
+factory/scripts/phase advance --playbook reconciliation
 # OR manual: Start new session, activate reconciliation-agent
 ```
 
@@ -75,7 +75,7 @@ grep -l "status: open" docs/findings/RECON-*.md
 Code defects = implementation doesn't match spec **intent**
 
 ```bash
-orchestrator run-phase implementation
+factory/scripts/phase advance --playbook implementation
 ```
 
 **Agent**: `implementation-agent`
@@ -113,7 +113,7 @@ factory/scripts/arch-lint --docs-dir docs/arc42
 ### Step 3.1 — Spec Review (If Spec Changed Significantly)
 
 ```bash
-orchestrator run-phase spec-review
+factory/scripts/phase advance --playbook spec-review
 ```
 
 **Agent**: `spec-review-agent`
@@ -130,7 +130,7 @@ grep -l "status: open" docs/findings/SPEC-*.md
 ### Step 3.2 — Architecture Review (If Architecture Changed)
 
 ```bash
-orchestrator run-phase architecture-review
+factory/scripts/phase advance --playbook architecture-review
 ```
 
 **Agent**: `architecture-review-agent`

@@ -13,7 +13,7 @@ Operational procedure for **new project development** from requirements through 
 
 - [ ] Project repository initialized
 - [ ] `CONTEXT.md` exists (or will be created in Phase 1)
-- [ ] Orchestrator configured OR manual session management ready
+- [ ] Factory scripts available OR manual session management ready
 
 ## Phase Boundary Contract
 
@@ -70,7 +70,7 @@ already known from the vision conversation filled in, everything else left
 ### Step 1.1 — Run Requirements Agent
 
 ```bash
-orchestrator run-phase requirements
+factory/scripts/phase advance --playbook requirements
 # OR manual: Start new session, activate requirements-agent
 ```
 
@@ -85,7 +85,7 @@ incrementally, rather than waiting for the completeness sweep.
 ### Step 1.2 — Run Spec Review Agent (Separate Session)
 
 ```bash
-orchestrator run-phase spec-review
+factory/scripts/phase advance --playbook spec-review
 # OR manual: Start NEW session, activate spec-review-agent
 ```
 
@@ -106,7 +106,7 @@ grep -l "status: open" docs/findings/SPEC-*.md
 ### Step 1.4 — Loop: Address Findings
 
 ```bash
-orchestrator run-phase requirements
+factory/scripts/phase advance --playbook requirements
 # OR manual: Start NEW session, activate requirements-agent
 ```
 
@@ -119,7 +119,7 @@ Return to Step 1.2 (run spec-review-agent again)
 ### Step 2.1 — Run Architecture Agent
 
 ```bash
-orchestrator run-phase architecture
+factory/scripts/phase advance --playbook architecture
 # OR manual: Start new session, activate architecture-agent
 ```
 
@@ -133,7 +133,7 @@ to record it in `docs/charter/tech-stack.md` incrementally.
 ### Step 2.2 — Run Architecture Review Agent (Separate Session)
 
 ```bash
-orchestrator run-phase architecture-review
+factory/scripts/phase advance --playbook architecture-review
 # OR manual: Start NEW session, activate architecture-review-agent
 ```
 
@@ -154,7 +154,7 @@ grep -l "status: open" docs/findings/ATAM-*.md
 ### Step 2.4 — Loop: Address Findings
 
 ```bash
-orchestrator run-phase architecture
+factory/scripts/phase advance --playbook architecture
 # OR manual: Start NEW session, activate architecture-agent
 ```
 
@@ -194,7 +194,7 @@ stakeholder for approval together — same manual-approval pattern as Step 3.3
 ### Step 3.1 — Run Planning Agent
 
 ```bash
-orchestrator run-phase planning
+factory/scripts/phase advance --playbook planning
 # OR manual: Start new session, activate planning-agent
 ```
 
@@ -228,7 +228,7 @@ factory/scripts/backlog-lint --backlog-dir backlog
 ### Step 4.1 — Run Implementation Agent (Dispatcher)
 
 ```bash
-orchestrator run-phase implementation
+factory/scripts/phase advance --playbook implementation
 # OR manual: Start new session, activate implementation-agent
 ```
 
@@ -243,7 +243,7 @@ separate scheduling logic.
 ### Step 4.2 — Run Reconciliation Agent (Separate Session)
 
 ```bash
-orchestrator run-phase reconciliation
+factory/scripts/phase advance --playbook reconciliation
 # OR manual: Start NEW session, activate reconciliation-agent
 ```
 
@@ -264,7 +264,7 @@ grep -l "status: open" docs/findings/RECON-*.md
 ### Step 4.4 — Loop: Fix Code Defects
 
 ```bash
-orchestrator run-phase implementation
+factory/scripts/phase advance --playbook implementation
 # OR manual: Start NEW session, activate implementation-agent
 ```
 
@@ -277,7 +277,7 @@ Return to Step 4.2 (run reconciliation-agent again)
 ### Step 5.1 — Run QA Agent
 
 ```bash
-orchestrator run-phase qa
+factory/scripts/phase advance --playbook qa
 # OR manual: Start new session, activate qa-agent
 ```
 
@@ -298,7 +298,7 @@ grep -l "status: open" docs/findings/{FAGAN,SEC,BUG}-*.md
 ### Step 5.3 — Loop: Fix Defects
 
 ```bash
-orchestrator run-phase implementation
+factory/scripts/phase advance --playbook implementation
 # OR manual: Start NEW session, activate implementation-agent
 ```
 
@@ -358,6 +358,6 @@ Run ad-hoc at end of any session:
 
 ## State Tracking
 
-**Current phase**: Check orchestrator state OR manually track in session notes
+**Current phase**: Check `.current-work/playbook-state.yml` OR manually track in session notes
 **Open findings**: `grep -r "status: open" docs/findings/`
-**Loop count**: Track manually or via orchestrator iteration counter
+**Loop count**: Track manually or via phase marker iteration counter

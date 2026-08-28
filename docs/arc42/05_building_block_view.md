@@ -175,9 +175,9 @@ Every building block's entry point, invoked how, and by whom:
 | transition-lint              | Pre-commit hook                        | `factory/scripts/transition-lint`                                         | 0 (pass), 1 (findings)                        |
 | run-tests                    | Pre-commit, pre-push, phase advance    | `factory/scripts/run-tests [--changed-only\|--full\|--staged]`            | 0 (pass), 1 (fail), 2 (no framework)          |
 | block-dangerous-git.sh       | Claude, Copilot, Codex native hook     | stdin: CLI-specific command JSON, stdout: empty, exit 0 or 2              | 0 (allow), 2 (deny)                           |
-| phase advance                | Human, orchestrator                    | `factory/scripts/phase advance`                                           | 0 (advanced), 1 (conditions unmet), 2 (misc)  |
-| phase retry                  | Human, orchestrator                    | `factory/scripts/phase retry [--default-max-iterations]`                  | 0 (retried), 2 (cap exceeded)                 |
-| trigger                      | Human, orchestrator, run-step skill    | `factory/scripts/trigger agent <name> [--background]`                     | 0 (dispatched), 1+ (error)                    |
+| phase advance                | Human, run-step skill                  | `factory/scripts/phase advance`                                           | 0 (advanced), 1 (conditions unmet), 2 (misc)  |
+| phase retry                  | Human, run-step skill                  | `factory/scripts/phase retry [--default-max-iterations]`                  | 0 (retried), 2 (cap exceeded)                 |
+| trigger                      | Human, run-step skill                  | `factory/scripts/trigger agent <name> [--background]`                     | 0 (dispatched), 1+ (error)                    |
 | usage-capture                | Native CLI hooks and Pi extensions     | `factory/scripts/usage-capture --cli ... --transcript ...`                | 0 (captured or best-effort no-op)             |
 | index-lint                   | Pre-commit hook, CI                    | `factory/scripts/index-lint [--check]`                                    | 0 (fresh), 1 (stale)                          |
 | run-step skill               | Any supported CLI (LLM-executed)       | Skill markdown invoked by AI                                              | (N/A — skill is prose)                        |
@@ -202,8 +202,7 @@ and persists the exact tokenized transcript copy referenced by the record.
 
 Native lifecycle adapters own invocation: Claude `Stop`/`SubagentStop`,
 Copilot `agentStop`/`subagentStop`, Codex `Stop`/`SubagentStop`, and Pi
-`session_shutdown` plus inline child capture. The orchestrator never writes a
-second record. See
+`session_shutdown` plus inline child capture. See
 [ADR-0007](../adr/0007-normalize-runtime-usage-through-cli-adapters.md).
 
 ## Referenced from
