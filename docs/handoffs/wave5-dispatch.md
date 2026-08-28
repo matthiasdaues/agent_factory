@@ -58,5 +58,5 @@ ______________________________________________________________________
 
 ## Prompt to resume
 
-> Dispatch Wave 5 per the plan in `.agent-factory/handoffs/wave5-dispatch.md`.
+> Dispatch Wave 5 per the plan in `.current-work/handoffs/wave5-dispatch.md`.
 > Branch head: `54af553e8f2a422d668b8a9ad99b235fda074426`. Autonomous mode.

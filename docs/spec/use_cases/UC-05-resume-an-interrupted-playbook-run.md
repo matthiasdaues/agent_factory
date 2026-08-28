@@ -23,7 +23,7 @@ The actor invokes the `run-step` skill (or works through its procedure by hand) 
 ## Main Success Scenario
 
 1. Actor invokes `run-step`.
-2. `run-step` reads `.agent-factory/playbook-state.yml`. A marker exists, naming a playbook and a state.
+2. `run-step` reads `.current-work/playbook-state.yml`. A marker exists, naming a playbook and a state.
 3. `run-step` checks whether that playbook has a companion `.fsm.yml` (via `factory/INDEX.yaml`'s `fsm:` field). One exists; `run-step` reads the current state's `agent:` field directly from the FSM — not a position in `INDEX.yaml`'s derived `agents:` list, which carries no state names (BR-017).
 4. `run-step` checks the current state's declared `outputs:` glob against what is actually on disk, and runs that phase's own gate.
 5. The outputs do not yet exist.

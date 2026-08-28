@@ -13,7 +13,7 @@ Fixed 13 test failures (across 5 root causes) that blocked pre-commit. All 969 t
 | Ruff version drift                                              | `.pre-commit-config.yaml`, `factory/config/pre-commit-config.yaml`, `pyproject.toml`                                                        | Pinned `uvx ruff@0.16.5` in all 8 entries; added per-file-ignores for test noise rules (`PLW1510`, `RUF012`)                                                                                                                             |
 | dispatch-wave.ts signal TypeError + Node.js v24 unsettled await | `factory/config/extensions/dispatch-wave.ts`                                                                                                | `signal: AbortSignal` → `AbortSignal \| undefined` + optional chaining; removed `child.unref()` so event loop waits for "close"                                                                                                          |
 | run-agent.ts artifact validation order                          | `factory/config/extensions/run-agent.ts`                                                                                                    | Swapped `git add` / `git ls-files --error-unmatch` order — `add` before `ls-files` silently staged untracked files                                                                                                                       |
-| Worktree path convention                                        | `factory/config/hooks/block-dangerous-git.sh`, `tests/orchestrator/test_guardrail_parser.py`                                                | `.agent-factory/worktrees/` → `.current-work/`                                                                                                                                                                                           |
+| Worktree path convention                                        | `factory/config/hooks/block-dangerous-git.sh`, `tests/orchestrator/test_guardrail_parser.py`                                                | `.current-work/worktrees/` → `.current-work/`                                                                                                                                                                                            |
 | AGENTS.md assertion drift                                       | `tests/orchestrator/test_factory_orientation.py`                                                                                            | Updated stale assertion to match current AGENTS.md content                                                                                                                                                                               |
 | Trivial code fixes                                              | `tests/orchestrator/test_phase_advance.py`, `tests/orchestrator/test_schema_validate.py`, `tests/orchestrator/test_usage_capture_pi_e2e.py` | 5 `_msg` renames, 2 `dict \| None` fixes, 1 redundant noqa removal                                                                                                                                                                       |
 | **init-factory Codex step-guard dedup bug**                     | `factory/scripts/init-factory` (line ~1089)                                                                                                 | `already_wired` check matched by command only; Edit and Write share `GUARD_TYPE=write` command → Write entry silently skipped. Fixed: check `(matcher, command)` pair                                                                    |
@@ -30,7 +30,7 @@ Fixed 13 test failures (across 5 root causes) that blocked pre-commit. All 969 t
 The pre-commit hook runs `run-tests --changed-only` which invokes `pytest --lf`. With all renames staged, pytest picks up ALL renamed tests as "changed". ~30 dispatch/prepare/merge integration tests fail with:
 
 ```
-fatal: Unable to create '.../.agent-factory/worktrees/story-ST-xxx/.git/index.lock': Not a directory
+fatal: Unable to create '.../.current-work/worktrees/story-ST-xxx/.git/index.lock': Not a directory
 ```
 
 These are **pre-existing failures** — they fail before my session's changes and are NOT caused by my fixes. They're in:
@@ -44,13 +44,13 @@ These are **pre-existing failures** — they fail before my session's changes an
 - `tests/orchestrator/test_child_result_envelope.py` (envelope format assertions)
 - `tests/orchestrator/test_premerge_check.py`
 
-The root cause: `git worktree add` to `.agent-factory/worktrees/` fails inside `/tmp/pytest-*` repos with `index.lock: Not a directory`. This may be a git version incompatibility or a missing directory scaffold in the test fixtures.
+The root cause: `git worktree add` to `.current-work/worktrees/` fails inside `/tmp/pytest-*` repos with `index.lock: Not a directory`. This may be a git version incompatibility or a missing directory scaffold in the test fixtures.
 
 ## How to proceed
 
 **Option A — Split the commit**: Unstage the test renames, commit only the 9 non-test files + the 7 test files I modified (as renames). This still triggers pre-commit on the renamed tests but avoids the dispatch tests. Caveat: the non-renamed tests (`tests/test_*`) still exist on disk at new paths and are gone from old paths, so pre-commit stashing creates module import collisions. To make this work, you'd need to either (a) also stage ALL the renames, or (b) temporarily restore the old test paths before committing.
 
-**Option B — Fix dispatch worktree tests first**: Investigate the `.agent-factory/worktrees/` `index.lock` error. The prepare-wave script creates worktrees under that path. The error suggests `.git` inside the worktree is a file (expected) but the gitdir it points to doesn't exist or has a path component that's a file instead of a directory. Likely a change in how prepare-wave scaffolds the worktree parent directory.
+**Option B — Fix dispatch worktree tests first**: Investigate the `.current-work/worktrees/` `index.lock` error. The prepare-wave script creates worktrees under that path. The error suggests `.git` inside the worktree is a file (expected) but the gitdir it points to doesn't exist or has a path component that's a file instead of a directory. Likely a change in how prepare-wave scaffolds the worktree parent directory.
 
 **Option C — Commit with test-rename split**: Stage everything but unstage just the failing test files. This leaves some renames uncommitted but lets the passing tests through. Risk: if the hook stashes, the module collision problem returns.
 

@@ -36,14 +36,14 @@ ______________________________________________________________________
 
 ```python
 WRITE_DENIED_PATHS = {
-    ".current_work/dispatch-ledger.yaml",
-    ".current_work/current-step.yml",
+    ".current-work/dispatch-ledger.yaml",
+    ".current-work/current-step.yml",
 }
 ```
 
 ### ✅ **Read Guard Prefix Allow-List**
 
-**Finding:** The read guard allows only specific prefixes (`factory/`, `.claude/`, `.github/`, `.pi/`, `.codex/`, `.current_work/`) in addition to declared input globs.
+**Finding:** The read guard allows only specific prefixes (`factory/`, `.claude/`, `.github/`, `.pi/`, `.codex/`, `.current-work/`) in addition to declared input globs.
 
 **OWASP Mapping:** A01:2021 – Broken Access Control\
 **Severity:** ✅ **PASS** — Prefix allow-list is correctly implemented.
@@ -57,7 +57,7 @@ READ_ALLOWED_PREFIXES = (
     ".github/",
     ".pi/",
     ".codex/",
-    ".current_work/",
+    ".current-work/",
 )
 ```
 

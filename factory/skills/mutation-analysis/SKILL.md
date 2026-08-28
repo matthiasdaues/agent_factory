@@ -97,7 +97,7 @@ Mutant identifiers take precedence over location keys when both are present.
 The script writes the JSON report to:
 
 ```text
-.agent-factory/mutation-analysis/<story-id>.json
+.current-work/mutation-analysis/<story-id>.json
 ```
 
 `<story-id>` is inferred from the current Git branch name (`story/ST-0102` →

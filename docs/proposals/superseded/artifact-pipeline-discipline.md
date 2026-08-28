@@ -135,7 +135,7 @@ Before spawning a step's agent, the orchestrating session writes a YAML file
 that declares the step's boundaries:
 
 ```yaml
-# .agent-factory/current-step.yml  (relative to working-directory root)
+# .current-work/current-step.yml  (relative to working-directory root)
 schema_version: 1
 step: derive-use-cases
 playbook: feature-addition
@@ -152,7 +152,7 @@ outputs:
 max_input_tokens: 40000             # hard cap on sum of input file sizes
 ```
 
-The manifest lives at `.agent-factory/current-step.yml` relative to the working
+The manifest lives at `.current-work/current-step.yml` relative to the working
 directory root (resolved via `git rev-parse --show-toplevel`). It is git-ignored
 — local runtime state, never committed. The orchestrating session writes it
 before spawning the step agent; the hooks read it; the agent never edits it; the
@@ -190,7 +190,7 @@ implementation with CLI-specific wiring.
 **Event**: `PreToolUse` on `Read` (Claude Code, Codex), custom-agent
 `pre_tool_use` (Copilot CLI), `pre_tool_use` extension (Pi).
 
-**Logic**: Resolve the manifest at `$(git rev-parse --show-toplevel)/.agent-factory/current-step.yml`.
+**Logic**: Resolve the manifest at `$(git rev-parse --show-toplevel)/.current-work/current-step.yml`.
 If the manifest does not exist, allow (no active step). If it exists, read the
 `inputs` list. The file path in the tool call must match at least one declared
 input glob or an always-allowed prefix. If it does not, deny the tool call with
@@ -204,7 +204,7 @@ Always-allowed prefixes (not subject to input matching):
   resolved).
 - `.claude/`, `.github/`, `.pi/`, `.codex/` — CLI index files and local skill
   directories.
-- `.agent-factory/` — runtime state, including the manifest itself.
+- `.current-work/` — runtime state, including the manifest itself.
 
 **Exit codes**: `0` = allow, `2` = deny with reason.
 
@@ -218,7 +218,7 @@ Always-allowed prefixes (not subject to input matching):
 
 Always-allowed write paths:
 
-- `.agent-factory/` — runtime state.
+- `.current-work/` — runtime state.
 - `docs/findings/*` — review agents must be able to file findings regardless of
   step scope.
 
@@ -397,7 +397,7 @@ factory/scripts/write-step-manifest --clear
 
 The `write` subcommand reads the step declaration from the playbook, resolves
 glob patterns to concrete file lists, validates the context cap against
-`max_input_tokens`, and writes `.agent-factory/current-step.yml` relative to the
+`max_input_tokens`, and writes `.current-work/current-step.yml` relative to the
 working directory root. If a manifest already exists (a prior agent has not
 completed), the script exits non-zero — the no-supersede guard.
 
@@ -507,7 +507,7 @@ All resolved — no open questions remain.
 
 - ~~Should the read guard deny or warn by default?~~ **Resolved:** deny by
   default. The always-allowed prefixes (`factory/`, CLI directories,
-  `.agent-factory/`) cover legitimate runtime reads. If a step needs an
+  `.current-work/`) cover legitimate runtime reads. If a step needs an
   unanticipated project file, the step declaration is updated — not the guard
   weakened. `read_guard: warn` exists as an opt-in escape hatch for exploratory
   steps, mirroring `write_guard: warn`.
@@ -515,7 +515,7 @@ All resolved — no open questions remain.
 - ~~Should the always-allowed read paths include the full `factory/` directory
   or only the specific files the step's agent needs?~~ **Resolved:** always-allow
   the full `factory/` directory, plus CLI directories (`.claude/`, `.github/`,
-  `.pi/`, `.codex/`) and `.agent-factory/`. These are prompt infrastructure, not
+  `.pi/`, `.codex/`) and `.current-work/`. These are prompt infrastructure, not
   project artifacts. The context bound targets project documentation and source
   code. Skills, agents, and playbooks must be readable at runtime for skill
   invocation to work; restricting them would break every skill-invoking agent.
@@ -549,7 +549,7 @@ All resolved — no open questions remain.
 
 ## Completion Criteria
 
-- `.agent-factory/current-step.yml` manifest schema is documented and validated
+- `.current-work/current-step.yml` manifest schema is documented and validated
   by a lint script.
 - `factory/scripts/step-guard` enforces read, write, Bash (best-effort), and
   context guards from the manifest.
@@ -565,7 +565,7 @@ All resolved — no open questions remain.
   has a complete `steps:` block covering all phases.
 - A step agent is blocked from reading project files outside its declared inputs
   via `Read` tool calls (verified by test). Factory machinery under `factory/`,
-  CLI directories, and `.agent-factory/` are always allowed.
+  CLI directories, and `.current-work/` are always allowed.
 - A step agent is blocked (or warned) when writing files outside its declared
   outputs via `Edit`/`Write` tool calls (verified by test).
 - A step agent's `Bash` tool calls are checked best-effort for file-path

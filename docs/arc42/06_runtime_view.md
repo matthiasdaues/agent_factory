@@ -225,7 +225,7 @@ sequenceDiagram
 - Each fix iteration spawns a fresh developer agent. No context contamination from prior gate output.
 - Maximum three fix iterations per tier (configurable in `house-rules.md`). After the cap, the story escalates or is marked blocked.
 - The three gates run in sequence: CRAP, mutation, dependency. All must pass before `premerge-check`.
-- Gate reports are written to `.agent-factory/<gate-name>/<story-id>.json` for traceability.
+- Gate reports are written to `.current-work/<gate-name>/<story-id>.json` for traceability.
 
 ### 6.3.3 Sequence: Module-Graph Check (Phase Routing)
 

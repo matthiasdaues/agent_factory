@@ -70,7 +70,7 @@ The `summary` here is `spec-lint --format json`'s own `summary` block, captured 
 
 **One unified logfile per session**, not one per script with an index. Reconciliation reads it in a single pass; a per-script scheme would buy nothing and cost an index to keep in sync.
 
-**Path: `.agent-factory/session-log.jsonl`, git-ignored.** The raw log is ephemeral machine telemetry, not a reviewed deliverable — the same class as the git-ignored `session-scratchpad.md`, so it belongs in a hidden namespace, not in `docs/`. The reconciliation *report* (§4) is human-facing and can land in `docs/reviews/` alongside the retrospective; the log itself does not. The sibling [playbook-harness proposal](playbook-structured-harness-strategy.md#1-state-transition-control-via-pre-commit)'s run-state marker lives in the same `.agent-factory/` namespace.
+**Path: `.current-work/session-log.jsonl`, git-ignored.** The raw log is ephemeral machine telemetry, not a reviewed deliverable — the same class as the git-ignored `session-scratchpad.md`, so it belongs in a hidden namespace, not in `docs/`. The reconciliation *report* (§4) is human-facing and can land in `docs/reviews/` alongside the retrospective; the log itself does not. The sibling [playbook-harness proposal](playbook-structured-harness-strategy.md#1-state-transition-control-via-pre-commit)'s run-state marker lives in the same `.current-work/` namespace.
 
 **Mechanism: one shared helper, `factory/scripts/_session_log.py`**, stdlib only (`json`, `os`, `subprocess`, `datetime`). The leading underscore marks it an importable helper, not a callable gate. It exposes a context manager that snapshots git before and after, times the run, and appends — the Python gates wrap their `main()` in it:
 

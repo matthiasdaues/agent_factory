@@ -18,7 +18,7 @@ The actor is about to re-dispatch the same state's author agent because its gate
 
 ## Preconditions
 
-- A marker already exists at `.agent-factory/playbook-state.yml` (created by a prior `phase advance`).
+- A marker already exists at `.current-work/playbook-state.yml` (created by a prior `phase advance`).
 - The marker's `state` is one whose gate has just reported open findings — not a fresh state and not one that already passed.
 
 ## Main Success Scenario

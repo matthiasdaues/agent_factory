@@ -19,7 +19,7 @@ The operator runs `run-playbook --playbook <name> [--from-state <state>] --cli <
 ## Preconditions
 
 - A playbook FSM exists at `factory/playbooks/<name>.fsm.yml`.
-- The marker exists at `.agent-factory/playbook-state.yml`, or `--from-state` is provided to bootstrap it.
+- The marker exists at `.current-work/playbook-state.yml`, or `--from-state` is provided to bootstrap it.
 - The current state has `agent: <name>` (not null, not final).
 - `config/model.conf` maps the agent's tier to a model for the chosen CLI.
 

@@ -181,7 +181,7 @@ reports its release-2 status. It does not build project toolchain images.
 The image filesystem is read-only at runtime. `/tmp`, `/run`, and the default
 runtime home and caches are ephemeral `tmpfs` mounts. The approved project is
 mounted at `/workspace`. Durable Factory artifacts live below the already
-ignored `/workspace/.agent-factory/state/` namespace, but deterministic gates
+ignored `/workspace/.current-work/state/` namespace, but deterministic gates
 do not consume executable code, configuration, plugins, or tool caches from
 that agent-writable location.
 
@@ -282,14 +282,14 @@ Preflight has three explicit stages:
    installation metadata without running project code.
 3. The project is remounted in a fresh container read-write. A bounded
    capability probe operates only in a launcher-created
-   `.agent-factory/probe/<nonce>/` directory, records its intended changes,
+   `.current-work/probe/<nonce>/` directory, records its intended changes,
    removes them, and verifies that cleanup completed before workflow execution.
 
 The read-write capability probe tests effective operations rather than only
 inspecting mode bits:
 
 - create, atomically rename, and remove a regular file under
-  `.agent-factory/`;
+  `.current-work/`;
 - create a directory and a representative lock file;
 - set and execute a file's executable bit;
 - write every approved in-project worktree;
@@ -332,7 +332,7 @@ project-owned configuration or change unrelated modes. Preflight resolves all
 destinations before mutation; a collision stops at the existing documented
 boundary.
 
-`update` stages a new Factory copy under `.agent-factory/`, validates generated
+`update` stages a new Factory copy under `.current-work/`, validates generated
 CLI adapters and gates, and replaces only Factory-owned content. It records the
 installed version and image digest for diagnosis, while the host-controlled
 installation record remains the execution trust root.
@@ -343,7 +343,7 @@ Release 1 supports one Git repository wholly contained beneath `/workspace`.
 Factory-created worktrees live beneath:
 
 ```text
-/workspace/.agent-factory/worktrees/
+/workspace/.current-work/worktrees/
 ```
 
 `doctor` rejects external worktrees, external Git object alternates, submodule
@@ -448,7 +448,7 @@ An operation that requires a gate and the protected mutation it authorizes run
 as one broker transaction. The broker re-resolves every bound SHA immediately
 before mutation, consumes the authorization atomically, and refuses stale,
 missing, replayed, project-local, or mismatched records. Existing
-`.agent-factory/verify-base-ok` and `.agent-factory/premerge-check-ok` files
+`.current-work/verify-base-ok` and `.current-work/premerge-check-ok` files
 may remain as diagnostic compatibility artifacts during migration, but they
 grant no authority.
 
@@ -584,8 +584,8 @@ requirements are release-2 completion criteria, not release-1 work.
 Interactive agent sessions may opt into durable, ignored project state:
 
 ```text
-/workspace/.agent-factory/state/agent-home
-/workspace/.agent-factory/state/agent-cache
+/workspace/.current-work/state/agent-home
+/workspace/.current-work/state/agent-cache
 ```
 
 That state is untrusted and is never mounted as the home, configuration,
@@ -823,7 +823,7 @@ revision that returns this proposal to `open`.
   or broad mode changes.
 - The only ordinary host-writable mount is the approved project, and tests
   prove the host home and runtime socket are absent.
-- Factory-created worktrees remain under `.agent-factory/worktrees`; unsupported
+- Factory-created worktrees remain under `.current-work/worktrees`; unsupported
   external Git topology is rejected.
 - Staged, full, and phase validation use one image-owned gate implementation.
 - Pre-commit, pre-push, and phase adapters preserve their declared scope and
@@ -973,8 +973,8 @@ Distribution section states that deterministic gates "do not consume
 executable code, configuration, plugins, or tool caches" from the
 agent-writable state directory, and the threat model declares "persistent
 Factory state" untrusted. Both statements are refuted by the current design:
-`block-dangerous-git.sh` gates commits on `.agent-factory/verify-base-ok` and
-merges on `.agent-factory/premerge-check-ok` (lines 33, 41, and 61-63). Those
+`block-dangerous-git.sh` gates commits on `.current-work/verify-base-ok` and
+merges on `.current-work/premerge-check-ok` (lines 33, 41, and 61-63). Those
 markers are ordinary files inside the agent-writable mount, consumed as
 authorization. Under this proposal's own threat model an agent forges them by
 writing a file. The proposal does not notice that its trust boundary
@@ -1279,7 +1279,7 @@ qualified so that a later reader does not treat the sink as evidence against
 the operator.
 
 **NOTE A19 — the marker migration has no ordering rule.** The proposal states
-that `.agent-factory/verify-base-ok` and `.agent-factory/premerge-check-ok`
+that `.current-work/verify-base-ok` and `.current-work/premerge-check-ok`
 "grant no authority," but `factory/config/hooks/block-dangerous-git.sh` still
 reads them as authorization today. Until the broker ships, both mechanisms
 exist and the weaker one decides. *Amendment:* require that the same release

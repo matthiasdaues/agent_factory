@@ -169,7 +169,7 @@ This ensures the backlog file is always consistent with the repository's actual 
 
 ### Dispatch Ledger
 
-The dispatcher must maintain a machine-readable ledger at `.current_work/<feature-branch>/dispatch-ledger.yaml` tracking every story in the current dispatch. The ledger is **script-owned runtime state**: agents read it to resume and report, but only `factory/scripts/dispatch` subcommands mutate it. The ledger is committed or refreshed after each story reaches a mechanically observable state transition and serves as the authoritative record of what was prepared, dispatched, merged, blocked, and failed.
+The dispatcher must maintain a machine-readable ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml` tracking every story in the current dispatch. The ledger is **script-owned runtime state**: agents read it to resume and report, but only `factory/scripts/dispatch` subcommands mutate it. The ledger is committed or refreshed after each story reaches a mechanically observable state transition and serves as the authoritative record of what was prepared, dispatched, merged, blocked, and failed.
 
 Schema:
 
@@ -220,7 +220,7 @@ waves:
 
 ## Enforcement
 
-Human/agent-authored discipline, not a git hook or lint gate — a sub-agent's addressing choice and a dispatcher's scope-splitting decision both happen inside the dispatching agent's own prompt-composition step, before any tool call a hook could intercept. Mechanized implementation dispatch adds a stricter runtime rule: the ledger under `.current_work/` is script-owned, and the dispatcher must advance story state through `dispatch init`, `dispatch prepare-wave` / `prepare-story`, `dispatch mark-dispatching`, `dispatch mark-dispatched`, `dispatch verify-story`, `dispatch merge-story`, and `dispatch close-wave` instead of handwritten bookkeeping. See [implementation-agent.md § Workflow](../../agents/implementation-agent.md#workflow) for the current concrete application.
+Human/agent-authored discipline, not a git hook or lint gate — a sub-agent's addressing choice and a dispatcher's scope-splitting decision both happen inside the dispatching agent's own prompt-composition step, before any tool call a hook could intercept. Mechanized implementation dispatch adds a stricter runtime rule: the ledger under `.current-work/` is script-owned, and the dispatcher must advance story state through `dispatch init`, `dispatch prepare-wave` / `prepare-story`, `dispatch mark-dispatching`, `dispatch mark-dispatched`, `dispatch verify-story`, `dispatch merge-story`, and `dispatch close-wave` instead of handwritten bookkeeping. See [implementation-agent.md § Workflow](../../agents/implementation-agent.md#workflow) for the current concrete application.
 
 ## References
 

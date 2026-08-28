@@ -52,7 +52,7 @@ documented invocation forms.
 - **`factory/playbooks/greenfield-development.fsm.yml`** declares
   `audit.output_file: .orchestrator/audit.log`, but the orchestrator
   (`orchestrator/src/agent_factory_orchestrator/cli.py`) hardcodes
-  `.agent-factory/audit.log`, which is what `orchestrator/README.md` documents.
+  `.current-work/audit.log`, which is what `orchestrator/README.md` documents.
   The FSM's declarative `audit` block is stale metadata the code does not read.
   Out of scope (playbook/FSM artifact, not self-documentation prose); flagged
   here for a future pass.

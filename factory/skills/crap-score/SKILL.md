@@ -18,7 +18,7 @@ with test coverage into a single risk score per function.
   (key: `crap-threshold: <number>`)
 - One JSON result per function: name, file, complexity, coverage,
   CRAP score, pass/fail
-- Logged output at `.agent-factory/crap-score/<story-id>.json`
+- Logged output at `.current-work/crap-score/<story-id>.json`
 - Non-zero exit on any function exceeding the threshold
 
 ## Dependencies

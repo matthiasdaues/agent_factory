@@ -116,7 +116,7 @@ Hooks that need to act on results (e.g., `phase advance` evaluating `script_exit
 
 ## 8.5 Single Source of Truth: Marker and FSM
 
-The playbook state marker (`.agent-factory/playbook-state.yml`) and the FSM (e.g., `greenfield-development.fsm.yml`) are the **only** sources of truth for "what phase are we in" and "what's next."
+The playbook state marker (`.current-work/playbook-state.yml`) and the FSM (e.g., `greenfield-development.fsm.yml`) are the **only** sources of truth for "what phase are we in" and "what's next."
 
 - **Observable-state resume** (ADR-0002): Every mechanism (`phase advance`, `run-step`, `transition-lint`) derives its answer from these files on disk, not from a separately persisted execution status. If the marker says `state: PHASE_2`, then the run is in PHASE_2 — regardless of what any orchestrator process last remembered.
 - **No process-local state**: `orchestrator/` has its own `RUN`/`RUN_LOCK` bookkeeping (a distinct concern), but it does not hold a competing notion of "current phase." It reads the marker like everyone else.

@@ -59,8 +59,8 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 → [branching-policy.md](conventions/branching-policy.md)
 
-- **MUST** create every new local branch atomically with its own linked worktree using `git worktree add -b <branch> .agent-factory/worktrees/<branch> <base>`; standalone branch creation is forbidden.
-- **MUST** place every worktree under `.agent-factory/worktrees/` — never in the repository root, a sibling directory, or an arbitrary path.
+- **MUST** create every new local branch atomically with its own linked worktree using `git worktree add -b <branch> .current-work/worktrees/<branch> <base>`; standalone branch creation is forbidden.
+- **MUST** place every worktree under `.current-work/worktrees/` — never in the repository root, a sibling directory, or an arbitrary path.
 - **MUST** verify every new branch-to-worktree mapping with `git worktree list --porcelain` before doing work on that branch.
 - **MUST** create exactly one feature branch per story or bug — never per EPIC, sprint, or wave.
 - **MUST** create every feature branch and worktree from a dedicated invocation branch and worktree (itself created from `main`), recording its origin commit as the branch root.
@@ -83,7 +83,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST NOT** launch a new agent for the same role while a prior instance is still running — the prior instance cannot be cancelled and will consume tokens against stale state.
 - **MUST** verify every story in a wave has reached a terminal state (merged or explicitly blocked/failed in the dispatch ledger) before launching the next wave.
 - **MUST** commit or explicitly record each story's outcome (merged SHA or blocked reason) before the wave is considered closed.
-- **MUST** maintain a dispatch ledger (`.agent-factory/dispatch-ledger.yaml`) tracking each story's branch, worktree, declared base, gate results, commit SHA, merge SHA, and status.
+- **MUST** maintain a dispatch ledger (`.current-work/dispatch-ledger.yaml`) tracking each story's branch, worktree, declared base, gate results, commit SHA, merge SHA, and status.
 - **MUST** update the story file's `status` field in the same commit that delivers the story's implementation.
 
 ## Step boundaries
@@ -106,7 +106,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 - **MUST** issue git as a lone command — never chained after `cd` or another command (the working directory persists; the guardrail mis-parses compound lines).
 - **MUST NOT** switch the current checkout to create a branch; create the branch in its dedicated linked worktree with `git worktree add -b`.
-- **MUST** run `factory/scripts/premerge-check <target> <branch>` before `git merge <branch>` — the merge is blocked without the resulting `.agent-factory/premerge-check-ok` marker.
+- **MUST** run `factory/scripts/premerge-check <target> <branch>` before `git merge <branch>` — the merge is blocked without the resulting `.current-work/premerge-check-ok` marker.
 - **MUST NOT** bypass a failing pre-commit hook (`--no-verify`, `core.hooksPath`); fix the hook. Discard with `git checkout HEAD -- <path>`, not `git checkout .`.
 - **SHOULD** commit through the hooks with the two-pass sequence — `add` → `commit`; on "files were modified by this hook", `add -u` → recommit — or use `factory/scripts/commit-safe`.
 - **MUST** remove a clean worktree and safely delete its merged branch after its target passes verification, unless the branch remains a named active review base.

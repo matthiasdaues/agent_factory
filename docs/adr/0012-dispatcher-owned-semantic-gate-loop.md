@@ -43,7 +43,7 @@ After each developer-agent commit:
 1. Dispatcher runs `crap-score` on committed artifacts.
 2. Dispatcher runs `mutation-analysis` (diff-scoped to the story's changed production files).
 3. Dispatcher runs `dependency-check` against `architecture.dsl` dependency rules.
-4. Each gate produces a JSON report under `.agent-factory/<gate-name>/<story-id>.json`.
+4. Each gate produces a JSON report under `.current-work/<gate-name>/<story-id>.json`.
 5. If all gates pass, the dispatcher proceeds to `premerge-check` and merge.
 6. If any gate fails, the dispatcher spawns a fresh developer agent with only the failing gate reports and affected files as input context. Maximum three fix iterations before the story is marked blocked.
 

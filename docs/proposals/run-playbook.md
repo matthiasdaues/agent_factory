@@ -116,7 +116,7 @@ complete, specs exist, findings resolved). For bug-fix: marker at
 | `phase advance`                     | The outbound signal check. Evaluates entry conditions for the target state. Writes the marker forward. Refuses if conditions unmet. **This is the gate mechanism — run-playbook delegates all sequencing decisions to it.** |
 | `phase retry`                       | The iteration cap. Increments the per-state counter, refuses when the halt condition fires. **This is the circuit breaker — run-playbook delegates all "should I try again" decisions to it.**                              |
 | `trigger agent <name> --background` | The dispatch mechanism. Resolves agent → tier → model, composes prompt, launches CLI, blocks until done, returns exit code. **This is the agent invocation — run-playbook delegates all AI interaction to it.**             |
-| `.agent-factory/playbook-state.yml` | The track position. Written by `phase`, read by everyone. **This is the single source of truth for where the train is.**                                                                                                    |
+| `.current-work/playbook-state.yml`  | The track position. Written by `phase`, read by everyone. **This is the single source of truth for where the train is.**                                                                                                    |
 | The `.fsm.yml` files                | The track layout. States, transitions, gate conditions, halt conditions. **run-playbook reads these but never writes them.**                                                                                                |
 
 ## What's missing
@@ -307,7 +307,7 @@ The rails are already laid. This lays the train on them.
    maximum isolation). The choice affects crash behavior but not correctness —
    the marker is the truth regardless.
 
-2. **Logging.** The FSM's `audit:` section declares `.agent-factory/audit.log`.
+2. **Logging.** The FSM's `audit:` section declares `.current-work/audit.log`.
    Should `run-playbook` write to it? It would mean structured audit entries
    (timestamp, state, agent, exit code, duration) without inventing a new log.
    The alternative is stdout-only — simpler, but no post-mortem trail beyond

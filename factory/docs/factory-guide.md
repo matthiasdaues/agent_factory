@@ -305,11 +305,11 @@ Playbooks above are prose: nothing stops staging an architecture file before the
 
 A playbook can ship a `.fsm.yml` alongside its `.md` in `factory/playbooks/` — a state machine describing each phase's `outputs:` file globs and the `entry_conditions` required to advance into it. Only [`greenfield-development.fsm.yml`](../playbooks/greenfield-development.fsm.yml) exists today. This is opt-in, not a default every playbook must adopt.
 
-| Component                           | What it does                                                                                                         |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `.agent-factory/playbook-state.yml` | Local, git-ignored marker recording which state the project is currently in.                                         |
-| `factory/scripts/transition-lint`   | Pre-commit gate. Blocks staging a file whose `outputs:` glob belongs to a state other than the marker's current one. |
-| `factory/scripts/phase advance`     | Subcommand that checks the next state's `entry_conditions` and, if satisfied, advances the marker.                   |
+| Component                          | What it does                                                                                                         |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `.current-work/playbook-state.yml` | Local, git-ignored marker recording which state the project is currently in.                                         |
+| `factory/scripts/transition-lint`  | Pre-commit gate. Blocks staging a file whose `outputs:` glob belongs to a state other than the marker's current one. |
+| `factory/scripts/phase advance`    | Subcommand that checks the next state's `entry_conditions` and, if satisfied, advances the marker.                   |
 
 `transition-lint` deliberately does not evaluate `entry_conditions` — by its own docstring, it "governs ordering *between* phases," not within one, and "does not evaluate a state's `entry_conditions`" because "that is `phase advance`'s job." It only checks whether a staged file belongs to the current state, naming the offending path and pointing at `phase advance` when a file belongs to a later one. This is a deliberate design choice, not a gap: condition-checking lives in one place only.
 
@@ -395,11 +395,11 @@ A project can override which gates apply at the story, house-rules, or factory-d
 
 ### Step isolation
 
-Per-step manifests at `.current_work/<feature-branch>/<story-branch>/current-step.yml` declare each step's inputs, outputs, and `max_input_tokens`. The `factory/scripts/step-guard` hook enforces these boundaries — an agent that reads a file not in its manifest or exceeds its token budget is blocked before the read completes.
+Per-step manifests at `.current-work/<feature-branch>/<story-branch>/current-step.yml` declare each step's inputs, outputs, and `max_input_tokens`. The `factory/scripts/step-guard` hook enforces these boundaries — an agent that reads a file not in its manifest or exceeds its token budget is blocked before the read completes.
 
 ### Mechanized dispatch
 
-The `factory/scripts/dispatch` script owns the git state, ledger, and branch/worktree lifecycle for implementation. The LLM sequences script calls; the scripts own state transitions. The dispatcher maintains a machine-readable ledger at `.current_work/<feature-branch>/dispatch-ledger.yaml` tracking every story's preparation, dispatch, verification, and merge state. Key subcommands:
+The `factory/scripts/dispatch` script owns the git state, ledger, and branch/worktree lifecycle for implementation. The LLM sequences script calls; the scripts own state transitions. The dispatcher maintains a machine-readable ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml` tracking every story's preparation, dispatch, verification, and merge state. Key subcommands:
 
 - `dispatch init` — initialize the dispatch ledger for a feature branch.
 - `dispatch prepare-wave` / `dispatch prepare-story` — create story branches and worktrees, record the declared base SHA, and run `verify-base`.
@@ -449,9 +449,9 @@ Session logging is an opt-in, append-only audit trail of gate-script runs. It ex
 
 **Current scope.** Only `spec-lint` is instrumented today. No other gate writes to the log yet.
 
-**Reconcile.** `factory/scripts/session-reconcile` compares the log against real git state: `--log` points at the log file (default `.agent-factory/session-log.jsonl`), `--base`/`--head` bound the commit range to diff (omit `--base` to check the working tree alone). It reports three finding codes: `RECON-UNEXPLAINED` (error) — a working-tree change no logged run or commit accounts for; `RECON-DRIFT` (warning) — a run logged a change that is now neither committed nor present in the working tree; `RECON-STALE` (warning) — `docs/spec/` changed but `spec-lint` never ran this session. Exit code is the error-finding count, unless `--report-only`.
+**Reconcile.** `factory/scripts/session-reconcile` compares the log against real git state: `--log` points at the log file (default `.current-work/session-log.jsonl`), `--base`/`--head` bound the commit range to diff (omit `--base` to check the working tree alone). It reports three finding codes: `RECON-UNEXPLAINED` (error) — a working-tree change no logged run or commit accounts for; `RECON-DRIFT` (warning) — a run logged a change that is now neither committed nor present in the working tree; `RECON-STALE` (warning) — `docs/spec/` changed but `spec-lint` never ran this session. Exit code is the error-finding count, unless `--report-only`.
 
-The log file lives under `.agent-factory/`, which is gitignored — local machine state, not portable, not meant to be reviewed.
+The log file lives under `.current-work/`, which is gitignored — local machine state, not portable, not meant to be reviewed.
 
 See [docs/proposals/session-log-addendum.md](../../docs/proposals/session-log-addendum.md) for the full design rationale.
 

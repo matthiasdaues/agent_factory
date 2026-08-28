@@ -12,7 +12,7 @@ Factory Flow Control consists of three primary containers:
 | **Validator**     | Enforces gates, permissions, mechanically triggered test execution, and semantic quality checks  | Bash, Python              |
 | **Dispatcher**    | Resolves agents/models from catalog, spawns CLI sessions with scoped permits                     | Bash, Python              |
 | **Usage Capture** | Normalizes CLI transcripts and appends canonical runtime usage records                           | Python, shell, TypeScript |
-| State Files       | Local git-ignored marker (`.agent-factory/playbook-state.yml`) and FSM defs                      | YAML (storage)            |
+| State Files       | Local git-ignored marker (`.current-work/playbook-state.yml`) and FSM defs                       | YAML (storage)            |
 | Catalog           | Generated `factory/INDEX.yaml` from agent/skill/playbook/rulebook frontmatter, with token counts | YAML (storage)            |
 
 ![Containers](../assets/images/Containers.svg)
@@ -105,11 +105,11 @@ The falsification-driven research feature validates its JSON artifacts through a
 
 Three deterministic scripts enforce semantic code quality after each developer-agent commit, owned by the implementation-agent dispatcher. They extend the "Agentic Creation, Deterministic Validation" principle from syntactic checks (formatting, phase gating) to code meaning (complexity, behavioral coverage, dependency direction). See [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md) for the execution model decision.
 
-| Component             | What it checks                                                                                                                                           | Inputs                                      | Outputs                                                               |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------- |
-| **crap-score**        | CRAP score per function: `comp(m)^2 x (1 - cov(m)/100)^3 + comp(m)`. Threshold: CRAP ≤ 8 (Bob Martin default, overridable in `house-rules.md`)           | Source files, coverage data                 | JSON report per function, logged to `.agent-factory/crap-score/`      |
-| **mutation-analysis** | Generates code mutants, runs test suite against each. Every surviving mutant must be resolved (dead code removed or test added) or filed as a QA finding | Source files (diff-scoped), test suite      | JSON report per mutant, logged to `.agent-factory/mutation-analysis/` |
-| **dependency-check**  | Validates that module import directions match declarations in `architecture.dsl`                                                                         | `docs/arc42/architecture.dsl`, source files | JSON report per rule, logged to `.agent-factory/dependency-check/`    |
+| Component             | What it checks                                                                                                                                           | Inputs                                      | Outputs                                                              |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------- |
+| **crap-score**        | CRAP score per function: `comp(m)^2 x (1 - cov(m)/100)^3 + comp(m)`. Threshold: CRAP ≤ 8 (Bob Martin default, overridable in `house-rules.md`)           | Source files, coverage data                 | JSON report per function, logged to `.current-work/crap-score/`      |
+| **mutation-analysis** | Generates code mutants, runs test suite against each. Every surviving mutant must be resolved (dead code removed or test added) or filed as a QA finding | Source files (diff-scoped), test suite      | JSON report per mutant, logged to `.current-work/mutation-analysis/` |
+| **dependency-check**  | Validates that module import directions match declarations in `architecture.dsl`                                                                         | `docs/arc42/architecture.dsl`, source files | JSON report per rule, logged to `.current-work/dependency-check/`    |
 
 **Invocation model:**
 
@@ -154,7 +154,7 @@ A deterministic script that replaces the manual `impact.architecture_change` dec
 | **phase retry**    | Retries current phase's author step, capped by FSM `halt_conditions`  | Marker, FSM                  | Marker (iteration++) |
 | **run-step skill** | Derives "what's next" from observable state (fresh, resume, escalate) | Marker, FSM, outputs on disk | (none — read-only)   |
 
-All three read the same marker (`.agent-factory/playbook-state.yml`) and FSM (e.g., `greenfield-development.fsm.yml`). Single source of truth.
+All three read the same marker (`.current-work/playbook-state.yml`) and FSM (e.g., `greenfield-development.fsm.yml`). Single source of truth.
 
 ## 5.4 Level 2: Component View — Dispatcher
 

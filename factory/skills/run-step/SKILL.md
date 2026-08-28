@@ -11,7 +11,7 @@ Dispatches one agent invocation via `factory/scripts/trigger`. What makes this a
 
 ## Step 1 — Find the current playbook and phase
 
-Read `.agent-factory/playbook-state.yml` if it exists — it names the active playbook and the current FSM state (written by `factory/scripts/phase advance`, checked by `factory/scripts/transition-lint`).
+Read `.current-work/playbook-state.yml` if it exists — it names the active playbook and the current FSM state (written by `factory/scripts/phase advance`, checked by `factory/scripts/transition-lint`).
 
 **No marker** → ask the user which playbook to run, then bootstrap one: `factory/scripts/phase advance` with no prior marker creates it at the playbook's root state.
 

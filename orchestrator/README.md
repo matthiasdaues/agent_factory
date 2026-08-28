@@ -63,7 +63,7 @@ factory/scripts/run-playbook \
 
 ### Resuming after a stop
 
-Just re-run the same command without `--from-state`. The orchestrator reads the marker (`.agent-factory/playbook-state.yml`) and picks up where it left off:
+Just re-run the same command without `--from-state`. The orchestrator reads the marker (`.current-work/playbook-state.yml`) and picks up where it left off:
 
 ```bash
 factory/scripts/run-playbook --playbook greenfield-development --cli claude
@@ -120,7 +120,7 @@ orchestrator/
 
 ## Audit log
 
-Every step writes a JSON line to `.agent-factory/audit.log`:
+Every step writes a JSON line to `.current-work/audit.log`:
 
 ```json
 {"timestamp": "2026-07-13T00:05:00+00:00", "playbook": "greenfield-development", "state": "PHASE_2_ARCHITECTURE", "agent": "architecture-agent", "action": "advance", "trigger_exit": 0, "phase_advance_exit": 0, "phase_retry_exit": null, "iteration": 1, "duration_seconds": 342.5}
@@ -130,8 +130,8 @@ Parse it with `jq`:
 
 ```bash
 # How long did each agent session take?
-jq -r 'select(.action=="advance") | "\(.state): \(.duration_seconds)s"' .agent-factory/audit.log
+jq -r 'select(.action=="advance") | "\(.state): \(.duration_seconds)s"' .current-work/audit.log
 
 # Which states needed retries?
-jq -r 'select(.action=="retry") | .state' .agent-factory/audit.log
+jq -r 'select(.action=="retry") | .state' .current-work/audit.log
 ```

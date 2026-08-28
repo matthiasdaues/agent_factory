@@ -72,7 +72,7 @@ phase is exempt and may continue in the current session.
 
 ## Branching model
 
-Per [branching-policy.md](../rulebooks/conventions/branching-policy.md), every story still gets its own feature branch and dedicated worktree, and merge order is still decided by output-file overlap rather than EPIC labels. The difference is ownership: the dispatcher describes **intent and ordering**, while `factory/scripts/dispatch` owns branch/worktree creation, declared-base recording, pre-spawn base verification, merge-time scope checks, cleanup, and the script-owned ledger at `.current_work/<feature-branch>/dispatch-ledger.yaml`. Record **branch root** from `dispatch init` and **branch head** from `dispatch close-wave`, then hand off with `--base <branch-root> --head <branch-head>`.
+Per [branching-policy.md](../rulebooks/conventions/branching-policy.md), every story still gets its own feature branch and dedicated worktree, and merge order is still decided by output-file overlap rather than EPIC labels. The difference is ownership: the dispatcher describes **intent and ordering**, while `factory/scripts/dispatch` owns branch/worktree creation, declared-base recording, pre-spawn base verification, merge-time scope checks, cleanup, and the script-owned ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml`. Record **branch root** from `dispatch init` and **branch head** from `dispatch close-wave`, then hand off with `--base <branch-root> --head <branch-head>`.
 
 Per [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md), a wave large enough to risk a long-running, hard-to-verify dispatch must be split into smaller, independently mergeable dispatches rather than run as one.
 
@@ -91,7 +91,7 @@ For Pi: `review` mode uses `run_agent` (serial), never `dispatch_wave`.
 
 ## Workflow
 
-1. **Load backlog + initialise dispatch run** — Parse all `backlog/ST-*.md`: `id`, `status`, `deps`, `tier`, `outputs`. Build dependency graph. Identify **ready stories** (`status: pending`, all `deps` done). Read the charter (`docs/charter/*.md`) to inform model selection and dispatch strategy. Before any subagent launch, call `factory/scripts/dispatch init --base <base-branch> --stories <comma-separated-story-ids>` so the script can create the invocation branch/worktree, preflight output directories, record branch root, and initialise the script-owned ledger under `.current_work/`. If resuming, recover state from that ledger instead of reconstructing from git history.
+1. **Load backlog + initialise dispatch run** — Parse all `backlog/ST-*.md`: `id`, `status`, `deps`, `tier`, `outputs`. Build dependency graph. Identify **ready stories** (`status: pending`, all `deps` done). Read the charter (`docs/charter/*.md`) to inform model selection and dispatch strategy. Before any subagent launch, call `factory/scripts/dispatch init --base <base-branch> --stories <comma-separated-story-ids>` so the script can create the invocation branch/worktree, preflight output directories, record branch root, and initialise the script-owned ledger under `.current-work/`. If resuming, recover state from that ledger instead of reconstructing from git history.
 2. **Plan wave** — Call `factory/scripts/dispatch plan --backlog-dir backlog [--stories <ids>]`. Group ready stories by declared `outputs:` overlap (in addition to dependency-readiness, not instead of it):
    - **Epic 0 scheduling**: Identify stories with `epic: "Epic 0 — Project Setup"` and schedule them as **wave 1** with highest priority. No feature story (non-Epic 0) dispatches until all must-have Epic 0 stories reach terminal state. Use the existing dependency mechanism: feature stories carry `deps:` on the final Epic 0 story ("Update development.md"), which chains from all other Epic 0 stories. The agent does not need new scheduling logic — the dependency graph enforces precedence automatically.
    - **Parallel-safe set**: file-disjoint stories → dispatch in parallel within the wave.
@@ -138,7 +138,7 @@ factory/scripts/mutation-analysis <source-files> --story-id <story-id>
 factory/scripts/dependency-check <source-files> --story-id <story-id>
 ```
 
-Each script writes a JSON report to `.agent-factory/<gate-name>/<story-id>.json` and exits 0 on pass, 1 on failure. The dispatcher reads the exit code and the JSON report to determine the outcome.
+Each script writes a JSON report to `.current-work/<gate-name>/<story-id>.json` and exits 0 on pass, 1 on failure. The dispatcher reads the exit code and the JSON report to determine the outcome.
 
 #### Fix-iteration loop
 
@@ -171,7 +171,7 @@ The gate-check loop and `premerge-check` are independent, sequential gates. The 
 > You are a developer-agent. Your worktree was prepared by `factory/scripts/dispatch`. A prior developer iteration committed code that failed the following quality gates.
 >
 > **Gate reports:**
-> `<list of .agent-factory/<gate-name>/<story-id>.json paths>`
+> `<list of .current-work/<gate-name>/<story-id>.json paths>`
 >
 > **Affected files:**
 > `<list of files flagged in the gate reports>`

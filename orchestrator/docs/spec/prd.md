@@ -18,7 +18,7 @@ Agent Factory's playbooks define a complete state machine: states, transitions, 
 - Stop at final states and report completion.
 - Stop when a halt condition fires (iteration cap) and report escalation.
 - Stop on configuration errors (resolution failure) and report.
-- Write structured audit entries to `.agent-factory/audit.log`.
+- Write structured audit entries to `.current-work/audit.log`.
 - Support both Claude Code and GitHub Copilot CLI as dispatch targets.
 
 ### Out of scope
@@ -56,7 +56,7 @@ Agent Factory's playbooks define a complete state machine: states, transitions, 
 | FR-10 | The orchestrator shall halt when `phase retry` refuses (iteration cap hit).                                        | UC-04  |
 | FR-11 | The orchestrator shall self-chain (execute the next step) when `phase advance` succeeds.                           | UC-01  |
 | FR-12 | The orchestrator shall halt immediately on trigger exit code 2 (resolution/config error).                          | UC-05  |
-| FR-13 | The orchestrator shall write a JSON-lines audit entry per step to `.agent-factory/audit.log`.                      | UC-01  |
+| FR-13 | The orchestrator shall write a JSON-lines audit entry per step to `.current-work/audit.log`.                       | UC-01  |
 | FR-14 | The orchestrator shall accept `--playbook`, `--cli`, and `--from-state` parameters.                                | UC-01  |
 | FR-15 | The orchestrator shall bootstrap the marker at `--from-state` if no marker exists.                                 | UC-01  |
 
@@ -72,13 +72,13 @@ Agent Factory's playbooks define a complete state machine: states, transitions, 
 
 ## Constraints
 
-| ID   | Constraint                                                                                                                                                                  |
-| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| C-01 | The orchestrator owns no sequencing logic of its own. All sequencing decisions are delegated to `phase advance` and `phase retry`.                                          |
-| C-02 | The orchestrator owns no condition evaluation. All gate checks are delegated to `phase advance`.                                                                            |
-| C-03 | The orchestrator owns no agent resolution or prompt composition. All dispatch is delegated to `trigger`.                                                                    |
-| C-04 | The playbook state marker (`.agent-factory/playbook-state.yml`) is the single source of truth for execution position. The orchestrator reads it but only `phase` writes it. |
-| C-05 | Phase 1 (Requirements) is never orchestrator-driven. The orchestrator's entry point is always a state where specs already exist.                                            |
+| ID   | Constraint                                                                                                                                                                 |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C-01 | The orchestrator owns no sequencing logic of its own. All sequencing decisions are delegated to `phase advance` and `phase retry`.                                         |
+| C-02 | The orchestrator owns no condition evaluation. All gate checks are delegated to `phase advance`.                                                                           |
+| C-03 | The orchestrator owns no agent resolution or prompt composition. All dispatch is delegated to `trigger`.                                                                   |
+| C-04 | The playbook state marker (`.current-work/playbook-state.yml`) is the single source of truth for execution position. The orchestrator reads it but only `phase` writes it. |
+| C-05 | Phase 1 (Requirements) is never orchestrator-driven. The orchestrator's entry point is always a state where specs already exist.                                           |
 
 ## Success criteria
 

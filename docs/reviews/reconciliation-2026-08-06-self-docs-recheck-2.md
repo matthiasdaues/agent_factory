@@ -73,8 +73,8 @@ for a documentation-reconciliation pass:
   means writing architecture chapters, which is out of scope here.
 - **`factory/playbooks/greenfield-development.fsm.yml`** still declares
   `audit.output_file: .orchestrator/audit.log`, while the orchestrator
-  (`cli.py`, `AUDIT_LOG = Path(".agent-factory/audit.log")`) and
-  `orchestrator/README.md` both use `.agent-factory/audit.log`. The FSM's
+  (`cli.py`, `AUDIT_LOG = Path(".current-work/audit.log")`) and
+  `orchestrator/README.md` both use `.current-work/audit.log`. The FSM's
   declarative `audit` block is stale metadata the code does not read. Out of
   scope (playbook/FSM artifact, not self-documentation prose); flagged here
   for a future pass.
@@ -130,7 +130,7 @@ Re-confirmed against code-as-built; no edits needed:
   (`spec-lint --spec-dir`, `arch-lint --docs-dir`, `backlog-lint --backlog-dir`,
   `matrix-lint --matrix` — all flag forms verified against script argparse).
 - `orchestrator/README.md` — delegation model, `--from-state` / marker
-  resume (verified in `cli.py`: `MARKER_PATH = .agent-factory/playbook-state.yml`), audit-log JSON shape (fields and
+  resume (verified in `cli.py`: `MARKER_PATH = .current-work/playbook-state.yml`), audit-log JSON shape (fields and
   `action` values `done`, `human-gate`, `halt`, `advance`, `retry` all
   present in `cli.py`), 18 tests in `test_run_playbook.py` (verified by
   test-function count), Files tree (50-file test suite verified by
@@ -140,7 +140,7 @@ Re-confirmed against code-as-built; no edits needed:
   `backlog/` 6 stories, `orchestrator/docs/adr/0001` reference.
 - `orchestrator/docs/05,06,09` and `orchestrator/docs/adr/0001` — consistent
   with `cli.py` (claude/copilot backends, exit-code dispatch, marker
-  `.agent-factory/playbook-state.yml`, audit `.agent-factory/audit.log`,
+  `.current-work/playbook-state.yml`, audit `.current-work/audit.log`,
   single-function `run_one_step` structure, `phase advance` / `phase retry` /
   `trigger` delegation). The `~120 lines` metric in ADR-0001 is historical;
   see Observations.

@@ -118,9 +118,9 @@ themselves.
 - One manifest per working directory, one agent per manifest, one escalation
   per story, one escalation per wave.
 
-## Working Directory: `.current_work/`
+## Working Directory: `.current-work/`
 
-All ephemeral dispatch state lives under `.current_work/`, gitignored in its
+All ephemeral dispatch state lives under `.current-work/`, gitignored in its
 entirety. This directory is runtime state — never committed, never shared
 across clones.
 
@@ -128,7 +128,7 @@ All dispatch state is namespaced by feature branch, with per-story
 subdirectories:
 
 ```
-.current_work/
+.current-work/
   <feature-branch>/
     dispatch-ledger.yaml
     <story-branch>/
@@ -145,12 +145,12 @@ reads the matching ledger. With `--all`, it lists every active dispatch.
 
 The durable record is git itself: branches, merges, story-file status fields,
 and commit messages. The ledger is a convenient index that `dispatch` maintains
-for its own bookkeeping. If lost (crashed session, deleted `.current_work/`),
+for its own bookkeeping. If lost (crashed session, deleted `.current-work/`),
 the script can reconstruct terminal states from the branch and merge history;
 non-terminal states require re-preparation.
 
 `dispatch close-wave` and the final merge clean up the namespace directory.
-`.current_work/` is added to `.gitignore` by `init-factory`.
+`.current-work/` is added to `.gitignore` by `init-factory`.
 
 ## Design
 
@@ -171,7 +171,7 @@ No state changes.
 
 **`dispatch init --base <branch> --stories ST-0074,... [--feature-branch <name>]`**
 Create the feature branch from `--base` and initialize the dispatch ledger at
-`.current_work/<feature-branch>/dispatch-ledger.yaml`. Preflight
+`.current-work/<feature-branch>/dispatch-ledger.yaml`. Preflight
 `test_command` in `config/project.json`. Exit non-zero on untracked target
 directories unless `--baseline-commit` is given (creates an explicit baseline
 commit on the base branch before the feature branch is cut; because this
@@ -180,7 +180,7 @@ and requires `--yes` or interactive confirmation before committing).
 With `--feature-branch`: skip branch creation and initialize the ledger on
 the named existing branch. The branch must exist and its tip must be
 reachable from `--base`. If a dispatch ledger already exists for this
-branch under `.current_work/`, initialization is rejected — the operator
+branch under `.current-work/`, initialization is rejected — the operator
 must close or remove the existing dispatch first. `--baseline-commit` is
 incompatible with `--feature-branch`.
 
@@ -276,8 +276,8 @@ boundary.
 #### Step manifest
 
 `prepare-wave` and `prepare-story` write a YAML manifest at
-`.current_work/<feature-branch>/<story-branch>/current-step.yml`.
-The manifest is local runtime state inside the gitignored `.current_work/`
+`.current-work/<feature-branch>/<story-branch>/current-step.yml`.
+The manifest is local runtime state inside the gitignored `.current-work/`
 tree, never committed.
 
 ```yaml
@@ -310,10 +310,10 @@ adapters normalize tool input before calling it, following the pattern of
 
 **Read guard** (`PreToolUse` on `Read`): file path must match a declared
 `inputs` glob or an always-allowed prefix. Always-allowed: `factory/`,
-`.claude/`, `.github/`, `.pi/`, `.codex/`, `.current_work/`.
+`.claude/`, `.github/`, `.pi/`, `.codex/`, `.current-work/`.
 
 **Write guard** (`PreToolUse` on `Edit`, `Write`): file path must match a
-declared `outputs` glob. Always-allowed writes: `.current_work/`,
+declared `outputs` glob. Always-allowed writes: `.current-work/`,
 `docs/findings/*`.
 
 **Bash guard** (`PreToolUse` on `Bash`): best-effort path extraction from
@@ -445,7 +445,7 @@ one escalation slot. If the seam session fails repeatedly with
 
 Phase 1:
 
-- `.current_work/` directory layout, added to `.gitignore` by `init-factory`
+- `.current-work/` directory layout, added to `.gitignore` by `init-factory`
 - `factory/scripts/dispatch` with subcommands: `plan`, `init`, `prepare-wave`,
   `prepare-story`, `mark-dispatched`, `verify-story`, `merge-story`,
   `mark-blocked`, `mark-failed`, `re-dispatch` (basic: any `failed` or
@@ -454,7 +454,7 @@ Phase 1:
 - [implementation-agent.md](../../../factory/agents/implementation-agent.md)
   rewritten to call dispatch subcommands
 - [dispatch-contract.md](../../../factory/rulebooks/conventions/dispatch-contract.md)
-  updated: `prepared` status, script-owned ledger under `.current_work/`,
+  updated: `prepared` status, script-owned ledger under `.current-work/`,
   pre-spawn verify-base, `premerge-check --scope`
 - [branching-policy.md](../../../factory/rulebooks/conventions/branching-policy.md)
   updated: verify-base preamble notes script-owned path
@@ -539,15 +539,15 @@ success is a no-op; re-running after failure resumes from recorded state.
 [commit-conventions.md](../../../factory/rulebooks/conventions/commit-conventions.md):
 merge commits, status-correction commits, and baseline commits each have a
 defined format. The ledger itself is not committed — it is ephemeral state
-under `.current_work/`.
+under `.current-work/`.
 
-**Crash recovery.** A stale step manifest under `.current_work/` (agent died
+**Crash recovery.** A stale step manifest under `.current-work/` (agent died
 without cleanup) blocks subsequent writes. `--clear --force` removes it with
 a warning. A missing or corrupt ledger can be partially reconstructed from
 git branch and merge history for terminal states (done, merged branches).
 Non-terminal story states require re-preparation via `dispatch prepare-wave`
 or `dispatch prepare-story`. If both the ledger and the feature branch are
-lost (e.g., `.current_work/` deleted and branch reset), recovery is manual:
+lost (e.g., `.current-work/` deleted and branch reset), recovery is manual:
 the operator must inspect `git reflog`, identify surviving story branches,
 and re-initialize the dispatch.
 

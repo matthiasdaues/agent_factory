@@ -336,7 +336,7 @@ ______________________________________________________________________
 
 ### 7.3 Long-term Improvements
 
-1. **Framework override config** - Add `.agent-factory/test-config.yml` to explicitly specify frameworks when auto-detection is insufficient
+1. **Framework override config** - Add `.current-work/test-config.yml` to explicitly specify frameworks when auto-detection is insufficient
 
 2. **Parallel multi-framework execution** - When multiple frameworks detected, run them in parallel (not sequential) to reduce runtime overhead
 

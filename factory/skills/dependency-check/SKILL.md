@@ -18,7 +18,7 @@ imports.
 - Default threshold: **0 violations**
 - One JSON result per rule outcome, including the violating file, line,
   and imported module when a violation exists
-- Logged output at `.agent-factory/dependency-check/<story-id>.json`
+- Logged output at `.current-work/dependency-check/<story-id>.json`
 - Non-zero exit on any violation
 
 ## Current parser scope

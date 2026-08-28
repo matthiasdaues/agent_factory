@@ -10,7 +10,7 @@
 
 ## Audit log format
 
-Each step writes one JSON-lines entry to `.agent-factory/audit.log`:
+Each step writes one JSON-lines entry to `.current-work/audit.log`:
 
 ```json
 {
@@ -29,7 +29,7 @@ Each step writes one JSON-lines entry to `.agent-factory/audit.log`:
 
 ## Marker contract
 
-The orchestrator reads `.agent-factory/playbook-state.yml` but never writes it directly. Only `factory/scripts/phase` writes the marker. This invariant ensures the marker's format and content are governed by a single writer.
+The orchestrator reads `.current-work/playbook-state.yml` but never writes it directly. Only `factory/scripts/phase` writes the marker. This invariant ensures the marker's format and content are governed by a single writer.
 
 ## Dispatch contract
 

@@ -91,8 +91,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints. Each subagent implements one story using TDD on its own feature branch. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 3408
-    total_tokens: 10365
+    tokens: 3406
+    total_tokens: 10355
   - name: reconciliation-agent
     title: Reconciliation Agent
     phase: 4
@@ -263,12 +263,12 @@ skills:
     category: implementation
     description: Compute CRAP (Change Risk Anti-Patterns) per function and block when any exceeds the threshold.
     path: skills/crap-score/SKILL.md
-    tokens: 640
+    tokens: 639
   - name: dependency-check
     category: implementation
     description: Enforce architecture.dsl dependency rules by scanning source imports and writing a JSON gate report.
     path: skills/dependency-check/SKILL.md
-    tokens: 598
+    tokens: 597
   - name: implement-issue
     category: implementation
     description: Implement a single backlog story with TDD — analyse, red-green, commit, check docs.
@@ -298,7 +298,7 @@ skills:
     category: quality
     description: Run mutmut against production code, scope mutations to a story diff when requested, and block unresolved surviving mutants.
     path: skills/mutation-analysis/SKILL.md
-    tokens: 921
+    tokens: 920
   - name: security-review
     category: quality
     description: Security-focused code review based on the OWASP Top 10.
@@ -348,7 +348,7 @@ skills:
     category: utility
     description: Resolve and run the next agent or playbook step, deciding what "resume" means from observable state (the phase-gate marker, gate results, open findings) rather than a separately persisted execution status.
     path: skills/run-step/SKILL.md
-    tokens: 1188
+    tokens: 1187
   - name: scratchpad
     category: utility
     description: Append a quick note to session-scratchpad.md, sectioned by date. Use when the user says "note this down:", "make a note of this:", or invokes "/scratchpad" or "/scratch".
@@ -446,7 +446,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 952
-    total_tokens: 33083
+    total_tokens: 33073
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -462,7 +462,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4451
-    total_tokens: 67044
+    total_tokens: 67034
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -480,7 +480,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2978
-    total_tokens: 66645
+    total_tokens: 66635
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -541,11 +541,11 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 2870
+    tokens: 2866
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
-    tokens: 2562
+    tokens: 2554
   - name: cache-hygiene
     category: conventions
     path: rulebooks/conventions/cache-hygiene.md

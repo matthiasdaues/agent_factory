@@ -16,7 +16,7 @@ Upstream SHA: 598616564c34af0a6666b2bbeca9ba5ed42a96cb
 Ahead: 7
 Behind: 0
 Working tree: 51 modified/deleted/untracked files — see cleanup section below
-Retained work: story/ST-0101 (branch at HEAD, no implementation commits — needs reset or delete+recreate); story/ST-0102 (branch at base 5986165, no implementation — worktree at .agent-factory/worktrees/story/ST-0102); story/ST-0103 (branch has commit 0fbafcb83728062213b58a76268796de0cbe459f with full implementation — worktree at .agent-factory/worktrees/story/ST-0103, needs rebase+merge)
+Retained work: story/ST-0101 (branch at HEAD, no implementation commits — needs reset or delete+recreate); story/ST-0102 (branch at base 5986165, no implementation — worktree at .current-work/worktrees/story/ST-0102); story/ST-0103 (branch has commit 0fbafcb83728062213b58a76268796de0cbe459f with full implementation — worktree at .current-work/worktrees/story/ST-0103, needs rebase+merge)
 
 ## Decisions and open items
 
@@ -31,8 +31,8 @@ Decisions:
 Open items:
 
 1. **Dirty working tree (51 files):** Modifications from mechanize-dispatch merge (`5986165`) left unstaged changes across backlog/, docs/findings/, docs/reviews/, tests/, factory/. These are not implementation changes — they are merge artifacts from the `Merge commit '1085cd2...' into feature/...` commit. The incoming session must investigate: either discard with `git checkout HEAD -- <paths>` if they match HEAD, or commit them if they represent real changes.
-2. **Stale `.current_work/` directory:** `.current_work/impl/st-0095-st-0097-st-0099-and-4-more/` is untracked debris from the failed dispatch. Delete it.
-3. **Stale dispatch-ledger:** `.agent-factory/dispatch-ledger.yaml` was deleted (shows as `D` in status). The failed dispatch created it; it was removed during cleanup. Confirm deletion is staged and committed.
+2. **Stale `.current-work/` directory:** `.current-work/impl/st-0095-st-0097-st-0099-and-4-more/` is untracked debris from the failed dispatch. Delete it.
+3. **Stale dispatch-ledger:** `.current-work/dispatch-ledger.yaml` was deleted (shows as `D` in status). The failed dispatch created it; it was removed during cleanup. Confirm deletion is staged and committed.
 4. **Stale branches needing cleanup:** `impl/st-001-st-002`, `impl/st-0095-st-0097-st-0099-and-4-more`, `impl/wave-4`, and old `story/ST-011x–013x` branches from the mechanize-dispatch feature are still present. They have no active worktrees and can be safely deleted with `git branch -d`.
 5. **ST-0101 branch confusion:** `story/ST-0101` is at feature branch HEAD (`6c6dea6`), not at its base — it was apparently rebased or reset by the stale agent. No crap-score implementation exists. The fixture directory `factory/fixtures/quality-gates/high-crap/` exists with `src/` and `tests/` subdirs but SKILL.md and script are missing. Delete the branch and recreate from the feature branch tip before implementing.
 6. **ST-0102 has no work:** Branch at base SHA, no commits, no artifacts. Delete and recreate.
@@ -82,7 +82,7 @@ Verification: ST-0097 SKILL.md reviewed (207 lines, proper structure with inputs
 
 ## Next action
 
-1. Clean the working tree: discard the 50 unstaged modifications if they match HEAD (`git checkout HEAD -- <paths>` for each), delete `.current_work/` directory, stage the dispatch-ledger deletion, and commit the cleanup.
+1. Clean the working tree: discard the 50 unstaged modifications if they match HEAD (`git checkout HEAD -- <paths>` for each), delete `.current-work/` directory, stage the dispatch-ledger deletion, and commit the cleanup.
 2. Merge ST-0103: rebase `story/ST-0103` onto the feature branch, run `factory/scripts/premerge-check`, merge with `--no-ff`.
 3. Implement ST-0101 (crap-score): delete and recreate the `story/ST-0101` branch from the feature branch tip, create worktree, implement SKILL.md + script + verify against the existing fixture, commit, premerge-check, merge.
 4. Implement ST-0102 (mutation-analysis): same pattern — new branch, worktree, implement SKILL.md + script + fixture, commit, premerge-check, merge.

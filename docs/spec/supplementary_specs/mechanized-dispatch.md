@@ -186,11 +186,11 @@ Feature: Dispatch Initialization
     When the operator runs dispatch init --base dev --stories ST-001,ST-002
     Then a feature branch is created from the base branch tip
     And a worktree is created for the feature branch
-    And a dispatch ledger is initialized at .current_work/<feature-branch>/dispatch-ledger.yaml
+    And a dispatch ledger is initialized at .current-work/<feature-branch>/dispatch-ledger.yaml
     And all named stories are recorded as pending
 
   Scenario: Existing ledger for the target branch blocks initialization
-    Given a dispatch ledger exists at .current_work/<target-branch>/dispatch-ledger.yaml
+    Given a dispatch ledger exists at .current-work/<target-branch>/dispatch-ledger.yaml
     When the operator runs dispatch init whose target branch resolves to <target-branch>
     Then dispatch exits non-zero
     And reports that a dispatch is already active for this branch
@@ -240,7 +240,7 @@ Feature: Dispatch Initialization
     And config/project.json contains a valid test_command
     When the operator runs dispatch init --base main --feature-branch feature/my-work --stories ST-001,ST-002
     Then no new branch is created
-    And the dispatch ledger is initialized at .current_work/feature/my-work/dispatch-ledger.yaml
+    And the dispatch ledger is initialized at .current-work/feature/my-work/dispatch-ledger.yaml
     And all named stories are recorded as pending
 
   Scenario: Non-existent feature branch is rejected
@@ -301,7 +301,7 @@ Feature: Wave Lifecycle
   Scenario: Step manifest is written to the story worktree
     Given ST-003 is being prepared
     When prepare-wave writes the step manifest
-    Then the manifest exists at .current_work/<feature-branch>/<story-branch>/current-step.yml
+    Then the manifest exists at .current-work/<feature-branch>/<story-branch>/current-step.yml
     And it contains the story's inputs, outputs, and max_input_tokens
 
   Scenario: All stories terminal allows wave closure
@@ -596,12 +596,12 @@ Feature: Step Manifest Lifecycle
   Phase: 2
   The step manifest controls tool-call enforcement for one step agent
   in one worktree. Its presence activates guards; its absence deactivates
-  them. It lives at .current_work/<feature-branch>/<story-branch>/current-step.yml.
+  them. It lives at .current-work/<feature-branch>/<story-branch>/current-step.yml.
 
   Scenario: Manifest is written with story declarations
     Given ST-003 has inputs, outputs, and max_input_tokens declared
     When prepare-wave writes the step manifest
-    Then .current_work/<feature-branch>/<story-branch>/current-step.yml exists
+    Then .current-work/<feature-branch>/<story-branch>/current-step.yml exists
     And it contains the story's inputs, outputs, and max_input_tokens
     And it contains schema_version, step name, playbook, and phase
 
@@ -652,7 +652,7 @@ Feature: Read Guard
     Given the manifest declares inputs ["docs/spec/prd.md"] only
     When the agent issues a Read for factory/rulebooks/rules.md
     Then the read is allowed
-    # Always-allowed read prefixes: factory/, .claude/, .github/, .pi/, .codex/, .current_work/
+    # Always-allowed read prefixes: factory/, .claude/, .github/, .pi/, .codex/, .current-work/
 
   Scenario: File outside declared inputs and allowed prefixes is denied
     Given the manifest declares inputs ["docs/spec/prd.md"]
@@ -686,19 +686,19 @@ Feature: Write Guard
 
   Scenario: Gate markers are always allowed
     Given any step manifest is active
-    When the agent issues a Write for .current_work/verify-base-ok
+    When the agent issues a Write for .current-work/verify-base-ok
     Then the write is allowed
-    When the agent issues a Write for .current_work/premerge-check-ok
+    When the agent issues a Write for .current-work/premerge-check-ok
     Then the write is allowed
 
   Scenario: Dispatch ledger is always denied to step agents
     Given any step manifest is active
-    When the agent issues a Write for .current_work/<feature-branch>/dispatch-ledger.yaml
+    When the agent issues a Write for .current-work/<feature-branch>/dispatch-ledger.yaml
     Then the write is denied
 
   Scenario: Step manifest file is always denied to step agents
     Given any step manifest is active
-    When the agent issues a Write for any current-step.yml under .current_work/
+    When the agent issues a Write for any current-step.yml under .current-work/
     Then the write is denied
 
   Scenario: File outside declared outputs and allowed paths is denied
@@ -1028,7 +1028,7 @@ Feature: Ledger Integrity
 
   Scenario: Write guard denies LLM writes to the ledger
     Given a step agent is executing in a worktree with an active manifest
-    When the agent attempts to write .current_work/<feature-branch>/dispatch-ledger.yaml
+    When the agent attempts to write .current-work/<feature-branch>/dispatch-ledger.yaml
     Then the write guard denies the write
 
   # Phase 3
@@ -1151,7 +1151,7 @@ Each decision below resolves an open finding from the adversarial review of the 
 | Finding   | Summary                                             | Resolution                                                                                                                                                                                                                            | Scenario                                                                |
 | --------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | PROP-0005 | Phantom dependency on `factory/scripts/validate`    | Part 5 of the handoff contract references only `test_command`. The validate skill is the agent's own responsibility per its agent definition, not a script-enforced check.                                                            | Subagent Handoff Contract: "Seven-part contract is generated"           |
-| PROP-0006 | Write guard allows `.current_work/` too broadly     | Write guard allows only gate markers (`verify-base-ok`, `premerge-check-ok`) and `docs/findings/*`. Denies `dispatch-ledger.yaml` and `current-step.yml` explicitly.                                                                  | Write Guard: "Dispatch ledger is always denied"                         |
+| PROP-0006 | Write guard allows `.current-work/` too broadly     | Write guard allows only gate markers (`verify-base-ok`, `premerge-check-ok`) and `docs/findings/*`. Denies `dispatch-ledger.yaml` and `current-step.yml` explicitly.                                                                  | Write Guard: "Dispatch ledger is always denied"                         |
 | PROP-0007 | Post-merge test failure leaves branch polluted      | `merge-story` reverts the merge commit on red suite before marking blocked. Feature branch is restored to pre-merge state.                                                                                                            | Story Lifecycle: "Red test suite reverts the merge"                     |
 | PROP-0008 | One-escalation-per-wave, no disposition for second  | Second qualifying failure in the same wave is marked blocked with reason `wave_escalation_exhausted`. Wave escalation slot resets at wave boundaries; story may escalate in a later wave if its own one-escalation limit is unused.   | Evidence-Gated Escalation: "Second qualifying failure in wave"          |
 | PROP-0009 | File-overlap algorithm unspecified                  | Expand output globs against the working tree to concrete file sets and intersect. Zero-match globs fall back to their literal directory prefix (conservative).                                                                        | Wave Planning: "File overlap is computed by expanding globs"            |
@@ -1166,7 +1166,7 @@ Each decision below resolves an open finding from the adversarial review of the 
 | PROP-0018 | Spec adds clear-manifest subcommand not in proposal | `dispatch clear-manifest --force --worktree <path>` added to the proposal under Phase 2 scope.                                                                                                                                        | Step Manifest Lifecycle: "Stale manifest is cleared"                    |
 | PROP-0019 | `safety_critical_paths` config key unspecified      | `safety_critical_paths` added to proposal as a list of gitignore-style globs in `config/project.json`, under Phase 3 scope.                                                                                                           | Tier Rubric: "Safety-critical output paths produce strong"              |
 | PROP-0020 | Re-dispatch vs. retry distinction unclear           | Proposal distinguishes: re-dispatch (new attempt, full lifecycle restart, in scope) vs. retry/resume (automatic re-run from interrupted point, deferred).                                                                             | Proposal: Design Details and Explicitly Deferred sections               |
-| PROP-0021 | `--feature-branch` can hijack an active dispatch    | `dispatch init` rejects initialization when a dispatch ledger already exists for the target branch under `.current_work/`. Applies to both `--feature-branch` and auto-generated branch paths.                                        | Dispatch Initialization: "Existing ledger blocks initialization"        |
+| PROP-0021 | `--feature-branch` can hijack an active dispatch    | `dispatch init` rejects initialization when a dispatch ledger already exists for the target branch under `.current-work/`. Applies to both `--feature-branch` and auto-generated branch paths.                                        | Dispatch Initialization: "Existing ledger blocks initialization"        |
 
 ## Traceability — Proposal Sections to Features
 

@@ -106,7 +106,7 @@ CRAP scoring combines cyclomatic complexity with test coverage into a single ris
 | **Tool candidates**  | `radon` + `coverage` (Python), `gjstest` (Go), composite script                                                           |
 | **What it enforces** | CRAP ≤ threshold per function; threshold tunable per project (`house-rules.md` when charter exists, else Factory default) |
 | **Inputs**           | Source files, coverage data                                                                                               |
-| **Outputs**          | JSON report per function (CRAP score, pass/fail), logged to `.agent-factory/crap-score/<story-id>.json`                   |
+| **Outputs**          | JSON report per function (CRAP score, pass/fail), logged to `.current-work/crap-score/<story-id>.json`                    |
 
 #### `mutation-analysis` — Behavioral quality
 
@@ -118,7 +118,7 @@ Verifies that test coverage is real — not just line-hit but behaviorally meani
 | **Tool candidates**  | `mutmut` (Python; reference implementation for first release). Other languages (`mutant` for Rust, `pitest` for Java) deferred |
 | **What it enforces** | Every surviving mutant resolved: dead code removed, missing contract tested, or finding filed for QA. Zero survivors to pass   |
 | **Inputs**           | Source files (diff-scoped — see below), test suite                                                                             |
-| **Outputs**          | JSON report per mutant (killed/survived, resolution action), logged to `.agent-factory/mutation-analysis/<story-id>.json`      |
+| **Outputs**          | JSON report per mutant (killed/survived, resolution action), logged to `.current-work/mutation-analysis/<story-id>.json`       |
 
 **Diff-scoping contract:** The CLI wrapper `factory/scripts/mutation-analysis` accepts a `--diff-base <ref>` argument. The dispatcher supplies the story branch's merge-base commit (the point where the feature branch diverged from its target). The script runs `git diff --name-only --diff-filter=ACMR <ref> HEAD` to obtain the changed file set, then filters to **production files** — files that are not test files. A file is a test file if it matches any of: `test_*.py`, `*_test.py`, `*_test.go`, `*.test.ts`, `*.test.js`, `*.spec.ts`, `*.spec.js`, or lives under a directory named `tests/` or `__tests__/`. Everything else in the diff is a production file and is passed to the mutation engine. When `--diff-base` is omitted, the script falls back to the full module (the pre-proposal behavior) so the gate remains usable outside the dispatcher loop.
 
@@ -126,13 +126,13 @@ Verifies that test coverage is real — not just line-hit but behaviorally meani
 
 Enforces module dependency directions declared in `architecture.dsl`. Neither TDD nor the testing strategy addresses dependency direction; this skill fills an unoccupied gap.
 
-|                      |                                                                                                                 |
-| -------------------- | --------------------------------------------------------------------------------------------------------------- |
-| **Skill file**       | `factory/skills/dependency-check/SKILL.md`                                                                      |
-| **Tool candidates**  | `deptrack` (general), `dependency-cruiser` (JS/TS), `arch-pkg` (Go)                                             |
-| **What it enforces** | Module dependency directions match `architecture.dsl` declarations                                              |
-| **Inputs**           | `docs/arc42/architecture.dsl`, source files                                                                     |
-| **Outputs**          | JSON report per rule (pass/fail, violating import), logged to `.agent-factory/dependency-check/<story-id>.json` |
+|                      |                                                                                                                |
+| -------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Skill file**       | `factory/skills/dependency-check/SKILL.md`                                                                     |
+| **Tool candidates**  | `deptrack` (general), `dependency-cruiser` (JS/TS), `arch-pkg` (Go)                                            |
+| **What it enforces** | Module dependency directions match `architecture.dsl` declarations                                             |
+| **Inputs**           | `docs/arc42/architecture.dsl`, source files                                                                    |
+| **Outputs**          | JSON report per rule (pass/fail, violating import), logged to `.current-work/dependency-check/<story-id>.json` |
 
 #### Invocation model — developer/gate separation
 

@@ -43,7 +43,7 @@ Playbooks in [`factory/playbooks/`](../../factory/playbooks/) are prose runbooks
 
 ## 1. State-transition control via pre-commit
 
-A hook cannot enforce ordering without knowing the run's current state. Track it in one local file, `.agent-factory/playbook-state.yml`, git-ignored — the same hidden namespace as the [session log](session-log-addendum.md#2-where-the-log-lives-and-how-scripts-write-to-it):
+A hook cannot enforce ordering without knowing the run's current state. Track it in one local file, `.current-work/playbook-state.yml`, git-ignored — the same hidden namespace as the [session log](session-log-addendum.md#2-where-the-log-lives-and-how-scripts-write-to-it):
 
 ```yaml
 playbook: greenfield-development

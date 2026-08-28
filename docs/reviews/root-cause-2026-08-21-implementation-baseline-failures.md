@@ -117,7 +117,7 @@ Affected test:
 - `test_noncreating_branch_operations_remain_allowed[git worktree add -b feat/x /tmp/feat-x main]`
 
 The command does create a branch and places its worktree under `/tmp`. Current
-Factory rules require every worktree under `.agent-factory/worktrees/`. The
+Factory rules require every worktree under `.current-work/worktrees/`. The
 guardrail returns exit 2 correctly under that rule, while the test classifies
 the command as a permitted non-creating operation.
 
@@ -125,7 +125,7 @@ Root cause: the test fixture predates the worktree-location policy and is also
 misclassified: `git worktree add -b` is branch creation.
 
 Repair: move this case to the blocked-command tests and add an allowed case that
-uses `.agent-factory/worktrees/feat-x`.
+uses `.current-work/worktrees/feat-x`.
 
 ### RC-6: Cancellation can occur before the fixture records its descendant
 

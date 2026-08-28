@@ -10,7 +10,7 @@ Deferred decisions and named gaps found while reverse-engineering this specifica
 
 ## T-02: No concurrent-operator lock on the marker
 
-`.agent-factory/playbook-state.yml` is a single flat file with no locking. Two operators (human and `orchestrator/`, or two humans) racing an advance/retry against the same marker can interleave incorrectly. Out of scope for the current single-operator-at-a-time usage pattern.
+`.current-work/playbook-state.yml` is a single flat file with no locking. Two operators (human and `orchestrator/`, or two humans) racing an advance/retry against the same marker can interleave incorrectly. Out of scope for the current single-operator-at-a-time usage pattern.
 
 - [ ] Decide whether a lock file (or an atomic compare-and-swap on `recorded_at`) is worth adding, or whether this stays a documented usage constraint.
 
@@ -37,7 +37,7 @@ Deferred decisions and named gaps found while reverse-engineering this specifica
 `run-tests` detects all framework markers but fails loudly (exit 2) when multiple frameworks are present, rather than running all detected frameworks in sequence. This prevents silent partial coverage in monorepo contexts but blocks multi-framework projects entirely. Long-term solution: detect all frameworks, run each, aggregate results, exit 0 only if all pass. See ATAM-0002 resolution.
 
 - [ ] Implement multi-framework orchestration: detect all, run all, aggregate results (passed/failed counts sum across frameworks).
-- [ ] Add optional explicit config (`.agent-factory/test-config.yml`) to override auto-detection for complex monorepo cases.
+- [ ] Add optional explicit config (`.current-work/test-config.yml`) to override auto-detection for complex monorepo cases.
 
 ## T-07: `verify-base` and `premerge-check` were prompt-required, not hook-enforced
 

@@ -5,10 +5,11 @@
 # Local ephemeral notes
 session-scratchpad.md
 
-# Agent Factory local run state — playbook-state.yml (harness PoC),
-# session-log.jsonl (session-log PoC). Neither is portable across
-# machines or meant to be reviewed; see docs/proposals/.
+# Agent Factory local state — .agent-factory/ holds factory system of
+# record (install manifest, usage); .current-work/ holds project-work
+# ephemera (playbook state, dispatch ledger, gate results, worktrees).
 .agent-factory/
+.current-work/
 
 # Exported architecture diagrams — SVG only, ignore PNGs
 docs/assets/images/*.png
@@ -30,6 +31,7 @@ models/
 /.claude/
 /.pi/
 /.agent-factory/
+/.current-work/
 /session-scratchpad.md
 /config/project.json
 /AGENTS.md

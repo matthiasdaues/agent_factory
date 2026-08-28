@@ -819,8 +819,8 @@ naming it.
 replacement to a proposal that does not exist.** Today
 `factory/config/hooks/block-dangerous-git.sh` denies `git push`,
 `push --force`, `reset --hard`, `clean -fd`, `branch -D`, and `--no-verify`
-outright, and gates commits and merges on `.agent-factory/verify-base-ok` and
-`.agent-factory/premerge-check-ok`. This proposal declares hooks non-boundaries
+outright, and gates commits and merges on `.current-work/verify-base-ok` and
+`.current-work/premerge-check-ok`. This proposal declares hooks non-boundaries
 and repository-local markers incapable of conferring authority, drops both
 `block-dangerous-git.sh` and `commit-safe` from `impact.boundaries` — the
 superseded hardening proposal listed both — and assigns the replacement to an

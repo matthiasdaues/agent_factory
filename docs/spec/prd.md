@@ -136,7 +136,7 @@ Pi has no native subagent concept, so a factory agent cannot run in a separate P
 
 - Every `factory/scripts/*.py` gate has zero third-party dependencies — Python 3.8+ stdlib only — so gates run without a virtualenv.
 - macOS and Linux only. `init-factory` relies on native, git-tracked symlinks, which Windows does not support the same way.
-- The marker (`.agent-factory/playbook-state.yml`) is git-ignored, local, single-file state — not a distributed or multi-operator lock.
+- The marker (`.current-work/playbook-state.yml`) is git-ignored, local, single-file state — not a distributed or multi-operator lock.
 - Dispatch safeguard assurance interprets the accepted design from immutable proposal baseline `5219c64b6586b7606df346cac668d128bd3c21fe`; later observable implementation evidence may prove a mechanism complete but may not rewrite that design origin.
 
 ## 6. Success Criteria

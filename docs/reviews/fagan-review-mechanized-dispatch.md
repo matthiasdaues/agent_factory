@@ -76,7 +76,7 @@ ______________________________________________________________________
 
 ### ⚠️ **Hardcoded Paths**
 
-- **Finding (Trivial):** Some paths are hardcoded (e.g., `.agent-factory/dispatch-ledger.yaml`, `.current_work/<branch>/`). These are documented in the spec and unlikely to change.
+- **Finding (Trivial):** Some paths are hardcoded (e.g., `.current-work/dispatch-ledger.yaml`, `.current-work/<branch>/`). These are documented in the spec and unlikely to change.
 - **Classification:** ⚠️ Trivial — not a defect.
 
 ______________________________________________________________________

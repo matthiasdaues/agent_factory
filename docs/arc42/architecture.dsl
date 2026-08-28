@@ -92,9 +92,9 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
         cliAgent -> crapScore "Implementation-agent dispatcher runs after developer commit"
         cliAgent -> mutationAnalysis "Implementation-agent dispatcher runs after developer commit"
         cliAgent -> dependencyCheck "Implementation-agent dispatcher runs after developer commit"
-        crapScore -> stateFiles "Writes JSON report to .agent-factory/crap-score/"
-        mutationAnalysis -> stateFiles "Writes JSON report to .agent-factory/mutation-analysis/"
-        dependencyCheck -> stateFiles "Writes JSON report to .agent-factory/dependency-check/"
+        crapScore -> stateFiles "Writes JSON report to .current-work/crap-score/"
+        mutationAnalysis -> stateFiles "Writes JSON report to .current-work/mutation-analysis/"
+        dependencyCheck -> stateFiles "Writes JSON report to .current-work/dependency-check/"
 
         # Relationships - Module-graph check (orchestrating session, on-demand)
         cliAgent -> moduleGraphCheck "Orchestrating session runs at Phase 1 / Phase 3 boundary"

@@ -127,7 +127,7 @@ Mechanical, identical in shape across candidates:
 
 Prototype material lives under `poc/data_model_from_dsl/` and stays marked as spike code, per [technical-poc.md § DONE](../../factory/playbooks/technical-poc.md). Nothing is promoted into the specification or the Factory scripts by this proposal.
 
-Candidates are independent, so their stories may run in parallel, one worktree per candidate, per [branching-policy.md § Every Branch Has A Worktree](../../factory/rulebooks/conventions/branching-policy.md#every-branch-has-a-worktree). Note that the Factory install is gitignored, so a freshly created worktree contains no `factory/` and no CLI agent directory. Symlink both from the primary checkout before dispatching anything into such a worktree, and leave `.agent-factory/` per-worktree so the gate markers do not collide.
+Candidates are independent, so their stories may run in parallel, one worktree per candidate, per [branching-policy.md § Every Branch Has A Worktree](../../factory/rulebooks/conventions/branching-policy.md#every-branch-has-a-worktree). Note that the Factory install is gitignored, so a freshly created worktree contains no `factory/` and no CLI agent directory. Symlink both from the primary checkout before dispatching anything into such a worktree, and leave `.current-work/` per-worktree so the gate markers do not collide.
 
 No agent builds the candidates. The builds are done directly, per [technical-poc.md § Step 2](../../factory/playbooks/technical-poc.md).
 

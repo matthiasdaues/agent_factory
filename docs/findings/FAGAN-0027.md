@@ -9,7 +9,7 @@ ______________________________________________________________________
 
 ## Summary
 
-`step-guard` hardcodes allowed path prefixes for read operations (`factory/`, `.claude/`, `.github/`, `.pi/`, `.codex/`, `.current_work/`) and write operations (`docs/findings/`) plus specific allowed paths (gate markers). The implementation correctly denies ledger and manifest writes regardless of output globs.
+`step-guard` hardcodes allowed path prefixes for read operations (`factory/`, `.claude/`, `.github/`, `.pi/`, `.codex/`, `.current-work/`) and write operations (`docs/findings/`) plus specific allowed paths (gate markers). The implementation correctly denies ledger and manifest writes regardless of output globs.
 
 ## Evidence
 
@@ -21,16 +21,16 @@ READ_ALLOWED_PREFIXES = (
     ".github/",
     ".pi/",
     ".codex/",
-    ".current_work/",
+    ".current-work/",
 )
 WRITE_ALLOWED_PREFIXES = ("docs/findings/",)
 WRITE_ALLOWED_PATHS = {
-    ".current_work/verify-base-ok",
-    ".current_work/premerge-check-ok",
+    ".current-work/verify-base-ok",
+    ".current-work/premerge-check-ok",
 }
 WRITE_DENIED_PATHS = {
-    ".current_work/dispatch-ledger.yaml",
-    ".current_work/current-step.yml",
+    ".current-work/dispatch-ledger.yaml",
+    ".current-work/current-step.yml",
 }
 ```
 

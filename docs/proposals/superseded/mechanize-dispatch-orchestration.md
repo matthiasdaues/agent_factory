@@ -93,7 +93,7 @@ Does not modify any state. The LLM reviews the plan and may adjust before procee
 
 #### `dispatch init --base <branch> --stories ST-0074,ST-0075,...`
 
-Create the invocation branch and worktree from the specified base. Initialize the dispatch ledger at `.agent-factory/dispatch-ledger.yaml`. Record branch root. Commit the ledger. Verify the worktree mapping with `git worktree list --porcelain`. Check that all target directories implied by story outputs are git-tracked. Preflight the `test_command` key in `config/project.json` (must be present and non-empty) — failing here costs nothing; failing at the first `merge-story` costs a prepared wave.
+Create the invocation branch and worktree from the specified base. Initialize the dispatch ledger at `.current-work/dispatch-ledger.yaml`. Record branch root. Commit the ledger. Verify the worktree mapping with `git worktree list --porcelain`. Check that all target directories implied by story outputs are git-tracked. Preflight the `test_command` key in `config/project.json` (must be present and non-empty) — failing here costs nothing; failing at the first `merge-story` costs a prepared wave.
 
 Untracked target directories are a precondition failure: `init` lists them and exits non-zero. Since the script owns all git state, the LLM cannot make the baseline commit by hand; instead, re-running `init` with `--baseline-commit` makes the script create an explicit baseline commit of those directories' current contents on the base branch, **before** the invocation branch is created — never as an improvised mid-dispatch fix.
 

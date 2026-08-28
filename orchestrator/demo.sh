@@ -6,7 +6,7 @@
 #
 # Both use the same FSM. The only difference is who presses "enter."
 #
-# Every action is logged to .agent-factory/audit.log — the same file the
+# Every action is logged to .current-work/audit.log — the same file the
 # real orchestrator and gate scripts use. The AF_SESSION_LOG environment
 # variable (see factory/scripts/_session_log.py) activates this: gate
 # scripts automatically append JSONL records when it is set.
@@ -21,7 +21,7 @@
 #
 # Output:
 #   Interactive terminal walk-through.
-#   Session log: .agent-factory/audit.log (inside the temporary demo project)
+#   Session log: .current-work/audit.log (inside the temporary demo project)
 
 set -euo pipefail
 
@@ -39,12 +39,12 @@ DIM='\033[2m'
 RESET='\033[0m'
 
 # ─── Session log ─────────────────────────────────────────────────────────
-# All logging goes to .agent-factory/audit.log as JSONL.
+# All logging goes to .current-work/audit.log as JSONL.
 # AF_SESSION_LOG is exported so gate scripts (_session_log.py) also write here.
 # The demo's own entries use the same format: one JSON object per line.
 
 session_log_init() {
-    mkdir -p "$DEMO_DIR/.agent-factory"
+    mkdir -p "$DEMO_DIR/.current-work"
     # AF_SESSION_LOG is the single env var that activates session logging.
     #
     # Who provisions it:
@@ -61,7 +61,7 @@ session_log_init() {
     #   - docs/proposals/session-log-addendum.md
     #
     # If unset, all logging is a no-op. No silent failures, no missing files.
-    export AF_SESSION_LOG="$DEMO_DIR/.agent-factory/audit.log"
+    export AF_SESSION_LOG="$DEMO_DIR/.current-work/audit.log"
     : > "$AF_SESSION_LOG"
     session_log "system" "init" "demo-start" "Demo session started"
     session_log "system" "init" "af-session-log" "AF_SESSION_LOG=$AF_SESSION_LOG"
@@ -270,7 +270,7 @@ demo_human_in_the_loop() {
     python3 factory/scripts/phase advance --playbook demo --by human
     session_log "advance" "INIT→DESIGN" "PASS" "marker moved to DESIGN"
     echo ""
-    show_file .agent-factory/playbook-state.yml
+    show_file .current-work/playbook-state.yml
 
     info "We're at DESIGN now. The gate (project_initialized) passed automatically."
     wait_for_enter
@@ -312,7 +312,7 @@ DESIGN
     python3 factory/scripts/phase advance --playbook demo --by human
     session_log "advance" "DESIGN→APPROVAL" "PASS" "marker moved to APPROVAL"
     echo ""
-    show_file .agent-factory/playbook-state.yml
+    show_file .current-work/playbook-state.yml
 
     info "Marker moved to APPROVAL. Agent field is null — this is a human gate."
     wait_for_enter
@@ -331,7 +331,7 @@ DESIGN
     python3 factory/scripts/phase advance --playbook demo --by human
     session_log "advance" "APPROVAL→BUILD" "PASS" "marker moved to BUILD"
     echo ""
-    show_file .agent-factory/playbook-state.yml
+    show_file .current-work/playbook-state.yml
 
     info "We're at BUILD now."
     wait_for_enter
@@ -358,7 +358,7 @@ CODE
     python3 factory/scripts/phase advance --playbook demo --by human
     session_log "advance" "BUILD→DONE" "PASS" "marker moved to DONE (final)"
     echo ""
-    show_file .agent-factory/playbook-state.yml
+    show_file .current-work/playbook-state.yml
 
     echo -e "\n${GREEN}${BOLD}✓ Playbook complete!${RESET}"
     session_log "halt" "DONE" "COMPLETE" "playbook finished — all gates passed"
@@ -390,9 +390,9 @@ demo_orchestrated() {
     # ── Reset: clean slate ──────────────────────────────────────────
     step "Reset: clean project, fresh start"
     # Remove project artifacts but preserve the audit log — both parts
-    # share one timeline in .agent-factory/audit.log.
+    # share one timeline in .current-work/audit.log.
     rm -rf docs src
-    find .agent-factory -mindepth 1 ! -name audit.log -exec rm -rf {} + 2>/dev/null || true
+    find .current-work -mindepth 1 ! -name audit.log -exec rm -rf {} + 2>/dev/null || true
     mkdir -p docs/findings
     session_log "system" "-" "RESET" "Cleaned docs/, src/, playbook state"
 
@@ -480,9 +480,9 @@ RUNNER
     info "It dispatched architecture-agent, the gate passed, and it advanced."
     info "Then it hit agent: null — a human decision point. It stopped and told you."
     echo ""
-    show_file .agent-factory/playbook-state.yml
+    show_file .current-work/playbook-state.yml
 
-    # The orchestrator already wrote its entries to .agent-factory/audit.log.
+    # The orchestrator already wrote its entries to .current-work/audit.log.
     # Since AF_SESSION_LOG points to the same file, demo entries and
     # orchestrator entries are interleaved in one timeline.
 
@@ -505,9 +505,9 @@ RUNNER
     echo -e "${GREEN}${BOLD}✓ Playbook complete — the orchestrator drove the whole thing.${RESET}"
     session_log "system" "-" "FINISH" "Part 2 complete"
     echo ""
-    show_file .agent-factory/playbook-state.yml
+    show_file .current-work/playbook-state.yml
 
-    echo -e "${BOLD}Full session log (.agent-factory/audit.log):${RESET}"
+    echo -e "${BOLD}Full session log (.current-work/audit.log):${RESET}"
     echo ""
     python3 -c "
 import json
@@ -559,7 +559,7 @@ echo ""
 echo "Session logging is activated by the AF_SESSION_LOG env var:"
 echo "  - In Part 1 (manual), you export it yourself at session start."
 echo "  - In Part 2 (orchestrated), run-playbook provisions it automatically."
-echo "All events land in .agent-factory/audit.log — one file, one timeline."
+echo "All events land in .current-work/audit.log — one file, one timeline."
 echo ""
 
 session_log_init
