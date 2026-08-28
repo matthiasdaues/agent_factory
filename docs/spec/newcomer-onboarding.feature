@@ -37,7 +37,7 @@ Feature: Newcomer onboarding and incremental brownfield
 
   Rule: User reorients mid-session via the guided-tour skill
     # actor: Returning User
-    # new: factory/skills/guided-tour/SKILL.md
+    # @factory/skills/guided-tour/SKILL.md
 
     Scenario: User invokes guided-tour skill for orientation
       Given the user is in an active session
@@ -130,7 +130,7 @@ Feature: Newcomer onboarding and incremental brownfield
 
   Rule: Reverse-map skill populates scope map from forensic evidence
     # actor: Brownfield User
-    # new: factory/skills/reverse-map/SKILL.md
+    # @factory/skills/reverse-map/SKILL.md
 
     Scenario: Reverse-map sweeps tests first as primary evidence
       Given the reverse-map skill is invoked during Stage 1
