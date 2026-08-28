@@ -8,9 +8,9 @@ ______________________________________________________________________
 
 ## 1. Problem Statement
 
-`factory/` began as a library of agents, skills, and playbooks — prose read by a human or an AI CLI, with no enforcement. Nothing stopped a file from a later phase being staged before its predecessor's gate cleared. Nothing capped a review loop, so a stuck gate could churn forever. `factory/` has since grown its own deterministic state-machine harness, a CLI-agnostic dispatch mechanism, and a generated catalog to close both gaps.
+`factory/` began as a library of agents, skills, and playbooks — prose read by a human or an AI CLI, with no enforcement. Nothing stopped a file from a later phase being staged before its predecessor's gate cleared. Nothing capped a review loop, so a stuck gate could churn forever. `factory/` has since grown its own deterministic state-machine harness, a CLI-agnostic dispatch mechanism, and a generated catalog to close both gaps — without requiring the `orchestrator/` Python CLI that used to own this job.
 
-An earlier `orchestrator/` subproject attempted to own flow control through its own `PhaseRunner`. That experiment did not succeed. `factory/` now owns flow control directly through its own scripts (`phase`, `trigger`, `run-step`). A human typing commands and any programmatic automation are peers; both invoke `factory/` tooling. This PRD documents `factory/` as the flow-control owner, superseding the informal descriptions in [docs/arc42/concepts.md § The phase chain](../arc42/concepts.md#the-phase-chain) and [factory/docs/factory-guide.md § Playbook phase gates](../../factory/docs/factory-guide.md#playbook-phase-gates) with a rigorous specification.
+`orchestrator/` used to run its own `PhaseRunner`, an independent state machine for driving the agent chain. That ownership has inverted. `orchestrator/` is now one possible trigger of `factory/`'s mechanisms — a stand-in for a human manually running `factory/scripts/trigger`, `phase advance`, and `phase retry` by hand. A human typing commands and the orchestrator CLI are peers; both only invoke `factory/` tooling. This PRD documents `factory/` as the flow-control owner it has become, superseding the informal descriptions in [docs/arc42/concepts.md § The phase chain](../arc42/concepts.md#the-phase-chain) and [factory/docs/factory-guide.md § Playbook phase gates](../../factory/docs/factory-guide.md#playbook-phase-gates) with a rigorous specification.
 
 ## 2. Goals and Non-Goals
 
@@ -30,7 +30,7 @@ An earlier `orchestrator/` subproject attempted to own flow control through its 
 
 ### Non-Goals
 
-- **NG1** — Not a reimplementation of the earlier `orchestrator/` experiment's `PhaseRunner`. `factory/` owns flow control directly and does not inherit any run-state model from that stub.
+- **NG1** — Not a re-implementation of `orchestrator/`'s `PhaseRunner`. `orchestrator/` may call these same mechanisms; `factory/` does not duplicate its run-state model (`RUN`, `RUN_LOCK`, single-active-run invariant).
 - **NG2** — Not a general CI system. `pre-commit` and the CLIs do the work; these scripts sequence and gate them.
 - **NG3** — No CLI-failure classification (auth vs. config vs. task failure) at the dispatch layer — a known, named gap. See [T-01](todos.md#t-01-no-cli-failure-classification-in-trigger).
 - **NG4** — No state machine for every playbook. Only `greenfield-development.fsm.yml` exists today; the harness is opt-in per playbook (see [UC-01 § Preconditions](use_cases/UC-01-advance-a-playbook-phase.md#preconditions)).
@@ -41,7 +41,7 @@ An earlier `orchestrator/` subproject attempted to own flow control through its 
 ## 3. Target Actors
 
 - **Human Operator** (primary) — a person driving Agent Factory directly: running scripts by hand, committing code, approving phase gates.
-- **Automation-as-Trigger** (secondary) — any programmatic caller of the Factory's phase scripts (a CI job, a scheduled task, or a scripted loop), peer to the Human Operator. It invokes the same `factory/scripts/*` mechanisms programmatically instead of a human typing them.
+- **Orchestrator-as-Trigger** (secondary) — the nested `orchestrator/` Python CLI, a peer of the Human Operator. It invokes the same `factory/scripts/*` mechanisms programmatically instead of a human typing them.
 - **CLI-Invoked Agent** (secondary) — the Claude Code, GitHub Copilot CLI, Codex, or Pi agent session that `trigger` dispatches, operating under the scoped permission controls available in that runtime. Under Pi, which has no native subagent concept, this actor is also the caller of the `run_agent` tool: it spawns a fresh Pi session to run another factory agent with separate-session semantics (FR-J).
 - **Phase Participant** (primary) — a human or factory agent completing one workflow phase and handing the next phase to a fresh CLI session without replaying the prior transcript.
 - **Assurance Auditor** (primary) — a requirements, planning, or quality participant who maps accepted dispatch safeguards to observable delivery evidence and files only verified gaps.
@@ -141,8 +141,8 @@ Pi has no native subagent concept, so a factory agent cannot run in a separate P
 
 ## 6. Success Criteria
 
-- A Human Operator can drive `greenfield-development.fsm.yml` end to end using only `transition-lint`, `phase advance`, `phase retry`, and `trigger`.
-- Any programmatic automation can drive the identical playbook run through the same four mechanisms, adding no flow-control logic of its own.
+- A Human Operator can drive `greenfield-development.fsm.yml` end to end using only `transition-lint`, `phase advance`, `phase retry`, and `trigger` — no `orchestrator/` CLI involved.
+- `orchestrator/` can drive the identical playbook run through the same four mechanisms, adding no flow-control logic of its own.
 - `factory/INDEX.yaml` always matches what `index-lint` would generate from current frontmatter (`index-lint --check` exits `0`) — no hand-edit drift.
 - A conversational Pi session can invoke a factory agent by name via `run_agent` and receive its result from a separate `pi` session that never saw the caller's context, and `dispatch_wave` can run at least two `developer-agent` sessions in parallel worktrees merged through `premerge-check`.
 - Every cross-phase continuation restarts from a `handoff-lint`-clean handoff and canonical artifacts, while child results enter parent transcripts only through bounded envelopes.

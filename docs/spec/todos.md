@@ -4,13 +4,13 @@ Deferred decisions and named gaps found while reverse-engineering this specifica
 
 ## T-01: No CLI-failure classification in `trigger`
 
-`factory/scripts/trigger` returns the invoked CLI's raw exit code. It does not distinguish an auth failure from a config error from a genuine task failure. A non-zero exit today means: read the output, do not auto-retry. Named in [`factory/skills/run-step/SKILL.md` § What this deliberately does not do (yet)](../../factory/skills/run-step/SKILL.md#what-this-deliberately-does-not-do-yet). Fold classification in if it turns out to matter in practice — not built ahead of a real case (YAGNI).
+`factory/scripts/trigger` returns the invoked CLI's raw exit code. It does not distinguish an auth failure from a config error from a genuine task failure, the way `orchestrator`'s `CopilotAdapter` does (regex-matched stderr, `orchestrator` ADR-0002). A non-zero exit today means: read the output, do not auto-retry. Named in [`factory/skills/run-step/SKILL.md` § What this deliberately does not do (yet)](../../factory/skills/run-step/SKILL.md#what-this-deliberately-does-not-do-yet). Fold classification in if it turns out to matter in practice — not built ahead of a real case (YAGNI).
 
 - [ ] Decide whether `trigger` should classify failures itself, or whether that stays a caller-side concern.
 
 ## T-02: No concurrent-operator lock on the marker
 
-`.current-work/playbook-state.yml` is a single flat file with no locking. Two operators racing an advance/retry against the same marker can interleave incorrectly. Out of scope for the current single-operator-at-a-time usage pattern.
+`.current-work/playbook-state.yml` is a single flat file with no locking. Two operators (human and `orchestrator/`, or two humans) racing an advance/retry against the same marker can interleave incorrectly. Out of scope for the current single-operator-at-a-time usage pattern.
 
 - [ ] Decide whether a lock file (or an atomic compare-and-swap on `recorded_at`) is worth adding, or whether this stays a documented usage constraint.
 

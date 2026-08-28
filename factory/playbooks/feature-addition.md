@@ -104,10 +104,12 @@ steps:
       - 'backlog/ST-*.md'
       - 'docs/spec/**/*.md'
       - 'factory/**/*.py'
+      - 'orchestrator/**/*.py'
       - 'tests/**/*.py'
       - 'config/**/*.json'
     outputs:
       - 'factory/**/*.py'
+      - 'orchestrator/**/*.py'
       - 'tests/**/*.py'
       - 'config/**/*.json'
       - 'docs/**/*.md'
@@ -118,10 +120,12 @@ steps:
       - 'backlog/ST-*.md'
       - 'docs/spec/**/*.md'
       - 'factory/**/*.py'
+      - 'orchestrator/**/*.py'
       - 'tests/**/*.py'
       - 'config/**/*.json'
     outputs:
       - 'factory/**/*.py'
+      - 'orchestrator/**/*.py'
       - 'tests/**/*.py'
       - 'config/**/*.json'
       - 'docs/**/*.md'
@@ -135,6 +139,7 @@ steps:
   - name: qa
     inputs:
       - 'factory/**/*.py'
+      - 'orchestrator/**/*.py'
       - 'tests/**/*.py'
       - 'docs/**/*.md'
       - 'config/**/*.json'
@@ -325,7 +330,7 @@ reads only the findings and the affected files, cutting the fix-cycle cost by
 ### Step 1.1 — Update Specification
 
 ```bash
-factory/scripts/phase advance --playbook requirements
+orchestrator run-phase requirements
 # OR manual: Start new session, activate requirements-agent
 ```
 
@@ -337,7 +342,7 @@ factory/scripts/phase advance --playbook requirements
 ### Step 1.2 — Spec Review
 
 ```bash
-factory/scripts/phase advance --playbook spec-review
+orchestrator run-phase spec-review
 ```
 
 **Agent**: `spec-review-agent`
@@ -413,7 +418,7 @@ continuing.
 ### Step 2.1 — Update Architecture
 
 ```bash
-factory/scripts/phase advance --playbook architecture
+orchestrator run-phase architecture
 ```
 
 **Agent**: `architecture-agent`
@@ -422,7 +427,7 @@ factory/scripts/phase advance --playbook architecture
 ### Step 2.2 — Architecture Review
 
 ```bash
-factory/scripts/phase advance --playbook architecture-review
+orchestrator run-phase architecture-review
 ```
 
 **Agent**: `architecture-review-agent`
@@ -443,7 +448,7 @@ grep -l "status: open" docs/findings/ATAM-*.md
 ### Step 3.1 — Create Stories
 
 ```bash
-factory/scripts/phase advance --playbook planning
+orchestrator run-phase planning
 ```
 
 **Agent**: `planning-agent`
@@ -482,7 +487,7 @@ deferred scope, and applies the declared governance and risk domains.
 ### Step 4.1 — Implement Stories
 
 ```bash
-factory/scripts/phase advance --playbook implementation
+orchestrator run-phase implementation
 ```
 
 **Agent**: `implementation-agent`
@@ -490,7 +495,7 @@ factory/scripts/phase advance --playbook implementation
 ### Step 4.2 — Reconcile
 
 ```bash
-factory/scripts/phase advance --playbook reconciliation
+orchestrator run-phase reconciliation
 ```
 
 **Agent**: `reconciliation-agent`
@@ -511,7 +516,7 @@ grep -l "status: open" docs/findings/RECON-*.md
 ### Step 5.1 — QA
 
 ```bash
-factory/scripts/phase advance --playbook qa
+orchestrator run-phase qa
 ```
 
 **Agent**: `qa-agent`

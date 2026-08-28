@@ -2,7 +2,7 @@
 
 `factory/` is the Agent Factory toolset itself — agents, skills, playbooks, and checks. `init-factory` copies it wholesale into your own project. You never hand-edit the copy; run `update-factory` to bring it up to date when your `agent_factory` checkout moves forward.
 
-Part of [Agent Factory](../README.md). See also: [architecture docs](../docs/README.md).
+Part of [Agent Factory](../README.md). See also: [orchestrator](../orchestrator/README.md), [architecture docs](../docs/README.md).
 
 This page gets you from zero to a running first playbook. Never used Agent Factory — or any AI coding workflow — before? Read the [beginner's introduction](../docs/arc42/beginner-intro.md) first; it explains what you are about to do before you run any command. For what agents, skills, playbooks, and rulebooks actually are, and how the checks work, see the [factory guide](docs/factory-guide.md).
 
@@ -100,16 +100,24 @@ For every other situation — a new project, an existing codebase, a bug, a feat
 
 ### Running a playbook automatically
 
-After completing the human-driven requirements phase, let the phase scripts
-drive the remaining agent sessions and deterministic gates:
+After completing the human-driven requirements phase, let the installed
+orchestrator drive the remaining agent sessions and deterministic gates:
 
 ```bash
-factory/scripts/phase advance --playbook greenfield-development
+factory/scripts/run-playbook \
+  --playbook greenfield-development \
+  --from-state PHASE_2_ARCHITECTURE \
+  --cli claude
 ```
 
-Progress is recorded in `.current-work/playbook-state.yml`; re-run the
-same command to resume. The script stops at human gates. Use the `run-step`
-skill to resolve and run the next step from within an active session.
+It stops at human gates and records progress in
+`.current-work/playbook-state.yml`; re-run the same command without
+`--from-state` to resume. The launcher runs the pinned
+`agent-factory-orchestrator` package through `uvx`, without changing the
+project environment or installing a global tool. The default source is the
+exact `orchestrator-v0.1.0` Git tag. Override `AF_ORCHESTRATOR_SOURCE` with
+another exact version, a pinned Git source, or a local package path when
+testing a release. Claude and Copilot are supported dispatch backends.
 
 ## Test execution hooks
 

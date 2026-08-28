@@ -96,7 +96,7 @@ EOF
 "Refactor [module] per REFACTOR-001. Apply [pattern/principle]. Keep all tests passing."
 ```
 
-**OR via phase gate:**
+**OR via orchestrator:**
 
 ```bash
 # Create temporary story
@@ -116,7 +116,7 @@ Refactor [module]
 - [ ] No behavior changes
 EOF
 
-factory/scripts/phase advance --playbook implementation
+orchestrator run-phase implementation
 ```
 
 **Agent**: `developer-agent`
@@ -142,7 +142,7 @@ npm test
 ### Step 4.1 — Run QA Agent
 
 ```bash
-factory/scripts/phase advance --playbook qa
+orchestrator run-phase qa
 ```
 
 **Agent**: `qa-agent`

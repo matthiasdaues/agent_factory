@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: Orchestrator Consumer Integration
-status: superseded
+status: accepted
 owner: agent-factory
 created: 2026-07-30
 updated: 2026-07-30
@@ -35,8 +35,6 @@ estimate:
     min: 20000
     max: 50000
 ---
-
-> **Superseded (2026-08-28):** The `orchestrator/` subproject remains a stub and was never distributed. This proposal is retained as a historical record.
 
 # Feature Request: Orchestrator Consumer Integration
 

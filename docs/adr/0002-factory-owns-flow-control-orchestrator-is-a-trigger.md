@@ -4,8 +4,6 @@ status: accepted
 evaluation: pugh-matrix
 ---
 
-> **Addendum (2026-08-28):** The `orchestrator/` subproject remains a stub. The "trigger" role is fulfilled by `factory/scripts/phase` and `factory/scripts/trigger` directly, not through the orchestrator CLI. The decision that Factory owns flow control stands.
-
 # Factory owns flow control; orchestrator is one trigger among peers
 
 ## Context

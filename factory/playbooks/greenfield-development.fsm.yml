@@ -356,4 +356,4 @@ audit:
   log_gate_checks: true
   log_transitions: true
   log_halt_conditions: true
-  output_file: .current-work/audit.log
+  output_file: .orchestrator/audit.log

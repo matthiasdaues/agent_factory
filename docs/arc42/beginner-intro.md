@@ -54,16 +54,16 @@ the crank.*
   specification, an architecture document, a slice of code — and those artifacts
   are the visible marker that the step is done. You read them, you decide whether
   the work is good, and you start the next step. Nothing moves without you.
-- **Assisted mode** is where you go once you trust the process. The Factory's
-  phase scripts (`factory/scripts/phase`, `factory/scripts/trigger`) do the one
-  thing you were doing by hand between steps: they advance the playbook state.
-  They read the playbook, run the next agent, check the gate, and move on —
-  pausing wherever a step genuinely needs a human decision.
+- **Automatic mode** is where you go once you trust the process. An optional
+  companion tool, the **orchestrator**, does the one thing you were doing by hand
+  between steps: it presses "enter." It reads the playbook, runs the next agent,
+  checks the gate, and moves on — pausing wherever a step genuinely needs a human
+  decision.
 
-Do not reach for assisted mode yet. You cannot trust a process you have never
+Do not reach for automatic mode yet. You cannot trust a process you have never
 watched run. Turn the crank by hand first — a few times, on small tasks — until
 the rhythm is familiar and the gates have earned your confidence. The move to
-assisted is a graduation, not a shortcut.
+automatic is a graduation, not a shortcut.
 
 ## Why two agents, not one
 
@@ -152,31 +152,31 @@ choose the playbook.
 The full list, with a sentence on each, lives in the
 [factory guide § Playbooks](../../factory/docs/factory-guide.md#playbooks).
 
-## Graduating to assisted mode
+## Graduating to automatic mode
 
 After you have run a few playbooks by hand, the between-steps work starts to feel
 like a chore rather than a decision. You check the artifacts, you open the next
 session, you check the gate, you advance — the same turns, every time. That
-feeling is the signal you are ready for the phase scripts.
+feeling is the signal you are ready for the orchestrator.
 
-The Factory's phase scripts (`factory/scripts/phase advance`) replace exactly that
-manual crank-turning and nothing more. They read the playbook, dispatch the next
-agent, wait, check the gate, and step forward — the same sequence you were
-performing by hand, driven for you. They still stop where a human genuinely
-belongs: the requirements phase is always yours to drive, and any step that needs
-your approval pauses until you give it. You lose none of the control; you lose
-only the repetition.
+The [orchestrator](../../orchestrator/README.md) replaces exactly that manual
+crank-turning and nothing more. It reads the playbook, dispatches the next agent,
+waits, checks the gate, and steps forward — the same scripts you were running by
+hand, run for you. It still stops where a human genuinely belongs: the
+requirements phase is always yours to drive, and any step that needs your approval
+pauses until you give it. You lose none of the control; you lose only the
+repetition.
 
-Two things worth knowing before you rely on them:
+Two things worth knowing before you rely on it:
 
-- **The automation is still maturing.** Treat assisted mode as a capable
-  assistant you supervise, not an autopilot you leave alone. The audit log lets
-  you see exactly what ran and how long each step took.
-- **You can teach it your own recipes.** A playbook the scripts can drive is
+- **It is still maturing.** Treat automatic mode as a capable assistant you
+  supervise, not an autopilot you leave alone. The audit log it writes lets you
+  see exactly what ran and how long each step took.
+- **You can teach it your own recipes.** A playbook the orchestrator can drive is
   described by a small state-machine file (a `.fsm.yml`) that lists each phase's
   expected artifacts and the conditions to advance. Once you understand the built-in
-  playbooks, writing your own custom playbook is the natural next step — your
-  process, automated on your terms.
+  playbooks, writing your own custom playbook for the orchestrator to follow is the
+  natural next step — your process, automated on your terms.
 
 ## Three habits that keep you safe
 
@@ -194,6 +194,7 @@ Two things worth knowing before you rely on them:
 
 - Set up the tooling: [`factory/README.md`](../../factory/README.md)
 - Understand each piece in depth: [factory guide](../../factory/docs/factory-guide.md)
+- Hand over the crank: [orchestrator](../../orchestrator/README.md)
 - The ideas underneath it all: [`docs/arc42/concepts.md`](concepts.md)
 
 You do not need any of these to start. Run one `poc-spike`, watch the loop, and

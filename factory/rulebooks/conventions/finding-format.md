@@ -1,7 +1,7 @@
 ---
 title: Finding Filing
 category: review
-enforcement: phase-gate findings-ingest loop (reads docs/findings/*.md with status open)
+enforcement: orchestrator findings-ingest loop (reads docs/findings/*.md with status open)
 version: 1.0.0
 ---
 
@@ -41,9 +41,9 @@ Canonical statement: [rules.md § Findings](../rules.md#findings) — no "this l
 - `open` — the finding stands; the author must address it.
 - `resolved` — on a repeat pass, the reviewer verified the author's fix and set the status. Keep the file as the durable record; do not delete it.
 
-## How the phase gate reads findings
+## How the orchestrator reads findings
 
-The finding files are the contract. The review loop reads every `docs/findings/*.md` whose `status` is `open` — those are the findings the phase must still address — and loops back to the author until none remain. You do not emit any machine-readable block; filing the files, and setting `status: resolved` on a repeat pass once a fix is verified, is all the loop needs. This works the same whether the review ran headless or in an interactive session.
+The finding files are the contract. When run under the orchestrator, the review loop reads every `docs/findings/*.md` whose `status` is `open` — those are the findings the phase must still address — and loops back to the author until none remain. You do not emit any machine-readable block; filing the files, and setting `status: resolved` on a repeat pass once a fix is verified, is all the loop needs. This works the same whether the review ran headless or in an interactive session.
 
 ## Pause point
 
