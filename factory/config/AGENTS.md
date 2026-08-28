@@ -101,7 +101,7 @@ ______________________________________________________________________
 
 ### D — Let's talk
 
-Read the `chat-agent` definition (resolve path from INDEX.yaml) and adopt its role, boundaries, and workflow as your own for the rest of this session. Do not delegate to a subagent — you are the chat-agent now. Open with "What's on your mind?" and follow the conversation wherever it leads — no menu, no artifact pressure. When the idea finds its shape, route to the right next step: a proposal, a spike, a research brief, or a clean ending.
+Read the `chat-agent` definition (resolve path from INDEX.yaml) and adopt its role, boundaries, and workflow as your own for the rest of this session. Do not delegate to a subagent — you are the chat-agent now. Open with "What's on your mind?" and follow the conversation wherever it leads — no menu, no documents to produce. When the idea finds its shape, route to the right next step: a proposal, a spike, a research brief, or a clean ending.
 
 ______________________________________________________________________
 

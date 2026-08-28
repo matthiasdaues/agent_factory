@@ -27,8 +27,6 @@ Unlike greenfield (Spec → Architecture → Code), brownfield starts with exist
 
 ## Stage 1 — Enough to Work
 
-Stage 1 produces the three anchor files that enable feature work: `docs/arc42/architecture.dsl`, `docs/spec/scope-map.md`, and `docs/CONTEXT.md`.
-
 ## Phase 1: Code Understanding
 
 ### Step 1.1 — Establish Baseline

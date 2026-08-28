@@ -1,6 +1,6 @@
 ---
 name: reverse-map
-description: Forensic scope-map population from code, tests, and unstructured sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation. Writes docs/spec/scope-map.md and seeds docs/CONTEXT.md.
+description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation. Writes docs/spec/scope-map.md and seeds docs/CONTEXT.md.
 category: requirements
 ---
 
@@ -47,7 +47,7 @@ HTTP routes, CLI commands, queue consumers, cron jobs. These are the system's ex
 
 ### Step 3 — Triangulate
 
-Match tests to entry points to docs. The truth is in the overlap; contradictions are the most valuable findings.
+Match tests to entry points to docs. Agreement confirms a behavior; contradictions reveal where code and documentation have drifted apart.
 
 - Infer domain areas from top-level module or package boundaries.
 - Confirm domain-area grouping with the stakeholder before presenting results.
@@ -101,7 +101,7 @@ The confidence level for each scope-map row follows this hierarchy:
 | API spec (OpenAPI, Postman)      | medium      | Declared contract, may not match code                  |
 | Repo docs (README, comments)     | medium-low  | Close to code, but often stale                         |
 | External docs (Confluence, wiki) | low         | Furthest from code, most likely to drift               |
-| Stakeholder verbal claim         | lowest      | Tribal knowledge, unfindable elsewhere                 |
+| Stakeholder verbal claim         | lowest      | Knowledge not recorded elsewhere                       |
 | Document-only (no code match)    | claimed     | Asserted in documentation, not verifiable against code |
 
 ## Boundaries
@@ -117,4 +117,4 @@ The confidence level for each scope-map row follows this hierarchy:
 - Plain language throughout — no "populating scope-map rows from test evidence."
 - The user controls depth.
 - Additional sources are offered, not required.
-- The output is readable in two minutes.
+- Keep the output short enough to scan quickly.

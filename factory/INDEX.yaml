@@ -216,9 +216,9 @@ skills:
     tokens: 1738
   - name: reverse-map
     category: requirements
-    description: Forensic scope-map population from code, tests, and unstructured sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation. Writes docs/spec/scope-map.md and seeds docs/CONTEXT.md.
+    description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation. Writes docs/spec/scope-map.md and seeds docs/CONTEXT.md.
     path: skills/reverse-map/SKILL.md
-    tokens: 1246
+    tokens: 1243
   - name: scope-map-migration
     category: requirements
     description: Backfill docs/spec/scope-map.md from existing derive-spec artifacts before the first derive-feature run.
@@ -333,7 +333,7 @@ skills:
     category: utility
     description: Mid-session reorientation — show where the user is in the current workflow, what they can do next, and what factory concepts are relevant. Outside an active playbook, present the session entrypoint options with explanations.
     path: skills/guided-tour/SKILL.md
-    tokens: 525
+    tokens: 524
   - name: handoff
     category: utility
     description: Create and validate a dense phase-boundary restart contract before ending the outgoing session.
@@ -432,8 +432,8 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 2958
-    total_tokens: 29858
+    tokens: 2921
+    total_tokens: 29821
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -471,8 +471,8 @@ playbooks:
       - implementation-agent
       - reconciliation-agent
       - qa-agent
-    tokens: 4604
-    total_tokens: 67187
+    tokens: 4607
+    total_tokens: 67190
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration

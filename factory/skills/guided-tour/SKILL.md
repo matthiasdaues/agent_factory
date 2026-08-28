@@ -18,7 +18,7 @@ Present three things:
 
 1. **Where you are.** Name the playbook, current phase, and current state in plain language. Example: "You're in the greenfield-development playbook, in the Requirements phase. The requirements-agent has finished and the spec-review-agent is about to run."
 2. **What you can do next.** List the immediate next actions — the gate that needs to pass, the agent that runs next, or the decision the user needs to make.
-3. **What's relevant.** Name the factory concepts at play (the current agent's role, the skills it uses, the gate it must pass) with one-sentence plain-language explanations.
+3. **What's relevant.** Name the factory concepts involved (the current agent's role, the skills it uses, the gate it must pass) with one-sentence plain-language explanations.
 
 ### Outside an active playbook
 
