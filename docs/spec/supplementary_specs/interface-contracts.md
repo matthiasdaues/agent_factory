@@ -111,7 +111,7 @@ See [UC-07](../use_cases/UC-07-block-a-dangerous-git-command.md).
 | Streaming  | Asynchronously spools complete stdout to protected capture staging, incrementally parses arbitrarily chunked JSONL with bounded non-result state, and emits bounded progress updates                                                                                                                        |
 | Returns    | A BR-040 bounded result envelope plus `{ usage, exitCode }` parsed from the child's final assistant `message_end`; an error result on unknown agent, unresolved model, exceeded depth, spawn failure, non-zero/no-result exit, or cancellation                                                              |
 | Capture    | Hands the complete raw staging file to detached best-effort usage capture; capture failure leaves the agent result unchanged, and cancellation terminates the process group through bounded `SIGTERM` → `SIGKILL` escalation, bounds pipe drain, cleans staging, and returns a distinct no-retry diagnostic |
-| Guardrail  | The child loads `.pi/extensions/`, so the git-safety guardrail binds it too; the one sanctioned `factory/scripts/run-tests --staged` remains permitted                                                                                                                                                      |
+| Guardrail  | The child loads `.pi/extensions/`, so the git-safety guardrail binds it too; the charter-declared test commands from `docs/charter/testing.yaml` are allowlisted with exact matching                                                                                                                        |
 
 See [UC-10](../use_cases/UC-10-invoke-a-factory-agent-under-pi.md).
 

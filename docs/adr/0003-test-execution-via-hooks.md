@@ -86,6 +86,29 @@ Agents remain subject to the Factory command guardrail. A guarantee that no
 work can reach a shared repository without passing tests would require a
 server-side protected-branch or required-CI gate, which is outside this ADR.
 
+## Amended
+
+**Date**: 2026-08-28
+**Reason**: Test Gate Presence over Test Execution ([proposal](../proposals/test-gate-presence-over-test-execution.md))
+
+Factory stops owning test execution entirely. The `factory/scripts/run-tests` script is deleted from the repository, along with `factory/scripts/mutation-analysis`. The boundary violation that motivated this change: `run-tests` detects framework markers and constructs host-side test commands, breaking projects with their own test topology (the reproducing case is a project whose tests require a Compose environment with proxied database connections).
+
+**What changes:**
+
+1. **Test commands are project-declared, not Factory-detected.** Every project declares its test commands in `docs/charter/testing.yaml` (`test_command`, `test_staged_command`, `test_changed_command`). Factory reads that declaration; it does not guess, detect, or override.
+2. **FSM gate conditions resolve `test_command` from the charter.** The `script_exit_zero` condition no longer references `factory/scripts/run-tests --full`; it resolves `test_command` from `docs/charter/testing.yaml`.
+3. **The agent allowlist reads the charter.** `block-dangerous-git.sh` no longer hardcodes `factory/scripts/run-tests --staged`; it reads all declared command fields from the charter and allowlists them with exact-string matching.
+4. **Factory does not inject test hooks.** The `agent_factory_hook-run-tests-full` entry in Factory's pre-commit config is removed. Test hooks are project-owned infrastructure.
+5. **The gate contract is exit-code-only.** Factory does not parse JSON summaries or structured test output. Zero means pass, nonzero means fail.
+6. **A `detect-test-regime` skill scans for existing test entrypoints during onboarding** and populates the charter. When multiple entrypoints are detected, Factory asks for disambiguation.
+
+**What stays unchanged:**
+
+- The "Agentic Creation, Deterministic Validation" principle still holds. Testing is validated mechanically — but the mechanism is project-owned, not Factory-owned.
+- Bare test commands remain blocked for agents (BR-024). The deny patterns in `block-dangerous-git.sh` are unchanged.
+- Exit code semantics for gates (0 = pass, nonzero = fail) are unchanged.
+- Factory's structural hooks (mdformat, ruff, spec-lint, arch-lint, transition-lint) are unaffected.
+
 ## Consequences
 
 **Positive:**
@@ -106,4 +129,4 @@ server-side protected-branch or required-CI gate, which is outside this ADR.
 
 - [UC-09 — Run Tests via Hook](../spec/use_cases/UC-09-run-tests-via-hook.md)
 - [foundational-principles.md § Agentic Creation, Deterministic Validation](../../factory/rulebooks/conventions/foundational-principles.md#agentic-creation-deterministic-validation)
-- [08_crosscutting_concepts.md § 8.1](../08_crosscutting_concepts.md#81-agentic-creation-deterministic-validation)
+- [08_crosscutting_concepts.md § 8.1](../arc42/08_crosscutting_concepts.md#81-agentic-creation-deterministic-validation)

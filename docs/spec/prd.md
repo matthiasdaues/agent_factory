@@ -24,7 +24,7 @@ ______________________________________________________________________
 - **G6** — Keep the machine-readable catalog of every agent, skill, and playbook (`factory/INDEX.yaml`) generated from source frontmatter, never hand-edited (`index-lint`).
 - **G7** — Block a fixed list of destructive or gate-bypassing git commands before they run across all supported CLIs (`block-dangerous-git.sh` for native-hook runtimes; the equivalent Pi extension).
 - **G8** — Wire all of the above into a new or existing project, idempotently, without disturbing what is already there (`init-factory`).
-- **G9** — Run project tests deterministically via mechanically triggered gates (pre-commit, pre-push, phase advance), never via agent-commanded shell execution (`run-tests`).
+- **G9** — Ensure project-owned test gates exist: every project declares its test commands in `docs/charter/testing.yaml`; Factory's guardrails and FSM gates read that declaration; Factory never owns test execution.
 - **G10** — Keep multi-phase workflow input cost bounded by ending the session at every phase transition and restarting from a complete, validated handoff and canonical tracked artifacts.
 - **G11** — Prevent avoidable child-dispatch spend by maintaining auditable evidence that each delivered dispatch safeguard has a contract, implementation point, and automated coverage, without reimplementing proven baseline behavior.
 
@@ -94,17 +94,14 @@ ______________________________________________________________________
 - **FR-H1** — Idempotent: copies `factory/`, merges `.gitignore`, and installs Factory surfaces for Claude Code (`.claude/`), GitHub Copilot CLI (`.github/`), Codex (`.codex/` and `.agents/`), and Pi (`.pi/`). The first three receive the native guardrail hook; Pi receives the equivalent project-local extension. It copies `config/model.conf` once and merges or symlinks `.pre-commit-config.yaml`.
 - **FR-H2** — Collision-safe: any step that finds something unexpected at a destination path stops the whole run before touching anything later.
 
-### FR-I — Test Execution (`run-tests`)
+### FR-I — Project-Owned Test Gates (testing declaration)
 
-- **FR-I1** — Auto-detects the project's test framework from structure markers (pytest via `pyproject.toml`, jest via `package.json`, go test via `go.mod`, cargo test via `Cargo.toml`); exits `2` if none found.
-- **FR-I2** — `--changed-only` mode runs tests for modified files only (fast subset, for pre-commit); `--full` mode runs the complete suite (for pre-push and phase advance gates).
-- **FR-I3** — Exits `0` on pass, `1` on test failures, `2` on framework detection failure or inability to run.
-- **FR-I4** — Emits a JSON summary (`{"passed": N, "failed": M, "skipped": K, "duration_ms": T}`) on stdout and human-readable progress/errors on stderr.
-- **FR-I5** — Invoked by three mechanically triggered gates; human operators can bypass the client-side Git hooks with `--no-verify`, while agents remain subject to command guardrails:
-  - Pre-commit hook (`--changed-only`) for fast feedback
-  - Pre-push hook (`--full`) as the "ready to share" gate
-  - Phase advance via FSM `script_exit_zero: factory/scripts/run-tests --full` condition
-- **FR-I6** — Agents are blocked from running test commands directly (`pytest`, `npm test`, `go test`, `cargo test`) by `block-dangerous-git.sh`; test execution is hook-triggered only.
+- **FR-I1** — Every project (including Factory) declares its test commands in `docs/charter/testing.yaml`: `test_command` (required, full suite), `test_staged_command` (optional, agent TDD iteration), `test_changed_command` (optional, fast feedback on changed files).
+- **FR-I2** — FSM gate conditions of type `script_exit_zero` resolve `test_command` from `docs/charter/testing.yaml`. If the charter is absent or `test_command` is missing, the gate reports the gap and blocks advancement.
+- **FR-I3** — The gate contract is exit-code-only: zero means pass, nonzero means fail. Factory does not parse structured test output; test counts and reporting are the project's concern.
+- **FR-I4** — `block-dangerous-git.sh` reads `docs/charter/testing.yaml` and allowlists all declared command fields (`test_command`, `test_staged_command`, `test_changed_command`) with exact-string matching. Bare test commands remain blocked for agents.
+- **FR-I5** — Factory does not inject test hooks into `.pre-commit-config.yaml`. Test hooks are project-owned infrastructure: the project decides when and how tests trigger on commit, push, or other events.
+- **FR-I6** — During onboarding, the `detect-test-regime` skill scans for existing test entrypoints and records the result in `docs/charter/testing.yaml`. When multiple entrypoints are detected, Factory asks for disambiguation instead of guessing.
 
 ### FR-J — Pi agent invocation (`run_agent`, `dispatch_wave`)
 

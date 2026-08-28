@@ -49,6 +49,25 @@ After each developer-agent commit:
 
 Each fix iteration starts a fresh developer context. Gate output from a prior iteration does not accumulate in the developer's window.
 
+## Amended
+
+**Date**: 2026-08-28
+**Reason**: Test Gate Presence over Test Execution ([proposal](../proposals/test-gate-presence-over-test-execution.md))
+
+The dispatcher's three-gate quality sequence loses its second gate. `factory/scripts/mutation-analysis` is deleted from the repository because it hardcodes mutmut with pytest internals and assumes the test runner is reachable on the host — the same boundary violation that motivated deleting `factory/scripts/run-tests`.
+
+**Gate execution sequence (amended):**
+
+After each developer-agent commit:
+
+1. Dispatcher runs `crap-score` on committed artifacts.
+2. Dispatcher runs `dependency-check` against `architecture.dsl` dependency rules.
+3. Each gate produces a JSON report under `.current-work/<gate-name>/<story-id>.json`.
+4. If all gates pass, the dispatcher proceeds to `premerge-check` and merge.
+5. If any gate fails, the dispatcher spawns a fresh developer agent with only the failing gate reports and affected files as input context. Maximum three fix iterations before the story is marked blocked.
+
+Mutation testing is entirely the project's responsibility. If the project sets it up, it runs through the project's own hooks or CI, not the dispatcher's gate loop. The `mutation-analysis` skill is retained as setup guidance for project-owned mutation testing, not a prescribed tool chain.
+
 ## Consequences
 
 **Positive:**
