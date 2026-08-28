@@ -6,6 +6,7 @@ owner: Matthias Daues
 created: 2026-08-28
 updated: 2026-08-28
 supersedes:
+  - docs/proposals/contract-traced-testing-strategy.md
 
 impact:
   scope: cross_component
@@ -28,6 +29,9 @@ impact:
     - factory/scripts/mutation-analysis
     - factory/skills/mutation-analysis/SKILL.md
     - docs/adr/0012-dispatcher-owned-semantic-gate-loop.md
+    - factory/skills/qa-strategy-from-spec/SKILL.md
+    - factory/agents/kit-manager.md
+    - factory/agents/developer-agent.md
 
 governance:
   assurance: elevated
@@ -50,7 +54,9 @@ estimate:
 
 ## Summary
 
-Factory must stop owning test execution — in consumer projects and in its own repository. The current `factory/scripts/run-tests` detects framework markers and constructs host-side test commands, a boundary violation that breaks projects with their own test topology. The same boundary violation applies to `factory/scripts/mutation-analysis`, which hardcodes mutmut with pytest internals and cannot reach test infrastructure that runs inside containers or custom runners. Instead, testing becomes entirely project-owned infrastructure: every project (including Factory itself) declares its test commands in `docs/charter/testing.yaml`, Factory's guardrails and FSM gates read that declaration, and `init-factory` stops injecting any test-related hooks into `.pre-commit-config.yaml`. Both `run-tests` and `mutation-analysis` are deleted from the repository. The `mutation-analysis` skill is retained as guidance for setting up project-owned mutation testing, but the script that imposed a specific tool and runner is removed. When a project has no test regime, Factory helps build project-owned test infrastructure during onboarding, infrastructure that survives `remove-factory`.
+Factory must stop owning test execution — in consumer projects and in its own repository. The current `factory/scripts/run-tests` detects framework markers and constructs host-side test commands, a boundary violation that breaks projects with their own test topology. The same boundary violation applies to `factory/scripts/mutation-analysis`, which hardcodes mutmut with pytest internals and cannot reach test infrastructure that runs inside containers or custom runners. Instead, testing becomes entirely project-owned infrastructure: every project (including Factory itself) declares its test commands and layer bindings in `docs/charter/testing.yaml`, Factory's guardrails and FSM gates read that declaration, and `init-factory` stops injecting any test-related hooks into `.pre-commit-config.yaml`. Both `run-tests` and `mutation-analysis` are deleted from the repository.
+
+The charter declaration also closes a traceability gap in the QA strategy derivation chain. Today `qa-strategy-from-spec` applies the Factory testing convention as a generic backbone without consulting the project's declared testing decisions or actual test infrastructure. This proposal wires `qa-strategy-from-spec`, the kit-manager, the developer-agent, and the mutation-analysis skill into a closed loop where the charter is the authority, the repository is the ground truth, the Factory convention is shared vocabulary, and mutation analysis audits contract-ownership assignments. When a project has no test regime, Factory helps build project-owned test infrastructure during onboarding, infrastructure that survives `remove-factory`.
 
 ## Motivation
 
@@ -67,6 +73,9 @@ The root cause is a boundary violation: Factory imposes its own test execution s
 - Code is the source of truth for what test regime exists. The charter is a derived record, not the detection mechanism.
 - When multiple plausible test entrypoints exist, Factory asks for disambiguation rather than guessing.
 - The gate contract is exit-code-only: zero means pass, nonzero means fail. Structured test counts are the project's concern.
+- The project charter is the authority for testing decisions; the Factory convention provides vocabulary, not bindings.
+- Every contract-ownership assignment in a QA strategy must be mechanically verifiable — mutation analysis is the verification method.
+- Feedback flows backward: implementation reality feeds back to the QA strategy and charter, not just forward from spec to tests.
 
 ## Design
 
@@ -164,6 +173,98 @@ The following specification documents reference `factory/scripts/run-tests` by p
 - **validation-rules.md** (`docs/spec/supplementary_specs/validation-rules.md`): revise the entire Test execution section — BR-023 (framework detection), BR-024 (agent allowlist), BR-025 (`--changed-only` mode), BR-026 (`--full` mode), BR-027 (JSON summary), BR-028 (`--staged` mode), and BR-029 (pre-commit trigger conditions). All seven business rules describe the deleted script's behavior and must be rewritten to reflect the charter-declared, project-owned testing model.
 - **ADR-0012** (`docs/adr/0012-dispatcher-owned-semantic-gate-loop.md`): the dispatcher's three-gate quality sequence (`crap-score`, `mutation-analysis`, `dependency-check`) loses its second gate. The sequence becomes two gates (`crap-score`, `dependency-check`). Mutation testing is entirely the project's responsibility — if the project sets it up, it runs through the project's own hooks or CI, not the dispatcher's gate loop. Amend the ADR to document this architectural change to the gate sequence.
 
+### 10. Charter layer bindings in `testing.yaml`
+
+The `testing.yaml` schema extends with an optional `layers` section that maps the Factory's five-layer testing vocabulary to project-specific tooling, infrastructure, and constraints:
+
+```yaml
+# docs/charter/testing.yaml — project test declaration
+# Factory guardrails and FSM gates read the top-level command fields.
+# qa-strategy-from-spec reads the layers section.
+
+test_command: "make test"
+test_staged_command: "make test-staged"
+test_changed_command: "make test-changed"
+
+layers:
+  deterministic_linter:
+    tool: "ruff, pre-commit scripts"
+    infrastructure: "none"
+    entry_point: "make check"
+  acceptance_test:
+    tool: "pytest"
+    infrastructure: "PostgreSQL via Toxiproxy"
+    entry_point: "make test"
+    anti_patterns:
+      - "no SQLite fallback"
+      - "no mocked DB transactions"
+  contract_test:
+    tool: "pytest, Vitest"
+    infrastructure: "none (golden fixtures)"
+    entry_point: "make test"
+  integration_test:
+    tool: "pytest"
+    infrastructure: "PostgreSQL, NATS JetStream, Toxiproxy"
+    entry_point: "make test"
+    anti_patterns:
+      - "no mocked broker custody"
+  e2e_smoke_test:
+    tool: "pytest + docker compose"
+    infrastructure: "full stack"
+    entry_point: "make test"
+    anti_patterns:
+      - "no browser e2e beyond single smoke"
+```
+
+The top-level command fields are what gates and guardrails consume — unchanged from Design section 3. The `layers` section is read by `qa-strategy-from-spec` when grounding contract-owner assignments and by the `detect-test-regime` skill during onboarding. If `layers` is absent, `qa-strategy-from-spec` falls back to the Factory convention's generic five layers.
+
+The kit-manager populates the `layers` section during charter completeness sweep and brownfield onboarding by scanning the repository's test infrastructure (conftest.py, test directories, Makefile targets, runner configs). The `detect-test-regime` skill shares this scan surface and records both command fields and layer bindings.
+
+If a project does not use all five layers, the unused layers are omitted, not set to null. The layer names use the same vocabulary as `factory/rulebooks/conventions/testing-strategy.md`.
+
+### 11. QA strategy grounded in charter
+
+`qa-strategy-from-spec` (`factory/skills/qa-strategy-from-spec/SKILL.md`) adds two inputs before its current Step 1:
+
+1. **`docs/charter/testing.yaml`** — read the `layers` section. Map feature contracts to the charter's declared layers, not the Factory convention's generic five. If a contract needs a layer the charter has not declared, emit a gap finding rather than silently assuming the layer exists.
+
+2. **Repository scan** — read root `conftest.py`, each `packages/*/tests/conftest.py`, `Makefile` test targets, `run-dev.sh` test-related commands, `pyproject.toml` pytest configuration, and `vitest.config.*`. Verify that the charter's declared infrastructure and entry points match what exists. Record mismatches as gap findings. This scan does not execute tests or parse CI pipeline YAML.
+
+Step 3 (Assign Test Owners) changes from "Apply `testing-strategy.md` as the governing policy" to "Apply the charter's layer bindings as the governing policy; use `testing-strategy.md` for vocabulary and the overlap-deletion protocol."
+
+The "Generated from" header in the QA strategy output adds:
+
+```markdown
+- Charter layer bindings: `docs/charter/testing.yaml`
+- Repo test infrastructure: conftest.py, packages/*/tests/
+```
+
+When `docs/charter/testing.yaml` is missing or lacks a `layers` section, `qa-strategy-from-spec` falls back to the Factory convention and emits a gap finding noting the absence. It does not fail — the charter-grounded path is preferred, not mandatory.
+
+### 12. Developer-agent test-harness feedback
+
+When the developer-agent implements a story's tests and encounters a mismatch between the QA strategy's prescribed layer or tooling and the repository's actual test harness (missing fixture pattern, no marker support, wrong entry point, missing infrastructure), it invokes `spec-feedback` against the QA strategy document. The finding names the contract, the prescribed layer, and the concrete obstacle.
+
+This uses the existing `spec-feedback` mechanism. The change is that the developer-agent's workflow explicitly checks for harness mismatches after writing tests and before reporting the story as complete.
+
+When `spec-feedback` files a finding against the QA strategy, the finding names the specific contract-owner row that is wrong and proposes a correction. The QA strategy is updated in the same story or in a follow-up QA loop, not deferred indefinitely.
+
+### 13. Mutation-analysis contract-ownership classification
+
+The mutation-analysis skill (`factory/skills/mutation-analysis/SKILL.md`) is rewritten with two sections:
+
+1. **Setup guidance** — how to set up project-owned mutation testing. The skill describes the process and trade-offs, not a prescribed tool chain. The Factory-owned script (`factory/scripts/mutation-analysis`) is deleted (Design section 1), and the skill no longer references it.
+
+2. **Contract-ownership classification** — when a per-feature QA strategy with a contract-owner table is available, the skill instructs the agent to classify each surviving mutant by ownership status:
+
+   - `owner_held` — the declared owner killed the mutant. If overlap tests also killed it, that overlap is safe to trim.
+   - `owner_failed` — the declared owner did not kill the mutant, but another layer did. The ownership assignment in the QA strategy is wrong. File a `spec-feedback` finding against the contract-owner row.
+   - `uncaught` — no layer caught the mutant. Existing resolution actions apply (`add-missing-test`, `remove-dead-code`, `file-qa-finding`), directed at the declared owner.
+
+The contract-owner table maps contracts to source scenarios. The join between mutants and contracts is by file path: a mutant in a file that a contract's source scenario exercises is attributed to that contract. This is approximate — a file may contain code for multiple contracts — but sufficient for the first release. Finer-grained mapping (function-level, AST-level) is deferred.
+
+This replaces the manual "representative fault" protocol in the testing strategy's safe-deletion procedure with a mechanical equivalent. When the developer-agent or a QA consolidation pass wants to delete overlapping tests, the mutation-analysis classification provides the evidence that the surviving owner still detects the fault class.
+
 ### What stays
 
 - Agent prohibition on bare test commands (BR-024) remains. `block-dangerous-git.sh` still blocks bare `pytest`, `npm test`, etc. — the allowlist source changes from a hardcoded path to the charter declaration.
@@ -181,8 +282,12 @@ The following specification documents reference `factory/scripts/run-tests` by p
 - Update `block-dangerous-git.sh` to read the agent test allowlist from `docs/charter/testing.yaml`, with exact matching on all declared command fields.
 - Update FSM gate evaluation in `bug-fix.fsm.yml` and `greenfield-development.fsm.yml` to resolve the test command from `docs/charter/testing.yaml`.
 - Create the `detect-test-regime` skill for use during onboarding and wire it into `init-factory`.
-- Rewrite `factory/skills/mutation-analysis/SKILL.md` as setup guidance rather than a prescribed tool chain.
+- Rewrite `factory/skills/mutation-analysis/SKILL.md` with setup guidance and contract-ownership classification methodology.
 - Update UC-09, ADR-0003, ADR-0012, prd.md, UC-10, interface-contracts.md, and validation-rules.md.
+- Extend the `testing.yaml` schema with a `layers` section for layer bindings (tool, infrastructure, entry point, anti-patterns per layer).
+- Update `qa-strategy-from-spec` to read charter layer bindings and scan the repository before assigning contract owners. Emit gap findings for undeclared layers and charter/repo mismatches.
+- Update the developer-agent workflow to invoke `spec-feedback` when test-harness mismatches are found during story implementation.
+- Update the kit-manager to populate layer bindings in `testing.yaml` during charter completeness sweep and brownfield onboarding.
 
 **Explicitly deferred (do NOT plan stories for these):**
 
@@ -190,6 +295,10 @@ The following specification documents reference `factory/scripts/run-tests` by p
 - Factory distribution boundary fix (the separate defect that copies Factory development tests into consumer workspaces via the symlinked `factory/` directory).
 - Incremental migration of other charter sections from prose to YAML.
 - Structured test output parsing.
+- Automated reconciliation of charter layer bindings against CI pipeline definitions.
+- A formal JSON Schema for the `layers` section of `testing.yaml` — the first release uses schema-by-example.
+- Integration with external test-analytics or coverage-tracking systems.
+- Function-level or AST-level mutation-to-contract mapping — the first release joins by file path.
 
 ## Design Details
 
@@ -218,7 +327,7 @@ All questions from the initial draft have been resolved through the grilling int
 - **Explicit override vs. detection**: code scan is the primary mechanism; charter is the machine-readable record; no separate override key needed (resolved).
 - **Mode degradation**: Factory calls the entrypoint as-is, no mode engineering (resolved).
 
-No remaining open questions.
+No remaining open questions. The contract-traced-testing-strategy proposal asked whether testing bindings should live in their own charter file or in `development.md`. The answer is `docs/charter/testing.yaml` — the same file that declares test commands also declares layer bindings (Design section 10).
 
 ## Completion Criteria
 
@@ -236,10 +345,16 @@ No remaining open questions.
 - prd.md, UC-10, ADR-0012, interface-contracts.md, and validation-rules.md are updated to reference charter-declared commands instead of `factory/scripts/run-tests`.
 - The Gigacron reproducer (`make test` via Compose) works correctly when declared in `docs/charter/testing.yaml`.
 - `remove-factory` leaves `docs/charter/testing.yaml` and project-owned test infrastructure intact.
+- The `testing.yaml` template includes the `layers` section schema defined by example.
+- `qa-strategy-from-spec` reads charter layer bindings when present and falls back to the Factory convention when absent.
+- A per-feature QA strategy produced after this change traces every contract-owner assignment to a charter-declared layer when layer bindings are present.
+- The mutation-analysis skill describes contract-ownership classification (`owner_held`, `owner_failed`, `uncaught`) for use when a QA strategy's contract-owner table is available.
+- The developer-agent invokes `spec-feedback` when a test-harness mismatch is found during story implementation, naming the contract, prescribed layer, and concrete obstacle.
+- The kit-manager populates layer bindings in `testing.yaml` during charter completeness sweep, and a human reviewer confirms the bindings match the repository's actual test infrastructure.
 
 ## Guiding Rule
 
-Factory ensures test gates exist; the project decides what runs inside them.
+Factory ensures test gates exist; the project decides what runs inside them. The Factory convention names the layers; the charter binds them to the project; the QA strategy maps contracts to those bindings; mutation analysis verifies the map holds; and mismatches flow backward, not into silence.
 
 ## Review — 2026-08-28
 

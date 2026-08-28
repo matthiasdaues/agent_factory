@@ -218,3 +218,102 @@ Feature: Test Gate Presence over Test Execution
       Given a charter-declared test command
       When the command exits with any nonzero code
       Then the gate fails regardless of stdout content
+
+  Rule: Charter declares layer bindings for QA strategy grounding
+    # actor: Human Operator
+    # @docs/charter/testing.yaml
+
+    Scenario: Project declares layer bindings in testing.yaml
+      Given docs/charter/testing.yaml exists with test_command
+      When the operator adds a layers section mapping Factory layer names to tooling
+      Then each layer declares tool, infrastructure, entry_point, and optional anti_patterns
+      And unused layers are omitted, not set to null
+
+    Scenario: Kit-manager populates layer bindings during onboarding
+      Given a project with existing test infrastructure
+      When the kit-manager runs charter completeness sweep
+      Then it scans conftest.py, test directories, Makefile targets, and runner configs
+      And records layer bindings in docs/charter/testing.yaml
+      And a human reviewer confirms the bindings match the repository
+
+    Scenario: Detect-test-regime populates both commands and layer bindings
+      Given a project with a single test entrypoint and identifiable test layers
+      When the detect-test-regime skill runs during onboarding
+      Then it records the entrypoint as test_command in docs/charter/testing.yaml
+      And it records identified layer bindings in the layers section
+
+  Rule: QA strategy grounds contract-owner assignments in charter
+    # actor: CLI-Invoked Agent
+    # @factory/skills/qa-strategy-from-spec/SKILL.md
+
+    Scenario: QA strategy reads charter layer bindings
+      Given docs/charter/testing.yaml declares a layers section
+      When qa-strategy-from-spec derives a per-feature QA strategy
+      Then it maps feature contracts to charter-declared layers
+      And it does not use the Factory convention's generic layers when bindings exist
+
+    Scenario: QA strategy emits gap for undeclared layer
+      Given docs/charter/testing.yaml declares three of five layers
+      And a feature contract requires a layer not declared in the charter
+      When qa-strategy-from-spec assigns test owners
+      Then it emits a gap finding naming the missing layer
+      And does not silently assume the layer exists
+
+    Scenario: QA strategy falls back when layer bindings are absent
+      Given docs/charter/testing.yaml exists but has no layers section
+      When qa-strategy-from-spec derives a per-feature QA strategy
+      Then it falls back to the Factory convention's generic five layers
+      And emits a gap finding noting the absent layer bindings
+
+    Scenario: QA strategy verifies charter matches repository
+      Given docs/charter/testing.yaml declares layer bindings
+      When qa-strategy-from-spec scans the repository's test infrastructure
+      And a declared entry_point or infrastructure does not match what exists
+      Then it records a mismatch as a gap finding
+
+  Rule: Developer-agent feeds back test-harness mismatches
+    # actor: CLI-Invoked Agent
+    # @factory/agents/developer-agent.md
+
+    Scenario: Developer-agent detects harness mismatch during implementation
+      Given a QA strategy prescribes a layer and tooling for a contract
+      When the developer-agent writes tests and finds the prescribed harness missing
+      Then it invokes spec-feedback against the QA strategy document
+      And the finding names the contract, prescribed layer, and concrete obstacle
+
+    Scenario: Spec-feedback finding proposes a correction
+      Given the developer-agent filed a spec-feedback finding against the QA strategy
+      Then the finding names the specific contract-owner row that is wrong
+      And proposes a correction
+      And the QA strategy is updated in the same story or a follow-up QA loop
+
+  Rule: Mutation-analysis skill classifies survivors by contract ownership
+    # actor: CLI-Invoked Agent
+    # @factory/skills/mutation-analysis/SKILL.md
+
+    Scenario: Mutation analysis with contract-owner table classifies owner_held
+      Given a per-feature QA strategy with a contract-owner table
+      And the declared owner's test killed a mutant
+      When the mutation-analysis skill classifies the survivor
+      Then the status is owner_held
+      And overlap tests that also killed it are safe to trim
+
+    Scenario: Mutation analysis classifies owner_failed
+      Given a per-feature QA strategy with a contract-owner table
+      And the declared owner did not kill a mutant but another layer did
+      When the mutation-analysis skill classifies the survivor
+      Then the status is owner_failed
+      And a spec-feedback finding is filed against the contract-owner row
+
+    Scenario: Mutation analysis classifies uncaught
+      Given a per-feature QA strategy with a contract-owner table
+      And no layer caught a mutant
+      When the mutation-analysis skill classifies the survivor
+      Then the status is uncaught
+      And existing resolution actions apply directed at the declared owner
+
+    Scenario: Mutation analysis without contract-owner table uses existing classification
+      Given no per-feature QA strategy is provided
+      When the mutation-analysis skill classifies a survivor
+      Then it uses the existing resolution actions only
+      And does not attempt contract-ownership classification

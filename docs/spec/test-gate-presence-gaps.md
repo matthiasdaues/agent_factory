@@ -17,6 +17,10 @@ Source: docs/proposals/test-gate-presence-over-test-execution.md
 | Human Operator                          | Mutation-analysis skill as setup guidance          | Rule: Mutation-analysis skill provides setup guidance                       | specified |
 | Human Operator                          | Remove-factory leaves test infrastructure intact   | Rule: Remove-factory leaves project test infrastructure intact              | specified |
 | Human Operator, Orchestrator-as-Trigger | Gate contract is exit-code-only                    | Rule: Gate contract is exit-code-only                                       | specified |
+| Human Operator                          | Declare layer bindings for QA strategy grounding   | Rule: Charter declares layer bindings for QA strategy grounding             | specified |
+| CLI-Invoked Agent                       | Ground contract-owner assignments in charter       | Rule: QA strategy grounds contract-owner assignments in charter             | specified |
+| CLI-Invoked Agent                       | Feed back test-harness mismatches                  | Rule: Developer-agent feeds back test-harness mismatches                    | specified |
+| CLI-Invoked Agent                       | Classify mutation survivors by contract ownership  | Rule: Mutation-analysis skill classifies survivors by contract ownership    | specified |
 
 ## Missing Rules
 
@@ -56,3 +60,7 @@ The scope map at `docs/spec/scope-map.md` exists on `dev` as an untracked file f
 2. **Detect-test-regime skill document**: The `detect-test-regime` skill does not yet exist at `factory/skills/detect-test-regime/SKILL.md`. It is listed in the proposal scope as a new artifact to create during implementation.
 3. **Charter template**: The `factory/rulebooks/templates/charter-testing.yaml` template does not yet exist. It is listed in the proposal scope as a new artifact to create during implementation.
 4. **Init-factory wiring**: The wiring of `detect-test-regime` into `init-factory` is an implementation concern, not a specification gap, but the proposal scope note (PROP-09) asks for clarity on whether it is part of skill creation or a separate story.
+5. **qa-strategy-from-spec update**: The skill at `factory/skills/qa-strategy-from-spec/SKILL.md` needs two new inputs (charter layer bindings, repo scan) and a changed Step 3 assignment policy. This is an implementation artifact to create during implementation (Design sections 10–11).
+6. **Developer-agent workflow update**: The agent at `factory/agents/developer-agent.md` needs an explicit harness-mismatch check after writing tests. This is an implementation artifact to create during implementation (Design section 12).
+7. **Mutation-analysis skill rewrite**: The skill at `factory/skills/mutation-analysis/SKILL.md` needs both setup guidance and contract-ownership classification sections. This is an implementation artifact to create during implementation (Design section 13).
+8. **Kit-manager layer-bindings population**: The agent at `factory/agents/kit-manager.md` needs a charter completeness sweep that populates layer bindings from repo scan. This is an implementation artifact to create during implementation (Design section 10).
