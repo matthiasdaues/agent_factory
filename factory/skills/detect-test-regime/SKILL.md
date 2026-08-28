@@ -74,7 +74,12 @@ without a `test` script, is not evidence of a test entrypoint.
 - **No entrypoint found**: do not fabricate a command. Surface the gap to
   the operator directly — state plainly that no test entrypoint was
   detected, and that `docs/charter/testing.yaml` cannot be populated until
-  one exists or is named explicitly.
+  one exists or is named explicitly. Offer to help the operator build
+  project-owned test infrastructure if they choose — scripts, hooks, and
+  config that belong to the project and survive `remove-factory`. Building
+  that infrastructure from scratch is a full onboarding interview owned by
+  `kit-manager`, not this skill; this skill only makes the offer and hands
+  off.
 
 ### 3. Scan for test layers
 
@@ -123,8 +128,11 @@ the schema:
 - `test_changed_command` — optional; same rule as above, for changed-files
   invocation.
 - `layers` — one entry per layer with confirmed evidence (step 3), each
-  with `tool`, `infrastructure`, `entry_point`, and `fidelity` filled in
-  from what was actually observed. Omit unused layers entirely; never set a
+  with `tool`, `infrastructure`, and `entry_point` filled in from what was
+  actually observed. `anti_patterns` and `fidelity` are optional per-layer
+  fields — record them only when the scan turned up concrete evidence (a
+  documented exclusion, a mocked-vs-real distinction visible in fixture or
+  config code); do not infer them. Omit unused layers entirely; never set a
   layer to `null` as a placeholder.
 
 If `docs/charter/testing.yaml` already exists, treat it as a prior scan
