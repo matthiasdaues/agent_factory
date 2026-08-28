@@ -21,11 +21,14 @@ inputs:
   - factory/rulebooks/templates/charter-tech-stack.md
   - factory/rulebooks/templates/charter-development.md
   - factory/rulebooks/templates/charter-house-rules.md
+  - docs/charter/testing.yaml
+  - factory/rulebooks/conventions/testing-strategy.md
 outputs:
   - docs/charter/tech-stack.md
   - docs/charter/development.md
   - docs/charter/house-rules.md
   - backlog/ST-*.md
+  - docs/charter/testing.yaml
 triggers:
   - "set up the project"
   - "kit manager"
@@ -90,6 +93,16 @@ Use whichever modes the stakeholder engages:
 - **Ad-hoc**: read reference, extract, confirm, record via `update-charter`.
 
 Modes may be mixed — scan first, drop in a reference repo for CI, interview the remaining gaps.
+
+#### Test layer bindings
+
+When `docs/charter/testing.yaml` exists (created by `detect-test-regime` or manually), populate the `layers` section during the charter completeness sweep:
+
+1. **Scan test infrastructure**: check for `conftest.py` files, `tests/` and `test/` directories, Makefile targets (`test`, `test-unit`, `test-integration`, `lint`, `check`), and runner configurations (`pytest.ini`, `pyproject.toml [tool.pytest.ini_options]`, `tox.ini`, `.noxfile.py`).
+2. **Map to layer vocabulary**: use layer names from `factory/rulebooks/conventions/testing-strategy.md` — `deterministic_linter`, `acceptance_test`, `contract_test`, `integration_test`, `e2e_smoke_test`.
+3. **Record each layer**: for each identified layer, record `tool`, `infrastructure`, `entry_point`, and optional `anti_patterns` and `fidelity` fields.
+4. **Confirm with stakeholder**: present the detected layers and bindings for confirmation. The stakeholder may correct tool names, adjust entry points, or add layers the scan missed.
+5. **Omit unused layers**: do not set unused layers to null — omit them entirely.
 
 ### 3. Validate
 
