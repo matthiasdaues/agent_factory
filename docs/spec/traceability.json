@@ -82,6 +82,7 @@
     ],
     "entities": [
       "AGENT_ENTRY",
+      "ANCHOR_FILE_SET",
       "ARTIFACT_REFERENCE",
       "CATALOG",
       "CHILD_RESULT_ENVELOPE",
@@ -96,6 +97,7 @@
       "PLAYBOOK_STATE_MARKER",
       "REPOSITORY_STATE",
       "RULEBOOK_ENTRY",
+      "SCOPE_MAP_ROW",
       "SESSION_USAGE_SIGNAL",
       "SKILL_ENTRY",
       "STATE_DEFINITION"

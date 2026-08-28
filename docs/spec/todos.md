@@ -63,6 +63,12 @@ Per the build order, the `run_agent` single-agent primitive shipped and was vali
 
 - [x] Land `dispatch_wave` and its two-parallel-agent validation.
 
+## T-11: PRD does not reflect the factory's current state
+
+`docs/spec/prd.md` was written during the initial Factory Flow Control specification pass. The factory has grown substantially since then (Pi invocation, dispatch safeguards, research playbooks, token-usage tracking, newcomer onboarding). The PRD needs a reconciliation pass to reflect the system as-built. Not blocking current feature work — the accepted proposal serves as the requirements source for newcomer onboarding.
+
+- [ ] Reconcile `docs/spec/prd.md` with the factory's current capabilities and shipped features.
+
 ## Referenced from
 
 - [validation-rules.md](supplementary_specs/validation-rules.md)

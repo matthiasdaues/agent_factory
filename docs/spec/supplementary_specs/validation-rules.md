@@ -102,6 +102,41 @@ This resolution order is why `halt_conditions` must name the **author** state be
 
 The `script_exit_zero` condition evaluator (currently stubbed per [T-03](../todos.md#t-03-script_exit_zero-condition-type-is-stubbed)) will invoke `run-tests` and read its exit code; the JSON summary on stdout is for human/log consumption, not for the gate's pass/fail decision.
 
+## Anchor-file prerequisite (feature-addition)
+
+The `feature-addition` playbook checks for the existence of three anchor files before proceeding. This replaces the former prerequisite "existing project with spec and architecture."
+
+- The three anchor files are: `docs/arc42/architecture.dsl`, `docs/spec/scope-map.md`, and `docs/CONTEXT.md`.
+- The check is file-existence only — no content validation, no gate marker, no structural inspection.
+- If all three exist, the prerequisite passes and the playbook proceeds normally.
+- If any file is missing, the playbook reports which files are absent and suggests running `brownfield-onboarding` to establish the baseline.
+- Full specification artifacts (`docs/spec/prd.md`, `docs/spec/use_cases/UC-*.md`, `docs/spec/supplementary_specs/*.md`) are optional inputs that deepen the process when present, not prerequisites.
+- The anchor-file check does not distinguish between a brownfield-lite baseline (Stage 1 only) and a fully reverse-engineered project (Stage 2 complete). The depth is a continuum; the prerequisite only establishes the minimum.
+
+See [newcomer-onboarding.feature](../newcomer-onboarding.feature) and [entity-model.md § ANCHOR_FILE_SET](entity-model.md).
+
+## Reverse-map confidence hierarchy
+
+The `reverse-map` skill assigns a confidence level to each scope-map row based on the source type. The hierarchy, from highest to lowest confidence:
+
+| Source type                      | Confidence  | Rationale                                  |
+| -------------------------------- | ----------- | ------------------------------------------ |
+| Passing test                     | verified    | Mechanically proven behavioral claim       |
+| Failing/skipped test             | flagged     | Documents intent, known broken or deferred |
+| Code entry point                 | high        | Exists and executes, but not test-verified |
+| Test fixture/factory             | medium-high | Reveals entity model and relationships     |
+| API spec (OpenAPI, Postman)      | medium      | Declared contract, may not match code      |
+| Repo docs (README, comments)     | medium-low  | Close to code, but often stale             |
+| External docs (Confluence, wiki) | low         | Furthest from code, most likely to drift   |
+| Stakeholder verbal claim         | lowest      | Tribal knowledge, unfindable elsewhere     |
+| Document-only (no code match)    | claimed     | Asserted by docs but unverifiable in code  |
+
+- A row's confidence is determined by its strongest supporting source.
+- The Sources column lists all contributing sources, not just the strongest.
+- Confidence levels are informational, not gatekeeping — no confidence level blocks feature work.
+
+See [newcomer-onboarding.feature](../newcomer-onboarding.feature).
+
 ## Referenced from
 
 - [entity-model.md](entity-model.md)

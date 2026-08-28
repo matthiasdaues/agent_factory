@@ -346,14 +346,14 @@ After this playbook completes, **all feature work enters through the `feature-ad
 
 ## Utility: Retrospective
 
-Run ad-hoc at end of any session:
+Run ad-hoc at end of any session. The coaching-agent runs in the current session (adopt pattern — read the definition, assume its role, do not spawn a subagent):
 
 ```bash
 # In active session
 "Run a retrospective"
 ```
 
-**Agent**: `coaching-agent`
+**Agent**: `coaching-agent` (adopted in current session)
 **Output**: `docs/reviews/retro-*.md`
 
 ## State Tracking

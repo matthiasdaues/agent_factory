@@ -18,9 +18,14 @@ Operational procedure for **documenting an existing undocumented system** (rever
 
 ## Overview
 
-**Reverse order workflow**: Code → Architecture baseline → Spec → Architecture deepening → Review → Reconciliation
+**Reverse order workflow**: Code → Architecture baseline → Scope map → (optional) Spec → Architecture deepening → Review → Reconciliation
 
-Unlike greenfield (Spec → Architecture → Code), brownfield starts with existing code and works backwards. A two-pass architecture approach — baseline from code, then component resolution after specification extraction — produces documentation that is both structurally accurate and domain-aware.
+Unlike greenfield (Spec → Architecture → Code), brownfield starts with existing code and works backwards. The playbook is split into two stages with an explicit exit point between them:
+
+- **Stage 1 — Enough to work**: produces three anchor files (`docs/arc42/architecture.dsl`, `docs/spec/scope-map.md`, `docs/CONTEXT.md`). The user can start feature work from here.
+- **Stage 2 — Full reverse engineering** (opt-in): specification extraction, component resolution, ATAM review, and reconciliation. Available when the user or the change warrants it.
+
+## Stage 1 — Enough to Work
 
 ## Phase 1: Code Understanding
 
@@ -104,6 +109,42 @@ factory/scripts/arch-lint --docs-dir docs/arc42
 
 **If errors** → Fix and re-validate
 **If clean** → Proceed to Phase 3
+
+## Phase 2b: Scope Map and Domain Vocabulary
+
+### Step 2.5 — Populate Scope Map via Reverse-Map
+
+Invoke the `reverse-map` skill. It sweeps tests first (highest confidence), then code entry points, then accepts additional sources from the stakeholder. Results are presented in batches by domain area for stakeholder confirmation.
+
+**Expected outputs**:
+
+- `docs/spec/scope-map.md` (5-column format: Rule, Status, Confidence, Sources, Feature Link)
+- `docs/CONTEXT.md` (domain vocabulary seeded from type names, class names, module names)
+
+### Step 2.6 — Validate Stage 1 Exit
+
+Verify the three anchor files exist and are valid:
+
+- [ ] `docs/arc42/architecture.dsl` exists with system context and container views
+- [ ] `docs/spec/scope-map.md` exists with Rules marked `implemented`
+- [ ] `docs/CONTEXT.md` exists seeded with domain vocabulary
+- [ ] Structurizr validation passes on the DSL
+
+### Stage 1 Exit Point
+
+Present the user with the choice:
+
+> "You now have the structural shape and the functional inventory. You can start feature work from here. Want to go deeper, or start building?"
+
+**If the user exits** → Stage 1 is complete. The user can start a `feature-addition` from the brownfield-lite baseline (anchor file presence is the prerequisite, not a gate marker).
+
+**If the user continues** → Proceed to Stage 2.
+
+______________________________________________________________________
+
+## Stage 2 — Full Reverse Engineering (Opt-In)
+
+Stage 2 deepens the baseline with full specification extraction, component-level architecture resolution, ATAM review, and reconciliation. Available when the user or the change warrants it, but not required before the first feature-addition.
 
 ## Phase 3: Specification Extraction
 

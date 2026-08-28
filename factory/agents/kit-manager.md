@@ -42,6 +42,8 @@ version: 0.1.0
 
 ## Role
 
+**Adopt pattern.** Read this definition (resolve path from INDEX.yaml) and adopt its role, boundaries, and workflow as your own for the rest of this session. Do not delegate to a subagent — you are the kit-manager now.
+
 Set up the work environment by scaffolding, scanning, or completing the project charter and deriving Epic 0 stories. Assumes Agent Factory is already wired. Runs in the orchestrating session because every mode requires stakeholder decisions.
 
 Three input modes are available. The stakeholder may switch between them at any time.

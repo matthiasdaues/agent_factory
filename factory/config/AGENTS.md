@@ -27,21 +27,30 @@ Canonical orientation content for any AI coding CLI working in a project that us
 
 ## Session Entrypoint
 
-At the start of every session, greet the user warmly, then present three choices:
+At the start of every session, greet the user warmly, then present four choices:
 
 > **What do you want to do?**
 >
-> **A** — I want to start something new (prove an idea, research a topic, build a system)\
-> **B** — I want to run an agent or playbook directly\
-> **C** — I just want to talk something through
+> **A** — I'm new here — show me around\
+> **B** — I want to start something new (prove an idea, research a topic, build a system)\
+> **C** — I want to run an agent or playbook directly\
+> **D** — I just want to talk something through
 >
 > Then act on the user's selection:
 
 ______________________________________________________________________
 
-### A — Intention-based (ask what they want to achieve)
+### A — Guided tour (newcomer path)
 
-Present this expanded tree only after A is chosen:
+Read `docs/arc42/beginner-intro.md` and walk the user through it conversationally, one section at a time, pausing for questions after each section. Before starting, check for signs of prior work (a completed poc-spike, a charter, prior playbook outputs). If found, acknowledge what the user has done and offer to skip ahead or start fresh. At the end, offer to run `poc-spike`.
+
+If the user asks "where am I?", "what do I do next?", or requests reorientation at any point during the tour or afterward, invoke the `guided-tour` skill.
+
+______________________________________________________________________
+
+### B — Intention-based (ask what they want to achieve)
+
+Present this expanded tree only after B is chosen:
 
 > **1. Create something new**\
 > `a` — Quick answer, throwaway → `poc-spike`\
@@ -68,7 +77,7 @@ Present this expanded tree only after A is chosen:
 > `b` — Falsification: test a hypothesis with refutation → `research-topic`
 >
 > **7. Talk it through / explore an idea**\
-> → `chat-agent`
+> → `chat-agent` (adopted in current session)
 >
 > **8. Back to the main menu**
 
@@ -76,7 +85,7 @@ When the user picks a leaf (a playbook or agent), run that playbook's operationa
 
 ______________________________________________________________________
 
-### B — Factory-content-based (user knows what they want to run)
+### C — Factory-content-based (user knows what they want to run)
 
 **Playbook or Agent?**
 
@@ -90,10 +99,10 @@ If `A` -> list all agents in the local `.*/agents` directory. Append an option t
 
 ______________________________________________________________________
 
-### C — Let's talk
+### D — Let's talk
 
-Spawn the `chat-agent`. It opens with "What's on your mind?" and follows the conversation wherever it leads — no menu, no artifact pressure. When the idea finds its shape, the chat-agent routes to the right next step: a proposal, a spike, a research brief, or a clean ending.
+Read the `chat-agent` definition (resolve path from INDEX.yaml) and adopt its role, boundaries, and workflow as your own for the rest of this session. Do not delegate to a subagent — you are the chat-agent now. Open with "What's on your mind?" and follow the conversation wherever it leads — no menu, no documents to produce. When the idea finds its shape, route to the right next step: a proposal, a spike, a research brief, or a clean ending.
 
 ______________________________________________________________________
 
-When a playbook is selected, read the playbook's markdown file and follow its operational procedure — running agents, enforcing gates, and producing its documented outputs. When an agent is selected directly, spawn it via the correct mechanism for this CLI (see Pi/Codex/Claude Code/Copilot CLI notes above).
+When a playbook is selected, read the playbook's markdown file and follow its operational procedure — running agents, enforcing gates, and producing its documented outputs. When an agent is selected directly: if the agent runs in the current session (chat-agent, kit-manager, coaching-agent), adopt its role per the adopt pattern; otherwise, spawn it via the correct mechanism for this CLI (see Pi/Codex/Claude Code/Copilot CLI notes above).
