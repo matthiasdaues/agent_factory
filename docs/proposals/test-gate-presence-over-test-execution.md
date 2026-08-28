@@ -271,13 +271,13 @@ When `docs/charter/testing.yaml` is missing or lacks a `layers` section, `qa-str
 
 The QA strategy's "Test Layers in Scope" table replaces the current `add / strengthen / out` status with states that distinguish infrastructure readiness from test coverage:
 
-- `available` — the test layer and harness work; tests can be written and run today.
-- `partially covered` — some contracts have tests at this layer; others remain unimplemented.
+- `available` — the test layer and harness work but no tests exist yet for this feature at this layer.
+- `partially covered` — the harness works and some contracts have tests at this layer; others remain unimplemented. Takes precedence over `available` when any test exists.
 - `planned` — the harness or tests do not yet exist; an explicit gap, not missing coverage.
 - `blocked` — a production capability must exist before the test can be written.
 - `out` — this layer is not used for the feature.
 
-This prevents infrastructure readiness from being confused with test coverage. A layer whose harness exists but has no tests is `available`, not `add`.
+This prevents infrastructure readiness from being confused with test coverage. A layer whose harness exists but has no tests is `available`; once the first test lands, it becomes `partially covered`.
 
 #### Test-ID convention
 
@@ -307,7 +307,13 @@ The marker taxonomy (`acceptance`, `contract`, `integration`, `e2e`) and the tes
 | -------- | ---------------------- | ----------- | ------------ | ------------------------------------ | ----------------------- | ------- |
 | DSP-01   | `Scenario: ...`        | Integration | DSP-01-IT-01 | `tests/integration/test_dispatch.py` | `make test-integration` | planned |
 
-The `State` column uses the same states as the layer status (available, partially covered, planned, blocked). This makes it mechanically answerable which rows are implemented and which remain gaps.
+The `State` column uses per-row states that reflect the status of an individual contract-owner assignment:
+
+- `implemented` — the test exists and runs.
+- `planned` — the test does not yet exist; the row is an explicit gap.
+- `blocked` — a production capability must exist before the test can be written.
+
+These differ from the layer-level states (`available`, `partially covered`) because a single contract-owner row is either tested or not — it cannot be "partially covered." This makes it mechanically answerable which rows are implemented and which remain gaps.
 
 ### 12. Developer-agent test-harness feedback
 
@@ -331,7 +337,7 @@ The mutation-analysis skill (`factory/skills/mutation-analysis/SKILL.md`) is rew
 
 The contract-owner table maps contracts to source scenarios and test IDs (Design section 11). When tests carry `@pytest.mark.spec("DSP-01")` or equivalent markers, the mutation-analysis classification uses the marker to join mutants to contracts — this is the preferred join. When markers are absent, the join falls back to file path: a mutant in a file that a contract's source scenario exercises is attributed to that contract. The file-path join is approximate — a file may contain code for multiple contracts — but sufficient as a fallback. Finer-grained mapping (function-level, AST-level) is deferred.
 
-This replaces the manual "representative fault" protocol in the testing strategy's safe-deletion procedure with a mechanical equivalent. When the developer-agent or a QA consolidation pass wants to delete overlapping tests, the mutation-analysis classification provides the evidence that the surviving owner still detects the fault class.
+This mechanizes the manual "representative fault" protocol in the testing strategy's safe-deletion procedure. When the developer-agent or a QA consolidation pass wants to delete overlapping tests, the mutation-analysis classification provides the evidence that the surviving owner still detects the fault class.
 
 ### What stays
 
@@ -396,6 +402,8 @@ All questions from the initial draft have been resolved through the grilling int
 - **Mode degradation**: Factory calls the entrypoint as-is, no mode engineering (resolved).
 
 No remaining open questions. The contract-traced-testing-strategy proposal asked whether testing bindings should live in their own charter file or in `development.md`. The answer is `docs/charter/testing.yaml` — the same file that declares test commands also declares layer bindings (Design section 10).
+
+Note: the `supersedes` field references `docs/proposals/contract-traced-testing-strategy.md`, which is currently an untracked file on `dev` with `status: superseded`. It must be committed on `dev` with that status before this branch merges, so the traceability link resolves.
 
 ## Completion Criteria
 
@@ -563,3 +571,43 @@ All twelve prior findings (PROP-01 through PROP-12) verified as resolved at the 
 ### Summary
 
 All twelve prior findings (PROP-01 through PROP-12) are resolved. One new minor finding: the implementation-agent update has no completion criterion (PROP-13). All eight checks pass, with PROP-13 the sole open item. The proposal is planning-ready once the implementation-agent completion criterion is added — a one-line addition to the Completion Criteria section.
+
+## Review — 2026-08-28 (adversarial pass, new sections only)
+
+Reviewer: proposal-review-agent
+Reviewed commit: b46f73e2dbc1be93c2653cbf0779d38181e6f746
+Disposition: findings
+
+### Prior findings
+
+All thirteen prior findings (PROP-01 through PROP-13) verified as resolved at the reviewed commit.
+
+- PROP-01 through PROP-10: remain resolved. No changes to the sections they addressed since the third review pass.
+- PROP-11 (major, check 05): RESOLVED. `factory/agents/implementation-agent.md` added to `impact.boundaries` (line 35 of frontmatter). Design section 9 includes a specific entry describing three changes. Scope list updated to include `implementation-agent.md`.
+- PROP-12 (minor, check 07): RESOLVED. Motivation section now includes a paragraph arguing that the charter declaration and QA strategy traceability share the same fix point.
+- PROP-13 (minor, check 01): RESOLVED. Completion criterion 12 expanded to include: "The implementation-agent no longer lists `factory/scripts/mutation-analysis` as an input, uses a two-gate default (`crap-score`, `dependency-check`), and does not invoke `mutation-analysis` in its gate execution section." Verified against `factory/agents/implementation-agent.md` — the three references exist at lines 28, 129, and 137.
+
+### Eight-check results
+
+1. **Completion criteria testable** — PASS with one minor finding (PROP-17). The 11 new criteria (15–25) are mechanically verifiable without asking the author. However, the contract-owner table's `State` column reuses layer-level status definitions that do not map cleanly to individual contract-owner rows.
+2. **Scope boundary sharp** — PASS. The four new In-scope items and four new Deferred items partition cleanly. The boundary between "file-path-level mutation-to-contract join" (In) and "function-level or AST-level mapping" (Deferred) is mechanically decidable. The boundary between "kit-manager populates layer bindings from existing infrastructure" (In) and "full kit-manager onboarding interview for building test infrastructure from scratch" (Deferred) is clear from the Design text.
+3. **Design decomposable** — PASS with two minor findings (PROP-14, PROP-15). Design sections 10–13 are specific enough for Planning to write INVEST stories: section 10 includes the YAML schema by example with fidelity maps, section 11 specifies the two new inputs, the Step 3 change, status states, test-ID convention, and the extended contract-owner table, section 12 names the trigger condition and mechanism, and section 13 defines the three classification statuses and the marker-based join. Two ambiguities affect precision for a planning agent.
+4. **Impact classification consistent** — PASS. `cross_component`, `architecture_change: true`, `external_contract_change: true` all match the expanded Design. The fidelity declarations, status states, and test-ID convention strengthen the external-contract classification (they change the QA strategy output format).
+5. **Boundary references exist** — PASS with one minor finding (PROP-16). All 20 declared paths in `impact.boundaries` resolve at the reviewed commit. The `supersedes` field references a file that does not exist at any committed revision.
+6. **Open questions genuine** — PASS. All questions resolved with concrete design decisions. The superseded proposal's question about testing binding placement is resolved in the Open Questions section.
+7. **Motivation justifies timing** — PASS. The Gigacron reproducer justifies the original scope. The shared-fix-point paragraph justifies the expanded scope.
+8. **Estimate plausible** — PASS. Token estimates use `unknown`, which is honest given the 20-boundary, 14-item scope with 25 completion criteria and 48 feature scenarios. Human review hours (1.0–2.0h) are tight but not implausible at `medium` confidence with `judgment` basis.
+
+### Findings
+
+| ID      | Severity | Check  | Status   | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------- | -------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| PROP-13 | minor    | 01     | resolved | Completion criterion 12 expanded to include the implementation-agent's three specific changes (remove mutation-analysis input, change three-gate to two-gate default, remove CLI invocation).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| PROP-14 | minor    | 03, 05 | open     | Design section 13 says the mutation-analysis classification "replaces the manual 'representative fault' protocol in the testing strategy's safe-deletion procedure." But `factory/rulebooks/conventions/testing-strategy.md` is not in `impact.boundaries` and no scope item covers updating it. The testing strategy's safe-deletion procedure (section "Delete overlapping tests safely," step 3) still describes the manual protocol. Either "replaces" overstates the relationship (the classification mechanizes step 3 without requiring a document change, in which case "mechanizes" or "implements" would be accurate), or the testing strategy needs updating and should be in boundaries with a corresponding scope item. A planning agent encountering "replaces" would look for a scope item to update the testing strategy document and not find one.                                                                  |
+| PROP-15 | minor    | 03     | open     | The layer status states `available` and `partially covered` (Design section 11) have overlapping definitions at the layer level. `available` says "the test layer and harness work; tests can be written and run today" without excluding the case where some tests already exist. `partially covered` says "some contracts have tests at this layer; others remain unimplemented." A layer with a working harness and some existing tests satisfies both definitions. The feature scenario (line 283) says "available means the harness works but tests may not exist yet" — the "may not exist yet" phrasing does not resolve whether `available` can also describe a layer with some tests. A planning agent implementing these states needs either a precedence rule (e.g., `partially covered` takes precedence when any test exists) or a refinement to make the definitions mutually exclusive.                               |
+| PROP-16 | minor    | 05     | open     | The `supersedes` field references `docs/proposals/contract-traced-testing-strategy.md`, which does not exist at the reviewed commit (b46f73e). The file is present as an untracked file in the main working directory but has never been committed to any branch. The `supersedes` field's purpose is traceability — a reader should be able to inspect the superseded proposal. Either commit the file with `status: superseded` before this proposal merges, or note in the Open Questions section that the superseded proposal was a draft folded directly into this proposal and was never an independent committed artifact.                                                                                                                                                                                                                                                                                                    |
+| PROP-17 | minor    | 03     | open     | Design section 11 says the contract-owner table's `State` column "uses the same states as the layer status (available, partially covered, planned, blocked)." But `partially covered` is defined as "some contracts have tests at this layer; others remain unimplemented" — a definition that applies to a layer aggregate, not to an individual contract-owner row. A single contract-owner row represents one contract at one layer; it is either tested or not. What does `partially covered` mean for a single row? Possible interpretation: some boundary cases of the contract are covered but others are not. But this interpretation is not stated. A planning agent implementing the contract-owner table needs the per-row semantics of each state, not just the layer-level definitions. Recommend either defining the per-row semantics separately or excluding `partially covered` from the valid contract-row states. |
+
+### Summary
+
+All thirteen prior findings (PROP-01 through PROP-13) remain resolved. The fidelity declarations, layer status states, and test-ID convention added in b46f73e are internally consistent with Design sections 1–9 and with each other. Four new minor findings: Design section 13's "replaces" claim about the testing strategy's safe-deletion procedure creates an ambiguity about whether that document needs updating (PROP-14); the layer status states `available` and `partially covered` overlap at the layer level (PROP-15); the `supersedes` field references an uncommitted file (PROP-16); and the contract-owner table reuses layer-level state definitions that do not map to individual rows (PROP-17). None of these block planning — all four are clarification items that can be addressed with one-line refinements. The proposal is planning-ready.

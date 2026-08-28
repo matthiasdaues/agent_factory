@@ -281,7 +281,8 @@ Feature: Test Gate Presence over Test Execution
       Given qa-strategy-from-spec derives a per-feature QA strategy
       When it writes the Test Layers in Scope table
       Then each layer status is one of available, partially covered, planned, blocked, or out
-      And available means the harness works but tests may not exist yet
+      And available means the harness works but no tests exist yet for this feature
+      And partially covered takes precedence over available when any test exists
       And planned means neither harness nor tests exist
 
     Scenario: QA strategy emits test IDs for contract-owner rows
