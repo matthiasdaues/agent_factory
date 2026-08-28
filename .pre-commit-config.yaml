@@ -1,22 +1,4 @@
-# Pre-commit hooks for the agent_factory monorepo.
-#
-# This is a real, merged file — not a symlink. It combines two halves:
-#   1. Agent Factory's generic hooks (originally
-#      factory/config/pre-commit-config.yaml) — mdformat/ruff via `uvx`, plus
-#      spec-lint/arch-lint/backlog-lint/matrix-lint/statemachine-lint/
-#      index-lint pointed at root-level docs/backlog paths. These stay inert
-#      until factory grows its own docs/backlog, and now exclude
-#      orchestrator/ so they don't double-touch its files with unpinned
-#      tool versions.
-#   2. orchestrator's own dev hooks (originally orchestrator/.pre-commit-
-#      config.yaml), namespaced with an `-orchestrator` suffix and scoped to
-#      `orchestrator/`, invoking the pinned `uv run --project orchestrator`
-#      toolchain for mdformat/ruff, and factory/scripts/<name> (not the
-#      stale bare scripts/<name>) for the *-lint gates.
-#
-# See docs/adr/0001-precommit-monorepo-scoping.md (not orchestrator's own
-# ADR-0003, a different decision — see that ADR's own note on the numbering
-# collision).
+# Pre-commit hooks for the agent_factory project.
 repos:
   - repo: local
     hooks:
@@ -114,7 +96,6 @@ repos:
         entry: factory/scripts/mdformat --number
         language: system
         types: [markdown]
-        exclude: ^orchestrator/
 
       # lints all python files (skip if the project isn't Python) — zero local install, via uvx
       - id: ruff-check
@@ -122,7 +103,6 @@ repos:
         entry: uvx ruff@0.16.5 check --fix
         language: system
         types_or: [python, pyi, jupyter]
-        exclude: ^orchestrator/
 
       # lints python code blocks in markdown — zero local install, via uvx
       - id: ruff-format
@@ -130,14 +110,13 @@ repos:
         entry: uvx ruff@0.16.5 format
         language: system
         types_or: [python, pyi, jupyter]
-        exclude: ^orchestrator/
 
       - id: link-check
         name: link-check (local Markdown links)
         entry: factory/scripts/link-check
         language: system
         types: [markdown]
-        exclude: ^(factory|orchestrator)/
+        exclude: ^factory/
 
       - id: spec-lint
         name: spec-lint (specification consistency & traceability)
@@ -199,60 +178,3 @@ repos:
         pass_filenames: false
         files: ^(src/|tests?/)
 
-      # --- orchestrator-scoped hooks below (dev config for this monorepo) ---
-
-      - id: mdformat-orchestrator
-        name: mdformat (orchestrator)
-        entry: factory/scripts/mdformat --number
-        language: system
-        types: [markdown]
-        files: ^orchestrator/
-
-      - id: ruff-check-orchestrator
-        name: ruff check (orchestrator)
-        entry: uvx ruff@0.16.5 check --fix
-        language: system
-        types_or: [python, pyi, jupyter]
-        files: ^orchestrator/
-
-      - id: ruff-format-orchestrator
-        name: ruff format (orchestrator)
-        entry: uvx ruff@0.16.5 format
-        language: system
-        types_or: [python, pyi, jupyter]
-        files: ^orchestrator/
-
-      - id: spec-lint-orchestrator
-        name: spec-lint (specification consistency & traceability, orchestrator)
-        entry: factory/scripts/spec-lint --spec-dir orchestrator/docs/spec
-        language: system
-        pass_filenames: false
-        files: ^orchestrator/docs/spec/
-
-      - id: arch-lint-orchestrator
-        name: arch-lint (arc42 <-> Structurizr consistency, orchestrator)
-        entry: factory/scripts/arch-lint --docs-dir orchestrator/docs --no-validate
-        language: system
-        pass_filenames: false
-        files: ^orchestrator/docs/(architecture\.dsl|05_building_block_view\.md|assets/images/.*)$
-
-      - id: backlog-lint-orchestrator
-        name: backlog-lint (story schema & traceability gate, orchestrator)
-        entry: factory/scripts/backlog-lint --backlog-dir orchestrator/backlog
-        language: system
-        pass_filenames: false
-        files: ^orchestrator/backlog/ST-.*\.md$
-
-      - id: matrix-lint-orchestrator
-        name: matrix-lint (model matrix consistency gate, orchestrator)
-        entry: factory/scripts/matrix-lint --matrix orchestrator/model.conf
-        language: system
-        pass_filenames: false
-        files: ^orchestrator/model\.conf$
-
-      - id: statemachine-lint-orchestrator
-        name: statemachine-lint (pseudocode ↔ Mermaid consistency, orchestrator)
-        entry: factory/scripts/statemachine-lint --spec-dir orchestrator/docs/spec
-        language: system
-        pass_filenames: false
-        files: ^orchestrator/docs/spec/.*\.md$
