@@ -172,12 +172,24 @@ Operational procedure for **adding features to existing system**.
 
 ## Prerequisites
 
-- [ ] Existing project with spec and architecture
-- [ ] `CONTEXT.md` exists
+- [ ] `docs/arc42/architecture.dsl` exists
+- [ ] `docs/spec/scope-map.md` exists
+- [ ] `docs/CONTEXT.md` exists
 - [ ] A proposal at `docs/proposals/<name>.md`, written to the [proposal template](../rulebooks/templates/proposal.md)
+
+The three anchor files (`architecture.dsl`, `scope-map.md`, `docs/CONTEXT.md`)
+are the minimum baseline. Full specification artifacts (PRD, use cases,
+supplementary specs) deepen the process when present but are not required. If
+any anchor file is missing, suggest running `brownfield-onboarding` to
+establish the baseline.
 
 The proposal is the feature's authoritative design origin. Do not maintain a
 parallel feature request, interview record, or design brief.
+
+Each feature-addition run naturally deepens the anchor files: the
+requirements-agent adds a Rule to `scope-map.md` with status "specified," the
+architecture-agent updates `architecture.dsl` when the structural shape changes,
+and the grilling and domain-modeling skills add new terms to `docs/CONTEXT.md`.
 
 ## Phase Boundary Contract
 
