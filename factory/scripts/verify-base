@@ -16,7 +16,7 @@ longer exists there — this catches that before any file is read, edited,
 or committed, instead of after a full agent run (docs/reviews/retro-2026-07-12.md,
 docs/reviews/retro-2026-07-10.md action item #1).
 
-On a full pass, writes `.agent-factory/verify-base-ok` at the worktree
+On a full pass, writes `.current-work/verify-base-ok` at the worktree
 root. `factory/config/hooks/block-dangerous-git.sh` denies `git commit`
 inside any linked worktree that has no such marker — mechanical
 enforcement, not just a prompt instruction.
@@ -65,7 +65,7 @@ def clear_marker() -> None:
     """Invalidate prior authorization before evaluating a new preflight."""
     code, top, _ = run_git(["rev-parse", "--show-toplevel"])
     if code == 0:
-        (Path(top) / ".agent-factory" / "verify-base-ok").unlink(missing_ok=True)
+        (Path(top) / ".current-work" / "verify-base-ok").unlink(missing_ok=True)
 
 
 def write_marker(target: str, expect_base: str | None) -> None:
@@ -74,7 +74,7 @@ def write_marker(target: str, expect_base: str | None) -> None:
     if code != 0:
         return
 
-    marker_dir = Path(top) / ".agent-factory"
+    marker_dir = Path(top) / ".current-work"
     marker_dir.mkdir(exist_ok=True)
     _, head, _ = run_git(["rev-parse", "HEAD"])
     (marker_dir / "verify-base-ok").write_text(

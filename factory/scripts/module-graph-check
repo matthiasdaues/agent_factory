@@ -12,7 +12,7 @@ When: At the Phase 1 / Phase 3 boundary, before architecture routing.
 By:   The session hosting the feature-addition playbook.
 
 Output
-  Writes JSON to .agent-factory/module-graph-check/<story-id>.json and to
+  Writes JSON to .current-work/module-graph-check/<story-id>.json and to
   stdout.  Updates the proposal's impact.architecture_change field.
   Exits 0 on success; 2 on configuration or parse error.
 """
@@ -571,7 +571,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--report-dir",
-        default=".agent-factory/module-graph-check",
+        default=".current-work/module-graph-check",
         help="directory where JSON reports are written",
     )
     return parser.parse_args(argv)

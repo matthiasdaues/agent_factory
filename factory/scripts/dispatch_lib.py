@@ -741,11 +741,11 @@ DEFAULT_HANDOFF_TOKEN_BUDGET = 800
 def _manifest_path(worktree_path: Path, feature_branch: str, story_branch: str) -> Path:
     """Return the per-worktree, per-story manifest path.
 
-    Layout: <worktree_path>/.current_work/<feature-branch>/<story-branch>/current-step.yml
+    Layout: <worktree_path>/.current-work/<feature-branch>/<story-branch>/current-step.yml
     """
     return (
         Path(worktree_path)
-        / ".current_work"
+        / ".current-work"
         / feature_branch
         / story_branch
         / MANIFEST_FILENAME
@@ -901,7 +901,7 @@ def handoff_contract_path(
     """Return the runtime path that stores one story's handoff contract."""
     return (
         Path(worktree_path)
-        / ".current_work"
+        / ".current-work"
         / feature_branch
         / story_branch
         / HANDOFF_CONTRACT_FILENAME

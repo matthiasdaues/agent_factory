@@ -32,7 +32,7 @@ Checks
   4. Semantic gates (story branches only): if `<branch>` matches the pattern
      `story/ST-NNNN`, reads the story file's `quality-gates` field (with
      precedence: story field > house-rules.md > Factory default of all three
-     gates) and checks for passing results in `.agent-factory/<gate>/<story-id>.json`.
+     gates) and checks for passing results in `.current-work/<gate>/<story-id>.json`.
      Each gate is a hard gate — failure of any one blocks the merge.
 
 Usage
@@ -44,7 +44,7 @@ Exit codes
      explicit override
   2: usage or git-invocation error
 
-On PASS, writes `.agent-factory/premerge-check-ok` at the invoking repo's
+On PASS, writes `.current-work/premerge-check-ok` at the invoking repo's
 top level, keyed to `<branch>`'s current head SHA.
 `factory/config/hooks/block-dangerous-git.sh` denies `git merge <branch>`
 unless that marker matches — mechanical enforcement, not just a prompt
@@ -83,7 +83,7 @@ def write_marker(branch: str) -> None:
         return
 
     _, head, _ = run_git(["rev-parse", branch])
-    marker_dir = Path(top) / ".agent-factory"
+    marker_dir = Path(top) / ".current-work"
     marker_dir.mkdir(exist_ok=True)
     (marker_dir / "premerge-check-ok").write_text(f"branch={branch}\nhead={head}\n")
 
@@ -288,7 +288,7 @@ def check_semantic_gates(story_id: str) -> tuple[bool, list[str]]:
         return False, gates
 
     for gate in gates:
-        gate_result_file = Path(top) / ".agent-factory" / gate / f"{story_id}.json"
+        gate_result_file = Path(top) / ".current-work" / gate / f"{story_id}.json"
 
         # Check if file exists
         if not gate_result_file.exists():

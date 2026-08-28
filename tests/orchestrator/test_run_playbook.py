@@ -86,8 +86,8 @@ states:
     (scripts / "phase").touch()
     (scripts / "trigger").touch()
 
-    # Create .agent-factory dir
-    (tmp_path / ".agent-factory").mkdir()
+    # Create .current-work dir
+    (tmp_path / ".current-work").mkdir()
 
     return tmp_path
 
@@ -131,7 +131,7 @@ class TestReadFsmState:
 class TestBootstrapMarker:
     def test_creates_marker(self, tmp_env):
         bootstrap_marker("test-playbook", "WORK")
-        marker = read_marker(tmp_env / ".agent-factory" / "playbook-state.yml")
+        marker = read_marker(tmp_env / ".current-work" / "playbook-state.yml")
         assert marker["playbook"] == "test-playbook"
         assert marker["state"] == "WORK"
         assert marker["iteration"] == "1"
@@ -147,7 +147,7 @@ class TestMainFinalState:
         assert result == 0
 
         # Check audit log
-        audit = tmp_env / ".agent-factory" / "audit.log"
+        audit = tmp_env / ".current-work" / "audit.log"
         assert audit.exists()
         entry = json.loads(audit.read_text().strip())
         assert entry["action"] == "done"
@@ -165,7 +165,7 @@ class TestMainHumanGate:
         assert result == 0
 
         # Audit entry written
-        audit = tmp_env / ".agent-factory" / "audit.log"
+        audit = tmp_env / ".current-work" / "audit.log"
         entry = json.loads(audit.read_text().strip())
         assert entry["action"] == "human-gate"
 
@@ -228,7 +228,7 @@ class TestMainDispatch:
         result = main(["--playbook", "test-playbook"])
         assert result == 2
 
-        audit = tmp_env / ".agent-factory" / "audit.log"
+        audit = tmp_env / ".current-work" / "audit.log"
         entry = json.loads(audit.read_text().strip())
         assert entry["action"] == "halt"
         assert entry["trigger_exit"] == 2
@@ -266,7 +266,7 @@ class TestMainRetry:
         result = main(["--playbook", "test-playbook"])
         assert result == 1
 
-        audit = tmp_env / ".agent-factory" / "audit.log"
+        audit = tmp_env / ".current-work" / "audit.log"
         entry = json.loads(audit.read_text().strip())
         assert entry["action"] == "halt"
         assert entry["phase_retry_exit"] == 1
@@ -282,7 +282,7 @@ class TestMainBootstrap:
         result = main(["--playbook", "test-playbook", "--from-state", "DONE"])
         assert result == 0
 
-        marker = read_marker(tmp_env / ".agent-factory" / "playbook-state.yml")
+        marker = read_marker(tmp_env / ".current-work" / "playbook-state.yml")
         assert marker["state"] == "DONE"
         assert marker["playbook"] == "test-playbook"
 
@@ -292,7 +292,7 @@ class TestAuditLogFormat:
         bootstrap_marker("test-playbook", "DONE")
         main(["--playbook", "test-playbook"])
 
-        audit = tmp_env / ".agent-factory" / "audit.log"
+        audit = tmp_env / ".current-work" / "audit.log"
         for line in audit.read_text().strip().splitlines():
             entry = json.loads(line)
             assert "timestamp" in entry
@@ -307,7 +307,7 @@ class TestPhaseDryRun:
 
     def test_dry_run_does_not_write_marker(self, tmp_env):
         """Verify phase advance --dry-run doesn't modify the marker."""
-        marker_path = tmp_env / ".agent-factory" / "playbook-state.yml"
+        marker_path = tmp_env / ".current-work" / "playbook-state.yml"
         bootstrap_marker("test-playbook", "WORK")
         original = marker_path.read_text(encoding="utf-8")
 

@@ -653,6 +653,11 @@ def main(argv: list[str] | None = None) -> int:
         shutil.rmtree(agent_factory_dir)
         log("removed: .agent-factory/")
 
+    current_work_dir = target / ".current-work"
+    if current_work_dir.is_dir():
+        shutil.rmtree(current_work_dir)
+        log("removed: .current-work/")
+
     prune_empty_dirs(target)
 
     print(f"remove-factory: done, Agent Factory removed from {target}")

@@ -80,14 +80,14 @@ def _write_ledger(repo: Path, *entries: StoryEntry) -> Path:
     ledger = Ledger()
     for entry in entries:
         ledger.stories[entry.id] = entry
-    ledger_path = repo / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = repo / ".current-work" / "dispatch-ledger.yaml"
     ledger.save(ledger_path)
     return ledger_path
 
 
 def _load_ledger(repo: Path) -> Ledger:
     """Load the repository's default dispatch ledger."""
-    return Ledger.load(repo / ".agent-factory" / "dispatch-ledger.yaml")
+    return Ledger.load(repo / ".current-work" / "dispatch-ledger.yaml")
 
 
 def _commit_on_branch(repo: Path, tmp_path: Path, branch: str, filename: str) -> str:

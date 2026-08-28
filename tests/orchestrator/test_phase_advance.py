@@ -49,7 +49,7 @@ def _write_marker(path: Path, *, playbook: str, state: str, **extra) -> None:
 
 def _setup_repo(tmp: Path) -> tuple[Path, Path, Path]:
     """Return (marker, playbooks_dir, repo_root) wired to the real FSM."""
-    marker = tmp / ".agent-factory" / "playbook-state.yml"
+    marker = tmp / ".current-work" / "playbook-state.yml"
     pb = tmp / "factory" / "playbooks"
     pb.mkdir(parents=True)
     (pb / "greenfield-development.fsm.yml").symlink_to(_FSM_PATH)
@@ -87,7 +87,7 @@ class TestBootstrap:
         assert m["state"] == "PHASE_1_REQUIREMENTS"
 
     def test_bootstrap_refuses_without_fsm(self, tmp_path):
-        marker = tmp_path / ".agent-factory" / "playbook-state.yml"
+        marker = tmp_path / ".current-work" / "playbook-state.yml"
         pb = tmp_path / "empty"
         pb.mkdir()
         code, _msg = advance(tmp_path, marker, pb)
@@ -267,7 +267,7 @@ class TestRetry:
         assert "cap" in msg.lower() or "refusing" in msg.lower()
 
     def test_retry_refuses_without_marker(self, tmp_path):
-        marker = tmp_path / ".agent-factory" / "playbook-state.yml"
+        marker = tmp_path / ".current-work" / "playbook-state.yml"
         pb = tmp_path / "pb"
         pb.mkdir()
         code, _ = retry(tmp_path, marker, pb)

@@ -36,7 +36,7 @@ Git commands run in the current working directory. No third-party dependencies
 (Python 3.10+ stdlib only).
 
 Usage
-  session-reconcile [--log .agent-factory/session-log.jsonl]
+  session-reconcile [--log .current-work/session-log.jsonl]
                     [--base <ref>] [--head <ref>]
                     [--format text|json] [--report-only]
 
@@ -54,7 +54,7 @@ from pathlib import Path
 
 SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
 
-DEFAULT_LOG = ".agent-factory/session-log.jsonl"
+DEFAULT_LOG = ".current-work/session-log.jsonl"
 SPEC_PREFIX = "docs/spec/"
 
 

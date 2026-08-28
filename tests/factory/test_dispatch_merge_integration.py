@@ -119,14 +119,14 @@ def _write_ledger(repo: Path, *entries: StoryEntry) -> Path:
     ledger = Ledger()
     for entry in entries:
         ledger.stories[entry.id] = entry
-    ledger_path = repo / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = repo / ".current-work" / "dispatch-ledger.yaml"
     ledger.save(ledger_path)
     return ledger_path
 
 
 def _load_ledger(repo: Path) -> Ledger:
     """Load the repository's default dispatch ledger."""
-    return Ledger.load(repo / ".agent-factory" / "dispatch-ledger.yaml")
+    return Ledger.load(repo / ".current-work" / "dispatch-ledger.yaml")
 
 
 def _make_story_branch(
@@ -150,7 +150,7 @@ def _make_story_branch(
 
 def _make_story_worktree(repo: Path, tmp_path: Path, story_id: str) -> Path:
     """Register a worktree for the story branch, as prepare-story would."""
-    worktree = repo / ".agent-factory" / "worktrees" / f"story-{story_id}"
+    worktree = repo / ".current-work" / "worktrees" / f"story-{story_id}"
     result = _git(repo, tmp_path, "worktree", "add", str(worktree), f"story/{story_id}")
     assert result.returncode == 0, result.stderr
     return worktree

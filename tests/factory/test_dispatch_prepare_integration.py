@@ -86,19 +86,19 @@ def _write_ledger(repo: Path, *entries: StoryEntry) -> Path:
     ledger = Ledger()
     for entry in entries:
         ledger.stories[entry.id] = entry
-    ledger_path = repo / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = repo / ".current-work" / "dispatch-ledger.yaml"
     ledger.save(ledger_path)
     return ledger_path
 
 
 def _load_ledger(repo: Path) -> Ledger:
     """Load the repository's default dispatch ledger."""
-    return Ledger.load(repo / ".agent-factory" / "dispatch-ledger.yaml")
+    return Ledger.load(repo / ".current-work" / "dispatch-ledger.yaml")
 
 
 def _worktree_path(repo: Path, story_id: str) -> Path:
     """Return the expected worktree path for one story branch."""
-    return repo / ".agent-factory" / "worktrees" / f"story-{story_id}"
+    return repo / ".current-work" / "worktrees" / f"story-{story_id}"
 
 
 def test_prepare_wave_blocks_when_prior_wave_not_terminal(tmp_path: Path) -> None:
@@ -142,7 +142,7 @@ def test_prepare_wave_creates_branch_and_worktree_and_leaves_chain_link_pending(
     assert worktree.exists()
     porcelain = _git(repo, tmp_path, "worktree", "list", "--porcelain").stdout
     assert f"worktree {worktree.resolve()}" in porcelain
-    assert (worktree / ".agent-factory" / "verify-base-ok").exists()
+    assert (worktree / ".current-work" / "verify-base-ok").exists()
 
     ledger = _load_ledger(repo)
     prepared = ledger.stories["ST-001"]
@@ -163,12 +163,12 @@ def test_prepare_wave_is_idempotent_after_success(tmp_path: Path) -> None:
 
     first = _run_dispatch("prepare-wave", "1", cwd=repo, tmp_path=tmp_path)
     assert first.returncode == 0, first.stderr
-    before = (repo / ".agent-factory" / "dispatch-ledger.yaml").read_text()
+    before = (repo / ".current-work" / "dispatch-ledger.yaml").read_text()
 
     second = _run_dispatch("prepare-wave", "1", cwd=repo, tmp_path=tmp_path)
 
     assert second.returncode == 0, second.stderr
-    after = (repo / ".agent-factory" / "dispatch-ledger.yaml").read_text()
+    after = (repo / ".current-work" / "dispatch-ledger.yaml").read_text()
     assert after == before
 
     worktree = _worktree_path(repo, "ST-001")
@@ -241,7 +241,7 @@ def test_prepare_story_after_predecessor_done(tmp_path: Path) -> None:
     assert worktree.exists()
     porcelain = _git(repo, tmp_path, "worktree", "list", "--porcelain").stdout
     assert f"worktree {worktree.resolve()}" in porcelain
-    assert (worktree / ".agent-factory" / "verify-base-ok").exists()
+    assert (worktree / ".current-work" / "verify-base-ok").exists()
 
     ledger = _load_ledger(repo)
     prepared = ledger.stories["ST-006"]
@@ -300,12 +300,12 @@ def test_prepare_story_idempotent(tmp_path: Path) -> None:
 
     first = _run_dispatch("prepare-story", "ST-006", cwd=repo, tmp_path=tmp_path)
     assert first.returncode == 0, first.stderr
-    before = (repo / ".agent-factory" / "dispatch-ledger.yaml").read_text()
+    before = (repo / ".current-work" / "dispatch-ledger.yaml").read_text()
 
     second = _run_dispatch("prepare-story", "ST-006", cwd=repo, tmp_path=tmp_path)
 
     assert second.returncode == 0, second.stderr
-    after = (repo / ".agent-factory" / "dispatch-ledger.yaml").read_text()
+    after = (repo / ".current-work" / "dispatch-ledger.yaml").read_text()
     assert after == before
 
     worktree = _worktree_path(repo, "ST-006")

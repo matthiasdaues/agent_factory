@@ -1,7 +1,7 @@
 """Tests for the guardrail's worktree verify-base enforcement (ST-0047).
 
 The worktree-commit check in block-dangerous-git.sh must not merely test that a
-`.agent-factory/verify-base-ok` marker exists — the marker's verified base
+`.current-work/verify-base-ok` marker exists — the marker's verified base
 (`head=`) must be an ancestor of the worktree's current HEAD. A stale or
 mismatched marker no longer authorizes a commit; a HEAD advanced by TDD still
 does. Each test builds a real linked worktree and drives the hook against a
@@ -62,7 +62,7 @@ def _setup_worktree(tmp_path: Path) -> tuple[Path, Path, str]:
 
 
 def _write_marker(wt: Path, head: str) -> None:
-    d = wt / ".agent-factory"
+    d = wt / ".current-work"
     d.mkdir(exist_ok=True)
     (d / "verify-base-ok").write_text(
         f"target=main\nexpect_base=\nhead={head}\n", encoding="utf-8"

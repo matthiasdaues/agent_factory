@@ -61,7 +61,7 @@ import json
 import re
 import subprocess
 
-DEFAULT_LEDGER = Path(".agent-factory/dispatch-ledger.yaml")
+DEFAULT_LEDGER = Path(".current-work/dispatch-ledger.yaml")
 
 
 def _git(*args: str) -> tuple[int, str, str]:
@@ -421,7 +421,7 @@ def cmd_init(args: argparse.Namespace) -> int:
             branch_name += f"-and-{len(story_ids) - 3}-more"
 
     # Idempotency check
-    ledger_dir = project_root / ".current_work" / branch_name
+    ledger_dir = project_root / ".current-work" / branch_name
     ledger_path = ledger_dir / "dispatch-ledger.yaml"
     if ledger_path.exists():
         try:
@@ -454,7 +454,7 @@ def cmd_init(args: argparse.Namespace) -> int:
             code, base_sha, _ = _git("rev-parse", "HEAD")
 
         # Create feature branch + worktree
-        worktree_path = project_root / ".agent-factory" / "worktrees" / branch_name
+        worktree_path = project_root / ".current-work" / "worktrees" / branch_name
         code, _, err = _git(
             "worktree", "add", "-b", branch_name, str(worktree_path), base_sha
         )
@@ -609,7 +609,7 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
             continue
 
         branch_name = f"story/{entry.id}"
-        worktree_path = project_root / ".agent-factory" / "worktrees" / f"story-{entry.id}"
+        worktree_path = project_root / ".current-work" / "worktrees" / f"story-{entry.id}"
 
         code, _, err = _git("branch", branch_name, "HEAD")
         if code != 0:
@@ -765,7 +765,7 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
         return 1
 
     branch_name = f"story/{entry.id}"
-    worktree_path = project_root / ".agent-factory" / "worktrees" / f"story-{entry.id}"
+    worktree_path = project_root / ".current-work" / "worktrees" / f"story-{entry.id}"
 
     code, _, err = _git("branch", branch_name, merge_sha)
     if code != 0:
@@ -900,7 +900,7 @@ def cmd_clear_manifest(args: argparse.Namespace) -> int:
     if ledger is None:
         return 1
 
-    current_work_dir = worktree_path / ".current_work"
+    current_work_dir = worktree_path / ".current-work"
     manifest_paths = (
         sorted(current_work_dir.glob(f"**/{MANIFEST_FILENAME}"))
         if current_work_dir.is_dir()

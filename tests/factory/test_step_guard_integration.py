@@ -52,7 +52,7 @@ def _run_guard(
 
 def _write_manifest(cwd: Path, text: str) -> None:
     """Write the active step manifest for a test repo."""
-    manifest = cwd / ".current_work" / "current-step.yml"
+    manifest = cwd / ".current-work" / "current-step.yml"
     manifest.parent.mkdir(parents=True, exist_ok=True)
     manifest.write_text(text)
 
@@ -125,7 +125,7 @@ def test_write_allows_gate_marker(tmp_path: Path) -> None:
     _write_manifest(repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - src/**/*.py\n")
 
     result = _run_guard(
-        "write", repo, tool="Write", path=".current_work/verify-base-ok"
+        "write", repo, tool="Write", path=".current-work/verify-base-ok"
     )
 
     assert result.returncode == 0, result.stderr
@@ -135,11 +135,11 @@ def test_write_denies_ledger(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     _write_manifest(
-        repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n"
+        repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current-work/**\n"
     )
 
     result = _run_guard(
-        "write", repo, tool="Write", path=".current_work/dispatch-ledger.yaml"
+        "write", repo, tool="Write", path=".current-work/dispatch-ledger.yaml"
     )
 
     assert result.returncode == 1
@@ -149,11 +149,11 @@ def test_write_denies_manifest(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     _write_manifest(
-        repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n"
+        repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current-work/**\n"
     )
 
     result = _run_guard(
-        "write", repo, tool="Write", path=".current_work/current-step.yml"
+        "write", repo, tool="Write", path=".current-work/current-step.yml"
     )
 
     assert result.returncode == 1
@@ -182,11 +182,11 @@ def test_security_denies_ledger_even_if_output_glob_matches(tmp_path: Path) -> N
     repo = tmp_path / "repo"
     repo.mkdir()
     _write_manifest(
-        repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n"
+        repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current-work/**\n"
     )
 
     result = _run_guard(
-        "write", repo, tool="Write", path=".current_work/dispatch-ledger.yaml"
+        "write", repo, tool="Write", path=".current-work/dispatch-ledger.yaml"
     )
 
     assert result.returncode == 1
@@ -196,11 +196,11 @@ def test_security_denies_manifest_even_if_output_glob_matches(tmp_path: Path) ->
     repo = tmp_path / "repo"
     repo.mkdir()
     _write_manifest(
-        repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n"
+        repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current-work/**\n"
     )
 
     result = _run_guard(
-        "write", repo, tool="Write", path=".current_work/current-step.yml"
+        "write", repo, tool="Write", path=".current-work/current-step.yml"
     )
 
     assert result.returncode == 1
@@ -255,14 +255,14 @@ def test_bash_denies_manifest_write(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     _write_manifest(
-        repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n"
+        repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current-work/**\n"
     )
 
     result = _run_guard(
         "bash",
         repo,
         tool="Bash",
-        event={"command": "tee .current_work/current-step.yml"},
+        event={"command": "tee .current-work/current-step.yml"},
     )
 
     assert result.returncode == 1
@@ -272,14 +272,14 @@ def test_bash_denies_ledger_write(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     _write_manifest(
-        repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current_work/**\n"
+        repo, "inputs:\n  - docs/spec/prd.md\noutputs:\n  - .current-work/**\n"
     )
 
     result = _run_guard(
         "bash",
         repo,
         tool="Bash",
-        event={"command": "echo x > .current_work/dispatch-ledger.yaml"},
+        event={"command": "echo x > .current-work/dispatch-ledger.yaml"},
     )
 
     assert result.returncode == 1

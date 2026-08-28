@@ -277,7 +277,7 @@ def run_mutation_analysis(
     """Execute mutmut in an isolated workspace and translate the results."""
     if not python_paths:
         return []
-    workspace_root = repo_root / ".agent-factory" / "mutation-analysis" / "workspaces"
+    workspace_root = repo_root / ".current-work" / "mutation-analysis" / "workspaces"
     workspace_root.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=workspace_root, prefix="run-") as temp_dir:
         workspace = Path(temp_dir)
@@ -496,7 +496,7 @@ def resolve_action(
 
 def write_report(repo_root: Path, story_id: str, report: list[MutationReportEntry]) -> Path:
     """Persist the canonical mutation-analysis JSON report."""
-    report_dir = repo_root / ".agent-factory" / "mutation-analysis"
+    report_dir = repo_root / ".current-work" / "mutation-analysis"
     report_dir.mkdir(parents=True, exist_ok=True)
     report_path = report_dir / f"{story_id}.json"
     payload = [asdict(entry) for entry in report]

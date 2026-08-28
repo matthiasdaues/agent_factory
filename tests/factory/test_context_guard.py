@@ -29,7 +29,7 @@ def _write_file(path: Path, size: int) -> None:
 
 def _write_manifest(cwd: Path, text: str) -> None:
     """Write the active step manifest for a test repo."""
-    manifest = cwd / ".current_work" / "current-step.yml"
+    manifest = cwd / ".current-work" / "current-step.yml"
     manifest.parent.mkdir(parents=True, exist_ok=True)
     manifest.write_text(text)
 

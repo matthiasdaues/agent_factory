@@ -5,7 +5,7 @@
 """step-guard — enforce declared step scope for read/write tool events.
 
 The guard reads one JSON event from stdin, loads the active step manifest
-from .current_work/current-step.yml when present, and allows or denies the
+from .current-work/current-step.yml when present, and allows or denies the
 requested path according to the selected guard type.
 """
 
@@ -28,20 +28,20 @@ READ_ALLOWED_PREFIXES = (
     ".github/",
     ".pi/",
     ".codex/",
-    ".current_work/",
+    ".current-work/",
 )
 WRITE_ALLOWED_PREFIXES = ("docs/findings/",)
 WRITE_ALLOWED_PATHS = {
-    ".current_work/verify-base-ok",
-    ".current_work/premerge-check-ok",
+    ".current-work/verify-base-ok",
+    ".current-work/premerge-check-ok",
 }
 WRITE_DENIED_PATHS = {
-    ".current_work/dispatch-ledger.yaml",
-    ".current_work/current-step.yml",
+    ".current-work/dispatch-ledger.yaml",
+    ".current-work/current-step.yml",
 }
 READ_COMMANDS = {"cat", "rg", "grep", "head", "tail", "less", "wc"}
 WRITE_COMMANDS = {"tee"}
-MANIFEST_RELATIVE_PATH = Path(".current_work") / "current-step.yml"
+MANIFEST_RELATIVE_PATH = Path(".current-work") / "current-step.yml"
 
 
 def _manifest_path(cwd: Path) -> Path:

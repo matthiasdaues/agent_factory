@@ -52,7 +52,7 @@ def _run(repo: Path, *args: str) -> subprocess.CompletedProcess:
 
 
 def _marker(repo: Path) -> Path:
-    return repo / ".agent-factory" / "verify-base-ok"
+    return repo / ".current-work" / "verify-base-ok"
 
 
 def test_UC_12_BR_044_abbreviated_declared_base_is_usage_error(tmp_path):

@@ -89,14 +89,14 @@ def _write_ledger(repo: Path, *entries: StoryEntry) -> Path:
     ledger = Ledger()
     for entry in entries:
         ledger.stories[entry.id] = entry
-    ledger_path = repo / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = repo / ".current-work" / "dispatch-ledger.yaml"
     ledger.save(ledger_path)
     return ledger_path
 
 
 def _load_ledger(repo: Path) -> Ledger:
     """Load the repository's default dispatch ledger."""
-    return Ledger.load(repo / ".agent-factory" / "dispatch-ledger.yaml")
+    return Ledger.load(repo / ".current-work" / "dispatch-ledger.yaml")
 
 
 def _commit_on_story_branch(
@@ -208,7 +208,7 @@ def test_merge_story_premerge_check_does_not_use_mutating_git_commands(
     _git(repo, tmp_path, "add", "-A", env=_git_env(tmp_path))
     _git(repo, tmp_path, "commit", "-m", "feat: ST-002", env=_git_env(tmp_path))
     _git(repo, tmp_path, "checkout", "main", env=_git_env(tmp_path))
-    worktree = repo / ".agent-factory" / "worktrees" / "story-ST-002"
+    worktree = repo / ".current-work" / "worktrees" / "story-ST-002"
     _git(
         repo,
         tmp_path,
@@ -269,7 +269,7 @@ def test_escalate_does_not_mutate_git_state(tmp_path: Path) -> None:
 
     (repo / "src").mkdir(exist_ok=True)
     story_sha = _commit_on_story_branch(repo, tmp_path, "story/ST-001", "src/foo.py")
-    worktree = repo / ".agent-factory" / "worktrees" / "story-ST-001"
+    worktree = repo / ".current-work" / "worktrees" / "story-ST-001"
     _git(repo, tmp_path, "worktree", "add", str(worktree), "story/ST-001", env=env)
     _write_ledger(
         repo,

@@ -96,7 +96,7 @@ class TestDispatchInitAtomicCreation:
         )
         assert result.returncode == 0, result.stderr
 
-        ledger_files = list((repo / ".current_work").rglob("dispatch-ledger.yaml"))
+        ledger_files = list((repo / ".current-work").rglob("dispatch-ledger.yaml"))
         assert len(ledger_files) == 1
 
         content = ledger_files[0].read_text()
@@ -146,7 +146,7 @@ class TestDispatchInitFeatureBranch:
             cwd=repo,
         )
         assert result.returncode == 0, result.stderr
-        ledger = repo / ".current_work" / "feature/my-work" / "dispatch-ledger.yaml"
+        ledger = repo / ".current-work" / "feature/my-work" / "dispatch-ledger.yaml"
         assert ledger.exists()
 
     def test_nonexistent_branch_rejected(self, tmp_path: Path) -> None:

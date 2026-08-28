@@ -1755,7 +1755,7 @@ process.stdout.write(JSON.stringify({type:'message_end',message:{role:'assistant
         env,
     )
 
-    assert not (primary / ".agent-factory/worktrees/test-recon-0009").exists()
+    assert not (primary / ".current-work/worktrees/test-recon-0009").exists()
     usage = primary / ".agent-factory/usage"
     _wait_for(lambda: len(list(usage.glob("pi_*.jsonl"))) == 2)
     records = [json.loads(path.read_text()) for path in usage.glob("pi_*.jsonl")]

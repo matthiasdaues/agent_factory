@@ -25,7 +25,7 @@ def run_dispatch(*args: str, cwd: Path) -> subprocess.CompletedProcess:
 
 
 def test_status_valid_ledger(tmp_path):
-    ledger = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger = tmp_path / ".current-work" / "dispatch-ledger.yaml"
     ledger.parent.mkdir(parents=True)
     ledger.write_text(
         textwrap.dedent(

@@ -52,7 +52,7 @@ def _run(repo: Path, *args: str) -> subprocess.CompletedProcess:
 
 
 def _marker(repo: Path) -> Path:
-    return repo / ".agent-factory" / "premerge-check-ok"
+    return repo / ".current-work" / "premerge-check-ok"
 
 
 def test_UC_12_BR_046_stale_target_reverting_branch_blocks(tmp_path):
@@ -166,7 +166,7 @@ def _create_gate_result(
     repo: Path, gate_name: str, story_id: str, passed: bool = True
 ) -> Path:
     """Create a gate result JSON file."""
-    gates_dir = repo / ".agent-factory" / gate_name
+    gates_dir = repo / ".current-work" / gate_name
     gates_dir.mkdir(parents=True, exist_ok=True)
 
     result = {

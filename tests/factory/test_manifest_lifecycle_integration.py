@@ -144,25 +144,25 @@ def _write_ledger(repo: Path, *entries: StoryEntry) -> Path:
     ledger = Ledger()
     for entry in entries:
         ledger.stories[entry.id] = entry
-    ledger_path = repo / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = repo / ".current-work" / "dispatch-ledger.yaml"
     ledger.save(ledger_path)
     return ledger_path
 
 
 def _load_ledger(repo: Path) -> Ledger:
     """Load the repository's default dispatch ledger."""
-    return Ledger.load(repo / ".agent-factory" / "dispatch-ledger.yaml")
+    return Ledger.load(repo / ".current-work" / "dispatch-ledger.yaml")
 
 
 def _worktree_path(repo: Path, story_id: str) -> Path:
     """Return the expected worktree path for one story branch."""
-    return repo / ".agent-factory" / "worktrees" / f"story-{story_id}"
+    return repo / ".current-work" / "worktrees" / f"story-{story_id}"
 
 
 def _manifest_path(worktree: Path, feature_branch: str, story_branch: str) -> Path:
     """Return the expected manifest path for one worktree/story branch."""
     return (
-        worktree / ".current_work" / feature_branch / story_branch / MANIFEST_FILENAME
+        worktree / ".current-work" / feature_branch / story_branch / MANIFEST_FILENAME
     )
 
 

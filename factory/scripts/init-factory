@@ -1624,6 +1624,7 @@ def write_gitignore_block(target: Path, install: dict, report: list[str]) -> Non
         "/.claude/",
         "/.pi/",
         "/.agent-factory/",
+        "/.current-work/",
         "/session-scratchpad.md",
     ]
     if install.get("ignore_model_conf"):

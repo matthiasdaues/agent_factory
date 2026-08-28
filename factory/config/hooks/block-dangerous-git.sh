@@ -28,9 +28,9 @@ TOP=$(git rev-parse --show-toplevel 2>/dev/null)
 if echo "$COMMAND" | grep -qE '^git[[:space:]]+commit([[:space:]]|$)'; then
   if [ "$(git rev-parse --git-dir 2>/dev/null)" != "$(git rev-parse --git-common-dir 2>/dev/null)" ] \
      && [ -n "$TOP" ]; then
-    MARKER="$TOP/.agent-factory/verify-base-ok"
+    MARKER="$TOP/.current-work/verify-base-ok"
     if [ ! -f "$MARKER" ]; then
-      deny "git commit in a worktree with no .agent-factory/verify-base-ok marker. Run factory/scripts/verify-base <target> [--expect-base <SHA>] first."
+      deny "git commit in a worktree with no .current-work/verify-base-ok marker. Run factory/scripts/verify-base <target> [--expect-base <SHA>] first."
     fi
     # ST-0047: the marker must correspond to THIS worktree — its verified base
     # (head=) must be an ancestor of the current HEAD, so a stale or mismatched
@@ -88,11 +88,11 @@ if echo "$COMMAND" | grep -qE '^git[[:space:]]+merge[[:space:]]'; then
     esac
   done
   MERGE_HEAD=$(git rev-parse "$MERGE_BRANCH" 2>/dev/null)
-  MARKER="$TOP/.agent-factory/premerge-check-ok"
+  MARKER="$TOP/.current-work/premerge-check-ok"
   if [ -z "$TOP" ] || [ ! -f "$MARKER" ] \
      || ! grep -qx "branch=$MERGE_BRANCH" "$MARKER" \
      || ! grep -qx "head=$MERGE_HEAD" "$MARKER"; then
-    deny "git merge $MERGE_BRANCH with no passing .agent-factory/premerge-check-ok marker for that branch's current head. Run factory/scripts/premerge-check <target> $MERGE_BRANCH first."
+    deny "git merge $MERGE_BRANCH with no passing .current-work/premerge-check-ok marker for that branch's current head. Run factory/scripts/premerge-check <target> $MERGE_BRANCH first."
   fi
 fi
 

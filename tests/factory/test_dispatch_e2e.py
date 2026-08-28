@@ -168,7 +168,7 @@ def _write_story_commit(
 
 def _ledger_path(repo: Path) -> Path:
     """Return the dispatch ledger path for the two-story smoke test."""
-    return repo / ".current_work" / "impl" / "st-001-st-002" / "dispatch-ledger.yaml"
+    return repo / ".current-work" / "impl" / "st-001-st-002" / "dispatch-ledger.yaml"
 
 
 def _assign_waves(ledger_path: Path) -> None:
@@ -181,12 +181,12 @@ def _assign_waves(ledger_path: Path) -> None:
 
 def _story_worktree(repo: Path, story_id: str) -> Path:
     """Return the per-story worktree path created by prepare-wave."""
-    return repo / ".agent-factory" / "worktrees" / f"story-{story_id}"
+    return repo / ".current-work" / "worktrees" / f"story-{story_id}"
 
 
 def _clean_worktree(worktree: Path) -> None:
     """Remove generated step-guard state before merge cleanup."""
-    current_work = worktree / ".current_work"
+    current_work = worktree / ".current-work"
     if current_work.exists():
         shutil.rmtree(current_work)
 
@@ -196,7 +196,7 @@ def _cleanup_story_leftovers(
 ) -> None:
     """Force-remove leftover story worktree or branch state after merge."""
     result = _git(repo, tmp_path, "worktree", "remove", "--force", str(worktree))
-    if result.returncode != 0:
+    if result.returncode != 0 and "not a working tree" not in result.stderr:
         raise AssertionError(result.stderr)
     result = _git(repo, tmp_path, "branch", "-D", f"story/{story_id}")
     if result.returncode != 0 and "not found" not in result.stderr:
@@ -335,13 +335,13 @@ def test_smoke_two_story_two_wave_dispatch_to_completion(tmp_path: Path) -> None
     tracked_status = [
         line
         for line in status
-        if ".agent-factory/" not in line and "__pycache__" not in line
+        if ".current-work/" not in line and "__pycache__" not in line
     ]
     assert tracked_status == []
 
     story_worktrees = _git(repo, tmp_path, "worktree", "list", "--porcelain").stdout
-    assert ".agent-factory/worktrees/story-ST-001" not in story_worktrees
-    assert ".agent-factory/worktrees/story-ST-002" not in story_worktrees
+    assert ".current-work/worktrees/story-ST-001" not in story_worktrees
+    assert ".current-work/worktrees/story-ST-002" not in story_worktrees
     story_branches = _git(repo, tmp_path, "branch", "--list", "story/*").stdout
     assert story_branches == ""
 
@@ -563,12 +563,12 @@ def test_smoke_failure_escalation_and_redispatch_to_completion(
     tracked_status = [
         line
         for line in status
-        if ".agent-factory/" not in line and "__pycache__" not in line
+        if ".current-work/" not in line and "__pycache__" not in line
     ]
     assert tracked_status == []
 
     story_worktrees = _git(repo, tmp_path, "worktree", "list", "--porcelain").stdout
-    assert ".agent-factory/worktrees/story-ST-001" not in story_worktrees
+    assert ".current-work/worktrees/story-ST-001" not in story_worktrees
     story_branches = _git(repo, tmp_path, "branch", "--list", "story/*").stdout
     assert story_branches == ""
 

@@ -104,7 +104,7 @@ class TestGlobOwnership:
 
 class TestCheckTransitionsCore:
     def test_no_marker_is_noop(self, tmp_path):
-        marker = tmp_path / ".agent-factory" / "playbook-state.yml"
+        marker = tmp_path / ".current-work" / "playbook-state.yml"
         pb = _setup_playbooks(tmp_path)
         findings = check_transitions(["docs/adr/0001.md"], marker, pb)
         assert len(findings) == 1
@@ -112,7 +112,7 @@ class TestCheckTransitionsCore:
         assert findings[0].severity == "info"
 
     def test_marker_missing_fields(self, tmp_path):
-        marker = tmp_path / ".agent-factory" / "playbook-state.yml"
+        marker = tmp_path / ".current-work" / "playbook-state.yml"
         marker.parent.mkdir(parents=True)
         marker.write_text("playbook: greenfield-development\n")
         pb = _setup_playbooks(tmp_path)
@@ -120,14 +120,14 @@ class TestCheckTransitionsCore:
         assert any(f.code == "TL-MARKER" for f in findings)
 
     def test_unknown_state_is_error(self, tmp_path):
-        marker = tmp_path / ".agent-factory" / "playbook-state.yml"
+        marker = tmp_path / ".current-work" / "playbook-state.yml"
         _write_marker(marker, playbook="greenfield-development", state="BOGUS")
         pb = _setup_playbooks(tmp_path)
         findings = check_transitions(["x.py"], marker, pb)
         assert any(f.code == "TL-STATE" for f in findings)
 
     def test_missing_fsm_is_error(self, tmp_path):
-        marker = tmp_path / ".agent-factory" / "playbook-state.yml"
+        marker = tmp_path / ".current-work" / "playbook-state.yml"
         _write_marker(marker, playbook="nonexistent", state="INIT")
         pb = tmp_path / "factory" / "playbooks"
         pb.mkdir(parents=True)
@@ -135,7 +135,7 @@ class TestCheckTransitionsCore:
         assert any(f.code == "TL-NOFSM" for f in findings)
 
     def test_current_state_file_passes(self, tmp_path):
-        marker = tmp_path / ".agent-factory" / "playbook-state.yml"
+        marker = tmp_path / ".current-work" / "playbook-state.yml"
         _write_marker(
             marker, playbook="greenfield-development", state="PHASE_1_REQUIREMENTS"
         )
@@ -145,7 +145,7 @@ class TestCheckTransitionsCore:
         assert errors == []
 
     def test_ungoverned_file_passes(self, tmp_path):
-        marker = tmp_path / ".agent-factory" / "playbook-state.yml"
+        marker = tmp_path / ".current-work" / "playbook-state.yml"
         _write_marker(
             marker, playbook="greenfield-development", state="PHASE_1_REQUIREMENTS"
         )
@@ -155,7 +155,7 @@ class TestCheckTransitionsCore:
         assert errors == []
 
     def test_out_of_phase_file_blocked(self, tmp_path):
-        marker = tmp_path / ".agent-factory" / "playbook-state.yml"
+        marker = tmp_path / ".current-work" / "playbook-state.yml"
         _write_marker(
             marker, playbook="greenfield-development", state="PHASE_1_REQUIREMENTS"
         )
@@ -182,7 +182,7 @@ class TestEndToEndArchitectureBlocked:
     ]
 
     def test_architecture_files_blocked_in_phase_1_gate(self, tmp_path):
-        marker = tmp_path / ".agent-factory" / "playbook-state.yml"
+        marker = tmp_path / ".current-work" / "playbook-state.yml"
         _write_marker(marker, playbook="greenfield-development", state="PHASE_1_GATE")
         pb = _setup_playbooks(tmp_path)
         findings = check_transitions(self.ARCH_FILES, marker, pb)
@@ -191,7 +191,7 @@ class TestEndToEndArchitectureBlocked:
         assert all(e.code == "TL-ORDER" for e in errors)
 
     def test_spec_review_outputs_pass_in_phase_1_gate(self, tmp_path):
-        marker = tmp_path / ".agent-factory" / "playbook-state.yml"
+        marker = tmp_path / ".current-work" / "playbook-state.yml"
         _write_marker(marker, playbook="greenfield-development", state="PHASE_1_GATE")
         pb = _setup_playbooks(tmp_path)
         gate_files = [
@@ -203,7 +203,7 @@ class TestEndToEndArchitectureBlocked:
         assert errors == []
 
     def test_architecture_files_pass_in_phase_2(self, tmp_path):
-        marker = tmp_path / ".agent-factory" / "playbook-state.yml"
+        marker = tmp_path / ".current-work" / "playbook-state.yml"
         _write_marker(
             marker, playbook="greenfield-development", state="PHASE_2_ARCHITECTURE"
         )
@@ -215,7 +215,7 @@ class TestEndToEndArchitectureBlocked:
     def test_mixed_stage_partially_blocked(self, tmp_path):
         """A commit staging both gate outputs and architecture files: only the
         architecture files are blocked."""
-        marker = tmp_path / ".agent-factory" / "playbook-state.yml"
+        marker = tmp_path / ".current-work" / "playbook-state.yml"
         _write_marker(marker, playbook="greenfield-development", state="PHASE_1_GATE")
         pb = _setup_playbooks(tmp_path)
         mixed = ["docs/findings/SPEC-001.md", "docs/adr/0001.md"]
@@ -232,7 +232,7 @@ class TestEndToEndArchitectureBlocked:
 
 class TestMainExitCode:
     def test_clean_returns_zero(self, tmp_path):
-        marker = tmp_path / ".agent-factory" / "playbook-state.yml"
+        marker = tmp_path / ".current-work" / "playbook-state.yml"
         _write_marker(
             marker, playbook="greenfield-development", state="PHASE_1_REQUIREMENTS"
         )
@@ -250,7 +250,7 @@ class TestMainExitCode:
         assert code == 0
 
     def test_report_only_always_returns_zero(self, tmp_path):
-        marker = tmp_path / ".agent-factory" / "playbook-state.yml"
+        marker = tmp_path / ".current-work" / "playbook-state.yml"
         _write_marker(marker, playbook="greenfield-development", state="PHASE_1_GATE")
         pb = _setup_playbooks(tmp_path)
         code = _mod.main(

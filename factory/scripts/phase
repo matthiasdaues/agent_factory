@@ -11,7 +11,7 @@ Subcommand-style tool (like ``structurizr validate``). Two subcommands:
   factory/scripts/phase advance [--by NAME]
   factory/scripts/phase retry [--default-max-iterations N]
 
-``advance`` reads the git-ignored marker (``.agent-factory/playbook-state.yml``),
+``advance`` reads the git-ignored marker (``.current-work/playbook-state.yml``),
 finds the current state's forward transition in the playbook FSM, checks the
 *target* state's ``entry_conditions`` against the ``gate_conditions`` library,
 and refuses (non-zero exit) if any is unmet. This is the loophole the harness
@@ -49,9 +49,9 @@ import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-DEFAULT_MARKER = Path(".agent-factory/playbook-state.yml")
+DEFAULT_MARKER = Path(".current-work/playbook-state.yml")
 DEFAULT_PLAYBOOKS_DIR = Path("factory/playbooks")
 DEFAULT_PLAYBOOK = "greenfield-development"
 FINDINGS_DIR = Path("docs/findings")
@@ -77,8 +77,8 @@ def _scalar(val: str) -> Any:
     return val
 
 
-def parse_marker(text: str) -> Dict[str, str]:
-    out: Dict[str, str] = {}
+def parse_marker(text: str) -> dict[str, str]:
+    out: dict[str, str] = {}
     for raw in text.splitlines():
         ln = _strip_comment(raw).strip()
         if not ln:
@@ -90,7 +90,7 @@ def parse_marker(text: str) -> Dict[str, str]:
 
 
 def parse_fsm(text: str) -> Any:
-    tokens: List[tuple] = []
+    tokens: list[tuple] = []
     for raw in text.splitlines():
         stripped = raw.lstrip(" ")
         if not stripped or stripped.startswith("#"):
@@ -103,20 +103,20 @@ def parse_fsm(text: str) -> Any:
     return value
 
 
-def _parse_block(tokens: List[tuple], pos: int) -> tuple:
+def _parse_block(tokens: list[tuple], pos: int) -> tuple:
     indent = tokens[pos][0]
     if tokens[pos][1].startswith("- "):
         return _parse_seq(tokens, pos, indent)
     return _parse_map(tokens, pos, indent)
 
 
-def _parse_map(tokens: List[tuple], pos: int, indent: int) -> tuple:
-    result: Dict[str, Any] = {}
+def _parse_map(tokens: list[tuple], pos: int, indent: int) -> tuple:
+    result: dict[str, Any] = {}
     while pos < len(tokens):
         ind, content = tokens[pos]
         if ind != indent or content.startswith("- "):
             break
-        key, sep, val = content.partition(":")
+        key, _sep, val = content.partition(":")
         key, val = key.strip(), val.strip()
         if val == "":
             pos += 1
@@ -131,8 +131,8 @@ def _parse_map(tokens: List[tuple], pos: int, indent: int) -> tuple:
     return result, pos
 
 
-def _parse_seq(tokens: List[tuple], pos: int, indent: int) -> tuple:
-    result: List[Any] = []
+def _parse_seq(tokens: list[tuple], pos: int, indent: int) -> tuple:
+    result: list[Any] = []
     while pos < len(tokens):
         ind, content = tokens[pos]
         if ind != indent or not content.startswith("- "):
@@ -156,7 +156,7 @@ def _parse_seq(tokens: List[tuple], pos: int, indent: int) -> tuple:
 # --- FSM navigation -----------------------------------------------------------
 
 
-def first_state(fsm: Dict[str, Any]) -> Optional[str]:
+def first_state(fsm: dict[str, Any]) -> str | None:
     """The state with no incoming transition (INIT for greenfield)."""
     states = fsm.get("states") or {}
     incoming = set()
@@ -170,10 +170,10 @@ def first_state(fsm: Dict[str, Any]) -> Optional[str]:
                     if isinstance(to, str):
                         incoming.add(to)
     roots = [s for s in states if s not in incoming]
-    return sorted(roots)[0] if roots else None
+    return min(roots) if roots else None
 
 
-def _iter_edges(trans: Any) -> List[Dict[str, Any]]:
+def _iter_edges(trans: Any) -> list[dict[str, Any]]:
     if isinstance(trans, dict):
         return [trans]
     if isinstance(trans, list):
@@ -181,7 +181,7 @@ def _iter_edges(trans: Any) -> List[Dict[str, Any]]:
     return []
 
 
-def forward_transition(fsm: Dict[str, Any], state: str) -> Tuple[Optional[str], Any]:
+def forward_transition(fsm: dict[str, Any], state: str) -> tuple[str | None, Any]:
     """Return (target_state, gate_condition_name) for the forward move.
 
     For an ``if/else`` transition the ``if`` branch is the progress path; its
@@ -206,7 +206,7 @@ def forward_transition(fsm: Dict[str, Any], state: str) -> Tuple[Optional[str], 
 # --- Gate condition evaluation ------------------------------------------------
 
 
-def _frontmatter_status(text: str) -> Optional[str]:
+def _frontmatter_status(text: str) -> str | None:
     lines = text.split("\n")
     if not lines or lines[0].strip() != "---":
         return None
@@ -219,7 +219,7 @@ def _frontmatter_status(text: str) -> Optional[str]:
     return None
 
 
-def count_open_findings(repo_root: Path, patterns: List[str]) -> int:
+def count_open_findings(repo_root: Path, patterns: list[str]) -> int:
     n = 0
     findings_dir = repo_root / FINDINGS_DIR
     for pat in patterns:
@@ -231,7 +231,7 @@ def count_open_findings(repo_root: Path, patterns: List[str]) -> int:
     return n
 
 
-def _condition_patterns(cond: Dict[str, Any]) -> List[str]:
+def _condition_patterns(cond: dict[str, Any]) -> list[str]:
     if "patterns" in cond and isinstance(cond["patterns"], list):
         return [p for p in cond["patterns"] if isinstance(p, str)]
     if isinstance(cond.get("pattern"), str):
@@ -239,7 +239,7 @@ def _condition_patterns(cond: Dict[str, Any]) -> List[str]:
     return []
 
 
-def evaluate_condition(repo_root: Path, cond: Dict[str, Any]) -> Tuple[bool, str]:
+def evaluate_condition(repo_root: Path, cond: dict[str, Any]) -> tuple[bool, str]:
     """Evaluate one gate condition. Returns (satisfied, human_reason)."""
     ctype = cond.get("type")
     if ctype == "file_exists":
@@ -271,6 +271,7 @@ def evaluate_condition(repo_root: Path, cond: Dict[str, Any]) -> Tuple[bool, str
                 capture_output=True,
                 text=True,
                 timeout=300,  # 5 minute timeout
+                check=False,
             )
             if result.returncode == 0:
                 return True, f"script_exit_zero {script} (passed)"
@@ -283,18 +284,18 @@ def evaluate_condition(repo_root: Path, cond: Dict[str, Any]) -> Tuple[bool, str
                 )
         except subprocess.TimeoutExpired:
             return False, f"script_exit_zero {script} (timeout after 300s)"
-        except Exception as e:
+        except OSError as e:
             return False, f"script_exit_zero {script} (error: {e})"
     return False, f"unknown condition type {ctype!r}"
 
 
 def check_entry_conditions(
-    repo_root: Path, fsm: Dict[str, Any], state: str
-) -> List[str]:
+    repo_root: Path, fsm: dict[str, Any], state: str
+) -> list[str]:
     """Return the list of unmet-condition reasons for entering ``state``."""
     spec = (fsm.get("states") or {}).get(state) or {}
     library = fsm.get("gate_conditions") or {}
-    unmet: List[str] = []
+    unmet: list[str] = []
     for name in spec.get("entry_conditions") or []:
         cond = library.get(name)
         if not isinstance(cond, dict):
@@ -309,7 +310,7 @@ def check_entry_conditions(
 # --- Marker writing -----------------------------------------------------------
 
 
-def render_marker(fields: Dict[str, Any]) -> str:
+def render_marker(fields: dict[str, Any]) -> str:
     order = [
         "playbook",
         "state",
@@ -334,7 +335,7 @@ def advance(
     playbooks_dir: Path,
     recorded_by: str = "human",
     default_playbook: str = DEFAULT_PLAYBOOK,
-) -> Tuple[int, str]:
+) -> tuple[int, str]:
     """Advance the marker one forward transition. Returns (exit_code, message)."""
     if marker_path.exists():
         marker = parse_marker(marker_path.read_text(encoding="utf-8"))
@@ -396,7 +397,7 @@ def advance_dry_run(
     marker_path: Path,
     playbooks_dir: Path,
     default_playbook: str = DEFAULT_PLAYBOOK,
-) -> Tuple[int, str]:
+) -> tuple[int, str]:
     """Check whether advance would succeed, without writing the marker."""
     if marker_path.exists():
         marker = parse_marker(marker_path.read_text(encoding="utf-8"))
@@ -416,7 +417,7 @@ def advance_dry_run(
         if current is None:
             return 1, "cannot bootstrap: FSM has no root state"
 
-    target, gate = forward_transition(fsm, current)
+    target, _gate = forward_transition(fsm, current)
     if target is None:
         return 1, f"state '{current}' has no forward transition (terminal?)"
 
@@ -435,8 +436,8 @@ def advance_dry_run(
 
 
 def _iteration_limit(
-    fsm: Dict[str, Any], state: str, default_limit: int
-) -> Tuple[int, str]:
+    fsm: dict[str, Any], state: str, default_limit: int
+) -> tuple[int, str]:
     """(limit, message) for *state* — from the FSM's own halt_conditions
     (type: max_iterations) if one names this state, else *default_limit*
     with no message."""
@@ -453,7 +454,7 @@ def _iteration_limit(
     return default_limit, ""
 
 
-def _loop_back_target(fsm: Dict[str, Any], state: str) -> Optional[str]:
+def _loop_back_target(fsm: dict[str, Any], state: str) -> str | None:
     """The ``else`` transition's target for *state*, if it has one — e.g.
     PHASE_1_GATE's else loops back to PHASE_1_REQUIREMENTS. halt_conditions
     are declared against the loop-back target's name (the author state
@@ -476,7 +477,7 @@ def retry(
     marker_path: Path,
     playbooks_dir: Path,
     default_limit: int = 5,
-) -> Tuple[int, str]:
+) -> tuple[int, str]:
     """Record one more attempt at the marker's CURRENT state (the caller is
     about to re-dispatch the same state's agent — a gate failed with
     findings to address, not advanced past). Refuses once that state's
@@ -521,7 +522,7 @@ def retry(
 # --- Driver -------------------------------------------------------------------
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Advance a structured-playbook run.")
     sub = p.add_subparsers(dest="command", required=True)
 

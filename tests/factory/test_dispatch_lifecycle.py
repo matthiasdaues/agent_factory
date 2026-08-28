@@ -373,7 +373,7 @@ def _loaded_status(path: Path, story_id: str) -> StoryState:
 
 
 def test_mark_dispatching_happy_path_and_idempotency(tmp_path):
-    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = tmp_path / ".current-work" / "dispatch-ledger.yaml"
     _write_ledger(ledger_path, ledger_with(story_factory(status=StoryState.PREPARED)))
 
     first = _run_dispatch(
@@ -389,7 +389,7 @@ def test_mark_dispatching_happy_path_and_idempotency(tmp_path):
 
 
 def test_mark_dispatching_rejects_wrong_source_state(tmp_path):
-    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = tmp_path / ".current-work" / "dispatch-ledger.yaml"
     _write_ledger(ledger_path, ledger_with(story_factory(status=StoryState.DONE)))
 
     result = _run_dispatch(
@@ -401,7 +401,7 @@ def test_mark_dispatching_rejects_wrong_source_state(tmp_path):
 
 
 def test_mark_dispatched_happy_path_and_idempotency(tmp_path):
-    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = tmp_path / ".current-work" / "dispatch-ledger.yaml"
     _write_ledger(
         ledger_path,
         ledger_with(story_factory(status=StoryState.DISPATCHING)),
@@ -418,7 +418,7 @@ def test_mark_dispatched_happy_path_and_idempotency(tmp_path):
 
 
 def test_mark_dispatched_rejects_wrong_source_state(tmp_path):
-    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = tmp_path / ".current-work" / "dispatch-ledger.yaml"
     _write_ledger(ledger_path, ledger_with(story_factory(status=StoryState.PREPARED)))
 
     result = _run_dispatch(
@@ -430,7 +430,7 @@ def test_mark_dispatched_rejects_wrong_source_state(tmp_path):
 
 
 def test_mark_blocked_records_reason_and_allows_rerun(tmp_path):
-    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = tmp_path / ".current-work" / "dispatch-ledger.yaml"
     _write_ledger(ledger_path, ledger_with(story_factory(status=StoryState.PREPARED)))
 
     first = _run_dispatch(
@@ -458,7 +458,7 @@ def test_mark_blocked_records_reason_and_allows_rerun(tmp_path):
 
 
 def test_mark_blocked_rejects_terminal_story(tmp_path):
-    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = tmp_path / ".current-work" / "dispatch-ledger.yaml"
     _write_ledger(ledger_path, ledger_with(story_factory(status=StoryState.DONE)))
 
     result = _run_dispatch(
@@ -503,7 +503,7 @@ def _git_head(repo_path: Path) -> str:
 
 
 def test_mark_failed_happy_path_and_idempotency(tmp_path):
-    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = tmp_path / ".current-work" / "dispatch-ledger.yaml"
     _init_git_repo_with_tracked_file(tmp_path)
     _write_ledger(
         ledger_path,
@@ -522,7 +522,7 @@ def test_mark_failed_happy_path_and_idempotency(tmp_path):
 
 
 def test_mark_failed_rejects_wrong_source_state(tmp_path):
-    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = tmp_path / ".current-work" / "dispatch-ledger.yaml"
     _init_git_repo_with_tracked_file(tmp_path)
     _write_ledger(ledger_path, ledger_with(story_factory(status=StoryState.PREPARED)))
 
@@ -541,7 +541,7 @@ def test_mark_failed_rejects_wrong_source_state(tmp_path):
 
 
 def test_valid_failure_class_and_tracked_evidence_recorded(tmp_path):
-    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = tmp_path / ".current-work" / "dispatch-ledger.yaml"
     _init_git_repo_with_tracked_file(tmp_path, "proof.log")
     _write_ledger(
         ledger_path,
@@ -579,7 +579,7 @@ def test_valid_failure_class_and_tracked_evidence_recorded(tmp_path):
     ],
 )
 def test_all_seven_classes_accepted(tmp_path, failure_class):
-    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = tmp_path / ".current-work" / "dispatch-ledger.yaml"
     _init_git_repo_with_tracked_file(tmp_path)
     _write_ledger(
         ledger_path,
@@ -603,7 +603,7 @@ def test_all_seven_classes_accepted(tmp_path, failure_class):
 
 
 def test_unknown_class_rejected(tmp_path):
-    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = tmp_path / ".current-work" / "dispatch-ledger.yaml"
     _init_git_repo_with_tracked_file(tmp_path)
     _write_ledger(
         ledger_path,
@@ -626,7 +626,7 @@ def test_unknown_class_rejected(tmp_path):
 
 
 def test_untracked_evidence_rejected(tmp_path):
-    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = tmp_path / ".current-work" / "dispatch-ledger.yaml"
     _init_git_repo_with_tracked_file(tmp_path)
     untracked = tmp_path / "untracked.txt"
     untracked.write_text("not tracked\n")
@@ -652,7 +652,7 @@ def test_untracked_evidence_rejected(tmp_path):
 
 
 def test_basic_failure_transition_does_not_require_metadata(tmp_path):
-    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = tmp_path / ".current-work" / "dispatch-ledger.yaml"
     _init_git_repo_with_tracked_file(tmp_path)
     _write_ledger(
         ledger_path,
@@ -666,7 +666,7 @@ def test_basic_failure_transition_does_not_require_metadata(tmp_path):
 
 
 def test_re_dispatch_happy_path_and_idempotency(tmp_path):
-    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = tmp_path / ".current-work" / "dispatch-ledger.yaml"
     _write_ledger(ledger_path, ledger_with(story_factory(status=StoryState.FAILED)))
 
     first = _run_dispatch("re-dispatch", "ST-001", cwd=tmp_path, ledger=ledger_path)
@@ -796,7 +796,7 @@ def test_re_dispatch_disposition_by_failure_class(
 
 
 def test_re_dispatch_rejects_wrong_source_state(tmp_path):
-    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = tmp_path / ".current-work" / "dispatch-ledger.yaml"
     _write_ledger(ledger_path, ledger_with(story_factory(status=StoryState.DISPATCHED)))
 
     result = _run_dispatch("re-dispatch", "ST-001", cwd=tmp_path, ledger=ledger_path)
@@ -805,7 +805,7 @@ def test_re_dispatch_rejects_wrong_source_state(tmp_path):
 
 
 def test_close_wave_records_summary_and_commits(tmp_path):
-    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = tmp_path / ".current-work" / "dispatch-ledger.yaml"
     _init_git_repo_with_tracked_file(tmp_path, "placeholder.txt")
     branch_head = _git_head(tmp_path)
     _write_ledger(
@@ -843,7 +843,7 @@ def test_close_wave_records_summary_and_commits(tmp_path):
 
 
 def test_close_wave_is_idempotent(tmp_path):
-    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = tmp_path / ".current-work" / "dispatch-ledger.yaml"
     _init_git_repo_with_tracked_file(tmp_path, "placeholder.txt")
     _write_ledger(
         ledger_path,
@@ -867,7 +867,7 @@ def test_close_wave_is_idempotent(tmp_path):
 
 
 def test_close_wave_rejects_non_terminal_story(tmp_path):
-    ledger_path = tmp_path / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = tmp_path / ".current-work" / "dispatch-ledger.yaml"
     _write_ledger(
         ledger_path,
         ledger_with(

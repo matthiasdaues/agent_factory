@@ -14,7 +14,7 @@ Rule format
   <module> must_not_depend_on <module>
 
 Output
-  Writes JSON to .agent-factory/dependency-check/<story-id>.json and to
+  Writes JSON to .current-work/dependency-check/<story-id>.json and to
   stdout. Exits 1 when any violation is found.
 """
 
@@ -34,7 +34,7 @@ RULE_PATTERN = re.compile(
     r"^(?P<source>[A-Za-z0-9_./-]+)\s+must_not_depend_on\s+(?P<target>[A-Za-z0-9_./-]+)$"
 )
 EXCLUDED_DIRS = {
-    ".agent-factory",
+    ".current-work",
     ".git",
     ".hg",
     ".mypy_cache",
@@ -97,7 +97,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--report-dir",
-        default=".agent-factory/dependency-check",
+        default=".current-work/dependency-check",
         help="directory where JSON reports are written",
     )
     return parser.parse_args(argv)

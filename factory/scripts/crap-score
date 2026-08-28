@@ -15,7 +15,7 @@ Formula
   CRAP(m) = comp(m)^2 * (1 - cov(m)/100)^3 + comp(m)
 
 Output
-  Writes JSON to .agent-factory/crap-score/<story-id>.json and to
+  Writes JSON to .current-work/crap-score/<story-id>.json and to
   stdout. Exits 1 when any function exceeds the threshold.
 """
 
@@ -34,7 +34,7 @@ from radon.complexity import cc_visit
 
 DEFAULT_THRESHOLD = 30.0
 EXCLUDED_DIRS = {
-    ".agent-factory",
+    ".current-work",
     ".git",
     ".hg",
     ".mypy_cache",
@@ -82,7 +82,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--report-dir",
-        default=".agent-factory/crap-score",
+        default=".current-work/crap-score",
         help="directory where JSON reports are written",
     )
     return parser.parse_args(argv)

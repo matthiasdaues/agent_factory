@@ -104,14 +104,14 @@ def _write_ledger(repo: Path, *entries: StoryEntry) -> Path:
     ledger = Ledger()
     for entry in entries:
         ledger.stories[entry.id] = entry
-    ledger_path = repo / ".agent-factory" / "dispatch-ledger.yaml"
+    ledger_path = repo / ".current-work" / "dispatch-ledger.yaml"
     ledger.save(ledger_path)
     return ledger_path
 
 
 def _load_ledger(repo: Path) -> Ledger:
     """Load the repository's default dispatch ledger."""
-    return Ledger.load(repo / ".agent-factory" / "dispatch-ledger.yaml")
+    return Ledger.load(repo / ".current-work" / "dispatch-ledger.yaml")
 
 
 def _write_git_wrapper(
@@ -174,7 +174,7 @@ def test_prepare_wave_runs_from_scratch_when_nothing_was_written(
     first = _run_dispatch("prepare-wave", "1", cwd=repo, tmp_path=tmp_path)
     assert first.returncode == 1
 
-    before = (repo / ".agent-factory" / "dispatch-ledger.yaml").read_text()
+    before = (repo / ".current-work" / "dispatch-ledger.yaml").read_text()
     assert _load_ledger(repo).stories["ST-001"].status == StoryState.PENDING
 
     delete_branch = _git(repo, tmp_path, "branch", "-D", "story/ST-001")
@@ -182,7 +182,7 @@ def test_prepare_wave_runs_from_scratch_when_nothing_was_written(
 
     second = _run_dispatch("prepare-wave", "1", cwd=repo, tmp_path=tmp_path)
     assert second.returncode == 0, second.stderr
-    after = (repo / ".agent-factory" / "dispatch-ledger.yaml").read_text()
+    after = (repo / ".current-work" / "dispatch-ledger.yaml").read_text()
     assert after != before
     assert _load_ledger(repo).stories["ST-001"].status == StoryState.PREPARED
 
@@ -221,7 +221,7 @@ def test_merge_story_reuses_existing_merge_commit_after_interruption(
     repo = _init_repo(tmp_path, test_command=str(tmp_path / "run-suite.sh"))
     suite = tmp_path / "run-suite.sh"
     suite.write_text(
-        "#!/usr/bin/env sh\nset -eu\nprintf 'ran\\n' > .agent-factory/test-suite-ran\n"
+        "#!/usr/bin/env sh\nset -eu\nprintf 'ran\\n' > .current-work/test-suite-ran\n"
     )
     suite.chmod(0o755)
     story_path = repo / "backlog" / "ST-777.md"
@@ -237,7 +237,7 @@ def test_merge_story_reuses_existing_merge_commit_after_interruption(
     _git(repo, tmp_path, "add", "-A")
     _git(repo, tmp_path, "commit", "-m", "feat: ST-777")
     _git(repo, tmp_path, "checkout", "main")
-    worktree = repo / ".agent-factory" / "worktrees" / "story-ST-777"
+    worktree = repo / ".current-work" / "worktrees" / "story-ST-777"
     _git(repo, tmp_path, "worktree", "add", str(worktree), "story/ST-777")
     _write_ledger(
         repo,
@@ -254,7 +254,7 @@ def test_merge_story_reuses_existing_merge_commit_after_interruption(
     result = _run_dispatch("merge-story", "ST-777", cwd=repo, tmp_path=tmp_path)
     assert result.returncode == 0, result.stderr
 
-    assert (repo / ".agent-factory" / "test-suite-ran").exists()
+    assert (repo / ".current-work" / "test-suite-ran").exists()
     ledger = _load_ledger(repo)
     assert ledger.stories["ST-777"].status == StoryState.DONE
     assert ledger.stories["ST-777"].commit_sha
@@ -307,14 +307,14 @@ def test_prepare_wave_exits_immediately_when_signal_is_already_aborted(
         sleep_match=["branch", "story/ST-001", "HEAD"],
         sleep_seconds=10.0,
     )
-    before = (repo / ".agent-factory" / "dispatch-ledger.yaml").read_text()
+    before = (repo / ".current-work" / "dispatch-ledger.yaml").read_text()
 
     proc = _spawn_dispatch("prepare-wave", "1", cwd=repo, tmp_path=tmp_path, env=env)
     proc.send_signal(signal.SIGINT)
     proc.communicate(timeout=20)
     assert proc.returncode not in {0, None}
 
-    after = (repo / ".agent-factory" / "dispatch-ledger.yaml").read_text()
+    after = (repo / ".current-work" / "dispatch-ledger.yaml").read_text()
     assert after == before
     ledger = _load_ledger(repo)
     assert ledger.stories["ST-001"].status == StoryState.PENDING

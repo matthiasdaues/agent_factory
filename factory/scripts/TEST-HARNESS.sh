@@ -14,16 +14,16 @@ echo "=========================================="
 echo ""
 
 # Setup
-echo "SETUP: Creating .agent-factory directory and initial marker..."
-mkdir -p .agent-factory
+echo "SETUP: Creating .current-work directory and initial marker..."
+mkdir -p .current-work
 
-cat > .agent-factory/playbook-state.yml << 'MARKER'
+cat > .current-work/playbook-state.yml << 'MARKER'
 playbook: greenfield-development
 state: INIT
 MARKER
 
 echo "✓ Marker created at INIT state:"
-cat .agent-factory/playbook-state.yml
+cat .current-work/playbook-state.yml
 echo ""
 
 # Test 1
@@ -33,7 +33,7 @@ echo "=========================================="
 factory/scripts/phase advance
 echo ""
 echo "✓ Marker after advance:"
-cat .agent-factory/playbook-state.yml
+cat .current-work/playbook-state.yml
 echo ""
 read -p "Press Enter to continue..."
 
@@ -89,7 +89,7 @@ echo "Files created. Attempting advance..."
 factory/scripts/phase advance && echo "✓ Successfully advanced!"
 echo ""
 echo "Marker now shows:"
-cat .agent-factory/playbook-state.yml
+cat .current-work/playbook-state.yml
 echo ""
 read -p "Press Enter to continue..."
 
@@ -97,7 +97,7 @@ read -p "Press Enter to continue..."
 echo "=========================================="
 echo "TEST 6: Test iteration cap (retry limit)"
 echo "=========================================="
-cat > .agent-factory/playbook-state.yml << 'MARKER'
+cat > .current-work/playbook-state.yml << 'MARKER'
 playbook: greenfield-development
 state: PHASE_1_REQUIREMENTS
 iteration: 4
@@ -107,7 +107,7 @@ echo "Set iteration to 4 (cap is 5)"
 echo ""
 echo "Retry #1 (should succeed):"
 factory/scripts/phase retry && echo "✓ Retry allowed (4→5)"
-cat .agent-factory/playbook-state.yml | grep iteration
+cat .current-work/playbook-state.yml | grep iteration
 echo ""
 echo "Retry #2 (should BLOCK - cap exceeded):"
 factory/scripts/phase retry 2>&1 || echo "✓ Correctly BLOCKED - iteration cap exceeded!"
@@ -118,7 +118,7 @@ echo "=========================================="
 echo "CLEANUP"
 echo "=========================================="
 echo "Removing test artifacts..."
-rm -rf .agent-factory docs/spec
+rm -rf .current-work docs/spec
 git reset HEAD . 2>/dev/null || true
 echo "✓ Cleanup complete"
 echo ""
