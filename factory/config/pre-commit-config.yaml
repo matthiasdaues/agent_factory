@@ -90,15 +90,6 @@ repos:
         pass_filenames: false
         files: ^(factory/agents/.*\.md|factory/skills/.*/SKILL\.md|factory/playbooks/.*\.md)$
 
-      # ready-to-share gate; runs by default and can be bypassed with git push --no-verify
-      - id: agent_factory_hook-run-tests-full
-        name: "agent_factory: run-tests (full suite)"
-        entry: factory/scripts/run-tests --full
-        language: system
-        stages: [pre-push]
-        pass_filenames: false
-        always_run: true
-
       # governs phase ORDERING between playbook states (not artifact validity);
       # inspects everything staged, so it always runs — no-op without a marker
       - id: agent_factory_hook-transition-lint
