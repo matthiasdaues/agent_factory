@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: "Test Gate Presence over Test Execution"
-status: open
+status: accepted
 owner: Matthias Daues
 created: 2026-08-28
 updated: 2026-08-28
