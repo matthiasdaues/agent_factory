@@ -25,6 +25,9 @@ impact:
     - factory/config/hooks/block-dangerous-git.sh
     - factory/playbooks/bug-fix.fsm.yml
     - factory/playbooks/greenfield-development.fsm.yml
+    - factory/scripts/mutation-analysis
+    - factory/skills/mutation-analysis/SKILL.md
+    - docs/adr/0012-dispatcher-owned-semantic-gate-loop.md
 
 governance:
   assurance: elevated
@@ -47,7 +50,7 @@ estimate:
 
 ## Summary
 
-Factory must stop owning test execution — in consumer projects and in its own repository. The current `factory/scripts/run-tests` detects framework markers and constructs host-side test commands, a boundary violation that breaks projects with their own test topology. Instead, testing becomes entirely project-owned infrastructure: every project (including Factory itself) declares its test commands in `docs/charter/testing.yaml`, Factory's guardrails and FSM gates read that declaration, and `init-factory` stops injecting any test-related hooks into `.pre-commit-config.yaml`. The `run-tests` script is deleted from the repository entirely — not kept for Factory, not moved. When a project has no test regime, Factory helps build project-owned test infrastructure during onboarding, infrastructure that survives `remove-factory`.
+Factory must stop owning test execution — in consumer projects and in its own repository. The current `factory/scripts/run-tests` detects framework markers and constructs host-side test commands, a boundary violation that breaks projects with their own test topology. The same boundary violation applies to `factory/scripts/mutation-analysis`, which hardcodes mutmut with pytest internals and cannot reach test infrastructure that runs inside containers or custom runners. Instead, testing becomes entirely project-owned infrastructure: every project (including Factory itself) declares its test commands in `docs/charter/testing.yaml`, Factory's guardrails and FSM gates read that declaration, and `init-factory` stops injecting any test-related hooks into `.pre-commit-config.yaml`. Both `run-tests` and `mutation-analysis` are deleted from the repository. The `mutation-analysis` skill is retained as guidance for setting up project-owned mutation testing, but the script that imposed a specific tool and runner is removed. When a project has no test regime, Factory helps build project-owned test infrastructure during onboarding, infrastructure that survives `remove-factory`.
 
 ## Motivation
 
@@ -67,9 +70,13 @@ The root cause is a boundary violation: Factory imposes its own test execution s
 
 ## Design
 
-### 1. Delete `factory/scripts/run-tests` from the repository
+### 1. Delete `factory/scripts/run-tests` and `factory/scripts/mutation-analysis` from the repository
 
-The script is deleted entirely — not moved, not kept for Factory's own tests, not excluded from distribution. Because `init-factory` symlinks the entire `factory/scripts/` directory, any script that remains there is visible to consumer projects. Deleting it is the only clean resolution. Factory's own test regime uses the same `testing.yaml` mechanism as every consumer project.
+Both scripts are deleted entirely — not moved, not kept for Factory's own tests, not excluded from distribution. Because `init-factory` symlinks the entire `factory/scripts/` directory, any script that remains there is visible to consumer projects. Deleting them is the only clean resolution.
+
+`run-tests` imposed a framework-detected host-side test command. `mutation-analysis` imposed mutmut with hardcoded pytest internals — it imports `mutmut.__main__`, writes a `setup.cfg` with pytest-specific config, and assumes the test runner is reachable on the host. Both encode assumptions about the project's test topology that Factory has no right to make.
+
+Factory's own test regime uses the same `testing.yaml` mechanism as every consumer project. The `mutation-analysis` skill (`factory/skills/mutation-analysis/SKILL.md`) is retained as guidance for setting up project-owned mutation testing but is rewritten to describe the setup process rather than prescribe a specific tool chain. The `crap-score` script is unaffected — it analyzes source code structure without invoking any test runner.
 
 ### 2. Remove the test hook from Factory's pre-commit config
 
@@ -155,6 +162,7 @@ The following specification documents reference `factory/scripts/run-tests` by p
 - **UC-10** (`docs/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md`): update BR-033 allowlist reference and acceptance criteria from `factory/scripts/run-tests --staged` to charter-declared `test_staged_command`.
 - **interface-contracts.md** (`docs/spec/supplementary_specs/interface-contracts.md`): update guardrail binding references.
 - **validation-rules.md** (`docs/spec/supplementary_specs/validation-rules.md`): update BR-024 allowlist description from hardcoded path to charter-declared commands.
+- **ADR-0012** (`docs/adr/0012-dispatcher-owned-semantic-gate-loop.md`): update mutation-analysis invocation references from `factory/scripts/mutation-analysis` to project-owned mutation testing.
 
 ### What stays
 
@@ -166,14 +174,15 @@ The following specification documents reference `factory/scripts/run-tests` by p
 
 **In the first release:**
 
-- Delete `factory/scripts/run-tests` from the repository.
+- Delete `factory/scripts/run-tests` and `factory/scripts/mutation-analysis` from the repository.
 - Remove `agent_factory_hook-run-tests-full` from `factory/config/pre-commit-config.yaml`.
 - Create the `testing.yaml` template at `factory/rulebooks/templates/charter-testing.yaml` (schema defined by example, no formal JSON Schema artifact).
 - Create Factory's own `docs/charter/testing.yaml`.
 - Update `block-dangerous-git.sh` to read the agent test allowlist from `docs/charter/testing.yaml`, with exact matching on all declared command fields.
 - Update FSM gate evaluation in `bug-fix.fsm.yml` and `greenfield-development.fsm.yml` to resolve the test command from `docs/charter/testing.yaml`.
 - Create the `detect-test-regime` skill for use during onboarding.
-- Update UC-09, ADR-0003, prd.md, UC-10, interface-contracts.md, and validation-rules.md.
+- Rewrite `factory/skills/mutation-analysis/SKILL.md` as setup guidance rather than a prescribed tool chain.
+- Update UC-09, ADR-0003, ADR-0012, prd.md, UC-10, interface-contracts.md, and validation-rules.md.
 
 **Explicitly deferred (do NOT plan stories for these):**
 
@@ -213,7 +222,7 @@ No remaining open questions.
 
 ## Completion Criteria
 
-- `factory/scripts/run-tests` is deleted from the repository (not moved, not kept).
+- `factory/scripts/run-tests` and `factory/scripts/mutation-analysis` are deleted from the repository (not moved, not kept).
 - `factory/config/pre-commit-config.yaml` contains no test-related hooks.
 - `factory/rulebooks/templates/charter-testing.yaml` exists as the template (schema defined by example).
 - Factory's own `docs/charter/testing.yaml` declares its test commands.
@@ -223,7 +232,8 @@ No remaining open questions.
 - When multiple test entrypoints are detected, Factory asks for disambiguation instead of guessing.
 - UC-09 documents testing as project-owned infrastructure.
 - ADR-0003 carries an amendment recording this design change.
-- prd.md, UC-10, interface-contracts.md, and validation-rules.md are updated to reference charter-declared commands instead of `factory/scripts/run-tests`.
+- `factory/skills/mutation-analysis/SKILL.md` describes how to set up project-owned mutation testing, not a prescribed tool chain.
+- prd.md, UC-10, ADR-0012, interface-contracts.md, and validation-rules.md are updated to reference charter-declared commands instead of `factory/scripts/run-tests`.
 - The Gigacron reproducer (`make test` via Compose) works correctly when declared in `docs/charter/testing.yaml`.
 - `remove-factory` leaves `docs/charter/testing.yaml` and project-owned test infrastructure intact.
 
