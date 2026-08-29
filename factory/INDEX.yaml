@@ -10,8 +10,8 @@ agents:
     tier: standard
     description: Open-ended conversation that helps an idea find its shape. Starts formless — just talking — and coalesces into the right next step when the idea is ready. The agent you pick before things get serious.
     path: agents/chat-agent.md
-    tokens: 849
-    total_tokens: 3566
+    tokens: 888
+    total_tokens: 3605
   - name: coaching-agent
     title: Coaching Agent
     phase: 0
@@ -19,8 +19,8 @@ agents:
     tier: standard
     description: Run retrospectives, extract action items, and track process improvements across sessions.
     path: agents/coaching-agent.md
-    tokens: 412
-    total_tokens: 1074
+    tokens: 462
+    total_tokens: 1124
   - name: kit-manager
     title: Kit Manager
     phase: 0
@@ -28,8 +28,8 @@ agents:
     tier: standard
     description: Help set up the work environment — scaffold or complete the project charter and validate the result. Accepts ad-hoc reference material (repos, files, URLs) and runs a structured interview to fill charter gaps. Runs in the current session so the stakeholder can answer questions directly.
     path: agents/kit-manager.md
-    tokens: 1447
-    total_tokens: 7962
+    tokens: 1497
+    total_tokens: 8012
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
@@ -109,8 +109,8 @@ agents:
     tier: strong
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
-    tokens: 1295
-    total_tokens: 7254
+    tokens: 1392
+    total_tokens: 7651
   - name: claim-reviewer
     title: Claim Reviewer
     phase: 6
@@ -214,6 +214,11 @@ skills:
     description: Derive a per-feature QA strategy document from a consolidated .feature file, supplementary specs, charter layer bindings, and repository test infrastructure.
     path: skills/qa-strategy-from-spec/SKILL.md
     tokens: 3902
+  - name: reverse-map
+    category: requirements
+    description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation. Writes docs/spec/scope-map.md and seeds docs/CONTEXT.md.
+    path: skills/reverse-map/SKILL.md
+    tokens: 1243
   - name: scope-map-migration
     category: requirements
     description: Backfill docs/spec/scope-map.md from existing derive-spec artifacts before the first derive-feature run.
@@ -288,12 +293,12 @@ skills:
     category: quality
     description: Exploratory testing followed by a TDD bug-fix loop. Find bugs, file findings, fix with regression tests, retest.
     path: skills/bug-hunt/SKILL.md
-    tokens: 450
+    tokens: 562
   - name: fagan-review
     category: quality
     description: Structured code review following the Fagan Inspection method — correctness, Clean Architecture, SOLID, maintainability.
     path: skills/fagan-review/SKILL.md
-    tokens: 467
+    tokens: 561
   - name: mutation-analysis
     category: quality
     description: Set up project-owned mutation testing to verify behavioral coverage, classify survivors, and — when a QA strategy contract-owner table exists — classify each mutant's contract ownership.
@@ -303,7 +308,7 @@ skills:
     category: quality
     description: Security-focused code review based on the OWASP Top 10.
     path: skills/security-review/SKILL.md
-    tokens: 351
+    tokens: 445
   - name: caveman
     category: utility
     description: Ultra-compressed communication mode for the workflow. Cuts token use by dropping filler, articles, and pleasantries while keeping full technical accuracy. The workflow's default communication style for everything except specification and documentation prose (which stay Plain English, Strunk & White). Adapted from JuliusBrussee/caveman.
@@ -324,6 +329,11 @@ skills:
     description: Relentless interview to sharpen a plan or design until reaching shared understanding. Use when the user wants to stress-test a plan, get grilled on their design, or mentions "grill me".
     path: skills/grilling/SKILL.md
     tokens: 469
+  - name: guided-tour
+    category: utility
+    description: Mid-session reorientation — show where the user is in the current workflow, what they can do next, and what factory concepts are relevant. Outside an active playbook, present the session entrypoint options with explanations.
+    path: skills/guided-tour/SKILL.md
+    tokens: 524
   - name: handoff
     category: utility
     description: Create and validate a dense phase-boundary restart contract before ending the outgoing session.
@@ -426,8 +436,8 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 2470
-    total_tokens: 29370
+    tokens: 2921
+    total_tokens: 29821
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -438,7 +448,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 777
-    total_tokens: 12230
+    total_tokens: 12627
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -465,8 +475,8 @@ playbooks:
       - implementation-agent
       - reconciliation-agent
       - qa-agent
-    tokens: 4451
-    total_tokens: 69169
+    tokens: 4671
+    total_tokens: 69786
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -483,8 +493,8 @@ playbooks:
       - reconciliation-agent
       - qa-agent
       - coaching-agent
-    tokens: 2978
-    total_tokens: 68770
+    tokens: 3012
+    total_tokens: 69251
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -500,7 +510,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1281
-    total_tokens: 12734
+    total_tokens: 13131
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
