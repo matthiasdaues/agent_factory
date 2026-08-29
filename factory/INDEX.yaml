@@ -374,10 +374,6 @@ skills:
     description: Produce one precise, testable claim from recorded evidence with scope, assumptions, and content hash.
     path: skills/claim-formulation/SKILL.md
     tokens: 1030
-  - name: detect-test-regime
-    description: Scan project for test entrypoints and record the result in docs/charter/testing.yaml. Code is the source of truth; the charter is a derived record.
-    path: skills/detect-test-regime/SKILL.md
-    tokens: 2046
   - name: refutation-design
     category: research
     description: Define refuting evidence, conditions for refutation, and severe tests to expose them.
