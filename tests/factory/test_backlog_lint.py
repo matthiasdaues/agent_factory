@@ -156,14 +156,14 @@ def test_quality_gates_subset_requires_justification_notes(tmp_path: Path) -> No
     _write_story(
         backlog_dir,
         "ST-9999",
-        _base_story(quality_gates="[crap-score, dependency-check]"),
+        _base_story(quality_gates="[crap-score]"),
     )
 
     result = _run_backlog_lint(backlog_dir)
 
     assert result.returncode == 1
     assert "notes" in result.stdout
-    assert "mutation-analysis" in result.stdout
+    assert "dependency-check" in result.stdout
 
 
 def test_quality_gates_subset_with_justification_notes_passes(tmp_path: Path) -> None:
@@ -174,8 +174,8 @@ def test_quality_gates_subset_with_justification_notes_passes(tmp_path: Path) ->
         backlog_dir,
         "ST-9999",
         _base_story(
-            quality_gates="[crap-score, dependency-check]",
-            notes="mutation-analysis excluded: no production code changes.",
+            quality_gates="[crap-score]",
+            notes="dependency-check excluded: no new imports.",
         ),
     )
 

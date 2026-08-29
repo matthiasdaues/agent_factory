@@ -257,10 +257,37 @@ def evaluate_condition(repo_root: Path, cond: dict[str, Any]) -> tuple[bool, str
         n = count_open_findings(repo_root, patterns)
         return (n == 0), f"no_open_findings {patterns} (open={n})"
     if ctype == "script_exit_zero":
-        # T-03: Execute the script and check for exit code 0 (UC-09, BR-026)
         script = cond.get("script")
         if not script:
             return False, "script_exit_zero: no script specified"
+
+        if script.startswith("charter:"):
+            field = script[len("charter:") :]
+            charter_file = cond.get("charter_file")
+            if not charter_file:
+                return False, f"script_exit_zero {script}: no charter_file specified"
+            charter_path = repo_root / charter_file
+            if not charter_path.exists():
+                return (
+                    False,
+                    f"script_exit_zero {script}: charter file {charter_file} not found",
+                )
+            import yaml
+
+            try:
+                charter = yaml.safe_load(charter_path.read_text()) or {}
+            except (yaml.YAMLError, OSError) as e:
+                return (
+                    False,
+                    f"script_exit_zero {script}: cannot parse {charter_file}: {e}",
+                )
+            resolved = charter.get(field)
+            if not resolved:
+                return (
+                    False,
+                    f"script_exit_zero {script}: field '{field}' missing in {charter_file}",
+                )
+            script = resolved
 
         import subprocess
 
@@ -270,13 +297,12 @@ def evaluate_condition(repo_root: Path, cond: dict[str, Any]) -> tuple[bool, str
                 cwd=repo_root,
                 capture_output=True,
                 text=True,
-                timeout=300,  # 5 minute timeout
+                timeout=300,
                 check=False,
             )
             if result.returncode == 0:
                 return True, f"script_exit_zero {script} (passed)"
             else:
-                # Include stderr output in failure reason for debugging
                 stderr_preview = result.stderr[:200] if result.stderr else "(no output)"
                 return (
                     False,

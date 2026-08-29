@@ -1,4 +1,4 @@
-"""UC-09 contracts for installing the pre-push full-suite test gate (ST-0073)."""
+"""UC-09 contracts: Factory does not inject test hooks; projects own testing (ST-0149)."""
 
 from __future__ import annotations
 
@@ -46,17 +46,17 @@ def _install_template(target: Path) -> Path:
     return template
 
 
-def test_UC_09_fresh_init_installs_pre_push_full_suite_gate(tmp_path):
+def test_UC_09_fresh_init_does_not_install_test_hook(tmp_path):
     _install_template(tmp_path)
     install = {"remove_paths": []}
 
     init_factory.handle_precommit(tmp_path, install, [])
 
     installed = (tmp_path / ".pre-commit-config.yaml").read_text()
-    assert HOOK in installed
+    assert HOOK not in installed
 
 
-def test_UC_09_merge_carries_pre_push_gate_and_remains_idempotent(tmp_path):
+def test_UC_09_merge_does_not_inject_test_hook_and_remains_idempotent(tmp_path):
     template = _install_template(tmp_path)
     target = tmp_path / ".pre-commit-config.yaml"
     target.write_text(
@@ -73,7 +73,7 @@ def test_UC_09_merge_carries_pre_push_gate_and_remains_idempotent(tmp_path):
         == 0
     )
     first_merge = target.read_text()
-    assert HOOK in first_merge
+    assert HOOK not in first_merge
     assert "id: consumer-hook" in first_merge
 
     assert (
