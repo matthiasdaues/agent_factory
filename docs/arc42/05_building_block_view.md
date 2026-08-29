@@ -9,7 +9,7 @@ Factory Flow Control consists of three primary containers:
 | Container         | Responsibility                                                                                   | Technology                |
 | ----------------- | ------------------------------------------------------------------------------------------------ | ------------------------- |
 | **State Manager** | Reads/writes playbook state marker, resolves FSM transitions, drives phases                      | Bash, Python              |
-| **Validator**     | Enforces gates, permissions, mechanically triggered test execution, and semantic quality checks  | Bash, Python              |
+| **Validator**     | Enforces gates, permissions, charter-declared test gate presence, and semantic quality checks    | Bash, Python              |
 | **Dispatcher**    | Resolves agents/models from catalog, spawns CLI sessions with scoped permits                     | Bash, Python              |
 | **Usage Capture** | Normalizes CLI transcripts and appends canonical runtime usage records                           | Python, shell, TypeScript |
 | State Files       | Local git-ignored marker (`.current-work/playbook-state.yml`) and FSM defs                       | YAML (storage)            |
@@ -19,65 +19,49 @@ Factory Flow Control consists of three primary containers:
 
 ## 5.2 Level 2: Component View — Validator
 
-The **Validator** container enforces deterministic gates. Three are hook-triggered — they fire mechanically on a git or CLI event, so an agent cannot skip them:
+The **Validator** container enforces deterministic gates. Two are hook-triggered — they fire mechanically on a git or CLI event, so an agent cannot skip them:
 
-| Component                  | Trigger Point                  | What it validates                                   | Exit codes                           |
-| -------------------------- | ------------------------------ | --------------------------------------------------- | ------------------------------------ |
-| **transition-lint**        | Pre-commit hook (git commit)   | Staged files match current phase's `outputs:` globs | 0 (pass), 1 (findings)               |
-| **block-dangerous-git.sh** | Native hook or Pi extension    | Shell command not in deny list                      | 0 (allow), 2 (deny)                  |
-| **run-tests**              | Pre-commit, pre-push, FSM gate | Project tests pass via auto-detected framework      | 0 (pass), 1 (fail), 2 (no framework) |
+| Component                  | Trigger Point                | What it validates                                                              | Exit codes             |
+| -------------------------- | ---------------------------- | ------------------------------------------------------------------------------ | ---------------------- |
+| **transition-lint**        | Pre-commit hook (git commit) | Staged files match current phase's `outputs:` globs                            | 0 (pass), 1 (findings) |
+| **block-dangerous-git.sh** | Native hook or Pi extension  | Shell command not in deny list; charter-declared test commands are allowlisted | 0 (allow), 2 (deny)    |
 
 Two more — `schema-validate` and `policy-validate` — are on-demand validators invoked by the research skills and agents (and from the CLI) rather than by a hook. They are described in §5.2.2.
 
-Four additional on-demand validators enforce semantic code quality and architecture phase routing. They are invoked by the implementation-agent dispatcher (not by hooks) and are described in §5.2.3:
+Three additional on-demand validators enforce semantic code quality and architecture phase routing. Two are invoked by the implementation-agent dispatcher (not by hooks) and are described in §5.2.3; one routes between phases:
 
 | Component              | Trigger Point                                     | What it validates                                          | Exit codes                          |
 | ---------------------- | ------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------- |
 | **crap-score**         | Dispatcher, after developer-agent commit          | CRAP score (cyclomatic complexity x coverage) per function | 0 (pass), 1 (fail)                  |
-| **mutation-analysis**  | Dispatcher, after developer-agent commit          | Every code mutant killed by test suite (diff-scoped)       | 0 (pass), 1 (survivors)             |
 | **dependency-check**   | Dispatcher, after developer-agent commit          | Imports conform to architecture.dsl dependency rules       | 0 (pass), 1 (violations)            |
 | **module-graph-check** | Orchestrating session, Phase 1 / Phase 3 boundary | Feature touches no new modules or inverted dependencies    | 0 (skip Phase 2), 1 (enter Phase 2) |
 
-### 5.2.1 run-tests — Test Execution Component
+### 5.2.1 Project-Owned Test Gates via Charter Declaration
 
-**Purpose**: Framework-agnostic test runner invoked by mechanical gates. Agents use the Factory runner rather than bare test commands.
+**Purpose**: Factory ensures test gates exist; the project decides what runs inside them. Testing is project-owned infrastructure declared in `docs/charter/testing.yaml`. Factory's guardrails and FSM gates read that declaration. Factory does not own test execution, framework detection, or structured test output.
 
-**Interfaces**:
+**Charter declaration** (`docs/charter/testing.yaml`):
 
-- **IN (CLI)**: `--changed-only` (pre-commit fast subset), `--full` (pre-push, phase advance), `--staged` (agent iteration on staged files)
-- **OUT (stdout)**: JSON summary `{"passed": N, "failed": M, "skipped": K, "duration_ms": T}`
-- **OUT (stderr)**: Framework-native test output (failures, errors, progress)
-- **OUT (exit code)**: 0 (pass), 1 (test failures), 2 (framework detection/config error)
+- `test_command` (required) — full test suite command, used by FSM `script_exit_zero` gate conditions
+- `test_staged_command` (optional) — command for TDD iteration on staged files, allowlisted for agents
+- `test_changed_command` (optional) — command for fast feedback on changed files
+- `layers` (optional) — layer bindings mapping Factory layer names to project-specific tooling, infrastructure, entry points, anti-patterns, and fidelity declarations
 
-**Behavior**:
-
-1. **Framework Detection** (BR-023): Scans project structure for all framework markers:
-   - `pyproject.toml` + pytest → `uv run pytest`
-   - `package.json` + jest/npm test → `npm test`
-   - `go.mod` → `go test ./...`
-   - `Cargo.toml` → `cargo test`
-   - Multiple frameworks detected → exit 2 with error listing all found markers (monorepo multi-framework not yet supported)
-   - None found → exit 2 with error listing checked markers
-2. **Mode Selection**:
-   - `--changed-only`: Fast subset (pytest `--lf`, jest `--onlyChanged`, go/cargo per-package filter)
-   - `--full`: Complete suite, no filtering
-   - `--staged`: Tests on staged files only (agent iteration mode, no commit required)
-3. **Invocation**: Runs detected command, streams stderr for real-time progress
-4. **Result**: Emits JSON summary on stdout, exits with framework's exit code
+**Gate contract**: exit-code-only. Zero means pass, nonzero means fail. Factory does not parse structured test output (BR-027).
 
 **Integration Points**:
 
-- **Pre-commit hook**: Fires on `git commit`, runs `--changed-only` mode. Fast feedback. Bypassable via `--no-verify` (discouraged).
-- **Pre-push hook**: Fires on `git push`, runs `--full` mode. "Ready to share" gate. No bypass.
-- **Phase advance FSM gate**: Evaluated as `script_exit_zero: factory/scripts/run-tests --full` entry condition. Phase refuses to advance if tests fail.
-- **Agent iteration**: `factory/scripts/run-tests --staged` runs tests on staged files without committing. Agents can stage test files and verify before commit. Included in agent allowlist (BR-024).
-- **Agent prohibition**: Bare test commands (`pytest`, `npm test`, etc.) are denied by `block-dangerous-git.sh` at PreToolUse. Agents see exit 2 with message directing them to `run-tests --staged` or hook output.
+- **FSM phase advance gate**: The `tests_pass` condition uses `script_exit_zero` with `charter:test_command`, resolving the actual command from `docs/charter/testing.yaml`. Blocks when the charter is absent or `test_command` is missing.
+- **Agent allowlist** (BR-024): `block-dangerous-git.sh` reads all declared command fields from the charter and allowlists them with exact-string matching. Bare test commands remain blocked for agents.
+- **Onboarding**: The `detect-test-regime` skill scans for existing test entrypoints during `init-factory` and populates the charter. When multiple entrypoints are detected, it asks for disambiguation.
+- **Project hooks**: Factory does not inject test hooks into `.pre-commit-config.yaml`. Test hooks are project-owned infrastructure.
 
 **Referenced Specifications**:
 
-- [UC-09 — Run Tests via Hook](../spec/use_cases/UC-09-run-tests-via-hook.md)
-- [PRD § FR-I — Test Execution](../spec/prd.md#fr-i--test-execution-run-tests)
-- [validation-rules.md § Test execution (BR-023..BR-027)](../spec/supplementary_specs/validation-rules.md#test-execution-run-tests-br-023-br-024-br-025-br-026-br-027-br-028-br-029)
+- [UC-09 — Ensure Project-Owned Test Gates Exist](../spec/use_cases/UC-09-run-tests-via-hook.md)
+- [ADR-0003 — Test execution via mechanically triggered gates](../adr/0003-test-execution-via-hooks.md)
+- [test-gate-presence.feature](../spec/test-gate-presence.feature)
+- [validation-rules.md § Test execution (BR-023..BR-029)](../spec/supplementary_specs/validation-rules.md#project-owned-test-gates-testingyaml-br-023-br-024-br-025-br-026-br-027-br-028-br-029)
 
 ### 5.2.2 Research artifact validators (schema-validate, policy-validate)
 
@@ -103,13 +87,14 @@ The falsification-driven research feature validates its JSON artifacts through a
 
 ### 5.2.3 Semantic quality gates (crap-score, mutation-analysis, dependency-check)
 
-Three deterministic scripts enforce semantic code quality after each developer-agent commit, owned by the implementation-agent dispatcher. They extend the "Agentic Creation, Deterministic Validation" principle from syntactic checks (formatting, phase gating) to code meaning (complexity, behavioral coverage, dependency direction). See [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md) for the execution model decision.
+Two deterministic scripts enforce semantic code quality after each developer-agent commit, owned by the implementation-agent dispatcher. They extend the "Agentic Creation, Deterministic Validation" principle from syntactic checks (formatting, phase gating) to code meaning (complexity and dependency direction). See [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md) for the execution model decision.
 
-| Component             | What it checks                                                                                                                                           | Inputs                                      | Outputs                                                              |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------- |
-| **crap-score**        | CRAP score per function: `comp(m)^2 x (1 - cov(m)/100)^3 + comp(m)`. Threshold: CRAP ≤ 8 (Bob Martin default, overridable in `house-rules.md`)           | Source files, coverage data                 | JSON report per function, logged to `.current-work/crap-score/`      |
-| **mutation-analysis** | Generates code mutants, runs test suite against each. Every surviving mutant must be resolved (dead code removed or test added) or filed as a QA finding | Source files (diff-scoped), test suite      | JSON report per mutant, logged to `.current-work/mutation-analysis/` |
-| **dependency-check**  | Validates that module import directions match declarations in `architecture.dsl`                                                                         | `docs/arc42/architecture.dsl`, source files | JSON report per rule, logged to `.current-work/dependency-check/`    |
+| Component            | What it checks                                                                                                                                 | Inputs                                      | Outputs                                                           |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ----------------------------------------------------------------- |
+| **crap-score**       | CRAP score per function: `comp(m)^2 x (1 - cov(m)/100)^3 + comp(m)`. Threshold: CRAP ≤ 8 (Bob Martin default, overridable in `house-rules.md`) | Source files, coverage data                 | JSON report per function, logged to `.current-work/crap-score/`   |
+| **dependency-check** | Validates that module import directions match declarations in `architecture.dsl`                                                               | `docs/arc42/architecture.dsl`, source files | JSON report per rule, logged to `.current-work/dependency-check/` |
+
+Mutation testing is project-owned infrastructure. Factory encourages it: the `mutation-analysis` skill provides setup guidance, and the kit-manager carries it as an open question during charter setup until settled in `testing.yaml`. See [ADR-0012 § Amended](../adr/0012-dispatcher-owned-semantic-gate-loop.md#amended).
 
 **Invocation model:**
 
@@ -121,9 +106,7 @@ Three deterministic scripts enforce semantic code quality after each developer-a
 
 The developer agent never runs the gates. Each fix iteration starts with a clean context. This separation prevents context contamination and enforces the trust boundary.
 
-**Diff-scoping contract (mutation-analysis):** The `--diff-base <ref>` argument restricts mutation to production files changed since the story branch diverged. A file is a production file if it does not match test-file patterns (`test_*.py`, `*_test.py`, etc.) and does not live under `tests/` or `__tests__/`.
-
-**Story-level gate configuration:** The `quality-gates` field in the story template declares which gates apply. Precedence: story field > `house-rules.md` project default > Factory hardcoded default (all three gates). Excluding a gate requires justification in the story's `notes:` field.
+**Story-level gate configuration:** The `quality-gates` field in the story template declares which gates apply. Precedence: story field > `house-rules.md` project default > Factory hardcoded default (both gates: `crap-score`, `dependency-check`). Excluding a gate requires justification in the story's `notes:` field.
 
 ### 5.2.4 Module-graph check
 
@@ -170,26 +153,24 @@ All three read the same marker (`.current-work/playbook-state.yml`) and FSM (e.g
 
 Every building block's entry point, invoked how, and by whom:
 
-| Script / Component           | Invoked by                                                | Entry point                                                               | Exit codes                                    |
-| ---------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------- |
-| transition-lint              | Pre-commit hook                                           | `factory/scripts/transition-lint`                                         | 0 (pass), 1 (findings)                        |
-| run-tests                    | Pre-commit, pre-push, phase advance                       | `factory/scripts/run-tests [--changed-only\|--full\|--staged]`            | 0 (pass), 1 (fail), 2 (no framework)          |
-| block-dangerous-git.sh       | Claude, Copilot, Codex native hook                        | stdin: CLI-specific command JSON, stdout: empty, exit 0 or 2              | 0 (allow), 2 (deny)                           |
-| phase advance                | Human, orchestrator (not yet operational)                 | `factory/scripts/phase advance`                                           | 0 (advanced), 1 (conditions unmet), 2 (misc)  |
-| phase retry                  | Human, orchestrator (not yet operational)                 | `factory/scripts/phase retry [--default-max-iterations]`                  | 0 (retried), 2 (cap exceeded)                 |
-| trigger                      | Human, orchestrator (not yet operational), run-step skill | `factory/scripts/trigger agent <name> [--background]`                     | 0 (dispatched), 1+ (error)                    |
-| usage-capture                | Native CLI hooks and Pi extensions                        | `factory/scripts/usage-capture --cli ... --transcript ...`                | 0 (captured or best-effort no-op)             |
-| index-lint                   | Pre-commit hook, CI                                       | `factory/scripts/index-lint [--check]`                                    | 0 (fresh), 1 (stale)                          |
-| run-step skill               | Any supported CLI (LLM-executed)                          | Skill markdown invoked by AI                                              | (N/A — skill is prose)                        |
-| run-agent (Pi extension)     | Pi session (via `run_agent` tool call)                    | `.pi/extensions/run-agent.ts` → spawns `pi ... -p <task>`                 | (tool result: text + usage, or error)         |
-| dispatch-wave (Pi extension) | Pi session (via `dispatch_wave` call)                     | `.pi/extensions/dispatch-wave.ts` → worktree + spawn + merge/item         | (tool result: per-item status, or error)      |
-| openrouter-discover          | Human operator, CI (`--check`)                            | `factory/scripts/openrouter-discover [--list\|--suggest\|--check]`        | 0 (ok), 1 (drift)                             |
-| schema-validate              | Research skills/agents, CLI                               | `factory/scripts/schema-validate <artifact-file> <schema-file>`           | 0 (conforms), 1 (violations), 2 (operational) |
-| policy-validate              | Research skills/agents, CLI                               | `factory/scripts/policy-validate [--pipeline] <artifact-or-dir>...`       | 0 (pass), 1 (fail), 2 (operational)           |
-| crap-score                   | Implementation-agent dispatcher                           | `factory/scripts/crap-score [--story-id <id>]`                            | 0 (pass), 1 (fail)                            |
-| mutation-analysis            | Implementation-agent dispatcher                           | `factory/scripts/mutation-analysis [--diff-base <ref>] [--story-id <id>]` | 0 (pass), 1 (survivors)                       |
-| dependency-check             | Implementation-agent dispatcher                           | `factory/scripts/dependency-check [--story-id <id>]`                      | 0 (pass), 1 (violations)                      |
-| module-graph-check           | Orchestrating session                                     | `factory/scripts/module-graph-check <proposal-path>`                      | 0 (no change), 1 (change detected)            |
+| Script / Component           | Invoked by                                                | Entry point                                                         | Exit codes                                    |
+| ---------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------- |
+| transition-lint              | Pre-commit hook                                           | `factory/scripts/transition-lint`                                   | 0 (pass), 1 (findings)                        |
+| block-dangerous-git.sh       | Claude, Copilot, Codex native hook                        | stdin: CLI-specific command JSON, stdout: empty, exit 0 or 2        | 0 (allow), 2 (deny)                           |
+| phase advance                | Human, orchestrator (not yet operational)                 | `factory/scripts/phase advance`                                     | 0 (advanced), 1 (conditions unmet), 2 (misc)  |
+| phase retry                  | Human, orchestrator (not yet operational)                 | `factory/scripts/phase retry [--default-max-iterations]`            | 0 (retried), 2 (cap exceeded)                 |
+| trigger                      | Human, orchestrator (not yet operational), run-step skill | `factory/scripts/trigger agent <name> [--background]`               | 0 (dispatched), 1+ (error)                    |
+| usage-capture                | Native CLI hooks and Pi extensions                        | `factory/scripts/usage-capture --cli ... --transcript ...`          | 0 (captured or best-effort no-op)             |
+| index-lint                   | Pre-commit hook, CI                                       | `factory/scripts/index-lint [--check]`                              | 0 (fresh), 1 (stale)                          |
+| run-step skill               | Any supported CLI (LLM-executed)                          | Skill markdown invoked by AI                                        | (N/A — skill is prose)                        |
+| run-agent (Pi extension)     | Pi session (via `run_agent` tool call)                    | `.pi/extensions/run-agent.ts` → spawns `pi ... -p <task>`           | (tool result: text + usage, or error)         |
+| dispatch-wave (Pi extension) | Pi session (via `dispatch_wave` call)                     | `.pi/extensions/dispatch-wave.ts` → worktree + spawn + merge/item   | (tool result: per-item status, or error)      |
+| openrouter-discover          | Human operator, CI (`--check`)                            | `factory/scripts/openrouter-discover [--list\|--suggest\|--check]`  | 0 (ok), 1 (drift)                             |
+| schema-validate              | Research skills/agents, CLI                               | `factory/scripts/schema-validate <artifact-file> <schema-file>`     | 0 (conforms), 1 (violations), 2 (operational) |
+| policy-validate              | Research skills/agents, CLI                               | `factory/scripts/policy-validate [--pipeline] <artifact-or-dir>...` | 0 (pass), 1 (fail), 2 (operational)           |
+| crap-score                   | Implementation-agent dispatcher                           | `factory/scripts/crap-score [--story-id <id>]`                      | 0 (pass), 1 (fail)                            |
+| dependency-check             | Implementation-agent dispatcher                           | `factory/scripts/dependency-check [--story-id <id>]`                | 0 (pass), 1 (violations)                      |
+| module-graph-check           | Orchestrating session                                     | `factory/scripts/module-graph-check <proposal-path>`                | 0 (no change), 1 (change detected)            |
 
 ## 5.6 Level 2: Runtime Usage Capture
 
@@ -208,5 +189,5 @@ second record. See
 
 ## Referenced from
 
-- [06_runtime_view.md § 6.2](06_runtime_view.md#62-test-execution-flow)
+- [06_runtime_view.md § 6.2](06_runtime_view.md#62-test-gate-presence)
 - [09_architecture_decisions.md](09_architecture_decisions.md)

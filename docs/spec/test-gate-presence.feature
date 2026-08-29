@@ -118,8 +118,8 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: Factory deletes run-tests and mutation-analysis scripts
     # actor: Human Operator
-    # @factory/scripts/run-tests (to be deleted)
-    # @factory/scripts/mutation-analysis (to be deleted)
+    # @factory/scripts/run-tests (deleted)
+    # @factory/scripts/mutation-analysis (deleted)
 
     Scenario: run-tests script is deleted from repository
       Given the Factory repository
@@ -133,6 +133,7 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: Detect-test-regime skill discovers test entrypoints during onboarding
     # actor: Human Operator
+    # @factory/skills/detect-test-regime/SKILL.md
     # @factory/scripts/init-factory
 
     Scenario: Single test entrypoint detected
@@ -155,6 +156,8 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: Dispatcher gate sequence reduces from three to two
     # actor: Human Operator, CLI-Invoked Agent
+    # @factory/agents/implementation-agent.md
+    # @docs/adr/0012-dispatcher-owned-semantic-gate-loop.md
 
     Scenario: Dispatcher runs two quality gates after developer commit
       Given a developer-agent has committed code
@@ -186,6 +189,7 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: Remove-factory leaves project test infrastructure intact
     # actor: Human Operator
+    # @factory/scripts/remove-factory
 
     Scenario: Remove-factory preserves testing.yaml
       Given a project with docs/charter/testing.yaml
@@ -202,6 +206,7 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: Gate contract is exit-code-only
     # actor: Human Operator, Orchestrator-as-Trigger
+    # @factory/scripts/phase
 
     Scenario: Factory does not parse structured test output
       Given a charter-declared test command that outputs JSON results

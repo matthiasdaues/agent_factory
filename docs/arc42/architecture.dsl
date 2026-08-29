@@ -20,14 +20,12 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
             }
             
             # Validation container
-            validator = container "Validator" "Enforces gates, permissions, test execution, and semantic quality checks" "Bash/Python" {
+            validator = container "Validator" "Enforces gates, permissions, charter-declared test gate presence, and semantic quality checks" "Bash/Python" {
                 transitionLint = component "transition-lint" "Pre-commit hook blocking out-of-phase files" "Python"
-                blockDangerousGit = component "block-dangerous-git.sh" "PreToolUse hook blocking destructive commands" "Bash"
-                runTests = component "run-tests" "Framework-agnostic test runner for hooks" "Python"
+                blockDangerousGit = component "block-dangerous-git.sh" "PreToolUse hook blocking destructive commands and allowlisting charter-declared test commands" "Bash"
                 schemaValidate = component "schema-validate" "Deterministic JSON-Schema validator for research artifacts: stage 1 of the schema->policy->semantic validation order" "Python"
                 policyValidate = component "policy-validate" "Deterministic research-policy validator: stage 2; --pipeline runs schema then policy in order, stopping at the first failure" "Python"
                 crapScore = component "crap-score" "CRAP scoring gate: cyclomatic complexity weighted against test coverage, diff-scoped per story" "Bash/Python"
-                mutationAnalysis = component "mutation-analysis" "Mutation analysis gate: generates code mutants, verifies test suite kills each one, diff-scoped per story" "Bash/Python"
                 dependencyCheck = component "dependency-check" "Dependency-rule enforcement gate: validates imports against architecture.dsl dependency declarations" "Bash/Python"
                 moduleGraphCheck = component "module-graph-check" "Derives module map from architecture.dsl, compares against Phase 1 outputs to determine architecture phase routing" "Bash/Python"
             }
@@ -59,19 +57,16 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
         
         # Relationships - Git hooks
         git -> transitionLint "Fires pre-commit"
-        git -> runTests "Fires pre-commit (changed files), pre-push (full suite)"
         git -> blockDangerousGit "Fires PreToolUse before command execution"
-        
+
         # Relationships - State Manager
-        phaseAdvance -> stateFiles "Reads/writes marker, reads FSM"
-        phaseAdvance -> runTests "Evaluates script_exit_zero entry condition"
+        phaseAdvance -> stateFiles "Reads/writes marker, reads FSM; resolves charter:test_command via testing.yaml"
         phaseRetry -> stateFiles "Reads/writes marker, resolves iteration cap"
         runStep -> stateFiles "Reads marker and FSM to derive next action"
         runStep -> trigger "Dispatches resolved agent"
-        
+
         # Relationships - Validator
         transitionLint -> stateFiles "Reads marker for current state"
-        runTests -> stateFiles "Invoked by phase advance script_exit_zero"
         blockDangerousGit -> cliAgent "Blocks destructive commands before execution"
         cliAgent -> schemaValidate "Research skills/agents validate an artifact against its schema (stage 1)"
         cliAgent -> policyValidate "Research skills/agents validate artifacts against enforceable policy (stage 2)"
@@ -90,10 +85,8 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
 
         # Relationships - Semantic Quality Gates (dispatcher-invoked, on-demand)
         cliAgent -> crapScore "Implementation-agent dispatcher runs after developer commit"
-        cliAgent -> mutationAnalysis "Implementation-agent dispatcher runs after developer commit"
         cliAgent -> dependencyCheck "Implementation-agent dispatcher runs after developer commit"
         crapScore -> stateFiles "Writes JSON report to .current-work/crap-score/"
-        mutationAnalysis -> stateFiles "Writes JSON report to .current-work/mutation-analysis/"
         dependencyCheck -> stateFiles "Writes JSON report to .current-work/dependency-check/"
 
         # Relationships - Module-graph check (orchestrating session, on-demand)
@@ -124,28 +117,19 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
             autoLayout tb
         }
 
-        dynamic validator "TestExecutionFlow" "Test execution via hooks and phase gates" {
-            humanOperator -> git "1. git commit fires pre-commit hook"
-            git -> runTests "2. Pre-commit hook executes run-tests --changed-only"
-            runTests -> stateFiles "3. Detects test framework from project markers"
-            runTests -> git "4. Exits 0 (pass) or 1 (fail), emits JSON summary"
-            
-            humanOperator -> git "5. git push fires pre-push hook"
-            git -> runTests "6. Pre-push hook executes run-tests --full"
-            runTests -> git "7. Exits 0/1; ordinary push proceeds or blocks"
-            
-            humanOperator -> phaseAdvance "8. phase advance evaluates entry conditions"
-            phaseAdvance -> runTests "9. Evaluates script_exit_zero gate"
-            runTests -> phaseAdvance "10. Exit code determines condition met/unmet"
+        dynamic validator "TestGatePresence" "Charter-declared test gate presence and agent allowlist" {
+            humanOperator -> phaseAdvance "1. Invokes phase advance"
+            phaseAdvance -> stateFiles "2. Reads FSM; resolves charter:test_command from testing.yaml"
+            phaseAdvance -> stateFiles "3. Executes resolved command, reads exit code only"
+            cliAgent -> blockDangerousGit "4. Agent attempts a test command"
+            blockDangerousGit -> cliAgent "5. Allows charter-declared, denies bare test commands"
         }
 
         dynamic validator "SemanticGateLoop" "Dispatcher-owned semantic gate execution after developer commit" {
             cliAgent -> crapScore "1. Dispatcher runs crap-score on committed artifacts"
             crapScore -> stateFiles "2. Writes CRAP report (pass/fail per function)"
-            cliAgent -> mutationAnalysis "3. Dispatcher runs mutation-analysis (diff-scoped)"
-            mutationAnalysis -> stateFiles "4. Writes mutation report (killed/survived per mutant)"
-            cliAgent -> dependencyCheck "5. Dispatcher runs dependency-check against architecture.dsl"
-            dependencyCheck -> stateFiles "6. Writes dependency report (pass/fail per rule)"
+            cliAgent -> dependencyCheck "3. Dispatcher runs dependency-check against architecture.dsl"
+            dependencyCheck -> stateFiles "4. Writes dependency report (pass/fail per rule)"
         }
 
         theme default

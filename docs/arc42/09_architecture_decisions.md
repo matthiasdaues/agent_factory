@@ -31,12 +31,11 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 
 **ADR-0001** and **ADR-0003** establish the hook-triggered validation pattern:
 
-- **Pre-commit hooks** gate which files may be staged (`transition-lint`) and whether tests pass (`run-tests --changed-only`).
-- **Pre-push hooks** enforce full test suite passage (`run-tests --full`) before work leaves local machine.
-- **PreToolUse hooks** block destructive git commands and test commands before they execute (`block-dangerous-git.sh`).
-- **FSM gates** (`script_exit_zero`) integrate test execution into phase advance entry conditions.
+- **Pre-commit hooks** gate which files may be staged (`transition-lint`).
+- **PreToolUse hooks** block destructive git commands and bare test commands before they execute (`block-dangerous-git.sh`); charter-declared test commands are allowlisted with exact-string matching.
+- **FSM gates** (`script_exit_zero`) resolve `charter:test_command` from `docs/charter/testing.yaml` and integrate test execution into phase advance entry conditions.
 
-All follow the "Agentic Creation, Deterministic Validation" principle: agents create, hooks validate, no self-validation.
+All follow the "Agentic Creation, Deterministic Validation" principle: agents create, hooks validate, no self-validation. Testing is project-owned infrastructure declared in the charter; Factory ensures test gates exist but does not own test execution or framework detection.
 
 ### Monorepo Scoping
 
@@ -106,8 +105,7 @@ discipline without committing intermediate artifacts. Supplementary specs
 
 ### Semantic Gate Execution Model
 
-**ADR-0012** places the three semantic quality gates (`crap-score`,
-`mutation-analysis`, `dependency-check`) under the implementation-agent
+**ADR-0012** places the semantic quality gates under the implementation-agent
 dispatcher, not the developer agent or a CI pipeline. Three alternatives were
 evaluated via Pugh Matrix: developer-owned (baseline, self-validation),
 dispatcher-owned, and CI-owned. The dispatcher model wins on the foundational
@@ -117,9 +115,10 @@ developer per fix iteration), and infrastructure fit (the dispatcher already
 owns wave scheduling and merge ordering). CI-owned gates satisfy the
 no-self-validation requirement but add network latency and require
 infrastructure the Factory does not currently have. The gate loop fires after
-each developer commit: CRAP scoring, mutation analysis, dependency checking,
-then proceed-or-fix. Maximum three fix iterations per tier before the story
-escalates or is marked blocked.
+each developer commit: CRAP scoring, dependency checking, then proceed-or-fix.
+Maximum three fix iterations per tier before the story escalates or is marked
+blocked. Mutation testing is project-owned infrastructure that Factory encourages
+via the `mutation-analysis` skill (see [ADR-0012 § Amended](../adr/0012-dispatcher-owned-semantic-gate-loop.md#amended)).
 
 ## Superseded Decisions
 

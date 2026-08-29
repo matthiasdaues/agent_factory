@@ -16,7 +16,7 @@ Field- and behavior-level rules each mechanism enforces, grouped by the entity o
 - `file_exists`: satisfied if `repo_root.glob(path)` yields at least one match.
 - `files_exist`: satisfied if every path in `paths` yields at least one glob match; the unmet reason lists every missing path by name.
 - `no_open_findings`: satisfied if zero matching finding files (by `pattern` or `patterns`, globbed under `docs/findings/`) have frontmatter `status: open`. A file whose frontmatter cannot be parsed (no leading `---` block) is not counted as open.
-- `script_exit_zero`: **always satisfied** in the current implementation — deliberately stubbed, not yet running the named script. See [T-03](../todos.md#t-03-script_exit_zero-condition-type-is-stubbed).
+- `script_exit_zero`: executes the named script and checks for exit code 0. When the `script` field uses the `charter:<field>` notation (e.g. `charter:test_command`), the evaluator reads the `charter_file` path from the condition, parses the YAML, and resolves the named field to the actual command before execution. Blocks with a clear message when the charter file is absent or the field is missing. See [UC-09](../use_cases/UC-09-run-tests-via-hook.md) and [ADR-0003](../../adr/0003-test-execution-via-hooks.md).
 - An `entry_conditions` name with no matching entry in `gate_conditions` is treated as unmet, with the reason `"<name> (not defined in gate_conditions)"`.
 - Unmet conditions are collected exhaustively, not short-circuited — a refusal always lists every unmet condition, not just the first.
 
@@ -100,7 +100,7 @@ This resolution order is why `halt_conditions` must name the **author** state be
 - **BR-028**: The `test_staged_command` field in `docs/charter/testing.yaml` is optional. When present, it is the command agents may use for TDD iteration on staged files. It is allowlisted in `block-dangerous-git.sh` with exact matching.
 - **BR-029**: Factory does not inject test hooks into `.pre-commit-config.yaml`. Test hooks are project-owned infrastructure. The project decides when and how tests trigger on commit, push, or other events. The `agent_factory_hook-run-tests-full` entry that previously existed in Factory's pre-commit config is removed.
 
-The `script_exit_zero` condition evaluator (currently stubbed per [T-03](../todos.md#t-03-script_exit_zero-condition-type-is-stubbed)) will resolve `test_command` from `docs/charter/testing.yaml` and read its exit code; the pass/fail decision is exit-code-only.
+The `script_exit_zero` condition evaluator resolves `test_command` from `docs/charter/testing.yaml` via the `charter:test_command` notation and reads its exit code; the pass/fail decision is exit-code-only (BR-027).
 
 ## Anchor-file prerequisite (feature-addition)
 
