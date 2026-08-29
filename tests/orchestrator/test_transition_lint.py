@@ -74,7 +74,7 @@ class TestGlobOwnership:
         owners = states_for_file(
             "docs/spec/use_cases/UC-01-something.md", self._OUTPUTS
         )
-        assert "PHASE_1_REQUIREMENTS" in owners
+        assert "PHASE_4_GATE" in owners
 
     def test_adr_owned_by_phase_2_architecture(self):
         owners = states_for_file("docs/adr/0001-some-decision.md", self._OUTPUTS)

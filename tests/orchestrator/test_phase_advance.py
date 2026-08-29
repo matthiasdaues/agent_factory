@@ -110,10 +110,8 @@ class TestAdvanceConditions:
         spec = repo / "docs" / "spec"
         spec.mkdir(parents=True)
         (spec / "prd.md").write_text("prd")
-        (spec / "actor-goal-list.md").write_text("actors")
-        uc = spec / "use_cases"
-        uc.mkdir()
-        (uc / "UC-01.md").write_text("uc")
+        (spec / "scope-map.md").write_text("scope")
+        (spec / "requirements.feature").write_text("Feature: req")
 
         _open_finding(repo, "SPEC-001.md")
 
@@ -128,10 +126,8 @@ class TestAdvanceConditions:
         spec = repo / "docs" / "spec"
         spec.mkdir(parents=True)
         (spec / "prd.md").write_text("prd")
-        (spec / "actor-goal-list.md").write_text("actors")
-        uc = spec / "use_cases"
-        uc.mkdir()
-        (uc / "UC-01.md").write_text("uc")
+        (spec / "scope-map.md").write_text("scope")
+        (spec / "requirements.feature").write_text("Feature: req")
 
         f = _open_finding(repo, "SPEC-001.md")
         _close_finding(f)
@@ -147,10 +143,8 @@ class TestAdvanceConditions:
         spec = repo / "docs" / "spec"
         spec.mkdir(parents=True)
         (spec / "prd.md").write_text("prd")
-        (spec / "actor-goal-list.md").write_text("actors")
-        uc = spec / "use_cases"
-        uc.mkdir()
-        (uc / "UC-01.md").write_text("uc")
+        (spec / "scope-map.md").write_text("scope")
+        (spec / "requirements.feature").write_text("Feature: req")
 
         code, _ = advance(repo, marker, pb)
         assert code == 0
@@ -167,10 +161,8 @@ class TestAdvanceConditions:
         spec = repo / "docs" / "spec"
         spec.mkdir(parents=True)
         (spec / "prd.md").write_text("prd")
-        (spec / "actor-goal-list.md").write_text("actors")
-        uc = spec / "use_cases"
-        uc.mkdir()
-        (uc / "UC-01.md").write_text("uc")
+        (spec / "scope-map.md").write_text("scope")
+        (spec / "requirements.feature").write_text("Feature: req")
 
         code, msg = advance_dry_run(repo, marker, pb)
         assert code == 0
@@ -195,10 +187,8 @@ class TestEndToEndFindingGate:
         spec = repo / "docs" / "spec"
         spec.mkdir(parents=True)
         (spec / "prd.md").write_text("prd")
-        (spec / "actor-goal-list.md").write_text("actors")
-        uc = spec / "use_cases"
-        uc.mkdir()
-        (uc / "UC-01.md").write_text("uc")
+        (spec / "scope-map.md").write_text("scope")
+        (spec / "requirements.feature").write_text("Feature: req")
         return marker, pb, repo
 
     def test_open_finding_blocks_advance(self, tmp_path):
