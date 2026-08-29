@@ -39,7 +39,8 @@ The actor runs `factory/scripts/init-factory`, optionally with `--target` and `-
 08. `init-factory` copies `config/model.conf` from `factory/config/model.conf`, since `--target/config/model.conf` does not yet exist.
 09. `init-factory` symlinks `.pre-commit-config.yaml` to `factory/config/pre-commit-config.yaml`, since the target has none yet.
 10. `init-factory` runs `uvx pre-commit install`.
-11. `init-factory` exits `0` and reports the target is set up.
+11. `init-factory` scans the target for an existing test entrypoint (Makefile, package.json, tox, nox, Justfile, Taskfile, pytest config) and, if exactly one is found, records it as `test_command` in `docs/charter/testing.yaml` — the deterministic core of the `detect-test-regime` skill (BR-030).
+12. `init-factory` exits `0` and reports the target is set up.
 
 ## Extensions
 
@@ -54,6 +55,10 @@ The actor runs `factory/scripts/init-factory`, optionally with `--target` and `-
   - 3a1. `init-factory` skips the copy entirely and reports so — refreshing an existing `factory/` is the update script's job (`factory/scripts/update-factory`), not `init-factory`'s.
 - **7a. `--target/.claude/settings.json` exists but is not valid JSON, or its top-level value is not an object, or `hooks`/`hooks.PreToolUse` is not the expected shape**
   - 7a1. `init-factory` raises a `Collision`, names the exact path, and asks the actor to wire the guardrail hook in by hand.
+- **11a. `--target/docs/charter/testing.yaml` already exists**
+  - 11a1. `init-factory` leaves it untouched and reports so — it may carry a prior scan or hand-edited content (BR-030).
+- **11b. No test entrypoint is found, or several are found with no interactive answer to disambiguate**
+  - 11b1. `init-factory` surfaces the gap in its report and writes nothing — it never guesses a `test_command` (BR-030). The run still exits `0`; a missing test regime is not a collision.
 
 ## Postconditions
 
@@ -67,6 +72,7 @@ The actor runs `factory/scripts/init-factory`, optionally with `--target` and `-
 
 - **BR-021**: `init-factory` stops the entire run at the first step that finds an unexpected file at a destination path — it never partially applies a run past a collision.
 - **BR-022**: `init-factory` never touches `config/model.conf` once it exists — the file is meant to diverge per project.
+- **BR-030**: `init-factory` scans for an existing test entrypoint and records exactly one unambiguous match as `test_command` in `docs/charter/testing.yaml`. It never injects a test-related hook into `.pre-commit-config.yaml` (see [UC-09 § BR-029](UC-09-run-tests-via-hook.md#business-rules)), never overwrites an existing `testing.yaml`, and never guesses when zero or several entrypoints are found — it surfaces the gap instead. This is the deterministic subset of the `detect-test-regime` skill, run because `init-factory` itself has no AI in the loop.
 - `init-factory` is idempotent: re-running it against an already-initialized target reports "nothing to do" everywhere except the one thing it never diffs (an existing `factory/` directory, per Extension 3a).
 
 ## Activity Diagram
@@ -89,7 +95,14 @@ flowchart TD
     L --> N[Handle .pre-commit-config.yaml]
     M --> N
     N --> O[uvx pre-commit install]
-    O --> P[Report done, exit 0]
+    O --> Q{docs/charter/testing.yaml exists?}
+    Q -->|yes| R[Leave untouched — BR-030]
+    Q -->|no| S{how many test entrypoints found?}
+    S -->|one| T[Write test_command to testing.yaml]
+    S -->|zero, or several unresolved| U[Surface the gap, write nothing]
+    R --> P[Report done, exit 0]
+    T --> P
+    U --> P
 ```
 
 ## Acceptance Criteria
@@ -123,6 +136,27 @@ Feature: Initialize Agent Factory into a project
     When the actor runs init-factory again
     Then every step reports "already present" or "already linked"
     And init-factory exits 0
+
+  Scenario: A single test entrypoint is detected and recorded
+    Given the target has a pyproject.toml with a [tool.pytest.ini_options] section
+    And the target has no docs/charter/testing.yaml
+    When the actor runs init-factory
+    Then docs/charter/testing.yaml is created with test_command "pytest"
+    And .pre-commit-config.yaml carries no test-related hook
+
+  Scenario: No test entrypoint surfaces a gap instead of guessing
+    Given the target has no Makefile, package.json, tox, nox, Justfile, Taskfile, or pytest config
+    When the actor runs init-factory
+    Then docs/charter/testing.yaml is not created
+    And init-factory reports the gap
+    And init-factory still exits 0
+
+  Scenario: An existing testing.yaml is left untouched
+    Given the target already has a docs/charter/testing.yaml
+    And the target also has a Makefile with a test target
+    When the actor runs init-factory
+    Then docs/charter/testing.yaml is not modified
+    And init-factory reports it as already present
 ```
 
 ## Referenced from

@@ -91,6 +91,15 @@ Steps
       `/.agent-factory/` entry — no new line needed.
   11. Write .agent-factory/factory-install.json (the removal manifest).
   12. `uvx pre-commit install`.
+  13. Detect an existing test regime (Makefile/package.json/tox/nox/Justfile/
+      Taskfile/pytest entrypoints) and record it as `test_command` in
+      --target/docs/charter/testing.yaml — the deterministic core of the
+      detect-test-regime skill, since this script runs with no AI in the
+      loop. Skipped entirely if that file already exists (NON-INTERFERENCE:
+      it may carry hand-edited or previously-scanned content). No entrypoint
+      found, or several with no way to disambiguate non-interactively: the
+      gap is reported and nothing is written — never guessed. Never touches
+      .pre-commit-config.yaml; test hooks stay project-owned.
 
 Usage
   init-factory                                    # target = cwd, source = this checkout
@@ -108,6 +117,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -1617,6 +1627,145 @@ def _fresh_precommit_text(template: Path) -> str:
     return header + block + "\n"
 
 
+def _scan_test_entrypoints(target: Path) -> list[tuple[str, str]]:
+    """Deterministic subset of the detect-test-regime skill's step-1 scan
+    (factory/skills/detect-test-regime/SKILL.md): check each conventional
+    test entrypoint for concrete evidence — never mere file presence — and
+    return one (label, command) pair per entrypoint found. init-factory has
+    no AI in the loop, so this mirrors the skill's table mechanically rather
+    than delegating to it; keep the two in sync as the table grows."""
+    candidates: list[tuple[str, str]] = []
+
+    def read(path: Path) -> str:
+        try:
+            return path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            return ""
+
+    makefile = target / "Makefile"
+    if makefile.is_file() and re.search(r"(?m)^test:", read(makefile)):
+        candidates.append(("Makefile `test` target", "make test"))
+
+    package_json = target / "package.json"
+    if package_json.is_file():
+        try:
+            data = json.loads(read(package_json) or "{}")
+        except json.JSONDecodeError:
+            data = {}
+        if isinstance(data, dict) and "test" in (data.get("scripts") or {}):
+            candidates.append(("package.json `test` script", "npm test"))
+
+    pyproject_text = (
+        read(target / "pyproject.toml") if (target / "pyproject.toml").is_file() else ""
+    )
+
+    if (target / "tox.ini").is_file() or "[tool.tox]" in pyproject_text:
+        candidates.append(("tox", "tox"))
+
+    if (target / "noxfile.py").is_file():
+        candidates.append(("noxfile.py", "nox"))
+
+    justfile = target / "Justfile"
+    if justfile.is_file() and re.search(r"(?m)^test:", read(justfile)):
+        candidates.append(("Justfile `test` recipe", "just test"))
+
+    taskfile = target / "Taskfile.yml"
+    if taskfile.is_file():
+        text = read(taskfile)
+        if re.search(r"(?m)^tasks:", text) and re.search(r"(?m)^\s+test:", text):
+            candidates.append(("Taskfile.yml `test` task", "task test"))
+
+    # Both pytest evidence sources imply the same command; only record once.
+    if "[tool.pytest.ini_options]" in pyproject_text:
+        candidates.append(("pyproject.toml `[tool.pytest.ini_options]`", "pytest"))
+    elif (target / "pytest.ini").is_file():
+        candidates.append(("pytest.ini", "pytest"))
+    elif "[tool:pytest]" in read(target / "setup.cfg"):
+        candidates.append(("setup.cfg `[tool:pytest]`", "pytest"))
+
+    return candidates
+
+
+def _write_testing_yaml(target: Path, command: str) -> None:
+    path = target / "docs" / "charter" / "testing.yaml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "# docs/charter/testing.yaml — project test command declaration\n"
+        "# Detected by Agent Factory's detect-test-regime scan during init-factory.\n"
+        "# Code is the source of truth; this charter is a derived record — re-run\n"
+        "# the detect-test-regime skill by hand once the project's test setup\n"
+        "# changes. Schema: factory/rulebooks/templates/charter-testing.yaml\n"
+        "\n"
+        f'test_command: "{command}"\n',
+        encoding="utf-8",
+    )
+
+
+def detect_test_regime(target: Path, report: list[str]) -> None:
+    """Scan for an existing test regime and record it in
+    --target/docs/charter/testing.yaml — the deterministic core of the
+    detect-test-regime skill (step 2: one entrypoint records, several ask
+    rather than guess, none surfaces the gap). Never writes to
+    .pre-commit-config.yaml: test hooks stay project-owned (BR-029)."""
+    path = target / "docs" / "charter" / "testing.yaml"
+    if path.exists():
+        log(report, "docs/charter/testing.yaml: already present, left untouched")
+        return
+
+    by_command: dict[str, list[str]] = {}
+    for label, command in _scan_test_entrypoints(target):
+        by_command.setdefault(command, []).append(label)
+
+    if not by_command:
+        log(
+            report,
+            "docs/charter/testing.yaml: no test entrypoint detected — gap "
+            "surfaced. Build project-owned test infrastructure, or run the "
+            "detect-test-regime skill once one exists.",
+        )
+        return
+
+    if len(by_command) == 1:
+        command = next(iter(by_command))
+        _write_testing_yaml(target, command)
+        log(
+            report,
+            f"docs/charter/testing.yaml: created, test_command={command!r} "
+            f"(detected via {', '.join(by_command[command])})",
+        )
+        return
+
+    # Several distinct commands found: do not guess (skill step 2). Ask
+    # interactively; a non-interactive run (no TTY, or a blank answer)
+    # surfaces the gap instead of picking one.
+    options = sorted(by_command)
+    print("init-factory: multiple possible test commands detected:")
+    for i, command in enumerate(options, start=1):
+        print(f"  {i}. {command}  ({', '.join(by_command[command])})")
+    try:
+        choice = input(
+            f"Which is the project's canonical test_command? [1-{len(options)}, blank to skip]: "
+        ).strip()
+    except (EOFError, OSError):
+        choice = ""
+
+    if choice.isdigit() and 1 <= int(choice) <= len(options):
+        command = options[int(choice) - 1]
+        _write_testing_yaml(target, command)
+        log(
+            report,
+            f"docs/charter/testing.yaml: created, test_command={command!r} (user-selected)",
+        )
+        return
+
+    log(
+        report,
+        "docs/charter/testing.yaml: multiple test entrypoints found "
+        f"({', '.join(options)}) — gap surfaced, none recorded. Run the "
+        "detect-test-regime skill, or edit the charter by hand, to disambiguate.",
+    )
+
+
 def write_gitignore_block(target: Path, install: dict, report: list[str]) -> None:
     path = target / ".gitignore"
 
@@ -2030,6 +2179,7 @@ def main(argv: list[str] | None = None) -> int:
         write_manifest(target, install, report)
         initialize_usage_lifecycle(target, report, args.usage_transcript_retention)
         pre_commit_install(target, report)
+        detect_test_regime(target, report)
     except Collision as e:
         print(f"init-factory: STOPPED — {e}", file=sys.stderr)
         return 1
