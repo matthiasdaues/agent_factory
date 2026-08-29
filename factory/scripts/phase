@@ -39,13 +39,15 @@ target's own ``entry_conditions`` decide pass or fail — no ``--result`` flag t
 trust. ``script_exit_zero`` conditions execute the specified script and check
 for exit code 0 (T-03, UC-09).
 
-No third-party dependencies (Python 3.8+ stdlib only), matching the gate scripts.
+Stdlib only (Python 3.8+), matching the gate scripts. Charter resolution uses
+a minimal inline YAML reader (no PyYAML dependency).
 """
 
 from __future__ import annotations
 
 import argparse
 import re
+import shlex
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -239,6 +241,26 @@ def _condition_patterns(cond: dict[str, Any]) -> list[str]:
     return []
 
 
+def _parse_charter(text: str) -> dict[str, str]:
+    """Minimal flat-YAML reader for charter files (stdlib, no PyYAML)."""
+    result: dict[str, str] = {}
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        key, _, val = stripped.partition(":")
+        if not _:
+            continue
+        val = val.strip()
+        if (val.startswith('"') and val.endswith('"')) or (
+            val.startswith("'") and val.endswith("'")
+        ):
+            val = val[1:-1]
+        if key.strip():
+            result[key.strip()] = val
+    return result
+
+
 def evaluate_condition(repo_root: Path, cond: dict[str, Any]) -> tuple[bool, str]:
     """Evaluate one gate condition. Returns (satisfied, human_reason)."""
     ctype = cond.get("type")
@@ -272,14 +294,12 @@ def evaluate_condition(repo_root: Path, cond: dict[str, Any]) -> tuple[bool, str
                     False,
                     f"script_exit_zero {script}: charter file {charter_file} not found",
                 )
-            import yaml
-
             try:
-                charter = yaml.safe_load(charter_path.read_text()) or {}
-            except (yaml.YAMLError, OSError) as e:
+                charter = _parse_charter(charter_path.read_text())
+            except OSError as e:
                 return (
                     False,
-                    f"script_exit_zero {script}: cannot parse {charter_file}: {e}",
+                    f"script_exit_zero {script}: cannot read {charter_file}: {e}",
                 )
             resolved = charter.get(field)
             if not resolved:
@@ -293,7 +313,7 @@ def evaluate_condition(repo_root: Path, cond: dict[str, Any]) -> tuple[bool, str
 
         try:
             result = subprocess.run(
-                script.split(),
+                shlex.split(script),
                 cwd=repo_root,
                 capture_output=True,
                 text=True,

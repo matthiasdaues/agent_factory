@@ -133,32 +133,17 @@ that remaining configuration drift is tracked as
 [`RECON-0018`](../docs/findings/RECON-0018.md). This repository's own merged
 configuration already contains the changed-only hook.
 
-### Framework detection
+### Charter-based test execution
 
-`factory/scripts/run-tests` auto-detects your test framework from project structure:
+Projects declare their test commands in `docs/charter/testing.yaml` instead of relying on a Factory-owned test runner. The charter file declares up to three fields:
 
-- **pytest**: detected from `pyproject.toml`, runs via `uv run pytest`
-- **jest**: detected from `package.json`, runs via `npm test`
-- **go test**: detected from `go.mod`, runs via `go test ./...`
-- **cargo test**: detected from `Cargo.toml`, runs via `cargo test`
+- **`test_command`** — full test suite (used by FSM gates and pre-commit hooks)
+- **`test_staged_command`** — tests on staged files only (agent TDD loop)
+- **`test_changed_command`** — tests on changed files only (pre-commit hook)
 
-No configuration needed for single-framework projects. Multi-framework monorepos are detected and fail loudly (not yet supported).
+The git safety hooks allowlist these commands by exact match, so agents can run them directly. Commands not declared in the charter are blocked.
 
-### Agent test iteration
-
-Agents cannot run bare test commands (`pytest`, `npm test`) — these are blocked by the git safety hooks. But agents writing tests need a tight feedback loop. Use staged mode:
-
-```bash
-# Agent stages test file
-git add tests/test_foo.py
-
-# Agent runs tests on staged files
-factory/scripts/run-tests --staged
-
-# Agent sees results, fixes test, stages again, repeats
-```
-
-This preserves the "tests via factory mechanisms" principle while enabling TDD workflows.
+FSM gate conditions use `charter:test_command` notation — the `phase` script reads the charter file and resolves the actual command at runtime.
 
 See [ADR-0003](../docs/adr/0003-test-execution-via-hooks.md) for the architecture rationale and [UC-09](../docs/spec/use_cases/UC-09-run-tests-via-hook.md) for detailed behavior.
 

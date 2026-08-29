@@ -30,7 +30,7 @@ CHARTER="$TOP/docs/charter/testing.yaml"
 if [ -n "$TOP" ] && [ -f "$CHARTER" ]; then
   for field in test_command test_staged_command test_changed_command; do
     ALLOWED_CMD=$(grep "^${field}:" "$CHARTER" | head -1 \
-      | sed -E "s/^${field}:[[:space:]]*//" | sed -E 's/^"(.*)"$/\1/')
+      | sed -E "s/^${field}:[[:space:]]*//" | sed -E 's/^"(.*)"$/\1/' | sed -E "s/^'(.*)'$/\1/")
     if [ -n "$ALLOWED_CMD" ] && [ "$COMMAND" = "$ALLOWED_CMD" ]; then
       exit 0
     fi

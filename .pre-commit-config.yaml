@@ -171,7 +171,7 @@ repos:
         stages: [manual]
 
       # UC-09: Run tests only when src/ or test/ code changes
-      # Resolves test_command from docs/charter/testing.yaml (project-owned)
+      # Matches docs/charter/testing.yaml test_command (project-owned)
       - id: run-tests
         name: run-tests (changed-only mode)
         entry: uv run pytest --tb=short --quiet
