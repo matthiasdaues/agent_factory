@@ -296,9 +296,9 @@ skills:
     tokens: 467
   - name: mutation-analysis
     category: quality
-    description: Run mutmut against production code, scope mutations to a story diff when requested, and block unresolved surviving mutants.
+    description: Set up project-owned mutation testing to verify behavioral coverage, classify survivors, and — when a QA strategy contract-owner table exists — classify each mutant's contract ownership.
     path: skills/mutation-analysis/SKILL.md
-    tokens: 920
+    tokens: 1705
   - name: security-review
     category: quality
     description: Security-focused code review based on the OWASP Top 10.
