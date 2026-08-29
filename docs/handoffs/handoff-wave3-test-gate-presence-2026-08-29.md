@@ -18,16 +18,16 @@ Test suite passes (exit 0).
 
 ### Completed stories (Waves 1-3)
 
-| Story | Title | Wave | Status | Merge commit |
-| --- | --- | --- | --- | --- |
-| ST-0147 | Delete run-tests and mutation-analysis scripts | 1 | done | `963560b491485c5f4c502ae00a6dc0e5c4fdb876` |
-| ST-0148 | Create charter testing.yaml template | 2 | done | `d3b101f` |
-| ST-0152 | Update implementation-agent for two-gate dispatcher | 2 | done | `c02aa6e` |
-| ST-0149 | Remove test hook from pre-commit config | 3 | done | `1033327` |
-| ST-0150 | Update block-dangerous-git.sh for charter allowlist | 3 | done | `925f6b9` |
-| ST-0151 | Update FSM gate conditions for charter test_command | 3 | done | `9736464` |
-| ST-0153 | Create detect-test-regime skill | 3 | done | `ae4f0e8` |
-| ST-0155 | Update kit-manager for layer bindings | 3 | done | `e7d8840` |
+| Story   | Title                                               | Wave | Status | Merge commit                               |
+| ------- | --------------------------------------------------- | ---- | ------ | ------------------------------------------ |
+| ST-0147 | Delete run-tests and mutation-analysis scripts      | 1    | done   | `963560b491485c5f4c502ae00a6dc0e5c4fdb876` |
+| ST-0148 | Create charter testing.yaml template                | 2    | done   | `d3b101f`                                  |
+| ST-0152 | Update implementation-agent for two-gate dispatcher | 2    | done   | `c02aa6e`                                  |
+| ST-0149 | Remove test hook from pre-commit config             | 3    | done   | `1033327`                                  |
+| ST-0150 | Update block-dangerous-git.sh for charter allowlist | 3    | done   | `925f6b9`                                  |
+| ST-0151 | Update FSM gate conditions for charter test_command | 3    | done   | `9736464`                                  |
+| ST-0153 | Create detect-test-regime skill                     | 3    | done   | `ae4f0e8`                                  |
+| ST-0155 | Update kit-manager for layer bindings               | 3    | done   | `e7d8840`                                  |
 
 ### Wave 3 dispatch details
 
@@ -35,9 +35,9 @@ All 5 stories file-disjoint, dispatched in parallel. Crap-score gates for ST-015
 
 ### Remaining stories (Wave 4)
 
-| Story | Title | Deps | Tier |
-| --- | --- | --- | --- |
-| ST-0154 | Wire detect-test-regime into init-factory | ST-0153 | standard |
+| Story   | Title                                       | Deps                      | Tier     |
+| ------- | ------------------------------------------- | ------------------------- | -------- |
+| ST-0154 | Wire detect-test-regime into init-factory   | ST-0153                   | standard |
 | ST-0156 | Reconcile docs to reflect new testing model | ST-0149, ST-0150, ST-0151 | standard |
 
 ST-0154 depends on ST-0153 (done). ST-0156 depends on ST-0149, ST-0150, ST-0151 (all done). Both are ready.

@@ -38,35 +38,35 @@ Open items: the 12 new story files in `backlog/` are untracked — the incoming 
 
 ### Epic: Test Gate Infrastructure (6 stories)
 
-| ID | Title | Tier | Priority | Deps |
-| --- | --- | --- | --- | --- |
-| ST-0147 | Delete run-tests and mutation-analysis scripts | economy | must-have | — |
-| ST-0148 | Create charter-testing.yaml template and Factory's own testing.yaml | economy | must-have | ST-0147 |
-| ST-0149 | Remove test hook from pre-commit config | economy | must-have | ST-0148 |
-| ST-0150 | Update block-dangerous-git.sh to read charter allowlist | standard | must-have | ST-0148 |
-| ST-0151 | Update FSM gate conditions to resolve test_command from charter | standard | must-have | ST-0148 |
-| ST-0152 | Update implementation-agent for two-gate default | economy | must-have | ST-0147 |
+| ID      | Title                                                               | Tier     | Priority  | Deps    |
+| ------- | ------------------------------------------------------------------- | -------- | --------- | ------- |
+| ST-0147 | Delete run-tests and mutation-analysis scripts                      | economy  | must-have | —       |
+| ST-0148 | Create charter-testing.yaml template and Factory's own testing.yaml | economy  | must-have | ST-0147 |
+| ST-0149 | Remove test hook from pre-commit config                             | economy  | must-have | ST-0148 |
+| ST-0150 | Update block-dangerous-git.sh to read charter allowlist             | standard | must-have | ST-0148 |
+| ST-0151 | Update FSM gate conditions to resolve test_command from charter     | standard | must-have | ST-0148 |
+| ST-0152 | Update implementation-agent for two-gate default                    | economy  | must-have | ST-0147 |
 
 ### Epic: Test Regime Detection (2 stories)
 
-| ID | Title | Tier | Priority | Deps |
-| --- | --- | --- | --- | --- |
-| ST-0153 | Create detect-test-regime skill | standard | must-have | ST-0148 |
+| ID      | Title                                     | Tier     | Priority  | Deps    |
+| ------- | ----------------------------------------- | -------- | --------- | ------- |
+| ST-0153 | Create detect-test-regime skill           | standard | must-have | ST-0148 |
 | ST-0154 | Wire detect-test-regime into init-factory | standard | must-have | ST-0153 |
 
 ### Epic: Charter Layer Bindings (1 story)
 
-| ID | Title | Tier | Priority | Deps |
-| --- | --- | --- | --- | --- |
+| ID      | Title                                         | Tier     | Priority    | Deps    |
+| ------- | --------------------------------------------- | -------- | ----------- | ------- |
 | ST-0155 | Update kit-manager to populate layer bindings | standard | should-have | ST-0148 |
 
 ### Epic: QA Strategy Traceability (3 stories)
 
-| ID | Title | Tier | Priority | Deps |
-| --- | --- | --- | --- | --- |
-| ST-0156 | Rewrite qa-strategy-from-spec for charter-grounded contract ownership | strong | must-have | ST-0148, ST-0155 |
-| ST-0157 | Update developer-agent for test-harness mismatch feedback | economy | should-have | ST-0156 |
-| ST-0158 | Rewrite mutation-analysis skill with setup guidance and classification | standard | must-have | ST-0156 |
+| ID      | Title                                                                  | Tier     | Priority    | Deps             |
+| ------- | ---------------------------------------------------------------------- | -------- | ----------- | ---------------- |
+| ST-0156 | Rewrite qa-strategy-from-spec for charter-grounded contract ownership  | strong   | must-have   | ST-0148, ST-0155 |
+| ST-0157 | Update developer-agent for test-harness mismatch feedback              | economy  | should-have | ST-0156          |
+| ST-0158 | Rewrite mutation-analysis skill with setup guidance and classification | standard | must-have   | ST-0156          |
 
 ### Dispatch waves
 
