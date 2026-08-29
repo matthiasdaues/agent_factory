@@ -83,7 +83,7 @@ def test_fresh_install_wires_step_guard_for_all_clis(tmp_path: Path) -> None:
         (tmp_path / ".github" / "hooks" / "step-guard.json").read_text(encoding="utf-8")
     )
     assert copilot_config["version"] == 1
-    assert len(copilot_config["hooks"]["preToolUse"]) == 6
+    assert len(copilot_config["hooks"]["preToolUse"]) == 7
     assert (tmp_path / ".pi" / "extensions" / "step-guard.ts").is_symlink()
 
 
