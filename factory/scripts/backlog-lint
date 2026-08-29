@@ -48,7 +48,7 @@ VALID_RISK_DOMAINS = {
     "reliability",
     "operations",
 }
-VALID_STRATEGIES = {"direct", "seams-first"}
+VALID_STRATEGIES = {"direct", "seams-first", "deletion"}
 VALID_QUALITY_GATES = {"crap-score", "mutation-analysis", "dependency-check"}
 FACTORY_DEFAULT_QUALITY_GATES = ("crap-score", "dependency-check")
 RE_STORY_ID = re.compile(r"^ST-\d{4,}$")
@@ -303,7 +303,7 @@ def check_story(
                 "BL-ENUM",
                 "error",
                 rel,
-                f"strategy '{strategy}' not in {{direct, seams-first}}",
+                f"strategy '{strategy}' not in {{direct, seams-first, deletion}}",
             )
         )
 
@@ -385,16 +385,45 @@ def check_story(
         if len(outputs) == 0:
             out.append(Finding("BL-EMPTY", "warning", rel, "outputs is empty"))
         matching_outputs = _matching_output_paths(project_root, outputs)
-        if status == "done" and not matching_outputs:
+
+        # For deletion stories with status='done': verify NO files exist
+        if strategy == "deletion" and status == "done" and matching_outputs:
+            matched = ", ".join(
+                sorted(str(p.relative_to(project_root)) for p in matching_outputs)
+            )
             out.append(
                 Finding(
                     "VR-027",
                     "error",
                     rel,
-                    "status 'done' requires at least one existing file matching outputs",
+                    f"deletion with status 'done' requires no existing files, but found: {matched}",
                 )
             )
+        # For non-deletion or deletion with status != 'done': apply normal VR-027 logic
+        elif strategy != "deletion":
+            if status == "done" and not matching_outputs:
+                out.append(
+                    Finding(
+                        "VR-027",
+                        "error",
+                        rel,
+                        "status 'done' requires at least one existing file matching outputs",
+                    )
+                )
+            elif status != "done" and matching_outputs:
+                matched = ", ".join(
+                    sorted(str(p.relative_to(project_root)) for p in matching_outputs)
+                )
+                out.append(
+                    Finding(
+                        "VR-028",
+                        "warning",
+                        rel,
+                        f"outputs match existing file(s): {matched}",
+                    )
+                )
         elif status != "done" and matching_outputs:
+            # Deletion story with status != 'done': also apply normal VR-028 warning
             matched = ", ".join(
                 sorted(str(p.relative_to(project_root)) for p in matching_outputs)
             )

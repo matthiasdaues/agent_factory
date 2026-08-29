@@ -204,7 +204,7 @@ All stories must have YAML frontmatter with the following fields:
 | `traces`       | array of strings | Use Case / ADR / component IDs this story implements                                               |
 | `tests`        | array of strings | Pre-existing test file paths covering acceptance criteria; missing files generate warnings only    |
 | `risk_domains` | array of strings | Closed enum: `security`, `privacy`, `data_integrity`, `compatibility`, `reliability`, `operations` |
-| `strategy`     | string           | Closed enum: `direct`, `seams-first`; defaults to `direct` when absent                             |
+| `strategy`     | string           | Closed enum: `direct`, `seams-first`, `deletion`; defaults to `direct` when absent                 |
 | `seam_outputs` | array of strings | Optional seams-first test outputs; validated only when present                                     |
 | `impl_outputs` | array of strings | Optional seams-first implementation outputs; validated only when present                           |
 
@@ -213,7 +213,7 @@ All stories must have YAML frontmatter with the following fields:
 - `backlog-lint` reports one `Finding` per detected error or anomaly
 - Errors block (exit code > 0); warnings and info do not
 - Filename must match pattern `ST-NNNN.md` and its stem must match frontmatter `id`
-- `outputs` globs are matched relative to the project root; when status is `done`, at least one glob must match an existing file
+- `outputs` globs are matched relative to the project root; when status is `done`, at least one glob must match an existing file (inverted for `strategy: deletion`: none of the globs must match an existing file)
 - `deps` referential integrity: listed story IDs must exist (warning if missing); no circular dependencies allowed (error)
 - `tests` files are checked for existence; missing files produce `BL-FILE` warnings (not errors — tests may be written after planning)
 - `risk_domains` and `strategy` are closed enums; unknown values produce `BL-ENUM` errors

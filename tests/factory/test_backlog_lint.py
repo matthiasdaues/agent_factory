@@ -40,6 +40,7 @@ def _base_story(
     seam_outputs: str | None = None,
     impl_outputs: str | None = None,
     outputs: str = "[src/feature.py]",
+    status: str = "pending",
 ) -> str:
     """Render a minimal valid story frontmatter body for backlog-lint tests."""
     lines = [
@@ -48,7 +49,7 @@ def _base_story(
         "epic: Test Epic",
         "title: Test Story",
         "tier: economy",
-        "status: pending",
+        f"status: {status}",
         f"outputs: {outputs}",
     ]
     if risk_domains is not None:
@@ -226,3 +227,97 @@ def test_seams_first_requires_union_equal_outputs(tmp_path: Path) -> None:
     assert result.returncode == 1
     assert "seams-first" in result.stdout
     assert "outputs" in result.stdout
+
+
+def test_deletion_strategy_done_with_no_files_passes(tmp_path: Path) -> None:
+    """Deletion story with status 'done' and no matching files passes VR-027."""
+    backlog_dir = tmp_path / "backlog"
+    backlog_dir.mkdir()
+    _write_story(
+        backlog_dir,
+        "ST-9999",
+        _base_story(
+            strategy="deletion",
+            status="done",
+            outputs="[src/oldfeature.py, src/oldutil.py]",
+        ),
+    )
+
+    result = _run_backlog_lint(backlog_dir)
+
+    assert result.returncode == 0, result.stdout
+    assert "VR-027" not in result.stdout
+
+
+def test_deletion_strategy_done_with_surviving_file_errors(tmp_path: Path) -> None:
+    """Deletion story with status 'done' and any surviving file fails VR-027."""
+    backlog_dir = tmp_path / "backlog"
+    backlog_dir.mkdir()
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    # Create one surviving file to trigger the error
+    (src_dir / "oldfeature.py").write_text("# old code\n")
+
+    _write_story(
+        backlog_dir,
+        "ST-9999",
+        _base_story(
+            strategy="deletion",
+            status="done",
+            outputs="[src/oldfeature.py, src/oldutil.py]",
+        ),
+    )
+
+    result = _run_backlog_lint(backlog_dir)
+
+    assert result.returncode == 1
+    assert "VR-027" in result.stdout
+    assert "src/oldfeature.py" in result.stdout
+
+
+def test_deletion_strategy_pending_with_files_no_error(tmp_path: Path) -> None:
+    """Deletion story with status != 'done' follows normal VR-027 logic."""
+    backlog_dir = tmp_path / "backlog"
+    backlog_dir.mkdir()
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    # Create files to represent the code still being present
+    (src_dir / "feature.py").write_text("# code\n")
+
+    _write_story(
+        backlog_dir,
+        "ST-9999",
+        _base_story(
+            strategy="deletion",
+            status="pending",
+            outputs="[src/feature.py]",
+        ),
+    )
+
+    result = _run_backlog_lint(backlog_dir)
+
+    # Pending with existing files should NOT trigger an error
+    # (normal VR-027 logic: error only if status='done' and no files)
+    assert result.returncode == 0, result.stdout
+
+
+def test_non_deletion_story_with_done_status_requires_files(tmp_path: Path) -> None:
+    """Non-deletion stories maintain normal VR-027 behavior."""
+    backlog_dir = tmp_path / "backlog"
+    backlog_dir.mkdir()
+    # No files created, simulating deleted files
+    _write_story(
+        backlog_dir,
+        "ST-9999",
+        _base_story(
+            strategy="direct",
+            status="done",
+            outputs="[src/feature.py]",
+        ),
+    )
+
+    result = _run_backlog_lint(backlog_dir)
+
+    # For non-deletion stories, status='done' requires files to exist
+    assert result.returncode == 1
+    assert "VR-027" in result.stdout
