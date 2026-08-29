@@ -435,6 +435,19 @@ Feature: Story Lifecycle
     And the worktree and branch are not cleaned up
     And exit code is zero if premerge-check passes, non-zero if it fails
 
+  Scenario: Premerge-check receives a --max-files threshold scaled from the story's outputs
+    Given ST-003 declares 15 entries in its outputs list
+    When dispatch merge-story invokes premerge-check
+    Then premerge-check receives --max-files 30, i.e. max(20, len(outputs) * 2)
+    And a story with few or no declared outputs receives the unscaled default of 20
+
+  Scenario: suggest-merge-args recommends --max-files for the final feature-to-dev merge
+    Given the dispatch ledger contains multiple stories, each with a declared outputs count
+    When the operator runs dispatch suggest-merge-args
+    Then dispatch prints a recommended --max-files value equal to the sum of every story's
+      outputs count, floored at the premerge-check default of 20
+    And the command only reads the ledger and backlog files; it does not merge or modify state
+
   # --- mark-blocked ---
 
   Scenario: Record a blocking condition

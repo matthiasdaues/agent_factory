@@ -28,38 +28,38 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from dispatch_lib import (  # noqa: E402
+import json
+import re
+import subprocess
+
+from dispatch_lib import (
     FAILURE_CLASSES,
     MANIFEST_FILENAME,
     QUALIFYING_ESCALATION_FAILURE_CLASSES,
     TIER_RANK,
-    append_attempt,
-    attempts_for_session,
-    glob_match,
-    implementation_session_tier,
-    next_tier,
     Ledger,
     ManifestExistsError,
     ShaFormatError,
     StoryEntry,
     StoryState,
     TransitionError,
+    append_attempt,
+    attempts_for_session,
     clear_manifest_force,
     compute_wave_plan,
+    glob_match,
+    implementation_session_tier,
     load_project_config,
     load_stories,
+    next_tier,
     parse_story_frontmatter,
+    re_dispatch_disposition,
     remove_manifest,
     render_handoff_contract,
-    re_dispatch_disposition,
     suggest_tier,
     write_handoff_contract,
     write_manifest,
 )
-
-import json
-import re
-import subprocess
 
 DEFAULT_LEDGER = Path(".current-work/dispatch-ledger.yaml")
 
@@ -114,6 +114,20 @@ def _story_output_globs(project_root: Path, story_id: str) -> list[str]:
         return []
     outputs = frontmatter.get("outputs") or []
     return outputs if isinstance(outputs, list) else []
+
+
+DEFAULT_MAX_FILES = 20
+
+
+def _scaled_max_files(output_count: int) -> int:
+    """Recommend a per-story ``--max-files`` threshold from an output count.
+
+    Scales with the story's declared output count so a multi-file story
+    doesn't trip premerge-check's file-count-blowout gate, while never
+    dropping below the gate's own default of 20 (preserved when a story
+    declares no outputs, i.e. no scaling information is available).
+    """
+    return max(DEFAULT_MAX_FILES, output_count * 2)
 
 
 def _attempt_session_for_story(
@@ -207,7 +221,10 @@ def _check_tier_mismatches(
         if suggested == declared_tier:
             continue
 
-        if suggested == "strong" and TIER_RANK.get(declared_tier, 0) < TIER_RANK["strong"]:
+        if (
+            suggested == "strong"
+            and TIER_RANK.get(declared_tier, 0) < TIER_RANK["strong"]
+        ):
             report.blocking.append(
                 f"{sid}: rubric suggests 'strong' but declared tier is '{declared_tier}'"
             )
@@ -233,7 +250,11 @@ def _story_meta_for_manifest(project_root: Path, story_id: str) -> dict:
     if fm is None:
         return {}
     raw_traces = fm.get("traces")
-    traces = raw_traces if isinstance(raw_traces, list) else ([raw_traces] if raw_traces else [])
+    traces = (
+        raw_traces
+        if isinstance(raw_traces, list)
+        else ([raw_traces] if raw_traces else [])
+    )
     raw_max_tokens = fm.get("max_input_tokens")
     meta: dict = {
         "inputs": fm.get("inputs") or [],
@@ -259,7 +280,9 @@ def _story_handoff_contract(
 ) -> tuple[object | None, str | None]:
     """Render and persist the story's seven-part handoff contract."""
     story_path = project_root / "backlog" / f"{entry.id}.md"
-    story_fm = parse_story_frontmatter(story_path.read_text()) if story_path.exists() else {}
+    story_fm = (
+        parse_story_frontmatter(story_path.read_text()) if story_path.exists() else {}
+    )
     story_title = (story_fm or {}).get("title") or entry.id
     outputs = list((story_fm or {}).get("outputs") or [])
     strategy = (story_fm or {}).get("strategy")
@@ -323,7 +346,10 @@ def _write_story_manifest(
 
     if contract is not None:
         write_handoff_contract(
-            worktree_path, feature_branch, entry.branch or f"story/{entry.id}", contract.text
+            worktree_path,
+            feature_branch,
+            entry.branch or f"story/{entry.id}",
+            contract.text,
         )
     entry.feature_branch = feature_branch
     return 0, None
@@ -356,7 +382,9 @@ def _prepare_seams_first_session(
     declared_tier = _story_declared_or_current_tier(project_root, entry)
     entry.active_session = session
     entry.active_tier = (
-        declared_tier if session == "seam" else implementation_session_tier(declared_tier)
+        declared_tier
+        if session == "seam"
+        else implementation_session_tier(declared_tier)
     )
     return 0, None
 
@@ -450,7 +478,12 @@ def cmd_init(args: argparse.Namespace) -> int:
             return 1
         if baseline_commit and untracked:
             _git("add", "-A")
-            _git("commit", "--no-verify", "-m", "chore: baseline commit before dispatch init")
+            _git(
+                "commit",
+                "--no-verify",
+                "-m",
+                "chore: baseline commit before dispatch init",
+            )
             code, base_sha, _ = _git("rev-parse", "HEAD")
 
         # Create feature branch + worktree
@@ -465,7 +498,9 @@ def cmd_init(args: argparse.Namespace) -> int:
     # Initialize ledger
     ledger = Ledger()
     for sid in story_ids:
-        ledger.stories[sid] = StoryEntry(id=sid, tier=_story_declared_tier(project_root, sid))
+        ledger.stories[sid] = StoryEntry(
+            id=sid, tier=_story_declared_tier(project_root, sid)
+        )
     ledger_dir.mkdir(parents=True, exist_ok=True)
     ledger.save(ledger_path)
 
@@ -538,7 +573,9 @@ def _verify_worktree_registration(worktree_path: Path) -> bool:
     return f"worktree {needle}" in out.splitlines()
 
 
-def _run_verify_base(worktree_path: Path, target_branch: str, base_sha: str) -> tuple[int, str]:
+def _run_verify_base(
+    worktree_path: Path, target_branch: str, base_sha: str
+) -> tuple[int, str]:
     """Run verify-base inside one prepared story worktree."""
     result = subprocess.run(
         [
@@ -575,7 +612,8 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
     ]
     if blocking:
         blockers = ", ".join(
-            f"{entry.id} ({entry.status.value})" for entry in sorted(blocking, key=lambda e: e.id)
+            f"{entry.id} ({entry.status.value})"
+            for entry in sorted(blocking, key=lambda e: e.id)
         )
         print(
             f"error: wave {wave} blocked by non-terminal prior-wave stories: {blockers}",
@@ -609,7 +647,9 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
             continue
 
         branch_name = f"story/{entry.id}"
-        worktree_path = project_root / ".current-work" / "worktrees" / f"story-{entry.id}"
+        worktree_path = (
+            project_root / ".current-work" / "worktrees" / f"story-{entry.id}"
+        )
 
         code, _, err = _git("branch", branch_name, "HEAD")
         if code != 0:
@@ -634,7 +674,9 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
             )
             return 1
 
-        verify_code, verify_output = _run_verify_base(worktree_path, target_branch, base_sha)
+        verify_code, verify_output = _run_verify_base(
+            worktree_path, target_branch, base_sha
+        )
         if verify_code != 0:
             if verify_output:
                 print(verify_output, file=sys.stderr)
@@ -836,7 +878,11 @@ def _transition(
     ledger = _load_ledger(ledger_path)
     if ledger is None:
         return 1
-    current_status = ledger.stories.get(args.story_id).status if args.story_id in ledger.stories else None
+    current_status = (
+        ledger.stories.get(args.story_id).status
+        if args.story_id in ledger.stories
+        else None
+    )
     try:
         ledger.transition(args.story_id, target)
     except KeyError:
@@ -951,7 +997,9 @@ def cmd_mark_failed(args: argparse.Namespace) -> int:
 
     current_status = entry.status
     frontmatter = _story_frontmatter(_project_root(), args.story_id)
-    session = _attempt_session_for_story(frontmatter, args.failure_class, entry.active_session)
+    session = _attempt_session_for_story(
+        frontmatter, args.failure_class, entry.active_session
+    )
     target_state = StoryState.FAILED
     if args.failure_class == "seam_defect" and session == "seam":
         prior_seam_defects = [
@@ -971,7 +1019,11 @@ def cmd_mark_failed(args: argparse.Namespace) -> int:
     if current_status != target_state:
         entry.failure_class = args.failure_class
         entry.evidence = args.evidence
-        tier = entry.active_tier or entry.tier or _story_declared_tier(_project_root(), args.story_id)
+        tier = (
+            entry.active_tier
+            or entry.tier
+            or _story_declared_tier(_project_root(), args.story_id)
+        )
         append_attempt(
             entry,
             session=session,
@@ -1032,9 +1084,13 @@ def cmd_escalate(args: argparse.Namespace) -> int:
         print(f"error: story not found: {args.story_id}", file=sys.stderr)
         return 1
 
-    story_tier = entry.tier or _story_declared_tier(project_root, args.story_id) or "economy"
+    story_tier = (
+        entry.tier or _story_declared_tier(project_root, args.story_id) or "economy"
+    )
     if story_tier == "strong":
-        print(f"error: story {args.story_id} is already at strong tier", file=sys.stderr)
+        print(
+            f"error: story {args.story_id} is already at strong tier", file=sys.stderr
+        )
         return 1
 
     impl_attempts = attempts_for_session(entry, "impl")
@@ -1090,12 +1146,17 @@ def cmd_escalate(args: argparse.Namespace) -> int:
 
     commit_sha = attempt.get("commit_sha") or entry.commit_sha
     if _story_scope_violation(project_root, args.story_id, commit_sha):
-        print(f"error: scope violation blocks escalation for {args.story_id}", file=sys.stderr)
+        print(
+            f"error: scope violation blocks escalation for {args.story_id}",
+            file=sys.stderr,
+        )
         return 1
 
     next_story_tier = next_tier(story_tier)
     if next_story_tier is None:
-        print(f"error: story {args.story_id} is already at strong tier", file=sys.stderr)
+        print(
+            f"error: story {args.story_id} is already at strong tier", file=sys.stderr
+        )
         return 1
 
     entry.tier = next_story_tier
@@ -1113,7 +1174,9 @@ def _validate_sha_format(sha: str) -> None:
     import re
 
     if not re.match(r"^[0-9a-f]{40}$", sha):
-        raise ShaFormatError(f"SHA must be exactly 40 lowercase hex characters, got: {sha!r}")
+        raise ShaFormatError(
+            f"SHA must be exactly 40 lowercase hex characters, got: {sha!r}"
+        )
 
 
 def cmd_verify_story(args: argparse.Namespace) -> int:
@@ -1151,7 +1214,9 @@ def cmd_verify_story(args: argparse.Namespace) -> int:
 
     code, out, err = _git("branch", "--contains", sha)
     if code != 0:
-        print(f"error: failed to list branches containing {sha}: {err}", file=sys.stderr)
+        print(
+            f"error: failed to list branches containing {sha}: {err}", file=sys.stderr
+        )
         return 1
 
     branch_names = {line.strip().lstrip("*+ ").strip() for line in out.splitlines()}
@@ -1171,7 +1236,9 @@ def cmd_verify_story(args: argparse.Namespace) -> int:
     return _save_ledger(ledger, ledger_path)
 
 
-def _update_story_status_in_file(project_root: Path, story_id: str, status: str) -> bool:
+def _update_story_status_in_file(
+    project_root: Path, story_id: str, status: str
+) -> bool:
     """Rewrite the ``status:`` frontmatter field in the story's backlog file.
 
     Returns True if the file was found, parsed, and rewritten; False otherwise.
@@ -1245,9 +1312,15 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
         return 1
 
     story_path = project_root / "backlog" / f"{entry.id}.md"
-    fm = parse_story_frontmatter(story_path.read_text()) if story_path.exists() else None
+    fm = (
+        parse_story_frontmatter(story_path.read_text()) if story_path.exists() else None
+    )
     raw_outputs = (fm or {}).get("outputs")
-    outputs = raw_outputs if isinstance(raw_outputs, list) else ([raw_outputs] if raw_outputs else [])
+    outputs = (
+        raw_outputs
+        if isinstance(raw_outputs, list)
+        else ([raw_outputs] if raw_outputs else [])
+    )
 
     already_merged_code, _, _ = _git(
         "merge-base", "--is-ancestor", entry.branch, "HEAD"
@@ -1266,6 +1339,7 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
         # The dispatch contract requires updating the story's own backlog file
         # (status: done) in the implementation commit — always in scope.
         premerge_cmd += ["--scope-glob", f"backlog/{entry.id}.md"]
+        premerge_cmd += ["--max-files", str(_scaled_max_files(len(outputs)))]
 
         premerge_result = subprocess.run(
             premerge_cmd, capture_output=True, text=True, cwd=project_root, check=False
@@ -1370,6 +1444,29 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
     return _save_ledger(ledger, ledger_path)
 
 
+def cmd_suggest_merge_args(args: argparse.Namespace) -> int:
+    """Print a recommended ``--max-files`` value for the final feature-to-dev merge.
+
+    Sums the declared ``outputs`` count across every story in the ledger —
+    the aggregate file footprint of the whole feature branch — and prints
+    the result, floored at premerge-check's own default of 20. Used when
+    merging a multi-story feature branch back into dev, where the combined
+    diff routinely exceeds any single story's threshold.
+    """
+    ledger_path = Path(args.ledger)
+    ledger = _load_ledger(ledger_path)
+    if ledger is None:
+        return 1
+
+    project_root = _project_root()
+    total_outputs = sum(
+        len(_story_output_globs(project_root, story_id)) for story_id in ledger.stories
+    )
+    recommended = max(DEFAULT_MAX_FILES, total_outputs)
+    print(f"--max-files {recommended}")
+    return 0
+
+
 def cmd_close_wave(args: argparse.Namespace) -> int:
     ledger_path = Path(args.ledger)
     ledger = _load_ledger(ledger_path)
@@ -1378,7 +1475,10 @@ def cmd_close_wave(args: argparse.Namespace) -> int:
 
     branch_head_code, branch_head, branch_head_err = _git("rev-parse", "HEAD")
     if branch_head_code != 0:
-        print(f"error: unable to read current branch head: {branch_head_err}", file=sys.stderr)
+        print(
+            f"error: unable to read current branch head: {branch_head_err}",
+            file=sys.stderr,
+        )
         return 1
 
     wave = args.wave
@@ -1398,7 +1498,10 @@ def cmd_close_wave(args: argparse.Namespace) -> int:
     rel_ledger_path = ledger_path.relative_to(project_root)
     add_code, _, add_err = _git("add", "--", str(rel_ledger_path))
     if add_code != 0:
-        print(f"error: failed to stage ledger for wave {wave} closeout: {add_err}", file=sys.stderr)
+        print(
+            f"error: failed to stage ledger for wave {wave} closeout: {add_err}",
+            file=sys.stderr,
+        )
         return 1
 
     commit_code, _, commit_err = _git(
@@ -1407,7 +1510,10 @@ def cmd_close_wave(args: argparse.Namespace) -> int:
         f"chore: dispatch ledger wave {wave} closeout",
     )
     if commit_code != 0:
-        print(f"error: failed to commit wave {wave} closeout: {commit_err}", file=sys.stderr)
+        print(
+            f"error: failed to commit wave {wave} closeout: {commit_err}",
+            file=sys.stderr,
+        )
         return 1
     return 0
 
@@ -1435,7 +1541,9 @@ def main(argv: list[str] | None = None) -> int:
 
     p_plan = sub.add_parser("plan", help="compute wave plan from stories")
     p_plan.add_argument("--backlog-dir", required=True)
-    p_plan.add_argument("--stories", default=None, help="comma-separated story IDs to include")
+    p_plan.add_argument(
+        "--stories", default=None, help="comma-separated story IDs to include"
+    )
 
     sub.add_parser("prepare-wave", help="prepare all stories in a wave").add_argument(
         "wave", type=int
@@ -1450,11 +1558,15 @@ def main(argv: list[str] | None = None) -> int:
     p_mdd = sub.add_parser("mark-dispatched", help="mark story as dispatched")
     p_mdd.add_argument("story_id")
 
-    p_mdn = sub.add_parser("mark-done", help="mark story as done, remove its step manifest")
+    p_mdn = sub.add_parser(
+        "mark-done", help="mark story as done, remove its step manifest"
+    )
     p_mdn.add_argument("story_id")
 
     p_cm = sub.add_parser("clear-manifest", help="force-remove a stale step manifest")
-    p_cm.add_argument("--force", action="store_true", help="required: confirms forced recovery")
+    p_cm.add_argument(
+        "--force", action="store_true", help="required: confirms forced recovery"
+    )
     p_cm.add_argument("--worktree", required=True, help="path to the story's worktree")
 
     p_mb = sub.add_parser("mark-blocked", help="mark story as blocked")
@@ -1494,6 +1606,11 @@ def main(argv: list[str] | None = None) -> int:
         "wave", type=int
     )
 
+    sub.add_parser(
+        "suggest-merge-args",
+        help="print recommended --max-files for the final feature-to-dev merge",
+    )
+
     args = parser.parse_args(argv)
 
     if args.subcommand == "status":
@@ -1528,6 +1645,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_merge_story(args)
     if args.subcommand == "close-wave":
         return cmd_close_wave(args)
+    if args.subcommand == "suggest-merge-args":
+        return cmd_suggest_merge_args(args)
     return cmd_not_implemented(args)
 
 
