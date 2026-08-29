@@ -90,11 +90,13 @@ phase is exempt and may continue in the current session.
 2. **Build `architecture.dsl` first** — Invoke `scaffold-arc42`, then immediately fill `docs/arc42/architecture.dsl` from code and deployment IaC (Terraform when available) before writing architecture prose.
    - Required first pass coverage: System Context, Container, Component, Deployment views
    - `05_building_block_view.md`, `06_runtime_view.md`, and `07_deployment_view.md` must derive from these DSL views
+   - The workspace `properties` block must include `"arc42.projected" "false"` by default (see step 3 for when to flip)
    ```bash
    factory/scripts/structurizr validate
    factory/scripts/structurizr export-all
    ```
 3. **Write arc42 prose from DSL** — Populate chapters with code and IaC citations, using exported DSL views as canonical diagrams.
+   - **arc42.projected gating**: Set `"arc42.projected"` to `"true"` only when the user explicitly requests generation of arc42 prose chapters from the DSL. Do not flip the property during DSL-only work (modeling, validation, dependency-check). The `arch-lint` script treats `"arc42.projected" "false"` as "prose chapters not yet generated" and skips prose-completeness checks accordingly.
 4. **Write ADRs** — Per decision: if genuine alternatives exist, invoke `pugh-matrix` against ch.10 quality goals (**Clean Architecture** + **SOLID** as criteria when boundaries/contracts are affected) before invoking `write-adr`; if there's no real alternative to weigh, invoke `write-adr` directly. Update `docs/arc42/09_architecture_decisions.md` index.
 5. **Address findings** (repeat passes) — Invoke `maintain-architecture`: DSL first → validate → export → prose → Mermaid → state machines per [state-machine-notation.md](../rulebooks/conventions/state-machine-notation.md) → annotate findings (don't resolve). One atomic commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `refactor: <description> (ATAM-NNNN)`.
 

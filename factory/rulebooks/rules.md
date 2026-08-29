@@ -39,6 +39,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST** start onboarding by creating and filling `docs/arc42/architecture.dsl` from code before writing architecture prose.
 - **MUST** model deployment nodes and connections in the `architecture.dsl` Deployment view from Terraform (or equivalent IaC) when available.
 - **MUST** treat arc42 chapters 05, 06, and 07 as derived explanations of `architecture.dsl` views, not independent sources.
+- **MUST** provision `"arc42.projected" "false"` in the workspace `properties` block when creating a fresh `architecture.dsl`; only the architecture-agent sets it to `"true"` when the user explicitly requests arc42 chapter projection.
 
 ## Coding
 

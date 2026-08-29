@@ -126,6 +126,8 @@ orchestrator run-phase architecture
 **Agent**: `architecture-agent`
 **Expected outputs**: `docs/arc42/*.md` (arc42 chapters), `docs/adr/`, `docs/arc42/architecture.dsl`, `docs/assets/images/`
 
+The workspace property `"arc42.projected"` defaults to `"false"` in fresh DSL files and is set to `"true"` by the architecture-agent only when the user requests arc42 chapter projection from the DSL.
+
 As architecture decisions settle a charter entry — infrastructure, deployment
 topology, a cloud provider — the architecture agent invokes `update-charter`
 to record it in `docs/charter/tech-stack.md` incrementally.

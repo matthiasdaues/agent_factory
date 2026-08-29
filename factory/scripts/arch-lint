@@ -32,6 +32,16 @@ artifacts — neither dsl nor ch5 present means arc42 isn't in use here, and tho
 checks are skipped rather than erroring. One present without the other is a real
 inconsistency and still errors.
 
+Workspace property `arc42.projected` — declared in architecture.dsl's
+top-level `properties { }` block, in the preamble before `model {` — gates
+checks 1 and the missing-chapter-5 half of the "one without the other"
+error above: `"true"` means chapter 5 has been generated from the model and
+must be kept in sync (today's behavior: missing ch5 errors, diagrams
+auto-export); absent or `"false"` means the DSL exists but prose projection
+hasn't happened yet, so a missing ch5 is only INFO and diagram export
+(check 1) is skipped with INFO. Checks 2-4 are unaffected by this property —
+they run whenever their own preconditions hold.
+
 Usage
   arch-lint --docs-dir docs/arc42
   arch-lint --docs-dir docs/arc42 --no-validate
@@ -101,6 +111,25 @@ def _block(text: str, start_marker: str) -> str:
             if depth == 0:
                 return text[i + 1 : j]
     return text[i + 1 :]
+
+
+def dsl_workspace_property(dsl: str, key: str) -> str | None:
+    """Return the value of a workspace-level `key` from the DSL's `properties` block.
+
+    Scoped to the workspace preamble — everything before the first `model {`
+    — so an element-level `properties { }` block nested inside `model { }`
+    (e.g. on a container or component) is never matched: only the workspace's
+    own properties count. Returns None when `model {` never resolves a
+    preamble properties block, or when the block exists but does not declare
+    `key`.
+    """
+    m = re.search(r"\bmodel\s*\{", dsl)
+    preamble = dsl[: m.start()] if m else dsl
+    block = _block(preamble, "properties")
+    if not block:
+        return None
+    m = re.search(r'"' + re.escape(key) + r'"\s*"([^"]*)"', block)
+    return m.group(1) if m else None
 
 
 def dsl_core_components(dsl: str) -> set[str]:
@@ -406,15 +435,31 @@ def main(argv: list[str] | None = None) -> int:
     # some arc42 in progress. Neither file present => arc42 isn't in use here,
     # skip silently. One without the other => genuine inconsistency, error.
     if dsl_path.exists() or ch5_path.exists():
+        dsl_text = dsl_path.read_text() if dsl_path.exists() else ""
+        projected = dsl_workspace_property(dsl_text, "arc42.projected") == "true"
+
         if not dsl_path.exists():
             rep.error("ARCH-MISSING", f"{dsl_path} not found")
         if not ch5_path.exists():
-            rep.error("ARCH-MISSING", f"{ch5_path} not found")
+            if projected:
+                rep.error("ARCH-MISSING", f"{ch5_path} not found")
+            else:
+                rep.info(
+                    "ARCH-MISSING",
+                    f'{ch5_path} not found; arc42.projected is not "true", '
+                    f"skipping chapter projection check",
+                )
 
         if dsl_path.exists():
-            check_staleness(rep, dsl_path, images)
+            if projected:
+                check_staleness(rep, dsl_path, images)
+            else:
+                rep.info(
+                    "ARCH-STALE",
+                    'arc42.projected is not "true"; skipping diagram export',
+                )
         if dsl_path.exists() and ch5_path.exists():
-            check_coupling(rep, dsl_path.read_text(), ch5_path.read_text())
+            check_coupling(rep, dsl_text, ch5_path.read_text())
         if not args.no_validate:
             check_validate(rep, docs)
 

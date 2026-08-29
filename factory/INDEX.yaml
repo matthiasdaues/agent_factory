@@ -64,8 +64,8 @@ agents:
     tier: strong
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
-    tokens: 1371
-    total_tokens: 9315
+    tokens: 1491
+    total_tokens: 9520
   - name: architecture-review-agent
     title: Architecture Review Agent
     phase: 2
@@ -238,7 +238,7 @@ skills:
     category: architecture
     description: Maintain arc42 architecture docs with architecture.dsl as the single source of truth. Covers DSL-first workflow, image export, Mermaid derivation, and state machine pseudocode.
     path: skills/maintain-architecture/SKILL.md
-    tokens: 1174
+    tokens: 1214
   - name: model-structurizr-slice
     category: architecture
     description: Model an increment, MVP, or release in a canonical Structurizr DSL workspace. Use to tag and style a component subset, map runtime deployment, create static and dynamic slice views, separate data models from C4 views, or fix diagrams that mix structure, deployment, behavior, and data.
@@ -253,7 +253,7 @@ skills:
     category: architecture
     description: Create arc42 architecture documentation and a Structurizr C4 model from the specification.
     path: skills/scaffold-arc42/SKILL.md
-    tokens: 737
+    tokens: 782
   - name: write-adr
     category: architecture
     description: Document an architecture decision as an ADR (Nygard format). The sole owner of ADR format in this project — every ADR, from any caller, is written by this skill.
@@ -425,7 +425,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1108
-    total_tokens: 15995
+    total_tokens: 16200
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -436,8 +436,8 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 2921
-    total_tokens: 29821
+    tokens: 2959
+    total_tokens: 30064
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -476,7 +476,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4671
-    total_tokens: 69786
+    total_tokens: 69991
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -493,8 +493,8 @@ playbooks:
       - reconciliation-agent
       - qa-agent
       - coaching-agent
-    tokens: 3012
-    total_tokens: 69251
+    tokens: 3054
+    total_tokens: 69498
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -555,7 +555,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 2866
+    tokens: 2916
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md

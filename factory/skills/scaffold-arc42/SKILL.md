@@ -54,6 +54,8 @@ Format every chapter file and `docs/README.md` via `factory/scripts/mdformat --n
 
 Create `docs/arc42/architecture.dsl` using **Structurizr DSL** — see [STRUCTURIZR.md](STRUCTURIZR.md) for syntax reference.
 
+The workspace `properties` block must include `"arc42.projected" "false"` by default. This property is set to `"true"` by the architecture-agent only when the user requests arc42 chapter projection from the DSL.
+
 Define **C4** System Context and Container views; add a Component view for key containers where the spec provides enough detail.
 
 Validate the model:

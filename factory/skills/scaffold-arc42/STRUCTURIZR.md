@@ -9,6 +9,10 @@ The DSL file lives at `docs/arc42/architecture.dsl`.
 ```dsl
 workspace "System Name" "One-line description" {
 
+    properties {
+        "arc42.projected" "false"
+    }
+
     model {
         user = person "User" "Role description"
 

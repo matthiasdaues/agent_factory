@@ -103,6 +103,8 @@ factory/scripts/statemachine-lint --spec-dir docs/spec
 
 ## Commit
 
+If this is the first time projecting arc42 prose chapters from the DSL, set `"arc42.projected" "true"` in the workspace `properties` block of `architecture.dsl` before committing.
+
 After all steps pass, commit everything in one atomic commit:
 
 ```bash

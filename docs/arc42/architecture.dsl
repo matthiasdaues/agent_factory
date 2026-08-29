@@ -1,5 +1,9 @@
 workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnostic dispatch, and generated catalog for Agent Factory playbooks" {
 
+    properties {
+        "arc42.projected" "true"
+    }
+
     model {
         # External actors
         humanOperator = person "Human Operator" "Person driving Agent Factory by hand"

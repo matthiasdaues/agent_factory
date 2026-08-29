@@ -88,6 +88,8 @@ Record the answer. If IaC exists, pass the path to the architecture agent so it 
 **Agent**: `architecture-agent`
 **Task**: Analyze code and IaC. Create `docs/arc42/architecture.dsl` with system context and container views. Derive initial arc42 prose chapters from the DSL. Document discovered architectural decisions as ADRs.
 
+The workspace property `"arc42.projected"` defaults to `"false"` and is set to `"true"` by the architecture-agent only when the user requests arc42 chapter projection from the DSL.
+
 **Expected outputs**:
 
 - `docs/arc42/architecture.dsl` (C4 model — system context, containers, deployment)
