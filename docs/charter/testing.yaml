@@ -1,0 +1,21 @@
+---
+# Agent Factory Testing Charter
+#
+# Declares the test commands and test layers employed by the Agent Factory project.
+
+# Full test suite: run from the repository root via `uv run pytest`.
+test_command: "uv run pytest --tb=short --quiet"
+
+# Staged files: used during TDD iteration on git-staged changes.
+test_staged_command: "uv run pytest --tb=short --quiet"
+
+# Test layers
+layers:
+  contract_test:
+    tool: "pytest"
+    infrastructure: "mock"
+    entry_point: "uv run pytest tests/"
+    fidelity:
+      filesystem: "real"
+      external_services: "mocked"
+      configuration: "mocked"

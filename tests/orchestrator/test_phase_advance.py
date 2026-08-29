@@ -30,6 +30,7 @@ advance_dry_run = _mod.advance_dry_run
 retry = _mod.retry
 parse_marker = _mod.parse_marker
 render_marker = _mod.render_marker
+evaluate_condition = _mod.evaluate_condition
 
 _FSM_PATH = _ROOT / "factory" / "playbooks" / "greenfield-development.fsm.yml"
 
@@ -330,3 +331,67 @@ class TestPhaseCLI:
             ]
         )
         assert code == 0
+
+
+# ---------------------------------------------------------------------------
+# Charter resolution in evaluate_condition
+# ---------------------------------------------------------------------------
+
+
+class TestCharterResolution:
+    def test_charter_resolves_test_command(self, tmp_path):
+        charter = tmp_path / "docs" / "charter" / "testing.yaml"
+        charter.parent.mkdir(parents=True)
+        charter.write_text("test_command: echo ok\n")
+        cond = {
+            "type": "script_exit_zero",
+            "script": "charter:test_command",
+            "charter_file": "docs/charter/testing.yaml",
+        }
+        ok, msg = evaluate_condition(tmp_path, cond)
+        assert ok, msg
+        assert "passed" in msg
+
+    def test_charter_blocks_when_file_absent(self, tmp_path):
+        cond = {
+            "type": "script_exit_zero",
+            "script": "charter:test_command",
+            "charter_file": "docs/charter/testing.yaml",
+        }
+        ok, msg = evaluate_condition(tmp_path, cond)
+        assert not ok
+        assert "not found" in msg
+
+    def test_charter_blocks_when_field_missing(self, tmp_path):
+        charter = tmp_path / "docs" / "charter" / "testing.yaml"
+        charter.parent.mkdir(parents=True)
+        charter.write_text("other_field: something\n")
+        cond = {
+            "type": "script_exit_zero",
+            "script": "charter:test_command",
+            "charter_file": "docs/charter/testing.yaml",
+        }
+        ok, msg = evaluate_condition(tmp_path, cond)
+        assert not ok
+        assert "missing" in msg
+
+    def test_charter_blocks_when_no_charter_file_specified(self, tmp_path):
+        cond = {
+            "type": "script_exit_zero",
+            "script": "charter:test_command",
+        }
+        ok, msg = evaluate_condition(tmp_path, cond)
+        assert not ok
+        assert "no charter_file" in msg
+
+    def test_charter_handles_quoted_values(self, tmp_path):
+        charter = tmp_path / "docs" / "charter" / "testing.yaml"
+        charter.parent.mkdir(parents=True)
+        charter.write_text('test_command: "echo ok"\n')
+        cond = {
+            "type": "script_exit_zero",
+            "script": "charter:test_command",
+            "charter_file": "docs/charter/testing.yaml",
+        }
+        ok, msg = evaluate_condition(tmp_path, cond)
+        assert ok, msg

@@ -50,7 +50,7 @@ VALID_RISK_DOMAINS = {
 }
 VALID_STRATEGIES = {"direct", "seams-first"}
 VALID_QUALITY_GATES = {"crap-score", "mutation-analysis", "dependency-check"}
-FACTORY_DEFAULT_QUALITY_GATES = ("crap-score", "mutation-analysis", "dependency-check")
+FACTORY_DEFAULT_QUALITY_GATES = ("crap-score", "dependency-check")
 RE_STORY_ID = re.compile(r"^ST-\d{4,}$")
 REQUIRED_FIELDS = {"id", "epic", "title", "tier", "status", "outputs"}
 OPTIONAL_FIELDS = {

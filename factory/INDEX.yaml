@@ -10,8 +10,8 @@ agents:
     tier: standard
     description: Open-ended conversation that helps an idea find its shape. Starts formless — just talking — and coalesces into the right next step when the idea is ready. The agent you pick before things get serious.
     path: agents/chat-agent.md
-    tokens: 888
-    total_tokens: 3605
+    tokens: 849
+    total_tokens: 3566
   - name: coaching-agent
     title: Coaching Agent
     phase: 0
@@ -19,8 +19,8 @@ agents:
     tier: standard
     description: Run retrospectives, extract action items, and track process improvements across sessions.
     path: agents/coaching-agent.md
-    tokens: 462
-    total_tokens: 1124
+    tokens: 412
+    total_tokens: 1074
   - name: kit-manager
     title: Kit Manager
     phase: 0
@@ -28,8 +28,8 @@ agents:
     tier: standard
     description: Help set up the work environment — scaffold or complete the project charter and validate the result. Accepts ad-hoc reference material (repos, files, URLs) and runs a structured interview to fill charter gaps. Runs in the current session so the stakeholder can answer questions directly.
     path: agents/kit-manager.md
-    tokens: 1078
-    total_tokens: 6667
+    tokens: 1447
+    total_tokens: 7962
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
@@ -47,7 +47,7 @@ agents:
     description: "Capture a project vision, clarify requirements through adversarial interview, and produce a complete specification: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models."
     path: agents/requirements-agent.md
     tokens: 1777
-    total_tokens: 12147
+    total_tokens: 14311
   - name: spec-review-agent
     title: Specification Review Agent
     phase: 1
@@ -91,8 +91,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints. Each subagent implements one story using TDD on its own feature branch. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 3406
-    total_tokens: 10355
+    tokens: 3377
+    total_tokens: 10326
   - name: reconciliation-agent
     title: Reconciliation Agent
     phase: 4
@@ -160,8 +160,8 @@ agents:
     title: Developer Agent
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
-    tokens: 1517
-    total_tokens: 4012
+    tokens: 1704
+    total_tokens: 4199
 
 skills:
   - name: capture-charter
@@ -211,14 +211,9 @@ skills:
     tokens: 678
   - name: qa-strategy-from-spec
     category: requirements
-    description: Derive a per-feature QA strategy document from a consolidated .feature file and supplementary specs.
+    description: Derive a per-feature QA strategy document from a consolidated .feature file, supplementary specs, charter layer bindings, and repository test infrastructure.
     path: skills/qa-strategy-from-spec/SKILL.md
-    tokens: 1738
-  - name: reverse-map
-    category: requirements
-    description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation. Writes docs/spec/scope-map.md and seeds docs/CONTEXT.md.
-    path: skills/reverse-map/SKILL.md
-    tokens: 1243
+    tokens: 3902
   - name: scope-map-migration
     category: requirements
     description: Backfill docs/spec/scope-map.md from existing derive-spec artifacts before the first derive-feature run.
@@ -301,9 +296,9 @@ skills:
     tokens: 467
   - name: mutation-analysis
     category: quality
-    description: Run mutmut against production code, scope mutations to a story diff when requested, and block unresolved surviving mutants.
+    description: Set up project-owned mutation testing to verify behavioral coverage, classify survivors, and — when a QA strategy contract-owner table exists — classify each mutant's contract ownership.
     path: skills/mutation-analysis/SKILL.md
-    tokens: 920
+    tokens: 1705
   - name: security-review
     category: quality
     description: Security-focused code review based on the OWASP Top 10.
@@ -329,11 +324,6 @@ skills:
     description: Relentless interview to sharpen a plan or design until reaching shared understanding. Use when the user wants to stress-test a plan, get grilled on their design, or mentions "grill me".
     path: skills/grilling/SKILL.md
     tokens: 469
-  - name: guided-tour
-    category: utility
-    description: Mid-session reorientation — show where the user is in the current workflow, what they can do next, and what factory concepts are relevant. Outside an active playbook, present the session entrypoint options with explanations.
-    path: skills/guided-tour/SKILL.md
-    tokens: 524
   - name: handoff
     category: utility
     description: Create and validate a dense phase-boundary restart contract before ending the outgoing session.
@@ -384,6 +374,10 @@ skills:
     description: Produce one precise, testable claim from recorded evidence with scope, assumptions, and content hash.
     path: skills/claim-formulation/SKILL.md
     tokens: 1030
+  - name: detect-test-regime
+    description: Scan project for test entrypoints and record the result in docs/charter/testing.yaml. Code is the source of truth; the charter is a derived record.
+    path: skills/detect-test-regime/SKILL.md
+    tokens: 2046
   - name: refutation-design
     category: research
     description: Define refuting evidence, conditions for refutation, and severe tests to expose them.
@@ -432,8 +426,8 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 2921
-    total_tokens: 29821
+    tokens: 2470
+    total_tokens: 29370
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -444,7 +438,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 777
-    total_tokens: 12043
+    total_tokens: 12230
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -456,7 +450,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 952
-    total_tokens: 33073
+    total_tokens: 33044
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -471,8 +465,8 @@ playbooks:
       - implementation-agent
       - reconciliation-agent
       - qa-agent
-    tokens: 4607
-    total_tokens: 67190
+    tokens: 4451
+    total_tokens: 69169
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -489,8 +483,8 @@ playbooks:
       - reconciliation-agent
       - qa-agent
       - coaching-agent
-    tokens: 3012
-    total_tokens: 66719
+    tokens: 2978
+    total_tokens: 68770
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -506,7 +500,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1281
-    total_tokens: 12547
+    total_tokens: 12734
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration

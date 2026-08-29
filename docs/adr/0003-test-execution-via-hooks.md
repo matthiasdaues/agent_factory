@@ -86,24 +86,47 @@ Agents remain subject to the Factory command guardrail. A guarantee that no
 work can reach a shared repository without passing tests would require a
 server-side protected-branch or required-CI gate, which is outside this ADR.
 
+## Amended
+
+**Date**: 2026-08-28
+**Reason**: Test Gate Presence over Test Execution ([proposal](../proposals/test-gate-presence-over-test-execution.md))
+
+Factory stops owning test execution entirely. The `factory/scripts/run-tests` script is deleted from the repository, along with `factory/scripts/mutation-analysis`. The boundary violation that motivated this change: `run-tests` detects framework markers and constructs host-side test commands, breaking projects with their own test topology (the reproducing case is a project whose tests require a Compose environment with proxied database connections).
+
+**What changes:**
+
+1. **Test commands are project-declared, not Factory-detected.** Every project declares its test commands in `docs/charter/testing.yaml` (`test_command`, `test_staged_command`, `test_changed_command`). Factory reads that declaration; it does not guess, detect, or override.
+2. **FSM gate conditions resolve `test_command` from the charter.** The `script_exit_zero` condition no longer references `factory/scripts/run-tests --full`; it resolves `test_command` from `docs/charter/testing.yaml`.
+3. **The agent allowlist reads the charter.** `block-dangerous-git.sh` no longer hardcodes `factory/scripts/run-tests --staged`; it reads all declared command fields from the charter and allowlists them with exact-string matching.
+4. **Factory does not inject test hooks.** The `agent_factory_hook-run-tests-full` entry in Factory's pre-commit config is removed. Test hooks are project-owned infrastructure.
+5. **The gate contract is exit-code-only.** Factory does not parse JSON summaries or structured test output. Zero means pass, nonzero means fail.
+6. **A `detect-test-regime` skill scans for existing test entrypoints during onboarding** and populates the charter. When multiple entrypoints are detected, Factory asks for disambiguation.
+
+**What stays unchanged:**
+
+- The "Agentic Creation, Deterministic Validation" principle still holds. Testing is validated mechanically — but the mechanism is project-owned, not Factory-owned.
+- Bare test commands remain blocked for agents (BR-024). The deny patterns in `block-dangerous-git.sh` are unchanged.
+- Exit code semantics for gates (0 = pass, nonzero = fail) are unchanged.
+- Factory's structural hooks (mdformat, ruff, spec-lint, arch-lint, transition-lint) are unaffected.
+
 ## Consequences
 
 **Positive:**
 
-- **Tests run automatically on ordinary Git operations** — pre-commit catches failures immediately (changed files), pre-push runs the full suite, and phase gates block advancement on red tests. No agent amnesia, no partial runs mistaken for complete ones.
-- **Single validation path** — hook result is the only result. No "agent says pass, hook says fail" conflict. Single source of truth.
-- **Trust boundary enforced mechanically** — agents blocked at PreToolUse before command executes. No reliance on agent restraint or judgment.
-- **Consistent with existing pattern** — follows the same mechanically triggered hook shape as `transition-lint` and `block-dangerous-git.sh`. Test execution is not special-cased.
+- **Project-owned test gates run at Git boundaries and phase advances** — the project declares its test commands in `docs/charter/testing.yaml`; hooks and FSM gates invoke them. No agent amnesia, no partial runs mistaken for complete ones.
+- **Single validation path** — the charter-declared command's exit code is the only result. No "agent says pass, gate says fail" conflict. Single source of truth.
+- **Trust boundary enforced mechanically** — bare test commands blocked at PreToolUse before the command executes. Charter-declared commands are allowlisted with exact-string matching (BR-024). No reliance on agent restraint or judgment.
+- **Consistent with existing pattern** — follows the same mechanically triggered hook shape as `transition-lint` and `block-dangerous-git.sh`. Test gates are not special-cased.
+- **No boundary violation** — Factory reads the project's test declaration; it does not detect, construct, or override test commands. Projects with custom test topologies (Compose, remote runners, etc.) work unchanged.
 
 **Negative / risks:**
 
 - **Client-side hooks are bypassable by humans** — both commit and push accept `--no-verify`. This is an operational gate for normal workflows, not a repository security boundary. Enforce organization-wide policy with required CI or server-side controls.
-- **Framework detection is heuristic** — `run-tests` scans for known markers; unrecognized frameworks report "no framework detected." Projects must use a supported framework or extend `run-tests`. Not every test setup auto-detects.
-- **Monorepo multi-framework limitation** — detecting multiple frameworks fails loudly rather than running all. Multi-framework orchestration deferred as future work (T-06). Single-framework projects unaffected.
+- **Project must declare test commands** — no `docs/charter/testing.yaml` means no test gates. The `detect-test-regime` skill scans for existing entrypoints during onboarding, but the project is responsible for the declaration.
 - **Phase advance becomes test-dependent** — a single failing test blocks phase transition. Deliberately strict; the alternative (advancing with red tests) violates the gate's purpose. Operator can fix tests or temporarily remove the `script_exit_zero` condition from FSM if gate is incorrect.
 
 ## Referenced from
 
-- [UC-09 — Run Tests via Hook](../spec/use_cases/UC-09-run-tests-via-hook.md)
+- [UC-09 — Ensure Project-Owned Test Gates Exist](../spec/use_cases/UC-09-run-tests-via-hook.md)
 - [foundational-principles.md § Agentic Creation, Deterministic Validation](../../factory/rulebooks/conventions/foundational-principles.md#agentic-creation-deterministic-validation)
-- [08_crosscutting_concepts.md § 8.1](../08_crosscutting_concepts.md#81-agentic-creation-deterministic-validation)
+- [08_crosscutting_concepts.md § 8.1](../arc42/08_crosscutting_concepts.md#81-agentic-creation-deterministic-validation)

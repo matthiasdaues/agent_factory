@@ -38,13 +38,11 @@ export default function (pi: ExtensionAPI) {
 
     const command = String(event.input.command ?? "");
 
-    if (
-      /^factory\/scripts\/run-tests\s+--staged(\s|$)/.test(command)
-    ) {
+    const top = git(ctx.cwd, ["rev-parse", "--show-toplevel"]);
+
+    if (top && isCharterAllowed(top, command)) {
       return;
     }
-
-    const top = git(ctx.cwd, ["rev-parse", "--show-toplevel"]);
     const gitDir = git(ctx.cwd, ["rev-parse", "--git-dir"]);
     const gitCommonDir = git(ctx.cwd, ["rev-parse", "--git-common-dir"]);
 
@@ -105,6 +103,22 @@ export default function (pi: ExtensionAPI) {
       }
     }
   });
+}
+
+function isCharterAllowed(top: string, command: string): boolean {
+  const charter = join(top, "docs", "charter", "testing.yaml");
+  if (!existsSync(charter)) return false;
+  const text = readFileSync(charter, "utf-8");
+  for (const field of ["test_command", "test_staged_command", "test_changed_command"]) {
+    const match = text.match(new RegExp(`^${field}:\\s*(.+)$`, "m"));
+    if (!match) continue;
+    let val = match[1].trim();
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+    if (val && command === val) return true;
+  }
+  return false;
 }
 
 function blocked(reason: string) {

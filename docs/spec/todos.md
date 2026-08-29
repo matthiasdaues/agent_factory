@@ -14,11 +14,12 @@ Deferred decisions and named gaps found while reverse-engineering this specifica
 
 - [ ] Decide whether a lock file (or an atomic compare-and-swap on `recorded_at`) is worth adding, or whether this stays a documented usage constraint.
 
-## T-03: `script_exit_zero` condition type is stubbed
+## T-03: `script_exit_zero` condition type ~~is stubbed~~ — partially resolved
 
-`factory/scripts/phase`'s `evaluate_condition` always returns `(True, "script_exit_zero <script> (stubbed pass)")` for this condition type — it never actually runs the named script. See [validation-rules.md § Entry conditions](supplementary_specs/validation-rules.md#entry-conditions-gate_condition).
+`factory/scripts/phase`'s `evaluate_condition` now executes the named script and checks its exit code (lines 259-288). The basic subprocess-run behavior is implemented. However, the `charter:test_command` notation introduced by the test-gate-presence feature (FSM YAML `script: "charter:test_command"` with `charter_file: docs/charter/testing.yaml`) is not yet resolved at runtime — see [RECON-0020](../../docs/findings/RECON-0020.md).
 
-- [ ] Implement the real subprocess run + exit-code check, or remove the condition type if nothing ends up needing it.
+- [x] Implement the real subprocess run + exit-code check.
+- [ ] Implement charter resolution for the `charter:<field>` notation ([RECON-0020](../../docs/findings/RECON-0020.md)).
 
 ## T-04: `halt_conditions` types other than `max_iterations` are unenforced
 
@@ -34,10 +35,9 @@ Deferred decisions and named gaps found while reverse-engineering this specifica
 
 ## T-06: Multi-framework test orchestration not yet supported
 
-`run-tests` detects all framework markers but fails loudly (exit 2) when multiple frameworks are present, rather than running all detected frameworks in sequence. This prevents silent partial coverage in monorepo contexts but blocks multi-framework projects entirely. Long-term solution: detect all frameworks, run each, aggregate results, exit 0 only if all pass. See ATAM-0002 resolution.
+- status: superseded
 
-- [ ] Implement multi-framework orchestration: detect all, run all, aggregate results (passed/failed counts sum across frameworks).
-- [ ] Add optional explicit config (`.current-work/test-config.yml`) to override auto-detection for complex monorepo cases.
+Superseded by the Test Gate Presence over Test Execution feature ([proposal](../proposals/test-gate-presence-over-test-execution.md)). Factory no longer detects or constructs test commands; `factory/scripts/run-tests` is deleted. Framework selection is entirely the project's responsibility, declared in `docs/charter/testing.yaml`. Multi-framework orchestration, if needed, is the project's own test entrypoint's concern.
 
 ## T-07: `verify-base` and `premerge-check` were prompt-required, not hook-enforced
 

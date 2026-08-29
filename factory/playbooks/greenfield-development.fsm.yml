@@ -65,8 +65,9 @@ gate_conditions:
   
   tests_pass:
     type: script_exit_zero
-    script: factory/scripts/run-tests --full
-    # Hook-triggered test execution, not agent-run (UC-09, ADR-0003)
+    script: "charter:test_command"
+    charter_file: docs/charter/testing.yaml
+    # Resolved from docs/charter/testing.yaml — blocks if charter missing or no test_command (UC-09, ADR-0003)
 
 # State machine
 states:

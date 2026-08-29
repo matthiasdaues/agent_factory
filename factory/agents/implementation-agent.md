@@ -25,7 +25,6 @@ inputs:
   - factory/rulebooks/conventions/branching-policy.md
   - factory/rulebooks/conventions/dispatch-contract.md
   - factory/scripts/crap-score
-  - factory/scripts/mutation-analysis
   - factory/scripts/dependency-check
 outputs:
   - src/**/*
@@ -126,7 +125,7 @@ The dispatcher determines which gates apply to the story by reading the `quality
 
 1. **Story-level `quality-gates` field** — if the story's frontmatter declares `quality-gates`, use that list. Exclusion of a default gate requires a justification in the story's `notes:` field.
 2. **Project-level default** — if the story field is absent and `docs/charter/house-rules.md` declares `default_quality_gates`, use the project default.
-3. **Factory hardcoded default** — if neither story nor project declares gates, apply all three: `crap-score`, `mutation-analysis`, `dependency-check` (fail-closed).
+3. **Factory hardcoded default** — if neither story nor project declares gates, apply both: `crap-score`, `dependency-check` (fail-closed).
 
 #### Gate execution
 
@@ -134,7 +133,6 @@ For each gate in the resolved list, call its CLI script directly from the story'
 
 ```
 factory/scripts/crap-score   <source-files> --story-id <story-id>
-factory/scripts/mutation-analysis <source-files> --story-id <story-id>
 factory/scripts/dependency-check <source-files> --story-id <story-id>
 ```
 
