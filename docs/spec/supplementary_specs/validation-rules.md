@@ -84,6 +84,10 @@ This resolution order is why `halt_conditions` must name the **author** state be
 - A playbook's agent sequence is extracted from every `**Agent**: `x\`\` occurrence in file order, duplicates kept — a playbook that invokes the same agent twice (e.g. `implementation-agent` appearing once for the main chain) lists it once per occurrence.
 - `--check` mode performs the identical generation and diffs the result against disk; it is a plain text-content comparison, not a structural/semantic diff.
 
+## Origin/HEAD repair (`init-factory`, BR-050)
+
+- **BR-050**: Right after ensuring the target is a git repo, `init-factory` best-effort-repairs a dangling `origin/HEAD` symref — one pointing at a ref that no longer exists locally, most often left over from a remote's default branch moving from `master` to `main`. It tries `git remote set-head origin --auto` first (requires a reachable remote), then falls back to scanning locally-known `refs/remotes/origin/*` for `main` or `master` (preferring `main`) if the remote is unreachable. Unlike a `Collision` (BR-021), a repair failure is logged and swallowed — it never stops the run.
+
 ## Installation collisions (`init-factory`, BR-021, BR-022)
 
 - A destination path is safe to proceed past only if it is missing, or already a symlink resolving to the exact expected target. Any other existing state (a real file, a real directory, or a symlink to something else) raises a `Collision`.

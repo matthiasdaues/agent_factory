@@ -259,6 +259,118 @@ def ensure_git(target: Path, install: dict, report: list[str]) -> None:
     log(report, "git: initialized new repo")
 
 
+def fix_origin_head(target: Path, report: list[str]) -> None:
+    """Detect and repair a dangling `origin/HEAD` symref.
+
+    `origin/HEAD` is a local symref that should point at the remote's default
+    branch (e.g. `refs/remotes/origin/main`). It goes dangling — pointing at a
+    branch that no longer exists locally, most often `origin/master` after the
+    remote's default moved to `main` — whenever a clone predates that rename.
+    Tools that resolve `origin/HEAD` (merge-base lookups, default-branch
+    detection) then fail silently. This is a best-effort repair: it never
+    raises and never aborts init, regardless of git or network state.
+
+    Repair order:
+      1. No-op if `origin/HEAD` already resolves to an existing ref.
+      2. Try `git remote set-head origin --auto`, which asks the remote which
+         branch is its default (requires network).
+      3. If that fails (no network, no `origin` remote, ...), fall back to
+         scanning locally-known `refs/remotes/origin/*` for `main` or
+         `master` (preferring `main`) and point the symref there directly.
+    """
+    try:
+        valid = subprocess.run(
+            ["git", "rev-parse", "--verify", "-q", "refs/remotes/origin/HEAD"],
+            cwd=target,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if valid.returncode == 0:
+            log(report, "origin/HEAD: valid, no repair needed")
+            return
+
+        auto = subprocess.run(
+            ["git", "remote", "set-head", "origin", "--auto"],
+            cwd=target,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if auto.returncode == 0:
+            log(
+                report, "origin/HEAD: dangling, repaired via git remote set-head --auto"
+            )
+            return
+
+        # `--auto` needs network (or no `origin` remote exists at all) —
+        # fall back to what's already known locally.
+        branches = subprocess.run(
+            [
+                "git",
+                "for-each-ref",
+                "--format=%(refname:short)",
+                "refs/remotes/origin/",
+            ],
+            cwd=target,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if branches.returncode != 0:
+            log(
+                report,
+                "origin/HEAD: dangling, repair skipped — "
+                f"could not list local remote-tracking refs ({branches.stderr.strip()})",
+            )
+            return
+
+        names = {
+            line.split("/", 1)[1]
+            for line in branches.stdout.splitlines()
+            if "/" in line
+        }
+        for candidate in ("main", "master"):
+            if candidate not in names:
+                continue
+
+            fallback = subprocess.run(
+                [
+                    "git",
+                    "symbolic-ref",
+                    "refs/remotes/origin/HEAD",
+                    f"refs/remotes/origin/{candidate}",
+                ],
+                cwd=target,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if fallback.returncode == 0:
+                log(
+                    report,
+                    f"origin/HEAD: dangling, repaired locally to "
+                    f"refs/remotes/origin/{candidate} (offline fallback)",
+                )
+            else:
+                log(
+                    report,
+                    "origin/HEAD: dangling, offline fallback failed — "
+                    f"{fallback.stderr.strip()}",
+                )
+            return
+
+        log(
+            report,
+            "origin/HEAD: dangling, repair skipped — "
+            "no local origin/main or origin/master to fall back to",
+        )
+    except OSError as exc:
+        # git itself unavailable, or some other OS-level failure — this repair
+        # is best-effort and must never abort init.
+        log(report, f"origin/HEAD: repair skipped — {exc}")
+
+
 def copy_factory(
     source_factory: Path, target: Path, install: dict, report: list[str]
 ) -> None:
@@ -2159,6 +2271,7 @@ def main(argv: list[str] | None = None) -> int:
         ensure_target_dir(target, install, report)
         load_prior_manifest(target, install, report)
         ensure_git(target, install, report)
+        fix_origin_head(target, report)
         copy_factory(source_factory, target, install, report)
         ensure_dot_dirs(target, install, report)
         preflight_codex_adapter(target, install)

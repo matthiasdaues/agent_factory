@@ -24,7 +24,7 @@ The actor runs `factory/scripts/init-factory`, optionally with `--target` and `-
 ## Main Success Scenario
 
 01. Actor runs `init-factory --target <project-dir>`.
-02. `init-factory` creates the target directory if missing, and runs `git init` if it is not already a repo.
+02. `init-factory` creates the target directory if missing, runs `git init` if it is not already a repo, and repairs a dangling `origin/HEAD` symref if one is found (best-effort; see Extension 2a).
 03. `init-factory` copies `factory/` from the source checkout into the target, since `--target/factory` does not yet exist.
 04. `init-factory` merges the required lines into `--target/.gitignore`, appending only what is missing.
 05. `init-factory` creates the Claude Code, GitHub Copilot CLI, Codex, and Pi
@@ -44,6 +44,10 @@ The actor runs `factory/scripts/init-factory`, optionally with `--target` and `-
 
 ## Extensions
 
+- **2a. `origin/HEAD` is dangling — it points at a ref that no longer exists locally (e.g. `origin/master` after the remote's default branch moved to `main`)**
+  - 2a1. `init-factory` tries `git remote set-head origin --auto`, which asks the remote for its current default branch (BR-050).
+  - 2a2. If the remote is unreachable (no network, or no `origin` configured), it falls back to scanning the locally-known `refs/remotes/origin/*` refs, preferring `main` over `master` (BR-050).
+  - 2a3. If neither repair succeeds, `init-factory` logs the gap and continues — this repair is best-effort and never stops the run, unlike a `Collision` (BR-050).
 - **6a. A destination path exists and is not a symlink to the expected source**
   - 6a1. `init-factory` raises a `Collision`, prints `STOPPED — <path>` naming the exact path, and exits `1` without touching anything later in the run (BR-021).
 - **8a. `--target/config/model.conf` already exists**
@@ -70,6 +74,7 @@ The actor runs `factory/scripts/init-factory`, optionally with `--target` and `-
 
 ## Business Rules
 
+- **BR-050**: `init-factory` best-effort-repairs a dangling `origin/HEAD` symref right after ensuring the target is a git repo: `git remote set-head origin --auto` first, then a local `refs/remotes/origin/*` scan (preferring `main` over `master`) if the remote is unreachable. Unlike BR-021, a repair failure never stops the run — it is logged and `init-factory` continues.
 - **BR-021**: `init-factory` stops the entire run at the first step that finds an unexpected file at a destination path — it never partially applies a run past a collision.
 - **BR-022**: `init-factory` never touches `config/model.conf` once it exists — the file is meant to diverge per project.
 - **BR-030**: `init-factory` scans for an existing test entrypoint and records exactly one unambiguous match as `test_command` in `docs/charter/testing.yaml`. It never injects a test-related hook into `.pre-commit-config.yaml` (see [UC-09 § BR-029](UC-09-run-tests-via-hook.md#business-rules)), never overwrites an existing `testing.yaml`, and never guesses when zero or several entrypoints are found — it surfaces the gap instead. This is the deterministic subset of the `detect-test-regime` skill, run because `init-factory` itself has no AI in the loop.
@@ -80,7 +85,12 @@ The actor runs `factory/scripts/init-factory`, optionally with `--target` and `-
 ```mermaid
 flowchart TD
     A[init-factory invoked] --> B[Ensure target dir + git repo]
-    B --> C{factory/ already present?}
+    B --> B1{origin/HEAD dangling?}
+    B1 -->|no| C{factory/ already present?}
+    B1 -->|yes| B2[Try git remote set-head origin --auto]
+    B2 -->|repaired| C
+    B2 -->|remote unreachable| B3[Fall back to local origin/main or origin/master]
+    B3 --> C
     C -->|yes| D[Skip copy, report skipped]
     C -->|no| E[Copy factory/ from source]
     D --> F[Merge .gitignore]
@@ -157,6 +167,21 @@ Feature: Initialize Agent Factory into a project
     When the actor runs init-factory
     Then docs/charter/testing.yaml is not modified
     And init-factory reports it as already present
+
+  Scenario: A dangling origin/HEAD is repaired when the remote is reachable
+    Given origin/HEAD points at a ref that no longer exists
+    And the origin remote is reachable
+    When the actor runs init-factory
+    Then origin/HEAD is reset via git remote set-head origin --auto
+    And init-factory exits 0
+
+  Scenario: A dangling origin/HEAD falls back to a local ref when offline
+    Given origin/HEAD points at a ref that no longer exists
+    And the origin remote is unreachable
+    And a local refs/remotes/origin/main ref exists
+    When the actor runs init-factory
+    Then origin/HEAD is repaired locally to refs/remotes/origin/main
+    And init-factory exits 0
 ```
 
 ## Referenced from
