@@ -47,7 +47,7 @@ agents:
     description: "Capture a project vision, clarify requirements through adversarial interview, and produce a complete specification: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models."
     path: agents/requirements-agent.md
     tokens: 1777
-    total_tokens: 14311
+    total_tokens: 12147
   - name: spec-review-agent
     title: Specification Review Agent
     phase: 1
@@ -211,9 +211,9 @@ skills:
     tokens: 678
   - name: qa-strategy-from-spec
     category: requirements
-    description: Derive a per-feature QA strategy document from a consolidated .feature file, supplementary specs, charter layer bindings, and repository test infrastructure.
+    description: Derive a per-feature QA strategy document from a consolidated .feature file and supplementary specs.
     path: skills/qa-strategy-from-spec/SKILL.md
-    tokens: 3902
+    tokens: 1738
   - name: scope-map-migration
     category: requirements
     description: Backfill docs/spec/scope-map.md from existing derive-spec artifacts before the first derive-feature run.
@@ -466,7 +466,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4451
-    total_tokens: 69169
+    total_tokens: 67005
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -484,7 +484,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2978
-    total_tokens: 68770
+    total_tokens: 66606
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
