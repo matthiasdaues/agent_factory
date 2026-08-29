@@ -4,7 +4,7 @@ source: reconcile-spec
 severity: major
 category: defect
 artifact: tests/orchestrator/test_init_factory_prepush_hook.py
-status: open
+status: resolved
 traces: [UC-09, ST-0149]
 ---
 

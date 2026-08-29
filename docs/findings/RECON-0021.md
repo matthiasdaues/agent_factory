@@ -4,7 +4,7 @@ source: reconcile-spec
 severity: major
 category: defect
 artifact: factory/scripts/backlog-lint#L53
-status: open
+status: resolved
 traces: [ADR-0012, ST-0152]
 ---
 

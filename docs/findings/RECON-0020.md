@@ -4,7 +4,7 @@ source: reconcile-spec
 severity: major
 category: defect
 artifact: factory/scripts/phase#L259
-status: open
+status: resolved
 traces: [UC-09, ADR-0003, ST-0151]
 ---
 
