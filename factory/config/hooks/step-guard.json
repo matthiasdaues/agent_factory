@@ -39,6 +39,13 @@
       },
       {
         "type": "command",
+        "matcher": "apply_patch",
+        "bash": "GUARD_TYPE=write ./.github/hooks/step-guard.sh",
+        "cwd": ".",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
         "matcher": "bash",
         "bash": "GUARD_TYPE=bash ./.github/hooks/step-guard.sh",
         "cwd": ".",

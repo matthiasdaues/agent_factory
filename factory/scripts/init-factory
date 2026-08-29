@@ -169,12 +169,13 @@ CODEX_STEP_GUARD_HOOK_COMMANDS = {
     "Read": 'GUARD_TYPE=read "$(git rev-parse --show-toplevel)"/.codex/hooks/step-guard.sh',
     "Edit": 'GUARD_TYPE=write "$(git rev-parse --show-toplevel)"/.codex/hooks/step-guard.sh',
     "Write": 'GUARD_TYPE=write "$(git rev-parse --show-toplevel)"/.codex/hooks/step-guard.sh',
+    "apply_patch": 'GUARD_TYPE=write "$(git rev-parse --show-toplevel)"/.codex/hooks/step-guard.sh',
     "Bash": 'GUARD_TYPE=bash "$(git rev-parse --show-toplevel)"/.codex/hooks/step-guard.sh',
 }
 
 COPILOT_STEP_GUARD_MATCHERS = {
     "Read": ("read_file", "view"),
-    "Edit": ("edit",),
+    "Edit": ("edit", "apply_patch"),
     "Write": ("write_file", "create"),
     "Bash": ("bash",),
 }

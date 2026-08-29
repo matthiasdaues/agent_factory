@@ -11,17 +11,19 @@ export default function (pi: ExtensionAPI) {
     const script = projectScript(ctx.cwd);
     if (!script) return;
 
-    const payload = normalizeEvent(guardType, event.input);
+    const payloads = normalizeEvent(guardType, event.input);
 
-    try {
-      execFileSync(script, ["--guard-type", guardType], {
-        cwd: ctx.cwd,
-        encoding: "utf-8",
-        input: JSON.stringify(payload),
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-    } catch (error) {
-      return blocked(`step-guard ${guardType}: ${stderrText(error)}`);
+    for (const payload of payloads) {
+      try {
+        execFileSync(script, ["--guard-type", guardType], {
+          cwd: ctx.cwd,
+          encoding: "utf-8",
+          input: JSON.stringify(payload),
+          stdio: ["pipe", "pipe", "pipe"],
+        });
+      } catch (error) {
+        return blocked(`step-guard ${guardType}: ${stderrText(error)}`);
+      }
     }
   });
 }
@@ -36,6 +38,7 @@ function inferGuardType(toolName: string) {
     case "write":
     case "write_file":
     case "create":
+    case "apply_patch":
       return "write";
     case "bash":
       return "bash";
@@ -57,11 +60,34 @@ function projectScript(cwd: string) {
   }
 }
 
-function normalizeEvent(guardType: string, input: unknown) {
-  if (guardType === "bash") {
-    return { command: readString(input, ["command", "cmd"]) };
+const PATCH_HEADER_RE = /^\*{3} (?:Add|Update|Delete) File: (.+)$/gm;
+
+function extractPatchPaths(patch: string): string[] {
+  const paths: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = PATCH_HEADER_RE.exec(patch)) !== null) {
+    paths.push(match[1].trim());
   }
-  return { path: readString(input, ["filePath", "file_path", "path"]) };
+  PATCH_HEADER_RE.lastIndex = 0;
+  return paths;
+}
+
+function normalizeEvent(
+  guardType: string,
+  input: unknown,
+): Array<Record<string, string>> {
+  if (guardType === "bash") {
+    return [{ command: readString(input, ["command", "cmd"]) }];
+  }
+  const path = readString(input, ["filePath", "file_path", "path"]);
+  if (path) return [{ path }];
+
+  const patch = readString(input, ["patch"]);
+  if (patch) {
+    const paths = extractPatchPaths(patch);
+    if (paths.length > 0) return paths.map((p) => ({ path: p }));
+  }
+  return [{ path: "" }];
 }
 
 function readString(input: unknown, keys: string[]) {
