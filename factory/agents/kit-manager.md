@@ -103,6 +103,7 @@ When `docs/charter/testing.yaml` exists (created by `detect-test-regime` or manu
 3. **Record each layer**: for each identified layer, record `tool`, `infrastructure`, `entry_point`, and optional `anti_patterns` and `fidelity` fields.
 4. **Confirm with stakeholder**: present the detected layers and bindings for confirmation. The stakeholder may correct tool names, adjust entry points, or add layers the scan missed.
 5. **Omit unused layers**: do not set unused layers to null — omit them entirely.
+6. **Surface mutation-analysis decision**: if `docs/charter/testing.yaml` declares no mutation-analysis tool or entry point (no layer with `tool` matching a mutation runner, no dedicated `mutation_command` field), surface an open decision to the stakeholder: adopt a tool (mutmut, stryker, etc.), defer, or explicitly opt out. Point the stakeholder at the `mutation-analysis` skill for setup guidance. Record the decision in `docs/charter/testing.yaml` or as a `To be decided.` entry in `docs/charter/house-rules.md`.
 
 ### 3. Validate
 

@@ -28,8 +28,8 @@ agents:
     tier: standard
     description: Help set up the work environment — scaffold or complete the project charter and validate the result. Accepts ad-hoc reference material (repos, files, URLs) and runs a structured interview to fill charter gaps. Runs in the current session so the stakeholder can answer questions directly.
     path: agents/kit-manager.md
-    tokens: 1325
-    total_tokens: 7840
+    tokens: 1447
+    total_tokens: 7962
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
