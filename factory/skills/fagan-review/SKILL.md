@@ -13,9 +13,15 @@ Read `docs/CONTEXT.md` if it exists — flag terminology drift between code and 
 
 ## Step 1 — Identify the review scope
 
-Determine what to review: a branch diff, a PR, or a set of files. Read the relevant Use Case(s) and supplementary specs for the code under review.
+Identify the code to review using this three-tier fallback:
 
-**Completion**: scope identified, relevant spec files read.
+1. **Explicit commits (highest priority)**: if base and head commit SHAs are provided, use `git diff <base>..<head>` to scope the review.
+2. **Pull request**: if a PR number is provided, use `gh pr diff <PR>` to scope the review.
+3. **Main branch (fallback only)**: if neither explicit commits nor a PR number is given, fall back to `git diff $(git merge-base HEAD main)..HEAD`.
+
+Read the relevant Use Case(s) and supplementary specs for the code under review.
+
+**Completion**: scope identified via the appropriate method, relevant spec files read.
 
 ## Step 2 — Inspect against five focus areas
 

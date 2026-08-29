@@ -109,8 +109,8 @@ agents:
     tier: strong
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
-    tokens: 1295
-    total_tokens: 7254
+    tokens: 1392
+    total_tokens: 7651
   - name: claim-reviewer
     title: Claim Reviewer
     phase: 6
@@ -293,12 +293,12 @@ skills:
     category: quality
     description: Exploratory testing followed by a TDD bug-fix loop. Find bugs, file findings, fix with regression tests, retest.
     path: skills/bug-hunt/SKILL.md
-    tokens: 450
+    tokens: 562
   - name: fagan-review
     category: quality
     description: Structured code review following the Fagan Inspection method — correctness, Clean Architecture, SOLID, maintainability.
     path: skills/fagan-review/SKILL.md
-    tokens: 467
+    tokens: 561
   - name: mutation-analysis
     category: quality
     description: Set up project-owned mutation testing to verify behavioral coverage, classify survivors, and — when a QA strategy contract-owner table exists — classify each mutant's contract ownership.
@@ -308,7 +308,7 @@ skills:
     category: quality
     description: Security-focused code review based on the OWASP Top 10.
     path: skills/security-review/SKILL.md
-    tokens: 351
+    tokens: 445
   - name: caveman
     category: utility
     description: Ultra-compressed communication mode for the workflow. Cuts token use by dropping filler, articles, and pleasantries while keeping full technical accuracy. The workflow's default communication style for everything except specification and documentation prose (which stay Plain English, Strunk & White). Adapted from JuliusBrussee/caveman.
@@ -448,7 +448,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 777
-    total_tokens: 12230
+    total_tokens: 12627
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -476,7 +476,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4671
-    total_tokens: 69389
+    total_tokens: 69786
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -494,7 +494,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 3012
-    total_tokens: 68854
+    total_tokens: 69251
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -510,7 +510,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1281
-    total_tokens: 12734
+    total_tokens: 13131
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration

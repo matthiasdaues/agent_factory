@@ -9,6 +9,14 @@ disable-model-invocation: true
 
 A loop with two phases: **hunt** (find bugs through exploratory testing) and **fix** (**TDD** regression test per bug). Repeat until a retest cycle finds no new bugs.
 
+## Scope
+
+Identify the code to review using this three-tier fallback:
+
+1. **Explicit commits (highest priority)**: if base and head commit SHAs are provided, use `git diff <base>..<head>` to scope the hunt.
+2. **Pull request**: if a PR number is provided, use `gh pr diff <PR>` to scope the hunt.
+3. **Main branch (fallback only)**: if neither explicit commits nor a PR number is given, fall back to `git diff $(git merge-base HEAD main)..HEAD`.
+
 ## Phase: Hunt
 
 Execute the system, testing with intent to break it — not to confirm it works.

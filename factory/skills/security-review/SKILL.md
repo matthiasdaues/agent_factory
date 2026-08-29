@@ -11,9 +11,15 @@ Review code changes for security vulnerabilities based on the **OWASP Top 10**.
 
 ## Step 1 — Identify the review scope
 
-Determine what to review: a branch diff, a PR, or a set of files. Read the architecture documentation (`docs/03_system_scope_and_context.md`, `docs/07_deployment_view.md`) to understand trust boundaries and data flows.
+Identify the code to review using this three-tier fallback:
 
-**Completion**: scope identified, trust boundaries understood.
+1. **Explicit commits (highest priority)**: if base and head commit SHAs are provided, use `git diff <base>..<head>` to scope the review.
+2. **Pull request**: if a PR number is provided, use `gh pr diff <PR>` to scope the review.
+3. **Main branch (fallback only)**: if neither explicit commits nor a PR number is given, fall back to `git diff $(git merge-base HEAD main)..HEAD`.
+
+Read the architecture documentation (`docs/03_system_scope_and_context.md`, `docs/07_deployment_view.md`) to understand trust boundaries and data flows.
+
+**Completion**: scope identified via the appropriate method, trust boundaries understood.
 
 ## Step 2 — Evaluate against OWASP Top 10
 
