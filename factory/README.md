@@ -2,9 +2,9 @@
 
 `factory/` is the Agent Factory toolset itself — agents, skills, playbooks, and checks. `init-factory` copies it wholesale into your own project. You never hand-edit the copy; run `update-factory` to bring it up to date when your `agent_factory` checkout moves forward.
 
-Part of [Agent Factory](../README.md). See also: [orchestrator](../orchestrator/README.md), [architecture docs](../docs/README.md).
+Part of [Agent Factory](../README.md). See also: [orchestrator](../orchestrator/README.md) (work in progress — not yet operational), [architecture docs](../docs/README.md).
 
-This page gets you from zero to a running first playbook. Never used Agent Factory — or any AI coding workflow — before? Read the [beginner's introduction](../docs/arc42/beginner-intro.md) first; it explains what you are about to do before you run any command. For what agents, skills, playbooks, and rulebooks actually are, and how the checks work, see the [factory guide](docs/factory-guide.md).
+This page gets you from zero to a running first playbook. Never used Agent Factory — or any AI coding workflow — before? Read the [Getting Started](docs/factory-guide.md#getting-started) section first; it explains what you are about to do before you run any command. For what agents, skills, playbooks, and rulebooks actually are, and how the checks work, see the rest of the [factory guide](docs/factory-guide.md).
 
 ## Prerequisites
 
@@ -61,7 +61,7 @@ mkdir my-project && cd my-project
    `config/project.json` stores the stable generated project UUID plus the
    project name explicitly requested during initialization
 5. **`.pre-commit-config.yaml`** — the one tracked change. Agent Factory's gates are added as a `- repo: local` block whose hook ids are all prefixed `agent_factory_hook-`, spliced in at the top of your `repos:` list (or written as a fresh file if you had none). Your own hooks are never touched, and the prefix makes the block extricable. An inert `.pre-commit-config.yml` is left alone — pre-commit only auto-reads `.yaml`.
-6. **`.gitignore`** — a single marker-delimited block headed `agent_factory related`, listing exactly the footprint Agent Factory adds (`factory/`, `.claude/`, `.pi/`, `.agent-factory/`, `config/model.conf`, `config/project.json`, `AGENTS.md` when init-factory created it, session ephemera, and the specific `.github/*` entries). Note it ignores those `.github` entries **individually** — never all of `.github`, so your Actions workflows stay tracked.
+6. **`.gitignore`** — a single marker-delimited block headed `agent_factory related`, listing exactly the footprint Agent Factory adds (`factory/`, `.claude/`, `.pi/`, `.agent-factory/`, `.current-work/`, `config/model.conf`, `config/project.json`, `AGENTS.md` when init-factory created it, session ephemera, and the specific `.github/*` entries). Note it ignores those `.github` entries **individually** — never all of `.github`, so your Actions workflows stay tracked.
 7. **`.agent-factory/factory-install.json`** — a removal manifest recording exactly what this run did, so `remove-factory` can reverse it precisely
 8. Runs `git init` if your target isn't already a git repo, then `uvx pre-commit install` to wire the hooks into git
 
@@ -101,7 +101,8 @@ For every other situation — a new project, an existing codebase, a bug, a feat
 ### Running a playbook automatically
 
 After completing the human-driven requirements phase, let the installed
-orchestrator drive the remaining agent sessions and deterministic gates:
+orchestrator (work in progress — not yet operational) drive the remaining
+agent sessions and deterministic gates:
 
 ```bash
 factory/scripts/run-playbook \
@@ -111,7 +112,7 @@ factory/scripts/run-playbook \
 ```
 
 It stops at human gates and records progress in
-`.agent-factory/playbook-state.yml`; re-run the same command without
+`.current-work/playbook-state.yml`; re-run the same command without
 `--from-state` to resume. The launcher runs the pinned
 `agent-factory-orchestrator` package through `uvx`, without changing the
 project environment or installing a global tool. The default source is the
@@ -132,32 +133,17 @@ that remaining configuration drift is tracked as
 [`RECON-0018`](../docs/findings/RECON-0018.md). This repository's own merged
 configuration already contains the changed-only hook.
 
-### Framework detection
+### Charter-based test execution
 
-`factory/scripts/run-tests` auto-detects your test framework from project structure:
+Projects declare their test commands in `docs/charter/testing.yaml` instead of relying on a Factory-owned test runner. The charter file declares up to three fields:
 
-- **pytest**: detected from `pyproject.toml`, runs via `uv run pytest`
-- **jest**: detected from `package.json`, runs via `npm test`
-- **go test**: detected from `go.mod`, runs via `go test ./...`
-- **cargo test**: detected from `Cargo.toml`, runs via `cargo test`
+- **`test_command`** — full test suite (used by FSM gates and pre-commit hooks)
+- **`test_staged_command`** — tests on staged files only (agent TDD loop)
+- **`test_changed_command`** — tests on changed files only (pre-commit hook)
 
-No configuration needed for single-framework projects. Multi-framework monorepos are detected and fail loudly (not yet supported).
+The git safety hooks allowlist these commands by exact match, so agents can run them directly. Commands not declared in the charter are blocked.
 
-### Agent test iteration
-
-Agents cannot run bare test commands (`pytest`, `npm test`) — these are blocked by the git safety hooks. But agents writing tests need a tight feedback loop. Use staged mode:
-
-```bash
-# Agent stages test file
-git add tests/test_foo.py
-
-# Agent runs tests on staged files
-factory/scripts/run-tests --staged
-
-# Agent sees results, fixes test, stages again, repeats
-```
-
-This preserves the "tests via factory mechanisms" principle while enabling TDD workflows.
+FSM gate conditions use `charter:test_command` notation — the `phase` script reads the charter file and resolves the actual command at runtime.
 
 See [ADR-0003](../docs/adr/0003-test-execution-via-hooks.md) for the architecture rationale and [UC-09](../docs/spec/use_cases/UC-09-run-tests-via-hook.md) for detailed behavior.
 

@@ -23,7 +23,7 @@ A pre-commit hook (or the actor directly) runs `factory/scripts/transition-lint`
 ## Main Success Scenario
 
 1. Pre-commit invokes `factory/scripts/transition-lint` with no arguments; it reads `git diff --cached --name-only` for the staged file list.
-2. `transition-lint` reads the marker at `.agent-factory/playbook-state.yml`.
+2. `transition-lint` reads the marker at `.current-work/playbook-state.yml`.
 3. `transition-lint` loads the marker's `playbook`'s `.fsm.yml` and computes each state's `outputs:` glob ownership.
 4. For every staged file, `transition-lint` finds which state (if any) owns it.
 5. Every staged file is either ungoverned (owned by no state) or owned by the marker's current state.

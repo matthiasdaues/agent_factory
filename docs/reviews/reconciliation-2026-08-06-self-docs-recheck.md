@@ -77,8 +77,8 @@ implementation agent.
   is out of scope for a documentation-reconciliation pass.
 - **`factory/playbooks/greenfield-development.fsm.yml`** still declares
   `audit.output_file: .orchestrator/audit.log`, while the orchestrator
-  (`orchestrator/src/agent_factory_orchestrator/cli.py`, `AUDIT_LOG = Path(".agent-factory/audit.log")`) and `orchestrator/README.md` both use
-  `.agent-factory/audit.log`. The FSM's declarative `audit` block is stale
+  (`orchestrator/src/agent_factory_orchestrator/cli.py`, `AUDIT_LOG = Path(".current-work/audit.log")`) and `orchestrator/README.md` both use
+  `.current-work/audit.log`. The FSM's declarative `audit` block is stale
   metadata the code does not read. Out of scope (playbook/FSM artifact, not
   self-documentation prose); flagged here for a future pass, as in the prior
   report.
@@ -134,7 +134,7 @@ Re-confirmed against code-as-built; no edits needed:
   `orchestrator/docs/adr/0001`.
 - `orchestrator/docs/05,06,09` and `orchestrator/docs/adr/0001` — consistent
   with `cli.py` (claude/copilot backends, exit-code dispatch, marker
-  `.agent-factory/playbook-state.yml`, audit `.agent-factory/audit.log`,
+  `.current-work/playbook-state.yml`, audit `.current-work/audit.log`,
   `run_one_step` single-function structure, `phase advance`/`phase retry`/`trigger` delegation). The `~120 lines` metric in ADR-0001 is
   historical; see Observations.
 

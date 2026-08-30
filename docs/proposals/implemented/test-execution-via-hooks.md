@@ -346,7 +346,7 @@ ______________________________________________________________________
 **Risk 2: Framework detection fails**
 
 - Mitigation: Exit 2 with clear error, point at manual `factory/scripts/run-tests --detect`
-- Fallback: Document override via `.agent-factory/test-config.yml`
+- Fallback: Document override via `.current-work/test-config.yml`
 
 **Risk 3: Existing projects have broken tests**
 

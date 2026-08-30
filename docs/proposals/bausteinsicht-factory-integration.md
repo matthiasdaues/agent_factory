@@ -50,6 +50,8 @@ estimate:
     playbook: feature-addition
 ---
 
+# THIS PROPOSAL IS DONE BUT FEATURE BRANCH REMAINS UNMERGED
+
 # Feature Request: Bausteinsicht Factory Integration
 
 ## Summary

@@ -1,0 +1,23 @@
+{
+  "meta": {
+    "version": "7.6",
+    "format": 3
+  },
+  "files": {
+    "src/module.py": {
+      "executed_lines": [1, 2, 3, 4, 7],
+      "summary": {
+        "covered_lines": 5,
+        "num_statements": 27,
+        "percent_covered": 18.52
+      },
+      "missing_lines": [8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 19, 20, 21, 22, 23, 25, 26, 27, 29, 30, 31, 32],
+      "excluded_lines": []
+    }
+  },
+  "totals": {
+    "covered_lines": 5,
+    "num_statements": 27,
+    "percent_covered": 18.52
+  }
+}

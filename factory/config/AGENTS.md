@@ -6,7 +6,7 @@ Canonical orientation content for any AI coding CLI working in a project that us
 
 - **MUST — TOP-LEVEL SESSION INSTRUCTION**: At the start of every session, before answering the first prompt or taking any project action, read and ingest [`factory/rulebooks/rules.md`](../rulebooks/rules.md) in full. Treat every `MUST` and `MUST NOT` there as binding for the entire session. If the file is missing or unreadable, stop and tell the user; do not continue with partial Factory guidance.
 
-- **MUST** use `rg` with an explicit hidden-file search, or `bash` ( `find`, `fd`, etc.), when the target may live under a hidden directory or file.
+- **MUST** use `rg` with an explicit hidden-file search, or `bash` ( `find`, `fd`, etc.), when the target may live under a hidden directory or file.
 
 - **MUST** resolve skill invocations through the INDEX.yaml first, and only fall back to the global skill/agent directory if the local INDEX.yaml does not list the skill. If the local INDEX.yaml is missing or unreadable, stop and tell the user; do not continue with partial Factory guidance. Local skill directory, by CLI:
 
@@ -17,9 +17,9 @@ Canonical orientation content for any AI coding CLI working in a project that us
 
 - **MUST (Pi only)**: Pi has no native subagent. To run a factory *agent* — not a skill — invoke the `run_agent` tool (registered by the `run-agent` extension), passing the agent name and the task. Do not read `.pi/agents/<name>.md` and act it out in the current session: `run_agent` spawns the agent in a separate Pi session, and that separation is what preserves author/reviewer independence. To run several file-disjoint agents in parallel, invoke `dispatch_wave` (registered by the `dispatch-wave` extension), which isolates each in its own git worktree and merges through `premerge-check`. Claude Code, Codex and GitHub Copilot CLI spawn subagents natively and need no such tools.
 
-- **MUST (Codex only)**: Factory agents are generated native custom agents. Spawn `.codex/agents/<name>.toml` through Codex's subagent mechanism; do not read the canonical Markdown and act it out in the parent session. Separate native threads preserve author/reviewer independence. Use `.codex/playbooks`, `.codex/rulebooks`, and `.codex/scripts` for the Factory aliases.
+- **MUST (Codex only)**: Factory agents are generated native custom agents. Spawn `.codex/agents/<name>.toml` through Codex's subagent mechanism; do not read the canonical Markdown and act it out in the parent session. Separate native threads preserve author/reviewer independence. Use `.codex/playbooks`, `.codex/rulebooks`, and `.codex/scripts` for the Factory aliases. **Source-repo fallback:** if `.codex/` does not exist but `factory/` does, you are in the Agent Factory source repository — resolve `path:` entries directly under `factory/` (e.g. `agents/virgil.md` → `factory/agents/virgil.md`) and read the canonical Markdown as you would under Claude Code or Copilot CLI.
 
-- **MUST**: Read the local `INDEX.yaml` first (`.claude/INDEX.yaml` for Claude Code, `.github/INDEX.yaml` for GitHub Copilot CLI, `.pi/INDEX.yaml` for Pi, `.codex/INDEX.yaml` for Codex). All locally available agents, skills, and playbooks are referenced there.
+- **MUST**: Read the local `INDEX.yaml` first (`.claude/INDEX.yaml` for Claude Code, `.github/INDEX.yaml` for GitHub Copilot CLI, `.pi/INDEX.yaml` for Pi, `.codex/INDEX.yaml` for Codex). All locally available agents, skills, and playbooks are referenced there. **Codex**: resolve `path:` entries from INDEX.yaml to their generated equivalents under `.codex/` (e.g. `agents/virgil.md` → `.codex/agents/virgil.toml`, `skills/grilling/SKILL.md` → `.codex/skills/grilling/SKILL.md`). If `.codex/` does not exist, see the source-repo fallback above.
 
 - **MUST**: Machine-consumed gates, markers, dispatch records, and handoffs use full 40-character Git SHAs. Abbreviated SHAs are display-only.
 
@@ -27,21 +27,28 @@ Canonical orientation content for any AI coding CLI working in a project that us
 
 ## Session Entrypoint
 
-At the start of every session, present three choices:
+At the start of every session, greet the user warmly, then present four choices:
 
 > **What do you want to do?**
 >
-> **A** — I want to start something new (prove an idea, research a topic, build a system)\
-> **B** — I want to run an agent or playbook directly\
-> **C** — I want to chat freely
-> /
+> **A** — I'm new here — show me around\
+> **B** — I want to start something new (prove an idea, research a topic, build a system)\
+> **C** — I want to run an agent or playbook directly\
+> **D** — I just want to talk something through
+>
 > Then act on the user's selection:
 
 ______________________________________________________________________
 
-### A — Intention-based (ask what they want to achieve)
+### A — Guided tour (newcomer path)
 
-Present this expanded tree only after A is chosen:
+Adopt VIRGIL (resolve from INDEX.yaml) and load the `newcomer-tour` skill. VIRGIL walks the user through the Getting Started section of `factory/docs/factory-guide.md` conversationally.
+
+______________________________________________________________________
+
+### B — Intention-based (ask what they want to achieve)
+
+Present this expanded tree only after B is chosen:
 
 > **1. Create something new**\
 > `a` — Quick answer, throwaway → `poc-spike`\
@@ -67,8 +74,8 @@ Present this expanded tree only after A is chosen:
 > `a` — Survey: what do credible sources say → `research-survey`\
 > `b` — Falsification: test a hypothesis with refutation → `research-topic`
 >
-> **7. Get unstuck / talk it through**\
-> → free-form session
+> **7. Talk it through / explore an idea**\
+> → `virgil` (adopted in current session)
 >
 > **8. Back to the main menu**
 
@@ -76,7 +83,7 @@ When the user picks a leaf (a playbook or agent), run that playbook's operationa
 
 ______________________________________________________________________
 
-### B — Factory-content-based (user knows what they want to run)
+### C — Factory-content-based (user knows what they want to run)
 
 **Playbook or Agent?**
 
@@ -90,10 +97,10 @@ If `A` -> list all agents in the local `.*/agents` directory. Append an option t
 
 ______________________________________________________________________
 
-### C — Generic chat
+### D — Let's talk
 
-Start a free-form session. No playbook, no agent — just work with the user directly.
+Read the `virgil` definition (resolve path from INDEX.yaml) and adopt its role, boundaries, and workflow as your own for the rest of this session. Do not delegate to a subagent — you are VIRGIL now. Open with "What's on your mind?" and follow the conversation wherever it leads — no menu, no documents to produce. When the idea finds its shape, route to the right next step: a proposal, a spike, a research brief, or a clean ending.
 
 ______________________________________________________________________
 
-When a playbook is selected, read the playbook's markdown file and follow its operational procedure — running agents, enforcing gates, and producing its documented outputs. When an agent is selected directly, spawn it via the correct mechanism for this CLI (see Pi/Codex/Claude Code/Copilot CLI notes above).
+When a playbook is selected, read the playbook's markdown file and follow its operational procedure — running agents, enforcing gates, and producing its documented outputs. When an agent is selected directly: if the agent runs in the current session (virgil, coaching-agent), adopt its role per the adopt pattern; otherwise, spawn it via the correct mechanism for this CLI (see Pi/Codex/Claude Code/Copilot CLI notes above).

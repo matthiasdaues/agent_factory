@@ -15,7 +15,7 @@ One long prompt is not a development process. Agent Factory turns AI-assisted co
 - **Specialists, not one generalist** — requirements, architecture, planning, implementation, and QA each have a dedicated agent.
 - **Independent review** — authors and reviewers work in separate sessions, so an agent never approves its own work.
 - **Deterministic quality gates** — scripts catch structural defects before AI judgement or human review is spent on them.
-- **Proven methods** — Cockburn use cases, arc42, Structurizr, ATAM, INVEST, TDD, Fagan inspection, and OWASP are built into the workflow.
+- **Proven methods** — Gherkin feature specifications, arc42, Structurizr, ATAM, INVEST, TDD, Fagan inspection, and OWASP are built into the workflow.
 - **You stay in control** — human approval gates protect the decisions that shape the product.
 
 ## From idea to production
@@ -51,7 +51,7 @@ Each skill captures a focused engineering technique. Skills keep agent sessions 
 
 ### Situation-specific playbooks
 
-Pick a recipe that fits the work: explore an idea, build a greenfield product, change an existing system, fix a bug, or conduct falsification-driven research.
+Pick a recipe that fits the work: explore an idea, run a quick spike, build a greenfield product, onboard an existing codebase, add a feature, fix a bug, or conduct falsification-driven research.
 
 ### Automated checks
 

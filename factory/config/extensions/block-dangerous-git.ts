@@ -38,33 +38,31 @@ export default function (pi: ExtensionAPI) {
 
     const command = String(event.input.command ?? "");
 
-    if (
-      /^factory\/scripts\/run-tests\s+--staged(\s|$)/.test(command)
-    ) {
+    const top = git(ctx.cwd, ["rev-parse", "--show-toplevel"]);
+
+    if (top && isCharterAllowed(top, command)) {
       return;
     }
-
-    const top = git(ctx.cwd, ["rev-parse", "--show-toplevel"]);
     const gitDir = git(ctx.cwd, ["rev-parse", "--git-dir"]);
     const gitCommonDir = git(ctx.cwd, ["rev-parse", "--git-common-dir"]);
 
     if (createsStandaloneBranch(command)) {
       return blocked(
-        "standalone branch creation is forbidden. Create the branch and its linked worktree atomically with: git worktree add -b <branch> .agent-factory/worktrees/<branch> <base>.",
+        "standalone branch creation is forbidden. Create the branch and its linked worktree atomically with: git worktree add -b <branch> .current-work/worktrees/<branch> <base>.",
       );
     }
 
     if (/^git\s+worktree\s+add\s/.test(command)) {
       const wtPath = extractWorktreePath(command);
-      if (wtPath && !wtPath.startsWith(".agent-factory/worktrees/")) {
+      if (wtPath && !wtPath.startsWith(".current-work/worktrees/")) {
         return blocked(
-          `worktrees must be created under .agent-factory/worktrees/. Got: ${wtPath}`,
+          `worktrees must be created under .current-work/worktrees/. Got: ${wtPath}`,
         );
       }
     }
 
     if (/^git\s+commit(\s|$)/.test(command)) {
-      const marker = top && join(top, ".agent-factory", "verify-base-ok");
+      const marker = top && join(top, ".current-work", "verify-base-ok");
       if (
         top &&
         gitDir &&
@@ -73,7 +71,7 @@ export default function (pi: ExtensionAPI) {
         (!marker || !existsSync(marker))
       ) {
         return blocked(
-          "git commit in a worktree with no .agent-factory/verify-base-ok marker. Run factory/scripts/verify-base <target> [--expect-base <SHA>] first.",
+          "git commit in a worktree with no .current-work/verify-base-ok marker. Run factory/scripts/verify-base <target> [--expect-base <SHA>] first.",
         );
       }
     }
@@ -81,7 +79,7 @@ export default function (pi: ExtensionAPI) {
     if (/^git\s+merge\s+/.test(command)) {
       const mergeBranch = firstMergeBranch(command);
       const mergeHead = mergeBranch ? git(ctx.cwd, ["rev-parse", mergeBranch]) : null;
-      const marker = top && join(top, ".agent-factory", "premerge-check-ok");
+      const marker = top && join(top, ".current-work", "premerge-check-ok");
       const markerText = marker && existsSync(marker) ? readFileSync(marker, "utf-8") : "";
       const ok =
         !!mergeBranch &&
@@ -92,7 +90,7 @@ export default function (pi: ExtensionAPI) {
 
       if (!ok) {
         return blocked(
-          `git merge ${mergeBranch ?? "<branch>"} with no passing .agent-factory/premerge-check-ok marker for that branch's current head. Run factory/scripts/premerge-check <target> ${mergeBranch ?? "<branch>"} first.`,
+          `git merge ${mergeBranch ?? "<branch>"} with no passing .current-work/premerge-check-ok marker for that branch's current head. Run factory/scripts/premerge-check <target> ${mergeBranch ?? "<branch>"} first.`,
         );
       }
     }
@@ -105,6 +103,22 @@ export default function (pi: ExtensionAPI) {
       }
     }
   });
+}
+
+function isCharterAllowed(top: string, command: string): boolean {
+  const charter = join(top, "docs", "charter", "testing.yaml");
+  if (!existsSync(charter)) return false;
+  const text = readFileSync(charter, "utf-8");
+  for (const field of ["test_command", "test_staged_command", "test_changed_command"]) {
+    const match = text.match(new RegExp(`^${field}:\\s*(.+)$`, "m"));
+    if (!match) continue;
+    let val = match[1].trim();
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+    if (val && command === val) return true;
+  }
+  return false;
 }
 
 function blocked(reason: string) {

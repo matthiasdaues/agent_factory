@@ -17,7 +17,7 @@ disable-model-invocation: false
 Lifecycle skill for `docs/charter/` — the three documents (`tech-stack.md`,
 `development.md`, `house-rules.md`) that answer what a developer needs to
 know before writing the first line of code. See
-[capture-project-constraints.md](../../../docs/proposals/capture-project-constraints.md)
+[capture-project-constraints.md](../../../docs/proposals/implemented/capture-project-constraints.md)
 for the full design rationale.
 
 **Runs in the orchestrating session, never as a spawned subagent.** Every

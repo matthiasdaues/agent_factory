@@ -54,6 +54,8 @@ Format every chapter file and `docs/README.md` via `factory/scripts/mdformat --n
 
 Create `docs/arc42/architecture.dsl` using **Structurizr DSL** — see [STRUCTURIZR.md](STRUCTURIZR.md) for syntax reference.
 
+The workspace `properties` block must include `"arc42.projected" "false"` by default. This property is set to `"true"` by the architecture-agent only when the user requests arc42 chapter projection from the DSL.
+
 Define **C4** System Context and Container views; add a Component view for key containers where the spec provides enough detail.
 
 Validate the model:
@@ -73,7 +75,7 @@ factory/scripts/structurizr export-all
 Exports SVG and PNG to `docs/assets/images/` (requires Docker; see [STRUCTURIZR.md](STRUCTURIZR.md) for individual-format and `list-views` commands). Embed in the relevant arc42 chapters using relative paths:
 
 ```markdown
-![System Context](../assets/images/SystemContext.png)
+![System Context](../assets/images/SystemContext.svg)
 ```
 
 **Completion**: architecture reflects Clean Architecture boundaries from the spec, diagrams exported to `docs/assets/images/` and embedded in chapters.

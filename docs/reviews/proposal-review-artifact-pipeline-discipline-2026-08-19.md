@@ -4,7 +4,7 @@
 - **Reviewer role:** spec-review-agent (adapted — target is a proposal, not a
   Phase-1 spec; `spec-lint` does not apply, so the deterministic pass used the
   gates that do)
-- **Reviewed artifact:** [artifact-pipeline-discipline.md](../proposals/artifact-pipeline-discipline.md)
+- **Reviewed artifact:** [artifact-pipeline-discipline.md](../proposals/superseded/artifact-pipeline-discipline.md)
   (status: `draft`)
 - **Disposition (pass 1):** **fail** — 2 Critical, 3 Major, 5 Minor
 - **Disposition (pass 2, 2026-08-19):** **pass** — all Critical and Major
@@ -29,7 +29,7 @@ Verified claims:
   `.pi/extensions/block-dangerous-git.ts`).
 - `SubagentStop` hooks are configured in `.claude/settings.json` and
   `.codex/hooks.json`.
-- `.agent-factory/` is git-ignored, consistent with the manifest location.
+- `.current-work/` is git-ignored, consistent with the manifest location.
 - `factory/scripts/step-guard` and `factory/scripts/write-step-manifest` are
   correctly absent (new deliverables).
 
@@ -53,7 +53,7 @@ bound is the context guard at spawn. Restate the Core Principle accordingly.
 
 ### 2. Critical — A single global manifest cannot represent concurrent step agents
 
-**What is wrong.** `.agent-factory/current-step.yml` is one file, git-ignored,
+**What is wrong.** `.current-work/current-step.yml` is one file, git-ignored,
 in the main checkout. Phase 4 dispatches parallel waves via `dispatch_wave`,
 each in its own git worktree — where a git-ignored manifest does not exist.
 Two concurrent step agents in one checkout would overwrite each other's
@@ -61,7 +61,7 @@ manifest. Yet the Completion Criteria demand a `steps:` block "covering all
 phases."
 
 **What to do.** Use per-instance manifests
-(e.g. `.agent-factory/steps/<instance-id>.yml`); the hook resolves its own
+(e.g. `.current-work/steps/<instance-id>.yml`); the hook resolves its own
 session's manifest; the orchestrator writes the manifest into each worktree at
 spawn.
 
@@ -195,7 +195,7 @@ full proposal re-inspected fresh against the revised text.
 | 2   | Critical | **Resolved**                 | Manifest resolved via `git rev-parse --show-toplevel`; "Worktree isolation" section; `--worktree <path>` flag; completion criterion "two concurrent worktrees"                                                                          |
 | 3   | Major    | **Resolved**                 | `role` field removed; "Lifecycle-based scoping" — manifest existence is the activation signal; orchestrator operates between steps; completion criterion "no manifest → unrestricted"                                                   |
 | 4   | Major    | **Resolved**                 | `running_agents` removed; no-supersede enforced by `write-step-manifest` refusing to overwrite; no `PostToolUse` needed                                                                                                                 |
-| 5   | Major    | **Resolved**                 | Open Question 2 struck through and resolved: `factory/`, CLI directories, `.agent-factory/` always allowed; new Core Principle scopes the bound to project artifacts; completion criterion restated to "project files"                  |
+| 5   | Major    | **Resolved**                 | Open Question 2 struck through and resolved: `factory/`, CLI directories, `.current-work/` always allowed; new Core Principle scopes the bound to project artifacts; completion criterion restated to "project files"                   |
 | 6   | Minor    | **Resolved**                 | `mdformat --check` passes                                                                                                                                                                                                               |
 | 7   | Minor    | **Resolved with regression** | Prose references converted to links — but two links point to not-yet-existing files and break `link-check` (see finding 11)                                                                                                             |
 | 8   | Minor    | **Partially resolved**       | `factory/docs/factory-guide.md` and `factory/scripts/init-factory` added; `factory/scripts/write-step-manifest` still missing (see finding 12)                                                                                          |

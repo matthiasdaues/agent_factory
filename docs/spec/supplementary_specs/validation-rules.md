@@ -9,14 +9,14 @@ Field- and behavior-level rules each mechanism enforces, grouped by the entity o
 - `recorded_at` is written in UTC, `%Y-%m-%dT%H:%M:%SZ` format, always from the writing script's own `datetime.now(timezone.utc)` call — never accepted as an input field (BR-006).
 - `iteration` is an integer, defaulting to `1` when absent or unparseable. `phase advance` always resets it to `1` on a successful advance (BR-005); `phase retry` is the only mechanism that increments it.
 - The marker is rendered as flat `key: value` lines in a fixed field order (`playbook`, `state`, `gate`, `result`, `open_findings`, `next`, `iteration`, `recorded_by`, `recorded_at`); a value of `None` renders as the literal `null`.
-- The marker file lives at `.agent-factory/playbook-state.yml` and is git-ignored — local, single-machine state, never committed, never a distributed lock (see [PRD § Constraints](../prd.md#5-constraints)).
+- The marker file lives at `.current-work/playbook-state.yml` and is git-ignored — local, single-machine state, never committed, never a distributed lock (see [PRD § Constraints](../prd.md#5-constraints)).
 
 ## Entry conditions (`GATE_CONDITION`)
 
 - `file_exists`: satisfied if `repo_root.glob(path)` yields at least one match.
 - `files_exist`: satisfied if every path in `paths` yields at least one glob match; the unmet reason lists every missing path by name.
 - `no_open_findings`: satisfied if zero matching finding files (by `pattern` or `patterns`, globbed under `docs/findings/`) have frontmatter `status: open`. A file whose frontmatter cannot be parsed (no leading `---` block) is not counted as open.
-- `script_exit_zero`: **always satisfied** in the current implementation — deliberately stubbed, not yet running the named script. See [T-03](../todos.md#t-03-script_exit_zero-condition-type-is-stubbed).
+- `script_exit_zero`: executes the named script and checks for exit code 0. When the `script` field uses the `charter:<field>` notation (e.g. `charter:test_command`), the evaluator reads the `charter_file` path from the condition, parses the YAML, and resolves the named field to the actual command before execution. Blocks with a clear message when the charter file is absent or the field is missing. See [UC-09](../use_cases/UC-09-run-tests-via-hook.md) and [ADR-0003](../../adr/0003-test-execution-via-hooks.md).
 - An `entry_conditions` name with no matching entry in `gate_conditions` is treated as unmet, with the reason `"<name> (not defined in gate_conditions)"`.
 - Unmet conditions are collected exhaustively, not short-circuited — a refusal always lists every unmet condition, not just the first.
 
@@ -84,23 +84,62 @@ This resolution order is why `halt_conditions` must name the **author** state be
 - A playbook's agent sequence is extracted from every `**Agent**: `x\`\` occurrence in file order, duplicates kept — a playbook that invokes the same agent twice (e.g. `implementation-agent` appearing once for the main chain) lists it once per occurrence.
 - `--check` mode performs the identical generation and diffs the result against disk; it is a plain text-content comparison, not a structural/semantic diff.
 
+## Origin/HEAD repair (`init-factory`, BR-050)
+
+- **BR-050**: Right after ensuring the target is a git repo, `init-factory` best-effort-repairs a dangling `origin/HEAD` symref — one pointing at a ref that no longer exists locally, most often left over from a remote's default branch moving from `master` to `main`. It tries `git remote set-head origin --auto` first (requires a reachable remote), then falls back to scanning locally-known `refs/remotes/origin/*` for `main` or `master` (preferring `main`) if the remote is unreachable. Unlike a `Collision` (BR-021), a repair failure is logged and swallowed — it never stops the run.
+
 ## Installation collisions (`init-factory`, BR-021, BR-022)
 
 - A destination path is safe to proceed past only if it is missing, or already a symlink resolving to the exact expected target. Any other existing state (a real file, a real directory, or a symlink to something else) raises a `Collision`.
 - A `Collision` stops the entire run immediately — steps already completed earlier in the run stay applied; no step later than the collision point runs at all (BR-021).
 - `config/model.conf` is copied only if absent; its presence is checked once, and its content is never diffed or refreshed afterward (BR-022) — the same non-diffing treatment `factory/` itself receives once already present.
 
-## Test execution (`run-tests`, BR-023, BR-024, BR-025, BR-026, BR-027, BR-028, BR-029)
+## Project-owned test gates (`testing.yaml`, BR-023, BR-024, BR-025, BR-026, BR-027, BR-028, BR-029)
 
-- **BR-023**: Framework detection scans project structure for all framework markers: `pyproject.toml` (contains pytest → `uv run pytest`), `package.json` (→ `npm test`), `go.mod` (→ `go test ./...`), `Cargo.toml` (→ `cargo test`). Multiple frameworks detected → exit `2` with error listing all found markers (monorepo multi-framework orchestration not yet supported; see T-06). Single framework detected → execute that framework's tests. No framework detected → exit `2` with error message listing checked markers.
-- **BR-024**: Bare test commands are blocked for agent execution via `block-dangerous-git.sh` deny patterns: `pytest`, `npm test`, `go test`, `cargo test`, and common variants (`python -m pytest`, `uv run pytest`, `yarn test`). Agents receive exit `2` denial at `PreToolUse` with message directing them to `factory/scripts/run-tests --staged` or hook-triggered execution instead. Agent allowlist includes `factory/scripts/run-tests --staged` for test iteration during development; bare test commands remain blocked.
-- **BR-025**: `--changed-only` mode applies framework-specific fast filters: pytest uses `--lf` (last-failed) or `--testmon` if available; jest uses `--onlyChanged`; go test and cargo test filter by package/crate path derived from git diff. Exact filter per framework is implementation-defined; the intent is sub-second feedback for small changes.
-- **BR-026**: `--full` mode runs the complete test suite with no file/package filtering, no cached result reuse. Used by pre-push and FSM `script_exit_zero` gates where partial coverage is insufficient.
-- **BR-027**: JSON summary is emitted on stdout in the format `{"passed": int, "failed": int, "skipped": int, "duration_ms": int}` after test execution completes. All test progress, failure details, and error messages go to stderr only — stdout is reserved for the JSON line.
-- **BR-028**: `--staged` mode runs tests on staged files only (reads `git diff --staged --name-only`), without requiring commit completion. Used by agents to iterate on test development before committing. Applies same framework-specific filters as `--changed-only` but scoped to staging area.
-- **BR-029**: Pre-commit hook only triggers test execution when files in `src/` or `test/`/`tests/` directories are modified. Documentation, configuration, playbooks, and backlog changes do not trigger test execution. This is language-agnostic: applies to Python, JavaScript, Go, Rust, or any other language using standard directory conventions.
+- **BR-023**: Factory does not detect or construct test commands. The project declares its test commands in `docs/charter/testing.yaml`. Factory reads that declaration; it does not guess, detect, or override. The `detect-test-regime` skill scans for existing test entrypoints during onboarding and populates the charter; it is not a runtime detection mechanism.
+- **BR-024**: Bare test commands (`pytest`, `npm test`, `go test`, `cargo test`, and common variants) are blocked for agent execution via `block-dangerous-git.sh` deny patterns. The agent allowlist is populated from `docs/charter/testing.yaml`: all declared command fields (`test_command`, `test_staged_command`, `test_changed_command`) are allowlisted with exact-string matching. No prefix matching. A command that differs from the declared string by even one character is denied.
+- **BR-025**: The `test_changed_command` field in `docs/charter/testing.yaml` is optional. When present, it is the command the project uses for fast feedback on changed files. Factory does not engineer mode flags or substitute its own mode logic; the project owns its mode story.
+- **BR-026**: The `test_command` field in `docs/charter/testing.yaml` is required. It is the full test suite command used by FSM `script_exit_zero` gate conditions. Factory calls it as-is from the repository root and reads only its exit code.
+- **BR-027**: Factory does not parse structured test output. The gate contract is exit-code-only: zero means pass, nonzero means fail. Structured test counts, JSON summaries, and reporting are the project's concern.
+- **BR-028**: The `test_staged_command` field in `docs/charter/testing.yaml` is optional. When present, it is the command agents may use for TDD iteration on staged files. It is allowlisted in `block-dangerous-git.sh` with exact matching.
+- **BR-029**: Factory does not inject test hooks into `.pre-commit-config.yaml`. Test hooks are project-owned infrastructure. The project decides when and how tests trigger on commit, push, or other events. The `agent_factory_hook-run-tests-full` entry that previously existed in Factory's pre-commit config is removed.
 
-The `script_exit_zero` condition evaluator (currently stubbed per [T-03](../todos.md#t-03-script_exit_zero-condition-type-is-stubbed)) will invoke `run-tests` and read its exit code; the JSON summary on stdout is for human/log consumption, not for the gate's pass/fail decision.
+The `script_exit_zero` condition evaluator resolves `test_command` from `docs/charter/testing.yaml` via the `charter:test_command` notation and reads its exit code; the pass/fail decision is exit-code-only (BR-027).
+
+## Anchor-file prerequisite (feature-addition)
+
+The `feature-addition` playbook checks for the existence of three anchor files before proceeding. This replaces the former prerequisite "existing project with spec and architecture."
+
+- The three anchor files are: `docs/arc42/architecture.dsl`, `docs/spec/scope-map.md`, and `docs/CONTEXT.md`.
+- The check is file-existence only — no content validation, no gate marker, no structural inspection.
+- If all three exist, the prerequisite passes and the playbook proceeds normally.
+- If any file is missing, the playbook reports which files are absent and suggests running `brownfield-onboarding` to establish the baseline.
+- Full specification artifacts (`docs/spec/prd.md`, `docs/spec/use_cases/UC-*.md`, `docs/spec/supplementary_specs/*.md`) are optional inputs that deepen the process when present, not prerequisites.
+- The anchor-file check does not distinguish between a brownfield-lite baseline (Stage 1 only) and a fully reverse-engineered project (Stage 2 complete). The depth is a continuum; the prerequisite only establishes the minimum.
+
+See [newcomer-onboarding.feature](../newcomer-onboarding.feature) and [entity-model.md § ANCHOR_FILE_SET](entity-model.md).
+
+## Reverse-map confidence hierarchy
+
+The `reverse-map` skill assigns a confidence level to each scope-map row based on the source type. The hierarchy, from highest to lowest confidence:
+
+| Source type                      | Confidence  | Rationale                                  |
+| -------------------------------- | ----------- | ------------------------------------------ |
+| Passing test                     | verified    | Mechanically proven behavioral claim       |
+| Failing/skipped test             | flagged     | Documents intent, known broken or deferred |
+| Code entry point                 | high        | Exists and executes, but not test-verified |
+| Test fixture/factory             | medium-high | Reveals entity model and relationships     |
+| API spec (OpenAPI, Postman)      | medium      | Declared contract, may not match code      |
+| Repo docs (README, comments)     | medium-low  | Close to code, but often stale             |
+| External docs (Confluence, wiki) | low         | Furthest from code, most likely to drift   |
+| Stakeholder verbal claim         | lowest      | Tribal knowledge, unfindable elsewhere     |
+| Document-only (no code match)    | claimed     | Asserted by docs but unverifiable in code  |
+
+- A row's confidence is determined by its strongest supporting source.
+- The Sources column lists all contributing sources, not just the strongest.
+- Confidence levels are informational, not gatekeeping — no confidence level blocks feature work.
+
+See [newcomer-onboarding.feature](../newcomer-onboarding.feature).
 
 ## Referenced from
 
@@ -112,3 +151,11 @@ The `script_exit_zero` condition evaluator (currently stubbed per [T-03](../todo
 - [UC-08](../use_cases/UC-08-initialize-agent-factory-into-a-project.md)
 - [UC-09](../use_cases/UC-09-run-tests-via-hook.md)
 - [UC-11](../use_cases/UC-11-cross-a-phase-boundary.md)
+
+## Dispatch ledger (`dispatch`)
+
+- `mark-dispatching`, `mark-dispatched`, `mark-blocked`, `mark-failed`, `re-dispatch`, and `escalate` are idempotent no-ops when the story is already in the target state or tier outcome.
+- `mark-failed` records an attempt entry with `session`, `tier`, `failure_class`, `evidence`, `commit_sha`, and `normalized_total`; a legacy ledger without `attempts` still loads as zero attempts.
+- `escalate` requires exactly one prior impl attempt with `acceptance_unmet` or `contradictory_evidence`, a passing `verify-base`, no scope violation, a non-strong current tier, and no earlier escalation in the same wave.
+- `close-wave <N>` refuses if any story in wave N is non-terminal.
+- `close-wave <N>` appends at most one closeout record for the wave. Re-running a successful close-wave is a no-op and does not duplicate the record.

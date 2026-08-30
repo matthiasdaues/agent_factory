@@ -36,8 +36,9 @@ gate_conditions:
   
   tests_pass:
     type: script_exit_zero
-    script: factory/scripts/run-tests
-    # Hook-triggered test execution, not agent-run
+    script: "charter:test_command"
+    charter_file: docs/charter/testing.yaml
+    # Resolved from docs/charter/testing.yaml — blocks if charter missing or no test_command
   
   no_new_qa_findings:
     type: no_open_findings
@@ -192,4 +193,4 @@ audit:
   log_gate_checks: true
   log_transitions: true
   log_halt_conditions: true
-  output_file: .agent-factory/audit.log
+  output_file: .current-work/audit.log

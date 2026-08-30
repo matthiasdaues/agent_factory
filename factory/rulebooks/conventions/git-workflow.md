@@ -22,15 +22,15 @@ Run one git operation per shell invocation, never chained after `cd` or another 
 Every new branch must be created atomically with its linked worktree:
 
 ```bash
-git worktree add -b <branch> .agent-factory/worktrees/<branch> <base>
+git worktree add -b <branch> .current-work/worktrees/<branch> <base>
 git worktree list --porcelain
 ```
 
-All worktrees live under `.agent-factory/worktrees/`, named after their branch. The second command verifies the path and branch before work begins. Standalone branch creation through `git branch <name>`, `git switch -c/-C`, or `git checkout -b/-B` is blocked. Do not switch the current checkout as an intermediate step. To resume an existing unattached branch, use `git worktree add .agent-factory/worktrees/<branch> <branch>`.
+All worktrees live under `.current-work/worktrees/`, named after their branch. The second command verifies the path and branch before work begins. Standalone branch creation through `git branch <name>`, `git switch -c/-C`, or `git checkout -b/-B` is blocked. Do not switch the current checkout as an intermediate step. To resume an existing unattached branch, use `git worktree add .current-work/worktrees/<branch> <branch>`.
 
 ## Merging requires the pre-merge marker
 
-`git merge <branch>` is blocked unless a passing `.agent-factory/premerge-check-ok` marker exists for that branch's current head.
+`git merge <branch>` is blocked unless a passing `.current-work/premerge-check-ok` marker exists for that branch's current head.
 
 - Run `factory/scripts/premerge-check <target> <branch>` first; it writes the marker on PASS.
 - Then run `git merge <branch> --no-ff -m "…"` as a **lone** command.
@@ -39,14 +39,14 @@ All worktrees live under `.agent-factory/worktrees/`, named after their branch. 
 
 The guardrail blocks these in every session, including the operator's own:
 
-| Blocked                                             | Use instead                                                             |
-| --------------------------------------------------- | ----------------------------------------------------------------------- |
-| Standalone branch creation                          | `git worktree add -b <branch> .agent-factory/worktrees/<branch> <base>` |
-| `git checkout .` / `git checkout -- .`              | `git checkout HEAD -- <path>`                                           |
-| `git branch -D` (force delete)                      | `git branch -d` (merged only); ask the operator for force deletes       |
-| `git commit --no-verify`, `git ... --no-verify`     | Fix the failing hook; never bypass                                      |
-| `git config core.hooksPath …`                       | Do not repoint hooks                                                    |
-| `git reset --hard`, `git clean`, `git push --force` | Ask the operator                                                        |
+| Blocked                                             | Use instead                                                            |
+| --------------------------------------------------- | ---------------------------------------------------------------------- |
+| Standalone branch creation                          | `git worktree add -b <branch> .current-work/worktrees/<branch> <base>` |
+| `git checkout .` / `git checkout -- .`              | `git checkout HEAD -- <path>`                                          |
+| `git branch -D` (force delete)                      | `git branch -d` (merged only); ask the operator for force deletes      |
+| `git commit --no-verify`, `git ... --no-verify`     | Fix the failing hook; never bypass                                     |
+| `git config core.hooksPath …`                       | Do not repoint hooks                                                   |
+| `git reset --hard`, `git clean`, `git push --force` | Ask the operator                                                       |
 
 `rm -rf` is separately gated by the safety classifier — ask before destructive removal.
 
@@ -54,7 +54,7 @@ The guardrail blocks these in every session, including the operator's own:
 
 The pre-commit hooks **rewrite staged files** as part of committing: `mdformat` and `ruff` reformat, `index-lint` regenerates `factory/INDEX.yaml`, `arch-lint` re-exports diagrams. When a hook rewrites a file the commit aborts with "files were modified by this hook". This is expected, not a failure to investigate. Use a deterministic two-pass sequence:
 
-1. `git add <explicit paths>` — never `git add -A`/`.`; the ignored local wiring (`.pi/`, `AGENTS.md`, `.agent-factory/`) and untracked scratch must not be swept in.
+1. `git add <explicit paths>` — never `git add -A`/`.`; the ignored local wiring (`.pi/`, `AGENTS.md`, `.agent-factory/`, `.current-work/`) and untracked scratch must not be swept in.
 2. `git commit -m "<type>: … (<ID>)"`.
 3. If it aborts with "files were modified by this hook", run `git add -u` and re-commit the same message. The second pass is clean because the hooks already rewrote the files.
 

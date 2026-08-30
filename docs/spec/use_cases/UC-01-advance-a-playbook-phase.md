@@ -19,7 +19,7 @@ The actor runs `factory/scripts/phase advance`, believing the current phase's ex
 ## Preconditions
 
 - The target playbook has a companion `.fsm.yml` in `factory/playbooks/` (only [`greenfield-development.fsm.yml`](../../../factory/playbooks/greenfield-development.fsm.yml) exists today — see [PRD § NG4](../prd.md#non-goals)).
-- If a marker already exists at `.agent-factory/playbook-state.yml`, its `state` field names a state defined in that FSM.
+- If a marker already exists at `.current-work/playbook-state.yml`, its `state` field names a state defined in that FSM.
 
 ## Main Success Scenario
 

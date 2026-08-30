@@ -1,5 +1,9 @@
 workspace "Orchestrator" "run-playbook — step-at-a-time FSM runner" {
 
+    properties {
+        "arc42.projected" "true"
+    }
+
     model {
         humanOperator = person "Human Operator" "Initiates playbook runs, handles human gates"
 
