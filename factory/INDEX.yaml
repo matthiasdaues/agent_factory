@@ -19,8 +19,8 @@ agents:
     tier: standard
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
-    tokens: 2563
-    total_tokens: 12297
+    tokens: 1492
+    total_tokens: 11226
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
@@ -388,7 +388,7 @@ skills:
   - name: detect-test-regime
     description: Scan project for test entrypoints and record the result in docs/charter/testing.yaml. Code is the source of truth; the charter is a derived record.
     path: skills/detect-test-regime/SKILL.md
-    tokens: 2044
+    tokens: 2048
   - name: newcomer-tour
     category: onboarding
     description: Walk a new user through Agent Factory fundamentals interactively

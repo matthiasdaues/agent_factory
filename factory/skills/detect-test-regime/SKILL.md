@@ -32,8 +32,8 @@ invent a `test_command` the project cannot actually run.
 
 - During `init-factory`, to seed the testing charter from an existing
   codebase.
-- During brownfield onboarding, when VIRGIL needs to know how a
-  project runs its tests before scaffolding gates around it.
+- During brownfield onboarding, when `capture-charter` needs to know
+  how a project runs its tests before scaffolding gates around it.
 - Whenever `docs/charter/testing.yaml` is missing, empty, or suspected
   stale against the current repository.
 
@@ -78,8 +78,8 @@ without a `test` script, is not evidence of a test entrypoint.
   project-owned test infrastructure if they choose — scripts, hooks, and
   config that belong to the project and survive `remove-factory`. Building
   that infrastructure from scratch is a full onboarding interview owned by
-  VIRGIL, not this skill; this skill only makes the offer and hands
-  off.
+  `capture-charter`, not this skill; this skill only makes the offer
+  and hands off.
 
 ### 3. Scan for test layers
 
@@ -186,8 +186,8 @@ one.
   (`justfile` lowercase, `mise.toml` tasks, language-specific runners) can
   be added to step 1's table as they are encountered; this skill is not
   the sole gate on what counts as a valid `test_command`.
-- This skill is invoked by `init-factory` and by VIRGIL during
-  onboarding. It does not itself gate anything — it only detects and
+- This skill is invoked by `init-factory` and by `capture-charter`
+  during onboarding. It does not itself gate anything — it only detects and
   records. Downstream gates consume `docs/charter/testing.yaml` afterward.
 - The charter is a backup reference for ambiguous cases, not the primary
   source of truth. When code and charter disagree, re-run this skill rather
