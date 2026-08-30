@@ -20,7 +20,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 1492
-    total_tokens: 11226
+    total_tokens: 11237
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
@@ -309,12 +309,17 @@ skills:
     category: utility
     description: Generate short-form context-aware humor for moments when levity is warranted. One-liners, fake error messages, commit suggestions nobody should use, or observational asides drawn from Dilbert's corporate absurdity, XKCD's nerd sniping, South Park's irreverent escalation, and Hornblower's bone-dry understatement. Never more than two sentences. Target is the process, tooling, or situation — never the user.
     path: skills/comic-relief/SKILL.md
-    tokens: 733
+    tokens: 742
   - name: commit
     category: utility
     description: Compose a Conventional Commit message from the session's context and commit — invoked explicitly, never automatically.
     path: skills/commit/SKILL.md
     tokens: 520
+  - name: detect-test-regime
+    category: utility
+    description: Scan project for test entrypoints and record the result in docs/charter/testing.yaml. Code is the source of truth; the charter is a derived record.
+    path: skills/detect-test-regime/SKILL.md
+    tokens: 2052
   - name: domain-modeling
     category: utility
     description: Build and sharpen a project's domain model — challenge terminology, record architecture decisions, update docs/CONTEXT.md and docs/adr/ inline as decisions crystallise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
@@ -324,7 +329,7 @@ skills:
     category: utility
     description: Look up a Factory concept in the guide and explain it, calibrated to the user's experience level. Knows what exists and what's missing — like Lucien, the Sandman's librarian.
     path: skills/explain-concept/SKILL.md
-    tokens: 929
+    tokens: 931
   - name: grilling
     category: utility
     description: Relentless interview to sharpen a plan or design until reaching shared understanding. Use when the user wants to stress-test a plan, get grilled on their design, or mentions "grill me".
@@ -385,10 +390,6 @@ skills:
     description: Produce one precise, testable claim from recorded evidence with scope, assumptions, and content hash.
     path: skills/claim-formulation/SKILL.md
     tokens: 1030
-  - name: detect-test-regime
-    description: Scan project for test entrypoints and record the result in docs/charter/testing.yaml. Code is the source of truth; the charter is a derived record.
-    path: skills/detect-test-regime/SKILL.md
-    tokens: 2048
   - name: newcomer-tour
     category: onboarding
     description: Walk a new user through Agent Factory fundamentals interactively

@@ -2,7 +2,7 @@
 name: explain-concept
 description: Look up a Factory concept in the guide and explain it, calibrated to the user's experience level. Knows what exists and what's missing — like Lucien, the Sandman's librarian.
 category: utility
-version: "1.0"
+version: 1.0.0
 ---
 
 # Explain Concept

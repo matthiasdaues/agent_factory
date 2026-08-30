@@ -9,6 +9,7 @@ description: >-
   understatement. Never more than two sentences. Target is the process,
   tooling, or situation — never the user.
 category: utility
+version: 1.0.0
 ---
 
 # Comic Relief
