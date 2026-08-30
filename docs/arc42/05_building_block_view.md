@@ -94,7 +94,7 @@ Two deterministic scripts enforce semantic code quality after each developer-age
 | **crap-score**       | CRAP score per function: `comp(m)^2 x (1 - cov(m)/100)^3 + comp(m)`. Threshold: CRAP ≤ 8 (Bob Martin default, overridable in `house-rules.md`) | Source files, coverage data                 | JSON report per function, logged to `.current-work/crap-score/`   |
 | **dependency-check** | Validates that module import directions match declarations in `architecture.dsl`                                                               | `docs/arc42/architecture.dsl`, source files | JSON report per rule, logged to `.current-work/dependency-check/` |
 
-Mutation testing is project-owned infrastructure. Factory encourages it: the `mutation-analysis` skill provides setup guidance, and VIRGIL carries it as an open question during charter setup until settled in `testing.yaml`. See [ADR-0012 § Amended](../adr/0012-dispatcher-owned-semantic-gate-loop.md#amended).
+Mutation testing is project-owned infrastructure. Factory encourages it: the `mutation-analysis` skill provides setup guidance, and the kit-manager carries it as an open question during charter setup until settled in `testing.yaml`. See [ADR-0012 § Amended](../adr/0012-dispatcher-owned-semantic-gate-loop.md#amended).
 
 **Invocation model:**
 
