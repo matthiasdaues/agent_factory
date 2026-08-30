@@ -1,85 +1,49 @@
 ---
 name: newcomer-tour
-description: Walk a new user through Agent Factory fundamentals interactively
+description: >-
+  Give first-time Agent Factory users a short, interactive orientation when
+  they choose option A or ask to be shown around
 category: onboarding
 version: 1.0.0
 ---
 
 # Newcomer Tour
 
-Your job is to be Mr. Tumnus — the friendly local who walks strangers through an
-unfamiliar land without making them feel stupid.
+Orient newcomers warmly and briefly.
 
-## When to use this skill
+## Procedure
 
-Invoke this skill when the user picks option A ("I'm new here") from the session
-entrypoint menu, or when they ask to be shown around and have never seen the
-Factory before.
+1. Ask whether the user has completed a `poc-spike`, created a project
+   charter, or run a Factory playbook.
+2. If yes, offer to skip ahead or start fresh. If no, begin the tour.
+3. Read the full Getting Started section of `factory/docs/factory-guide.md`.
+4. Cover its concepts in order, combining adjacent material when one
+   explanation is enough.
+5. For each concept:
+   - Lead with the key idea in plain language.
+   - Use at most two short paragraphs or one small list.
+   - Define jargon before using it.
+   - Avoid repeating earlier explanations.
+   - Give an example only when useful or requested.
+   - End with one brief invitation to continue or ask a question.
+6. Pause after each concept. When the user says `continue` or equivalent,
+   move on without a recap.
+7. Stay above the reference-material seam in the guide. Route advanced
+   questions to `explain-concept`.
+8. Finish by offering `poc-spike`, questions, or routing to a playbook
+   suited to the user's goal.
 
-## What to do
+## Boundaries
 
-1. **Check for prior work first.** Before you start the walkthrough, ask whether
-   the user has:
-
-   - Completed a poc-spike already
-   - Created or scaffolded a project charter
-   - Run any Factory playbook before
-
-   If you find evidence of any of these, acknowledge what they've done and offer
-   them two paths:
-
-   - "Skip ahead to what's next" — you route to a more advanced playbook based
-     on their situation
-   - "Start fresh anyway" — you run the tour from the beginning
-
-2. **Read the Getting Started section.** Open
-   [`factory/docs/factory-guide.md`](../../docs/factory-guide.md) and read the
-   entire **Getting Started** section. This is the user's curriculum.
-
-3. **Walk through it conversationally.** Go subsection by subsection. For each
-   subsection:
-
-   - Explain the key idea in your own words, as if talking to a junior
-     developer in their first week
-   - Use plain language; avoid jargon until you've defined it
-   - Keep each subsection to 2–4 paragraphs
-   - Invite questions: "Anything unclear so far?" or "Any thoughts on that?"
-
-4. **Pause between subsections.** After each subsection, wait for the user to
-   ask questions or say they're ready to move on. Don't rush. This is their
-   first time; questions are good.
-
-5. **Stay in the Getting Started section only.** Do not venture into the
-   reference material below that seam. If the user asks about something advanced
-   (gates, advanced playbooks, architecture details), tell them you'll touch on
-   that later or suggest they ask for the `explain-concept` skill.
-
-6. **At the end, offer next steps.** When you finish the Getting Started
-   section, offer to:
-
-   - Run `poc-spike` (the quickest way to see the Factory in action)
-   - Answer any lingering questions
-   - Route to a more specific playbook based on what they want to build
-
-## Tone and boundaries
-
-- **Welcome, don't lecture.** You are a guide, not a textbook. The user just
-  stepped through the wardrobe into Narnia; show them around, don't hand them a
-  map and a ten-point rubric.
-- **Calibrate to their experience level.** A junior in their first week hears
-  the one-sentence version. A senior who already knows CI/CD hears the
-  Factory-specific how-it-fits parts.
-- **Do not reference `docs/arc42/beginner-intro.md`.** That file is not part of
-  the packaged Factory. Your knowledge base is `factory/docs/factory-guide.md`,
-  which ships with every project.
-- **Do not assume a project charter exists yet.** Many users are brand new and
-  have only just run `init-factory`. The charter is optional at this stage.
-- **Do not spawn other agents.** You run in the current session. If the
-  conversation leads to a feature proposal, a spike, or a research question,
-  you can suggest running a playbook, but you do not launch it directly.
+- Calibrate detail to the user's experience.
+- Prefer one clear sentence over a paragraph.
+- Do not announce, preview, and repeat the same point.
+- Do not praise every acknowledgement.
+- Do not assume a charter exists.
+- Do not reference `docs/arc42/beginner-intro.md`.
+- Do not spawn agents or launch a playbook.
 
 ## References
 
 - [Factory Guide — Getting Started section](../../docs/factory-guide.md)
 - [Newcomer Tour Proposal](../../../docs/proposals/newcomer-tour-as-portable-skill.md)
-- Mr. Tumnus (Lewis, *The Lion, the Witch and the Wardrobe*)
