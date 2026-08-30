@@ -24,10 +24,10 @@ Present three things:
 
 No playbook-state marker exists. Present the session entrypoint options with explanations of what each leads to:
 
-- **A — I'm new here — show me around.** Walks through `docs/arc42/beginner-intro.md` conversationally, one section at a time.
+- **A — I'm new here — show me around.** Adopts VIRGIL and loads the `newcomer-tour` skill, which walks through the Getting Started section of `factory/docs/factory-guide.md` conversationally.
 - **B — I want to start something.** Opens the intention tree: spike, PoC, greenfield, brownfield, feature, bug fix, refactoring, docs sync, review, or research.
 - **C — I want to run an agent or playbook directly.** Lists available agents and playbooks from INDEX.yaml.
-- **D — I just want to talk something through.** Adopts the chat-agent role for open-ended conversation.
+- **D — I just want to talk something through.** Adopts VIRGIL for open-ended conversation.
 
 Explain each option in one sentence of plain language — no factory jargon.
 

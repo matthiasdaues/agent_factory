@@ -4,7 +4,7 @@
 
 Part of [Agent Factory](../README.md). See also: [orchestrator](../orchestrator/README.md) (work in progress — not yet operational), [architecture docs](../docs/README.md).
 
-This page gets you from zero to a running first playbook. Never used Agent Factory — or any AI coding workflow — before? Read the [beginner's introduction](../docs/arc42/beginner-intro.md) first; it explains what you are about to do before you run any command. For what agents, skills, playbooks, and rulebooks actually are, and how the checks work, see the [factory guide](docs/factory-guide.md).
+This page gets you from zero to a running first playbook. Never used Agent Factory — or any AI coding workflow — before? Read the [Getting Started](docs/factory-guide.md#getting-started) section first; it explains what you are about to do before you run any command. For what agents, skills, playbooks, and rulebooks actually are, and how the checks work, see the rest of the [factory guide](docs/factory-guide.md).
 
 ## Prerequisites
 
