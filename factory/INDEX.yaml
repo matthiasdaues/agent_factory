@@ -38,7 +38,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 2563
-    total_tokens: 10633
+    total_tokens: 10701
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
@@ -333,6 +333,11 @@ skills:
     description: Build and sharpen a project's domain model — challenge terminology, record architecture decisions, update docs/CONTEXT.md and docs/adr/ inline as decisions crystallise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
     path: skills/domain-modeling/SKILL.md
     tokens: 647
+  - name: explain-concept
+    category: utility
+    description: Look up a Factory concept in the guide and explain it, calibrated to the user's experience level. Knows what exists and what's missing — like Lucien, the Sandman's librarian.
+    path: skills/explain-concept/SKILL.md
+    tokens: 929
   - name: grilling
     category: utility
     description: Relentless interview to sharpen a plan or design until reaching shared understanding. Use when the user wants to stress-test a plan, get grilled on their design, or mentions "grill me".
@@ -397,11 +402,6 @@ skills:
     description: Scan project for test entrypoints and record the result in docs/charter/testing.yaml. Code is the source of truth; the charter is a derived record.
     path: skills/detect-test-regime/SKILL.md
     tokens: 2046
-  - name: newcomer-tour
-    category: onboarding
-    description: Walk a new user through Agent Factory fundamentals interactively
-    path: skills/newcomer-tour/SKILL.md
-    tokens: 861
   - name: refutation-design
     category: research
     description: Define refuting evidence, conditions for refutation, and severe tests to expose them.
