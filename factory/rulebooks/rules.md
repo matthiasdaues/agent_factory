@@ -39,6 +39,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST** start onboarding by creating and filling `docs/arc42/architecture.dsl` from code before writing architecture prose.
 - **MUST** model deployment nodes and connections in the `architecture.dsl` Deployment view from Terraform (or equivalent IaC) when available.
 - **MUST** treat arc42 chapters 05, 06, and 07 as derived explanations of `architecture.dsl` views, not independent sources.
+- **MUST** provision `"arc42.projected" "false"` in the workspace `properties` block when creating a fresh `architecture.dsl`; only the architecture-agent sets it to `"true"` when the user explicitly requests arc42 chapter projection.
 
 ## Coding
 
@@ -59,11 +60,13 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 → [branching-policy.md](conventions/branching-policy.md)
 
-- **MUST** create every new local branch atomically with its own linked worktree using `git worktree add -b <branch> .agent-factory/worktrees/<branch> <base>`; standalone branch creation is forbidden.
-- **MUST** place every worktree under `.agent-factory/worktrees/` — never in the repository root, a sibling directory, or an arbitrary path.
+- **MUST** create every new local branch atomically with its own linked worktree using `git worktree add -b <branch> .current-work/worktrees/<branch> <base>`; standalone branch creation is forbidden.
+- **MUST** place every worktree under `.current-work/worktrees/` — never in the repository root, a sibling directory, or an arbitrary path.
 - **MUST** verify every new branch-to-worktree mapping with `git worktree list --porcelain` before doing work on that branch.
 - **MUST** create exactly one feature branch per story or bug — never per EPIC, sprint, or wave.
-- **MUST** create every feature branch and worktree from a dedicated invocation branch and worktree (itself created from `main`), recording its origin commit as the branch root.
+- **MUST** commit all indexed artifacts (backlog stories, findings, proposals, and any other file with a sequential ID) to `dev` — `dev` is the single canonical index. Never commit indexed artifacts to a feature or invocation branch.
+- **MUST** create every invocation branch from `dev` (not `main`), using `feature/<proposal-title>` as the branch name. Story branches are cut from this invocation branch.
+- **MUST** create every feature branch and worktree from the invocation branch, recording its origin commit as the branch root.
 - **MUST** determine merge order from real file-overlap analysis, not a grouping label — file-disjoint branches merge in parallel, overlapping branches merge serially in dependency order.
 - **MUST** run the full test suite after every merge, before the next.
 - **MUST** track exactly two commit IDs per invocation — branch root and branch head.
@@ -83,8 +86,16 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST NOT** launch a new agent for the same role while a prior instance is still running — the prior instance cannot be cancelled and will consume tokens against stale state.
 - **MUST** verify every story in a wave has reached a terminal state (merged or explicitly blocked/failed in the dispatch ledger) before launching the next wave.
 - **MUST** commit or explicitly record each story's outcome (merged SHA or blocked reason) before the wave is considered closed.
-- **MUST** maintain a dispatch ledger (`.agent-factory/dispatch-ledger.yaml`) tracking each story's branch, worktree, declared base, gate results, commit SHA, merge SHA, and status.
+- **MUST** maintain a dispatch ledger (`.current-work/dispatch-ledger.yaml`) tracking each story's branch, worktree, declared base, gate results, commit SHA, merge SHA, and status.
 - **MUST** update the story file's `status` field in the same commit that delivers the story's implementation.
+
+## Step boundaries
+
+- **MUST** write a step manifest from the playbook's declared `inputs`, `outputs`, and `max_input_tokens` for non-dispatch steps.
+- **MUST** write a step manifest from the story frontmatter's `outputs` and `tests` for dispatch steps.
+- **MUST** treat the active step manifest as the read and write boundary for the running step agent.
+- **MUST NOT** read outside declared manifest inputs or write outside declared manifest outputs while the manifest is active.
+- **MUST** keep the manifest schema aligned with the playbook step declaration block and the guard loader.
 
 ## Commits
 
@@ -98,7 +109,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 - **MUST** issue git as a lone command — never chained after `cd` or another command (the working directory persists; the guardrail mis-parses compound lines).
 - **MUST NOT** switch the current checkout to create a branch; create the branch in its dedicated linked worktree with `git worktree add -b`.
-- **MUST** run `factory/scripts/premerge-check <target> <branch>` before `git merge <branch>` — the merge is blocked without the resulting `.agent-factory/premerge-check-ok` marker.
+- **MUST** run `factory/scripts/premerge-check <target> <branch>` before `git merge <branch>` — the merge is blocked without the resulting `.current-work/premerge-check-ok` marker.
 - **MUST NOT** bypass a failing pre-commit hook (`--no-verify`, `core.hooksPath`); fix the hook. Discard with `git checkout HEAD -- <path>`, not `git checkout .`.
 - **SHOULD** commit through the hooks with the two-pass sequence — `add` → `commit`; on "files were modified by this hook", `add -u` → recommit — or use `factory/scripts/commit-safe`.
 - **MUST** remove a clean worktree and safely delete its merged branch after its target passes verification, unless the branch remains a named active review base.

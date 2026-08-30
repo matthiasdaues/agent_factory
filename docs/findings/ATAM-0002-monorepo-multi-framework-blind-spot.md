@@ -115,7 +115,7 @@ exit(max(r.exit_code for r in results))  # fail if any framework fails
 
 **Option 2: Explicit framework list in config** (explicit opt-in)
 
-Add `.agent-factory/test-config.yml`:
+Add `.current-work/test-config.yml`:
 
 ```yaml
 frameworks:

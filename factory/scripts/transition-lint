@@ -9,7 +9,7 @@ What: Maps each staged file to its playbook state via the fsm outputs globs
 When: Every commit during a structured-playbook run (always_run).
 By:   pre-commit hook `transition-lint`.
 
-Reads the git-ignored run-state marker (``.agent-factory/playbook-state.yml``)
+Reads the git-ignored run-state marker (``.current-work/playbook-state.yml``)
 to learn which playbook state a run is in, then maps every staged file to the
 state that declares it via the ``outputs:`` globs in the corresponding
 ``factory/playbooks/<playbook>.fsm.yml``. Blocks a commit that stages a file
@@ -48,7 +48,7 @@ from typing import Any, Dict, List, Optional
 
 SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
 
-DEFAULT_MARKER = Path(".agent-factory/playbook-state.yml")
+DEFAULT_MARKER = Path(".current-work/playbook-state.yml")
 DEFAULT_PLAYBOOKS_DIR = Path("factory/playbooks")
 
 

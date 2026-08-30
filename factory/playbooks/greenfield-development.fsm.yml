@@ -19,8 +19,8 @@ gate_conditions:
     type: files_exist
     paths:
       - docs/spec/prd.md
-      - docs/spec/actor-goal-list.md
-      - docs/spec/use_cases/*.md
+      - docs/spec/scope-map.md
+      - docs/spec/*.feature
   
   no_open_spec_findings:
     type: no_open_findings
@@ -65,8 +65,9 @@ gate_conditions:
   
   tests_pass:
     type: script_exit_zero
-    script: factory/scripts/run-tests --full
-    # Hook-triggered test execution, not agent-run (UC-09, ADR-0003)
+    script: "charter:test_command"
+    charter_file: docs/charter/testing.yaml
+    # Resolved from docs/charter/testing.yaml — blocks if charter missing or no test_command (UC-09, ADR-0003)
 
 # State machine
 states:
@@ -91,8 +92,10 @@ states:
     
     outputs:
       - docs/spec/prd.md
-      - docs/spec/actor-goal-list.md
-      - docs/spec/use_cases/*.md
+      - docs/spec/scope-map.md
+      - docs/spec/*.feature
+      - docs/spec/*-gaps.md
+      - docs/spec/*-qa-strategy.md
       - docs/spec/supplementary_specs/*.md
     
     on:
@@ -224,9 +227,12 @@ states:
     
     outputs:
       - src/**/*
+      - factory/scripts/*
       - tests/**/*
+      - backlog/ST-*.md
+      - docs/spec/supplementary_specs/*qa-strategy*
       - git commits
-    
+
     on:
       ImplementationComplete:
         exit_conditions:
@@ -353,4 +359,4 @@ audit:
   log_gate_checks: true
   log_transitions: true
   log_halt_conditions: true
-  output_file: .orchestrator/audit.log
+  output_file: .current-work/audit.log

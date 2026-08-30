@@ -23,14 +23,14 @@ repos:
       # lints all python files (skip if the project isn't Python) — zero local install, via uvx
       - id: agent_factory_hook-ruff-check
         name: "agent_factory: ruff check"
-        entry: uvx ruff check --fix
+        entry: uvx ruff@0.16.5 check --fix
         language: system
         types_or: [python, pyi, jupyter]
 
       # lints python code blocks in markdown — zero local install, via uvx
       - id: agent_factory_hook-ruff-format
         name: "agent_factory: ruff format"
-        entry: uvx ruff format
+        entry: uvx ruff@0.16.5 format
         language: system
         types_or: [python, pyi, jupyter]
 
@@ -89,15 +89,6 @@ repos:
         language: system
         pass_filenames: false
         files: ^(factory/agents/.*\.md|factory/skills/.*/SKILL\.md|factory/playbooks/.*\.md)$
-
-      # ready-to-share gate; runs by default and can be bypassed with git push --no-verify
-      - id: agent_factory_hook-run-tests-full
-        name: "agent_factory: run-tests (full suite)"
-        entry: factory/scripts/run-tests --full
-        language: system
-        stages: [pre-push]
-        pass_filenames: false
-        always_run: true
 
       # governs phase ORDERING between playbook states (not artifact validity);
       # inspects everything staged, so it always runs — no-op without a marker

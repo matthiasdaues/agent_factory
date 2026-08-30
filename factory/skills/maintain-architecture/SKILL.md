@@ -59,11 +59,11 @@ Update the relevant arc42 chapters to match the model. The mapping:
 
 | DSL view         | Chapter                | Image reference                                        |
 | ---------------- | ---------------------- | ------------------------------------------------------ |
-| `SystemContext`  | §3 System Scope        | `![System Context](assets/images/SystemContext.png)`   |
-| `Containers`     | §5.1 Building Block L1 | `![Containers](assets/images/Containers.png)`          |
-| `CoreComponents` | §5.2 Building Block L2 | `![Core Components](assets/images/CoreComponents.png)` |
+| `SystemContext`  | §3 System Scope        | `![System Context](assets/images/SystemContext.svg)`   |
+| `Containers`     | §5.1 Building Block L1 | `![Containers](assets/images/Containers.svg)`          |
+| `CoreComponents` | §5.2 Building Block L2 | `![Core Components](assets/images/CoreComponents.svg)` |
 | Dynamic views    | §6 Runtime View        | Mermaid sequence diagrams (see Step 4)                 |
-| `Deployment`     | §7 Deployment View     | `![Deployment](assets/images/Deployment.png)`          |
+| `Deployment`     | §7 Deployment View     | `![Deployment](assets/images/Deployment.svg)`          |
 
 For chapters 5 (tables) and 9 (ADR index): element names and port lists must match the DSL. `arch-lint` enforces this for components and ports.
 
@@ -102,6 +102,8 @@ factory/scripts/statemachine-lint --spec-dir docs/spec
 **Completion**: `statemachine-lint` reports 0 errors.
 
 ## Commit
+
+If this is the first time projecting arc42 prose chapters from the DSL, set `"arc42.projected" "true"` in the workspace `properties` block of `architecture.dsl` before committing.
 
 After all steps pass, commit everything in one atomic commit:
 

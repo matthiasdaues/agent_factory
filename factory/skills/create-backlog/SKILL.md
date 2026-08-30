@@ -2,7 +2,7 @@
 name: create-backlog
 description: Break specification and architecture into a local backlog of markdown stories — EPICs and User Stories with INVEST criteria and MoSCoW priority.
 category: planning
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Create Backlog

@@ -82,6 +82,7 @@
     ],
     "entities": [
       "AGENT_ENTRY",
+      "ANCHOR_FILE_SET",
       "ARTIFACT_REFERENCE",
       "CATALOG",
       "CHILD_RESULT_ENVELOPE",
@@ -96,6 +97,7 @@
       "PLAYBOOK_STATE_MARKER",
       "REPOSITORY_STATE",
       "RULEBOOK_ENTRY",
+      "SCOPE_MAP_ROW",
       "SESSION_USAGE_SIGNAL",
       "SKILL_ENTRY",
       "STATE_DEFINITION"
@@ -505,17 +507,7 @@
     {
       "from": "UC-09",
       "rel": "references_br",
-      "to": "BR-023"
-    },
-    {
-      "from": "UC-09",
-      "rel": "references_br",
       "to": "BR-024"
-    },
-    {
-      "from": "UC-09",
-      "rel": "references_br",
-      "to": "BR-029"
     },
     {
       "from": "UC-09",
@@ -541,6 +533,11 @@
       "from": "UC-09",
       "rel": "references_br",
       "to": "BR-027"
+    },
+    {
+      "from": "UC-09",
+      "rel": "references_br",
+      "to": "BR-028"
     },
     {
       "from": "UC-09",

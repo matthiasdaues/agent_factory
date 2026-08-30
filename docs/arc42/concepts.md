@@ -43,7 +43,7 @@ agent_factory/
 │   ├── scripts/                      # Deterministic gates (*-lint, plus schema-validate/policy-validate) and setup tooling (init-factory, update-factory, remove-factory, mdformat, ...)
 │   ├── config/                       # Templates: AGENTS.md, pre-commit-config.yaml, model.conf
 │   └── INDEX.yaml                     # Generated catalog of every agent, skill, playbook, and rulebook with token counts — regenerate with index-lint
-├── orchestrator/                     # Versioned Python tool package; invoked from consumer projects through factory/scripts/run-playbook and uvx
+├── orchestrator/                     # Versioned Python tool package (work in progress — not yet operational); invoked from consumer projects through factory/scripts/run-playbook and uvx
 │   ├── src/                          # CLI source code
 │   ├── tests/                        # CLI tests
 │   ├── docs/                         # CLI documentation (own arc42 set, own docs/adr/, own docs/spec/)

@@ -4,7 +4,7 @@ Technical requirements at the system's interfaces, expressed in **EARS** syntax 
 
 ## Marker
 
-- The marker shall live at `.agent-factory/playbook-state.yml`, git-ignored (UC-01, UC-02, UC-03, UC-05).
+- The marker shall live at `.current-work/playbook-state.yml`, git-ignored (UC-01, UC-02, UC-03, UC-05).
 - Where the marker is absent, `transition-lint` shall treat the commit as ungoverned and exit `0` (UC-02, BR-001).
 - Where the marker is absent, `phase advance` shall bootstrap it at the target playbook's root state (UC-01).
 - The marker schema shall include `playbook`, `state`, `gate`, `result`, `open_findings`, `next`, `iteration`, `recorded_by`, and `recorded_at` (UC-01, [entity-model.md](../supplementary_specs/entity-model.md)).

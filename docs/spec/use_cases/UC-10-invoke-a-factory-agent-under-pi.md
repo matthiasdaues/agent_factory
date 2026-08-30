@@ -72,7 +72,7 @@ The calling Pi session invokes the model-callable tool `run_agent(agent, task, m
 - **BR-030**: `run_agent` always spawns a fresh `pi` subprocess, never in-context role-play, because author/reviewer independence requires the reviewer never see the author's reasoning.
 - **BR-031**: the child is granted project trust per spawn with `-a`, for determinism, rather than relying on saved trust in `~/.pi/agent/trust.json`.
 - **BR-032**: the child layers the agent persona with `--append-system-prompt`, not `--system-prompt`, keeping Pi's own tool guidance and the project `AGENTS.md`.
-- **BR-033**: the child inherits the git-safety guardrail, since it loads `.pi/extensions/`; subagents are bound by the same dangerous-command block and the single sanctioned `factory/scripts/run-tests --staged` allow.
+- **BR-033**: the child inherits the git-safety guardrail, since it loads `.pi/extensions/`; subagents are bound by the same dangerous-command block and the charter-declared test command allowlist (exact-matched from `docs/charter/testing.yaml`).
 - **BR-034**: `run_agent` parses structured JSON from `--mode json` `message_end` and exposes token usage; parent-facing result content follows BR-040's bounded envelope rather than injecting the full final text.
 - **BR-034a**: `run_agent` consumes the JSON event stream asynchronously and
   incrementally, reports bounded progress, retains bounded non-result state,
@@ -151,7 +151,7 @@ Feature: Invoke a factory agent under Pi via run_agent
     Given a spawned agent session under -a
     When it attempts "git push"
     Then the guardrail blocks the command
-    And "factory/scripts/run-tests --staged" is still permitted
+    And charter-declared test commands from docs/charter/testing.yaml are still permitted
 ```
 
 ## Referenced from

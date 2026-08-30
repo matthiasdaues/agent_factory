@@ -18,9 +18,14 @@ Operational procedure for **documenting an existing undocumented system** (rever
 
 ## Overview
 
-**Reverse order workflow**: Code → Architecture baseline → Spec → Architecture deepening → Review → Reconciliation
+**Reverse order workflow**: Code → Architecture baseline → Scope map → (optional) Spec → Architecture deepening → Review → Reconciliation
 
-Unlike greenfield (Spec → Architecture → Code), brownfield starts with existing code and works backwards. A two-pass architecture approach — baseline from code, then component resolution after specification extraction — produces documentation that is both structurally accurate and domain-aware.
+Unlike greenfield (Spec → Architecture → Code), brownfield starts with existing code and works backwards. The playbook is split into two stages with an explicit exit point between them:
+
+- **Stage 1 — Enough to work**: produces three anchor files (`docs/arc42/architecture.dsl`, `docs/spec/scope-map.md`, `docs/CONTEXT.md`). The user can start feature work from here.
+- **Stage 2 — Full reverse engineering** (opt-in): specification extraction, component resolution, ATAM review, and reconciliation. Available when the user or the change warrants it.
+
+## Stage 1 — Enough to Work
 
 ## Phase 1: Code Understanding
 
@@ -83,6 +88,8 @@ Record the answer. If IaC exists, pass the path to the architecture agent so it 
 **Agent**: `architecture-agent`
 **Task**: Analyze code and IaC. Create `docs/arc42/architecture.dsl` with system context and container views. Derive initial arc42 prose chapters from the DSL. Document discovered architectural decisions as ADRs.
 
+The workspace property `"arc42.projected"` defaults to `"false"` and is set to `"true"` by the architecture-agent only when the user requests arc42 chapter projection from the DSL.
+
 **Expected outputs**:
 
 - `docs/arc42/architecture.dsl` (C4 model — system context, containers, deployment)
@@ -104,6 +111,42 @@ factory/scripts/arch-lint --docs-dir docs/arc42
 
 **If errors** → Fix and re-validate
 **If clean** → Proceed to Phase 3
+
+## Phase 2b: Scope Map and Domain Vocabulary
+
+### Step 2.5 — Populate Scope Map via Reverse-Map
+
+Invoke the `reverse-map` skill. It sweeps tests first (highest confidence), then code entry points, then accepts additional sources from the stakeholder. Results are presented in batches by domain area for stakeholder confirmation.
+
+**Expected outputs**:
+
+- `docs/spec/scope-map.md` (5-column format: Rule, Status, Confidence, Sources, Feature Link)
+- `docs/CONTEXT.md` (domain vocabulary seeded from type names, class names, module names)
+
+### Step 2.6 — Validate Stage 1 Exit
+
+Verify the three anchor files exist and are valid:
+
+- [ ] `docs/arc42/architecture.dsl` exists with system context and container views
+- [ ] `docs/spec/scope-map.md` exists with Rules marked `implemented`
+- [ ] `docs/CONTEXT.md` exists seeded with domain vocabulary
+- [ ] Structurizr validation passes on the DSL
+
+### Stage 1 Exit Point
+
+Present the user with the choice:
+
+> "You now have the structural shape and the functional inventory. You can start feature work from here. Want to go deeper, or start building?"
+
+**If the user exits** → Stage 1 is complete. The user can start a `feature-addition` from the brownfield-lite baseline (anchor file presence is the prerequisite, not a gate marker).
+
+**If the user continues** → Proceed to Stage 2.
+
+______________________________________________________________________
+
+## Stage 2 — Full Reverse Engineering (Opt-In)
+
+Stage 2 deepens the baseline with full specification extraction, component-level architecture resolution, ATAM review, and reconciliation. Available when the user or the change warrants it, but not required before the first feature-addition.
 
 ## Phase 3: Specification Extraction
 
@@ -260,26 +303,32 @@ Address reconciliation findings and documentation gaps. Re-run reconciliation ch
 
 **Exit criterion**: Reconciliation agent reports alignment with no blocking findings.
 
-## DONE
+## Terminal Condition: Project Ready for Feature Delivery
 
-Deliverables:
+✅ **DONE**
 
-- [ ] `docs/arc42/architecture.dsl` (C4 model with component-level detail)
-- [ ] `docs/arc42/01-12*.md` (arc42 chapters)
-- [ ] `docs/adr/*.md` (documented decisions)
-- [ ] `docs/spec/prd.md` (reverse-engineered)
-- [ ] `docs/spec/use_cases/*.md` (extracted from code/tests)
-- [ ] `docs/spec/actor-goal-list.md`
-- [ ] `docs/spec/supplementary_specs/*.md` (entity model, state machines, NFRs)
-- [ ] `CONTEXT.md` (domain glossary)
-- [ ] `docs/spec/todos.md` (identified gaps)
-- [ ] `docs/reviews/atam-review.md`
+The playbook ends when the following terminal artifacts exist:
 
-## Next Steps
+**Terminal Artifacts:**
 
-With documentation in place:
+- [ ] `docs/spec/scope-map.md` exists with Rules backfilled from the existing codebase (all marked `implemented`); the scope-map migration skill handles the backfill if `derive-spec` artifacts exist from prior specification work; otherwise the scope map is populated directly from code inspection
+- [ ] `docs/arc42/architecture.dsl` models the as-built module structure (C4 components and dependencies reverse-engineered from code)
+- [ ] Arc42 prose chapters (01–12) pass architecture review with no blocking findings
 
-1. Use [**feature-addition playbook**](feature-addition.md) for new features
-2. Use [**refactoring playbook**](refactoring.md) to improve code quality
-3. Use [**documentation-update playbook**](documentation-update.md) to keep docs in sync
-4. Run [**architecture-review playbook**](architecture-review.md) periodically
+**Supporting Deliverables:**
+
+- [ ] `docs/adr/*.md` (documented architectural decisions)
+- [ ] `CONTEXT.md` (domain glossary / ubiquitous language)
+- [ ] `docs/spec/supplementary_specs/*.md` (entity model, state machines, validation rules, interface contracts)
+- [ ] `docs/spec/prd.md` (reverse-engineered product requirements)
+- [ ] `docs/spec/todos.md` (identified specification gaps and technical debt)
+- [ ] `docs/charter/*.md` (project charter: tech-stack, development practices, house rules)
+- [ ] `docs/reviews/atam-review.md` (architecture review findings — all addressed)
+
+**Next Phase:**
+
+After this playbook completes, **all feature work enters through the `feature-addition` playbook**. Each feature-addition slice produces a per-feature `.feature` file from one or more Rules in the scope map (matching implemented code). The scope map and quality baselines are established through this onboarding pass; new feature delivery is a single pipeline regardless of how the project started.
+
+**Quality Baseline Note:**
+
+Brownfield onboarding produces the architectural and specification baseline. The quality baseline (CRAP scores, mutation coverage, dependency conformance) is established incrementally through the feature pipeline's semantic gates as new feature work enters via `feature-addition`.

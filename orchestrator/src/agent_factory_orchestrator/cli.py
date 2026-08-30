@@ -24,8 +24,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-MARKER_PATH = Path(".agent-factory/playbook-state.yml")
-AUDIT_LOG = Path(".agent-factory/audit.log")
+MARKER_PATH = Path(".current-work/playbook-state.yml")
+AUDIT_LOG = Path(".current-work/audit.log")
 PLAYBOOKS_DIR = Path("factory/playbooks")
 PHASE_SCRIPT = Path("factory/scripts/phase")
 TRIGGER_SCRIPT = Path("factory/scripts/trigger")
@@ -38,7 +38,7 @@ def _provision_session_log() -> None:
     factory/scripts/_session_log.py reads it on each gate run: set → log,
     unset → no-op. By exporting it here, the orchestrator ensures that
     phase advance, phase retry, trigger, and any gate script they invoke
-    all write to .agent-factory/audit.log alongside the orchestrator's own
+    all write to .current-work/audit.log alongside the orchestrator's own
     entries — one file, one timeline, no configuration drift.
     """
     AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)

@@ -126,6 +126,8 @@ orchestrator run-phase architecture
 **Agent**: `architecture-agent`
 **Expected outputs**: `docs/arc42/*.md` (arc42 chapters), `docs/adr/`, `docs/arc42/architecture.dsl`, `docs/assets/images/`
 
+The workspace property `"arc42.projected"` defaults to `"false"` in fresh DSL files and is set to `"true"` by the architecture-agent only when the user requests arc42 chapter projection from the DSL.
+
 As architecture decisions settle a charter entry — infrastructure, deployment
 topology, a cloud provider — the architecture agent invokes `update-charter`
 to record it in `docs/charter/tech-stack.md` incrementally.
@@ -308,18 +310,30 @@ Return to Step 5.1 (run qa-agent again)
 
 ### Step 5.4 — DONE
 
-✅ **All phases complete**
+✅ **Terminal Condition: Project Ready for Feature Delivery**
 
-Final checklist:
+The playbook ends when the following terminal artifacts exist:
 
-- [ ] All findings resolved (`status: resolved`)
+**Terminal Artifacts:**
+
+- [ ] `docs/spec/scope-map.md` exists with all Rules from the initial specification marked `deferred` (ready to be implemented as features)
+- [ ] `docs/arc42/architecture.dsl` models the planned module structure (C4 components and dependencies as designed)
+- [ ] Arc42 prose chapters (01–12) pass architecture review with no blocking findings
+- [ ] No `.feature` files exist yet (those are produced per-slice when `feature-addition` begins)
+
+**Process Checklist:**
+
+- [ ] All specification review findings resolved (`status: resolved`)
+- [ ] All architecture review findings resolved (`status: resolved`)
 - [ ] `spec-lint` passes
 - [ ] `arch-lint` passes
 - [ ] `backlog-lint` passes
 - [ ] All tests pass
 - [ ] No open findings
 
-**Ready to merge** or proceed to release.
+**Next Phase:**
+
+After this playbook completes, **all feature work enters through the `feature-addition` playbook**. Each feature-addition slice produces a per-feature `.feature` file from one or more deferred Rules in the scope map. The scope map is the specification baseline that guides feature delivery.
 
 ## Halt Conditions
 
@@ -334,14 +348,14 @@ Final checklist:
 
 ## Utility: Retrospective
 
-Run ad-hoc at end of any session:
+Run ad-hoc at end of any session. The coaching-agent runs in the current session (adopt pattern — read the definition, assume its role, do not spawn a subagent):
 
 ```bash
 # In active session
 "Run a retrospective"
 ```
 
-**Agent**: `coaching-agent`
+**Agent**: `coaching-agent` (adopted in current session)
 **Output**: `docs/reviews/retro-*.md`
 
 ## State Tracking

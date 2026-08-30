@@ -4,8 +4,9 @@
 What: Brings a project's installed `factory/` up to date with the current state
       of the referenced agent_factory checkout, then re-applies every *derived*
       install step through the sourced init-factory — regenerated Codex
-      adapters, re-verified runtime symlinks, re-merged guardrail/usage hook
-      wiring, and a re-run pre-commit install.
+      adapters and Copilot agent copies (with tools: frontmatter), re-verified
+      runtime symlinks, re-merged guardrail/usage hook wiring, and a re-run
+      pre-commit install.
 When: To update an existing install to a newer checkout.
 By:   run by hand (a shell, no AI needed); companion to init-factory and
       remove-factory. Run it from the checkout (`--target <project>`) or from

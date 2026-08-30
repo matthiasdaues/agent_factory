@@ -8,6 +8,17 @@ Derived from [mechanized-dispatch.md](mechanized-dispatch.md) (behavioral specif
 2. **Cases by behavior, not by count.** Equivalence classes, boundaries, and distinct failure modes — never a coverage percentage target.
 3. **Linters before tests.** Anything a deterministic linter can own (YAML schema, enum membership, frontmatter structure) stays out of pytest.
 4. **Security boundaries stay separate.** The write-guard deny-list for script-owned state files (ledger, manifest) is a security contract even though it shares code with the general output-glob check.
+5. **Validate invariants at every trust boundary.** A helper method is not an
+   enforcement boundary when construction, deserialization, or direct
+   assignment can bypass it. Persistent invariants are checked when data
+   enters and leaves the ledger.
+6. **Generate closed-set complements.** For a finite state machine, tests
+   derive all valid, idempotent, and invalid ordered pairs from the declared
+   state set. A hand-picked list cannot satisfy an "every pair" boundary.
+7. **A green suite is evidence, not conformance.** Story acceptance requires
+   every declared contract to have an identified owning layer and test or
+   deterministic gate. Passing only the tests that happen to exist is
+   insufficient.
 
 ## Test Layers and Contract Ownership
 
@@ -15,16 +26,22 @@ Derived from [mechanized-dispatch.md](mechanized-dispatch.md) (behavioral specif
 
 Contracts that are declarative structure checks. These belong in `backlog-lint`, `spec-lint`, or a new `dispatch-lint` script — not in pytest.
 
-| Contract                                     | Owning linter             | Spec scenarios                                         |
-| -------------------------------------------- | ------------------------- | ------------------------------------------------------ |
-| `risk_domains` values are from closed enum   | `backlog-lint`            | backlog-lint rejects unknown risk_domains values       |
-| `strategy` values are from closed enum       | `backlog-lint`            | backlog-lint rejects unknown strategy values           |
-| `seam_outputs` ∩ `impl_outputs` = ∅          | `backlog-lint`            | backlog-lint rejects overlapping seam and impl outputs |
-| `seam_outputs` ∪ `impl_outputs` = `outputs`  | `backlog-lint`            | backlog-lint validates union matches outputs           |
-| Failure class is from seven-value vocabulary | `dispatch` (argparse)     | Unknown failure class is rejected                      |
-| Evidence path is a tracked artifact          | `dispatch` (git ls-files) | Untracked evidence path is rejected                    |
-| Ledger SHAs are 40 hex characters            | `dispatch-lint` (new)     | Commit SHAs in the ledger are full 40-character hashes |
-| Step manifest schema validity                | `dispatch-lint` (new)     | Manifest is written with story declarations            |
+| Contract                                     | Owning linter             | Spec scenarios                                          |
+| -------------------------------------------- | ------------------------- | ------------------------------------------------------- |
+| `risk_domains` values are from closed enum   | `backlog-lint`            | backlog-lint rejects unknown risk_domains values        |
+| `strategy` values are from closed enum       | `backlog-lint`            | backlog-lint rejects unknown strategy values            |
+| `seam_outputs` ∩ `impl_outputs` = ∅          | `backlog-lint`            | backlog-lint rejects overlapping seam and impl outputs  |
+| `seam_outputs` ∪ `impl_outputs` = `outputs`  | `backlog-lint`            | backlog-lint validates union matches outputs            |
+| Failure class is from seven-value vocabulary | `dispatch` (argparse)     | Unknown failure class is rejected                       |
+| Evidence path is a tracked artifact          | `dispatch` (git ls-files) | Untracked evidence path is rejected                     |
+| Ledger SHAs are 40 hex characters            | `dispatch-lint` (new)     | Commit SHAs in the ledger are full 40-character hashes  |
+| Step manifest schema validity                | `dispatch-lint` (new)     | Manifest is written with story declarations             |
+| Changed files fit story outputs              | `premerge-check`          | Story implementation stays within declared output scope |
+| Verification worktree is clean               | `premerge-check`          | Generated or untracked residue cannot enter a merge     |
+
+The linter validates ledger files at rest. Runtime load and save boundaries
+independently enforce the SHA invariant under Layer 2b; these are distinct
+owners for distinct failure paths, not duplicate assertions.
 
 ### Layer 2 — Contract Test (pytest, no git repos)
 
@@ -43,13 +60,21 @@ Owner: `tests/test_dispatch_planning.py`
 
 #### 2b. Story Lifecycle State Machine
 
-| Contract                                   | Equivalence classes                                                                                                                                                                                                                                                    | Boundaries                                      |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| Valid transitions                          | PENDING→PREPARED, PREPARED→DISPATCHING, DISPATCHING→DISPATCHED, DISPATCHING→FAILED, DISPATCHED→DONE/BLOCKED/FAILED, FAILED→PREPARED (re-dispatch), BLOCKED→PREPARED (re-dispatch)                                                                                      | Each terminal→re-dispatch, DONE has no outbound |
-| Invalid transitions                        | PENDING→DISPATCHED (skip), PREPARED→DISPATCHED (skip DISPATCHING), DISPATCHING→DONE (skip DISPATCHED), DONE→anything, DISPATCHED→PREPARED (reverse)                                                                                                                    | Every invalid pair                              |
-| Re-dispatch preconditions by failure class | context_missing (same tier), contract_violation 1st (same tier), contract_violation 2nd (terminal), environment (same tier), spend_death (same tier), seam_defect (seam session), acceptance_unmet (requires escalation), contradictory_evidence (requires escalation) | contract_violation at exactly 2 attempts        |
+| Contract                                   | Equivalence classes                                                                                                                                                                                                                                                    | Boundaries                                                                                                  |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Valid transitions                          | PENDING→PREPARED, PREPARED→DISPATCHING, DISPATCHING→DISPATCHED, DISPATCHING→FAILED, DISPATCHED→DONE/BLOCKED/FAILED, FAILED→PREPARED (re-dispatch), BLOCKED→PREPARED (re-dispatch)                                                                                      | All nine declared edges                                                                                     |
+| Idempotent transitions                     | Each state→same state                                                                                                                                                                                                                                                  | All seven diagonal pairs                                                                                    |
+| Invalid transitions                        | Skip, reverse, outbound from DONE, and every other undeclared edge                                                                                                                                                                                                     | Complete ordered-pair complement: all state pairs excluding the nine valid edges and seven idempotent pairs |
+| Ledger SHA enforcement                     | Valid lowercase 40-hex SHA, null optional SHA, short/long/non-hex/uppercase SHA                                                                                                                                                                                        | Constructor or factory boundary, YAML load boundary, YAML save boundary                                     |
+| Ledger round trip                          | Minimal entry, populated entry, entry with attempts, legacy entry without attempts                                                                                                                                                                                     | Empty ledger, absent optional fields                                                                        |
+| Re-dispatch preconditions by failure class | context_missing (same tier), contract_violation 1st (same tier), contract_violation 2nd (terminal), environment (same tier), spend_death (same tier), seam_defect (seam session), acceptance_unmet (requires escalation), contradictory_evidence (requires escalation) | contract_violation at exactly 2 attempts                                                                    |
 
 Owner: `tests/test_dispatch_lifecycle.py`
+
+The transition test must generate the Cartesian product of `StoryState` with
+itself and classify every pair. A manually maintained sample list does not
+meet this contract. SHA tests must use the same public construction, load, and
+save paths used by dispatch commands; testing only a setter is insufficient.
 
 #### 2c. Escalation Predicate (six conditions)
 
@@ -196,6 +221,22 @@ Owner: `tests/test_dispatch_interruption_integration.py`
 
 Owner: `tests/test_dispatch_immutability_integration.py`
 
+#### 3i. Dispatch Status
+
+| Contract                     | Test fixture                                   | Assertions                                                                |
+| ---------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------- |
+| Valid ledger renders status  | Ledger with populated and optional-null fields | Exit 0; table contains story ID, wave, status, branch, and full SHA       |
+| Empty ledger renders status  | Valid ledger with no stories                   | Exit 0; explicit empty-ledger message                                     |
+| Missing ledger is rejected   | Path that does not exist                       | Non-zero exit; diagnostic names the missing ledger                        |
+| Malformed ledger is rejected | Invalid YAML and structurally invalid YAML     | Non-zero exit; diagnostic identifies malformed ledger without a traceback |
+
+Owner: `tests/test_dispatch_status_integration.py`
+
+These tests invoke the executable as a subprocess. Pure table formatting may
+also have focused unit tests, but the subprocess layer owns argument routing,
+exit status, stdout, and stderr. Higher-level smoke tests may traverse
+`status`; they must not repeat its detailed assertions.
+
 ### Layer 4 — End-to-End Smoke Test
 
 One representative journey through the dispatch lifecycle with the real `dispatch` script, real git operations, and the real test suite runner. Not a Gherkin scenario test — a journey that exercises the golden path and one failure/recovery path.
@@ -256,29 +297,53 @@ These are owned by deterministic linters or are the responsibility of existing t
 
 Contracts are ordered by the cost of an undetected failure, not by scenario count.
 
-| Priority | Area                                     | Risk                                                                     | Contract test count | Integration test count        |
-| -------- | ---------------------------------------- | ------------------------------------------------------------------------ | ------------------- | ----------------------------- |
-| 1        | Write guard deny-list (ledger, manifest) | Agent writes to script-owned state → silent corruption                   | 2                   | 3                             |
-| 2        | Merge-story revert on red suite          | Invocation branch poisoned → cascade failure                             | 1                   | 2                             |
-| 3        | Verification immutability                | Validator mutates state → accepts what it should reject                  | 0                   | 4                             |
-| 4        | Interruption safety                      | Interrupted subcommand leaves unrecoverable ledger → manual repair       | 0                   | 6                             |
-| 5        | Escalation predicate (six conditions)    | Wrong-tier dispatch → wasted spend or insufficient capability            | 8                   | 0 (covered by contract tests) |
-| 6        | Story lifecycle state machine            | Invalid transition → ledger inconsistency                                | ~15                 | 0 (pure logic)                |
-| 7        | Glob matching consistency                | Guard/premerge-check disagree → false blocks or false passes             | 5                   | 2                             |
-| 8        | Wave gate (prior wave terminal)          | Non-terminal stories leak into next wave → contamination                 | 1                   | 1                             |
-| 9        | Re-dispatch preconditions by class       | Wrong disposition → wasted or blocked re-dispatch                        | 7                   | 0 (pure logic)                |
-| 10       | File-overlap computation                 | Over-serialization (inefficiency) or under-serialization (contamination) | 5                   | 0 (pure logic)                |
-| 11       | Idempotency                              | Duplicate branches/entries on re-run → confusion                         | 0                   | 2                             |
-| 12       | Context guard budget                     | Over-budget spawn → context blowup                                       | 3                   | 0 (pure logic)                |
+| Priority | Area                                     | Risk                                                                     | Contract test count  | Integration test count        |
+| -------- | ---------------------------------------- | ------------------------------------------------------------------------ | -------------------- | ----------------------------- |
+| 1        | Write guard deny-list (ledger, manifest) | Agent writes to script-owned state → silent corruption                   | 2                    | 3                             |
+| 2        | Merge-story revert on red suite          | Invocation branch poisoned → cascade failure                             | 1                    | 2                             |
+| 3        | Verification immutability                | Validator mutates state → accepts what it should reject                  | 0                    | 4                             |
+| 4        | Interruption safety                      | Interrupted subcommand leaves unrecoverable ledger → manual repair       | 0                    | 6                             |
+| 5        | Escalation predicate (six conditions)    | Wrong-tier dispatch → wasted spend or insufficient capability            | 8                    | 0 (covered by contract tests) |
+| 6        | Story lifecycle state machine            | Invalid transition → ledger inconsistency                                | Complete pair matrix | 0 (pure logic)                |
+| 7        | Glob matching consistency                | Guard/premerge-check disagree → false blocks or false passes             | 5                    | 2                             |
+| 8        | Wave gate (prior wave terminal)          | Non-terminal stories leak into next wave → contamination                 | 1                    | 1                             |
+| 9        | Re-dispatch preconditions by class       | Wrong disposition → wasted or blocked re-dispatch                        | 7                    | 0 (pure logic)                |
+| 10       | File-overlap computation                 | Over-serialization (inefficiency) or under-serialization (contamination) | 5                    | 0 (pure logic)                |
+| 11       | Idempotency                              | Duplicate branches/entries on re-run → confusion                         | 0                    | 2                             |
+| 12       | Context guard budget                     | Over-budget spawn → context blowup                                       | 3                    | 0 (pure logic)                |
+| 13       | Ledger SHA boundary enforcement          | Invalid persisted SHA poisons downstream git operations                  | 3 boundary paths     | 0 (pure logic/tmp file)       |
+| 14       | Dispatch status command                  | Broken tracer bullet hides current orchestration state                   | 0                    | 4                             |
+| 15       | Story output scope and worktree hygiene  | Undeclared or generated files enter an implementation commit             | 0                    | deterministic premerge gates  |
 
 ## Estimated Test Counts
 
-| Layer                      | Count   | Notes                                                 |
-| -------------------------- | ------- | ----------------------------------------------------- |
-| Deterministic linter rules | 8       | Owned by backlog-lint (4), dispatch-lint (4, new)     |
-| Contract tests             | ~46     | Pure logic, fast, no I/O                              |
-| Integration tests          | ~35     | Real git repos in tmp, subprocess calls               |
-| E2E smoke tests            | 2       | Full journey, ~30s each                               |
-| **Total**                  | **~91** | +10 from interruption safety (6) and immutability (4) |
+| Layer                      | Count    | Notes                                                             |
+| -------------------------- | -------- | ----------------------------------------------------------------- |
+| Deterministic linter rules | 10       | backlog-lint (4), dispatch-lint (4), premerge-check (2)           |
+| Contract tests             | ~50      | Pure logic plus tmp-file ledger boundaries                        |
+| Integration tests          | ~39      | Real git repos or subprocess command boundaries                   |
+| E2E smoke tests            | 2        | Full journey, ~30s each                                           |
+| **Total**                  | **~101** | Counts remain estimates; generated matrices may consolidate cases |
 
 These counts are estimates from equivalence-class analysis. Implementation may consolidate cases into parameterized tests or split them where distinct failure modes emerge.
+
+## Story Exit Checklist
+
+Before a mechanized-dispatch story is marked done or sent to pre-merge review:
+
+1. Map every acceptance criterion and traced scenario to one owning layer in
+   this strategy. Add an owner when the strategy has a gap.
+2. Verify closed sets mechanically: enum vocabularies, state-pair matrices,
+   and finite predicates must be checked from their complete domain rather
+   than a representative list when the contract says "all" or "every".
+3. Exercise persistent invariants at construction, load, and save boundaries.
+   A validated convenience setter alone does not establish the invariant.
+4. Run each command delivered as a tracer bullet through its executable
+   boundary, including success, missing-input, and malformed-input cases.
+5. Compare the commit's changed paths with the story's declared outputs.
+   Required control-file exceptions, such as the story status update, must be
+   explicit and narrowly allowlisted.
+6. Require a clean worktree after tests. Investigate new lockfiles, generated
+   configuration, caches, and gate markers before pre-merge verification.
+7. Run the complete suite and deterministic gates. Record both the results and
+   the contract-to-owner audit; neither substitutes for the other.

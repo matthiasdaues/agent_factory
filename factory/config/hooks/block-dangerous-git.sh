@@ -16,21 +16,33 @@ deny() {
   exit 2
 }
 
-# BR-024: Allow factory/scripts/run-tests --staged for agent test iteration (ATAM-0001 fix)
-# This is the only permitted test command for agents
-if echo "$COMMAND" | grep -qE "^factory/scripts/run-tests[[:space:]]+--staged([[:space:]]|\$)"; then
-  exit 0
-fi
-
 # retro-2026-07-12 T-07: mechanical verify-base / premerge-check enforcement.
 TOP=$(git rev-parse --show-toplevel 2>/dev/null)
+
+# BR-024 (ST-0150): Allow agent test commands declared in the project's
+# charter, docs/charter/testing.yaml, instead of a single hardcoded command.
+# test_command, test_staged_command, and test_changed_command are each
+# allowlisted when present, matched exactly against the full command string
+# (no prefix matching). When the charter file does not exist, no agent test
+# commands are allowed — bare test invocations fall through to the deny
+# patterns below, same as before this charter existed.
+CHARTER="$TOP/docs/charter/testing.yaml"
+if [ -n "$TOP" ] && [ -f "$CHARTER" ]; then
+  for field in test_command test_staged_command test_changed_command; do
+    ALLOWED_CMD=$(grep "^${field}:" "$CHARTER" | head -1 \
+      | sed -E "s/^${field}:[[:space:]]*//" | sed -E 's/^"(.*)"$/\1/' | sed -E "s/^'(.*)'$/\1/")
+    if [ -n "$ALLOWED_CMD" ] && [ "$COMMAND" = "$ALLOWED_CMD" ]; then
+      exit 0
+    fi
+  done
+fi
 
 if echo "$COMMAND" | grep -qE '^git[[:space:]]+commit([[:space:]]|$)'; then
   if [ "$(git rev-parse --git-dir 2>/dev/null)" != "$(git rev-parse --git-common-dir 2>/dev/null)" ] \
      && [ -n "$TOP" ]; then
-    MARKER="$TOP/.agent-factory/verify-base-ok"
+    MARKER="$TOP/.current-work/verify-base-ok"
     if [ ! -f "$MARKER" ]; then
-      deny "git commit in a worktree with no .agent-factory/verify-base-ok marker. Run factory/scripts/verify-base <target> [--expect-base <SHA>] first."
+      deny "git commit in a worktree with no .current-work/verify-base-ok marker. Run factory/scripts/verify-base <target> [--expect-base <SHA>] first."
     fi
     # ST-0047: the marker must correspond to THIS worktree — its verified base
     # (head=) must be an ancestor of the current HEAD, so a stale or mismatched
@@ -50,10 +62,10 @@ fi
 if echo "$COMMAND" | grep -qE '^git[[:space:]]+switch[[:space:]]+([^|&;]*[[:space:]])?-[cC]([[:space:]]|$)' \
    || echo "$COMMAND" | grep -qE '^git[[:space:]]+checkout[[:space:]]+([^|&;]*[[:space:]])?-[bB]([[:space:]]|$)' \
    || echo "$COMMAND" | grep -qE '^git[[:space:]]+branch[[:space:]]+(--track[[:space:]]+|--copy[[:space:]]+|-c[[:space:]]+|-C[[:space:]]+)?[^-[:space:]][^[:space:]|&;]*([[:space:]]+[^[:space:]|&;]+)?([[:space:]]*[|&;]|[[:space:]]*$)'; then
-  deny "standalone branch creation is forbidden. Create the branch and its linked worktree atomically with: git worktree add -b <branch> .agent-factory/worktrees/<branch> <base>."
+  deny "standalone branch creation is forbidden. Create the branch and its linked worktree atomically with: git worktree add -b <branch> .current-work/<branch> <base>."
 fi
 
-# Worktrees must live under .agent-factory/worktrees/.  Deny `git worktree add`
+# Worktrees must live under .current-work/.  Deny `git worktree add`
 # when the path argument does not start with that prefix.
 if echo "$COMMAND" | grep -qE '^git[[:space:]]+worktree[[:space:]]+add[[:space:]]'; then
   WT_PATH=""
@@ -69,8 +81,8 @@ if echo "$COMMAND" | grep -qE '^git[[:space:]]+worktree[[:space:]]+add[[:space:]
   done
   if [ -n "$WT_PATH" ]; then
     case "$WT_PATH" in
-      .agent-factory/worktrees/*) ;; # allowed
-      *) deny "worktrees must be created under .agent-factory/worktrees/. Got: $WT_PATH" ;;
+      .current-work/*) ;; # allowed
+      *) deny "worktrees must be created under .current-work/. Got: $WT_PATH" ;;
     esac
   fi
 fi
@@ -88,11 +100,11 @@ if echo "$COMMAND" | grep -qE '^git[[:space:]]+merge[[:space:]]'; then
     esac
   done
   MERGE_HEAD=$(git rev-parse "$MERGE_BRANCH" 2>/dev/null)
-  MARKER="$TOP/.agent-factory/premerge-check-ok"
+  MARKER="$TOP/.current-work/premerge-check-ok"
   if [ -z "$TOP" ] || [ ! -f "$MARKER" ] \
      || ! grep -qx "branch=$MERGE_BRANCH" "$MARKER" \
      || ! grep -qx "head=$MERGE_HEAD" "$MARKER"; then
-    deny "git merge $MERGE_BRANCH with no passing .agent-factory/premerge-check-ok marker for that branch's current head. Run factory/scripts/premerge-check <target> $MERGE_BRANCH first."
+    deny "git merge $MERGE_BRANCH with no passing .current-work/premerge-check-ok marker for that branch's current head. Run factory/scripts/premerge-check <target> $MERGE_BRANCH first."
   fi
 fi
 

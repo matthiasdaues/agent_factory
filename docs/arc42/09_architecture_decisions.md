@@ -18,6 +18,8 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0008 | [Separate proposal impact, governance, estimates, and actuals](../adr/0008-separate-proposal-impact-governance-estimates-and-actuals.md)                      | accepted               | none        |
 | 0009 | [CLI-prefixed usage record filenames when filesystem-safe](../adr/0009-cli-prefixed-usage-record-filenames-when-filesystem-safe.md)                           | accepted               | none        |
 | 0010 | [Refresh an installed factory/ by remove-and-reinstall](../adr/0010-refresh-installed-factory-by-remove-and-reinstall.md)                                     | accepted               | none        |
+| 0011 | [Gherkin .feature as consolidated specification format](../adr/0011-gherkin-feature-as-consolidated-specification-format.md)                                  | proposed               | pugh-matrix |
+| 0012 | [Dispatcher-owned semantic gate loop](../adr/0012-dispatcher-owned-semantic-gate-loop.md)                                                                     | proposed               | pugh-matrix |
 
 ## Key Decisions
 
@@ -29,12 +31,11 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 
 **ADR-0001** and **ADR-0003** establish the hook-triggered validation pattern:
 
-- **Pre-commit hooks** gate which files may be staged (`transition-lint`) and whether tests pass (`run-tests --changed-only`).
-- **Pre-push hooks** enforce full test suite passage (`run-tests --full`) before work leaves local machine.
-- **PreToolUse hooks** block destructive git commands and test commands before they execute (`block-dangerous-git.sh`).
-- **FSM gates** (`script_exit_zero`) integrate test execution into phase advance entry conditions.
+- **Pre-commit hooks** gate which files may be staged (`transition-lint`).
+- **PreToolUse hooks** block destructive git commands and bare test commands before they execute (`block-dangerous-git.sh`); charter-declared test commands are allowlisted with exact-string matching.
+- **FSM gates** (`script_exit_zero`) resolve `charter:test_command` from `docs/charter/testing.yaml` and integrate test execution into phase advance entry conditions.
 
-All follow the "Agentic Creation, Deterministic Validation" principle: agents create, hooks validate, no self-validation.
+All follow the "Agentic Creation, Deterministic Validation" principle: agents create, hooks validate, no self-validation. Testing is project-owned infrastructure declared in the charter; Factory ensures test gates exist but does not own test execution or framework detection.
 
 ### Monorepo Scoping
 
@@ -86,6 +87,38 @@ the checkout it copied from (`factory_source`) in the install manifest so
 `update-factory` knows which repo to pull from by default, `--source`
 overriding. `update-factory` replaces only `factory/`; `.agent-factory/` usage
 transcripts and lifecycle state survive an update.
+
+### Consolidated Specification Format
+
+**ADR-0011** selects Gherkin `.feature` files with a Rule-per-actor-goal
+structure as the consolidated specification format, superseding the
+`derive-spec` chain of intermediate Cockburn documents. Three alternatives
+were evaluated via Pugh Matrix: keeping the Cockburn UC chain (baseline),
+consolidated Gherkin, and structured YAML. Gherkin dominates on executability
+(test frameworks consume `.feature` files directly), tool ecosystem breadth,
+and single-pass readability (one file instead of N `UC-XX` documents). The
+`derive-feature` skill retains Cockburn's actor-goal reasoning as an internal
+discipline without committing intermediate artifacts. Supplementary specs
+(`entity-model.md`, `interface-contracts.md`, `state-machines.md`,
+`validation-rules.md`) continue as separate outputs for structural facts the
+`.feature` file does not encode.
+
+### Semantic Gate Execution Model
+
+**ADR-0012** places the semantic quality gates under the implementation-agent
+dispatcher, not the developer agent or a CI pipeline. Three alternatives were
+evaluated via Pugh Matrix: developer-owned (baseline, self-validation),
+dispatcher-owned, and CI-owned. The dispatcher model wins on the foundational
+"Agentic Creation, Deterministic Validation" principle (the developer agent
+never validates its own work), context contamination prevention (fresh
+developer per fix iteration), and infrastructure fit (the dispatcher already
+owns wave scheduling and merge ordering). CI-owned gates satisfy the
+no-self-validation requirement but add network latency and require
+infrastructure the Factory does not currently have. The gate loop fires after
+each developer commit: CRAP scoring, dependency checking, then proceed-or-fix.
+Maximum three fix iterations per tier before the story escalates or is marked
+blocked. Mutation testing is project-owned infrastructure that Factory encourages
+via the `mutation-analysis` skill (see [ADR-0012 § Amended](../adr/0012-dispatcher-owned-semantic-gate-loop.md#amended)).
 
 ## Superseded Decisions
 

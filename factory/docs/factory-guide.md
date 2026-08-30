@@ -1,12 +1,126 @@
 # Factory Guide
 
-What's inside `factory/`, and how its pieces fit together. If you are brand new, start with the [beginner's introduction](../../docs/arc42/beginner-intro.md); if you just want to get running, go to [factory/README.md](../README.md) instead. This page is background — read it once you're set up.
+What's inside `factory/`, and how its pieces fit together. New here? The [Getting Started](#getting-started) section below walks you through your first session, by hand, one step at a time.
+
+## Getting Started
+
+### Who this is for
+
+You have an idea for something to build. You have an AI coding assistant — a tool like Claude Code or GitHub Copilot CLI that reads and writes files and runs commands in a terminal. What you do not yet have is a *way of working* with it that produces code you would trust in production.
+
+That is the whole problem Agent Factory solves. You do not need to be a professional software engineer to follow along. You do need to be willing to read what the assistant proposes and say yes or no to each step.
+
+### The one idea to hold onto
+
+**You are the boss. The assistant does the work. You approve each step.**
+
+Everything else is detail. Agent Factory never runs off and builds the whole thing while you look away. It works in small, visible moves, and it stops to show you each one. If a move looks wrong, you say so, and it tries again. This is deliberate: an AI is a fast but noisy worker, and the cure for noise is frequent, cheap checking — by a tool, a test, or you.
+
+### The four words you will keep hearing
+
+Agent Factory hands your assistant four kinds of things. Learn these four words and the rest of this guide stops feeling foreign.
+
+| Word         | Plain meaning                                                                    | Everyday analogy                                   |
+| ------------ | -------------------------------------------------------------------------------- | -------------------------------------------------- |
+| **Agent**    | One *job* — "write the requirements," "review the architecture," "fix one bug."  | A specialist you hire for one task.                |
+| **Skill**    | One *how-to* an agent follows to do a job well.                                  | The written procedure the specialist works from.   |
+| **Playbook** | A *recipe* — which agents to run, in what order, for a common situation.         | The plan for the whole job, start to finish.       |
+| **Gate**     | An *automatic check* that catches mistakes before you waste time reviewing them. | The quality inspector who won't let bad work pass. |
+
+You never memorise the full list. Your assistant reads a catalogue — [`INDEX.yaml`](../INDEX.yaml) — and picks the right agent or skill for what you asked. Your job is to know *that these things exist* so you understand what the assistant is doing when it says "I'll use the requirements agent now."
+
+### Two ways to run it (manual mode only)
+
+Agent Factory runs in **manual mode**: you drive a playbook yourself, one step at a time. Each step ends with a set of defined artifacts — a specification, an architecture document, a slice of code — and those artifacts are the visible marker that the step is done. You read them, decide whether the work is good, and start the next step. Nothing moves without you.
+
+### Why two agents, not one
+
+The single most important habit Agent Factory builds in is this: **the worker and the checker are never the same agent.**
+
+When one agent writes a specification, a *different* agent reviews it — in a fresh session, without ever seeing the first agent's reasoning. It sees only the finished document, the way a stranger would. This is the same reason you don't approve your own expense report or review your own pull request. You cannot catch the mistake you cannot see, because the same blind spot that made it hides it.
+
+You are what makes this real. When the requirements, architecture, or developer agent finishes and hands you its artifacts, you open a **second, clean session** and start the matching reviewer there — pointed at those artifacts and nothing else. The blank session is the isolation: the reviewer cannot lean on a conversation it never had. Author then reviewer, write then check — a fresh window between the two.
+
+### Your very first session
+
+Do the setup once, following [`factory/README.md`](../README.md) — it lists the handful of tools you need and the one script that wires everything up. When it is done, open your AI assistant in your project folder and say hello. It should greet you back with four options:
+
+- **A — I'm new here — show me around.** The assistant walks you through the basics, section by section, answering questions as you go.
+- **B — I want to start something.** Opens a menu of situations — spike, new project, feature, bug fix, research — and picks the right playbook for you.
+- **C — I want to run an agent or playbook directly.** For when you know the factory well enough to name what you want.
+- **D — I just want to talk something through.** Open conversation — no structure, no artifacts, just thinking out loud until the idea finds its shape.
+
+If you have been here before (the assistant checks for signs of prior work — a completed spike, a charter, earlier playbook outputs), it will acknowledge what you have done and offer to skip ahead.
+
+When you're ready, the assistant can run `poc-spike` — the training-wheels playbook. No specification, no architecture, no formal checks. One idea, turned into one small thing you can run, in minutes. It exists so you can watch an agent and your assistant work together *before* you commit to anything real. What you throw away here cost you almost nothing.
+
+Watch what happens:
+
+1. The assistant reads the playbook and tells you the steps it plans to take.
+2. It writes a small amount of code — and shows it to you.
+3. It runs it, and you see the result.
+4. You react. "Yes, keep going," or "No, that's not what I meant."
+
+That back-and-forth *is* Agent Factory. Everything larger is the same loop, with more rigour bolted on.
+
+At any point you can ask the assistant "where am I?" or "what do I do next?" and it will reorient you.
+
+### The bigger picture: five phases
+
+When you graduate from spikes to real work, Agent Factory drives your assistant through five phases, in order. Think of it as a production line that turns a rough idea into finished code:
+
+1. **Requirements** — What are we actually building, and for whom? The assistant interviews you, sometimes stubbornly, until the answer is clear and written down.
+2. **Architecture** — How will it be shaped? The big structural decisions, made on purpose and recorded, before any code locks them in.
+3. **Planning** — The work broken into a backlog of small, independent stories.
+4. **Implementation** — Each story built test-first: the test comes before the code, so the code has something to prove itself against.
+5. **Quality** — Independent review, a security pass, and a hunt for the bugs the earlier steps missed.
+
+Each phase has an author and a reviewer, and you approve the handover between them. You do not have to run all five. Most real tasks — a bug fix, a small feature, a documentation cleanup — use a shorter playbook that touches only the phases it needs.
+
+### Which playbook, when
+
+Once the first spike feels comfortable, pick the recipe that matches your situation. You do not choose the agents yourself; the playbook does. You just choose the playbook.
+
+| You want to…                                           | Start with               |
+| ------------------------------------------------------ | ------------------------ |
+| See whether a rough idea works at all                  | `poc-spike`              |
+| Fix one reported bug                                   | `bug-fix`                |
+| Bring the docs back in line with the code              | `documentation-update`   |
+| Build a brand-new project properly, start to finish    | `greenfield-development` |
+| Add Agent Factory to code that already exists          | `brownfield-onboarding`  |
+| Add a feature to a project the factory already manages | `feature-addition`       |
+
+The full list, with a sentence on each, lives in [§ Playbooks](#playbooks) below.
+
+### Three habits that keep you safe
+
+1. **Read before you approve.** The assistant will always show you its move. Slow down enough to actually read it. Your "yes" is the last gate, and it is the one that matters most.
+2. **Let the gates do their job.** When a check blocks a commit or a test fails, that is the system working, not the system breaking. Fix the cause; don't route around the alarm.
+3. **One small step at a time.** Resist "just build the whole thing." Small, checked steps are how the noise gets corrected before it compounds. This is not slower in the end — it is how you avoid the day-long detour.
+
+### Where to go next
+
+- Set up the tooling: [`factory/README.md`](../README.md)
+- Run your first spike: `poc-spike`
+
+You do not need anything else to start. Run one `poc-spike`, watch the loop, and come back for the rest when you are curious. The factory rewards learning by doing.
+
+**Everything below is reference material. You don't need it yet.**
 
 ## Agents
 
 An agent is one job — "write requirements," "review the architecture," "implement one story." Each agent is a single markdown file in `factory/agents/`, read by your AI CLI at the start of a session.
 
 Most phases have two agents: an **author** and a **reviewer**. The author produces an artifact (a spec, an architecture doc, code). The reviewer checks it in a separate session, without seeing the author's reasoning — only the artifact itself. This catches mistakes a self-review would miss, the same way a second pair of eyes catches things you can't see in your own pull request.
+
+In addition to the phase-chain agents, several **Phase 0 utility agents** support the work without belonging to a specific phase:
+
+- **chat-agent** — open-ended conversation that helps an idea find its shape. Starts formless and coalesces into the right next step: a feature proposal, a research brief, a spike, or just a finished conversation.
+- **kit-manager** — scaffolds and completes the project charter, runs a structured interview to fill gaps, and accepts ad-hoc reference material.
+- **coaching-agent** — runs retrospectives, extracts action items, and tracks process improvements across sessions.
+- **proposal-review-agent** — reviews a feature proposal for clarity, feasibility, and planning readiness. Consultative on drafts, adversarial on open proposals.
+
+These agents form a natural pipeline from idea to feature delivery. A typical flow: **chat-agent** explores an idea → the `draft-proposal` skill crystallizes it into a proposal → **proposal-review-agent** pressure-tests the proposal → the `feature-addition` playbook delivers the feature through the phase chain.
 
 The full list, grouped by phase, is in [`factory/INDEX.yaml`](../INDEX.yaml). Each entry includes a `tokens` field (tiktoken cl100k_base token count of the agent's prompt text) and a `total_tokens` field (body + referenced skills + referenced rulebooks) for context window budget planning.
 
@@ -216,6 +330,16 @@ code.
 
 A skill is a how-to — a reusable procedure an agent (or you, directly) invokes to do one well-defined thing: run a structured interview, write an ADR, run a security review. Each skill is a folder in `factory/skills/` holding a `SKILL.md`. Agents call skills; skills don't call agents.
 
+Notable skills by concern:
+
+| Concern         | Skills                                                                                                                                                                     |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Idea-to-feature | `draft-proposal` (crystallize an idea into a proposal), `capture-vision` (six-facet vision capture), `grilling` / `grill-me` / `grill-with-docs` (pressure-test a design)  |
+| Specification   | `derive-feature` (Gherkin `.feature` files with Rule-per-actor-goal), `qa-strategy-from-spec` (per-feature QA strategy), `scope-map-migration` (track Rules across slices) |
+| Onboarding      | `reverse-map` (build a scope map from code, tests, and other sources), `guided-tour` (mid-session reorientation for newcomers and active playbook runs)                    |
+| Quality gates   | `crap-score` (composite structural risk), `mutation-analysis` (mutation testing), `dependency-check` (dependency vulnerability scan)                                       |
+| Implementation  | `run-step` (execute a single step manifest within step isolation)                                                                                                          |
+
 The full list is also in [`factory/INDEX.yaml`](../INDEX.yaml), with token counts per skill.
 
 ## Playbooks
@@ -226,24 +350,35 @@ A playbook is a step-by-step recipe in `factory/playbooks/` for a specific situa
 
 Start with these. Small blast radius, few steps, nothing to set up first:
 
-| Playbook                                                          | For                                                                                                                                                                   |
-| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`poc-spike.md`](../playbooks/poc-spike.md)                       | "Does this basic idea even work?" No spec, no architecture, no checks — one file, thrown away by default. The fastest way to see an agent and your CLI work together. |
-| [`bug-fix.md`](../playbooks/bug-fix.md)                           | Fixing one reported defect. Four steps: file the bug, fix it with tests, QA validates, mark resolved.                                                                 |
-| [`documentation-update.md`](../playbooks/documentation-update.md) | Syncing docs with code after they've drifted. Two steps: reconcile, validate.                                                                                         |
+| Playbook                                                          | For                                                                                                                                                                                           |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`poc-spike.md`](../playbooks/poc-spike.md)                       | "Does this basic idea even work?" No spec, no architecture, no checks — one file, thrown away by default. The fastest way to see an agent and your CLI work together.                         |
+| [`technical-poc.md`](../playbooks/technical-poc.md)               | A real technical risk question, usually comparing two or more candidate approaches. Heavier than `poc-spike` (multiple candidates, a Pugh Matrix, feeds an ADR), lighter than the full chain. |
+| [`bug-fix.md`](../playbooks/bug-fix.md)                           | Fixing one reported defect. Four steps: file the bug, fix it with tests, QA validates, mark resolved.                                                                                         |
+| [`documentation-update.md`](../playbooks/documentation-update.md) | Syncing docs with code after they've drifted. Two steps: reconcile, validate.                                                                                                                 |
 
-### Full-chain playbooks
+### Onboarding playbooks
 
-Once you're comfortable, these drive some or all of the five-phase chain (requirements → architecture → planning → implementation → quality — see [docs/arc42/concepts.md § The phase chain](../../docs/arc42/concepts.md#the-phase-chain)):
+Greenfield and brownfield are **onboarding playbooks** — they bring a project to the point where `feature-addition` can take over. Both converge on the same three anchor files: a scope map, an `architecture.dsl`, and `docs/CONTEXT.md`. The difference is where they start and how far they go.
 
-| Playbook                                                              | For                                                                                                                                                              |
-| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`greenfield-development.md`](../playbooks/greenfield-development.md) | A brand-new project, start to finish.                                                                                                                            |
-| [`brownfield-onboarding.md`](../playbooks/brownfield-onboarding.md)   | Bringing Agent Factory into an existing codebase that has no spec or architecture docs yet.                                                                      |
-| [`feature-addition.md`](../playbooks/feature-addition.md)             | Adding a feature to a managed project from an accepted proposal; declared impact routes the required specification and architecture work.                        |
-| [`refactoring.md`](../playbooks/refactoring.md)                       | Restructuring code without changing behaviour, with a measured baseline and a safety net.                                                                        |
-| [`technical-poc.md`](../playbooks/technical-poc.md)                   | A real technical risk question, usually comparing 2+ candidate approaches, feeding an actual decision. Heavier than `poc-spike.md`, lighter than the full chain. |
-| [`architecture-review.md`](../playbooks/architecture-review.md)       | Reviewing existing architecture documentation against quality attributes.                                                                                        |
+| Playbook                                                              | Starts from                                             | Terminal condition                                                                              |
+| --------------------------------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| [`greenfield-development.md`](../playbooks/greenfield-development.md) | A brand-new project with no code or docs.               | Scope map (all Rules `deferred`), `architecture.dsl`, arc42 prose.                              |
+| [`brownfield-onboarding.md`](../playbooks/brownfield-onboarding.md)   | An existing codebase with no spec or architecture docs. | Scope map (Rules backfilled `implemented`), reverse-engineered `architecture.dsl`, arc42 prose. |
+
+Brownfield has two stages. **Stage 1** produces the three anchor files — architecture DSL, scope map (via the `reverse-map` skill), and `CONTEXT.md` — and then offers an explicit exit. The user can start `feature-addition` from this lightweight baseline. **Stage 2** (opt-in) goes deeper: full specification extraction, component resolution, ATAM review, and reconciliation.
+
+After either playbook completes (or after brownfield Stage 1), all feature work enters through `feature-addition`.
+
+### Feature delivery and other full-chain playbooks
+
+Once a project has been onboarded, these playbooks drive feature delivery and other structured work through some or all of the five-phase chain (requirements → architecture → planning → implementation → quality — see [docs/arc42/concepts.md § The phase chain](../../docs/arc42/concepts.md#the-phase-chain)):
+
+| Playbook                                                        | For                                                                                                                                                                                                   |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`feature-addition.md`](../playbooks/feature-addition.md)       | Adding a feature to a managed project from an accepted proposal. Declared impact routes the required specification and architecture work. Owns the gate-check loop and mechanical architecture check. |
+| [`refactoring.md`](../playbooks/refactoring.md)                 | Restructuring code without changing behaviour, with a measured baseline and a safety net.                                                                                                             |
+| [`architecture-review.md`](../playbooks/architecture-review.md) | Reviewing existing architecture documentation against quality attributes.                                                                                                                             |
 
 ### The research workflow
 
@@ -278,11 +413,11 @@ Playbooks above are prose: nothing stops staging an architecture file before the
 
 A playbook can ship a `.fsm.yml` alongside its `.md` in `factory/playbooks/` — a state machine describing each phase's `outputs:` file globs and the `entry_conditions` required to advance into it. Only [`greenfield-development.fsm.yml`](../playbooks/greenfield-development.fsm.yml) exists today. This is opt-in, not a default every playbook must adopt.
 
-| Component                           | What it does                                                                                                         |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `.agent-factory/playbook-state.yml` | Local, git-ignored marker recording which state the project is currently in.                                         |
-| `factory/scripts/transition-lint`   | Pre-commit gate. Blocks staging a file whose `outputs:` glob belongs to a state other than the marker's current one. |
-| `factory/scripts/phase advance`     | Subcommand that checks the next state's `entry_conditions` and, if satisfied, advances the marker.                   |
+| Component                          | What it does                                                                                                         |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `.current-work/playbook-state.yml` | Local, git-ignored marker recording which state the project is currently in.                                         |
+| `factory/scripts/transition-lint`  | Pre-commit gate. Blocks staging a file whose `outputs:` glob belongs to a state other than the marker's current one. |
+| `factory/scripts/phase advance`    | Subcommand that checks the next state's `entry_conditions` and, if satisfied, advances the marker.                   |
 
 `transition-lint` deliberately does not evaluate `entry_conditions` — by its own docstring, it "governs ordering *between* phases," not within one, and "does not evaluate a state's `entry_conditions`" because "that is `phase advance`'s job." It only checks whether a staged file belongs to the current state, naming the offending path and pointing at `phase advance` when a file belongs to a later one. This is a deliberate design choice, not a gap: condition-checking lives in one place only.
 
@@ -295,6 +430,8 @@ See [Structured Playbooks as a Deterministic Harness](../../docs/proposals/playb
 ## Proposals
 
 A proposal is the seed brief that opens a feature-addition — the design origin the Planning phase turns into a backlog. Proposals live in the repository-root `docs/proposals/`, one markdown file per feature, written to the [proposal template](../rulebooks/templates/proposal.md). Its versioned frontmatter records lifecycle, impact, governance, and dated forecasts for active human-review hours and normalized AI tokens. Forecasts remain distinct from append-only actuals and provider billing. Its body records the summary, motivation, design, explicit in-scope / deferred split, open questions, and completion criteria. Clarification and grilling amend this artifact directly: `draft` becomes reviewable `open`, stakeholder acceptance authorizes downstream work, and material planning changes require reacceptance. A proposal is a design *origin*, not a runtime artifact — a shipped agent's `inputs:` must never reference it. See [feature-addition.md](../playbooks/feature-addition.md) for the lifecycle and routing gates.
+
+The `draft-proposal` skill crystallizes an explored idea into a proposal file. It runs in the current session with the stakeholder present, fills the template from conversation context, pressure-tests the result via `grilling`, and gates on completeness before setting `status: open`. The `proposal-review-agent` then reviews the open proposal in a separate session — consultative on drafts, adversarial on open proposals — using eight structured checks (testable criteria, sharp scope, decomposable design, consistent impact, existing boundaries, genuine questions, justified timing, plausible estimate).
 
 ## Rulebooks
 
@@ -317,12 +454,12 @@ The research feature adds files across all three, marked by a `research-` filena
 
 A gate is a deterministic script — no LLM judgement involved — that catches a provable defect before a reviewer agent spends time on it: a broken cross-reference, a missing required section, an inconsistent ID. Cheap, reproducible, no false positives.
 
-| Gate                           | Fires at                 | What it checks                                                                                                                      |
-| ------------------------------ | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `factory/scripts/spec-lint`    | Phase 1 → 2 boundary     | Use-case coverage, traceability links between PRD → actor-goals → use cases → supplementary specs, ID uniqueness, required sections |
-| `factory/scripts/arch-lint`    | Phase 2 → 3 boundary     | arc42 chapters exist and cross-reference the Structurizr DSL, ADR index consistency, diagram file references                        |
-| `factory/scripts/backlog-lint` | Phase 3 → 4 boundary     | YAML frontmatter schema, dependency graph acyclicity, priority and status values                                                    |
-| `factory/scripts/matrix-lint`  | `config/model.conf` edit | Syntax, required fields, valid tier/model mappings                                                                                  |
+| Gate                           | Fires at                 | What it checks                                                                                                                            |
+| ------------------------------ | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `factory/scripts/spec-lint`    | Phase 1 → 2 boundary     | Specification coverage: traceability across PRD, actor-goals, `.feature` files, and supplementary specs; ID uniqueness; required sections |
+| `factory/scripts/arch-lint`    | Phase 2 → 3 boundary     | arc42 chapters exist and cross-reference the Structurizr DSL, ADR index consistency, diagram file references                              |
+| `factory/scripts/backlog-lint` | Phase 3 → 4 boundary     | YAML frontmatter schema, dependency graph acyclicity, priority and status values                                                          |
+| `factory/scripts/matrix-lint`  | `config/model.conf` edit | Syntax, required fields, valid tier/model mappings                                                                                        |
 
 In manual mode (driving each agent by hand, one session at a time), the reviewer agent for that phase runs its gate as its first step. Run any gate yourself the same way:
 
@@ -351,6 +488,34 @@ factory/scripts/policy-validate --pipeline <artifact-or-dir>...   # runs stage 1
 ```
 
 An artifact must pass stage 1, then stage 2, then stage 3 before the next playbook step begins. The schemas live in [`factory/rulebooks/schemas/`](../rulebooks/schemas/). See [ADR-0006](../../docs/adr/0006-research-flat-storage-and-validation-pipeline.md) and [`research-topic.md` § The Validation Gate](../playbooks/research-topic.md).
+
+### Semantic quality gates
+
+Three semantic gates fire between a developer's commit and merge, enforced by the gate-check loop in `feature-addition`:
+
+| Gate              | Script                              | What it checks                                                                                                                                     |
+| ----------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CRAP score        | `factory/scripts/crap-score`        | Composite structural risk (cyclomatic complexity weighted against coverage). The gate threshold is on the composite score, not on coverage itself. |
+| Mutation analysis | `factory/scripts/mutation-analysis` | Mutation testing — verifies that tests detect injected faults, not just that they run.                                                             |
+| Dependency check  | `factory/scripts/dependency-check`  | Dependency vulnerability scan against known advisories.                                                                                            |
+
+A project can override which gates apply at the story, house-rules, or factory-default level (resolved in that priority order). The gate-check loop allows a maximum of three fix iterations per tier and escalates to tier+1 on failure, with a ceiling of six total developer spawns per story.
+
+### Step isolation
+
+Per-step manifests at `.current-work/<feature-branch>/<story-branch>/current-step.yml` declare each step's inputs, outputs, and `max_input_tokens`. The `factory/scripts/step-guard` hook enforces these boundaries — an agent that reads a file not in its manifest or exceeds its token budget is blocked before the read completes.
+
+### Mechanized dispatch
+
+The `factory/scripts/dispatch` script owns the git state, ledger, and branch/worktree lifecycle for implementation. The LLM sequences script calls; the scripts own state transitions. The dispatcher maintains a machine-readable ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml` tracking every story's preparation, dispatch, verification, and merge state. Key subcommands:
+
+- `dispatch init` — initialize the dispatch ledger for a feature branch.
+- `dispatch prepare-wave` / `dispatch prepare-story` — create story branches and worktrees, record the declared base SHA, and run `verify-base`.
+- `dispatch verify-story <story-id> --sha <sha>` — confirm the reported commit object exists on the expected branch.
+- `dispatch merge-story <story-id>` — run `premerge-check`, merge, and run post-merge tests.
+- `dispatch close-wave <wave>` — append a closeout record with completed, blocked, and next-ready stories.
+
+Every story in a wave must reach a terminal state (merged or explicitly blocked/failed) before the next wave launches. The tier rubric in [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md) is the single authoritative source for economy/standard/strong tier assignment.
 
 Separately, `pre-commit` runs `mdformat`, `ruff`, and the stdlib-only `factory/scripts/link-check` on every commit. The link gate is a fast offline counterpart to lychee: it validates repository-local Markdown files and images, while remote URLs remain the responsibility of an online crawler. The formatters run through `uvx`, so nothing needs installing locally beyond `uv` itself — the same zero-local-install pattern `factory/scripts/structurizr` uses for its Docker dependency.
 
@@ -392,9 +557,9 @@ Session logging is an opt-in, append-only audit trail of gate-script runs. It ex
 
 **Current scope.** Only `spec-lint` is instrumented today. No other gate writes to the log yet.
 
-**Reconcile.** `factory/scripts/session-reconcile` compares the log against real git state: `--log` points at the log file (default `.agent-factory/session-log.jsonl`), `--base`/`--head` bound the commit range to diff (omit `--base` to check the working tree alone). It reports three finding codes: `RECON-UNEXPLAINED` (error) — a working-tree change no logged run or commit accounts for; `RECON-DRIFT` (warning) — a run logged a change that is now neither committed nor present in the working tree; `RECON-STALE` (warning) — `docs/spec/` changed but `spec-lint` never ran this session. Exit code is the error-finding count, unless `--report-only`.
+**Reconcile.** `factory/scripts/session-reconcile` compares the log against real git state: `--log` points at the log file (default `.current-work/session-log.jsonl`), `--base`/`--head` bound the commit range to diff (omit `--base` to check the working tree alone). It reports three finding codes: `RECON-UNEXPLAINED` (error) — a working-tree change no logged run or commit accounts for; `RECON-DRIFT` (warning) — a run logged a change that is now neither committed nor present in the working tree; `RECON-STALE` (warning) — `docs/spec/` changed but `spec-lint` never ran this session. Exit code is the error-finding count, unless `--report-only`.
 
-The log file lives under `.agent-factory/`, which is gitignored — local machine state, not portable, not meant to be reviewed.
+The log file lives under `.current-work/`, which is gitignored — local machine state, not portable, not meant to be reviewed.
 
 See [docs/proposals/session-log-addendum.md](../../docs/proposals/session-log-addendum.md) for the full design rationale.
 
