@@ -347,7 +347,7 @@ skills:
     category: utility
     description: Mid-session reorientation — show where the user is in the current workflow, what they can do next, and what factory concepts are relevant. Outside an active playbook, present the session entrypoint options with explanations.
     path: skills/guided-tour/SKILL.md
-    tokens: 524
+    tokens: 535
   - name: handoff
     category: utility
     description: Create and validate a dense phase-boundary restart contract before ending the outgoing session.
