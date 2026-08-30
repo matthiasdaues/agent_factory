@@ -19,7 +19,7 @@ Canonical orientation content for any AI coding CLI working in a project that us
 
 - **MUST (Codex only)**: Factory agents are generated native custom agents. Spawn `.codex/agents/<name>.toml` through Codex's subagent mechanism; do not read the canonical Markdown and act it out in the parent session. Separate native threads preserve author/reviewer independence. Use `.codex/playbooks`, `.codex/rulebooks`, and `.codex/scripts` for the Factory aliases.
 
-- **MUST**: Read the local `INDEX.yaml` first (`.claude/INDEX.yaml` for Claude Code, `.github/INDEX.yaml` for GitHub Copilot CLI, `.pi/INDEX.yaml` for Pi, `.codex/INDEX.yaml` for Codex). All locally available agents, skills, and playbooks are referenced there. **Codex**: resolve `path:` entries from INDEX.yaml to their generated equivalents under `.codex/` (e.g. `agents/chat-agent.md` → `.codex/agents/chat-agent.toml`, `skills/grilling/SKILL.md` → `.codex/skills/grilling/SKILL.md`).
+- **MUST**: Read the local `INDEX.yaml` first (`.claude/INDEX.yaml` for Claude Code, `.github/INDEX.yaml` for GitHub Copilot CLI, `.pi/INDEX.yaml` for Pi, `.codex/INDEX.yaml` for Codex). All locally available agents, skills, and playbooks are referenced there. **Codex**: resolve `path:` entries from INDEX.yaml to their generated equivalents under `.codex/` (e.g. `agents/virgil.md` → `.codex/agents/virgil.toml`, `skills/grilling/SKILL.md` → `.codex/skills/grilling/SKILL.md`).
 
 - **MUST**: Machine-consumed gates, markers, dispatch records, and handoffs use full 40-character Git SHAs. Abbreviated SHAs are display-only.
 
@@ -42,9 +42,7 @@ ______________________________________________________________________
 
 ### A — Guided tour (newcomer path)
 
-Read `docs/arc42/beginner-intro.md` and walk the user through it conversationally, one section at a time, pausing for questions after each section. Before starting, check for signs of prior work (a completed poc-spike, a charter, prior playbook outputs). If found, acknowledge what the user has done and offer to skip ahead or start fresh. At the end, offer to run `poc-spike`.
-
-If the user asks "where am I?", "what do I do next?", or requests reorientation at any point during the tour or afterward, invoke the `guided-tour` skill.
+Adopt VIRGIL (resolve from INDEX.yaml) and load the `newcomer-tour` skill. VIRGIL walks the user through the Getting Started section of `factory/docs/factory-guide.md` conversationally.
 
 ______________________________________________________________________
 
@@ -77,7 +75,7 @@ Present this expanded tree only after B is chosen:
 > `b` — Falsification: test a hypothesis with refutation → `research-topic`
 >
 > **7. Talk it through / explore an idea**\
-> → `chat-agent` (adopted in current session)
+> → `virgil` (adopted in current session)
 >
 > **8. Back to the main menu**
 
@@ -101,8 +99,8 @@ ______________________________________________________________________
 
 ### D — Let's talk
 
-Read the `chat-agent` definition (resolve path from INDEX.yaml) and adopt its role, boundaries, and workflow as your own for the rest of this session. Do not delegate to a subagent — you are the chat-agent now. Open with "What's on your mind?" and follow the conversation wherever it leads — no menu, no documents to produce. When the idea finds its shape, route to the right next step: a proposal, a spike, a research brief, or a clean ending.
+Read the `virgil` definition (resolve path from INDEX.yaml) and adopt its role, boundaries, and workflow as your own for the rest of this session. Do not delegate to a subagent — you are VIRGIL now. Open with "What's on your mind?" and follow the conversation wherever it leads — no menu, no documents to produce. When the idea finds its shape, route to the right next step: a proposal, a spike, a research brief, or a clean ending.
 
 ______________________________________________________________________
 
-When a playbook is selected, read the playbook's markdown file and follow its operational procedure — running agents, enforcing gates, and producing its documented outputs. When an agent is selected directly: if the agent runs in the current session (chat-agent, kit-manager, coaching-agent), adopt its role per the adopt pattern; otherwise, spawn it via the correct mechanism for this CLI (see Pi/Codex/Claude Code/Copilot CLI notes above).
+When a playbook is selected, read the playbook's markdown file and follow its operational procedure — running agents, enforcing gates, and producing its documented outputs. When an agent is selected directly: if the agent runs in the current session (virgil, coaching-agent), adopt its role per the adopt pattern; otherwise, spawn it via the correct mechanism for this CLI (see Pi/Codex/Claude Code/Copilot CLI notes above).
