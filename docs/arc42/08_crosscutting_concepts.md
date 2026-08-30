@@ -133,7 +133,7 @@ Two distinctions from §8.2 matter. First, these validators are **on demand, not
 
 ## 8.7 Semantic Quality Gates
 
-The two semantic gates (`crap-score`, `dependency-check`) extend the "Agentic Creation, Deterministic Validation" principle from syntactic checks to code meaning. They are **on-demand validators owned by the implementation-agent dispatcher**, not hook-triggered. This placement follows [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md). Mutation testing is project-owned infrastructure that Factory encourages: the `mutation-analysis` skill provides setup guidance, and the kit-manager carries it as an open question during charter setup until settled in `testing.yaml`.
+The two semantic gates (`crap-score`, `dependency-check`) extend the "Agentic Creation, Deterministic Validation" principle from syntactic checks to code meaning. They are **on-demand validators owned by the implementation-agent dispatcher**, not hook-triggered. This placement follows [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md). Mutation testing is project-owned infrastructure that Factory encourages: the `mutation-analysis` skill provides setup guidance, and VIRGIL carries it as an open question during charter setup until settled in `testing.yaml`.
 
 ### Why Dispatcher-Owned, Not Hook-Triggered
 
