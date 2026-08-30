@@ -11,7 +11,7 @@ agents:
     description: Open-ended conversation that helps an idea find its shape. Starts formless — just talking — and coalesces into the right next step when the idea is ready. The agent you pick before things get serious.
     path: agents/chat-agent.md
     tokens: 888
-    total_tokens: 3607
+    total_tokens: 3605
   - name: coaching-agent
     title: Coaching Agent
     phase: 0
@@ -38,7 +38,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 2563
-    total_tokens: 9774
+    total_tokens: 10505
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
@@ -200,9 +200,9 @@ skills:
     tokens: 1148
   - name: draft-proposal
     category: requirements
-    description: Crystallize an explored idea into a decision-complete feature proposal. Called by VIRGIL (or directly) once the shape of a feature is clear. Runs in the current session with the stakeholder present.
+    description: Crystallize an explored idea into a decision-complete feature proposal. Called by chat-agent (or directly) once the shape of a feature is clear. Runs in the current session with the stakeholder present.
     path: skills/draft-proposal/SKILL.md
-    tokens: 696
+    tokens: 694
   - name: grill-me
     category: requirements
     description: Interview the user relentlessly about a plan or design until reaching shared understanding, resolving each branch of the decision tree. Use when user wants to stress-test a plan, get grilled on their design, or mentions "grill me".
@@ -323,6 +323,11 @@ skills:
     description: Ultra-compressed communication mode for the workflow. Cuts token use by dropping filler, articles, and pleasantries while keeping full technical accuracy. The workflow's default communication style for everything except specification and documentation prose (which stay Plain English, Strunk & White). Adapted from JuliusBrussee/caveman.
     path: skills/caveman/SKILL.md
     tokens: 784
+  - name: comic-relief
+    category: utility
+    description: Generate short-form context-aware humor for moments when levity is warranted. One-liners, fake error messages, commit suggestions nobody should use, or observational asides drawn from Dilbert's corporate absurdity, XKCD's nerd sniping, South Park's irreverent escalation, and Hornblower's bone-dry understatement. Never more than two sentences. Target is the process, tooling, or situation — never the user.
+    path: skills/comic-relief/SKILL.md
+    tokens: 733
   - name: commit
     category: utility
     description: Compose a Conventional Commit message from the session's context and commit — invoked explicitly, never automatically.
