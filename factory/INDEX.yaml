@@ -3,15 +3,6 @@
 # hand, regenerate with scripts/index-lint.
 
 agents:
-  - name: chat-agent
-    title: Chat Agent
-    phase: 0
-    phase_name: Utility
-    tier: standard
-    description: Open-ended conversation that helps an idea find its shape. Starts formless — just talking — and coalesces into the right next step when the idea is ready. The agent you pick before things get serious.
-    path: agents/chat-agent.md
-    tokens: 888
-    total_tokens: 3605
   - name: coaching-agent
     title: Coaching Agent
     phase: 0
@@ -21,15 +12,6 @@ agents:
     path: agents/coaching-agent.md
     tokens: 462
     total_tokens: 1124
-  - name: kit-manager
-    title: Kit Manager
-    phase: 0
-    phase_name: Utility
-    tier: standard
-    description: Help set up the work environment — scaffold or complete the project charter and validate the result. Accepts ad-hoc reference material (repos, files, URLs) and runs a structured interview to fill charter gaps. Runs in the current session so the stakeholder can answer questions directly.
-    path: agents/kit-manager.md
-    tokens: 1497
-    total_tokens: 8012
   - name: virgil
     title: VIRGIL
     phase: 0
@@ -38,7 +20,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 2563
-    total_tokens: 10505
+    total_tokens: 12297
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
@@ -200,9 +182,9 @@ skills:
     tokens: 1148
   - name: draft-proposal
     category: requirements
-    description: Crystallize an explored idea into a decision-complete feature proposal. Called by chat-agent (or directly) once the shape of a feature is clear. Runs in the current session with the stakeholder present.
+    description: Crystallize an explored idea into a decision-complete feature proposal. Called by VIRGIL (or directly) once the shape of a feature is clear. Runs in the current session with the stakeholder present.
     path: skills/draft-proposal/SKILL.md
-    tokens: 694
+    tokens: 696
   - name: grill-me
     category: requirements
     description: Interview the user relentlessly about a plan or design until reaching shared understanding, resolving each branch of the decision tree. Use when user wants to stress-test a plan, get grilled on their design, or mentions "grill me".
@@ -338,6 +320,11 @@ skills:
     description: Build and sharpen a project's domain model — challenge terminology, record architecture decisions, update docs/CONTEXT.md and docs/adr/ inline as decisions crystallise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
     path: skills/domain-modeling/SKILL.md
     tokens: 647
+  - name: explain-concept
+    category: utility
+    description: Look up a Factory concept in the guide and explain it, calibrated to the user's experience level. Knows what exists and what's missing — like Lucien, the Sandman's librarian.
+    path: skills/explain-concept/SKILL.md
+    tokens: 929
   - name: grilling
     category: utility
     description: Relentless interview to sharpen a plan or design until reaching shared understanding. Use when the user wants to stress-test a plan, get grilled on their design, or mentions "grill me".
@@ -402,6 +389,11 @@ skills:
     description: Scan project for test entrypoints and record the result in docs/charter/testing.yaml. Code is the source of truth; the charter is a derived record.
     path: skills/detect-test-regime/SKILL.md
     tokens: 2044
+  - name: newcomer-tour
+    category: onboarding
+    description: Walk a new user through Agent Factory fundamentals interactively
+    path: skills/newcomer-tour/SKILL.md
+    tokens: 861
   - name: refutation-design
     category: research
     description: Define refuting evidence, conditions for refutation, and severe tests to expose them.
