@@ -30,6 +30,15 @@ agents:
     path: agents/kit-manager.md
     tokens: 1497
     total_tokens: 8012
+  - name: virgil
+    title: VIRGIL
+    phase: 0
+    phase_name: Utility
+    tier: standard
+    description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
+    path: agents/virgil.md
+    tokens: 2563
+    total_tokens: 9772
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
