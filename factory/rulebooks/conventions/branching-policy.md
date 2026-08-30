@@ -32,9 +32,20 @@ Do not use standalone branch creation (`git branch <name>`, `git switch -c/-C`, 
 
 The checkout in which a command starts remains on its existing branch. Work on the new branch happens only in the new worktree. This prevents branch switching from moving or contaminating a shared checkout and makes branch ownership observable from Git state.
 
+### Indexed Artifacts On Dev
+
+All indexed artifacts — backlog stories (`ST-NNNN`), findings (`PROP-NN`, `RECON-NNNN`), proposals, and any other file with a sequential ID — are always committed to `dev`. The `dev` branch is the single canonical index so that parallel sessions never collide on IDs. Implementation work never touches `dev` directly; it lands on a feature branch and merges back after gates pass.
+
+The sequence is:
+
+1. **Planning agent** commits proposals and indexed artifacts (all `status: pending`) to `dev`.
+2. **Implementation agent** creates the invocation branch from `dev`.
+3. Story branches are cut from the invocation branch.
+4. After all stories pass gates, the invocation branch merges back to `dev`.
+
 ### Invocation Branch
 
-Every feature branch for an invocation is cut from that invocation's own branch, not from `main` directly — the invocation branch is what makes the branch-root/branch-head SHA pair (below) well-defined. The invocation branch itself is created with its own linked worktree under the rule above.
+The invocation branch is created from `dev` using `feature/<proposal-title>` as the branch name. Every story branch for an invocation is cut from this invocation branch, not from `dev` directly — the invocation branch is what makes the branch-root/branch-head SHA pair (below) well-defined. The invocation branch itself is created with its own linked worktree under the rule above.
 
 ### Worktree Isolation
 

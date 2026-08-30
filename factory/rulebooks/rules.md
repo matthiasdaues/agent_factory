@@ -64,7 +64,9 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST** place every worktree under `.current-work/worktrees/` — never in the repository root, a sibling directory, or an arbitrary path.
 - **MUST** verify every new branch-to-worktree mapping with `git worktree list --porcelain` before doing work on that branch.
 - **MUST** create exactly one feature branch per story or bug — never per EPIC, sprint, or wave.
-- **MUST** create every feature branch and worktree from a dedicated invocation branch and worktree (itself created from `main`), recording its origin commit as the branch root.
+- **MUST** commit all indexed artifacts (backlog stories, findings, proposals, and any other file with a sequential ID) to `dev` — `dev` is the single canonical index. Never commit indexed artifacts to a feature or invocation branch.
+- **MUST** create every invocation branch from `dev` (not `main`), using `feature/<proposal-title>` as the branch name. Story branches are cut from this invocation branch.
+- **MUST** create every feature branch and worktree from the invocation branch, recording its origin commit as the branch root.
 - **MUST** determine merge order from real file-overlap analysis, not a grouping label — file-disjoint branches merge in parallel, overlapping branches merge serially in dependency order.
 - **MUST** run the full test suite after every merge, before the next.
 - **MUST** track exactly two commit IDs per invocation — branch root and branch head.

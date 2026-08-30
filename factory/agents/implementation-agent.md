@@ -71,7 +71,9 @@ phase is exempt and may continue in the current session.
 
 ## Branching model
 
-Per [branching-policy.md](../rulebooks/conventions/branching-policy.md), every story still gets its own feature branch and dedicated worktree, and merge order is still decided by output-file overlap rather than EPIC labels. The difference is ownership: the dispatcher describes **intent and ordering**, while `factory/scripts/dispatch` owns branch/worktree creation, declared-base recording, pre-spawn base verification, merge-time scope checks, cleanup, and the script-owned ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml`. Record **branch root** from `dispatch init` and **branch head** from `dispatch close-wave`, then hand off with `--base <branch-root> --head <branch-head>`.
+The implementation agent creates the invocation branch from `dev` as `feature/<proposal-title>`, using the atomic worktree form. Planning artifacts (proposal, backlog stories with `status: pending`) are already on `dev` before the implementation agent starts — the planning agent put them there. The implementation agent never commits to `dev` directly.
+
+Per [branching-policy.md](../rulebooks/conventions/branching-policy.md), every story gets its own feature branch and dedicated worktree cut from the invocation branch, and merge order is decided by output-file overlap rather than EPIC labels. The dispatcher describes **intent and ordering**, while `factory/scripts/dispatch` owns branch/worktree creation, declared-base recording, pre-spawn base verification, merge-time scope checks, cleanup, and the script-owned ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml`. Record **branch root** from `dispatch init` and **branch head** from `dispatch close-wave`, then hand off with `--base <branch-root> --head <branch-head>`.
 
 Per [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md), a wave large enough to risk a long-running, hard-to-verify dispatch must be split into smaller, independently mergeable dispatches rather than run as one.
 

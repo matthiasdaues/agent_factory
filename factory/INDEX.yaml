@@ -82,8 +82,8 @@ agents:
     tier: strong
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
-    tokens: 496
-    total_tokens: 1746
+    tokens: 566
+    total_tokens: 1816
   - name: implementation-agent
     title: Implementation Agent (Dispatcher)
     phase: 4
@@ -91,8 +91,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints. Each subagent implements one story using TDD on its own feature branch. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 3377
-    total_tokens: 10326
+    tokens: 3444
+    total_tokens: 10573
   - name: reconciliation-agent
     title: Reconciliation Agent
     phase: 4
@@ -460,7 +460,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 952
-    total_tokens: 33044
+    total_tokens: 33291
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -476,7 +476,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4671
-    total_tokens: 69991
+    total_tokens: 70308
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -494,7 +494,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 3054
-    total_tokens: 69498
+    total_tokens: 69815
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -555,11 +555,11 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 2916
+    tokens: 2996
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
-    tokens: 2554
+    tokens: 2734
   - name: cache-hygiene
     category: conventions
     path: rulebooks/conventions/cache-hygiene.md
