@@ -2,7 +2,7 @@
 name: draft-proposal
 description: >-
   Crystallize an explored idea into a decision-complete feature proposal.
-  Called by chat-agent (or directly) once the shape of a feature is clear.
+  Called by VIRGIL (or directly) once the shape of a feature is clear.
   Runs in the current session with the stakeholder present.
 category: requirements
 version: 0.2.0
@@ -12,7 +12,7 @@ disable-model-invocation: false
 # Draft Proposal
 
 Crystallization skill for `docs/proposals/<name>.md`. Takes an idea that
-already has shape — from a chat-agent conversation, a grilling session, or
+already has shape — from a VIRGIL conversation, a grilling session, or
 the stakeholder's own notes — and pours it into the proposal template.
 
 This skill does not explore. If the idea is still forming, stay in the
