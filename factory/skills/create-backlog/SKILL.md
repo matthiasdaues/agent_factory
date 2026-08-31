@@ -36,7 +36,7 @@ See [story.md template](../../rulebooks/templates/story.md) for the complete fro
 
 - `id`: ST-NNNN, zero-padded, unique; matches the filename
 - `epic`: The EPIC this story belongs to (references a section in `backlog/epics.md`)
-- `title`: What the story delivers
+- `title`: What the story delivers — active verb phrase ("Activate a Domain...", "Reject raw secrets..."), never a noun phrase
 - `tier`: economy | standard | strong (model tier needed)
 - `status`: pending | in_progress | review | blocked | done
 - `deps`: Story IDs that block this one (optional)
