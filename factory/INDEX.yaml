@@ -20,7 +20,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 1492
-    total_tokens: 10969
+    total_tokens: 11481
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
@@ -38,7 +38,7 @@ agents:
     description: "Capture a project vision, clarify requirements through adversarial interview, and produce a complete specification: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models."
     path: agents/requirements-agent.md
     tokens: 1777
-    total_tokens: 14311
+    total_tokens: 14823
   - name: spec-review-agent
     title: Specification Review Agent
     phase: 1
@@ -101,7 +101,7 @@ agents:
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
     tokens: 1392
-    total_tokens: 7651
+    total_tokens: 8163
   - name: claim-reviewer
     title: Claim Reviewer
     phase: 6
@@ -475,7 +475,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 777
-    total_tokens: 12744
+    total_tokens: 13256
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -503,7 +503,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4671
-    total_tokens: 74068
+    total_tokens: 75092
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -521,7 +521,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 3054
-    total_tokens: 73575
+    total_tokens: 74599
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -537,7 +537,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1281
-    total_tokens: 13248
+    total_tokens: 13760
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -662,7 +662,7 @@ rulebooks:
   - name: testing-strategy
     category: conventions
     path: rulebooks/conventions/testing-strategy.md
-    tokens: 926
+    tokens: 1438
   - name: todo-format
     category: conventions
     path: rulebooks/conventions/todo-format.md
