@@ -81,3 +81,46 @@ layers:
       subprocess: "real"
       persistence: "real"
       external_services: "mocked"
+
+# Gate configuration — per-gate enabled flag and thresholds.
+# Gate execution ordering is owned by ADR-0012; this section provides
+# per-gate configuration only.
+gates:
+  crap_score:
+    enabled: true
+    # Per-function complexity × coverage risk threshold.
+    # A function exceeding this threshold is flagged for review.
+    threshold: 8
+  mutation_testing:
+    enabled: false
+    # Mutation testing validates that test cases catch semantic changes.
+    # Disabled by default until project infrastructure is ready.
+# test_design_verify is implicitly enabled when test-design output
+# exists in a story and skipped otherwise.
+
+# risk_classes:
+#   Override Factory convention risk-class defaults per project.
+#   Precedence: testing.yaml inline overrides > project-linked strategy document > Factory convention defaults.
+#
+#   Schema by example:
+#
+#   risk_classes:
+#     critical:
+#       format: forbidden          # Given/When/Then/Forbidden
+#       budget: unbounded          # every distinct failure mode gets a scenario
+#     standard:
+#       format: scenario           # concrete input/output pairs
+#       budget: equivalence        # one per equivalence class + boundaries
+#     structural:
+#       format: linter             # no test-design output; linter owns it
+#     financial:                   # project-specific custom risk class
+#       format: forbidden          # Given/When/Then/Forbidden
+#       budget: unbounded          # every distinct failure mode
+#       requires:                  # optional: named invariants the contract must demonstrate
+#         - double_entry_invariant
+#         - idempotent_retry
+#
+#   Fields per risk class:
+#   - format: "forbidden" (Given/When/Then/Forbidden) or "scenario" (concrete inputs and assertions) or "linter" (no test-design output).
+#   - budget: "unbounded" (every distinct failure mode) or "equivalence" (one per equivalence class plus boundaries and distinct failure modes).
+#   - requires (optional): named invariants the contract must demonstrate. Project-specific.

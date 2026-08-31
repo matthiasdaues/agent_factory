@@ -19,3 +19,19 @@ layers:
       filesystem: "real"
       external_services: "mocked"
       configuration: "mocked"
+
+# Gate configuration — per-gate enabled flag and thresholds.
+# Gate execution ordering is owned by ADR-0012; this section provides
+# per-gate configuration only.
+gates:
+  crap_score:
+    enabled: true
+    threshold: 8
+  mutation_testing:
+    enabled: false
+# test_design_verify is implicitly enabled when test-design output
+# exists in a story and skipped otherwise.
+
+# risk_classes:
+#   Override Factory convention risk-class defaults per project.
+#   See factory/rulebooks/templates/charter-testing.yaml for schema-by-example.
