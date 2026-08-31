@@ -78,7 +78,13 @@
       "BR-046",
       "BR-047",
       "BR-048",
-      "BR-049"
+      "BR-049",
+      "BR-050",
+      "BR-051",
+      "BR-052",
+      "BR-053",
+      "BR-054",
+      "BR-055"
     ],
     "entities": [
       "AGENT_ENTRY",
@@ -86,21 +92,31 @@
       "ARTIFACT_REFERENCE",
       "CATALOG",
       "CHILD_RESULT_ENVELOPE",
+      "EPIC_BUILDING_BLOCK",
+      "FAILURE_SCENARIO",
       "FINDING",
       "FSM_DEFINITION",
       "GATE_CONDITION",
+      "GATE_CONFIG",
+      "GATE_ENTRY",
       "HALT_CONDITION",
       "HANDOFF",
       "HANDOFF_SEMANTIC_REVIEW",
       "MODEL_MATRIX_ENTRY",
       "PLAYBOOK_ENTRY",
       "PLAYBOOK_STATE_MARKER",
+      "PRIOR_TESTS_SECTION",
       "REPOSITORY_STATE",
+      "RISK_CLASS",
+      "RISK_CLASS_CONFIG",
       "RULEBOOK_ENTRY",
       "SCOPE_MAP_ROW",
       "SESSION_USAGE_SIGNAL",
       "SKILL_ENTRY",
-      "STATE_DEFINITION"
+      "STATE_DEFINITION",
+      "TEST_DESIGN_SECTION",
+      "TEST_REFERENCE",
+      "WAIVER"
     ]
   },
   "edges": [
@@ -652,6 +668,26 @@
     {
       "from": "UC-08",
       "rel": "references_br",
+      "to": "BR-030"
+    },
+    {
+      "from": "UC-08",
+      "rel": "references_br",
+      "to": "BR-050"
+    },
+    {
+      "from": "UC-08",
+      "rel": "references_br",
+      "to": "BR-050"
+    },
+    {
+      "from": "UC-08",
+      "rel": "references_br",
+      "to": "BR-050"
+    },
+    {
+      "from": "UC-08",
+      "rel": "references_br",
       "to": "BR-021"
     },
     {
@@ -662,6 +698,26 @@
     {
       "from": "UC-08",
       "rel": "references_br",
+      "to": "BR-030"
+    },
+    {
+      "from": "UC-08",
+      "rel": "references_br",
+      "to": "BR-030"
+    },
+    {
+      "from": "UC-08",
+      "rel": "references_br",
+      "to": "BR-050"
+    },
+    {
+      "from": "UC-08",
+      "rel": "references_br",
+      "to": "BR-021"
+    },
+    {
+      "from": "UC-08",
+      "rel": "references_br",
       "to": "BR-021"
     },
     {
@@ -672,12 +728,27 @@
     {
       "from": "UC-08",
       "rel": "references_br",
+      "to": "BR-030"
+    },
+    {
+      "from": "UC-08",
+      "rel": "references_br",
+      "to": "BR-029"
+    },
+    {
+      "from": "UC-08",
+      "rel": "references_br",
       "to": "BR-021"
     },
     {
       "from": "UC-08",
       "rel": "references_br",
       "to": "BR-022"
+    },
+    {
+      "from": "UC-08",
+      "rel": "references_br",
+      "to": "BR-030"
     },
     {
       "from": "UC-06",

@@ -10,7 +10,7 @@ supersedes:
 
 impact:
   scope: cross_component
-  architecture_change: false
+  architecture_change: false  # manual override — no boundary change despite new gate script and YAML schema extension; mechanical detection flagged pre-existing architecture.dsl gaps
   external_contract_change: true
   boundaries:
     - factory/skills/create-backlog/SKILL.md
