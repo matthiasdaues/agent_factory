@@ -54,7 +54,7 @@ Chain stories so each one's deliverables become status quo for every story that 
 
 Spec rules are traces — evidence of coverage, not the decomposition axis. A story exists because it delivers a capability, not because a rule needs coverage.
 
-Do not decompose by layer — one story for types, one for schema, one for service, one for API, one for UI is horizontal decomposition and produces stories that individually deliver nothing showable. Each story crosses all system boundaries its capability requires. Infrastructure (identity types, schema scaffolding, test markers, pre-commit fixes) enters as a line item inside the story that first uses it, never as a standalone story — unless the charter's Epic 0 explicitly requires it as a foundational story.
+**MUST NOT** decompose by layer. One story for types, one for schema, one for service, one for API, one for UI is horizontal decomposition — it produces stories that individually deliver nothing showable and violates the vertical-slice gate. Each story **MUST** cross all system boundaries its capability requires. Infrastructure (identity types, schema scaffolding, test markers, pre-commit fixes) enters as a line item inside the story that first uses it, never as a standalone story — unless the story belongs to Epic 0 (charter-derived foundational setup).
 
 ### Rule 3: Criteria Are Invariants
 
@@ -163,7 +163,7 @@ Review every story through two lenses before presenting to the user:
 - [ ] Every User Goal from the actor-goal list is covered by at least one story
 - [ ] EPIC-level and story-level slice tables confirmed by user (Step 1.5)
 - [ ] Every EPIC and story crosses at least two system boundaries
-- [ ] No horizontal (single-boundary) stories exist outside Epic 0 foundational stories
+- [ ] No horizontal (single-boundary) stories exist outside Epic 0
 - [ ] Stories meet INVEST criteria (especially: small and testable)
 - [ ] Dependencies are explicit in `deps` — no hidden ordering assumptions
 - [ ] Stories reference Use Case IDs in `traces` for traceability
