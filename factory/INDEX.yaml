@@ -73,8 +73,8 @@ agents:
     tier: strong
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
-    tokens: 566
-    total_tokens: 1816
+    tokens: 648
+    total_tokens: 2655
   - name: implementation-agent
     title: Implementation Agent (Dispatcher)
     phase: 4
@@ -151,8 +151,8 @@ agents:
     title: Developer Agent
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
-    tokens: 1704
-    total_tokens: 4199
+    tokens: 1729
+    total_tokens: 4224
 
 skills:
   - name: capture-charter
@@ -254,7 +254,7 @@ skills:
     category: planning
     description: Break specification and architecture into a local backlog of markdown stories — EPICs and User Stories with INVEST criteria and MoSCoW priority.
     path: skills/create-backlog/SKILL.md
-    tokens: 1250
+    tokens: 2007
   - name: crap-score
     category: implementation
     description: Compute CRAP (Change Risk Anti-Patterns) per function and block when any exceeds the threshold.
@@ -455,7 +455,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 777
-    total_tokens: 12627
+    total_tokens: 12652
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -483,7 +483,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4671
-    total_tokens: 70308
+    total_tokens: 71147
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -501,7 +501,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 3054
-    total_tokens: 69815
+    total_tokens: 70654
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -517,7 +517,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1281
-    total_tokens: 13131
+    total_tokens: 13156
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
