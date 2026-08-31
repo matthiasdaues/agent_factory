@@ -2,6 +2,8 @@
 name: create-backlog-stories
 description: "Read confirmed slice tables, write backlog/ST-NNNN.md story files with MoSCoW priorities, dependencies, and quality gates. Phase 4 of 4 in the create-backlog sequence."
 category: planning
+inputs:
+  - docs/charter/testing.yaml
 disable-model-invocation: false
 ---
 
@@ -23,7 +25,13 @@ Judge each story's `tier` (`economy | standard | strong`) — the model strength
 
 When charter files exist, extract concrete implementation names (test framework, deployment target, API framework) and use them in acceptance criteria instead of placeholders.
 
-For each story, check whether existing tests in the codebase already cover its acceptance criteria. If pre-existing tests match, record their file paths in the story's `tests:` field.
+For each story, cross-reference against the testing regime:
+
+1. Read `docs/charter/testing.yaml` and its `suites` list.
+2. For each suite, scan the suite's `root` directory for files matching its `pattern`.
+3. Compare discovered test files against the story's acceptance criteria — by filename, test function names, and docstrings where available.
+4. When pre-existing tests match, record their file paths in the story's `tests:` field.
+5. When no existing test covers a criterion, record the target suite for new tests in the story's Notes for the Implementer section (e.g. "New tests target the `backend` suite under `packages/server/backend/tests`").
 
 See the [story template](../../rulebooks/templates/story.md) for the complete frontmatter schema and body structure.
 

@@ -18,6 +18,7 @@ inputs:
   - docs/spec/use_cases/*.md
   - docs/spec/supplementary_specs/*.md
   - docs/charter/*.md
+  - docs/charter/testing.yaml
   - docs/*.md
   - docs/adr/*.md
 outputs:
@@ -46,6 +47,12 @@ version: 0.4.0
 Break specification and architecture into **tracer bullet** **vertical slices**. Each story meets **INVEST** with **MoSCoW** priority.
 
 ## Workflow
+
+### Pre-flight — Testing regime check
+
+Before slicing stories, verify that `docs/charter/testing.yaml` exists and contains at least one suite. If missing or empty, invoke `detect-test-regime` to populate it, then continue. The planning agent needs per-suite information to map acceptance criteria to existing tests and to determine which suite targets new tests.
+
+### Backlog phases
 
 The backlog is built in four phase-gated skills. Each skill ends when its output is delivered. The user confirms or adjusts before the next skill is invoked. This structural separation enforces pause points — the agent cannot proceed past a confirmation gate.
 
