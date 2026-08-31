@@ -12,7 +12,7 @@ Skeleton for a single `backlog/ST-NNNN.md` file. Governed by [create-backlog ski
 ```yaml
 ---
 id: ST-0001                       # ST-NNNN, zero-padded, unique; matches the filename
-epic: Domain Entities             # the EPIC this story belongs to (a grouping label, not a separate file)
+epic: Domain Entities             # the EPIC this story belongs to (references a section in backlog/epics.md)
 title: Define domain entity dataclasses
 tier: economy                     # economy | standard | strong — the model tier this story's work needs
 status: pending                   # pending | in_progress | review | blocked | done
@@ -45,11 +45,22 @@ notes: mutation-analysis excluded: no production code changes.
 
 **Priority:** must-have          # MoSCoW — must-have | should-have | could-have | wont-have
 
+## Demo
+
+<2–4 sentences. Walkthrough of what a person can show after the story ships.
+Concrete values, not placeholders. Happy path plus one meaningful edge case.>
+
 ## Acceptance Criteria
 
-- <criterion derived from the Gherkin scenarios / postconditions>
+- <falsifiable invariant — "X produces Y", "X never Y", or "when X then Y" (RULE-ID)>
 
-## Implementation Notes
+## Scope
+
+**Status quo:** <what exists now — tables, routes, views — including deliverables of depended-on stories>
+**Adds:** <what this story creates or changes, across all layers>
+**Out of scope:** <what explicitly does not change>
+
+## Notes for the Implementer
 
 <optional guidance, constraints, or context>
 ```

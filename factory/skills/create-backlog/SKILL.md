@@ -7,7 +7,9 @@ disable-model-invocation: false
 
 # Create Backlog
 
-Break the specification and architecture into a prioritised backlog of EPICs and User Stories, written as local markdown files under `backlog/`. Every story is a **tracer bullet** — a **vertical slice** that is independently implementable, traceable to its Use Case, and respects architectural boundaries.
+Break the specification and architecture into a prioritised backlog of EPICs and User Stories, written as local markdown files under `backlog/`. The artifact chain is: scope map → `.feature` files → **`backlog/epics.md`** → individual `backlog/ST-NNNN.md` stories. The planning agent creates `epics.md` and the stories; the scope map and `.feature` files are inputs from the specification phase.
+
+Every story is a **tracer bullet** — a **vertical slice** that is independently implementable, traceable to its Use Case, and respects architectural boundaries.
 
 Stories are project artifacts, not entries in an external tracker: one file per story, `backlog/ST-NNNN.md`, with strict frontmatter validated by `factory/scripts/backlog-lint`.
 
@@ -22,7 +24,7 @@ See [story.md template](../../rulebooks/templates/story.md) for the complete fro
 **Key frontmatter fields:**
 
 - `id`: ST-NNNN, zero-padded, unique; matches the filename
-- `epic`: The EPIC this story belongs to (grouping label, not a separate file)
+- `epic`: The EPIC this story belongs to (references a section in `backlog/epics.md`)
 - `title`: What the story delivers
 - `tier`: economy | standard | strong (model tier needed)
 - `status`: pending | in_progress | review | blocked | done
@@ -30,11 +32,49 @@ See [story.md template](../../rulebooks/templates/story.md) for the complete fro
 - `traces`: Use Case / ADR / component IDs implemented (optional)
 - `outputs`: Files the story produces — **including its test file(s)**, so `premerge-check --scope` covers them without manual widening
 
-EPICs are **not** separate files — an EPIC is the `epic:` frontmatter value shared by its stories. MoSCoW priority lives in the prose body (the frontmatter schema is closed; `backlog-lint` rejects unknown fields).
+EPICs are documented in `backlog/epics.md` — each EPIC section carries actor goals, demo, scope, dependencies, boundaries, size, presentation, and a building-block inventory with capacity estimates. The `epic:` frontmatter value in each story references its parent EPIC by name. MoSCoW priority lives in the prose body (the frontmatter schema is closed; `backlog-lint` rejects unknown fields).
+
+## Story composition rules
+
+Three rules govern how stories are decomposed and written.
+
+### Rule 1: Demo First
+
+Write the Demo section before anything else. Two to four sentences: what a person can show after the story ships. Concrete values, walkthrough format.
+
+**If you cannot write the demo, the story is not demo-able. Recut it.**
+
+Every story delivers a capability a person can demonstrate. Infrastructure — markers, migrations, types, scaffolding — enters as a line item inside the story that needs it.
+
+### Rule 2: Forward from Status Quo
+
+Start every story by stating what exists now — including deliverables of all stories it depends on. End with what a person can do afterward that they cannot do today. The gap is the story's scope.
+
+A story's deliverables become status quo for every story that depends on it. The dependency graph is the chain of accumulating status quos.
+
+Spec rules are traces — evidence of coverage, not the decomposition axis. A story exists because it delivers a capability, not because a rule needs coverage.
+
+Vertical slices across layers (backend + frontend + schema) are preferred over horizontal stories that individually deliver nothing showable.
+
+### Rule 3: Criteria Are Invariants
+
+Each acceptance criterion is a falsifiable statement a test can prove or disprove:
+
+- "X produces Y" (positive invariant)
+- "X never Y" (negative invariant)
+- "When X, then Y" (boundary condition)
+
+Trace the scope-map rule parenthetically. Do not specify test paths, framework choices, or implementation approach.
+
+## Step 0 — Survey the codebase skeleton
+
+Before decomposing, read the existing codebase. List what exists: tables, routes, models, views, migrations, tests. This is the departure point — every story steps forward from here.
+
+**Completion**: a concrete inventory of existing artifacts relevant to the spec scope.
 
 ## Step 1 — Define EPICs and identify Epic 0
 
-Read `docs/spec/actor-goal-list.md` and `docs/spec/use_cases/`. Group related User Goals into EPICs — each a coherent slice developable and demonstrable independently.
+Read `docs/spec/actor-goal-list.md` and `docs/spec/use_cases/`. Group related User Goals into EPICs — each a coherent slice developable and demonstrable independently. Document every EPIC in `backlog/epics.md` with: actor goals, demo, scope, dependencies, boundaries, size/story count, presentation (bullet summary of what shipping the EPIC proves), and a building-block inventory listing each story with its capacity tier and day-range estimate.
 
 If charter files exist and Epic 0 stories are already in the backlog (created by the `capture-charter` completeness sweep), identify the final Epic 0 story (the last one chronologically). Feature stories derived from the charter's Feature List shall depend on this final Epic 0 story via `deps:` — ensuring foundational work completes before feature implementation begins.
 
@@ -42,9 +82,9 @@ If charter files exist and Epic 0 stories are already in the backlog (created by
 
 ## Step 2 — Break EPICs into User Stories
 
-For each EPIC, create `backlog/ST-NNNN.md` stories meeting **INVEST** — particularly: Independent (dependencies explicit in `deps`), Small (one implementation session), Testable (acceptance criteria from the Gherkin scenarios).
+For each EPIC, create `backlog/ST-NNNN.md` stories meeting **INVEST** — particularly: Independent (dependencies explicit in `deps`), Small (one implementation session), Testable (acceptance criteria as falsifiable invariants).
 
-Respect **Clean Architecture** layer boundaries — each story touches one layer, or crosses layers only through defined interfaces.
+Apply the **story composition rules**: write the Demo section first (Rule 1), define scope as a step forward from the status quo of depended-on stories (Rule 2), write acceptance criteria as invariants (Rule 3). Prefer vertical slices across layers over horizontal stories that individually deliver nothing showable.
 
 Each story records in `traces`: Use Case ID(s) it implements (e.g. `UC-01`, `UC-A2`), the arc42 component(s) it touches, and any constraining ADR(s).
 
@@ -76,6 +116,16 @@ Present the complete backlog to the user. Ask:
 
 **Completion**: `backlog-lint` reports zero errors, dependencies explicit, no circular chains, user confirms the backlog.
 
+## Step 5 — Apply quality gates
+
+Review every story through two lenses before presenting to the user:
+
+**Junior Clarity:** Read the story as a junior developer. Can you start working right now — do you know which file to open first, what the first test asserts, and what "done" looks like? If not, the story is underspecified.
+
+**Senior Acceptance:** Read the story as a senior grooming the backlog. Would you hand this to your team without a follow-up conversation — is the scope bounded, the demo concrete, every criterion testable, and nothing left to interpret? If not, the story is not ready.
+
+**Completion**: every story passes both gates.
+
 ## Done Check
 
 - [ ] Every User Goal from the actor-goal list is covered by at least one story
@@ -83,4 +133,6 @@ Present the complete backlog to the user. Ask:
 - [ ] Dependencies are explicit in `deps` — no hidden ordering assumptions
 - [ ] Stories reference Use Case IDs in `traces` for traceability
 - [ ] Stories respect architectural layer boundaries
+- [ ] Every story has a Demo section describing a concrete, showable capability
+- [ ] Every story passes Junior Clarity and Senior Acceptance gates
 - [ ] `factory/scripts/backlog-lint` reports zero errors

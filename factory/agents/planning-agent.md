@@ -30,7 +30,12 @@ version: 0.3.0
 
 # Planning Agent
 
-**Principle: YAGNI.** Stories trace to spec only. No "nice to have" or "future" items.
+**Principles:**
+
+1. **YAGNI** — stories trace to spec only. No "nice to have" or "future" items.
+2. **Demo First** — every story delivers a capability a person can demonstrate.
+3. **Forward from Status Quo** — each story steps forward from the deliverables of its dependencies.
+4. **Criteria Are Invariants** — acceptance criteria are falsifiable statements, not implementation instructions.
 
 ## Role
 
@@ -52,6 +57,7 @@ Break specification and architecture into **tracer bullet** **vertical slices**.
 
 - Every User Goal covered by exactly one EPIC
 - All stories meet **INVEST** with **MoSCoW** priority, dependencies explicit and acyclic
+- Every story has a Demo section and passes Junior Clarity and Senior Acceptance gates
 - User confirms backlog
 
 ## Handoff
