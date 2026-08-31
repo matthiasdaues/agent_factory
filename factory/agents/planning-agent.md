@@ -52,6 +52,8 @@ Break specification and architecture into **tracer bullet** **vertical slices**.
 
 Before slicing stories, verify that `docs/charter/testing.yaml` exists and contains at least one suite. If missing or empty, invoke `detect-test-regime` to populate it, then continue. The planning agent needs per-suite information to map acceptance criteria to existing tests and to determine which suite targets new tests.
 
+Read the document referenced by `testing_strategy:` in `docs/charter/testing.yaml` to understand test budgets, cluster assignments, and how to populate each story's `tests:` field.
+
 ### Backlog phases
 
 The backlog is built in four phase-gated skills. Each skill ends when its output is delivered. The user confirms or adjusts before the next skill is invoked. This structural separation enforces pause points — the agent cannot proceed past a confirmation gate.

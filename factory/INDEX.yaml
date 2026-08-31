@@ -20,7 +20,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 1492
-    total_tokens: 10794
+    total_tokens: 10969
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
@@ -73,8 +73,8 @@ agents:
     tier: strong
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
-    tokens: 960
-    total_tokens: 5507
+    tokens: 998
+    total_tokens: 5576
   - name: implementation-agent
     title: Implementation Agent (Dispatcher)
     phase: 4
@@ -151,15 +151,15 @@ agents:
     title: Developer Agent
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
-    tokens: 1729
-    total_tokens: 4224
+    tokens: 1771
+    total_tokens: 4316
 
 skills:
   - name: capture-charter
     category: requirements
     description: "Scaffold, scan, or complete the project charter under docs/charter/ — three modes: --init creates the skeleton from templates, --init --scan pre-populates it from an existing codebase, and the completeness sweep (no flag) forces every remaining decision and derives Epic 0 setup stories. Use when starting a new project's charter, onboarding a brownfield codebase, or running the pre-planning completeness sweep."
     path: skills/capture-charter/SKILL.md
-    tokens: 2794
+    tokens: 2969
   - name: capture-vision
     category: requirements
     description: Capture a project vision through structured interview.
@@ -264,7 +264,7 @@ skills:
     category: planning
     description: Read confirmed slice tables, write backlog/ST-NNNN.md story files with MoSCoW priorities, dependencies, and quality gates. Phase 4 of 4 in the create-backlog sequence.
     path: skills/create-backlog-stories/SKILL.md
-    tokens: 1006
+    tokens: 1037
   - name: create-backlog-story-slices
     category: planning
     description: Read confirmed backlog/epics.md, sketch story-level slice tables per EPIC, and present them for user approval. Phase 3 of 4 in the create-backlog sequence.
@@ -289,7 +289,7 @@ skills:
     category: implementation
     description: Implement a single backlog story with TDD — analyse, red-green, commit, check docs.
     path: skills/implement-issue/SKILL.md
-    tokens: 675
+    tokens: 725
   - name: reconcile-spec
     category: implementation
     description: Comprehensive code-vs-spec reconciliation — build truth maps, diff, update or flag every discrepancy.
@@ -339,7 +339,7 @@ skills:
     category: utility
     description: Scan project for test suites and record each one in docs/charter/testing.yaml. Code is the source of truth; the charter is a derived record.
     path: skills/detect-test-regime/SKILL.md
-    tokens: 2673
+    tokens: 2896
   - name: domain-modeling
     category: utility
     description: Build and sharpen a project's domain model — challenge terminology, record architecture decisions, update docs/CONTEXT.md and docs/adr/ inline as decisions crystallise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
@@ -475,7 +475,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 777
-    total_tokens: 12652
+    total_tokens: 12744
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -503,7 +503,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4671
-    total_tokens: 73999
+    total_tokens: 74068
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -521,7 +521,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 3054
-    total_tokens: 73506
+    total_tokens: 73575
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -537,7 +537,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1281
-    total_tokens: 13156
+    total_tokens: 13248
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration

@@ -53,6 +53,8 @@ invent a command the project cannot actually run.
 ## Output schema
 
 ```yaml
+testing_strategy: docs/charter/testing-strategy.md
+
 test_all: "make test && make frontend_test"   # composite command, all suites
 
 suites:
@@ -97,6 +99,11 @@ joined with `&&`. When a suite is found but cannot be fully resolved
 (command unclear, prerequisites unknown), record it with explicit nulls —
 do not omit it. The human catches gaps during charter review before
 planning starts.
+
+`testing_strategy` is the path to the project's testing strategy document.
+This field is always populated, never null — it defaults to
+`factory/rulebooks/conventions/testing-strategy.md` when the project has no
+project-specific document.
 
 ## Workflow
 
@@ -224,10 +231,28 @@ Join each suite's `run_all` command with `&&` to form `test_all`. Suites
 with `run_all: null` are excluded from the composite command. If no suite
 has a resolved `run_all`, set `test_all: null`.
 
-### 6. Record
+### 6. Ask about testing strategy
+
+After suite discovery and confirmation (step 3), ask the user:
+
+> "Does this project have a testing strategy document? If so, where is it?"
+
+Record the answer as the `testing_strategy:` field:
+
+- If the user names a path, record it verbatim.
+- If the project has no testing strategy document, default to
+  `factory/rulebooks/conventions/testing-strategy.md`.
+
+This field is always populated, never null. The testing strategy document
+tells planner and developer agents *how* to test — clusters, budgets,
+markers, fixture rules, AI-generated test rules. The suites tell them
+*where* and *what*.
+
+### 7. Record
 
 Write or update `docs/charter/testing.yaml`:
 
+- `testing_strategy` — path to the testing strategy document (step 6).
 - `test_all` — the composite command (step 5).
 - `suites` — one entry per discovered suite (step 2), with all fields
   populated or explicitly null.

@@ -110,6 +110,12 @@ ruff, pytest, GitHub Actions. Confirm, correct, or add what I missed."*
 Update the affected sections with the stakeholder's corrections before
 moving on.
 
+After confirming test-related findings, invoke `detect-test-regime` to
+produce the full multi-suite `docs/charter/testing.yaml`. Once it returns
+and the user has seen the discovered suites, `detect-test-regime` asks
+about the testing strategy document — verify that `testing_strategy:` is
+populated before proceeding.
+
 **No Epic 0 derivation in this mode** — the mise en place already exists in
 the scanned codebase.
 
@@ -145,6 +151,14 @@ Read all three charter files. For each section still reading `To be decided.`, a
 House-rules entries may stay genuinely undecided past this sweep (the
 planning gate does not block on them); tech-stack and development entries
 must reach one of the two states above, because `charter-lint --planning-gate` will reject a literal `To be decided.` in those two files.
+
+After walking the charter files, check `docs/charter/testing.yaml`. If it
+is missing or empty, invoke `detect-test-regime`. If `testing_strategy:` is
+not yet populated, ask the user: *"Does this project have a testing
+strategy document? If so, where is it?"* Record the answer in
+`docs/charter/testing.yaml` — default to
+`factory/rulebooks/conventions/testing-strategy.md` if the project has
+none. The planning gate needs this field.
 
 ### Step 2 — Check for existing artifacts, derive Epic 0
 

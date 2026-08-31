@@ -32,6 +32,7 @@ For each story, cross-reference against the testing regime:
 3. Compare discovered test files against the story's acceptance criteria — by filename, test function names, and docstrings where available.
 4. When pre-existing tests match, record their file paths in the story's `tests:` field.
 5. When no existing test covers a criterion, record the target suite for new tests in the story's Notes for the Implementer section (e.g. "New tests target the `backend` suite under `packages/server/backend/tests`").
+6. Read the document referenced by `testing_strategy:` in `docs/charter/testing.yaml` to determine cluster assignment and test budget for the story.
 
 See the [story template](../../rulebooks/templates/story.md) for the complete frontmatter schema and body structure.
 
