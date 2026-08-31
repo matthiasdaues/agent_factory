@@ -50,11 +50,11 @@ Every story delivers a capability a person can demonstrate. Infrastructure — m
 
 Start every story by stating what exists now — including deliverables of all stories it depends on. End with what a person can do afterward that they cannot do today. The gap is the story's scope.
 
-A story's deliverables become status quo for every story that depends on it. The dependency graph is the chain of accumulating status quos.
+Chain stories so each one's deliverables become status quo for every story that depends on it. The dependency graph is a chain of accumulating status quos.
 
 Spec rules are traces — evidence of coverage, not the decomposition axis. A story exists because it delivers a capability, not because a rule needs coverage.
 
-Vertical slices across layers (backend + frontend + schema) are preferred over horizontal stories that individually deliver nothing showable.
+Do not decompose by layer — one story for types, one for schema, one for service, one for API, one for UI is horizontal decomposition and produces stories that individually deliver nothing showable. Each story crosses all system boundaries its capability requires. Infrastructure (identity types, schema scaffolding, test markers, pre-commit fixes) enters as a line item inside the story that first uses it, never as a standalone story — unless the charter's Epic 0 explicitly requires it as a foundational story.
 
 ### Rule 3: Criteria Are Invariants
 
@@ -80,11 +80,43 @@ If charter files exist and Epic 0 stories are already in the backlog (created by
 
 **Completion**: every User Goal belongs to exactly one EPIC (an `epic:` value). If Epic 0 stories exist, feature stories carry appropriate `deps:` on the final Epic 0 story.
 
+## Step 1.5 — Sketch vertical slices
+
+Before writing any story files, sketch slice tables that force the vertical decomposition axis. This step has two sub-steps — EPIC-level slices first, then story-level slices per EPIC. Both use the same table format and the same gate.
+
+**Glossary source:** read `docs/arc42/12_glossary.md` if it exists, otherwise `docs/CONTEXT.md`. When a capability or boundary name uses domain jargon, parenthesise a plain-English gloss on first use in the table (e.g. "DispatchLedger (YAML file tracking story status)").
+
+**Boundary vocabulary:** derive boundary names from the project's architecture — components, containers, and deployment nodes in `docs/arc42/architecture.dsl` or the arc42 building-block and deployment views. Use the project's own names (e.g. `IngestPipeline`, `APIGateway`, `EventBus`), not generic layer labels like "backend" or "database."
+
+### Step 1.5a — EPIC-level slice table
+
+For each EPIC, write one row. Each row names the user-visible outcome the EPIC delivers, the system boundaries it crosses, and a one-sentence demo.
+
+| #   | EPIC outcome (what a person can do after) | Boundaries crossed | Demo sentence |
+| --- | ----------------------------------------- | ------------------ | ------------- |
+
+**Gate:** every EPIC row must cross at least two system boundaries and have a concrete, showable demo. An EPIC that groups work by layer rather than by capability must be recut.
+
+Present the table to the user for confirmation before proceeding to Step 1.5b.
+
+### Step 1.5b — Story-level slice table (per EPIC)
+
+For each confirmed EPIC, sketch a table of candidate stories before writing story files. Each row names a user-visible capability, the system boundaries it crosses, and a one-sentence demo.
+
+| #   | Capability (what a person can do after) | Boundaries crossed | Demo sentence |
+| --- | --------------------------------------- | ------------------ | ------------- |
+
+If a candidate row touches only one boundary and delivers nothing a person can demonstrate, it is not a story — fold it into the first row that needs it as a line item.
+
+**Gate:** every row crosses at least two system boundaries and has a concrete, showable demo. Present the table to the user for confirmation before proceeding to Step 2.
+
+**Completion**: confirmed EPIC-level and story-level slice tables. Every slice crosses system boundaries and is independently demo-able.
+
 ## Step 2 — Break EPICs into User Stories
 
 For each EPIC, create `backlog/ST-NNNN.md` stories meeting **INVEST** — particularly: Independent (dependencies explicit in `deps`), Small (one implementation session), Testable (acceptance criteria as falsifiable invariants).
 
-Apply the **story composition rules**: write the Demo section first (Rule 1), define scope as a step forward from the status quo of depended-on stories (Rule 2), write acceptance criteria as invariants (Rule 3). Prefer vertical slices across layers over horizontal stories that individually deliver nothing showable.
+Apply the **story composition rules**: write the Demo section first (Rule 1), define scope as a step forward from the status quo of depended-on stories (Rule 2), write acceptance criteria as invariants (Rule 3). Every story is a vertical slice that crosses all system boundaries its capability requires. A story that touches only one boundary (only schema, only service, only UI) and delivers nothing a person can demonstrate is not a story — fold it into the first story that needs it as a line item.
 
 Each story records in `traces`: Use Case ID(s) it implements (e.g. `UC-01`, `UC-A2`), the arc42 component(s) it touches, and any constraining ADR(s).
 
@@ -129,10 +161,12 @@ Review every story through two lenses before presenting to the user:
 ## Done Check
 
 - [ ] Every User Goal from the actor-goal list is covered by at least one story
+- [ ] EPIC-level and story-level slice tables confirmed by user (Step 1.5)
+- [ ] Every EPIC and story crosses at least two system boundaries
+- [ ] No horizontal (single-boundary) stories exist outside Epic 0 foundational stories
 - [ ] Stories meet INVEST criteria (especially: small and testable)
 - [ ] Dependencies are explicit in `deps` — no hidden ordering assumptions
 - [ ] Stories reference Use Case IDs in `traces` for traceability
-- [ ] Stories respect architectural layer boundaries
 - [ ] Every story has a Demo section describing a concrete, showable capability
 - [ ] Every story passes Junior Clarity and Senior Acceptance gates
 - [ ] `factory/scripts/backlog-lint` reports zero errors

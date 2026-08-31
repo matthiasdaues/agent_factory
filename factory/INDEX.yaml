@@ -74,7 +74,7 @@ agents:
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
     tokens: 648
-    total_tokens: 2655
+    total_tokens: 3355
   - name: implementation-agent
     title: Implementation Agent (Dispatcher)
     phase: 4
@@ -254,7 +254,7 @@ skills:
     category: planning
     description: Break specification and architecture into a local backlog of markdown stories — EPICs and User Stories with INVEST criteria and MoSCoW priority.
     path: skills/create-backlog/SKILL.md
-    tokens: 2007
+    tokens: 2707
   - name: crap-score
     category: implementation
     description: Compute CRAP (Change Risk Anti-Patterns) per function and block when any exceeds the threshold.
@@ -483,7 +483,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4671
-    total_tokens: 71147
+    total_tokens: 71847
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -501,7 +501,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 3054
-    total_tokens: 70654
+    total_tokens: 71354
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration

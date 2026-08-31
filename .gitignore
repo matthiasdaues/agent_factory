@@ -52,6 +52,7 @@ models/
 /.codex/agents/implementation-agent.toml
 /.codex/agents/kit-manager.toml
 /.codex/agents/planning-agent.toml
+/.codex/agents/proposal-review-agent.toml
 /.codex/agents/qa-agent.toml
 /.codex/agents/reconciliation-agent.toml
 /.codex/agents/requirements-agent.toml
@@ -60,6 +61,7 @@ models/
 /.codex/agents/research-synthesizer.toml
 /.codex/agents/researcher.toml
 /.codex/agents/spec-review-agent.toml
+/.codex/agents/virgil.toml
 /.codex/hooks.json
 /.codex/hooks/block-dangerous-git.sh
 /.codex/hooks/capture-codex-usage.sh
@@ -75,17 +77,22 @@ models/
 /.agents/skills/caveman
 /.agents/skills/claim-formulation
 /.agents/skills/clarify-requirements
+/.agents/skills/comic-relief
 /.agents/skills/commit
 /.agents/skills/crap-score
 /.agents/skills/create-backlog
 /.agents/skills/dependency-check
 /.agents/skills/derive-feature
 /.agents/skills/derive-spec
+/.agents/skills/detect-test-regime
 /.agents/skills/domain-modeling
+/.agents/skills/draft-proposal
+/.agents/skills/explain-concept
 /.agents/skills/fagan-review
 /.agents/skills/grill-me
 /.agents/skills/grill-with-docs
 /.agents/skills/grilling
+/.agents/skills/guided-tour
 /.agents/skills/handoff
 /.agents/skills/implement-issue
 /.agents/skills/init-factory
@@ -93,6 +100,7 @@ models/
 /.agents/skills/maintain-architecture
 /.agents/skills/model-structurizr-slice
 /.agents/skills/mutation-analysis
+/.agents/skills/newcomer-tour
 /.agents/skills/process-transcript
 /.agents/skills/pugh-matrix
 /.agents/skills/qa-strategy-from-spec
@@ -102,6 +110,7 @@ models/
 /.agents/skills/research-reporting
 /.agents/skills/research-synthesis
 /.agents/skills/retrospective
+/.agents/skills/reverse-map
 /.agents/skills/run-step
 /.agents/skills/scaffold-arc42
 /.agents/skills/scope-map-migration
