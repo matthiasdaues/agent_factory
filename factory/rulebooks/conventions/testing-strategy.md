@@ -70,6 +70,54 @@ boundaries separate even when they traverse the same code path. Do not conceal
 unrelated contracts in one scenario or a large assertion loop merely to reduce
 the collected-case count.
 
+## Risk classes
+
+Risk classes group contracts by failure-mode complexity to determine test-design
+treatment. They are orthogonal to layers: a layer says _where_ the test lives;
+the risk class says _how thorough_ the test design must be.
+
+The factory defines three default risk classes below. Projects can override or
+extend them in `docs/charter/testing.yaml`'s `risk_classes:` section. The
+precedence chain is:
+
+1. **Project-level overrides in `testing.yaml`** — if `risk_classes:` is
+   present, use its definitions for matching classes.
+2. **Project-linked testing strategy document** — if a testing strategy is
+   configured (via `testing_strategy:` in `testing.yaml`), consult it for
+   risk-class definitions before falling back.
+3. **Factory convention defaults below** — these definitions apply when no
+   project override exists.
+
+| Risk class   | Characteristics                                          | Format                               | Budget                                     |
+| ------------ | -------------------------------------------------------- | ------------------------------------ | ------------------------------------------ |
+| `critical`   | Atomicity, concurrency, security invariants, idempotency | Given/When/Then/Forbidden            | Unbounded: every distinct failure mode     |
+| `standard`   | CRUD operations, input validation, read APIs             | Concrete scenario text               | Equivalence: one per class plus boundaries |
+| `structural` | Declarative structure, formatting, schema conformance    | Linter-owned (no test-design output) | Deterministic layer only; no pytest needed |
+
+### Failure-scenario format
+
+`critical` contracts use the Given/When/Then/Forbidden format to capture the
+specific failure mode the test is designed to catch:
+
+```
+Given <precondition describing the system state>
+When <action that triggers the contract>
+Then <expected outcome under normal conditions>
+Forbidden <the specific failure mode this test catches>
+```
+
+The `Forbidden` line is the test's reason for existence — it names the exact
+failure the test is designed to prevent. If the test designer cannot state what
+failure mode the test catches, the test should not exist.
+
+`standard` contracts use concrete scenario text with expected inputs and
+assertions. The admit-a-test budget applies: one representative per equivalence
+class plus boundary values and distinct failure modes.
+
+`structural` contracts are owned by the deterministic linter layer. The
+test-design process emits no pytest scenarios for structural contracts; they are
+validated by linters, schema validators, and formatters at CI time.
+
 ## Delete overlapping tests safely
 
 For each consolidation batch:
