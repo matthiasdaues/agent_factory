@@ -26,6 +26,8 @@ For each confirmed EPIC, sketch a table of candidate stories. Each row names a u
 
 If a candidate row touches only one boundary and delivers nothing a person can demonstrate, it is not a story — fold it into the first row that needs it as a line item.
 
+**Title convention:** The Capability column uses an active verb phrase — this becomes the story title. "Deliver a command and accept it on the Agent", not "Command delivery and Agent acceptance."
+
 **Gate:** every row crosses at least two system boundaries and has a concrete, showable demo.
 
 ## Quality gate

@@ -34,6 +34,8 @@ For each EPIC, write one row. Each row names the user-visible outcome the EPIC d
 | #   | EPIC outcome (what a person can do after) | Boundaries crossed | Demo sentence |
 | --- | ----------------------------------------- | ------------------ | ------------- |
 
+**Title convention:** The EPIC outcome column and every story title use an active verb phrase — what a person or system *does*, not what a thing *is*. "Activate a Domain with an immutable timezone", not "Domain activation with immutable timezone." This applies to the `title:` frontmatter, the `# ` heading, and the EPIC outcome column.
+
 **Gate:** every EPIC row must cross at least two system boundaries and have a concrete, showable demo. An EPIC that groups work by layer rather than by capability must be recut.
 
 ## Quality gate
