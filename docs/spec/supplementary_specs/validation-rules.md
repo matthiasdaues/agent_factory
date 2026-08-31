@@ -152,6 +152,14 @@ See [newcomer-onboarding.feature](../newcomer-onboarding.feature).
 - [UC-09](../use_cases/UC-09-run-tests-via-hook.md)
 - [UC-11](../use_cases/UC-11-cross-a-phase-boundary.md)
 
+## Test-design validation (BR-051, BR-052, BR-053, BR-054, BR-055)
+
+- **BR-051**: The test-design skill requires `detect-test-regime` as a prerequisite. If `docs/charter/testing.yaml` lacks a `testing_strategy:` link or a `suites:` section, the skill fails with a diagnostic message and produces no output. This is a hard prerequisite, not a fallback path.
+- **BR-052**: Test ownership is resolved in a single backlog-wide pass through `backlog/epics.md`. Each contract has exactly one owning story determined by dependency order: the story that introduces the contract's infrastructure or first exercises it (earliest in dependency-sorted order among stories that trace the contract). No contract is tested twice at the same layer.
+- **BR-053**: Risk-class classification follows a three-level precedence chain: `testing.yaml` `risk_classes:` overrides > project-linked strategy document > Factory convention defaults. The Factory convention defines three risk classes: `critical` (format: `forbidden`, budget: `unbounded`), `standard` (format: `scenario`, budget: `equivalence`), `structural` (format: `linter`). Projects may add custom risk classes; custom classes must define at least `format` and `budget`.
+- **BR-054**: The `test-design-verify` gate validates the trace-to-scenario resolution chain. Exit codes follow the gate convention: `0` = pass, `1` = validation failure, `2` = configuration error. The gate is conditionally active — it runs when the story has `#### Test Design` or `#### Prior Tests` sections and exits `0` with no findings when neither exists.
+- **BR-055**: The `gates` section in `docs/charter/testing.yaml` configures individual gates (enabled/disabled, thresholds). It does not define execution ordering; [ADR-0012](../../adr/0012-dispatcher-owned-semantic-gate-loop.md) owns the dispatcher's gate sequence. The CRAP-score script reads `gates.crap_score.threshold` from `testing.yaml`, replacing the dead-code `read_threshold_from_house_rules()` function. When the `gates` section is absent, the script falls back to its hardcoded default of 30.
+
 ## Dispatch ledger (`dispatch`)
 
 - `mark-dispatching`, `mark-dispatched`, `mark-blocked`, `mark-failed`, `re-dispatch`, and `escalate` are idempotent no-ops when the story is already in the target state or tier outcome.

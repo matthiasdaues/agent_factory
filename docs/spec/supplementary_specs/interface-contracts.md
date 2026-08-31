@@ -267,8 +267,92 @@ All stories must have YAML frontmatter with the following fields:
 
 The script derives the module map from `architecture.dsl` (containers, components, relationships), compares it against Phase 1 outputs, and checks three conditions: (a) new module not in DSL, (b) changed public interface, (c) new or inverted dependency direction. Override semantics: `false`→`true` machine wins (annotated `# mechanical detection`); `true`→`false` prior human declaration respected conservatively. A new entity in an existing module does not trigger `architecture_change=true`.
 
+## `factory/scripts/test-design-verify`
+
+|               |                                                                                                                                                                                                                                                      |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage         | `test-design-verify --story <path> [--scope-map PATH] [--spec-dir PATH]`                                                                                                                                                                             |
+| Reads         | The story file's `traces:` frontmatter; `docs/spec/scope-map.md`; `.feature` files referenced by the scope map; the story's `#### Test Design` and `#### Prior Tests` sections                                                                       |
+| Writes        | Nothing — read-only validation                                                                                                                                                                                                                       |
+| Exit code     | `0` when every reachable scenario has a corresponding test assertion or valid waiver; `1` when any owned contract lacks an assertion or a waiver is invalid; `2` on configuration error (unresolvable trace ID, missing scope map, missing .feature) |
+| stdout/stderr | One line per validation result; unresolvable trace IDs and invalid waivers reported to stderr                                                                                                                                                        |
+
+### Resolution chain
+
+1. Read the story's `traces:` frontmatter (e.g., `[DOM-01, OBS-04]`).
+2. For each trace ID, look up the corresponding entry in `docs/spec/scope-map.md` to find the `.feature` file and rule.
+3. Read the `.feature` file and collect the individual Scenarios under that rule.
+4. For owning stories: verify each reachable Scenario has a corresponding entry in the story's `#### Test Design` section.
+5. For non-owning stories: verify the story has a `#### Prior Tests` entry pointing to the owner's test module and function.
+
+### Waiver format
+
+A blockquote line within the `#### Test Design` section:
+
+```markdown
+> Waiver: DOM-01 — owned by tests/test_domain.py::test_entity_uniqueness
+```
+
+The gate parses these lines and verifies the named test module exists. A waiver without a resolvable owner path fails validation (exit 1).
+
+### Conditional activation
+
+The gate is skipped when the story has no `#### Test Design` section and no `#### Prior Tests` section — it exits 0 and produces no findings. This preserves backward compatibility with stories that predate the test-design skill.
+
+## `docs/charter/testing.yaml` — `gates` section schema
+
+The `gates` section centralizes gate configuration that the dispatcher reads at runtime. It does not define gate execution ordering; [ADR-0012](../../adr/0012-dispatcher-owned-semantic-gate-loop.md) owns the dispatcher's gate sequence.
+
+```yaml
+gates:
+  crap_score:
+    enabled: true
+    threshold: 8
+  mutation_testing:
+    enabled: false
+  test_design_verify:
+    # Implicitly enabled when test-design output exists in the story.
+    # Skipped when no test-design sections are present.
+```
+
+| Field                            | Type  | Required | Notes                                                                            |
+| -------------------------------- | ----- | -------- | -------------------------------------------------------------------------------- |
+| `gates.crap_score.enabled`       | bool  | yes      | Whether the dispatcher runs the crap-score gate                                  |
+| `gates.crap_score.threshold`     | float | yes      | Per-function CRAP threshold; replaces the dead-code house-rules lookup           |
+| `gates.mutation_testing.enabled` | bool  | yes      | Whether the dispatcher runs mutation testing; `false` until infrastructure ready |
+| `gates.test_design_verify`       | —     | no       | Conditional; active when test-design output exists in the story                  |
+
+## `docs/charter/testing.yaml` — `risk_classes` section schema
+
+Optional per-project overrides of Factory convention risk-class defaults. Precedence: `testing.yaml` inline > project-linked strategy document > Factory convention defaults.
+
+```yaml
+risk_classes:
+  critical:
+    format: forbidden          # Given/When/Then/Forbidden
+    budget: unbounded          # every distinct failure mode gets a scenario
+  standard:
+    format: scenario           # concrete input/output pairs
+    budget: equivalence        # one per equivalence class + boundaries
+  structural:
+    format: linter             # no test-design output; linter owns it
+  financial:                   # project-specific addition
+    format: forbidden
+    budget: unbounded
+    requires:
+      - double_entry_invariant
+      - idempotent_retry
+```
+
+| Field per risk class | Type           | Required | Notes                                          |
+| -------------------- | -------------- | -------- | ---------------------------------------------- |
+| `format`             | string         | yes      | `forbidden`, `scenario`, or `linter`           |
+| `budget`             | string         | yes      | `unbounded` or `equivalence`                   |
+| `requires`           | list of string | no       | Named invariants the contract must demonstrate |
+
 ## Referenced from
 
 - [entity-model.md](entity-model.md)
 - [validation-rules.md](validation-rules.md)
 - [use_cases/system-use-cases.md](../use_cases/system-use-cases.md)
+- [test-design.feature](../test-design.feature)
