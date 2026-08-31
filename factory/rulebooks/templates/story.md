@@ -60,6 +60,12 @@ Concrete values, not placeholders. Happy path plus one meaningful edge case.>
 **Adds:** <what this story creates or changes, across all layers>
 **Out of scope:** <what explicitly does not change>
 
+## Terminology
+
+<optional — define project-specific terms used in this story. One term per line,
+"Term: definition" format. Source definitions from docs/arc42/12_glossary.md or
+docs/CONTEXT.md; include only terms the reader needs to understand this story.>
+
 ## Notes for the Implementer
 
 <optional guidance, constraints, or context>
