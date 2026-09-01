@@ -218,3 +218,57 @@ gates:
     assert "threshold=15.5" in result.stderr, (
         f"Expected 'threshold=15.5' in output, got: {result.stderr}"
     )
+
+
+def test_crap_score_threshold_does_not_leak_from_sibling_gate(tmp_path: Path) -> None:
+    """FAGAN-0031: threshold search must be bounded to the crap_score section.
+
+    When crap_score has no threshold but a sibling gate does, the function
+    must return None so resolve_threshold falls back to the hardcoded default,
+    not silently adopt the sibling's threshold."""
+    charter_dir = tmp_path / "docs" / "charter"
+    charter_dir.mkdir(parents=True)
+
+    testing_yaml = charter_dir / "testing.yaml"
+    testing_yaml.write_text(
+        """---
+gates:
+  crap_score:
+    enabled: true
+  mutation_testing:
+    enabled: false
+    threshold: 50
+""",
+        encoding="utf-8",
+    )
+
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    (src_dir / "example.py").write_text(
+        "def simple_func():\n    return 42\n", encoding="utf-8"
+    )
+
+    cov_json = tmp_path / "coverage.json"
+    cov_json.write_text(
+        '{"files": {"src/example.py": {"executed_lines": [2], "missing_lines": []}}}',
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(CRAP_SCRIPT),
+            "--source-root",
+            str(src_dir),
+            "--coverage-json",
+            str(cov_json),
+        ],
+        cwd=str(tmp_path),
+        capture_output=True,
+        text=True,
+    )
+
+    # Must fall back to default 30, NOT pick up mutation_testing's 50
+    assert "threshold=30" in result.stderr, (
+        f"Expected 'threshold=30' (default fallback), got: {result.stderr}"
+    )

@@ -115,12 +115,21 @@ def read_threshold_from_testing_yaml(source_root: Path) -> float | None:
             if not crap_match:
                 return None
 
-            # Find threshold within crap_score
+            # Find threshold within crap_score, bounded to that section.
+            # A peer-level key (same indent as crap_score) marks the end.
             crap_pos = crap_match.start()
-            remaining = remaining[crap_pos:]
+            crap_section = remaining[crap_pos:]
+            crap_indent = crap_match.group(0).split("crap_score")[0]
+            peer_pattern = re.compile(
+                r"^" + re.escape(crap_indent) + r"(?!crap_score)\w+:",
+                re.MULTILINE,
+            )
+            peer_match = peer_pattern.search(crap_section, crap_match.end() - crap_pos)
+            if peer_match:
+                crap_section = crap_section[: peer_match.start()]
             threshold_match = re.search(
                 r"^\s{4,}threshold:\s*(\d+(?:\.\d+)?)\s*$",
-                remaining,
+                crap_section,
                 re.MULTILINE,
             )
             if threshold_match:
