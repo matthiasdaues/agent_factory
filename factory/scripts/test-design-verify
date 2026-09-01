@@ -8,10 +8,10 @@ What: Resolves each story's `traces:` frontmatter through
       `docs/spec/scope-map.md` to the owning `.feature` file and Rule,
       collects the Scenarios under that Rule, and verifies each reachable
       Scenario has a corresponding test assertion — either an entry in the
-      story's `#### Test Design` section (owning stories), a valid waiver,
+      story's `#### Failure scenarios` section (owning stories), a valid waiver,
       or a resolvable entry in the story's `#### Prior Tests` section
       (non-owning stories).
-When:  After the test-design skill has written `#### Test Design` /
+When:  After the test-design skill has written `#### Failure scenarios` /
        `#### Prior Tests` sections into a story file, and on demand while
        the implementation-agent dispatcher runs its gate loop.
 By:    implementation-agent dispatcher or a human/operator session.
@@ -22,7 +22,7 @@ Resolution chain
      `docs/spec/scope-map.md` to find the `.feature` file and Rule.
   3. Read the `.feature` file and collect the Scenarios under that Rule.
   4. Verify each reachable Scenario has a corresponding entry in
-     `#### Test Design` (owning stories) or `#### Prior Tests`
+     `#### Failure scenarios` (owning stories) or `#### Prior Tests`
      (non-owning stories), or a valid waiver.
 
 Exit codes
@@ -50,7 +50,7 @@ DEFAULT_SCOPE_MAP = "docs/spec/scope-map.md"
 DEFAULT_SPEC_DIR = "docs/spec"
 DEFAULT_REPORT_DIR = ".current-work/test-design-verify"
 
-TEST_DESIGN_HEADING = "Test Design"
+TEST_DESIGN_HEADING = "Failure scenarios"
 PRIOR_TESTS_HEADING = "Prior Tests"
 
 _RULE_SHORTHAND_RE = re.compile(r"^(?P<feature>[\w.\-]+\.feature)/Rule-(?P<num>\d+)$")
@@ -96,7 +96,7 @@ class ResolvedRule:
 @dataclass(frozen=True)
 class Waiver:
     """A parsed `> Waiver: <id> -- owned by <path>::<func>` blockquote line
-    from a story's Test Design section."""
+    from a story's Failure scenarios section."""
 
     trace_id: str
     path: str
@@ -503,7 +503,7 @@ def _scenario_covered(
     repo_root: Path,
 ) -> bool:
     """Decide whether one reachable Scenario has a coverage source: a
-    title match in Test Design, a valid waiver for its trace, or a
+    title match in Failure scenarios, a valid waiver for its trace, or a
     resolvable Prior Tests entry."""
     if test_design_text is not None and scenario in test_design_text:
         return True
@@ -540,7 +540,7 @@ def _missing_assertion_findings(
             findings.append(
                 Finding(
                     kind="missing_assertion",
-                    message=f"scenario '{scenario}' has no Test Design assertion, "
+                    message=f"scenario '{scenario}' has no Failure scenarios assertion, "
                     "waiver, or resolvable Prior Tests entry",
                     trace_id=resolved.trace_id,
                     scenario=scenario,

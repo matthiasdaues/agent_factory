@@ -128,7 +128,7 @@ The dispatcher determines which gates apply to the story by combining two inputs
 
 **Gate discovery from `testing.yaml`:** The dispatcher reads `docs/charter/testing.yaml` and iterates the `gates` section. For each gate entry it reads the `enabled` flag: gates where `enabled` is `false` are skipped. Gates where `enabled` is `true` are included in the resolved gate list. Gate-specific parameters (such as `threshold` for `crap_score`) are passed to the corresponding gate script at invocation time.
 
-**Special case — `test_design_verify`:** This gate is implicitly enabled when the story file contains a Test Design section or a Prior Tests section. It is skipped when no test-design output exists in the story. It does not require an explicit `enabled` flag in `testing.yaml`.
+**Special case — `test_design_verify`:** This gate is implicitly enabled when the story file contains a Failure scenarios section or a Prior Tests section. It is skipped when no test-design output exists in the story. It does not require an explicit `enabled` flag in `testing.yaml`.
 
 **Precedence (highest wins):**
 
@@ -146,7 +146,7 @@ factory/scripts/dependency-check   <source-files> --story-id <story-id>
 factory/scripts/test-design-verify <story-file>   --story-id <story-id>
 ```
 
-The `crap-score` script receives the `threshold` value from `testing.yaml`'s `gates.crap_score.threshold`. If no threshold is configured, the script falls back to its hardcoded default. The `test_design_verify` gate runs only when the story contains a Test Design or Prior Tests section; the dispatcher skips it otherwise.
+The `crap-score` script receives the `threshold` value from `testing.yaml`'s `gates.crap_score.threshold`. If no threshold is configured, the script falls back to its hardcoded default. The `test_design_verify` gate runs only when the story contains a Failure scenarios or Prior Tests section; the dispatcher skips it otherwise.
 
 Each script writes a JSON report to `.current-work/<gate-name>/<story-id>.json` and exits 0 on pass, 1 on failure. The dispatcher reads the exit code and the JSON report to determine the outcome.
 

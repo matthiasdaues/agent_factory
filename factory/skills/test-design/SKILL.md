@@ -163,8 +163,8 @@ tracer (step 9).
    `ST-NNNN` numeric ID.
 4. **Circular dependency detected** among candidates: do not fail the run.
    Fall back to the lowest `ST-NNNN` ID among the cyclic group, and record a
-   `> Warning: circular dependency among <IDs> tracing <contract> — resolved to <ID> by lowest ID` blockquote immediately under that story's Test
-   Design section, so a human reviewer can confirm or correct it.
+   `> Warning: circular dependency among <IDs> tracing <contract> — resolved to <ID> by lowest ID` blockquote immediately under that story's Failure scenarios
+   section, so a human reviewer can confirm or correct it.
 
 Every contract ends this step with exactly one owner. No contract is ever
 resolved twice, and no two contracts at the same layer share an owner in a
@@ -213,7 +213,7 @@ restatement of the `Then` line. If no distinct failure mode can be named, do
 not write the scenario — go back to step 5 and re-check the risk class; a
 contract with no nameable failure mode is rarely `critical`.
 
-Write these into the owning story's `#### Test Design` section (format in
+Write these into the owning story's `#### Failure scenarios` section (format in
 [Output format](#output-format) below).
 
 ### 7. Write concrete scenarios for `standard` contracts
@@ -228,12 +228,12 @@ owning contract test cannot reach, or replaces weaker coverage while reducing
 total maintenance. Do not pad the budget with restatements of the same
 equivalence class.
 
-Write these into the owning story's `#### Test Design` section.
+Write these into the owning story's `#### Failure scenarios` section.
 
 ### 8. Emit nothing for `structural` contracts
 
 `structural` contracts are owned by the deterministic linter layer. Do not
-write a `#### Test Design` entry for them at all — no placeholder, no empty
+write a `#### Failure scenarios` entry for them at all — no placeholder, no empty
 scenario. They remain fully covered by schema validators, linters, and
 formatters outside this skill's scope.
 
@@ -252,7 +252,7 @@ Name both the module path and the function — a module path alone is not
 enough for the developer-agent to run the right check first. If the owning
 story's exact test function is not yet known (the owner hasn't been
 implemented yet), name the owner story and its planned test module from
-step 6/7's Test Design output instead of leaving the entry blank; never emit
+step 6/7's Failure scenarios output instead of leaving the entry blank; never emit
 a `#### Prior Tests` section with an empty list — a story with prior-test
 obligations but no resolvable entry is a defect in the resolution pass
 (re-check step 4), not something to paper over with an empty section.
@@ -280,7 +280,7 @@ Inventory table:
 
 tests: [tests/factory/test_test_design.py]
 
-##### Test Design
+##### Failure scenarios
 
 - **Contract:** `Ownership resolution: introducing story owns` (test-design.feature
   Rule 3, Scenario 1) — risk class: `critical` — layer: `contract_test`
@@ -290,7 +290,7 @@ tests: [tests/factory/test_test_design.py]
 Given a contract traced by stories ST-0185 (introducing) and ST-0186 (non-owning)
 When the test-design skill resolves ownership in a single backlog-wide pass
 Then ST-0185 is recorded as the sole owner of the contract's test
-Forbidden both ST-0185 and ST-0186 emitting a Test Design entry for the same contract
+Forbidden both ST-0185 and ST-0186 emitting a Failure scenarios entry for the same contract
 
 ```
 
@@ -304,10 +304,10 @@ Rules for this block:
 
 - The story-level header (`####`) uses the story's own EPIC heading depth
   plus one — it sits under the EPIC's `### Building-Block Inventory` table,
-  not inside it. Do not add a `tests`/Test Design/Prior Tests column to the
+  not inside it. Do not add a `tests`/Failure scenarios/Prior Tests column to the
   table itself; the table stays a scan-at-a-glance index, the subsections
   carry the detail.
-- `##### Test Design` appears only on the owning story, and only when it owns
+- `##### Failure scenarios` appears only on the owning story, and only when it owns
   at least one `critical` or `standard` contract (never for `structural`
   contracts — step 8).
 - `##### Prior Tests` appears only on a non-owning story that traces a
@@ -324,11 +324,11 @@ after writing.
 ## This skill ends here
 
 `backlog/epics.md` carries test-design output: `tests:` on every owning
-story, `#### Test Design` with risk-classified failure scenarios, and
+story, `#### Failure scenarios` with risk-classified failure scenarios, and
 `#### Prior Tests` on every non-owning tracer. The user reviews the
 enrichment, then proceeds to
 [`create-backlog-story-slices`](../create-backlog-story-slices/SKILL.md)
 (phase 3) as usual — this skill does not itself write `backlog/ST-NNNN.md`
 files; [`create-backlog-stories`](../create-backlog-stories/SKILL.md) (phase
-4\) carries the `tests:`, `#### Test Design`, and `#### Prior Tests` sections
+4\) carries the `tests:`, `#### Failure scenarios`, and `#### Prior Tests` sections
 from `epics.md` into the individual story files verbatim.

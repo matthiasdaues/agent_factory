@@ -37,8 +37,8 @@ For each story, cross-reference against the testing regime:
 **When `backlog/epics.md` contains test-design sections** (produced by the optional test-design skill in phase 2.5), carry them into the story files:
 
 - If the story's epic building-block entry has a `tests:` key, populate the story's `tests:` frontmatter field with that value (overriding any cross-referenced test discovery).
-- If the entry contains a `#### Test Design` section, write it verbatim into the story body immediately after the Acceptance Criteria section.
-- If the entry contains a `#### Prior Tests` section, write it verbatim into the story body immediately after the Test Design section (or after Acceptance Criteria if no Test Design exists).
+- If the entry contains a `#### Failure scenarios` section, write it verbatim into the story body immediately after the Acceptance Criteria section.
+- If the entry contains a `#### Prior Tests` section, write it verbatim into the story body immediately after the Failure scenarios section (or after Acceptance Criteria if no Failure scenarios section exists).
 
 When `backlog/epics.md` contains no test-design sections (the skill was not run), the cross-referencing behavior above continues unchanged.
 
