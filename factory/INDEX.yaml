@@ -279,7 +279,7 @@ skills:
     category: implementation
     description: Compute CRAP (Change Risk Anti-Patterns) per function and block when any exceeds the threshold.
     path: skills/crap-score/SKILL.md
-    tokens: 639
+    tokens: 634
   - name: dependency-check
     category: implementation
     description: Enforce architecture.dsl dependency rules by scanning source imports and writing a JSON gate report.
