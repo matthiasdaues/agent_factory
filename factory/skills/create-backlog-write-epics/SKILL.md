@@ -42,3 +42,7 @@ Present `backlog/epics.md` to the user for confirmation.
 ## This skill ends here
 
 The EPIC artifact is written. **Do not proceed to story-level slicing.** The user confirms or adjusts `backlog/epics.md`, then invokes the next skill: [`create-backlog-story-slices`](../create-backlog-story-slices/SKILL.md).
+
+## Optional: Invoke test-design
+
+Before proceeding to step 3, you may invoke [`test-design`](../test-design/SKILL.md) to enrich the epics with test scenarios from the `.feature` contracts. The test-design skill designs failure scenarios that prescribe the developer-agent's TDD RED phase — without it, each developer-agent invents its own tests, often defaulting to obvious happy-path coverage that proves nothing about the behavioral invariants the specification intended. By contrast, test-design output ensures every test traces to a contract and every contract has one clear owner.

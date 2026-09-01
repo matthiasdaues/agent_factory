@@ -17,12 +17,13 @@ Stories are project artifacts, not entries in an external tracker: one file per 
 
 The operational procedure is split into four phase-gated skills. Each skill ends when its output is delivered; the user confirms or adjusts before invoking the next. This structural separation enforces the pause points that prose instructions cannot.
 
-| Phase | Skill                                                                    | What happens                                   | Output                          |
-| ----- | ------------------------------------------------------------------------ | ---------------------------------------------- | ------------------------------- |
-| 1     | [`create-backlog-epics`](../create-backlog-epics/SKILL.md)               | Survey codebase, propose EPIC slicing approach | EPIC slice table for approval   |
-| 2     | [`create-backlog-write-epics`](../create-backlog-write-epics/SKILL.md)   | Write the EPIC artifact from approved approach | `backlog/epics.md`              |
-| 3     | [`create-backlog-story-slices`](../create-backlog-story-slices/SKILL.md) | Sketch story-level slices per EPIC             | Story slice tables for approval |
-| 4     | [`create-backlog-stories`](../create-backlog-stories/SKILL.md)           | Write stories, prioritise, validate            | `backlog/ST-NNNN.md` files      |
+| Phase | Skill                                                                    | What happens                                   | Output                                     |
+| ----- | ------------------------------------------------------------------------ | ---------------------------------------------- | ------------------------------------------ |
+| 1     | [`create-backlog-epics`](../create-backlog-epics/SKILL.md)               | Survey codebase, propose EPIC slicing approach | EPIC slice table for approval              |
+| 2     | [`create-backlog-write-epics`](../create-backlog-write-epics/SKILL.md)   | Write the EPIC artifact from approved approach | `backlog/epics.md`                         |
+| 2.5   | [`test-design`](../test-design/SKILL.md) (optional)                      | Design test scenarios from contracts           | Test-design sections in `backlog/epics.md` |
+| 3     | [`create-backlog-story-slices`](../create-backlog-story-slices/SKILL.md) | Sketch story-level slices per EPIC             | Story slice tables for approval            |
+| 4     | [`create-backlog-stories`](../create-backlog-stories/SKILL.md)           | Write stories, prioritise, validate            | `backlog/ST-NNNN.md` files                 |
 
 Junior Clarity and Senior Acceptance gates run at the end of every phase, not just the final one.
 
