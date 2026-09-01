@@ -275,6 +275,11 @@ skills:
     description: Write backlog/epics.md from the approved EPIC slicing approach. Phase 2 of 4 in the create-backlog sequence.
     path: skills/create-backlog-write-epics/SKILL.md
     tokens: 571
+  - name: test-design
+    category: planning
+    description: Design test scenarios from .feature contracts and the scope map before stories are cut. Assigns one test owner per contract across the backlog, classifies contracts by risk class, and writes concrete failure scenarios into backlog/epics.md. Optional step 2.5 in the create-backlog sequence, between create-backlog-write-epics and create-backlog-story-slices.
+    path: skills/test-design/SKILL.md
+    tokens: 3734
   - name: crap-score
     category: implementation
     description: Compute CRAP (Change Risk Anti-Patterns) per function and block when any exceeds the threshold.
