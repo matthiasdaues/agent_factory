@@ -1,0 +1,707 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
+"""test-design-verify — gate validating test-design completeness.
+
+What: Resolves each story's `traces:` frontmatter through
+      `docs/spec/scope-map.md` to the owning `.feature` file and Rule,
+      collects the Scenarios under that Rule, and verifies each reachable
+      Scenario has a corresponding test assertion — either an entry in the
+      story's `#### Test Design` section (owning stories), a valid waiver,
+      or a resolvable entry in the story's `#### Prior Tests` section
+      (non-owning stories).
+When:  After the test-design skill has written `#### Test Design` /
+       `#### Prior Tests` sections into a story file, and on demand while
+       the implementation-agent dispatcher runs its gate loop.
+By:    implementation-agent dispatcher or a human/operator session.
+
+Resolution chain
+  1. Read the story's `traces:` frontmatter.
+  2. For each trace ID, look up the corresponding entry in
+     `docs/spec/scope-map.md` to find the `.feature` file and Rule.
+  3. Read the `.feature` file and collect the Scenarios under that Rule.
+  4. Verify each reachable Scenario has a corresponding entry in
+     `#### Test Design` (owning stories) or `#### Prior Tests`
+     (non-owning stories), or a valid waiver.
+
+Exit codes
+  0 = pass (or no test-design output present — nothing to validate)
+  1 = validation failure (missing assertion, invalid waiver, unresolved
+      Prior Tests entry)
+  2 = configuration error (unresolvable trace ID, missing scope-map entry,
+      missing .feature file)
+
+Output
+  Writes JSON to .current-work/test-design-verify/<story-id>.json and a
+  human-readable line per finding to stderr.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+
+DEFAULT_SCOPE_MAP = "docs/spec/scope-map.md"
+DEFAULT_SPEC_DIR = "docs/spec"
+DEFAULT_REPORT_DIR = ".current-work/test-design-verify"
+
+TEST_DESIGN_HEADING = "Test Design"
+PRIOR_TESTS_HEADING = "Prior Tests"
+
+_RULE_SHORTHAND_RE = re.compile(r"^(?P<feature>[\w.\-]+\.feature)/Rule-(?P<num>\d+)$")
+_RULE_LINE_RE = re.compile(r"^Rule:\s*(.+)$")
+_SCENARIO_LINE_RE = re.compile(r"^Scenario(?: Outline)?:\s*(.+)$")
+_HEADING_RE = re.compile(r"^#{1,6}\s")
+_WAIVER_RE = re.compile(
+    r"^>\s*Waiver:\s*(?P<id>\S+)\s*(?:--|—)\s*owned by\s*"
+    r"(?P<path>\S+?)::(?P<func>\w+)\s*$",
+    re.MULTILINE,
+)
+_MODULE_FUNC_RE = re.compile(r"`([\w./\-]+\.py)::(\w+)`")
+_DEF_RE_TEMPLATE = r"^\s*def\s+{func}\s*\("
+
+
+class ConfigError(Exception):
+    """Raised when the resolution chain hits an unrecoverable configuration
+    problem — an unresolvable trace ID, a missing scope-map entry, or a
+    missing .feature file. Maps to exit code 2."""
+
+
+@dataclass(frozen=True)
+class ScopeMapRow:
+    """One data row of docs/spec/scope-map.md: a Rule description paired
+    with its Sources column (which names the owning .feature file, or
+    embeds another trace token such as a UC or ADR ID)."""
+
+    rule: str
+    sources: str
+
+
+@dataclass(frozen=True)
+class ResolvedRule:
+    """The result of resolving one trace ID through the scope map to a
+    concrete .feature Rule and its Scenario titles."""
+
+    trace_id: str
+    feature_path: Path
+    rule_text: str
+    scenarios: list[str]
+
+
+@dataclass(frozen=True)
+class Waiver:
+    """A parsed `> Waiver: <id> -- owned by <path>::<func>` blockquote line
+    from a story's Test Design section."""
+
+    trace_id: str
+    path: str
+    func: str
+
+
+@dataclass(frozen=True)
+class PriorTestEntry:
+    """One resolvable reference from a story's Prior Tests section: the
+    bullet's leading key (a trace ID or contract title) and the
+    `path::function` it claims covers that contract."""
+
+    key: str
+    path: str
+    func: str
+
+
+@dataclass
+class Finding:
+    """One validation failure surfaced by the gate."""
+
+    kind: str
+    message: str
+    trace_id: str | None = None
+    scenario: str | None = None
+
+
+@dataclass
+class Report:
+    """The gate's complete JSON report, written to
+    .current-work/test-design-verify/<story-id>.json."""
+
+    story: str
+    story_id: str
+    passed: bool
+    skipped: bool
+    exit_code: int
+    resolved: list[dict] = field(default_factory=list)
+    findings: list[dict] = field(default_factory=list)
+    config_errors: list[str] = field(default_factory=list)
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--story", required=True, help="path to the story file")
+    parser.add_argument(
+        "--story-id",
+        default=None,
+        help="story identifier for the JSON report filename "
+        "(default: story's own id: frontmatter, then filename stem)",
+    )
+    parser.add_argument(
+        "--scope-map",
+        default=DEFAULT_SCOPE_MAP,
+        help=f"path to scope-map.md (default: {DEFAULT_SCOPE_MAP})",
+    )
+    parser.add_argument(
+        "--spec-dir",
+        default=DEFAULT_SPEC_DIR,
+        help=f"directory containing .feature files (default: {DEFAULT_SPEC_DIR})",
+    )
+    parser.add_argument(
+        "--repo-root",
+        default=".",
+        help="root used to resolve waiver/prior-test module paths (default: .)",
+    )
+    parser.add_argument(
+        "--report-dir",
+        default=DEFAULT_REPORT_DIR,
+        help=f"directory to write the JSON report (default: {DEFAULT_REPORT_DIR})",
+    )
+    return parser.parse_args(argv)
+
+
+# --------------------------------------------------------------------------
+# Frontmatter and section extraction
+# --------------------------------------------------------------------------
+
+
+def extract_frontmatter(story_text: str) -> str:
+    """Return the text between the first two '---' lines, or '' if the
+    story has no frontmatter block."""
+    lines = story_text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return ""
+    for idx in range(1, len(lines)):
+        if lines[idx].strip() == "---":
+            return "\n".join(lines[1:idx])
+    return ""
+
+
+def read_traces(story_text: str) -> list[str]:
+    """Parse the `traces: [A, B, C]` frontmatter line into a list of trace
+    IDs. Minimal, stdlib-only YAML subset — a single-line bracketed list."""
+    frontmatter = extract_frontmatter(story_text)
+    match = re.search(r"^traces:\s*\[(?P<items>.*)\]\s*$", frontmatter, re.MULTILINE)
+    if not match:
+        return []
+    items = match.group("items").strip()
+    if not items:
+        return []
+    return [item.strip().strip("'\"") for item in items.split(",") if item.strip()]
+
+
+def read_story_id_field(story_text: str) -> str | None:
+    """Parse the `id: ST-NNNN` frontmatter line, if present."""
+    frontmatter = extract_frontmatter(story_text)
+    match = re.search(r"^id:\s*(\S+)\s*$", frontmatter, re.MULTILINE)
+    return match.group(1) if match else None
+
+
+def detect_story_id(explicit: str | None, story_text: str, story_path: Path) -> str:
+    if explicit:
+        return explicit
+    return read_story_id_field(story_text) or story_path.stem
+
+
+def extract_section(story_text: str, heading: str) -> str | None:
+    """Return the body of the `#### <heading>` section, or None if the
+    story has no such section. The section ends at the next heading of any
+    level (# through ######), or at end of file."""
+    pattern = re.compile(rf"^####\s+{re.escape(heading)}\s*$", re.MULTILINE)
+    match = pattern.search(story_text)
+    if not match:
+        return None
+    start = match.end()
+    rest = story_text[start:]
+    next_heading = _HEADING_RE.search(rest, 1)
+    end = start + next_heading.start() if next_heading else len(story_text)
+    return story_text[start:end]
+
+
+# --------------------------------------------------------------------------
+# Scope map parsing
+# --------------------------------------------------------------------------
+
+
+def _find_scope_map_header(lines: list[str]) -> int | None:
+    """Locate the scope-map table's header row — the first `|`-delimited
+    line naming both a Rule and a Sources column."""
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("|") and "Rule" in stripped and "Sources" in stripped:
+            return idx
+    return None
+
+
+def _scope_map_column_indices(header_line: str) -> tuple[int, int] | None:
+    """Return (rule_index, sources_index) for the header row, or None when
+    either named column is absent."""
+    cells = [c.strip() for c in header_line.strip().strip("|").split("|")]
+    try:
+        return cells.index("Rule"), cells.index("Sources")
+    except ValueError:
+        return None
+
+
+def _parse_scope_map_rows(
+    data_lines: list[str], rule_idx: int, sources_idx: int
+) -> list[ScopeMapRow]:
+    """Parse table data rows into ScopeMapRow entries, stopping at the
+    first line that is no longer part of the table."""
+    rows: list[ScopeMapRow] = []
+    max_idx = max(rule_idx, sources_idx)
+    for line in data_lines:
+        if not line.strip().startswith("|"):
+            break
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) <= max_idx:
+            continue
+        rows.append(ScopeMapRow(rule=cells[rule_idx], sources=cells[sources_idx]))
+    return rows
+
+
+def parse_scope_map(text: str) -> list[ScopeMapRow]:
+    """Extract the Rule and Sources columns from the scope-map table,
+    tolerant of column reordering — the header row is read to find each
+    column's position rather than assuming a fixed layout."""
+    lines = text.splitlines()
+    header_idx = _find_scope_map_header(lines)
+    if header_idx is None:
+        return []
+    indices = _scope_map_column_indices(lines[header_idx])
+    if indices is None:
+        return []
+    rule_idx, sources_idx = indices
+    return _parse_scope_map_rows(lines[header_idx + 2 :], rule_idx, sources_idx)
+
+
+# --------------------------------------------------------------------------
+# .feature parsing and trace resolution
+# --------------------------------------------------------------------------
+
+
+def parse_feature_rules(text: str) -> list[tuple[str, list[str]]]:
+    """Parse a .feature file into an ordered list of (rule_text,
+    scenario_titles), one entry per top-level `Rule:` block."""
+    rules: list[tuple[str, list[str]]] = []
+    current_scenarios: list[str] | None = None
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        rule_match = _RULE_LINE_RE.match(line)
+        if rule_match:
+            rules.append((rule_match.group(1).strip(), []))
+            current_scenarios = rules[-1][1]
+            continue
+        scenario_match = _SCENARIO_LINE_RE.match(line)
+        if scenario_match and current_scenarios is not None:
+            current_scenarios.append(scenario_match.group(1).strip())
+    return rules
+
+
+def _load_feature_rules(feature_path: Path, trace_id: str) -> list[tuple[str, list[str]]]:
+    """Read and parse a .feature file, raising ConfigError (not an OS
+    error) when it is missing — the gate's exit-2 contract stays uniform
+    regardless of which resolution path failed."""
+    if not feature_path.is_file():
+        raise ConfigError(f"missing .feature file '{feature_path}' ({trace_id})")
+    return parse_feature_rules(feature_path.read_text(encoding="utf-8"))
+
+
+def resolve_trace(
+    trace_id: str, scope_rows: list[ScopeMapRow], spec_dir: Path
+) -> ResolvedRule:
+    """Resolve one trace ID to its owning .feature Rule and Scenarios.
+
+    Two resolution paths, tried in order:
+
+    1. The `<feature>.feature/Rule-<NN>` shorthand — the trace ID directly
+       names the feature file and the Rule's 1-indexed position within it.
+       The scope map is still consulted to confirm an entry exists (a
+       missing entry is a configuration error), which is what lets a
+       reviewer catch a story tracing a Rule the scope map has not caught
+       up with yet.
+    2. A generic token lookup — the trace ID (e.g. a UC or ADR ID, or a
+       project-defined contract ID like `DOM-01`) is searched for in the
+       scope map's Sources column. The matching row's Rule text is then
+       located verbatim inside the .feature file it names.
+    """
+    shorthand = _RULE_SHORTHAND_RE.match(trace_id)
+    if shorthand:
+        return _resolve_shorthand(trace_id, shorthand, scope_rows, spec_dir)
+    return _resolve_generic_token(trace_id, scope_rows, spec_dir)
+
+
+def _resolve_shorthand(
+    trace_id: str,
+    shorthand: re.Match[str],
+    scope_rows: list[ScopeMapRow],
+    spec_dir: Path,
+) -> ResolvedRule:
+    feature_name = shorthand.group("feature")
+    rule_num = int(shorthand.group("num"))
+
+    matching_rows = [row for row in scope_rows if feature_name in row.sources]
+    if rule_num < 1 or rule_num > len(matching_rows):
+        raise ConfigError(f"missing scope-map entry for trace ID '{trace_id}'")
+
+    feature_path = spec_dir / feature_name
+    rules = _load_feature_rules(feature_path, trace_id)
+    if rule_num > len(rules):
+        raise ConfigError(
+            f"'{feature_name}' has no Rule #{rule_num} for trace ID '{trace_id}'"
+        )
+    rule_text, scenarios = rules[rule_num - 1]
+    return ResolvedRule(trace_id, feature_path, rule_text, list(scenarios))
+
+
+def _find_scope_map_candidate(trace_id: str, scope_rows: list[ScopeMapRow]) -> ScopeMapRow:
+    token_re = re.compile(r"(?<![\w-])" + re.escape(trace_id) + r"(?![\w-])")
+    for row in scope_rows:
+        if token_re.search(row.sources):
+            return row
+    raise ConfigError(f"unresolvable trace ID '{trace_id}' — no scope-map entry found")
+
+
+def _resolve_generic_token(
+    trace_id: str, scope_rows: list[ScopeMapRow], spec_dir: Path
+) -> ResolvedRule:
+    row = _find_scope_map_candidate(trace_id, scope_rows)
+
+    feature_match = re.search(r"([\w.\-/]+\.feature)", row.sources)
+    if not feature_match:
+        raise ConfigError(f"trace ID '{trace_id}' does not resolve to a .feature rule")
+
+    feature_name = feature_match.group(1)
+    feature_path = spec_dir / feature_name
+    rules = _load_feature_rules(feature_path, trace_id)
+    for rule_text, scenarios in rules:
+        if rule_text.strip() == row.rule.strip():
+            return ResolvedRule(trace_id, feature_path, rule_text, list(scenarios))
+    raise ConfigError(
+        f"rule '{row.rule}' not found in '{feature_name}' for trace ID '{trace_id}'"
+    )
+
+
+# --------------------------------------------------------------------------
+# Waivers and Prior Tests entries
+# --------------------------------------------------------------------------
+
+
+def parse_waivers(section_text: str) -> list[Waiver]:
+    return [
+        Waiver(m.group("id"), m.group("path"), m.group("func"))
+        for m in _WAIVER_RE.finditer(section_text)
+    ]
+
+
+def _parse_prior_test_bullet(bullet: str) -> PriorTestEntry | None:
+    """Parse one Prior Tests bullet into (key, path, func), or None when
+    the bullet carries no resolvable `path.py::func` reference."""
+    bullet = bullet.strip()
+    if not bullet.startswith("-"):
+        return None
+    ref_match = _MODULE_FUNC_RE.search(bullet)
+    if not ref_match:
+        return None
+    path, func = ref_match.group(1), ref_match.group(2)
+    head = re.split(r"--|—", bullet, maxsplit=1)[0]
+    key = head.lstrip("-").strip().strip("`").strip()
+    return PriorTestEntry(key=key, path=path, func=func)
+
+
+def parse_prior_tests_entries(section_text: str) -> list[PriorTestEntry]:
+    """Parse `- <key> ... \\`path.py::func\\`` bullets from a Prior Tests
+    section. A bullet may wrap across lines; entries are split on lines
+    that start a new bullet."""
+    stripped = section_text.strip()
+    if not stripped:
+        return []
+    bullets = re.split(r"\n(?=\s*-\s)", stripped)
+    parsed = (_parse_prior_test_bullet(bullet) for bullet in bullets)
+    return [entry for entry in parsed if entry is not None]
+
+
+def module_exists(repo_root: Path, module_path: str) -> bool:
+    return (repo_root / module_path).is_file()
+
+
+def function_defined(repo_root: Path, module_path: str, func: str) -> bool:
+    module_file = repo_root / module_path
+    if not module_file.is_file():
+        return False
+    text = module_file.read_text(encoding="utf-8")
+    pattern = _DEF_RE_TEMPLATE.format(func=re.escape(func))
+    return re.search(pattern, text, re.MULTILINE) is not None
+
+
+def find_prior_test_entry(
+    scenario_title: str, trace_id: str, entries: list[PriorTestEntry]
+) -> PriorTestEntry | None:
+    """Find the Prior Tests entry that claims coverage for this scenario —
+    matched either by trace ID or by the entry's key appearing in (or
+    containing) the scenario title."""
+    for entry in entries:
+        if entry.key == trace_id:
+            return entry
+    for entry in entries:
+        if entry.key and (entry.key in scenario_title or scenario_title in entry.key):
+            return entry
+    return None
+
+
+# --------------------------------------------------------------------------
+# Validation
+# --------------------------------------------------------------------------
+
+
+def _invalid_waiver_findings(waivers: list[Waiver], repo_root: Path) -> list[Finding]:
+    return [
+        Finding(
+            kind="invalid_waiver",
+            message=f"waiver '{w.trace_id}' names a test module that does not "
+            f"exist: {w.path}",
+            trace_id=w.trace_id,
+        )
+        for w in waivers
+        if not module_exists(repo_root, w.path)
+    ]
+
+
+def _invalid_prior_test_findings(
+    entries: list[PriorTestEntry], repo_root: Path
+) -> list[Finding]:
+    return [
+        Finding(
+            kind="invalid_prior_test",
+            message=f"Prior Tests entry '{e.key}' does not resolve: "
+            f"{e.path}::{e.func}",
+            trace_id=e.key,
+        )
+        for e in entries
+        if not function_defined(repo_root, e.path, e.func)
+    ]
+
+
+def _scenario_covered(
+    scenario: str,
+    trace_id: str,
+    test_design_text: str | None,
+    prior_tests_text: str | None,
+    prior_entries: list[PriorTestEntry],
+    valid_waiver_ids: set[str],
+    repo_root: Path,
+) -> bool:
+    """Decide whether one reachable Scenario has a coverage source: a
+    title match in Test Design, a valid waiver for its trace, or a
+    resolvable Prior Tests entry."""
+    if test_design_text is not None and scenario in test_design_text:
+        return True
+    if trace_id in valid_waiver_ids:
+        return True
+    if prior_tests_text is None:
+        return False
+    entry = find_prior_test_entry(scenario, trace_id, prior_entries)
+    return entry is not None and function_defined(repo_root, entry.path, entry.func)
+
+
+def _missing_assertion_findings(
+    resolved_rules: list[ResolvedRule],
+    test_design_text: str | None,
+    prior_tests_text: str | None,
+    prior_entries: list[PriorTestEntry],
+    valid_waiver_ids: set[str],
+    repo_root: Path,
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for resolved in resolved_rules:
+        for scenario in resolved.scenarios:
+            covered = _scenario_covered(
+                scenario,
+                resolved.trace_id,
+                test_design_text,
+                prior_tests_text,
+                prior_entries,
+                valid_waiver_ids,
+                repo_root,
+            )
+            if covered:
+                continue
+            findings.append(
+                Finding(
+                    kind="missing_assertion",
+                    message=f"scenario '{scenario}' has no Test Design assertion, "
+                    "waiver, or resolvable Prior Tests entry",
+                    trace_id=resolved.trace_id,
+                    scenario=scenario,
+                )
+            )
+    return findings
+
+
+def validate(
+    resolved_rules: list[ResolvedRule],
+    test_design_text: str | None,
+    prior_tests_text: str | None,
+    repo_root: Path,
+) -> list[Finding]:
+    """Verify every reachable Scenario has an owning assertion, and flag
+    any dangling waivers or Prior Tests entries even when they happen not
+    to gate a specific scenario."""
+    waivers = parse_waivers(test_design_text) if test_design_text else []
+    prior_entries = parse_prior_tests_entries(prior_tests_text) if prior_tests_text else []
+    valid_waiver_ids = {w.trace_id for w in waivers if module_exists(repo_root, w.path)}
+
+    return [
+        *_invalid_waiver_findings(waivers, repo_root),
+        *_invalid_prior_test_findings(prior_entries, repo_root),
+        *_missing_assertion_findings(
+            resolved_rules,
+            test_design_text,
+            prior_tests_text,
+            prior_entries,
+            valid_waiver_ids,
+            repo_root,
+        ),
+    ]
+
+
+# --------------------------------------------------------------------------
+# Report writing
+# --------------------------------------------------------------------------
+
+
+def write_report(report_dir: Path, report: Report) -> Path:
+    report_dir.mkdir(parents=True, exist_ok=True)
+    report_path = report_dir / f"{report.story_id}.json"
+    report_path.write_text(json.dumps(asdict(report), indent=2) + "\n", encoding="utf-8")
+    return report_path
+
+
+def _skip_report(story_path: Path, story_id: str) -> Report:
+    return Report(
+        story=str(story_path), story_id=story_id, passed=True, skipped=True, exit_code=0
+    )
+
+
+def _needs_validation(test_design_text: str | None, prior_tests_text: str | None) -> bool:
+    """True when the story has test-design output to validate. A story
+    with neither section is backward-compatible legacy input — the gate
+    skips it rather than inventing obligations it never declared."""
+    return test_design_text is not None or prior_tests_text is not None
+
+
+def _print_findings(findings: list[Finding]) -> None:
+    for finding in findings:
+        print(f"test-design-verify: [{finding.kind}] {finding.message}", file=sys.stderr)
+
+
+def _config_error_report(story_path: Path, story_id: str, errors: list[str]) -> Report:
+    return Report(
+        story=str(story_path),
+        story_id=story_id,
+        passed=False,
+        skipped=False,
+        exit_code=2,
+        config_errors=errors,
+    )
+
+
+def _resolve_all_traces(
+    traces: list[str], scope_rows: list[ScopeMapRow], spec_dir: Path
+) -> tuple[list[ResolvedRule], list[str]]:
+    """Resolve every trace ID, collecting configuration errors instead of
+    raising on the first one so the report can list all of them at once."""
+    resolved: list[ResolvedRule] = []
+    errors: list[str] = []
+    for trace_id in traces:
+        try:
+            resolved.append(resolve_trace(trace_id, scope_rows, spec_dir))
+        except ConfigError as exc:
+            errors.append(str(exc))
+    return resolved, errors
+
+
+def _result_report(
+    story_path: Path, story_id: str, resolved_rules: list[ResolvedRule], findings: list[Finding]
+) -> Report:
+    passed = not findings
+    return Report(
+        story=str(story_path),
+        story_id=story_id,
+        passed=passed,
+        skipped=False,
+        exit_code=0 if passed else 1,
+        resolved=[
+            {
+                "trace_id": r.trace_id,
+                "feature": str(r.feature_path),
+                "rule": r.rule_text,
+                "scenarios": r.scenarios,
+            }
+            for r in resolved_rules
+        ],
+        findings=[asdict(f) for f in findings],
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    story_path = Path(args.story).resolve()
+    scope_map_path = Path(args.scope_map).resolve()
+    spec_dir = Path(args.spec_dir).resolve()
+    repo_root = Path(args.repo_root).resolve()
+    report_dir = Path(args.report_dir).resolve()
+
+    if not story_path.is_file():
+        print(f"test-design-verify: story not found: {story_path}", file=sys.stderr)
+        return 2
+
+    story_text = story_path.read_text(encoding="utf-8")
+    story_id = detect_story_id(args.story_id, story_text, story_path)
+
+    test_design_text = extract_section(story_text, TEST_DESIGN_HEADING)
+    prior_tests_text = extract_section(story_text, PRIOR_TESTS_HEADING)
+
+    if not _needs_validation(test_design_text, prior_tests_text):
+        write_report(report_dir, _skip_report(story_path, story_id))
+        return 0
+
+    if not scope_map_path.is_file():
+        print(f"test-design-verify: scope map not found: {scope_map_path}", file=sys.stderr)
+        errors = [f"missing scope map: {scope_map_path}"]
+        write_report(report_dir, _config_error_report(story_path, story_id, errors))
+        return 2
+
+    scope_rows = parse_scope_map(scope_map_path.read_text(encoding="utf-8"))
+    traces = read_traces(story_text)
+    resolved_rules, config_errors = _resolve_all_traces(traces, scope_rows, spec_dir)
+
+    if config_errors:
+        for message in config_errors:
+            print(f"test-design-verify: {message}", file=sys.stderr)
+        write_report(report_dir, _config_error_report(story_path, story_id, config_errors))
+        return 2
+
+    findings = validate(resolved_rules, test_design_text, prior_tests_text, repo_root)
+    _print_findings(findings)
+
+    report = _result_report(story_path, story_id, resolved_rules, findings)
+    write_report(report_dir, report)
+    status = "pass" if report.passed else "fail"
+    print(f"test-design-verify: {status} — wrote {report_dir}", file=sys.stderr)
+    return report.exit_code
+
+
+if __name__ == "__main__":
+    sys.exit(main())
