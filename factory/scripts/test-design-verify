@@ -202,7 +202,7 @@ def read_traces(story_text: str) -> list[str]:
 
 
 def read_story_id_field(story_text: str) -> str | None:
-    """Parse the `id: ST-NNNNNN` frontmatter line, if present."""
+    """Parse the `id: ST-NNNN` frontmatter line, if present."""
     frontmatter = extract_frontmatter(story_text)
     match = re.search(r"^id:\s*(\S+)\s*$", frontmatter, re.MULTILINE)
     return match.group(1) if match else None

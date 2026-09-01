@@ -135,7 +135,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 → [finding-format.md](conventions/finding-format.md)
 
-- **MUST** file every Defect, and every finding at or above the review's blocking severity, as its own `docs/findings/<TAG>-NNNNNN.md`.
+- **MUST** file every Defect, and every finding at or above the review's blocking severity, as its own `docs/findings/<TAG>-NNNN.md`.
 - **MUST** state both what is wrong and what to do in every finding.
 
 ## Markdown formatting

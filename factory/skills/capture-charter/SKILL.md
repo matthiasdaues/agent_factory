@@ -182,7 +182,7 @@ full setup story.
 
 ### Step 3 — Write Epic 0 stories
 
-For each derived story, write `backlog/ST-NNNNNN.md` in the standard story
+For each derived story, write `backlog/ST-NNNN.md` in the standard story
 format (see [story.md template](../../rulebooks/templates/story.md)):
 
 - `epic: "Epic 0 — Project Setup"`
@@ -195,8 +195,8 @@ format (see [story.md template](../../rulebooks/templates/story.md)):
   "`pyproject.toml` exists with pinned dependencies and `pip install -e .`
   succeeds")
 
-Use the lowest available `ST-NNNNNN` numbers — read `backlog/` for the next
-free id, starting from `ST-000100` if the backlog is empty. Increment by 100.
+Use the lowest available `ST-NNNN` numbers — read `backlog/` for the next
+free id, starting from `ST-0001` if the backlog is empty.
 
 ### Step 4 — Write the final "update development.md" story
 
@@ -242,7 +242,7 @@ docs: complete project charter — completeness sweep
 ```
 
 for the charter edits, and one commit per Epic 0 story (or a single batch
-commit listing every `ST-NNNNNN` id touched) for the backlog files, per
+commit listing every `ST-NNNN` id touched) for the backlog files, per
 [commit-conventions.md](../../rulebooks/conventions/commit-conventions.md).
 
 **Completion**: no `To be decided.` remains in tech-stack.md or

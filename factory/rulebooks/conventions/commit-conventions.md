@@ -19,15 +19,15 @@ Skeleton: [commit-message.md template](../templates/commit-message.md).
 
 ### ID Formats
 
-| Context             | ID Format      | Example                                            |
-| ------------------- | -------------- | -------------------------------------------------- |
-| User Story          | `ST-NNNNNN`    | `feat: add JWT refresh (ST-004200)`                |
-| Bug Fix             | `BUG-NNNNNN`   | `fix: prevent null pointer (BUG-000300)`           |
-| Spec Update         | `SPEC-NNNNNN`  | `docs: clarify use case UC-05 (SPEC-001200)`       |
-| Architecture Issue  | `ATAM-NNNNNN`  | `refactor: split service layer (ATAM-000700)`      |
-| Fagan Finding       | `FAGAN-NNNNN`  | `refactor: reduce cyclomatic (FAGAN-02300)`        |
-| Security Finding    | `SEC-NNNNNN`   | `fix: sanitize SQL input (SEC-000800)`             |
-| Spec Reconciliation | `RECON-NNNNNN` | `docs: sync entity model with code (RECON-000400)` |
+| Context             | ID Format    | Example                                          |
+| ------------------- | ------------ | ------------------------------------------------ |
+| User Story          | `ST-NNNN`    | `feat: add JWT refresh (ST-0042)`                |
+| Bug Fix             | `BUG-NNNN`   | `fix: prevent null pointer (BUG-0003)`           |
+| Spec Update         | `SPEC-NNNN`  | `docs: clarify use case UC-05 (SPEC-012)`        |
+| Architecture Issue  | `ATAM-NNNN`  | `refactor: split service layer (ATAM-07)`        |
+| Fagan Finding       | `FAGAN-NNN`  | `refactor: reduce cyclomatic (FAGAN-023)`        |
+| Security Finding    | `SEC-NNNN`   | `fix: sanitize SQL input (SEC-0008)`             |
+| Spec Reconciliation | `RECON-NNNN` | `docs: sync entity model with code (RECON-0004)` |
 
 ### Commit Types
 
@@ -44,11 +44,11 @@ Standard types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 **Correct:**
 
 ```
-feat: implement JWT token refresh (ST-004200)
+feat: implement JWT token refresh (ST-0042)
 
-fix: prevent race condition in orders (BUG-001800)
+fix: prevent race condition in orders (BUG-0018)
 
-docs: update caching decision ADR (ATAM-000900)
+docs: update caching decision ADR (ATAM-0009)
 ```
 
 **Incorrect:**
@@ -57,7 +57,7 @@ docs: update caching decision ADR (ATAM-000900)
 feat: add authentication
 # Missing story ID
 
-Added user login (ST-004200)
+Added user login (ST-0042)
 # Missing type prefix, past tense
 
 fix: bug fix

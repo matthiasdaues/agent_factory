@@ -5,7 +5,7 @@ version: 1.0.0
 
 # Finding File Template
 
-Skeleton for a single `docs/findings/<TAG>-NNNNNN.md` file. Governed by [finding-format.md](../conventions/finding-format.md).
+Skeleton for a single `docs/findings/<TAG>-NNNN.md` file. Governed by [finding-format.md](../conventions/finding-format.md).
 
 ## Frontmatter
 

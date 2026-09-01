@@ -4,12 +4,12 @@
 # ///
 """backlog-lint — deterministic schema & traceability gate for backlog stories.
 
-What: Validates each backlog/ST-NNNNNN.md story against the StoryFrontmatter
+What: Validates each backlog/ST-NNNN.md story against the StoryFrontmatter
       schema and checks cross-story dependency consistency.
 When: On commit when backlog story files change — the planning phase's gate.
 By:   pre-commit hook `backlog-lint`; the create-backlog skill / planning-agent.
 
-Validates every ``backlog/ST-NNNNNN.md`` story file against the StoryFrontmatter
+Validates every ``backlog/ST-NNNN.md`` story file against the StoryFrontmatter
 schema (interface-contracts.md) and checks cross-story consistency (dep
 references, id↔filename match).  This is the planning phase's gate hook
 (VR-022, ADR-0008).
@@ -208,7 +208,7 @@ def check_story(
     out: List[Finding] = []
 
     # --- filename ↔ id consistency ---
-    expected_id = path.stem  # ST-NNNNNN
+    expected_id = path.stem  # ST-NNNN
     fm_id = fm.get("id")
     if fm_id and fm_id != expected_id:
         out.append(
@@ -244,7 +244,7 @@ def check_story(
     if fm_id is not None and not RE_STORY_ID.match(str(fm_id)):
         out.append(
             Finding(
-                "BL-ID", "error", rel, f"id '{fm_id}' does not match pattern ST-NNNNNN"
+                "BL-ID", "error", rel, f"id '{fm_id}' does not match pattern ST-NNNN"
             )
         )
 
@@ -359,7 +359,7 @@ def check_story(
                             "BL-DEP",
                             "error",
                             rel,
-                            f"dep '{d}' does not match pattern ST-NNNNNN",
+                            f"dep '{d}' does not match pattern ST-NNNN",
                         )
                     )
                 elif d not in all_ids:
@@ -584,7 +584,7 @@ def check_backlog(backlog_dir: Path) -> Tuple[List[Finding], int]:
                     "BL-NAME",
                     "warning",
                     sf.name,
-                    "filename does not match ST-NNNNNN.md pattern",
+                    "filename does not match ST-NNNN.md pattern",
                 )
             )
 

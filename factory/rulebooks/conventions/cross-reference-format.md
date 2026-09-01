@@ -15,7 +15,7 @@ Every reference from one artifact to another — ADR, finding, todo entry, ruleb
 
 ## Anchor to the section, not just the file
 
-Where the target artifact has distinct sections or entries — a heading, a `## T-NNNNNN` todo entry, an ADR's `## Consequences` — the link's anchor MUST point at that section, not just the top of the file. Land the reader exactly where the cited content is; don't make them scroll to find it. Only omit the anchor when the target genuinely has no internal structure to point at (a single-purpose file with one subject throughout).
+Where the target artifact has distinct sections or entries — a heading, a `## T-NNNN` todo entry, an ADR's `## Consequences` — the link's anchor MUST point at that section, not just the top of the file. Land the reader exactly where the cited content is; don't make them scroll to find it. Only omit the anchor when the target genuinely has no internal structure to point at (a single-purpose file with one subject throughout).
 
 ## Scope
 

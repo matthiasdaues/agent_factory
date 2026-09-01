@@ -109,7 +109,7 @@ actor-goal list). For each EPIC:
    for. This is the trace-ID set the rest of the procedure resolves against.
 
 If a story's own `traces:` frontmatter already exists (the skill is being
-re-run standalone against a backlog whose `backlog/ST-NNNNNN.md` files were
+re-run standalone against a backlog whose `backlog/ST-NNNN.md` files were
 already written), read those `traces:` values directly instead of re-deriving
 them from Actor Goals — they are more precise than the EPIC-level match.
 
@@ -141,7 +141,7 @@ tracer (step 9).
 **Ordering signal, in precedence order:**
 
 1. **Explicit `deps:`** — if the candidate stories already exist as
-   `backlog/ST-NNNNNN.md` files with `deps:` frontmatter (re-run case), build a
+   `backlog/ST-NNNN.md` files with `deps:` frontmatter (re-run case), build a
    dependency graph from those fields.
 2. **EPIC-level `Dependencies`** — each EPIC section in `epics.md` names the
    EPICs it depends on. Every story in a depending EPIC is ordered after
@@ -160,9 +160,9 @@ tracer (step 9).
 2. The first story in topological order owns the contract.
 3. **No dependency relationship among candidates** (neither directly nor
    transitively ordered by any signal above): break the tie by the lower
-   `ST-NNNNNN` numeric ID.
+   `ST-NNNN` numeric ID.
 4. **Circular dependency detected** among candidates: do not fail the run.
-   Fall back to the lowest `ST-NNNNNN` ID among the cyclic group, and record a
+   Fall back to the lowest `ST-NNNN` ID among the cyclic group, and record a
    `> Warning: circular dependency among <IDs> tracing <contract> — resolved to <ID> by lowest ID` blockquote immediately under that story's Failure scenarios
    section, so a human reviewer can confirm or correct it.
 
@@ -328,7 +328,7 @@ story, `#### Failure scenarios` with risk-classified failure scenarios, and
 `#### Prior Tests` on every non-owning tracer. The user reviews the
 enrichment, then proceeds to
 [`create-backlog-story-slices`](../create-backlog-story-slices/SKILL.md)
-(phase 3) as usual — this skill does not itself write `backlog/ST-NNNNNN.md`
+(phase 3) as usual — this skill does not itself write `backlog/ST-NNNN.md`
 files; [`create-backlog-stories`](../create-backlog-stories/SKILL.md) (phase
 4\) carries the `tests:`, `#### Failure scenarios`, and `#### Prior Tests` sections
 from `epics.md` into the individual story files verbatim.

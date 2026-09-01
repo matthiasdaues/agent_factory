@@ -35,8 +35,8 @@ See [adr.md template](../../rulebooks/templates/adr.md) for the complete format.
 
 ```yaml
 ---
-id: NNNNNN
-status: proposed | accepted | deprecated | superseded by ADR-NNNNNN
+id: NNNN
+status: proposed | accepted | deprecated | superseded by ADR-NNNN
 evaluation: pugh-matrix | none
 ---
 ```
@@ -45,7 +45,7 @@ evaluation: pugh-matrix | none
 
 **Body follows full Nygard format:** Context, Decision, Consequences sections as specified in the template.
 
-If this decision supersedes an earlier ADR, update that ADR's `status` to `superseded by ADR-NNNNNN`. If `docs/arc42/09_architecture_decisions.md` exists (arc42 chapter-9 index), update it to link the new ADR; if it doesn't exist, skip — not every project using this skill has arc42 documentation.
+If this decision supersedes an earlier ADR, update that ADR's `status` to `superseded by ADR-NNNN`. If `docs/arc42/09_architecture_decisions.md` exists (arc42 chapter-9 index), update it to link the new ADR; if it doesn't exist, skip — not every project using this skill has arc42 documentation.
 
 Format the new ADR (and the chapter-9 index, if updated) via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 

@@ -16,7 +16,7 @@ If `validate` hasn't run against the current changes yet this session, run it no
 ## Step 2 — Compose the message
 
 1. Determine `<type>` from the change: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`.
-2. Determine the `(<ID>)` suffix, if any, from session context — a story (`ST-NNNNNN`), bug (`BUG-NNNNNN`), or other finding tag the change addresses. Omit only when the change genuinely traces to no story or finding (e.g. a drive-by typo fix); do not invent an ID to satisfy the format.
+2. Determine the `(<ID>)` suffix, if any, from session context — a story (`ST-NNNN`), bug (`BUG-NNNN`), or other finding tag the change addresses. Omit only when the change genuinely traces to no story or finding (e.g. a drive-by typo fix); do not invent an ID to satisfy the format.
 3. Write `<type>: <description> (<ID>)` — imperative mood, no period, per the rulebook's examples.
 
 ## Step 3 — Show, then confirm

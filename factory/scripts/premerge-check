@@ -30,7 +30,7 @@ Checks
   3. Out-of-scope paths (only if `--scope` given): every changed file must
      fall under at least one declared `--scope` prefix.
   4. Semantic gates (story branches only): if `<branch>` matches the pattern
-     `story/ST-NNNNNN`, reads the story file's `quality-gates` field (with
+     `story/ST-NNNN`, reads the story file's `quality-gates` field (with
      precedence: story field > house-rules.md > Factory default of all three
      gates) and checks for passing results in `.current-work/<gate>/<story-id>.json`.
      Each gate is a hard gate — failure of any one blocks the merge.
@@ -370,7 +370,7 @@ def main(argv: list[str] | None = None) -> int:
         findings.append(gates_ok)
     else:
         # Non-story branches skip semantic gates
-        print("SKIP semantic-gates: branch does not match story/ST-NNNNNN pattern")
+        print("SKIP semantic-gates: branch does not match story/ST-NNNN pattern")
 
     if all(findings):
         print(

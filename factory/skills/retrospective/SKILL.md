@@ -58,7 +58,7 @@ From the Stop/Continue/Start sections, extract concrete action items. Present th
 
 - Filed as todos in `docs/spec/todo.md` or the project's issue tracker
 - Or captured as updates to agent definitions, skills, or `docs/CONTEXT.md`
-- Or filed as a backlog story (`backlog/ST-NNNNNN.md`, this repo's INVEST/MoSCoW schema) and handed off to `implementation-agent` for dispatch
+- Or filed as a backlog story (`backlog/ST-NNNN.md`, this repo's INVEST/MoSCoW schema) and handed off to `implementation-agent` for dispatch
 
 Do not file action items without user confirmation.
 

@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # Implement Issue
 
-Pick a single story from the backlog (`backlog/ST-NNNNNN.md`) and implement it using **TDD**. Apply **Clean Architecture** and **SOLID** throughout.
+Pick a single story from the backlog (`backlog/ST-NNNN.md`) and implement it using **TDD**. Apply **Clean Architecture** and **SOLID** throughout.
 
 Read `docs/CONTEXT.md` if it exists — match test names and interface vocabulary to the project's domain language. Respect ADRs in the area you're touching.
 
@@ -60,7 +60,7 @@ Do not refactor during the loop — that belongs to review.
 Use **Conventional Commits** (see [commit-conventions.md](../../rulebooks/conventions/commit-conventions.md)):
 
 ```bash
-git commit -m "feat: <description> (ST-NNNNNN)"
+git commit -m "feat: <description> (ST-NNNN)"
 ```
 
 One commit per vertical slice or per full story. Set the story's `status` to `done` when the story is complete.

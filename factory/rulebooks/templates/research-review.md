@@ -13,7 +13,7 @@ claim against its test records (proposal Procedure Step 8). Governed by
 
 ```json
 {
-  "claim_id": "<CLAIM-NNNNNN — id of the claim under review>",
+  "claim_id": "<CLAIM-NNNN — id of the claim under review>",
   "checks": {
     "testable": "<true/false — the claim is stated so a test could refute it>",
     "alternatives_considered": "<true/false — competing conjectures were considered>",

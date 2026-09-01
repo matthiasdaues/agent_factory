@@ -102,7 +102,7 @@ states:
       - tests/**/*
       - test/**/*
       - "*_test.*"
-      - git commits  # fix: <description> (BUG-NNNNNN)
+      - git commits  # fix: <description> (BUG-NNNN)
     
     on:
       FixImplemented:
