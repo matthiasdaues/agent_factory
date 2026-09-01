@@ -10,7 +10,7 @@ Feature: Test Design Skill
 
   Rule: Planning Agent designs test scenarios from feature contracts
     # actor: Planning Agent
-    # @factory/skills/test-design/SKILL.md (new artifact)
+    # @factory/skills/test-design/SKILL.md
 
     Scenario: Test-design skill reads feature contracts and scope map
       Given backlog/epics.md exists with confirmed epic slicing
@@ -71,6 +71,7 @@ Feature: Test Design Skill
 
   Rule: Test-design skill assigns one test owner per contract across the backlog
     # actor: Planning Agent
+    # @factory/skills/test-design/SKILL.md
 
     Scenario: Ownership assigned to the story that introduces the contract
       Given a contract is traced by multiple stories across epics
@@ -117,6 +118,7 @@ Feature: Test Design Skill
 
   Rule: Test-design skill propagates prior tests to non-owning stories
     # actor: Planning Agent
+    # @factory/skills/test-design/SKILL.md
 
     Scenario: Non-owning story receives Prior Tests section
       Given story A owns the test for contract DOM-01
@@ -303,7 +305,7 @@ Feature: Test Design Skill
 
   Rule: Test-design-verify gate validates test-design completeness
     # actor: Dispatcher (Implementation-Agent)
-    # @factory/scripts/test-design-verify (new artifact)
+    # @factory/scripts/test-design-verify
 
     Scenario: Gate resolves trace-to-scenario chain
       Given a story with traces frontmatter listing DOM-01 and OBS-04
@@ -378,5 +380,5 @@ Feature: Test Design Skill
       When it resolves the threshold
       Then it reads from testing.yaml's gates.crap_score.threshold
       And the read_threshold_from_house_rules function is replaced
-      # @factory/scripts/crap-score::read_threshold_from_house_rules
+      # @factory/scripts/crap-score::read_threshold_from_testing_yaml
       # @factory/scripts/crap-score::resolve_threshold
