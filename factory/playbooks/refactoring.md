@@ -199,7 +199,7 @@ Final checks:
 - [ ] All tests pass (same tests, no modifications)
 - [ ] Code quality metrics improved
 - [ ] No behavior changes (verified by tests)
-- [ ] Commits follow convention: `refactor: <desc> (REFACTOR-NNN)`
+- [ ] Commits follow convention: `refactor: <desc> (REFACTOR-NNNNN)`
 - [ ] `REFACTOR-*` finding status: `resolved`
 
 **Ready to merge**

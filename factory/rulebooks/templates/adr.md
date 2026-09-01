@@ -11,8 +11,8 @@ Skeleton for a single `docs/adr/NNNN-short-title.md` file. Governed by [write-ad
 
 ```yaml
 ---
-id: NNNN
-status: proposed | accepted | deprecated | superseded by ADR-NNNN
+id: NNNNNN
+status: proposed | accepted | deprecated | superseded by ADR-NNNNNN
 evaluation: pugh-matrix | none
 ---
 ```

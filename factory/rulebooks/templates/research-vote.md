@@ -14,7 +14,7 @@ Procedure Step 9). Governed by
 
 ```json
 {
-  "review_ref": "<REVIEW-NNNN — reference to the one completed review this vote is cast on>",
+  "review_ref": "<REVIEW-NNNNNN — reference to the one completed review this vote is cast on>",
   "claim_hash": "<64-char hex content hash of the exact claim version voted on>",
   "reviewer": "<identity of the one eligible reviewer casting this vote>",
   "value": "<SURVIVE | REFUTE | UNRESOLVED | ABSTAIN>"

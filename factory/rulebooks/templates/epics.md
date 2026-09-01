@@ -5,7 +5,7 @@ version: 1.0.0
 
 # EPICs Document Template
 
-Skeleton for `backlog/epics.md`. Sits between the specification artifacts (scope map, `.feature` files) and the individual story files (`backlog/ST-NNNN.md`). The planning agent creates this document in Step 1 of the create-backlog skill; individual stories in Step 2 reference their parent EPIC by the `epic:` frontmatter value matching an EPIC title here.
+Skeleton for `backlog/epics.md`. Sits between the specification artifacts (scope map, `.feature` files) and the individual story files (`backlog/ST-NNNNNN.md`). The planning agent creates this document in Step 1 of the create-backlog skill; individual stories in Step 2 reference their parent EPIC by the `epic:` frontmatter value matching an EPIC title here.
 
 The same composition discipline governs EPICs and stories: Demo First, Forward from Status Quo, Criteria Are Invariants. An EPIC is a larger vertical slice — if you cannot write its demo, the decomposition is wrong.
 
@@ -48,7 +48,7 @@ The same composition discipline governs EPICs and stories: Demo First, Forward f
 
 ### Stories
 
-- [<ST-NNNN> <Story title>](ST-NNNN.md): <one-line scope>
+- [<ST-NNNNNN> <Story title>](ST-NNNNNN.md): <one-line scope>
 
 ## EPIC N -- <Title>
 

@@ -112,7 +112,7 @@ For Pi: `review` mode uses `run_agent` (serial), never `dispatch_wave`.
 
 > You are a developer-agent. Your worktree was prepared by `factory/scripts/dispatch`, which already created the story workspace, recorded the declared base SHA, and ran the pre-spawn verify-base check.
 >
-> Implement story `ST-NNNN` on branch `<feature-branch>` following workflow: Analyse → Agree seams → Red-green TDD → Commit → Spec feedback. Story: `backlog/ST-NNNN.md`
+> Implement story `ST-NNNNNN` on branch `<feature-branch>` following workflow: Analyse → Agree seams → Red-green TDD → Commit → Spec feedback. Story: `backlog/ST-NNNNNN.md`
 
 **Review-mode variant** — append when `mode` is `review`:
 
@@ -186,7 +186,7 @@ The gate-check loop and `premerge-check` are independent, sequential gates. The 
 > **Affected files:**
 > `<list of files flagged in the gate reports>`
 >
-> Fix the gate failures on branch `<feature-branch>`, commit, and return. Story: `backlog/ST-NNNN.md`. This is fix iteration `<N>` of `<max>`.
+> Fix the gate failures on branch `<feature-branch>`, commit, and return. Story: `backlog/ST-NNNNNN.md`. This is fix iteration `<N>` of `<max>`.
 
 ## Completion Criteria
 

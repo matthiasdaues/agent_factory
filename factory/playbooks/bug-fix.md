@@ -22,9 +22,9 @@ If bug not yet in `docs/findings/`:
 
 ```bash
 # Create finding manually or via QA agent
-cat > docs/findings/BUG-NNNN.md << EOF
+cat > docs/findings/BUG-NNNNNN.md << EOF
 ---
-id: BUG-NNNN
+id: BUG-NNNNNN
 source: bug-report
 severity: <critical|major|minor>
 category: defect
@@ -48,21 +48,21 @@ EOF
 
 ```bash
 # In new session
-"Implement bug fix for BUG-NNNN using TDD"
+"Implement bug fix for BUG-NNNNNN using TDD"
 ```
 
 **Orchestrator approach**:
 
 ```bash
 # Create temporary story for the bug
-cat > backlog/BUG-NNNN.md << EOF
+cat > backlog/BUG-NNNNNN.md << EOF
 ---
-id: BUG-NNNN
+id: BUG-NNNNNN
 status: pending
 deps: []
 ---
 
-Fix BUG-NNNN
+Fix BUG-NNNNNN
 
 **Acceptance Criteria:**
 - [ ] Bug reproduced with failing test
@@ -75,7 +75,7 @@ orchestrator run-phase implementation
 ```
 
 **Agent**: `developer-agent`
-**Expected**: Commit with message `fix: <description> (BUG-NNNN)`
+**Expected**: Commit with message `fix: <description> (BUG-NNNNNN)`
 
 ### Step 2.2 — Verify Fix
 
@@ -108,7 +108,7 @@ orchestrator run-phase qa
 Check for new defects:
 
 ```bash
-grep -l "status: open" docs/findings/{FAGAN,SEC,BUG}-*.md | grep -v "BUG-NNNN"
+grep -l "status: open" docs/findings/{FAGAN,SEC,BUG}-*.md | grep -v "BUG-NNNNNN"
 ```
 
 **If new defects found** → Loop to Step 2.1
@@ -119,8 +119,8 @@ grep -l "status: open" docs/findings/{FAGAN,SEC,BUG}-*.md | grep -v "BUG-NNNN"
 Update finding status:
 
 ```bash
-# Update BUG-NNNN.md
-sed -i 's/status: open/status: resolved/' docs/findings/BUG-NNNN.md
+# Update BUG-NNNNNN.md
+sed -i 's/status: open/status: resolved/' docs/findings/BUG-NNNNNN.md
 ```
 
 ## DONE
@@ -130,7 +130,7 @@ sed -i 's/status: open/status: resolved/' docs/findings/BUG-NNNN.md
 Final checks:
 
 - [ ] Bug finding status: `resolved`
-- [ ] Fix committed with `fix: ... (BUG-NNNN)` format
+- [ ] Fix committed with `fix: ... (BUG-NNNNNN)` format
 - [ ] Test added that would catch this bug (regression test)
 - [ ] All tests pass
 - [ ] No new defects introduced
@@ -144,7 +144,7 @@ For **critical production bugs**, skip orchestrator:
 ```bash
 # 1. Write failing test
 # 2. Fix bug
-# 3. Commit: fix: <description> (BUG-NNNN)
+# 3. Commit: fix: <description> (BUG-NNNNNN)
 # 4. All tests pass
 # 5. Deploy
 ```

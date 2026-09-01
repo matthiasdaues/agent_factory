@@ -13,7 +13,7 @@ test run against one conjecture (proposal Procedure Step 7). Governed by
 
 ```json
 {
-  "claim_id": "<CLAIM-NNNN — id of the claim this test targets>",
+  "claim_id": "<CLAIM-NNNNNN — id of the claim this test targets>",
   "claim_version": "<integer — version of the claim this test was run against>",
   "test_question": "<the specific, bounded question this test answers>",
   "refuting_result": "<the result that would refute the claim, stated before observing>",

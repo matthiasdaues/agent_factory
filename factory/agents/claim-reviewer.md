@@ -56,4 +56,4 @@ The same policy's Rule 1 and Rule 5 bind this agent further: it must not review 
 
 ## Handoff
 
-**Review and vote complete** → Research Orchestrator: _"Review and vote cast for claim [CLAIM-NNNN]. Tally when quorum is reached."_
+**Review and vote complete** → Research Orchestrator: _"Review and vote cast for claim [CLAIM-NNNNNN]. Tally when quorum is reached."_

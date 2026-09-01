@@ -1,6 +1,6 @@
 ---
 name: create-backlog-stories
-description: "Read confirmed slice tables, write backlog/ST-NNNN.md story files with MoSCoW priorities, dependencies, and quality gates. Phase 4 of 4 in the create-backlog sequence."
+description: "Read confirmed slice tables, write backlog/ST-NNNNNN.md story files with MoSCoW priorities, dependencies, and quality gates. Phase 4 of 4 in the create-backlog sequence."
 category: planning
 inputs:
   - docs/charter/testing.yaml
@@ -15,7 +15,7 @@ Write story files from confirmed slice tables, validate, and present the final b
 
 ## Step 2 — Break EPICs into User Stories
 
-For each EPIC, create `backlog/ST-NNNN.md` stories meeting **INVEST** — particularly: Independent (dependencies explicit in `deps`), Small (one implementation session), Testable (acceptance criteria as falsifiable invariants).
+For each EPIC, create `backlog/ST-NNNNNN.md` stories meeting **INVEST** — particularly: Independent (dependencies explicit in `deps`), Small (one implementation session), Testable (acceptance criteria as falsifiable invariants).
 
 Apply the [story composition rules](../create-backlog/SKILL.md#story-composition-rules): write the Demo section first (Rule 1), define scope as a step forward from the status quo of depended-on stories (Rule 2), write acceptance criteria as invariants (Rule 3). Every story is a vertical slice that crosses all system boundaries its capability requires. A story that touches only one boundary (only schema, only service, only UI) and delivers nothing a person can demonstrate is not a story — fold it into the first story that needs it as a line item.
 
@@ -52,7 +52,7 @@ Record each story's **MoSCoW** priority in its body: `**Priority:** must-have | 
 
 ## Step 4 — Mark dependencies
 
-List blocking stories in `deps` (by `ST-NNNN` id). Run `factory/scripts/backlog-lint --backlog-dir backlog` — it checks acyclicity — and fix any errors.
+List blocking stories in `deps` (by `ST-NNNNNN` id). Run `factory/scripts/backlog-lint --backlog-dir backlog` — it checks acyclicity — and fix any errors.
 
 ## Quality gate
 

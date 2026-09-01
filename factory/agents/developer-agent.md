@@ -18,7 +18,7 @@ inputs:
   - docs/CONTEXT.md
   - docs/charter/*.md
   - docs/charter/testing.yaml
-  - backlog/ST-NNNN.md
+  - backlog/ST-NNNNNN.md
   - factory/rulebooks/conventions/commit-conventions.md
 outputs:
   - src/**/*
@@ -75,7 +75,7 @@ phase is exempt and may continue in the current session.
    - **Else if `#### Prior Tests` section exists:** Run those listed test modules and functions first. Your implementation must keep those Prior Tests green. Treat these as inherited RED tests, not new work. Then proceed to write additional code and tests as needed.
    - **Else** (neither `#### Failure scenarios` nor `#### Prior Tests` exists): Follow the full **Red-Green-Refactor** cycle using **London** or **Chicago School**, vertical slices; refactor is its own phase, not mid-loop. Stories created before the test-design skill existed cause no workflow failures.
    - **Additionally**, if `tests:` is present and non-empty, go straight to Green phase only (skip Red; read the tests as the spec and implement code to make them pass). If a `.feature` file governs the story, follow the [Executable Specification](#executable-specification--feature-workflow) workflow for each Scenario within this cycle.
-4. **Commit** — Per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `feat: <description> (ST-NNNN)`, set `status: done`. If invoked with `--no-commit`: stage all changed files (`git add`), skip the commit, and return a summary of staged changes and passing tests. Do not set `status: done` — the human commits after review.
+4. **Commit** — Per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `feat: <description> (ST-NNNNNN)`, set `status: done`. If invoked with `--no-commit`: stage all changed files (`git add`), skip the commit, and return a summary of staged changes and passing tests. Do not set `status: done` — the human commits after review.
 5. **Spec feedback** — Check for harness mismatches against QA strategy, then check for drift, update docs if needed, invoke `write-adr` for new decisions.
    - **Harness-mismatch check:** Verify the test harness available in the repository matches what the QA strategy prescribes for this story's contracts. Mismatches include missing fixture patterns, no marker support (`@pytest.mark.spec` not available), wrong entry point (e.g., QA strategy says `behave` but no `behave` in the project), or missing test infrastructure. When a mismatch is found, invoke `spec-feedback` against the QA strategy document (`docs/spec/qa-strategy.md` or equivalent). The finding must name the contract that cannot be tested as prescribed, the prescribed layer from the contract-owner table, the concrete obstacle (what's missing/wrong in the harness), the specific contract-owner row that is wrong, and a proposed correction. The QA strategy should be updated in the same story or in a follow-up QA loop, not deferred indefinitely.
 

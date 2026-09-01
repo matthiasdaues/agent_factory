@@ -152,7 +152,7 @@ Numbered table with columns:
 | #   | Action | Target artifact | Status |
 | --- | ------ | --------------- | ------ |
 
-Status values: `open`, `done`, `filed as OD-NNN`, `filed as ADR-NNNN`.
+Status values: `open`, `done`, `filed as OD-NNNNN`, `filed as ADR-NNNNNN`.
 
 After the table, MUST add a reconciliation note (counts of open, done,
 filed).

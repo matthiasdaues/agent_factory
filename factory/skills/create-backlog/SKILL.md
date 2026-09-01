@@ -7,11 +7,11 @@ disable-model-invocation: false
 
 # Create Backlog
 
-Break the specification and architecture into a prioritised backlog of EPICs and User Stories, written as local markdown files under `backlog/`. The artifact chain is: scope map → `.feature` files → **`backlog/epics.md`** → individual `backlog/ST-NNNN.md` stories. The planning agent creates `epics.md` and the stories; the scope map and `.feature` files are inputs from the specification phase.
+Break the specification and architecture into a prioritised backlog of EPICs and User Stories, written as local markdown files under `backlog/`. The artifact chain is: scope map → `.feature` files → **`backlog/epics.md`** → individual `backlog/ST-NNNNNN.md` stories. The planning agent creates `epics.md` and the stories; the scope map and `.feature` files are inputs from the specification phase.
 
 Every story is a **tracer bullet** — a **vertical slice** that is independently implementable, traceable to its Use Case, and respects architectural boundaries.
 
-Stories are project artifacts, not entries in an external tracker: one file per story, `backlog/ST-NNNN.md`, with strict frontmatter validated by `factory/scripts/backlog-lint`.
+Stories are project artifacts, not entries in an external tracker: one file per story, `backlog/ST-NNNNNN.md`, with strict frontmatter validated by `factory/scripts/backlog-lint`.
 
 ## Operational sequence
 
@@ -23,7 +23,7 @@ The operational procedure is split into four phase-gated skills. Each skill ends
 | 2     | [`create-backlog-write-epics`](../create-backlog-write-epics/SKILL.md)   | Write the EPIC artifact from approved approach | `backlog/epics.md`                         |
 | 2.5   | [`test-design`](../test-design/SKILL.md) (optional)                      | Design test scenarios from contracts           | Test-design sections in `backlog/epics.md` |
 | 3     | [`create-backlog-story-slices`](../create-backlog-story-slices/SKILL.md) | Sketch story-level slices per EPIC             | Story slice tables for approval            |
-| 4     | [`create-backlog-stories`](../create-backlog-stories/SKILL.md)           | Write stories, prioritise, validate            | `backlog/ST-NNNN.md` files                 |
+| 4     | [`create-backlog-stories`](../create-backlog-stories/SKILL.md)           | Write stories, prioritise, validate            | `backlog/ST-NNNNNN.md` files               |
 
 Junior Clarity and Senior Acceptance gates run at the end of every phase, not just the final one.
 
@@ -35,7 +35,7 @@ See [story.md template](../../rulebooks/templates/story.md) for the complete fro
 
 **Key frontmatter fields:**
 
-- `id`: ST-NNNN, zero-padded, unique; matches the filename
+- `id`: ST-NNNNNN, zero-padded, unique; matches the filename. Start at 000100, increment by 100
 - `epic`: The EPIC this story belongs to (references a section in `backlog/epics.md`)
 - `title`: What the story delivers — active verb phrase ("Activate a Domain...", "Reject raw secrets..."), never a noun phrase
 - `tier`: economy | standard | strong (model tier needed)

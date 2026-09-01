@@ -5,18 +5,18 @@ version: 1.0.0
 
 # Backlog Story Template
 
-Skeleton for a single `backlog/ST-NNNN.md` file. Governed by [create-backlog skill](../../skills/create-backlog/SKILL.md) and validated by `factory/scripts/backlog-lint`.
+Skeleton for a single `backlog/ST-NNNNNN.md` file. Governed by [create-backlog skill](../../skills/create-backlog/SKILL.md) and validated by `factory/scripts/backlog-lint`.
 
 ## Frontmatter
 
 ```yaml
 ---
-id: ST-0001                       # ST-NNNN, zero-padded, unique; matches the filename
+id: ST-000100                     # ST-NNNNNN, zero-padded, unique; matches the filename
 epic: Domain Entities             # the EPIC this story belongs to (references a section in backlog/epics.md)
 title: Define domain entity dataclasses
 tier: economy                     # economy | standard | strong — the model tier this story's work needs
 status: pending                   # pending | in_progress | review | blocked | done
-deps: [ST-0002]                   # story ids that block this one (optional)
+deps: [ST-000200]                   # story ids that block this one (optional)
 traces: [UC-02, ADR-0003]         # Use Case / ADR / component ids this story implements (optional)
 outputs: [src/orchestrator/entities.py]   # files the story is expected to produce
 tests: [tests/test_entities.py]   # pre-existing test files covering this story (optional)

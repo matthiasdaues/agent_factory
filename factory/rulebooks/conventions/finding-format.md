@@ -18,8 +18,8 @@ For most reviews the blocking severity is **Critical** or **Major** (see [report
 ## File location and name
 
 - Directory: `docs/findings/`
-- Filename: `<TAG>-<NNNN>.md`, zero-padded, sequential per tag (e.g. `SPEC-0001.md`).
-- Allocate the next `NNNN` by scanning existing files with the same tag.
+- Filename: `<TAG>-<NNNNNN>.md`, zero-padded, sequential per tag (e.g. `SPEC-000100.md`). Start at 000100, increment by 100.
+- Allocate the next `NNNNNN` by scanning existing files with the same tag.
 
 | Review                         | TAG     |
 | ------------------------------ | ------- |

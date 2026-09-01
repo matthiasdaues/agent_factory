@@ -88,13 +88,13 @@ Sketch story-level slice tables per confirmed EPIC, with Junior Clarity and Seni
 
 **Invoke skill:** `create-backlog-stories`
 
-Write `backlog/ST-NNNN.md` files with MoSCoW priorities, dependencies, and `backlog-lint` validation, with Junior Clarity and Senior Acceptance gates.
+Write `backlog/ST-NNNNNN.md` files with MoSCoW priorities, dependencies, and `backlog-lint` validation, with Junior Clarity and Senior Acceptance gates.
 
 **Gate:** user confirms the backlog.
 
 ### Phase 5 — Commit to dev
 
-All indexed artifacts (backlog stories, proposals, findings) are committed to `dev`. The `dev` branch is the single canonical index for sequential IDs (ST-NNNN, PROP-NN, etc.). All stories are committed with `status: pending`. Never commit indexed artifacts to a feature branch.
+All indexed artifacts (backlog stories, proposals, findings) are committed to `dev`. The `dev` branch is the single canonical index for sequential IDs (ST-NNNNNN, PROP-NNNN, etc.). All stories are committed with `status: pending`. Never commit indexed artifacts to a feature branch.
 
 For tier suggestions, cite the authoritative rubric table in [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md#tier-rubric) and do not copy it here.
 

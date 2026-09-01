@@ -389,7 +389,7 @@ def check_adr_evaluation(rep: Report, adr_dir: Path) -> None:
             rep.error(
                 "ARCH-ADR-STATUS",
                 f"{path.name}: status '{status}' is not one of "
-                f"proposed|accepted|deprecated|superseded by ADR-NNNN",
+                f"proposed|accepted|deprecated|superseded by ADR-NNNNNN",
             )
 
         if evaluation == "pugh-matrix" and not has_matrix:
