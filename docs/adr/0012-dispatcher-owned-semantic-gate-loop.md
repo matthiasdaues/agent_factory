@@ -68,6 +68,27 @@ After each developer-agent commit:
 
 Mutation testing is entirely the project's responsibility. If the project sets it up, it runs through the project's own hooks or CI, not the dispatcher's gate loop. The `mutation-analysis` skill is retained as setup guidance for project-owned mutation testing, not a prescribed tool chain.
 
+## Amended
+
+**Date**: 2026-09-01
+**Reason**: Configuration-driven gates and `test_design_verify` conditional gate ([proposal](../proposals/test-design-skill.md), ST-0189)
+
+The dispatcher's gate list is no longer hardcoded. The dispatcher reads per-gate configuration from `docs/charter/testing.yaml`'s `gates` section. Each gate entry carries an `enabled` flag; gates where `enabled` is `false` are skipped. Gate-specific parameters (such as `crap_score.threshold`) are passed to the corresponding script at invocation time. ADR-0012 retains authority over gate execution ordering; `testing.yaml` provides per-gate configuration only.
+
+A fourth gate, `test_design_verify`, is added as a **conditional** entry. It is active when the story file contains a Test Design section or a Prior Tests section (output of the `test-design` skill). It is skipped when no test-design output exists in the story. The gate validates that every owned contract in the story's traces has a corresponding test assertion in the Test Design section.
+
+**Gate execution sequence (amended):**
+
+After each developer-agent commit:
+
+1. Dispatcher reads `docs/charter/testing.yaml`'s `gates` section for per-gate enabled/threshold configuration.
+2. Dispatcher runs `crap-score` on committed artifacts, passing the `threshold` from `gates.crap_score.threshold`.
+3. Dispatcher runs `dependency-check` against `architecture.dsl` dependency rules.
+4. **Conditional:** Dispatcher runs `test-design-verify` on the story file — active when test-design output exists, skipped otherwise.
+5. Each gate produces a JSON report under `.current-work/<gate-name>/<story-id>.json`.
+6. If all gates pass, the dispatcher proceeds to `premerge-check` and merge.
+7. If any gate fails, the dispatcher spawns a fresh developer agent with only the failing gate reports and affected files as input context. Maximum three fix iterations before the story is marked blocked.
+
 ## Consequences
 
 **Positive:**

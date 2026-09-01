@@ -26,6 +26,7 @@ inputs:
   - factory/rulebooks/conventions/dispatch-contract.md
   - factory/scripts/crap-score
   - factory/scripts/dependency-check
+  - factory/scripts/test-design-verify
 outputs:
   - src/**/*
   - tests/**/*
@@ -123,20 +124,29 @@ After the developer-agent commits and the dispatcher verifies the commit SHA (St
 
 #### Quality-gates resolution
 
-The dispatcher determines which gates apply to the story by reading the `quality-gates` field. Precedence (highest wins):
+The dispatcher determines which gates apply to the story by combining two inputs: the per-gate configuration from `docs/charter/testing.yaml`'s `gates` section, and the story-level `quality-gates` override field.
+
+**Gate discovery from `testing.yaml`:** The dispatcher reads `docs/charter/testing.yaml` and iterates the `gates` section. For each gate entry it reads the `enabled` flag: gates where `enabled` is `false` are skipped. Gates where `enabled` is `true` are included in the resolved gate list. Gate-specific parameters (such as `threshold` for `crap_score`) are passed to the corresponding gate script at invocation time.
+
+**Special case — `test_design_verify`:** This gate is implicitly enabled when the story file contains a Test Design section or a Prior Tests section. It is skipped when no test-design output exists in the story. It does not require an explicit `enabled` flag in `testing.yaml`.
+
+**Precedence (highest wins):**
 
 1. **Story-level `quality-gates` field** — if the story's frontmatter declares `quality-gates`, use that list. Exclusion of a default gate requires a justification in the story's `notes:` field.
-2. **Project-level default** — if the story field is absent and `docs/charter/house-rules.md` declares `default_quality_gates`, use the project default.
-3. **Factory hardcoded default** — if neither story nor project declares gates, apply both: `crap-score`, `dependency-check` (fail-closed).
+2. **Project-level `gates` in `testing.yaml`** — if the story field is absent, read gate configuration from `docs/charter/testing.yaml`'s `gates` section: include each gate where `enabled` is `true`, skip each gate where `enabled` is `false`.
+3. **Factory hardcoded default** — if neither story nor `testing.yaml` declares gates, apply both: `crap-score`, `dependency-check` (fail-closed).
 
 #### Gate execution
 
-For each gate in the resolved list, call its CLI script directly from the story's worktree:
+For each gate in the resolved list, call its CLI script directly from the story's worktree. The dispatcher passes gate-specific parameters from `testing.yaml` to each script:
 
 ```
-factory/scripts/crap-score   <source-files> --story-id <story-id>
-factory/scripts/dependency-check <source-files> --story-id <story-id>
+factory/scripts/crap-score         <source-files> --story-id <story-id> --threshold <gates.crap_score.threshold>
+factory/scripts/dependency-check   <source-files> --story-id <story-id>
+factory/scripts/test-design-verify <story-file>   --story-id <story-id>
 ```
+
+The `crap-score` script receives the `threshold` value from `testing.yaml`'s `gates.crap_score.threshold`. If no threshold is configured, the script falls back to its hardcoded default. The `test_design_verify` gate runs only when the story contains a Test Design or Prior Tests section; the dispatcher skips it otherwise.
 
 Each script writes a JSON report to `.current-work/<gate-name>/<story-id>.json` and exits 0 on pass, 1 on failure. The dispatcher reads the exit code and the JSON report to determine the outcome.
 

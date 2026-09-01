@@ -14,8 +14,8 @@ with test coverage into a single risk score per function.
 
 - Formula: `CRAP(m) = comp(m)^2 * (1 - cov(m)/100)^3 + comp(m)`
 - Default threshold: **30** per function (industry standard)
-- Threshold overrides from `docs/charter/house-rules.md` when present
-  (key: `crap-threshold: <number>`)
+- Threshold overrides from `docs/charter/testing.yaml` when present
+  (key: `gates.crap_score.threshold`)
 - One JSON result per function: name, file, complexity, coverage,
   CRAP score, pass/fail
 - Logged output at `.current-work/crap-score/<story-id>.json`
@@ -48,7 +48,7 @@ factory/scripts/crap-score \
 - `--source-root` defaults to the current directory
 - `--coverage-json` path to a coverage.py JSON report; when omitted,
   all functions are scored with 0% coverage
-- `--threshold` overrides the default and house-rules value
+- `--threshold` overrides the default and testing.yaml value
 - `--story-id` defaults to `STORY_ID` env, then the current git branch,
   then `adhoc`
 

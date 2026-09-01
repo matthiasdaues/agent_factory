@@ -271,19 +271,21 @@ The script derives the module map from `architecture.dsl` (containers, component
 
 |               |                                                                                                                                                                                                                                                      |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage         | `test-design-verify --story <path> [--scope-map PATH] [--spec-dir PATH]`                                                                                                                                                                             |
+| Usage         | `test-design-verify --story <path> [--story-id ID] [--scope-map PATH] [--spec-dir PATH] [--repo-root PATH] [--report-dir DIR]`                                                                                                                       |
 | Reads         | The story file's `traces:` frontmatter; `docs/spec/scope-map.md`; `.feature` files referenced by the scope map; the story's `#### Test Design` and `#### Prior Tests` sections                                                                       |
-| Writes        | Nothing — read-only validation                                                                                                                                                                                                                       |
+| Writes        | `.current-work/test-design-verify/<story-id>.json` — the resolved traces, findings, and pass/fail verdict; the gate is otherwise read-only against the story and spec files                                                                          |
 | Exit code     | `0` when every reachable scenario has a corresponding test assertion or valid waiver; `1` when any owned contract lacks an assertion or a waiver is invalid; `2` on configuration error (unresolvable trace ID, missing scope map, missing .feature) |
 | stdout/stderr | One line per validation result; unresolvable trace IDs and invalid waivers reported to stderr                                                                                                                                                        |
 
 ### Resolution chain
 
-1. Read the story's `traces:` frontmatter (e.g., `[DOM-01, OBS-04]`).
-2. For each trace ID, look up the corresponding entry in `docs/spec/scope-map.md` to find the `.feature` file and rule.
+1. Read the story's `traces:` frontmatter (e.g., `[DOM-01, OBS-04]`, or the `<feature>.feature/Rule-<NN>` shorthand this backlog's own stories use, e.g. `test-design.feature/Rule-14`).
+2. For each trace ID, look up the corresponding entry in `docs/spec/scope-map.md` to find the `.feature` file and rule:
+   - **`<feature>.feature/Rule-<NN>` shorthand:** the trace ID names the feature file and the rule's 1-indexed position directly; the scope map is still consulted to confirm at least `NN` rows reference that feature file, so a rule the scope map hasn't caught up with is a configuration error rather than a silent pass.
+   - **Generic token (e.g. `DOM-01`, `UC-09`):** the trace ID is searched for in the scope map's Sources column; the matching row's Rule-column text is then located verbatim as a `Rule:` line inside the `.feature` file the row names.
 3. Read the `.feature` file and collect the individual Scenarios under that rule.
-4. For owning stories: verify each reachable Scenario has a corresponding entry in the story's `#### Test Design` section.
-5. For non-owning stories: verify the story has a `#### Prior Tests` entry pointing to the owner's test module and function.
+4. For owning stories: verify each reachable Scenario has a corresponding entry in the story's `#### Test Design` section — matched by the Scenario's title text appearing in the section, or by a valid waiver for its trace ID.
+5. For non-owning stories: verify the story has a `#### Prior Tests` entry pointing to the owner's test module and function — matched by trace ID or by the Scenario's title text.
 
 ### Waiver format
 
