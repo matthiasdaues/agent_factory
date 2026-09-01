@@ -34,6 +34,14 @@ For each story, cross-reference against the testing regime:
 5. When no existing test covers a criterion, record the target suite for new tests in the story's Notes for the Implementer section (e.g. "New tests target the `backend` suite under `packages/server/backend/tests`").
 6. Read the document referenced by `testing_strategy:` in `docs/charter/testing.yaml` to determine cluster assignment and test budget for the story.
 
+**When `backlog/epics.md` contains test-design sections** (produced by the optional test-design skill in phase 2.5), carry them into the story files:
+
+- If the story's epic building-block entry has a `tests:` key, populate the story's `tests:` frontmatter field with that value (overriding any cross-referenced test discovery).
+- If the entry contains a `#### Test Design` section, write it verbatim into the story body immediately after the Acceptance Criteria section.
+- If the entry contains a `#### Prior Tests` section, write it verbatim into the story body immediately after the Test Design section (or after Acceptance Criteria if no Test Design exists).
+
+When `backlog/epics.md` contains no test-design sections (the skill was not run), the cross-referencing behavior above continues unchanged.
+
 See the [story template](../../rulebooks/templates/story.md) for the complete frontmatter schema and body structure.
 
 Format each story file via `factory/scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
