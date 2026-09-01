@@ -151,8 +151,8 @@ agents:
     title: Developer Agent
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
-    tokens: 1771
-    total_tokens: 4316
+    tokens: 1929
+    total_tokens: 4474
 
 skills:
   - name: capture-charter
@@ -480,7 +480,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 777
-    total_tokens: 13256
+    total_tokens: 13414
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -542,7 +542,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1281
-    total_tokens: 13760
+    total_tokens: 13918
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
