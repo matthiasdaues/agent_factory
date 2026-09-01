@@ -88,19 +88,43 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def read_threshold_from_house_rules(source_root: Path) -> float | None:
+def read_threshold_from_testing_yaml(source_root: Path) -> float | None:
+    """Read crap_score.threshold from testing.yaml gates section.
+
+    Walks up the directory tree looking for docs/charter/testing.yaml.
+    Parses the gates.crap_score.threshold value if present.
+    Returns None if gates section or crap_score.threshold is not found.
+    """
     candidate = source_root
     for _ in range(10):
-        rules_path = candidate / "docs" / "charter" / "house-rules.md"
-        if rules_path.is_file():
-            text = rules_path.read_text(encoding="utf-8")
-            match = re.search(
-                r"crap[_-]threshold\s*[:=]\s*(\d+(?:\.\d+)?)",
-                text,
-                re.IGNORECASE,
+        testing_yaml = candidate / "docs" / "charter" / "testing.yaml"
+        if testing_yaml.is_file():
+            text = testing_yaml.read_text(encoding="utf-8")
+            # Minimal YAML parsing: look for gates: section and crap_score.threshold
+            # Pattern: "gates:" appears, then indented "crap_score:", then indented "threshold: VALUE"
+            gates_match = re.search(r"^gates:\s*$", text, re.MULTILINE)
+            if not gates_match:
+                return None
+
+            # Find crap_score section within gates
+            gates_pos = gates_match.start()
+            remaining = text[gates_pos:]
+            crap_match = re.search(
+                r"^\s+crap_score:\s*$", remaining, re.MULTILINE
             )
-            if match:
-                return float(match.group(1))
+            if not crap_match:
+                return None
+
+            # Find threshold within crap_score
+            crap_pos = crap_match.start()
+            remaining = remaining[crap_pos:]
+            threshold_match = re.search(
+                r"^\s{4,}threshold:\s*(\d+(?:\.\d+)?)\s*$",
+                remaining,
+                re.MULTILINE,
+            )
+            if threshold_match:
+                return float(threshold_match.group(1))
             return None
         parent = candidate.parent
         if parent == candidate:
@@ -112,9 +136,9 @@ def read_threshold_from_house_rules(source_root: Path) -> float | None:
 def resolve_threshold(cli_threshold: float | None, source_root: Path) -> float:
     if cli_threshold is not None:
         return cli_threshold
-    house_rules = read_threshold_from_house_rules(source_root)
-    if house_rules is not None:
-        return house_rules
+    testing_yaml_threshold = read_threshold_from_testing_yaml(source_root)
+    if testing_yaml_threshold is not None:
+        return testing_yaml_threshold
     return DEFAULT_THRESHOLD
 
 
