@@ -23,6 +23,14 @@ Document every confirmed EPIC in `backlog/epics.md` with:
 - Size / story count estimate
 - Building-block inventory listing each anticipated story with its capacity tier and day-range estimate
 
+**"Why this EPIC exists" section (required):** Before the Actor Goals, write one paragraph (2–4 sentences) that explains why this capability matters — what cannot happen without it, or what risk it removes. A junior reading the EPIC should understand the motivation before encountering the scope list.
+
+**Demo format:** Write the demo as a numbered step list (not a paragraph). Each step describes one observable action or system response. A junior should be able to walk through the steps as a manual test.
+
+**Term glossing:** On first use within each EPIC, parenthesise a plain-English gloss for every domain term, component name, or protocol concept that a junior developer would not recognise from general programming experience. Examples: "Odate boundary (the wall-clock moment one business day ends and the next begins)", "Return (a message carrying the exit code and terminal evidence)".
+
+**Scope phrasing:** Scope In items must explain what the system does, not just name a component or concept. "Immutable Task Version publication — one atomic transaction that creates the version, records an audit event, supersedes the predecessor, and deletes the consumed draft" beats "Immutable Task Version publication". Scope Out items name what is excluded with enough context to prevent confusion about why.
+
 Every User Goal from the actor-goal list must belong to exactly one EPIC.
 
 If charter files exist and Epic 0 stories are already in the backlog (created by the `capture-charter` completeness sweep), record Epic 0 in `epics.md` and note that feature EPICs depend on its completion. Feature stories derived from the charter's Feature List shall depend on the final Epic 0 story via `deps:`.
@@ -33,9 +41,17 @@ Format via `factory/scripts/mdformat --number backlog/epics.md` per [markdown-fo
 
 Before presenting, review `backlog/epics.md` through two lenses:
 
-**Junior Clarity:** Can a junior developer read each EPIC section and understand what it delivers, what its boundaries are, and roughly how many stories it contains? If not, the EPIC is underspecified.
+**Junior Clarity checklist:**
 
-**Senior Acceptance:** Would a senior hand this EPIC breakdown to the team without a follow-up conversation? Is the scope bounded, the demo concrete, and the dependency chain clear? If not, revise.
+1. Every domain term, protocol concept, and component name is glossed on first use within the EPIC (parenthetical plain-English explanation).
+2. The demo is a numbered step list, not a wall paragraph.
+3. Each EPIC has a "Why this EPIC exists" section that explains the motivation in plain language.
+4. Scope In items describe behaviour ("what the system does"), not just name components.
+5. Narrative text avoids dense chains of component names — save DSL identifiers for the Boundaries table.
+
+If any item fails, revise before presenting.
+
+**Senior Acceptance:** Would a senior hand this EPIC breakdown to the team without a follow-up conversation? Is the scope bounded, the demo concrete, and the dependency chain clear? If not, revise. Additionally: the demo steps, when read as a manual test, exercise the EPIC's core scenario end-to-end without referencing internal implementation details that only exist in the architecture DSL.
 
 Present `backlog/epics.md` to the user for confirmation.
 

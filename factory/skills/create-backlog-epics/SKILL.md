@@ -27,6 +27,8 @@ If charter files exist and Epic 0 stories are already in the backlog (created by
 
 **Glossary source:** read `docs/arc42/12_glossary.md` if it exists, otherwise `docs/CONTEXT.md`. When a capability or boundary name uses domain jargon, parenthesise a plain-English gloss on first use in the table (e.g. "DispatchLedger (YAML file tracking story status)").
 
+**Demo vocabulary:** the demo sentence must use only terms already glossed or self-evident. If the demo names a concept the reader hasn't met, gloss it inline or restructure the sentence.
+
 **Boundary vocabulary:** derive boundary names from the project's architecture — components, containers, and deployment nodes in `docs/arc42/architecture.dsl` or the arc42 building-block and deployment views. Use the project's own names (e.g. `IngestPipeline`, `APIGateway`, `EventBus`), not generic layer labels like "backend" or "database."
 
 For each EPIC, write one row. Each row names the user-visible outcome the EPIC delivers, the system boundaries it crosses, and a one-sentence demo.
@@ -42,9 +44,15 @@ For each EPIC, write one row. Each row names the user-visible outcome the EPIC d
 
 Before presenting, review the slice table through two lenses:
 
-**Junior Clarity:** Can a junior developer read this table and understand what each EPIC delivers, which parts of the system it touches, and what "done" looks like? If not, the EPIC description is underspecified.
+**Junior Clarity checklist:**
 
-**Senior Acceptance:** Would a senior hand this decomposition to the team without a follow-up conversation? Is each EPIC bounded, demo-able, and free of ambiguity? If not, recut.
+1. Every domain term, protocol concept, and component name is glossed on first use in the table (parenthetical plain-English explanation).
+2. Demo sentences use only glossed or self-evident terms.
+3. Narrative text avoids dense chains of component names — save DSL identifiers for the Boundaries column.
+
+If any item fails, revise before presenting.
+
+**Senior Acceptance:** Would a senior hand this decomposition to the team without a follow-up conversation? Is each EPIC bounded, demo-able, and free of ambiguity? If not, recut. Additionally: can each demo sentence be read as a concrete acceptance criterion without referencing internal implementation details that only exist in the architecture DSL?
 
 Present the table to the user for confirmation.
 
