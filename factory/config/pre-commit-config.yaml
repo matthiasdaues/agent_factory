@@ -9,6 +9,11 @@
 # .pre-commit-config.yaml, it lands as a separate `- repo: local` list item whose
 # hooks all carry that prefix. remove-factory drops exactly that item, leaving the
 # project's own hooks untouched. Do not remove the prefix — it is the removal key.
+#
+# FACTORY GUARD: hooks that call factory/scripts/* are wrapped in a bash guard
+# so they silently pass when factory/ is absent. This lets colleagues who don't
+# use the factory commit without errors — the tracked .pre-commit-config.yaml
+# reaches them, but the untracked factory/ directory does not.
 
 repos:
   - repo: local
@@ -16,7 +21,7 @@ repos:
       # formats all markdown files — zero local install, see factory/scripts/mdformat
       - id: agent_factory_hook-mdformat
         name: "agent_factory: mdformat"
-        entry: factory/scripts/mdformat --number
+        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/mdformat --number "$@"' --
         language: system
         types: [markdown]
 
@@ -37,55 +42,55 @@ repos:
       # fast, offline equivalent of lychee for repository-local Markdown links
       - id: agent_factory_hook-link-check
         name: "agent_factory: link-check (local Markdown links)"
-        entry: factory/scripts/link-check
+        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/link-check "$@"' --
         language: system
         types: [markdown]
         exclude: ^factory/
 
       - id: agent_factory_hook-mermaid-lint
         name: "agent_factory: mermaid-lint (no raw semicolons)"
-        entry: factory/scripts/mermaid-lint
+        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/mermaid-lint "$@"' --
         language: system
         types: [markdown]
 
       - id: agent_factory_hook-spec-lint
         name: "agent_factory: spec-lint (specification consistency & traceability)"
-        entry: factory/scripts/spec-lint
+        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/spec-lint' --
         language: system
         pass_filenames: false
         files: ^docs/spec/
 
       - id: agent_factory_hook-arch-lint
         name: "agent_factory: arch-lint (arc42 <-> Structurizr consistency, ADR frontmatter)"
-        entry: factory/scripts/arch-lint --docs-dir docs/arc42 --no-validate
+        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/arch-lint --docs-dir docs/arc42 --no-validate' --
         language: system
         pass_filenames: false
         files: ^docs/(arc42/(architecture\.dsl|05_building_block_view\.md)|assets/images/.*|adr/.*\.md)$
 
       - id: agent_factory_hook-backlog-lint
         name: "agent_factory: backlog-lint (story schema & traceability gate)"
-        entry: factory/scripts/backlog-lint --backlog-dir backlog
+        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/backlog-lint --backlog-dir backlog' --
         language: system
         pass_filenames: false
         files: ^backlog/ST-.*\.md$
 
       - id: agent_factory_hook-matrix-lint
         name: "agent_factory: matrix-lint (model matrix consistency gate)"
-        entry: factory/scripts/matrix-lint --matrix config/model.conf
+        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/matrix-lint --matrix config/model.conf' --
         language: system
         pass_filenames: false
         files: ^config/model\.conf$
 
       - id: agent_factory_hook-statemachine-lint
         name: "agent_factory: statemachine-lint (pseudocode <-> Mermaid consistency)"
-        entry: factory/scripts/statemachine-lint --spec-dir docs/spec
+        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/statemachine-lint --spec-dir docs/spec' --
         language: system
         pass_filenames: false
         files: ^docs/spec/.*\.md$
 
       - id: agent_factory_hook-index-lint
         name: "agent_factory: index-lint (regenerate INDEX.yaml from agent/skill/playbook frontmatter)"
-        entry: factory/scripts/index-lint
+        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/index-lint' --
         language: system
         pass_filenames: false
         files: ^(factory/agents/.*\.md|factory/skills/.*/SKILL\.md|factory/playbooks/.*\.md)$
@@ -94,7 +99,7 @@ repos:
       # inspects everything staged, so it always runs — no-op without a marker
       - id: agent_factory_hook-transition-lint
         name: "agent_factory: transition-lint (playbook phase-ordering gate)"
-        entry: factory/scripts/transition-lint
+        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/transition-lint' --
         language: system
         pass_filenames: false
         always_run: true
