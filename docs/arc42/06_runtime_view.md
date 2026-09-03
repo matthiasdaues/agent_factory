@@ -4,7 +4,7 @@
 
 ## 6.1 Overview
 
-This chapter describes key interaction sequences, focusing on **test gate presence** — the pattern where Factory ensures test gates exist while the project owns what runs inside them — and the **semantic gate loop** that the dispatcher runs after each developer-agent commit. Other runtime scenarios (phase advance, agent dispatch, retry loops) are documented here as needed for context but are not exhaustive; see use cases in [`spec/use_cases/`](../spec/use_cases/) for full flows.
+This chapter describes key interaction sequences, focusing on **test gate presence** — the pattern where Factory ensures test gates exist while the project owns what runs inside them — and the **semantic gate loop** that the dispatcher runs after each developer-agent commit. Other runtime scenarios (phase advance, agent dispatch, retry loops) are documented here as needed for context but are not exhaustive; see use cases in [`spec/use_cases/`](../~archive/spec/use_cases/) for full flows.
 
 ## 6.2 Test Gate Presence
 
@@ -171,15 +171,71 @@ sequenceDiagram
 - Tests module-graph topology only: new modules, changed public interfaces, inverted dependency directions. A new entity in an existing module does not trigger Phase 2.
 - The orchestrating session (hosting the `feature-addition` playbook) owns the check. It is not a hook or a dispatcher gate.
 
+## 6.5 Agent Context Mode Transition
+
+The agent-context index files have a two-mode lifecycle: `mode: primary` (greenfield, values written directly) and `mode: index` (mature, every non-null, non-deferred leaf has a `source:` pointer). The transition is one-directional and atomic. See [ADR-0014](../adr/0014-two-layer-routing-with-two-mode-lifecycle.md) and [state-machines.md § Agent Context Mode Lifecycle](../spec/supplementary_specs/state-machines.md#agent-context-mode-lifecycle).
+
+### 6.5.1 Sequence: Mode Transition via update-context
+
+```mermaid
+sequenceDiagram
+    participant H as Human Operator
+    participant UC as update-context skill
+    participant IF as Index Files (stack/workflow/governance)
+    participant CL as context-lint
+
+    H->>UC: Write source pointer for last uncovered field
+    UC->>IF: Write name + source to index file
+    UC->>IF: Check transition condition across all three files
+    IF-->>UC: Every non-null, non-deferred leaf has source pointer
+    UC->>H: "All fields have sources. Switch to index mode?"
+    alt Operator confirms
+        UC->>IF: Set mode: index in all three files (single commit)
+        UC->>IF: Strip inline values to names only, preserve source pointers
+        UC->>CL: Validate updated files
+        CL-->>UC: CX-MODE: index (info), no CX-SRC findings
+    else Operator declines
+        UC-->>H: Files remain in mode: primary
+    end
+```
+
+### 6.5.2 Sequence: context-lint Validates Mode Compliance
+
+```mermaid
+sequenceDiagram
+    participant G as Git / pre-commit
+    participant CL as context-lint
+    participant IF as Index Files
+    participant RG as reading-guides.yaml
+
+    G->>CL: Pre-commit fires
+    CL->>CL: Format detection (agent-context vs. legacy charter)
+    CL->>IF: Parse YAML, check required keys (CX-PARSE, CX-KEYS)
+    CL->>IF: Check mode field (CX-MODE / CX-MODE-INVALID)
+    alt mode: index
+        CL->>IF: Check every non-null, non-deferred leaf has source (CX-SRC)
+        CL->>IF: Check each source pointer resolves to existing file (CX-SRC-EXIST)
+        CL->>RG: Check reading-guide exists (CX-FILE)
+    end
+    CL->>RG: Validate key-path references resolve to index-file keys (CX-GUIDE-REF)
+    CL-->>G: Exit code = count of error-severity findings
+```
+
+**Key Points:**
+
+- The transition condition is mechanically testable: `context-lint` reports `CX-SRC` findings for fields missing source pointers when mode is index.
+- `testing.yaml` is exempt from mode checks -- it receives `CX-PARSE` validation only.
+- Format detection routes to either `CX-*` codes (YAML agent-context) or `CH-*` codes (legacy markdown charter), never both.
+
 ## 6.4 Other Runtime Scenarios (Summary)
 
 Full sequences for these flows are in their respective use cases:
 
-- **Phase advance with multiple entry conditions** → [UC-01](../spec/use_cases/UC-01-advance-a-playbook-phase.md)
-- **Retry loop with iteration cap** → [UC-03](../spec/use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md)
-- **Agent dispatch (interactive vs. background)** → [UC-04](../spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md)
-- **Resume after interruption** → [UC-05](../spec/use_cases/UC-05-resume-an-interrupted-playbook-run.md)
-- **Transition-lint blocking out-of-phase commit** → [UC-02](../spec/use_cases/UC-02-block-an-out-of-phase-commit.md)
+- **Phase advance with multiple entry conditions** → [UC-01](../~archive/spec/use_cases/UC-01-advance-a-playbook-phase.md)
+- **Retry loop with iteration cap** → [UC-03](../~archive/spec/use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md)
+- **Agent dispatch (interactive vs. background)** → [UC-04](../~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md)
+- **Resume after interruption** → [UC-05](../~archive/spec/use_cases/UC-05-resume-an-interrupted-playbook-run.md)
+- **Transition-lint blocking out-of-phase commit** → [UC-02](../~archive/spec/use_cases/UC-02-block-an-out-of-phase-commit.md)
 
 ## Referenced from
 

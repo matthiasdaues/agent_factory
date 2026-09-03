@@ -26,6 +26,12 @@ The **Validator** container enforces deterministic gates. Two are hook-triggered
 | **transition-lint**        | Pre-commit hook (git commit) | Staged files match current phase's `outputs:` globs                            | 0 (pass), 1 (findings) |
 | **block-dangerous-git.sh** | Native hook or Pi extension  | Shell command not in deny list; charter-declared test commands are allowlisted | 0 (allow), 2 (deny)    |
 
+One is a structural validator for project knowledge files, running both as a pre-commit hook and on demand:
+
+| Component        | Trigger Point              | What it validates                                                                                                                                                                                | Exit codes              |
+| ---------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------- |
+| **context-lint** | Pre-commit hook, on-demand | Agent-context YAML structure, key presence, mode compliance, source-pointer integrity, `CX-GUIDE-REF` key-path references; falls back to `charter-lint` CH-\* codes for legacy markdown projects | 0 (pass), 1+ (findings) |
+
 Two more — `schema-validate` and `policy-validate` — are on-demand validators invoked by the research skills and agents (and from the CLI) rather than by a hook. They are described in §5.2.2.
 
 Three additional on-demand validators enforce semantic code quality and architecture phase routing. Two are invoked by the implementation-agent dispatcher (not by hooks) and are described in §5.2.3; one routes between phases:
@@ -38,9 +44,9 @@ Three additional on-demand validators enforce semantic code quality and architec
 
 ### 5.2.1 Project-Owned Test Gates via Charter Declaration
 
-**Purpose**: Factory ensures test gates exist; the project decides what runs inside them. Testing is project-owned infrastructure declared in `docs/charter/testing.yaml`. Factory's guardrails and FSM gates read that declaration. Factory does not own test execution, framework detection, or structured test output.
+**Purpose**: Factory ensures test gates exist; the project decides what runs inside them. Testing is project-owned infrastructure declared in `testing.yaml` (at `docs/agent-context/testing.yaml` or `docs/charter/testing.yaml`, resolved via format detection). Factory's guardrails and FSM gates read that declaration. Factory does not own test execution, framework detection, or structured test output.
 
-**Charter declaration** (`docs/charter/testing.yaml`):
+**Test configuration** (`testing.yaml`, resolved via format detection):
 
 - `test_command` (required) — full test suite command, used by FSM `script_exit_zero` gate conditions
 - `test_staged_command` (optional) — command for TDD iteration on staged files, allowlisted for agents
@@ -51,14 +57,14 @@ Three additional on-demand validators enforce semantic code quality and architec
 
 **Integration Points**:
 
-- **FSM phase advance gate**: The `tests_pass` condition uses `script_exit_zero` with `charter:test_command`, resolving the actual command from `docs/charter/testing.yaml`. Blocks when the charter is absent or `test_command` is missing.
-- **Agent allowlist** (BR-024): `block-dangerous-git.sh` reads all declared command fields from the charter and allowlists them with exact-string matching. Bare test commands remain blocked for agents.
-- **Onboarding**: The `detect-test-regime` skill scans for existing test entrypoints during `init-factory` and populates the charter. When multiple entrypoints are detected, it asks for disambiguation.
+- **FSM phase advance gate**: The `tests_pass` condition uses `script_exit_zero` with `charter:test_command`, resolving the actual command from `testing.yaml` (path resolved via format detection). Blocks when the test configuration is absent or `test_command` is missing.
+- **Agent allowlist** (BR-024): `block-dangerous-git.sh` reads all declared command fields from `testing.yaml` (via format detection) and allowlists them with exact-string matching. Bare test commands remain blocked for agents.
+- **Onboarding**: The `detect-test-regime` skill scans for existing test entrypoints during `init-factory` and populates `testing.yaml`. When multiple entrypoints are detected, it asks for disambiguation.
 - **Project hooks**: Factory does not inject test hooks into `.pre-commit-config.yaml`. Test hooks are project-owned infrastructure.
 
 **Referenced Specifications**:
 
-- [UC-09 — Ensure Project-Owned Test Gates Exist](../spec/use_cases/UC-09-run-tests-via-hook.md)
+- [UC-09 — Ensure Project-Owned Test Gates Exist](../~archive/spec/use_cases/UC-09-run-tests-via-hook.md)
 - [ADR-0003 — Test execution via mechanically triggered gates](../adr/0003-test-execution-via-hooks.md)
 - [test-gate-presence.feature](../spec/test-gate-presence.feature)
 - [validation-rules.md § Test execution (BR-023..BR-029)](../spec/supplementary_specs/validation-rules.md#project-owned-test-gates-testingyaml-br-023-br-024-br-025-br-026-br-027-br-028-br-029)
@@ -129,6 +135,32 @@ A deterministic script that replaces the manual `impact.architecture_change` dec
 - [ADR-0012 — Dispatcher-owned semantic gate loop](../adr/0012-dispatcher-owned-semantic-gate-loop.md)
 - [Proposal: Agentic Quality Gates and Requirements Consolidation](../proposals/implemented/agentic-quality-gates-and-specification-consolidation.md)
 
+### 5.2.5 Agent context validation (context-lint)
+
+`context-lint` validates the structural integrity, key presence, mode compliance, and reference consistency of agent-context YAML files. It replaces `charter-lint` for YAML agent-context projects; legacy markdown charter projects continue to use `charter-lint` with CH-\* codes. See [ADR-0013](../adr/0013-yaml-agent-context-replaces-markdown-charter.md) and [ADR-0014](../adr/0014-two-layer-routing-with-two-mode-lifecycle.md).
+
+| Code              | Severity                            | Check                                                                           |
+| ----------------- | ----------------------------------- | ------------------------------------------------------------------------------- |
+| `CX-FILE`         | error                               | Required file exists (reading-guides.yaml required only when mode is index)     |
+| `CX-PARSE`        | error                               | Each file parses as valid YAML                                                  |
+| `CX-KEYS`         | error                               | Required top-level keys present; `deferred:` sole key at leaf                   |
+| `CX-NULL`         | warning / error (`--planning-gate`) | Null leaf values                                                                |
+| `CX-MODE`         | info                                | Reports recognized mode value (primary or index)                                |
+| `CX-MODE-INVALID` | error                               | Unrecognized mode value                                                         |
+| `CX-SRC`          | warning                             | Missing source pointer when mode is index                                       |
+| `CX-SRC-EXIST`    | warning                             | Source pointer does not resolve to an existing file                             |
+| `CX-SRC-STALE`    | info                                | Source file modified more recently than index file                              |
+| `CX-GUIDE-REF`    | warning                             | Reading-guide key-path reference does not resolve to an existing index-file key |
+| `CX-FORMAT`       | error                               | Files exist in more than one location (testing.yaml exempt)                     |
+
+**Format detection** is shared across all factory consumers: `docs/agent-context/stack.yaml` (YAML agent-context) then `docs/charter/tech-stack.yaml` (legacy YAML charter) then `docs/charter/tech-stack.md` (legacy markdown charter). `testing.yaml` path resolution is independent and does not trigger mixed-location errors.
+
+**Referenced Specifications:**
+
+- [agent-context.feature](../spec/agent-context.feature) -- Rules 6-7 (context-lint, legacy compatibility)
+- [interface-contracts.md § context-lint](../spec/supplementary_specs/interface-contracts.md)
+- [validation-rules.md § Agent context validation](../spec/supplementary_specs/validation-rules.md)
+
 ## 5.3 Level 2: Component View — State Manager
 
 | Component          | What it does                                                          | Reads                        | Writes               |
@@ -170,6 +202,7 @@ Every building block's entry point, invoked how, and by whom:
 | policy-validate              | Research skills/agents, CLI                               | `factory/scripts/policy-validate [--pipeline] <artifact-or-dir>...` | 0 (pass), 1 (fail), 2 (operational)           |
 | crap-score                   | Implementation-agent dispatcher                           | `factory/scripts/crap-score [--story-id <id>]`                      | 0 (pass), 1 (fail)                            |
 | dependency-check             | Implementation-agent dispatcher                           | `factory/scripts/dependency-check [--story-id <id>]`                | 0 (pass), 1 (violations)                      |
+| context-lint                 | Pre-commit hook, validate skill                           | `factory/scripts/context-lint [--planning-gate]`                    | 0 (pass), 1+ (CX-\* findings)                 |
 | module-graph-check           | Orchestrating session                                     | `factory/scripts/module-graph-check <proposal-path>`                | 0 (no change), 1 (change detected)            |
 
 ## 5.6 Level 2: Runtime Usage Capture
