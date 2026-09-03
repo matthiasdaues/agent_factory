@@ -171,11 +171,11 @@ sequenceDiagram
 - Tests module-graph topology only: new modules, changed public interfaces, inverted dependency directions. A new entity in an existing module does not trigger Phase 2.
 - The orchestrating session (hosting the `feature-addition` playbook) owns the check. It is not a hook or a dispatcher gate.
 
-## 6.5 Agent Context Mode Transition
+## 6.4 Agent Context Mode Transition
 
 The agent-context index files have a two-mode lifecycle: `mode: primary` (greenfield, values written directly) and `mode: index` (mature, every non-null, non-deferred leaf has a `source:` pointer). The transition is one-directional and atomic. See [ADR-0014](../adr/0014-two-layer-routing-with-two-mode-lifecycle.md) and [state-machines.md § Agent Context Mode Lifecycle](../spec/supplementary_specs/state-machines.md#agent-context-mode-lifecycle).
 
-### 6.5.1 Sequence: Mode Transition via update-context
+### 6.4.1 Sequence: Mode Transition via update-context
 
 ```mermaid
 sequenceDiagram
@@ -199,7 +199,7 @@ sequenceDiagram
     end
 ```
 
-### 6.5.2 Sequence: context-lint Validates Mode Compliance
+### 6.4.2 Sequence: context-lint Validates Mode Compliance
 
 ```mermaid
 sequenceDiagram
@@ -227,7 +227,7 @@ sequenceDiagram
 - `testing.yaml` is exempt from mode checks -- it receives `CX-PARSE` validation only.
 - Format detection routes to either `CX-*` codes (YAML agent-context) or `CH-*` codes (legacy markdown charter), never both.
 
-## 6.4 Other Runtime Scenarios (Summary)
+## 6.5 Other Runtime Scenarios (Summary)
 
 Full sequences for these flows are in their respective use cases:
 

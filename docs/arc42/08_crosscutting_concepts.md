@@ -34,12 +34,12 @@ Derived from [`factory/rulebooks/conventions/foundational-principles.md`](../../
 
 Test gate presence exemplifies this principle end-to-end:
 
-1. **Project declares test commands** — the human operator writes `docs/charter/testing.yaml` with `test_command`, and optionally `test_staged_command` and `test_changed_command`.
-2. **FSM gate resolves charter** — `phase advance` reads the FSM entry condition `script_exit_zero` with `charter:test_command`, resolves the actual command from the charter, and executes it. Exit 0 advances; nonzero blocks.
-3. **Agent uses charter-declared command** — `block-dangerous-git.sh` reads all declared command fields from the charter and allowlists them with exact-string matching. An agent running a charter-declared command proceeds normally.
-4. **Agent blocked from bare test commands** — `block-dangerous-git.sh` denies `pytest`, `npm test`, etc. at PreToolUse unless they exactly match a charter-declared command. Agent cannot bypass or "double-check" — only the charter-declared, mechanically gated result is trustworthy.
+1. **Project declares test commands** — the human operator writes `testing.yaml` (resolved via format detection: `docs/agent-context/testing.yaml` first, `docs/charter/testing.yaml` as fallback) with `test_command`, and optionally `test_staged_command` and `test_changed_command`.
+2. **FSM gate resolves the declared command** — `phase advance` reads the FSM entry condition `script_exit_zero` with `charter:test_command`, resolves the actual command from the testing configuration, and executes it. Exit 0 advances; nonzero blocks.
+3. **Agent uses the declared command** — `block-dangerous-git.sh` reads all declared command fields from the testing configuration and allowlists them with exact-string matching. An agent running a declared command proceeds normally.
+4. **Agent blocked from bare test commands** — `block-dangerous-git.sh` denies `pytest`, `npm test`, etc. at PreToolUse unless they exactly match a declared command. Agent cannot bypass or "double-check" — only the declared, mechanically gated result is trustworthy.
 
-**Result**: Test gates exist by charter declaration. Factory ensures the gates are present and reads exit codes only. The project owns test execution, framework choice, and structured test output. Agents use only charter-declared commands.
+**Result**: Test gates exist by project declaration. Factory ensures the gates are present and reads exit codes only. The project owns test execution, framework choice, and structured test output. Agents use only declared commands.
 
 ## 8.2 Hook-Triggered Validation Pattern
 
@@ -197,5 +197,5 @@ The agent context (`docs/agent-context/`) is the factory-facing interface to all
 - [05_building_block_view.md § 5.2.5](05_building_block_view.md#525-agent-context-validation-context-lint)
 - [06_runtime_view.md § 6.2](06_runtime_view.md#62-test-gate-presence)
 - [06_runtime_view.md § 6.3](06_runtime_view.md#63-semantic-gate-loop)
-- [06_runtime_view.md § 6.5](06_runtime_view.md#65-agent-context-mode-transition)
+- [06_runtime_view.md § 6.4](06_runtime_view.md#64-agent-context-mode-transition)
 - [09_architecture_decisions.md](09_architecture_decisions.md)

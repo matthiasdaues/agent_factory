@@ -32,9 +32,9 @@ Replace `docs/charter/` with `docs/agent-context/` using YAML files. Three index
 | Per-field source pointers       | 3      | 0                   | +1      | +1     |
 | Consistency with testing.yaml   | 1      | 0                   | +1      | 0      |
 | Backward compatibility          | 2      | 0                   | 0       | -1     |
-| **Weighted total**              |        | **0**               | **+10** | **+4** |
+| **Weighted total**              |        | **0**               | **+10** | **+5** |
 
-YAML dominates on every criterion that matters. JSON ties on machine concerns but loses on human editability and backward compatibility (the factory ecosystem already uses YAML for structured config, not JSON). Markdown loses on the three highest-weighted criteria.
+YAML dominates on every criterion that matters (+10 vs. JSON's +5). JSON ties on machine concerns but loses on human editability and backward compatibility (the factory ecosystem already uses YAML for structured config, not JSON). Markdown loses on the three highest-weighted criteria.
 
 Format detection provides backward compatibility: factory consumers walk a three-step chain (`docs/agent-context/stack.yaml` then `docs/charter/tech-stack.yaml` then `docs/charter/tech-stack.md`) and select the appropriate validation mode. Legacy markdown charter projects continue to work unchanged.
 

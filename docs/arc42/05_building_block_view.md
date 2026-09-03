@@ -6,14 +6,14 @@
 
 Factory Flow Control consists of three primary containers:
 
-| Container         | Responsibility                                                                                   | Technology                |
-| ----------------- | ------------------------------------------------------------------------------------------------ | ------------------------- |
-| **State Manager** | Reads/writes playbook state marker, resolves FSM transitions, drives phases                      | Bash, Python              |
-| **Validator**     | Enforces gates, permissions, charter-declared test gate presence, and semantic quality checks    | Bash, Python              |
-| **Dispatcher**    | Resolves agents/models from catalog, spawns CLI sessions with scoped permits                     | Bash, Python              |
-| **Usage Capture** | Normalizes CLI transcripts and appends canonical runtime usage records                           | Python, shell, TypeScript |
-| State Files       | Local git-ignored marker (`.current-work/playbook-state.yml`) and FSM defs                       | YAML (storage)            |
-| Catalog           | Generated `factory/INDEX.yaml` from agent/skill/playbook/rulebook frontmatter, with token counts | YAML (storage)            |
+| Container         | Responsibility                                                                                                         | Technology                |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| **State Manager** | Reads/writes playbook state marker, resolves FSM transitions, drives phases                                            | Bash, Python              |
+| **Validator**     | Enforces gates, permissions, project-declared test gate presence, agent-context structure, and semantic quality checks | Bash, Python              |
+| **Dispatcher**    | Resolves agents/models from catalog, spawns CLI sessions with scoped permits                                           | Bash, Python              |
+| **Usage Capture** | Normalizes CLI transcripts and appends canonical runtime usage records                                                 | Python, shell, TypeScript |
+| State Files       | Local git-ignored marker (`.current-work/playbook-state.yml`) and FSM defs                                             | YAML (storage)            |
+| Catalog           | Generated `factory/INDEX.yaml` from agent/skill/playbook/rulebook frontmatter, with token counts                       | YAML (storage)            |
 
 ![Containers](../assets/images/Containers.svg)
 
