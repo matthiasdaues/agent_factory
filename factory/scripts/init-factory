@@ -1691,17 +1691,18 @@ def handle_precommit(target: Path, install: dict, report: list[str]) -> None:
         dest.read_text(encoding="utf-8").endswith("\n"),
     )
     merge_script = target / "factory" / "scripts" / "merge-precommit-config"
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(merge_script),
-            "--target",
-            str(dest),
-            "--template",
-            str(template),
-        ],
-        check=False,
-    )
+    is_rerun = "precommit" in install
+    cmd = [
+        sys.executable,
+        str(merge_script),
+        "--target",
+        str(dest),
+        "--template",
+        str(template),
+    ]
+    if is_rerun:
+        cmd.append("--update")
+    result = subprocess.run(cmd, check=False)
 
     if result.returncode != 0:
         raise Collision(

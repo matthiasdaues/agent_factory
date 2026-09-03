@@ -57,7 +57,13 @@ TOP_LEVEL_KEY = re.compile(r"^\S")
 REPOS_KEY = re.compile(r"^repos:\s*$")
 LIST_ITEM_INDENT = re.compile(r"^( *)- ")
 HOOK_ID_LINE = re.compile(r"^\s*- id:\s*(\S+)\s*$")
+HOOK_ENTRY_LINE = re.compile(r"^\s*entry:\s*(.+)$")
 REPO_ITEM_START = re.compile(r"^  - repo:\s*\S")
+
+# Tools that projects commonly provide their own hooks for.  When the target
+# already has a hook whose entry invokes one of these, the corresponding
+# factory hook is dropped from the splice to avoid running the tool twice.
+DEDUP_TOOLS = {"ruff", "mdformat"}
 
 
 def find_template_block(template_text: str) -> list[str]:
@@ -142,12 +148,104 @@ def existing_item_indent(target_lines: list[str], start: int, end: int) -> int |
     return None
 
 
-def merge(target_text: str, template_text: str) -> str | None:
-    """Return the merged text, or None if already merged (no-op)."""
+def _tools_in_target(target_lines: list[str]) -> set[str]:
+    """Return the set of DEDUP_TOOLS names that already appear in any hook
+    entry line in the target (outside of agent_factory_hook-* blocks)."""
+    found: set[str] = set()
+    in_factory_block = False
+    for line in target_lines:
+        m = HOOK_ID_LINE.match(line)
+        if m:
+            in_factory_block = m.group(1).startswith("agent_factory_hook-")
+        if in_factory_block:
+            continue
+        m = HOOK_ENTRY_LINE.match(line)
+        if m:
+            entry = m.group(1)
+            for tool in DEDUP_TOOLS:
+                if tool in entry:
+                    found.add(tool)
+    return found
+
+
+def _filter_template_block(block: list[str], skip_tools: set[str]) -> list[str]:
+    """Remove individual hook stanzas from the template block whose entry
+    invokes a tool in skip_tools.  Leading comments travel with the stanza
+    they precede, so dropping a stanza also drops its comments."""
+    if not skip_tools:
+        return block
+    filtered: list[str] = []
+    stanza: list[str] = []
+    for line in block:
+        if HOOK_ID_LINE.match(line) and stanza:
+            # Peel trailing comment/blank lines off the current stanza —
+            # they belong to the upcoming hook, not the one that just ended.
+            leading: list[str] = []
+            while stanza and re.match(r"^\s*(#|$)", stanza[-1]):
+                leading.append(stanza.pop())
+            leading.reverse()
+            if not _stanza_uses_tool(stanza, skip_tools):
+                filtered.extend(stanza)
+            stanza = leading + [line]
+        else:
+            stanza.append(line)
+    if stanza and not _stanza_uses_tool(stanza, skip_tools):
+        filtered.extend(stanza)
+    return filtered
+
+
+def _stanza_uses_tool(stanza: list[str], tools: set[str]) -> bool:
+    for line in stanza:
+        m = HOOK_ENTRY_LINE.match(line)
+        if m:
+            entry = m.group(1)
+            return any(tool in entry for tool in tools)
+    return False
+
+
+def _strip_factory_block(lines: list[str]) -> list[str]:
+    """Remove the existing agent_factory_hook-* repo block from parsed lines."""
+    bounds = find_repos_list_bounds(lines)
+    if bounds is None:
+        return lines
+    start, end = bounds
+    item_starts = [i for i in range(start + 1, end) if REPO_ITEM_START.match(lines[i])]
+    item_bounds = []
+    for n, s in enumerate(item_starts):
+        e = item_starts[n + 1] if n + 1 < len(item_starts) else end
+        item_bounds.append((s, e))
+
+    drop: list[tuple[int, int]] = []
+    for s, e in item_bounds:
+        ids = [m.group(1) for m in (HOOK_ID_LINE.match(ln) for ln in lines[s:e]) if m]
+        if ids and all(i.startswith("agent_factory_hook-") for i in ids):
+            drop.append((s, e))
+
+    if not drop:
+        return lines
+    kept = [
+        ln for idx, ln in enumerate(lines) if not any(s <= idx < e for s, e in drop)
+    ]
+    out: list[str] = []
+    for ln in kept:
+        if ln.strip() == "" and out and out[-1].strip() == "":
+            continue
+        out.append(ln)
+    return out
+
+
+def merge(target_text: str, template_text: str, *, update: bool = False) -> str | None:
+    """Return the merged text, or None if already merged and not updating.
+
+    When update=True and the factory block already exists, strip it first and
+    re-splice from the current template — this is how update-factory refreshes
+    guarded entries."""
     marker = extract_marker_id(template_text.splitlines())
 
     if marker in target_text:
-        return None
+        if not update:
+            return None
+        target_text = "\n".join(_strip_factory_block(target_text.splitlines()))
 
     target_lines = target_text.splitlines()
     bounds = find_repos_list_bounds(target_lines)
@@ -173,6 +271,9 @@ def merge(target_text: str, template_text: str) -> str | None:
     # Agent Factory's gates run first and the agent_factory_hook-* block sits at
     # a predictable place. `start` is the index of the `repos:` line itself.
     block = find_template_block(template_text)
+    skip_tools = _tools_in_target(target_lines)
+    if skip_tools:
+        block = _filter_template_block(block, skip_tools)
     insert_at = start + 1
     spliced = target_lines[:insert_at] + block + [""] + target_lines[insert_at:]
 
@@ -183,13 +284,19 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--target", required=True, type=Path)
     ap.add_argument("--template", required=True, type=Path)
+    ap.add_argument(
+        "--update",
+        action="store_true",
+        help="strip the existing factory block and re-splice from the current "
+        "template (used by update-factory to refresh hook entries)",
+    )
     args = ap.parse_args(argv)
 
     target_text = args.target.read_text(encoding="utf-8")
     template_text = args.template.read_text(encoding="utf-8")
 
     try:
-        merged = merge(target_text, template_text)
+        merged = merge(target_text, template_text, update=args.update)
     except ValueError as e:
         print(f"merge-precommit-config: {e}", file=sys.stderr)
         return 1
