@@ -145,7 +145,7 @@ The git safety hooks allowlist these commands by exact match, so agents can run 
 
 FSM gate conditions use `charter:test_command` notation — the `phase` script reads the charter file and resolves the actual command at runtime.
 
-See [ADR-0003](../docs/adr/0003-test-execution-via-hooks.md) for the architecture rationale and [UC-09](../docs/spec/use_cases/UC-09-run-tests-via-hook.md) for detailed behavior.
+See [ADR-0003](../docs/adr/0003-test-execution-via-hooks.md) for the architecture rationale.
 
 ## Using this in an existing repo
 

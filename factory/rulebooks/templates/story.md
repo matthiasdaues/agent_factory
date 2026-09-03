@@ -17,7 +17,7 @@ title: Define domain entity dataclasses
 tier: economy                     # economy | standard | strong — the model tier this story's work needs
 status: pending                   # pending | in_progress | review | blocked | done
 deps: [ST-0002]                   # story ids that block this one (optional)
-traces: [UC-02, ADR-0003]         # Use Case / ADR / component ids this story implements (optional)
+traces: [scope-map#rule-name, ADR-0003]  # scope-map Rule / ADR / component ids this story implements (optional)
 outputs: [src/orchestrator/entities.py]   # files the story is expected to produce
 tests: [tests/test_entities.py]   # pre-existing test files covering this story (optional)
 risk_domains: [security, reliability]   # optional; choose the smallest closed set that directly

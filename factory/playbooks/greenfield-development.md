@@ -75,7 +75,7 @@ orchestrator run-phase requirements
 ```
 
 **Agent**: `requirements-agent`
-**Expected outputs**: `docs/spec/prd.md`, `docs/spec/actor-goal-list.md`, `docs/spec/use_cases/`, `docs/spec/supplementary_specs/`
+**Expected outputs**: `docs/spec/prd.md`, `docs/spec/<feature-name>.feature`, `docs/spec/scope-map.md`, `docs/spec/<feature-name>-gaps.md`, `docs/spec/<feature-name>-qa-strategy.md`, `docs/spec/supplementary_specs/`
 
 As requirements decisions settle a charter entry — a data store, a
 licensing constraint, an integration requirement — the requirements agent

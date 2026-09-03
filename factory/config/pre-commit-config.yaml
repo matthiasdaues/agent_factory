@@ -45,7 +45,7 @@ repos:
         entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/link-check "$@"' --
         language: system
         types: [markdown]
-        exclude: ^factory/
+        exclude: ^(factory/|docs/~archive/)
 
       - id: agent_factory_hook-mermaid-lint
         name: "agent_factory: mermaid-lint (no raw semicolons)"

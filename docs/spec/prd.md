@@ -33,7 +33,7 @@ ______________________________________________________________________
 - **NG1** — Not a re-implementation of `orchestrator/`'s `PhaseRunner`. `orchestrator/` may call these same mechanisms; `factory/` does not duplicate its run-state model (`RUN`, `RUN_LOCK`, single-active-run invariant).
 - **NG2** — Not a general CI system. `pre-commit` and the CLIs do the work; these scripts sequence and gate them.
 - **NG3** — No CLI-failure classification (auth vs. config vs. task failure) at the dispatch layer — a known, named gap. See [T-01](todos.md#t-01-no-cli-failure-classification-in-trigger).
-- **NG4** — No state machine for every playbook. Only `greenfield-development.fsm.yml` exists today; the harness is opt-in per playbook (see [UC-01 § Preconditions](use_cases/UC-01-advance-a-playbook-phase.md#preconditions)).
+- **NG4** — No state machine for every playbook. Only `greenfield-development.fsm.yml` exists today; the harness is opt-in per playbook (see [UC-01 § Preconditions](../~archive/spec/use_cases/UC-01-advance-a-playbook-phase.md#preconditions)).
 - **NG5** — No run lock or single-active-run invariant across concurrent operators. The marker is a single flat file; two operators racing the same marker is out of scope. See [T-02](todos.md#t-02-no-concurrent-operator-lock-on-the-marker).
 - **NG6** — No in-place transcript compaction, live token-budget stop, universal cache-miss detector, prose-only cache-restabilisation ritual, or unified cross-CLI transcript format.
 - **NG7** — No retrospective reimplementation of dispatch safeguards already proven by the baseline audit; only verified gaps, missing tests, and contradictory documentation are remediated.
@@ -155,7 +155,7 @@ Pi has no native subagent concept, so a factory agent cannot run in a separate P
 
 ## Referenced from
 
-- [actor-goal-list.md](actor-goal-list.md)
+- [actor-goal-list.md](../~archive/spec/actor-goal-list.md)
 - [../README.md § Table of Contents](../README.md#table-of-contents) — the arc42 architecture documentation and Structurizr C4 model built from this specification.
 - [Accepted dispatch-efficiency proposal](../proposals/implemented/agent-dispatch-token-efficiency.md) — design origin for FR-L's assurance audit.
 - [Accepted session-control proposal](../proposals/implemented/proposal-session-transcript-token-control.md) — design origin for FR-K's external workflow contract.

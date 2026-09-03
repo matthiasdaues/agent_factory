@@ -17,7 +17,8 @@ skills:
 inputs:
   - docs/arc42/CONTEXT.md
   - docs/spec/prd.md
-  - docs/spec/use_cases/*.md
+  - docs/spec/*.feature
+  - docs/spec/scope-map.md
   - docs/spec/supplementary_specs/*.md
   - docs/reviews/atam-review.md
   - factory/rulebooks/conventions/state-machine-notation.md

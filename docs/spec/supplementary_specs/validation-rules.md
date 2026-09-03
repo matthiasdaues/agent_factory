@@ -16,7 +16,7 @@ Field- and behavior-level rules each mechanism enforces, grouped by the entity o
 - `file_exists`: satisfied if `repo_root.glob(path)` yields at least one match.
 - `files_exist`: satisfied if every path in `paths` yields at least one glob match; the unmet reason lists every missing path by name.
 - `no_open_findings`: satisfied if zero matching finding files (by `pattern` or `patterns`, globbed under `docs/findings/`) have frontmatter `status: open`. A file whose frontmatter cannot be parsed (no leading `---` block) is not counted as open.
-- `script_exit_zero`: executes the named script and checks for exit code 0. When the `script` field uses the `charter:<field>` notation (e.g. `charter:test_command`), the evaluator reads the `charter_file` path from the condition, parses the YAML, and resolves the named field to the actual command before execution. Blocks with a clear message when the charter file is absent or the field is missing. See [UC-09](../use_cases/UC-09-run-tests-via-hook.md) and [ADR-0003](../../adr/0003-test-execution-via-hooks.md).
+- `script_exit_zero`: executes the named script and checks for exit code 0. When the `script` field uses the `charter:<field>` notation (e.g. `charter:test_command`), the evaluator reads the `charter_file` path from the condition, parses the YAML, and resolves the named field to the actual command before execution. Blocks with a clear message when the charter file is absent or the field is missing. See [UC-09](../../~archive/spec/use_cases/UC-09-run-tests-via-hook.md) and [ADR-0003](../../adr/0003-test-execution-via-hooks.md).
 - An `entry_conditions` name with no matching entry in `gate_conditions` is treated as unmet, with the reason `"<name> (not defined in gate_conditions)"`.
 - Unmet conditions are collected exhaustively, not short-circuited — a refusal always lists every unmet condition, not just the first.
 
@@ -114,7 +114,7 @@ The `feature-addition` playbook checks for the existence of three anchor files b
 - The check is file-existence only — no content validation, no gate marker, no structural inspection.
 - If all three exist, the prerequisite passes and the playbook proceeds normally.
 - If any file is missing, the playbook reports which files are absent and suggests running `brownfield-onboarding` to establish the baseline.
-- Full specification artifacts (`docs/spec/prd.md`, `docs/spec/use_cases/UC-*.md`, `docs/spec/supplementary_specs/*.md`) are optional inputs that deepen the process when present, not prerequisites.
+- Full specification artifacts (`docs/spec/prd.md`, `docs/spec/*.feature`, `docs/spec/scope-map.md`, `docs/spec/supplementary_specs/*.md`) are optional inputs that deepen the process when present, not prerequisites.
 - The anchor-file check does not distinguish between a brownfield-lite baseline (Stage 1 only) and a fully reverse-engineered project (Stage 2 complete). The depth is a continuum; the prerequisite only establishes the minimum.
 
 See [newcomer-onboarding.feature](../newcomer-onboarding.feature) and [entity-model.md § ANCHOR_FILE_SET](entity-model.md).
@@ -144,13 +144,13 @@ See [newcomer-onboarding.feature](../newcomer-onboarding.feature).
 ## Referenced from
 
 - [entity-model.md](entity-model.md)
-- [UC-01](../use_cases/UC-01-advance-a-playbook-phase.md)
-- [UC-03](../use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md)
-- [UC-04](../use_cases/UC-04-dispatch-an-agent-via-trigger.md)
-- [UC-06](../use_cases/UC-06-regenerate-the-catalog.md)
-- [UC-08](../use_cases/UC-08-initialize-agent-factory-into-a-project.md)
-- [UC-09](../use_cases/UC-09-run-tests-via-hook.md)
-- [UC-11](../use_cases/UC-11-cross-a-phase-boundary.md)
+- [UC-01](../../~archive/spec/use_cases/UC-01-advance-a-playbook-phase.md)
+- [UC-03](../../~archive/spec/use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md)
+- [UC-04](../../~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md)
+- [UC-06](../../~archive/spec/use_cases/UC-06-regenerate-the-catalog.md)
+- [UC-08](../../~archive/spec/use_cases/UC-08-initialize-agent-factory-into-a-project.md)
+- [UC-09](../../~archive/spec/use_cases/UC-09-run-tests-via-hook.md)
+- [UC-11](../../~archive/spec/use_cases/UC-11-cross-a-phase-boundary.md)
 
 ## Test-design validation (BR-051, BR-052, BR-053, BR-054, BR-055)
 

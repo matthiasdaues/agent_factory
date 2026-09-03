@@ -25,7 +25,7 @@ Extended Factory Flow Control specification to add test execution via hooks as A
 - Actor: Human Operator
 - Level: User Goal
 
-### 3. docs/spec/use_cases/UC-09-run-tests-via-hook.md (NEW)
+### 3. docs/spec/../~archive/spec/use_cases/UC-09-run-tests-via-hook.md (NEW)
 
 - Realizes: AG-09
 - Primary Actor: git / pre-commit (supporting actor)

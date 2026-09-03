@@ -12,7 +12,7 @@ After implementing one or more issues, check whether the specification or archit
 
 Read the recently changed code (use `git diff` against the last spec-aligned commit). Compare against:
 
-- `docs/spec/use_cases/` — do the use case flows still match?
+- `docs/spec/*.feature` — do the Gherkin Scenarios still match?
 - `docs/spec/supplementary_specs/entity-model.md` — any new entities, changed attributes, or relationships?
 - `docs/spec/supplementary_specs/state-machines.md` — any new states or transitions?
 - `docs/spec/supplementary_specs/interface-contracts.md` — do DTOs and schemas match the code?

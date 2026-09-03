@@ -162,19 +162,15 @@ Analyze domain entities in code — relationships, attributes, constraints.
 
 **Output**: `docs/spec/supplementary_specs/entity-model.md`
 
-### Step 3.3 — Extract Use Cases
+### Step 3.3 — Derive Feature Spec
 
-Derive use cases from test names, API endpoints, and user flows in code. Write as Cockburn use cases.
+Derive a consolidated Gherkin feature file from test names, API endpoints, and user flows in code. Use Cockburn actor-goal reasoning as internal process; output Rule-per-actor-goal `.feature` structure with `@`-references to existing code. Update the scope map with all Rules marked `implemented`.
 
-**Output**: `docs/spec/use_cases/UC-*.md`
+**Output**: `docs/spec/<project-name>.feature`, `docs/spec/scope-map.md` (updated), `docs/spec/<project-name>-gaps.md`
 
-### Step 3.4 — Create Actor-Goal List
+### Step 3.4 — Extract PRD
 
-**Output**: `docs/spec/actor-goal-list.md`
-
-### Step 3.5 — Extract PRD
-
-Based on use cases and architecture baseline.
+Based on the feature spec and architecture baseline.
 
 **Output**: `docs/spec/prd.md`
 

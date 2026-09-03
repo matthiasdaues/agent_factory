@@ -28,7 +28,7 @@ repos:
         entry: factory/scripts/link-check
         language: system
         types: [markdown]
-        exclude: ^factory/
+        exclude: ^(factory/|docs/~archive/)
 
       - id: agent_factory_hook-mermaid-lint
         name: "agent_factory: mermaid-lint (no raw semicolons)"
@@ -116,7 +116,7 @@ repos:
         entry: factory/scripts/link-check
         language: system
         types: [markdown]
-        exclude: ^factory/
+        exclude: ^(factory/|docs/~archive/)
 
       - id: spec-lint
         name: spec-lint (specification consistency & traceability)

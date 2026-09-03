@@ -13,7 +13,7 @@ Read `docs/CONTEXT.md` if it exists — match test names and interface vocabular
 
 ## Step 1 — Analyse
 
-Read the story. Follow its `traces` Use Case ID links into `docs/spec/use_cases/` and `docs/spec/supplementary_specs/`. Understand:
+Read the story. Follow its `traces` links into `docs/spec/*.feature`, `docs/spec/scope-map.md`, and `docs/spec/supplementary_specs/`. Understand:
 
 - What behaviour is being added
 - Which system boundaries are involved
@@ -23,7 +23,7 @@ Record the analysis in the story file under an `## Analysis` section:
 
 - What will be implemented
 - Which files will be created or modified
-- Which Use Case scenarios the tests will cover
+- Which `.feature` Scenarios the tests will cover
 - Any concerns or ambiguities
 
 Ask the user: _"Does this analysis look right before I start coding?"_

@@ -11,7 +11,7 @@ skills:
 inputs:
   - docs/spec/prd.md
   - docs/spec/*.feature
-  - docs/spec/use_cases/*.md
+  - docs/spec/scope-map.md
   - docs/spec/supplementary_specs/*.md
   - docs/*.md
   - docs/adr/*.md

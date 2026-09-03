@@ -12,8 +12,8 @@ skills:
 inputs:
   - docs/CONTEXT.md
   - docs/spec/prd.md
-  - docs/spec/actor-goal-list.md
-  - docs/spec/use_cases/*.md
+  - docs/spec/*.feature
+  - docs/spec/scope-map.md
   - docs/spec/supplementary_specs/*.md
   - docs/spec/todos.md
   - factory/rulebooks/conventions/report-format.md
@@ -21,7 +21,6 @@ inputs:
   - factory/rulebooks/conventions/review-loop-discipline.md
 outputs:
   - docs/reviews/spec-review-*.md
-  - docs/spec/traceability.json
   - docs/findings/SPEC-*.md (spec defects)
 triggers:
   - "review the spec"

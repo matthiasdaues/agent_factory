@@ -14,8 +14,8 @@ skills:
   - create-backlog-stories
 inputs:
   - docs/spec/prd.md
-  - docs/spec/actor-goal-list.md
-  - docs/spec/use_cases/*.md
+  - docs/spec/*.feature
+  - docs/spec/scope-map.md
   - docs/spec/supplementary_specs/*.md
   - docs/charter/*.md
   - docs/charter/testing.yaml

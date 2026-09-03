@@ -12,7 +12,7 @@ Command-line contract for every script this specification covers: inputs, flags,
 | Exit code     | Count of error-severity findings (`0` = clean), unless `--report-only` (always `0`)                                                |
 | Finding codes | `TL-NOMARKER` (info), `TL-MARKER` (error — missing `playbook`/`state`), `TL-NOFSM` (error), `TL-STATE` (error), `TL-ORDER` (error) |
 
-See [UC-02](../use_cases/UC-02-block-an-out-of-phase-commit.md).
+See [UC-02](../../~archive/spec/use_cases/UC-02-block-an-out-of-phase-commit.md).
 
 ## `factory/scripts/phase advance`
 
@@ -24,7 +24,7 @@ See [UC-02](../use_cases/UC-02-block-an-out-of-phase-commit.md).
 | Exit code     | `0` on success; `1` on refusal (unmet conditions, terminal state, missing FSM)                         |
 | stdout/stderr | Success message to stdout; refusal message (with every unmet condition) to stderr                      |
 
-See [UC-01](../use_cases/UC-01-advance-a-playbook-phase.md).
+See [UC-01](../../~archive/spec/use_cases/UC-01-advance-a-playbook-phase.md).
 
 ## `factory/scripts/phase retry`
 
@@ -36,7 +36,7 @@ See [UC-01](../use_cases/UC-01-advance-a-playbook-phase.md).
 | Exit code     | `0` allowed; `1` no marker; `2` cap exceeded                                                       |
 | stdout/stderr | Success message to stdout; refusal (with cap and any declared `message`) to stderr                 |
 
-See [UC-03](../use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md).
+See [UC-03](../../~archive/spec/use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md).
 
 ## `factory/scripts/trigger`
 
@@ -50,7 +50,7 @@ See [UC-03](../use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md).
 | Exit code       | The invoked CLI's own exit code (`--background`); `0` after printing launch instructions (`--interactive`); `2` on a resolution error                   |
 | Default `--cli` | `claude`                                                                                                                                                |
 
-See [UC-04](../use_cases/UC-04-dispatch-an-agent-via-trigger.md).
+See [UC-04](../../~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md).
 
 ## `factory/scripts/dispatch`
 
@@ -76,7 +76,7 @@ See [UC-04](../use_cases/UC-04-dispatch-an-agent-via-trigger.md).
 
 `step-guard` is intentionally best-effort for Bash path extraction. It allows commands with no extractable path, and it treats declared input size as file bytes divided by 4 when estimating context usage.
 
-See [UC-12](../use_cases/UC-12-audit-dispatch-safeguards.md).
+See [UC-12](../../~archive/spec/use_cases/UC-12-audit-dispatch-safeguards.md).
 
 ## `factory/scripts/index-lint`
 
@@ -88,7 +88,7 @@ See [UC-12](../use_cases/UC-12-audit-dispatch-safeguards.md).
 | Exit code | `0` if up to date (now or already); `1` in `--check` mode if it was stale                                                              |
 | stderr    | One `[WARNING]` per: agent missing `phase-name`, skill missing `category`, agent `total_tokens` exceeding 20 000, tiktoken unavailable |
 
-See [UC-06](../use_cases/UC-06-regenerate-the-catalog.md).
+See [UC-06](../../~archive/spec/use_cases/UC-06-regenerate-the-catalog.md).
 
 ## `factory/config/hooks/block-dangerous-git.sh`
 
@@ -99,7 +99,7 @@ See [UC-06](../use_cases/UC-06-regenerate-the-catalog.md).
 | Writes     | Deny reason to stderr; `{"permissionDecision":"deny","permissionDecisionReason":"..."}` to stdout on deny                                                                                         |
 | Exit code  | `0` allow; `2` deny (shared by the three native-hook CLIs)                                                                                                                                        |
 
-See [UC-07](../use_cases/UC-07-block-a-dangerous-git-command.md).
+See [UC-07](../../~archive/spec/use_cases/UC-07-block-a-dangerous-git-command.md).
 
 ## `factory/config/extensions/run-agent.ts` — the `run_agent` tool
 
@@ -113,7 +113,7 @@ See [UC-07](../use_cases/UC-07-block-a-dangerous-git-command.md).
 | Capture    | Hands the complete raw staging file to detached best-effort usage capture; capture failure leaves the agent result unchanged, and cancellation terminates the process group through bounded `SIGTERM` → `SIGKILL` escalation, bounds pipe drain, cleans staging, and returns a distinct no-retry diagnostic |
 | Guardrail  | The child loads `.pi/extensions/`, so the git-safety guardrail binds it too; the charter-declared test commands from `docs/charter/testing.yaml` are allowlisted with exact matching                                                                                                                        |
 
-See [UC-10](../use_cases/UC-10-invoke-a-factory-agent-under-pi.md).
+See [UC-10](../../~archive/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md).
 
 ## `factory/scripts/usage-capture`
 
@@ -127,7 +127,7 @@ See [UC-10](../use_cases/UC-10-invoke-a-factory-agent-under-pi.md).
 
 Derived session-end fields are `cache_miss_turns`, `cache_miss_input_tokens`, `late_early_input_ratio`, `cli`, `provider`, and `usage_capability`. `usage_capability` is `full-cache`, `input-only`, or `unavailable`. Exact eligible-turn, predicate, partition, formula, zero, and null rules are canonical in BR-042. The fields are retrospective evidence only.
 
-See [system-use-cases.md § Usage capture attribution](../use_cases/system-use-cases.md#usage-capture-attribution).
+See [system-use-cases.md § Usage capture attribution](../../~archive/spec/use_cases/system-use-cases.md#usage-capture-attribution).
 
 ## Business Rules
 
@@ -145,7 +145,7 @@ See [system-use-cases.md § Usage capture attribution](../use_cases/system-use-c
 
 `handoff-lint` does not infer undeclared decisions, open items, evidence, or artifact references. A designated semantic review against outgoing phase evidence is a separate phase-closure obligation (BR-049).
 
-See [UC-11](../use_cases/UC-11-cross-a-phase-boundary.md).
+See [UC-11](../../~archive/spec/use_cases/UC-11-cross-a-phase-boundary.md).
 
 ## Child-result envelope
 
@@ -169,7 +169,7 @@ The envelope applies to native subagents, `run_agent`, and `dispatch_wave`; runt
 | Exit code     | `0` on success, including a clean no-op re-run; `1` on any collision or unsupported existing state                                                                                                        |
 | stdout/stderr | One `init-factory: <line>` report line per step; `init-factory: STOPPED — <reason>` on collision                                                                                                          |
 
-See [UC-08](../use_cases/UC-08-initialize-agent-factory-into-a-project.md).
+See [UC-08](../../~archive/spec/use_cases/UC-08-initialize-agent-factory-into-a-project.md).
 
 ## `factory/scripts/backlog-lint`
 
@@ -356,5 +356,5 @@ risk_classes:
 
 - [entity-model.md](entity-model.md)
 - [validation-rules.md](validation-rules.md)
-- [use_cases/system-use-cases.md](../use_cases/system-use-cases.md)
+- [use_cases/system-use-cases.md](../../~archive/spec/use_cases/system-use-cases.md)
 - [test-design.feature](../test-design.feature)

@@ -355,9 +355,9 @@ orchestrator run-phase requirements
 ```
 
 **Agent**: `requirements-agent`
-**Task**: Add use cases to existing spec, update supplementary specs
+**Task**: Derive feature spec, update scope map, produce QA strategy
 
-**Expected outputs**: Updated `docs/spec/use_cases/`, `docs/spec/supplementary_specs/`
+**Expected outputs**: `docs/spec/<feature-name>.feature`, `docs/spec/scope-map.md`, `docs/spec/<feature-name>-gaps.md`, `docs/spec/<feature-name>-qa-strategy.md`, updated `docs/spec/supplementary_specs/`
 
 ### Step 1.2 — Spec Review
 

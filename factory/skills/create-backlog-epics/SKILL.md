@@ -17,7 +17,7 @@ Before decomposing, read the existing codebase. List what exists: tables, routes
 
 ## Step 1 — Propose EPIC groupings
 
-Read `docs/spec/actor-goal-list.md` and `docs/spec/use_cases/`. Read `docs/CONTEXT.md` if it exists — use the project's domain vocabulary. Read `docs/charter/*.md` if charter files exist — the charter defines Epic 0 (foundational must-haves).
+Read `docs/spec/scope-map.md` and the `.feature` files under `docs/spec/`. Read `docs/CONTEXT.md` if it exists — use the project's domain vocabulary. Read `docs/charter/*.md` if charter files exist — the charter defines Epic 0 (foundational must-haves).
 
 Group related User Goals into EPICs — each a coherent slice developable and demonstrable independently.
 

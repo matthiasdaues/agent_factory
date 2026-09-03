@@ -249,6 +249,6 @@ erDiagram
 
 ## Referenced from
 
-- [actor-goal-list.md](../actor-goal-list.md)
-- [UC-01](../use_cases/UC-01-advance-a-playbook-phase.md)
+- [actor-goal-list.md](../../~archive/spec/actor-goal-list.md)
+- [UC-01](../../~archive/spec/use_cases/UC-01-advance-a-playbook-phase.md)
 - [test-design.feature](../test-design.feature)
