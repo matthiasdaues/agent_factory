@@ -133,13 +133,14 @@ class UsageStoragePaths:
         self.usage_dir = self.agent_dir / "usage"
         self.transcripts_dir = self.usage_dir / "transcripts"
         self._cli = cli
+        self._timestamp_prefix = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S")
 
     def _session_key(self, session_id: object) -> str:
-        """Composite storage key: ``<cli>_<session_id>`` when a CLI is set."""
+        """Composite storage key: ``YYYY-MM-DDTHH-MM-SS_<cli>_<session_id>``."""
         session_component = filesystem_key(session_id)
         if not self._cli:
-            return session_component
-        return f"{filesystem_key(self._cli)}_{session_component}"
+            return f"{self._timestamp_prefix}_{session_component}"
+        return f"{self._timestamp_prefix}_{filesystem_key(self._cli)}_{session_component}" if session_id else f"{self._timestamp_prefix}_{filesystem_key(self._cli)}"
 
     @staticmethod
     def _ensure_directory(path: Path, *, repair: bool = True) -> None:
