@@ -306,7 +306,7 @@ erDiagram
         string result "yaml-agent-context | legacy-yaml-charter | legacy-markdown-charter | CX-FORMAT error"
     }
     CX_FINDING {
-        string code "CX-FILE | CX-PARSE | CX-KEYS | CX-NULL | CX-MODE | CX-SRC | CX-SRC-EXIST | CX-SRC-STALE | CX-GUIDE-REF | CX-FORMAT"
+        string code "CX-FILE | CX-PARSE | CX-KEYS | CX-NULL | CX-MODE | CX-MODE-INVALID | CX-SRC | CX-SRC-EXIST | CX-SRC-STALE | CX-GUIDE-REF | CX-FORMAT"
         string severity "error | warning | info"
         string message "human-readable finding text"
     }
