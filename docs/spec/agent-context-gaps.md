@@ -47,6 +47,12 @@ The following design decisions were resolved during the grill-with-docs intervie
 
 5. **CX-GUIDE-REF validation scope**: Checks key-path existence only. Whether the value is null, deferred, or missing a source pointer is owned by CX-NULL, CX-SRC, and CX-MODE respectively.
 
+## Spec Divergences from Proposal
+
+The following intentional divergences from the accepted proposal are recorded here. The proposal is frozen and not edited.
+
+1. **CX-MODE-INVALID added (SPEC-0013)**: The proposal defines `CX-MODE` as a single info-severity code covering all mode-field reporting. The spec splits this into `CX-MODE` (info, valid values) and `CX-MODE-INVALID` (error, unrecognized values). Rationale: an invalid mode value like `staging` governs the entire lifecycle; blocking on it prevents silent misconfiguration. See [validation-rules.md](supplementary_specs/validation-rules.md) and [interface-contracts.md](supplementary_specs/interface-contracts.md).
+
 ## Deferred Items (from proposal)
 
 The following items are explicitly deferred per the proposal's scope section and are NOT covered by Rules in this feature file:

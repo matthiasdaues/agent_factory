@@ -45,7 +45,7 @@ Feature: Agent Context
 
   Rule: Operator initializes agent context for a greenfield project
     # actor: Human Operator
-    # @factory/skills/capture-charter/SKILL.md
+    # @factory/skills/capture-context/SKILL.md
     # @factory/scripts/init-factory
 
     Scenario: capture-context --init creates three index-file templates
@@ -68,7 +68,7 @@ Feature: Agent Context
 
   Rule: Operator onboards brownfield documentation into agent context
     # actor: Human Operator
-    # @factory/skills/capture-charter/SKILL.md
+    # @factory/skills/capture-context/SKILL.md
 
     Scenario: capture-context --init --scan discovers documentation signals
       Given a project with pyproject.toml, docs/adr/, and .github/workflows/
@@ -107,7 +107,7 @@ Feature: Agent Context
 
   Rule: Operator updates agent context as decisions emerge
     # actor: Human Operator (via update-context skill)
-    # @factory/skills/update-charter/SKILL.md
+    # @factory/skills/update-context/SKILL.md
 
     Scenario: update-context writes inline values when mode is primary
       Given stack.yaml has mode: primary
@@ -181,7 +181,7 @@ Feature: Agent Context
 
   Rule: context-lint validates agent context structure and references
     # actor: context-lint (deterministic gate)
-    # @factory/scripts/charter-lint
+    # @factory/scripts/context-lint
 
     Scenario: CX-FILE reports missing required file
       Given docs/agent-context/ exists
@@ -224,6 +224,11 @@ Feature: Agent Context
       Given stack.yaml has mode: primary
       When context-lint runs
       Then a CX-MODE info finding confirms the mode
+
+    Scenario: CX-MODE-INVALID reports unrecognized mode value
+      Given stack.yaml has mode: staging
+      When context-lint runs
+      Then a CX-MODE-INVALID error finding is reported for the unrecognized mode value
 
     Scenario: CX-SRC reports missing source pointer when mode is index
       Given stack.yaml has mode: index
@@ -273,7 +278,7 @@ Feature: Agent Context
 
   Rule: Legacy projects continue working without migration
     # actor: Human Operator
-    # @factory/scripts/charter-lint
+    # @factory/scripts/context-lint
 
     Scenario: Format detection resolves legacy markdown charter
       Given docs/charter/tech-stack.md exists

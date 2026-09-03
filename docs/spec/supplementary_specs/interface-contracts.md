@@ -360,7 +360,7 @@ risk_classes:
 | Reads         | Agent-context files in `docs/agent-context/{stack,workflow,governance}.yaml` and `reading-guides.yaml`; `testing.yaml` (at either `docs/agent-context/` or `docs/charter/`); template files for schema |
 | Writes        | Nothing; validation is read-only                                                                                                                                                                       |
 | Exit code     | Count of error-severity findings (`0` = clean), unless `--report-only` (always `0`)                                                                                                                    |
-| Finding codes | `CX-FILE`, `CX-PARSE`, `CX-KEYS`, `CX-NULL`, `CX-MODE`, `CX-SRC`, `CX-SRC-EXIST`, `CX-SRC-STALE`, `CX-GUIDE-REF`, `CX-FORMAT`                                                                          |
+| Finding codes | `CX-FILE`, `CX-PARSE`, `CX-KEYS`, `CX-NULL`, `CX-MODE`, `CX-MODE-INVALID`, `CX-SRC`, `CX-SRC-EXIST`, `CX-SRC-STALE`, `CX-GUIDE-REF`, `CX-FORMAT`                                                       |
 
 ### Validation modes
 
@@ -370,7 +370,7 @@ risk_classes:
 - Each file parses as valid YAML (`CX-PARSE`)
 - Required top-level keys present per template schema (`CX-KEYS`)
 - `deferred:` is the sole key at its leaf position — coexistence with `name`/`source` is `CX-KEYS`
-- `mode` field is `primary` or `index` (`CX-MODE`, info)
+- `mode` field is `primary` or `index` (`CX-MODE`, info); any other value is `CX-MODE-INVALID` (error)
 - `null` values reported as warnings (`CX-NULL`)
 - When `mode: index`, every non-null, non-deferred leaf has `source:` (`CX-SRC`)
 - Each `source:` pointer resolves to an existing file (`CX-SRC-EXIST`)
