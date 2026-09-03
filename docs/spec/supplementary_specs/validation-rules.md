@@ -160,6 +160,62 @@ See [newcomer-onboarding.feature](../newcomer-onboarding.feature).
 - **BR-054**: The `test-design-verify` gate validates the trace-to-scenario resolution chain. Exit codes follow the gate convention: `0` = pass, `1` = validation failure, `2` = configuration error. The gate is conditionally active — it runs when the story has `#### Test Design` or `#### Prior Tests` sections and exits `0` with no findings when neither exists.
 - **BR-055**: The `gates` section in `docs/charter/testing.yaml` configures individual gates (enabled/disabled, thresholds). It does not define execution ordering; [ADR-0012](../../adr/0012-dispatcher-owned-semantic-gate-loop.md) owns the dispatcher's gate sequence. The CRAP-score script reads `gates.crap_score.threshold` from `testing.yaml`, replacing the dead-code `read_threshold_from_house_rules()` function. When the `gates` section is absent, the script falls back to its hardcoded default of 30.
 
+## Agent context validation (`context-lint`, CX-\* codes)
+
+`context-lint` validates the structural integrity, key presence, reference consistency, and mode compliance of agent-context files. It replaces `charter-lint` for YAML agent-context projects; legacy markdown charter projects continue to use `charter-lint` with CH-\* codes.
+
+### CX-\* finding codes
+
+| Code           | Severity                            | Condition                                                                                                                                                                                                                                           |
+| -------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CX-FILE`      | error                               | A required file is missing. The three index files are always required when `docs/agent-context/` exists. `reading-guides.yaml` is required only when `mode: index` in any index file, or when the file already exists                               |
+| `CX-PARSE`     | error                               | A file does not parse as valid YAML                                                                                                                                                                                                                 |
+| `CX-KEYS`      | error                               | A required top-level key is missing per template schema, or `deferred:` coexists with `name:`/`source:` at the same leaf position                                                                                                                   |
+| `CX-NULL`      | warning / error (`--planning-gate`) | A leaf field has value `null`. Warning in default mode; error in `--planning-gate` mode                                                                                                                                                             |
+| `CX-MODE`      | info                                | Reports the `mode` field value (`primary` or `index`). Informational only                                                                                                                                                                           |
+| `CX-SRC`       | warning                             | When `mode: index`, a non-null, non-deferred leaf field has no `source:` pointer                                                                                                                                                                    |
+| `CX-SRC-EXIST` | warning                             | A `source:` pointer does not resolve to an existing file (path checked relative to repo root)                                                                                                                                                       |
+| `CX-SRC-STALE` | info                                | A source file's modification time is more recent than the index file's modification time                                                                                                                                                            |
+| `CX-GUIDE-REF` | warning                             | A reading-guide key-path reference does not resolve to an existing key in the target index file. Checks key existence only — whether the value is null, deferred, or missing a source pointer is owned by CX-NULL, CX-SRC, and CX-MODE respectively |
+| `CX-FORMAT`    | error                               | Files exist in more than one location (e.g. both `docs/agent-context/stack.yaml` and `docs/charter/tech-stack.md`). `testing.yaml` is exempt — its location does not trigger this error                                                             |
+
+### Field-level rules
+
+- `mode` must be exactly `primary` or `index`. Any other value is reported by `CX-MODE`.
+- `deferred: "reason"` replaces the entire field value. It is the sole key in a mapping at the leaf position. Any coexisting `name`/`source` key alongside `deferred` is a `CX-KEYS` error.
+- Deferred fields are excluded from the transition condition (PRIMARY → INDEX) and do not produce a `CX-SRC` finding.
+- Null fields are excluded from the transition condition and do not produce a `CX-SRC` finding.
+- In `mode: index`, `update-context` writes both `name` and `source` together. A field with `name` but no `source` is a `CX-SRC` finding.
+
+### testing.yaml carve-out
+
+`testing.yaml` is a peer file outside the two-mode lifecycle. `context-lint` validates it with `CX-PARSE` only. The following checks do not apply to `testing.yaml`:
+
+- `CX-SRC` (no source pointers expected)
+- `CX-MODE` (no mode field)
+- `CX-NULL` (null values are schema-level, not lifecycle-level)
+- `CX-KEYS` (schema is governed by detect-test-regime, not by index-file templates)
+
+### testing.yaml path resolution
+
+`testing.yaml` path resolution is independent of the main format-detection chain:
+
+1. `docs/agent-context/testing.yaml` is checked first.
+2. `docs/charter/testing.yaml` is used as fallback.
+3. No `CX-FORMAT` error is raised for a `testing.yaml` at the old path when index files are at the new path.
+4. When both paths exist, `docs/agent-context/testing.yaml` takes precedence.
+
+### Format detection chain
+
+All factory consumers share the same format-detection chain:
+
+1. `docs/agent-context/stack.yaml` exists → YAML agent-context mode (CX-\* codes).
+2. `docs/charter/tech-stack.yaml` exists → legacy YAML charter mode.
+3. `docs/charter/tech-stack.md` exists → legacy markdown charter mode (CH-\* codes).
+4. Files in more than one location → `CX-FORMAT` error.
+
+See [agent-context.feature](../agent-context.feature) and [interface-contracts.md § context-lint](interface-contracts.md).
+
 ## Dispatch ledger (`dispatch`)
 
 - `mark-dispatching`, `mark-dispatched`, `mark-blocked`, `mark-failed`, `re-dispatch`, and `escalate` are idempotent no-ops when the story is already in the target state or tier outcome.

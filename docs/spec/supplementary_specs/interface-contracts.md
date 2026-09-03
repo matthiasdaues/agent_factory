@@ -352,9 +352,55 @@ risk_classes:
 | `budget`             | string         | yes      | `unbounded` or `equivalence`                   |
 | `requires`           | list of string | no       | Named invariants the contract must demonstrate |
 
+## `factory/scripts/context-lint`
+
+|               |                                                                                                                                                                                                        |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Usage         | `context-lint [--context-dir DIR] [--template-dir DIR] [--planning-gate] [--format text\|json] [--report-only]`                                                                                        |
+| Reads         | Agent-context files in `docs/agent-context/{stack,workflow,governance}.yaml` and `reading-guides.yaml`; `testing.yaml` (at either `docs/agent-context/` or `docs/charter/`); template files for schema |
+| Writes        | Nothing; validation is read-only                                                                                                                                                                       |
+| Exit code     | Count of error-severity findings (`0` = clean), unless `--report-only` (always `0`)                                                                                                                    |
+| Finding codes | `CX-FILE`, `CX-PARSE`, `CX-KEYS`, `CX-NULL`, `CX-MODE`, `CX-SRC`, `CX-SRC-EXIST`, `CX-SRC-STALE`, `CX-GUIDE-REF`, `CX-FORMAT`                                                                          |
+
+### Validation modes
+
+**Default mode:** Validates structural integrity, key presence, and reference consistency:
+
+- Required index files exist under `docs/agent-context/` (`reading-guides.yaml` required only when `mode: index` in any index file, or when the file already exists)
+- Each file parses as valid YAML (`CX-PARSE`)
+- Required top-level keys present per template schema (`CX-KEYS`)
+- `deferred:` is the sole key at its leaf position — coexistence with `name`/`source` is `CX-KEYS`
+- `mode` field is `primary` or `index` (`CX-MODE`, info)
+- `null` values reported as warnings (`CX-NULL`)
+- When `mode: index`, every non-null, non-deferred leaf has `source:` (`CX-SRC`)
+- Each `source:` pointer resolves to an existing file (`CX-SRC-EXIST`)
+- Source file modified more recently than index file (`CX-SRC-STALE`, info)
+- Each reading-guide key-path reference resolves to an existing index-file key (`CX-GUIDE-REF`) — key existence only, not value content
+- Mixed YAML/markdown or mixed charter/agent-context locations (`CX-FORMAT`)
+- `testing.yaml`: `CX-PARSE` only — no `CX-SRC`, `CX-MODE`, or `CX-NULL` checks
+
+**Planning gate mode** (`--planning-gate`): Stricter pre-planning validation:
+
+- All default checks pass
+- `CX-NULL` severity elevated from warning to error
+
+### Format detection
+
+`context-lint` uses the shared format-detection chain to determine which validation mode applies:
+
+1. `docs/agent-context/stack.yaml` exists → YAML agent-context mode (CX-\* codes)
+2. `docs/charter/tech-stack.yaml` exists → legacy YAML charter mode (delegates to charter-lint logic)
+3. `docs/charter/tech-stack.md` exists → legacy markdown charter mode (delegates to charter-lint logic with CH-\* codes)
+4. Files in more than one location → `CX-FORMAT` error
+
+`testing.yaml` resolution is independent: `docs/agent-context/testing.yaml` first, `docs/charter/testing.yaml` as fallback. No `CX-FORMAT` error for the split location.
+
+See [agent-context.feature](../agent-context.feature).
+
 ## Referenced from
 
 - [entity-model.md](entity-model.md)
 - [validation-rules.md](validation-rules.md)
 - [use_cases/system-use-cases.md](../../~archive/spec/use_cases/system-use-cases.md)
 - [test-design.feature](../test-design.feature)
+- [agent-context.feature](../agent-context.feature)

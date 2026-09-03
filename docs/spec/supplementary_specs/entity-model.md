@@ -247,8 +247,85 @@ erDiagram
 - **GATE_CONFIG** is a new section in `docs/charter/testing.yaml` that centralizes gate configuration. It does not define gate execution ordering — [ADR-0012](../../adr/0012-dispatcher-owned-semantic-gate-loop.md) owns the dispatcher's gate sequence.
 - **GATE_ENTRY** configures an individual gate. `test_design_verify` is implicitly enabled when test-design output exists in the story and skipped otherwise.
 
+## Agent Context Entities
+
+The agent context is the factory-facing interface to project knowledge. It replaces the charter as the structured contract between factory agents and the project's self-determined practices. The two-layer architecture (reading guide over index files) and two-mode lifecycle (primary then index) are modeled below.
+
+```mermaid
+erDiagram
+    READING_GUIDE ||--o{ CONCERN_ENTRY : "routes by concern"
+    CONCERN_ENTRY ||--o{ KEY_PATH_REFERENCE : "lists"
+    KEY_PATH_REFERENCE }o--|| INDEX_FILE : "points into"
+    INDEX_FILE ||--o{ INDEX_FIELD : "declares"
+    INDEX_FILE ||--|| MODE_STATE : "has"
+    INDEX_FIELD ||--o| DEFERRED_MARKER : "may carry"
+    INDEX_FIELD ||--o| SOURCE_POINTER : "may carry"
+    CX_FINDING }o--|| INDEX_FILE : "reported against"
+    CX_FINDING }o--o| READING_GUIDE : "reported against"
+    TESTING_YAML }o--o| CX_FINDING : "CX-PARSE only"
+    FORMAT_DETECTION ||--o| INDEX_FILE : "selects"
+
+    READING_GUIDE {
+        string path "docs/agent-context/reading-guides.yaml"
+        string role "Layer 1 — concern-based routing"
+    }
+    CONCERN_ENTRY {
+        string concern "e.g. backend, frontend, testing"
+        list references "key-path notation strings"
+    }
+    KEY_PATH_REFERENCE {
+        string file "e.g. stack.yaml"
+        string key_path "nullable — dotted path e.g. frameworks.backend"
+    }
+    INDEX_FILE {
+        string name "stack.yaml | workflow.yaml | governance.yaml"
+        string path "docs/agent-context/<name>"
+        string mode "primary | index"
+    }
+    INDEX_FIELD {
+        string key "dotted key path within the index file"
+        string value "nullable — inline value when mode is primary"
+        string name "nullable — lookup name when mode is index"
+        string source "nullable — path to authoritative document"
+    }
+    MODE_STATE {
+        string mode "primary | index"
+    }
+    DEFERRED_MARKER {
+        string reason "human-readable deferral reason"
+    }
+    SOURCE_POINTER {
+        string path "relative path to authoritative project document"
+    }
+    TESTING_YAML {
+        string path "docs/agent-context/testing.yaml or docs/charter/testing.yaml"
+        string role "peer file — machine-readable test config, no lifecycle"
+        string writer "detect-test-regime (sole owner)"
+    }
+    FORMAT_DETECTION {
+        string result "yaml-agent-context | legacy-yaml-charter | legacy-markdown-charter | CX-FORMAT error"
+    }
+    CX_FINDING {
+        string code "CX-FILE | CX-PARSE | CX-KEYS | CX-NULL | CX-MODE | CX-SRC | CX-SRC-EXIST | CX-SRC-STALE | CX-GUIDE-REF | CX-FORMAT"
+        string severity "error | warning | info"
+        string message "human-readable finding text"
+    }
+```
+
+### Notes
+
+- **READING_GUIDE** is Layer 1 of the agent context. It routes by work-type concern (backend, frontend, testing, architecture, packaging, and project-specific additions) to sections in the Layer 2 index files. It carries no `source:` pointers — only key-path references. It does not participate in the two-mode lifecycle. It is absent in greenfield projects until the first `source:` pointer is written.
+- **KEY_PATH_REFERENCE** uses the notation `<file>#<dotted.key.path>` (e.g. `stack.yaml#frameworks.backend`). A bare file reference (`stack.yaml`) means the entire file. `context-lint` validates these references via `CX-GUIDE-REF` by confirming the key path exists in the target file's YAML structure — key existence only, not value content.
+- **INDEX_FILE** is one of the three Layer 2 files (`stack.yaml`, `workflow.yaml`, `governance.yaml`). Each covers a distinct domain of project knowledge. They carry `source:` pointers to authoritative project documents and participate in the two-mode lifecycle.
+- **INDEX_FIELD** has different shapes depending on mode. In `mode: primary`, a field may be a scalar value, `null`, or a `deferred:` mapping. In `mode: index`, a field carries `name:` and `source:` together. The `deferred:` mapping replaces the entire field value — `deferred` is the sole key; any coexisting `name`/`source` key is a `CX-KEYS` error.
+- **MODE_STATE** is one of `primary` (greenfield — index files are the upstream source) or `index` (mature — index files are downstream routing tables). The transition from `primary` to `index` is one-directional and atomic across all three index files. See [state-machines.md](state-machines.md).
+- **TESTING_YAML** is a peer file outside the two-mode lifecycle. It is written by `detect-test-regime`, not by `update-context`. `context-lint` validates it with `CX-PARSE` only — no `CX-SRC`, `CX-MODE`, or `CX-NULL` checks apply. Format detection resolves its path independently: `docs/agent-context/testing.yaml` first, `docs/charter/testing.yaml` as fallback, with no `CX-FORMAT` error for the split location.
+- **FORMAT_DETECTION** is a shared subfunction used by all factory consumers. It walks a three-step chain: `docs/agent-context/stack.yaml` → `docs/charter/tech-stack.yaml` → `docs/charter/tech-stack.md`. Files in more than one location produce a `CX-FORMAT` error. `testing.yaml` is resolved independently and does not trigger mixed-location errors.
+- **CX_FINDING** replaces the charter-lint `CH-*` codes for YAML agent-context validation. Legacy markdown charter projects continue to use the existing `CH-*` codes.
+
 ## Referenced from
 
 - [actor-goal-list.md](../../~archive/spec/actor-goal-list.md)
 - [UC-01](../../~archive/spec/use_cases/UC-01-advance-a-playbook-phase.md)
 - [test-design.feature](../test-design.feature)
+- [agent-context.feature](../agent-context.feature)
