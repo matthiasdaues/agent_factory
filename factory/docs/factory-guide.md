@@ -517,7 +517,50 @@ The `factory/scripts/dispatch` script owns the git state, ledger, and branch/wor
 
 Every story in a wave must reach a terminal state (merged or explicitly blocked/failed) before the next wave launches. The tier rubric in [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md) is the single authoritative source for economy/standard/strong tier assignment.
 
-Separately, `pre-commit` runs `mdformat`, `ruff`, and the stdlib-only `factory/scripts/link-check` on every commit. The link gate is a fast offline counterpart to lychee: it validates repository-local Markdown files and images, while remote URLs remain the responsibility of an online crawler. The formatters run through `uvx`, so nothing needs installing locally beyond `uv` itself — the same zero-local-install pattern `factory/scripts/structurizr` uses for its Docker dependency.
+### Pre-commit hooks
+
+Agent Factory adds pre-commit hooks to `.pre-commit-config.yaml`. This is the one tracked file the install modifies (besides a `.gitignore` block). Every hook id starts with `agent_factory_hook-`, so the block is easy to find, easy to audit, and safe to remove.
+
+The hooks fall into two groups. Formatters — `mdformat` for Markdown, `ruff` for Python — auto-fix style on commit. Gate scripts — `link-check`, `mermaid-lint`, `spec-lint`, `arch-lint`, `backlog-lint`, `statemachine-lint`, `index-lint`, `transition-lint` — reject a commit when a deterministic check fails.
+
+#### Nothing is installed into your project
+
+The formatters need external tools, but the hooks never install them into your project tree, your virtualenv, or your global Python packages. They run through `uvx`, which downloads an ephemeral, pinned copy into its own cache (`~/.cache/uv/` or `$UV_CACHE_DIR`) the first time and reuses it afterward. Your `site-packages`, your `node_modules`, your carefully curated tool versions: untouched.
+
+If you already have `ruff` installed globally, `uvx` ignores it. It runs its own pinned version (`ruff@0.16.5` at the time of writing), so the hook produces the same result on every machine regardless of what each developer has installed. The same applies to `mdformat`. This is the same zero-local-install pattern `factory/scripts/structurizr` uses for its Docker dependency.
+
+The gate scripts (`spec-lint`, `arch-lint`, `backlog-lint`, and the rest) are stdlib-only Python. They need nothing beyond the Python interpreter already on your PATH — no pip install, no requirements file, no build step.
+
+#### Your teammates can commit without the factory
+
+The `.pre-commit-config.yaml` is tracked, so everyone who clones the repo gets the hook definitions. But `factory/` itself is git-ignored — it exists only on machines where `init-factory` has run. A colleague who has never heard of Agent Factory does not have it.
+
+Every hook that calls a `factory/scripts/*` gate is wrapped in a one-line bash guard:
+
+```bash
+bash -c '[ -d factory ] || exit 0; exec factory/scripts/<gate> "$@"' --
+```
+
+If `factory/` is not there, the hook exits 0 — a silent pass. Pre-commit moves on to the next hook. Your colleague commits normally, with no error, no warning, and no trace that Agent Factory was ever involved. The `mdformat` and `ruff` hooks carry the same guard, so even the formatters stay quiet when the factory directory is absent.
+
+This is deliberate. The `.pre-commit-config.yaml` is tracked because it must survive clones and branch switches. The `factory/` directory is untracked because it is local tooling, not project source. The guard bridges the two: hooks exist in the config for anyone who has the factory, and vanish for anyone who does not.
+
+#### Your existing hooks are preserved
+
+If your project already has a `.pre-commit-config.yaml`, `init-factory` splices the `agent_factory_hook-` block in at the top of your `repos:` list. It does not rewrite, reorder, or touch your own hooks. `remove-factory` strips exactly that block — your hooks remain byte-for-byte as they were.
+
+If you have no `.pre-commit-config.yaml`, `init-factory` creates one containing only the factory hooks.
+
+#### First commit after setup
+
+The `mdformat` and `ruff` hooks auto-fix formatting. If your first commit fails because "files were modified by this hook," that is the formatters doing their job on files that did not yet match the project style. Re-stage and commit again:
+
+```bash
+git add -u
+git commit -m "<same message>"
+```
+
+This is a one-time cost per file. After that first pass, the hooks modify only files you change — and only their formatting, never their content.
 
 ## CLI safety guardrails
 
