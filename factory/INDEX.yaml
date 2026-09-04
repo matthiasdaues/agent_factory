@@ -10,8 +10,8 @@ agents:
     tier: standard
     description: Run retrospectives, extract action items, and track process improvements across sessions.
     path: agents/coaching-agent.md
-    tokens: 462
-    total_tokens: 1124
+    tokens: 423
+    total_tokens: 1085
   - name: virgil
     title: VIRGIL
     phase: 0
@@ -19,8 +19,8 @@ agents:
     tier: standard
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
-    tokens: 1578
-    total_tokens: 11984
+    tokens: 1526
+    total_tokens: 12609
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
@@ -28,8 +28,8 @@ agents:
     tier: strong
     description: Review a feature proposal for clarity, feasibility, and planning readiness — consultative on drafts, adversarial on open proposals. Runs in a separate session from the proposal author.
     path: agents/proposal-review-agent.md
-    tokens: 1503
-    total_tokens: 2592
+    tokens: 1483
+    total_tokens: 2572
   - name: requirements-agent
     title: Requirements Agent
     phase: 1
@@ -37,8 +37,8 @@ agents:
     tier: strong
     description: "Capture a project vision, clarify requirements through adversarial interview, and produce a complete specification: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models."
     path: agents/requirements-agent.md
-    tokens: 1777
-    total_tokens: 13674
+    tokens: 1497
+    total_tokens: 14071
   - name: spec-review-agent
     title: Specification Review Agent
     phase: 1
@@ -46,8 +46,8 @@ agents:
     tier: strong
     description: Review the specification for consistency, completeness, and traceability using spec-lint plus semantic inspection, in a separate session from the author.
     path: agents/spec-review-agent.md
-    tokens: 796
-    total_tokens: 4157
+    tokens: 781
+    total_tokens: 4142
   - name: architecture-agent
     title: Architecture Agent
     phase: 2
@@ -55,8 +55,8 @@ agents:
     tier: strong
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
-    tokens: 1498
-    total_tokens: 8290
+    tokens: 1434
+    total_tokens: 8226
   - name: architecture-review-agent
     title: Architecture Review Agent
     phase: 2
@@ -64,8 +64,8 @@ agents:
     tier: strong
     description: Review architecture against quality attributes using ATAM in a separate session from the architecture author.
     path: agents/architecture-review-agent.md
-    tokens: 826
-    total_tokens: 5579
+    tokens: 818
+    total_tokens: 5571
   - name: planning-agent
     title: Planning Agent
     phase: 3
@@ -73,8 +73,8 @@ agents:
     tier: strong
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
-    tokens: 1035
-    total_tokens: 6518
+    tokens: 1033
+    total_tokens: 6516
   - name: implementation-agent
     title: Implementation Agent (Dispatcher)
     phase: 4
@@ -82,8 +82,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints. Each subagent implements one story using TDD on its own feature branch. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 3853
-    total_tokens: 10982
+    tokens: 3576
+    total_tokens: 10705
   - name: reconciliation-agent
     title: Reconciliation Agent
     phase: 4
@@ -91,8 +91,8 @@ agents:
     tier: strong
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
-    tokens: 2213
-    total_tokens: 14229
+    tokens: 1923
+    total_tokens: 13939
   - name: qa-agent
     title: QA Agent
     phase: 5
@@ -100,8 +100,8 @@ agents:
     tier: strong
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
-    tokens: 1387
-    total_tokens: 8155
+    tokens: 1131
+    total_tokens: 8576
   - name: claim-reviewer
     title: Claim Reviewer
     phase: 6
@@ -109,8 +109,8 @@ agents:
     tier: standard
     description: Attempts to refute a claim produced by the Researcher, checking whether it can be falsified, whether its sources hold up, and whether its tests were severe — then casts a vote on its disposition without ever editing the claim itself.
     path: agents/claim-reviewer.md
-    tokens: 604
-    total_tokens: 2182
+    tokens: 538
+    total_tokens: 2116
   - name: research-orchestrator
     title: Research Orchestrator
     phase: 6
@@ -118,8 +118,8 @@ agents:
     tier: standard
     description: Selects survey or falsification research from the brief, advances the chosen validated playbook, and enforces its role boundaries and release gate.
     path: agents/research-orchestrator.md
-    tokens: 1320
-    total_tokens: 6951
+    tokens: 1133
+    total_tokens: 6764
   - name: research-report-writer
     title: Research Report Writer
     phase: 6
@@ -127,8 +127,8 @@ agents:
     tier: standard
     description: Writes the final report from the frozen claim register. Arranges surviving claims, summarizes them, and preserves refutations and limitations — without conducting new research or overstating what survived.
     path: agents/research-report-writer.md
-    tokens: 634
-    total_tokens: 1360
+    tokens: 629
+    total_tokens: 1355
   - name: research-synthesizer
     title: Research Synthesizer
     phase: 6
@@ -136,8 +136,8 @@ agents:
     tier: standard
     description: Turns recorded survey source records into a cited synthesis while retaining uncertainties, evidence gaps, and limitations.
     path: agents/research-synthesizer.md
-    tokens: 447
-    total_tokens: 447
+    tokens: 438
+    total_tokens: 438
   - name: researcher
     title: Researcher
     phase: 6
@@ -145,14 +145,14 @@ agents:
     tier: standard
     description: Research a bounded question and form testable claims — find sources, assess their provenance, record evidence for and against, and design or execute refutation tests. Never reviews or votes on its own claim.
     path: agents/researcher.md
-    tokens: 476
-    total_tokens: 2054
+    tokens: 406
+    total_tokens: 1984
   - name: developer-agent
     title: Developer Agent
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
-    tokens: 1986
-    total_tokens: 4611
+    tokens: 2195
+    total_tokens: 4820
 
 skills:
   - name: capture-context
@@ -457,7 +457,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1108
-    total_tokens: 14977
+    total_tokens: 14905
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -469,7 +469,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3030
-    total_tokens: 31128
+    total_tokens: 30766
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -480,7 +480,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 777
-    total_tokens: 13543
+    total_tokens: 14173
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -492,7 +492,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 944
-    total_tokens: 35891
+    total_tokens: 35301
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -508,7 +508,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4799
-    total_tokens: 76383
+    total_tokens: 76545
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -526,7 +526,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 3167
-    total_tokens: 75875
+    total_tokens: 75998
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -542,7 +542,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1281
-    total_tokens: 14047
+    total_tokens: 14677
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -555,7 +555,7 @@ playbooks:
       - research-synthesizer
       - research-orchestrator
     tokens: 1018
-    total_tokens: 10470
+    total_tokens: 10204
   - name: research-topic
     title: Research Topic Playbook
     category: orchestration
@@ -576,7 +576,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 3026
-    total_tokens: 15573
+    total_tokens: 15245
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration
@@ -587,7 +587,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 3246
+    tokens: 3317
   - name: agent-context-composition
     category: conventions
     path: rulebooks/conventions/agent-context-composition.md
@@ -671,7 +671,7 @@ rulebooks:
   - name: testing-strategy
     category: conventions
     path: rulebooks/conventions/testing-strategy.md
-    tokens: 1438
+    tokens: 2115
   - name: todo-format
     category: conventions
     path: rulebooks/conventions/todo-format.md

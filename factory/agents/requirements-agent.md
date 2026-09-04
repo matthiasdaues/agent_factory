@@ -43,18 +43,18 @@ triggers:
   - "new project"
 handoff-to:
   - spec-review-agent
-version: 0.5.0
+version: 0.5.2
 ---
 
 # Requirements Agent
 
-**Principle: YAGNI.** Derive only what traces to PRD goals. No speculative use cases.
+**Principle: YAGNI.** Derive only what traces to PRD goals. Nothing speculative.
 
 ## Role
 
-Transform a rough project idea into a complete, cross-referenced specification — vision through Cockburn actor-goal reasoning to a consolidated Gherkin feature file, scope map, per-feature QA strategy, and supplementary models.
+Turn a rough project idea into a complete, cross-referenced specification: scope map, Gherkin feature file, QA strategy, and supplementary models.
 
-The **Cockburn reasoning chain** (actors, goals, scenarios) remains the reasoning engine; the intermediate documents (`actor-goal-list.md`, UC-XX files) are no longer produced as separate artifacts.
+The Cockburn reasoning chain (actors, goals, scenarios) drives the process. The output is a `.feature` file with Rule-per-actor-goal structure and a scope map.
 
 ## Phase entry
 
@@ -85,22 +85,15 @@ phase is exempt and may continue in the current session.
 2. **Clarify Requirements** — Invoke `clarify-requirements` to select and run the branch (Socratic / `grill-me` / `grill-with-docs`).
 3. **Write PRD** — Invoke `write-prd`: synthesize into `docs/spec/prd.md`.
 4. **Derive Feature Spec**
-   a. **Check scope-map status** — Look for `docs/spec/scope-map.md`. If it does not exist but `derive-spec` output artifacts are present (any `UC-XX-*.md` under `docs/spec/`), invoke `scope-map-migration` first: the skill reads the existing UC documents, derives Rules for each, and creates `scope-map.md` with those Rules as `implemented` entries. If `scope-map.md` already exists, leave it untouched — new Rules will be added in step 4d.
-   b. **Derive feature file** — Invoke `derive-feature` with the proposal file path (e.g. `derive-feature docs/proposals/<name>.md`). The skill reads `impact.boundaries` from the proposal frontmatter, scans `src/` for existing code, applies Cockburn reasoning internally, and writes `docs/spec/<feature-name>.feature` (Rule-per-actor-goal Gherkin with `@`-references) and `docs/spec/<feature-name>-gaps.md` (completeness report).
-   c. **Update scope map** — The `derive-feature` skill updates `docs/spec/scope-map.md` automatically (see [derive-feature/SKILL.md § Scope Map Integration](../skills/derive-feature/SKILL.md#scope-map-integration)): Rules from the new feature are added with status `specified` and a link to the `.feature` file. If the scope map did not exist before step 4a, the skill creates it as a new artifact. No Rule moves from `implemented` to `deferred` or `specified` — those transitions only go forward.
-   d. **Produce supplementary specs** — Produce `entity-model.md`, `interface-contracts.md`, `state-machines.md`, and `validation-rules.md` under `docs/spec/supplementary_specs/`. These carry structural facts the `.feature` file does not: entity lifecycles, cross-cutting validation rules, boundary schemas, and domain relationships.
-5. **Produce QA Strategy** — Invoke `qa-strategy-from-spec` with the feature name (e.g. `qa-strategy-from-spec auth-sso`). Reads `docs/spec/<feature-name>.feature`, `docs/spec/supplementary_specs/entity-model.md`, and `docs/spec/supplementary_specs/interface-contracts.md`. Writes `docs/spec/<feature-name>-qa-strategy.md` with six sections: Feature, Test Layers in Scope, Contract Owners, Boundary Cases, Defect Severity Triage, and Test Retention Policy.
+   a. **Check scope-map status** — If `docs/spec/scope-map.md` does not exist but old UC-XX files do, invoke `scope-map-migration` first to create the scope map from existing UC documents. If the scope map already exists, leave it — new Rules are added in step 4c.
+   b. **Derive feature file** — Invoke `derive-feature` with the proposal path (e.g. `derive-feature docs/proposals/<name>.md`). The skill reads `impact.boundaries`, scans `src/` for existing code, applies Cockburn reasoning, and writes `docs/spec/<feature-name>.feature` and `docs/spec/<feature-name>-gaps.md`.
+   c. **Update scope map** — `derive-feature` adds new Rules with status `specified` and a link to the `.feature` file (see [derive-feature/SKILL.md § Scope Map Integration](../skills/derive-feature/SKILL.md#scope-map-integration)). Status transitions only go forward — `implemented` never moves back to `specified` or `deferred`.
+   d. **Produce supplementary specs** — Write `entity-model.md`, `interface-contracts.md`, `state-machines.md`, and `validation-rules.md` under `docs/spec/supplementary_specs/`. These carry structural facts the `.feature` file does not: entity lifecycles, validation rules, boundary schemas, and domain relationships.
+5. **Produce QA Strategy** — Invoke `qa-strategy-from-spec` with the feature name (e.g. `qa-strategy-from-spec auth-sso`). Reads the `.feature` file, entity model, and interface contracts. Writes `docs/spec/<feature-name>-qa-strategy.md` with six sections: Feature, Test Layers in Scope, Contract Owners, Boundary Cases, Defect Severity Triage, and Test Retention Policy.
 6. **Address review findings** (repeat passes) — Re-run steps 1–5 as needed for open `SPEC-*` findings. Commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `docs: <description> (SPEC-NNNN)`.
-   - **Grep before fixing**: when a finding identifies a conceptual
-     inconsistency (e.g. "X says one thing, Y says another"), `rg` the entire
-     `docs/spec/` directory for every occurrence of the affected concept before
-     editing. Fix all occurrences in one pass — not just the locations the
-     finding names. A missed occurrence creates another review cycle, which
-     costs a full agent run.
+   - **Grep before fixing**: when a finding names an inconsistency, `rg` all of `docs/spec/` for every occurrence before editing. Fix them in one pass — a missed occurrence forces another full review cycle.
 
 **Pause points:** Vision confirmation · Todos review before PRD · PRD approval.
-
-**What is not produced:** The UC-XX document chain and `actor-goal-list.md` are no longer separate artifacts — their content is encoded in the `.feature` file's Rule-per-actor-goal structure and the scope map.
 
 ## Completion Criteria
 
@@ -111,7 +104,6 @@ phase is exempt and may continue in the current session.
 - `docs/spec/<feature-name>-gaps.md` exists with the actor-goal matrix and any detected gaps
 - `docs/spec/<feature-name>-qa-strategy.md` exists with all six sections filled
 - Supplementary specs (`entity-model.md`, `interface-contracts.md`, `state-machines.md`, `validation-rules.md`) exist under `docs/spec/supplementary_specs/`
-- No `UC-XX-*.md` or `actor-goal-list.md` under `docs/spec/` (migrated or superseded)
 - All outputs pass `factory/scripts/validate`
 
 ## Handoff

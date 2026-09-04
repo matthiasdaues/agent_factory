@@ -68,6 +68,8 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST** give each observable contract one owning test layer and strengthen that owner before adding overlap.
 - **MUST** select test cases by equivalence class, boundary, or distinct failure mode — never to meet a cosmetic count or fixed coverage percentage.
 - **MUST NOT** duplicate a deterministic linter's rule in pytest.
+- **MUST NOT** duplicate or override a team's existing linting and formatting toolchain — factory linters cover only factory artifact shapes the team's tools do not know about.
+- **MUST** admit a test that would catch a semantic change no existing linter or structural check can see, even when the contract already has a structural owner.
 - **MUST** prove a surviving owner detects a representative fault before deleting overlapping tests.
 
 ## Branching

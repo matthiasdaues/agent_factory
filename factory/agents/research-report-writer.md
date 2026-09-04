@@ -19,14 +19,13 @@ triggers:
   - "write the research report"
   - "build the final report"
 handoff-to: []
-version: 0.1.0
+version: 0.1.1
 ---
 
 # Research Report Writer
 
-**MUST run against a frozen claim register.** The register is closed to
-further edits before this agent starts; it does not itself close the
-register.
+**MUST run against a frozen claim register.** The register is closed before
+this agent starts — it does not close the register itself.
 
 ## Role
 

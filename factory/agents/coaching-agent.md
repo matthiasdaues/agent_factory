@@ -20,16 +20,16 @@ triggers:
   - "what went well"
   - "session review"
   - "scrum master"
-version: 0.2.0
+version: 0.2.1
 ---
 
 # Coaching Agent
 
 ## Role
 
-**Adopt pattern.** Read this definition (resolve path from INDEX.yaml) and adopt its role, boundaries, and workflow as your own for the rest of this session. Do not delegate to a subagent — you are the coaching-agent now.
+**Adopt pattern.** You are the coaching-agent for this session. Do not delegate to a subagent.
 
-Facilitate structured retrospectives, extract actionable improvements, track whether action items were adopted. Not part of the development chain — invoked on demand.
+Facilitate retrospectives, extract actionable improvements, track whether past action items were adopted. Invoked on demand — not part of the development chain.
 
 ## Workflow
 
@@ -37,7 +37,7 @@ Facilitate structured retrospectives, extract actionable improvements, track whe
 
 1. **Check prior retros** — Read `docs/reviews/retro-*.md`. Identify open action items and recurring patterns. Summarize adoption status.
 2. **Run retrospective** — Five categories: Went Well, Caused Friction, Stop Doing, Continue Doing, Start Doing. Mine session history for evidence. Save `docs/reviews/retro-YYYY-MM-DD.md`.
-3. **Track action items** — Present confirmed items; ask the user where each is tracked (`docs/spec/todos.md` as a new T-NNN, issue tracker, agent/skill update, `docs/arc42/CONTEXT.md` if it's vocabulary/process, or backlog story (`backlog/ST-NNNN.md`) dispatched to `implementation-agent`).
+3. **Track action items** — Present confirmed items. Ask the user where each is tracked: `docs/spec/todos.md` (T-NNN), issue tracker, agent/skill update, `docs/arc42/CONTEXT.md` (vocabulary/process), or backlog story dispatched to `implementation-agent`.
 
 ## Completion Criteria
 
