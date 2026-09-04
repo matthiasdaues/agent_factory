@@ -20,7 +20,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 1492
-    total_tokens: 12545
+    total_tokens: 12150
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
@@ -38,7 +38,7 @@ agents:
     description: "Capture a project vision, clarify requirements through adversarial interview, and produce a complete specification: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models."
     path: agents/requirements-agent.md
     tokens: 1777
-    total_tokens: 15892
+    total_tokens: 15497
   - name: spec-review-agent
     title: Specification Review Agent
     phase: 1
@@ -101,7 +101,7 @@ agents:
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
     tokens: 1387
-    total_tokens: 9227
+    total_tokens: 8832
   - name: claim-reviewer
     title: Claim Reviewer
     phase: 6
@@ -151,8 +151,8 @@ agents:
     title: Developer Agent
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
-    tokens: 2354
-    total_tokens: 4903
+    tokens: 2271
+    total_tokens: 4820
 
 skills:
   - name: capture-charter
@@ -480,7 +480,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 777
-    total_tokens: 14907
+    total_tokens: 14429
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -508,7 +508,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4706
-    total_tokens: 78389
+    total_tokens: 77599
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -526,7 +526,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 3078
-    total_tokens: 77885
+    total_tokens: 77095
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -542,7 +542,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1281
-    total_tokens: 15411
+    total_tokens: 14933
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -667,7 +667,7 @@ rulebooks:
   - name: testing-strategy
     category: conventions
     path: rulebooks/conventions/testing-strategy.md
-    tokens: 2510
+    tokens: 2115
   - name: todo-format
     category: conventions
     path: rulebooks/conventions/todo-format.md
