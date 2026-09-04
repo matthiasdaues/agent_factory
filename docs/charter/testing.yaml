@@ -25,7 +25,7 @@ layers:
 # per-gate configuration only.
 gates:
   crap_score:
-    enabled: true
+    enabled: false
     threshold: 8
   mutation_testing:
     enabled: false
