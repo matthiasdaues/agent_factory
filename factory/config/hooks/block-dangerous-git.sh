@@ -20,14 +20,22 @@ deny() {
 TOP=$(git rev-parse --show-toplevel 2>/dev/null)
 
 # BR-024 (ST-0150): Allow agent test commands declared in the project's
-# charter, docs/charter/testing.yaml, instead of a single hardcoded command.
+# testing.yaml, instead of a single hardcoded command.
 # test_command, test_staged_command, and test_changed_command are each
 # allowlisted when present, matched exactly against the full command string
-# (no prefix matching). When the charter file does not exist, no agent test
-# commands are allowed — bare test invocations fall through to the deny
-# patterns below, same as before this charter existed.
-CHARTER="$TOP/docs/charter/testing.yaml"
-if [ -n "$TOP" ] && [ -f "$CHARTER" ]; then
+# (no prefix matching). When no testing.yaml exists at either location, no
+# agent test commands are allowed — bare test invocations fall through to
+# the deny patterns below, same as before.
+resolve_testing_yaml() {
+  local root="$1"
+  if [ -f "$root/docs/agent-context/testing.yaml" ]; then
+    echo "$root/docs/agent-context/testing.yaml"
+  elif [ -f "$root/docs/charter/testing.yaml" ]; then
+    echo "$root/docs/charter/testing.yaml"
+  fi
+}
+CHARTER=$(resolve_testing_yaml "$TOP")
+if [ -n "$TOP" ] && [ -n "$CHARTER" ] && [ -f "$CHARTER" ]; then
   for field in test_command test_staged_command test_changed_command; do
     ALLOWED_CMD=$(grep "^${field}:" "$CHARTER" | head -1 \
       | sed -E "s/^${field}:[[:space:]]*//" | sed -E 's/^"(.*)"$/\1/' | sed -E "s/^'(.*)'$/\1/")
