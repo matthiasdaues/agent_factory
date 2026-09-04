@@ -107,6 +107,36 @@ You do not need anything else to start. Run one `poc-spike`, watch the loop, and
 
 **Everything below is reference material. You don't need it yet.**
 
+## Agent Context
+
+`docs/agent-context/` is a routing switchboard that connects agents to a project's own knowledge. It is not a knowledge base — it tells agents where to look, never what they will find there. Think of it as a stable endpoint: the structure changes slowly, but the content beneath it grows with the project.
+
+### How it works
+
+The system has two layers. Layer 2 consists of three index files — `stack.yaml` (what the project is built with), `workflow.yaml` (how to build, test, and deploy it), and `governance.yaml` (what rules apply). Layer 1 is `reading-guides.yaml`, a concern-based routing table that tells agents which index-file sections are relevant to a given topic (backend, testing, architecture, packaging, and so on).
+
+### Field states
+
+Every field in an index file is in one of three states:
+
+- **Valued** — the field carries a `name:` (a display label) and optionally a `source:` (the authoritative document). Early fields may have only `name:` before source documents exist; mature fields carry both.
+- **Deferred** — the field carries `deferred: "<reason>"`. A conscious choice to postpone, not a defect.
+- **Absent** — the key does not exist, meaning the concept does not apply to this project.
+
+`null` is never valid — it is always a lint error.
+
+### How VIRGIL sets it up
+
+During project setup, VIRGIL walks through a structured interview concern by concern. Each question maps to an index file and a suggested key. The operator confirms which keys are relevant, provides values (and source pointers when documents already exist), defers what is not yet decided, and skips what does not apply. Only confirmed keys are created — the structure is tailored to the project, not a one-size-fits-all template.
+
+### What you control
+
+The top-level key schema (stack, workflow, governance) and lint rules belong to the factory. Everything below the top level — second-level keys, their values, and their source pointers — belongs to the project owner. You can add keys, rename them, remove them, and customize the reading guide's concerns. The factory proposes; you decide.
+
+### Keeping it current
+
+`update-context` is the skill that writes to index files after initial setup. When you add a key or change a source pointer, it asks which reading-guide concern the key belongs to and updates the routing table immediately. The reconciliation agent compares your index files against the factory's current interview guide during regular passes and surfaces new suggested keys that your project has not been asked about yet — suggestions, not errors.
+
 ## Agents
 
 An agent is one job — "write requirements," "review the architecture," "implement one story." Each agent is a single markdown file in `factory/agents/`, read by your AI CLI at the start of a session.
@@ -116,7 +146,7 @@ Most phases have two agents: an **author** and a **reviewer**. The author produc
 In addition to the phase-chain agents, several **Phase 0 utility agents** support the work without belonging to a specific phase:
 
 - **chat-agent** — open-ended conversation that helps an idea find its shape. Starts formless and coalesces into the right next step: a feature proposal, a research brief, a spike, or just a finished conversation.
-- **kit-manager** — scaffolds and completes the project charter, runs a structured interview to fill gaps, and accepts ad-hoc reference material.
+- **kit-manager** — sets up agent context (`docs/agent-context/`), runs a structured interview to fill gaps, and accepts ad-hoc reference material. See [Agent Context](#agent-context).
 - **coaching-agent** — runs retrospectives, extracts action items, and tracks process improvements across sessions.
 - **proposal-review-agent** — reviews a feature proposal for clarity, feasibility, and planning readiness. Consultative on drafts, adversarial on open proposals.
 

@@ -133,9 +133,13 @@ that remaining configuration drift is tracked as
 [`RECON-0018`](../docs/findings/RECON-0018.md). This repository's own merged
 configuration already contains the changed-only hook.
 
-### Charter-based test execution
+### Agent context
 
-Projects declare their test commands in `docs/charter/testing.yaml` instead of relying on a Factory-owned test runner. The charter file declares up to three fields:
+Projects connect their knowledge to factory agents through `docs/agent-context/` — a YAML routing switchboard. See the [factory guide § Agent Context](docs/factory-guide.md#agent-context) for how it works.
+
+### Test execution
+
+Projects declare their test commands in `testing.yaml` (at `docs/agent-context/testing.yaml`, falling back to `docs/charter/testing.yaml` for legacy projects) instead of relying on a Factory-owned test runner. The file declares up to three fields:
 
 - **`test_command`** — full test suite (used by FSM gates and pre-commit hooks)
 - **`test_staged_command`** — tests on staged files only (agent TDD loop)
