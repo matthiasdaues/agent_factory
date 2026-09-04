@@ -11,6 +11,7 @@ description: >-
 skills:
   - reconcile-spec
   - model-structurizr-slice
+  - update-context
   - handoff
 inputs:
   - docs/arc42/CONTEXT.md
@@ -21,6 +22,8 @@ inputs:
   - docs/spec/scope-map.md
   - docs/*.md
   - docs/adr/*.md
+  - docs/agent-context/*.yaml
+  - factory/rulebooks/templates/context-interview-guide.yaml
   - src/**/*
   - tests/**/*
   - factory/rulebooks/conventions/finding-format.md
@@ -104,6 +107,7 @@ phase is exempt and may continue in the current session.
    - Move every Rule that was `specified` for this slice and is still present in the `.feature` file to `implemented`, and update its link to the archived `.feature` file if one was moved under `docs/~archive/`.
    - **PR body**: when the merge to dev is opened as an agent-authored pull request, list every newly discovered Rule from this step in the PR body, so the human reviewer sees the scope change before approving. When the merge is a direct script-owned merge with no PR, record the same list in the reconciliation report instead.
 5. **Verify prior findings** (repeat passes) — Per [review-loop-discipline.md](../rulebooks/conventions/review-loop-discipline.md): resolve/annotate each open `RECON` finding, **and** re-reconcile fresh (Steps 2–4) to catch new drift.
+6. **Reconcile agent context** — Read the factory's `factory/rulebooks/templates/context-interview-guide.yaml` and compare its suggested keys against the keys present in the project's `docs/agent-context/*.yaml` index files. For each suggested key in the interview guide that is absent from the project's index files, report it to the operator as a suggestion — not an error. The operator confirms (key is created via `update-context`) or dismisses each suggestion. Dismissed suggestions are not re-surfaced in the same reconciliation pass.
 
 **Pause point:** Present the discrepancy table before committing updates. Human decides: update spec or change code?
 
@@ -114,6 +118,7 @@ phase is exempt and may continue in the current session.
 - Every Rule in the slice's `.feature` file has at least one `@`-ref, or a `RECON` finding is filed for the ones that don't
 - The scope map reflects the `.feature` file's Rules after the merge-time diff: discoveries entered as `implemented` with a filed finding, drift surfaced as a filed finding, migration rows (UC-XX sources) skipped
 - Prior findings resolved or annotated
+- Agent-context keys reconciled against the interview guide; new suggestions presented and resolved
 
 ## Handoff
 
