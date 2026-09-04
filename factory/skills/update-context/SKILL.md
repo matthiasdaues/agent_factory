@@ -227,14 +227,69 @@ owns the write target. If another agent needs to reference an index-file
 entry, link to it with the `<file>#<dotted.key.path>` convention (e.g.
 "See `stack.yaml#frameworks.backend`.").
 
-## Out of scope
+## Mode transition — primary to index
 
-The bulk primary-to-index mode transition — flipping all three index files
-to `mode: index` in one atomic commit once every non-null, non-deferred leaf
-has a `source:` pointer, and stripping inline values to names — is a
-separate concern from the single-field writes this skill performs. See
-[agent-context.feature](../../../docs/spec/agent-context.feature) Rule:
-Operator transitions context from primary to index mode.
+When a field write completes (any write pattern except deferral), check the
+transition condition across all three index files. The transition is
+operator-confirmed and one-directional — once in index mode, files do not
+revert to primary.
+
+### Transition condition
+
+Walk the YAML structure of `stack.yaml`, `workflow.yaml`, and
+`governance.yaml`. Classify each leaf field as one of:
+
+- **null** — no value recorded. Excluded from the condition.
+- **deferred** — has `deferred: "<reason>"`. Excluded from the condition.
+- **valued** — has an inline value, a `{name, source}` mapping, or a
+  `{name}` mapping. Included in the condition: must have a `source:` pointer.
+
+The transition condition is met when **every valued leaf across all three
+files has a `source:` pointer**. Null and deferred fields do not block it.
+
+### Prompt and execution
+
+When the transition condition is met and all three files are still
+`mode: primary`:
+
+1. Tell the operator: "All context fields now have sources. Switch to index
+   mode?"
+2. If the operator **declines**: leave all three files in `mode: primary`.
+   Do not prompt again until another field write changes the state.
+3. If the operator **confirms**: execute the atomic flip.
+
+### Atomic flip
+
+In a single commit:
+
+1. Set `mode: index` in all three files.
+2. Strip inline values to names only — convert any bare scalar value
+   (e.g. `backend: "FastAPI 0.100"`) to a `{name, source}` mapping
+   (e.g. `backend: {name: FastAPI, source: docs/adr/004.md}`). Fields
+   already in `{name, source}` form are left as-is.
+3. Preserve all `source:` pointers unchanged.
+4. Preserve all `deferred:` fields unchanged.
+5. Leave `null` fields as `null`.
+
+Commit message:
+
+```
+docs: transition agent context to index mode
+```
+
+### Post-transition validation
+
+Run `factory/scripts/context-lint` — confirm zero errors. In particular:
+
+- `CX-MODE` — all three files report `mode: index`.
+- `CX-SRC` — every non-null, non-deferred field has a `source:` pointer.
+
+### Transition not offered
+
+Do not prompt for transition when:
+
+- Any file is already `mode: index` (the transition is complete).
+- A valued leaf lacks a `source:` pointer (the condition is not met).
 
 ## Validation reference
 
