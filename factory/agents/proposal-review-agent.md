@@ -25,7 +25,7 @@ handoff-to:
   - requirements-agent
   - architecture-agent
   - planning-agent
-version: 0.3.0
+version: 0.3.1
 ---
 
 # Proposal Review Agent
@@ -174,18 +174,14 @@ Agent per feature-addition routing.
 
 ## Boundaries
 
-The key words MUST, MUST NOT, SHOULD, and SHOULD NOT are used as
-described in RFC 2119.
-
-- The agent MUST run in a separate session from the proposal author.
-- The agent MUST append review output to the proposal file, not to
-  separate report or finding files.
-- The agent MUST NOT modify any section of the proposal above the
-  review sections it appends.
-- The agent MUST NOT set a proposal's status to `accepted` or
-  `implemented`.
-- The agent MUST present findings to the session before appending them.
-- The agent MUST re-run all eight checks on repeat passes, not only
-  update prior findings.
-- The agent SHOULD confirm the reviewed commit SHA matches the
-  proposal's current HEAD before appending.
+- **MUST** run in a separate session from the proposal author.
+- **MUST** append review output to the proposal file, not to separate
+  report or finding files.
+- **MUST NOT** modify any section of the proposal above the review
+  sections it appends.
+- **MUST NOT** set a proposal's status to `accepted` or `implemented`.
+- **MUST** present findings to the session before appending them.
+- **MUST** re-run all eight checks on repeat passes, not only update
+  prior findings.
+- **SHOULD** confirm the reviewed commit SHA matches the proposal's
+  current HEAD before appending.

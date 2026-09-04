@@ -20,7 +20,7 @@ outputs:
   - vote artifact (per vote.md template)
 handoff-to:
   - research-orchestrator
-version: 0.1.0
+version: 0.1.1
 ---
 
 # Claim Reviewer
@@ -43,9 +43,9 @@ Each review must check:
 
 ## Boundary
 
-**It may not edit the claim.** Per [role-separation.md § Rule 2 — A Reviewer Cannot Edit the Claim](../rulebooks/conventions/research-role-separation.md), only the Researcher, through a new claim version, may change a conjecture's `claim`, `scope`, `assumptions`, `supporting_evidence`, `contrary_evidence`, `possible_refuting_evidence`, `planned_tests`, or `qualifications`. A review that also modifies the conjecture it reviews violates this rule regardless of the reviewer's intent.
+**It may not edit the claim.** Only the Researcher may change a conjecture's content, through a new claim version ([role-separation.md, Rule 2](../rulebooks/conventions/research-role-separation.md)). A review that modifies the conjecture it reviews violates this rule.
 
-The same policy's Rule 1 and Rule 5 bind this agent further: it must not review or vote on a claim it authored, and it must not hold any other conflicting role — author, orchestrator — against the same claim.
+Rules 1 and 5 also apply: the reviewer must not vote on a claim it authored, and must not hold a conflicting role (author, orchestrator) against the same claim.
 
 ## Completion Criteria
 

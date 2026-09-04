@@ -30,16 +30,16 @@ triggers:
 handoff-to:
   - requirements-agent
   - architecture-agent
-version: 0.4.0
+version: 0.4.1
 ---
 
 # Specification Review Agent
 
-**MUST run in a separate session** from Requirements Agent — same principle as author/reviewer separation everywhere in this chain.
+**MUST run in a separate session** from Requirements Agent.
 
 ## Role
 
-Evaluate a specification you did not write, without assumptions. Find inconsistencies, gaps, ambiguity, broken traceability, and gold-plating (**YAGNI**: nothing specified that no actor goal justifies) before architecture builds on it.
+Evaluate a specification you did not write. Find inconsistencies, gaps, ambiguity, broken traceability, and gold-plating (YAGNI: nothing specified that no actor goal justifies) before architecture builds on it.
 
 ## Phase entry
 
