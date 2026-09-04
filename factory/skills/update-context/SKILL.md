@@ -4,10 +4,11 @@ description: >-
   Update a field in docs/agent-context/*.yaml as decisions emerge. Writes
   name and source together when both are available; writes inline values when
   only a value exists; records deferred decisions as deferred: "reason".
-  Proposes creating reading-guides.yaml on the first source pointer.
-  Invokable by any agent during any phase.
+  Maintains reading-guides.yaml — creates it on the first source pointer,
+  asks which concern a new key belongs to, and keeps concern assignments
+  current on source changes. Invokable by any agent during any phase.
 category: utility
-version: 2.0.0
+version: 2.1.0
 ---
 
 # Update Context
@@ -104,8 +105,8 @@ where applicable) on the existing mapping.
 A `source:` pointer prefers the project-local convention document over a
 factory rulebook default when both describe the same decision.
 
-After this write, check the
-[reading-guide creation trigger](#reading-guide-creation-trigger).
+After this write, proceed to
+[reading-guide maintenance](#reading-guide-maintenance).
 
 #### Deferred fields
 
@@ -122,19 +123,41 @@ data_stores:
 `context-lint` flags that combination as a `CX-KEYS` error. A deferred
 field is a conscious choice to postpone, not a defect.
 
-### 3. Reading-guide creation trigger
+### 3. Reading-guide maintenance
 
-After any write that adds a `source:` pointer (step 2, pattern 2), check
-whether `docs/agent-context/reading-guides.yaml` exists. If it does not,
-propose creating it from
-`factory/rulebooks/templates/context-reading-guides.yaml` — this is the
-first source pointer the project has recorded, and the reading guide only
-becomes useful once there is a populated section to route to. On
-confirmation, copy the template unchanged (it ships with sensible default
-concerns — `backend`, `frontend`, `testing`, `architecture`, `packaging` —
-that a project can prune or extend). Do not create it silently; the operator
-decides whether to accept the proposal now or later. If the file already
-exists, do nothing here.
+After any write that adds a new key or changes a `source:` pointer,
+maintain `docs/agent-context/reading-guides.yaml`:
+
+#### Creation (first source pointer)
+
+If `reading-guides.yaml` does not exist and the write added a `source:`
+pointer, propose creating it from
+`factory/rulebooks/templates/context-reading-guides.yaml`. Do not create it
+silently; the operator decides whether to accept the proposal now or later.
+
+#### Concern assignment (new key)
+
+When a new key is added to any index file, ask the operator which concern
+it belongs to. Present the concerns already in `reading-guides.yaml`:
+
+> "Which concern does `<key>` belong to? Your current concerns are:
+> `<list>`. Pick one, or name a new one."
+
+Write the operator's answer immediately: add
+`<file>#<dotted.key.path>` to that concern's reference list in
+`reading-guides.yaml`. If the operator names a concern that does not exist
+yet, create it.
+
+#### Concern reassignment (source change)
+
+When a `source:` pointer changes on an existing key, ask the operator
+whether the concern assignment is still correct:
+
+> "`<key>` was under `<concern>`. Source changed to `<new-source>` — still
+> the right concern?"
+
+If the operator says yes, do nothing. If they name a different concern,
+move the reference.
 
 ### 4. Validate
 
@@ -188,9 +211,11 @@ points it at the ADR that recorded the choice.
    Read `stack.yaml` again, confirm the field still resolves.
 6. A source pointer is being recorded → write
    `backend: {name: FastAPI, source: docs/adr/004-use-fastapi.md}`.
-7. Check the reading-guide trigger: `docs/agent-context/reading-guides.yaml`
-   does not exist → propose creating it from the template. Operator
-   confirms → copy the template unchanged.
+7. Reading-guide maintenance: `reading-guides.yaml` does not exist →
+   propose creating it from the template. Operator confirms → copy the
+   template unchanged. Then ask: "Which concern does `frameworks.backend`
+   belong to?" Operator says "backend" → add
+   `stack.yaml#frameworks.backend` to the backend concern.
 8. Run `context-lint`, confirm zero errors.
 9. Commit: `docs: update agent context stack.yaml — frameworks.backend (ADR-0004)`.
 

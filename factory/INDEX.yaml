@@ -20,7 +20,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 1578
-    total_tokens: 11804
+    total_tokens: 11982
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
@@ -397,9 +397,9 @@ skills:
     tokens: 354
   - name: update-context
     category: utility
-    description: "Update a field in docs/agent-context/*.yaml as decisions emerge. Writes name and source together when both are available; writes inline values when only a value exists; records deferred decisions as deferred: \"reason\". Proposes creating reading-guides.yaml on the first source pointer. Invokable by any agent during any phase."
+    description: "Update a field in docs/agent-context/*.yaml as decisions emerge. Writes name and source together when both are available; writes inline values when only a value exists; records deferred decisions as deferred: \"reason\". Maintains reading-guides.yaml — creates it on the first source pointer, asks which concern a new key belongs to, and keeps concern assignments current on source changes. Invokable by any agent during any phase."
     path: skills/update-context/SKILL.md
-    tokens: 1882
+    tokens: 2060
   - name: validate
     category: utility
     description: Run every applicable deterministic gate on demand, mid-session — the custom lint scripts plus ruff and mdformat — without needing a git commit.
