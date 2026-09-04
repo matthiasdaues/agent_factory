@@ -157,9 +157,9 @@ agents:
 skills:
   - name: capture-context
     category: requirements
-    description: "Initialize docs/agent-context/ — the YAML routing interface between agents and project knowledge — for a new project. capture-context --init scaffolds stack.yaml, workflow.yaml, and governance.yaml from templates in mode: primary, then runs a stakeholder interview that records the answers as inline values. Use when starting a new project's agent context."
+    description: "Initialize docs/agent-context/ — the YAML routing interface between agents and project knowledge. capture-context --init scaffolds stack.yaml, workflow.yaml, and governance.yaml from templates in mode: primary, then runs a stakeholder interview that records the answers as inline values. capture-context --init --scan discovers existing documentation in a brownfield project, runs a concern-based interview, populates index files with source pointers, generates reading-guides.yaml, and proposes mode: index when full source coverage is achieved."
     path: skills/capture-context/SKILL.md
-    tokens: 1398
+    tokens: 2790
   - name: capture-vision
     category: requirements
     description: Capture a project vision through structured interview.
@@ -399,7 +399,7 @@ skills:
     category: utility
     description: "Update a field in docs/agent-context/*.yaml as decisions emerge. Writes inline values directly when mode: primary; writes name and source together when mode: index, refusing any write that lacks a source pointer. Records deferred decisions as deferred: \"reason\" and proposes creating reading-guides.yaml on the first source pointer. Invokable by any agent during any phase."
     path: skills/update-context/SKILL.md
-    tokens: 2422
+    tokens: 2874
   - name: validate
     category: utility
     description: Run every applicable deterministic gate on demand, mid-session — the custom lint scripts plus ruff and mdformat — without needing a git commit.

@@ -91,13 +91,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def read_threshold_from_testing_yaml(source_root: Path) -> float | None:
     """Read crap_score.threshold from testing.yaml gates section.
 
-    Walks up the directory tree looking for docs/charter/testing.yaml.
+    Walks up the directory tree looking for testing.yaml via format detection:
+    docs/agent-context/testing.yaml first, docs/charter/testing.yaml second.
     Parses the gates.crap_score.threshold value if present.
     Returns None if gates section or crap_score.threshold is not found.
     """
     candidate = source_root
     for _ in range(10):
-        testing_yaml = candidate / "docs" / "charter" / "testing.yaml"
+        testing_yaml = candidate / "docs" / "agent-context" / "testing.yaml"
+        if not testing_yaml.is_file():
+            testing_yaml = candidate / "docs" / "charter" / "testing.yaml"
         if testing_yaml.is_file():
             text = testing_yaml.read_text(encoding="utf-8")
             # Minimal YAML parsing: look for gates: section and crap_score.threshold

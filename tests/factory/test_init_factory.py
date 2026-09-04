@@ -152,11 +152,19 @@ class TestScanTestEntrypoints:
 
 
 class TestWriteTestingYaml:
-    def test_writes_charter(self, tmp_path):
+    def test_writes_agent_context(self, tmp_path):
         inf._write_testing_yaml(tmp_path, "pytest")
-        path = tmp_path / "docs" / "charter" / "testing.yaml"
+        path = tmp_path / "docs" / "agent-context" / "testing.yaml"
         assert path.exists()
         content = path.read_text()
+        assert 'test_command: "pytest"' in content
+
+    def test_writes_to_charter_when_charter_exists(self, tmp_path):
+        charter = tmp_path / "docs" / "charter"
+        charter.mkdir(parents=True)
+        (charter / "testing.yaml").write_text("test_command: old\n")
+        inf._write_testing_yaml(tmp_path, "pytest")
+        content = (charter / "testing.yaml").read_text()
         assert 'test_command: "pytest"' in content
 
 
@@ -165,7 +173,7 @@ class TestDetectTestRegime:
         (tmp_path / "Makefile").write_text("test:\n\tpytest\n")
         report: list[str] = []
         inf.detect_test_regime(tmp_path, report)
-        path = tmp_path / "docs" / "charter" / "testing.yaml"
+        path = tmp_path / "docs" / "agent-context" / "testing.yaml"
         assert path.exists()
         assert "make test" in path.read_text()
 
