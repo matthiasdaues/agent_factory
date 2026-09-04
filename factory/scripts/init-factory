@@ -93,10 +93,11 @@ Steps
   12. `uvx pre-commit install`.
   13. Detect an existing test regime (Makefile/package.json/tox/nox/Justfile/
       Taskfile/pytest entrypoints) and record it as `test_command` in
-      --target/docs/charter/testing.yaml — the deterministic core of the
-      detect-test-regime skill, since this script runs with no AI in the
-      loop. Skipped entirely if that file already exists (NON-INTERFERENCE:
-      it may carry hand-edited or previously-scanned content). No entrypoint
+      testing.yaml (docs/agent-context/ or docs/charter/ via format
+      detection) — the deterministic core of the detect-test-regime skill,
+      since this script runs with no AI in the loop. Skipped entirely if
+      that file already exists (NON-INTERFERENCE: it may carry hand-edited
+      or previously-scanned content). No entrypoint
       found, or several with no way to disambiguate non-interactively: the
       gap is reported and nothing is written — never guessed. Never touches
       .pre-commit-config.yaml; test hooks stay project-owned.
@@ -1799,13 +1800,27 @@ def _scan_test_entrypoints(target: Path) -> list[tuple[str, str]]:
     return candidates
 
 
+def _resolve_testing_yaml(target: Path) -> Path:
+    """Return the testing.yaml path via format detection."""
+    ac_path = target / "docs" / "agent-context" / "testing.yaml"
+    if ac_path.is_file():
+        return ac_path
+    charter_path = target / "docs" / "charter" / "testing.yaml"
+    if charter_path.is_file():
+        return charter_path
+    ac_dir = target / "docs" / "agent-context"
+    if ac_dir.is_dir():
+        return ac_path
+    return ac_path
+
+
 def _write_testing_yaml(target: Path, command: str) -> None:
-    path = target / "docs" / "charter" / "testing.yaml"
+    path = _resolve_testing_yaml(target)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        "# docs/charter/testing.yaml — project test command declaration\n"
+        "# docs/agent-context/testing.yaml — project test command declaration\n"
         "# Detected by Agent Factory's detect-test-regime scan during init-factory.\n"
-        "# Code is the source of truth; this charter is a derived record — re-run\n"
+        "# Code is the source of truth; this file is a derived record — re-run\n"
         "# the detect-test-regime skill by hand once the project's test setup\n"
         "# changes. Schema: factory/rulebooks/templates/charter-testing.yaml\n"
         "\n"
@@ -1816,23 +1831,25 @@ def _write_testing_yaml(target: Path, command: str) -> None:
 
 def detect_test_regime(target: Path, report: list[str]) -> None:
     """Scan for an existing test regime and record it in
-    --target/docs/charter/testing.yaml — the deterministic core of the
-    detect-test-regime skill (step 2: one entrypoint records, several ask
-    rather than guess, none surfaces the gap). Never writes to
-    .pre-commit-config.yaml: test hooks stay project-owned (BR-029)."""
-    path = target / "docs" / "charter" / "testing.yaml"
+    testing.yaml (docs/agent-context/ or docs/charter/ via format detection)
+    — the deterministic core of the detect-test-regime skill (step 2: one
+    entrypoint records, several ask rather than guess, none surfaces the
+    gap). Never writes to .pre-commit-config.yaml: test hooks stay
+    project-owned (BR-029)."""
+    path = _resolve_testing_yaml(target)
     if path.exists():
-        log(report, "docs/charter/testing.yaml: already present, left untouched")
+        log(report, f"{path.relative_to(target)}: already present, left untouched")
         return
 
     by_command: dict[str, list[str]] = {}
     for label, command in _scan_test_entrypoints(target):
         by_command.setdefault(command, []).append(label)
 
+    rel_path = path.relative_to(target)
     if not by_command:
         log(
             report,
-            "docs/charter/testing.yaml: no test entrypoint detected — gap "
+            f"{rel_path}: no test entrypoint detected — gap "
             "surfaced. Build project-owned test infrastructure, or run the "
             "detect-test-regime skill once one exists.",
         )
@@ -1843,7 +1860,7 @@ def detect_test_regime(target: Path, report: list[str]) -> None:
         _write_testing_yaml(target, command)
         log(
             report,
-            f"docs/charter/testing.yaml: created, test_command={command!r} "
+            f"{rel_path}: created, test_command={command!r} "
             f"(detected via {', '.join(by_command[command])})",
         )
         return
@@ -1867,15 +1884,15 @@ def detect_test_regime(target: Path, report: list[str]) -> None:
         _write_testing_yaml(target, command)
         log(
             report,
-            f"docs/charter/testing.yaml: created, test_command={command!r} (user-selected)",
+            f"{rel_path}: created, test_command={command!r} (user-selected)",
         )
         return
 
     log(
         report,
-        "docs/charter/testing.yaml: multiple test entrypoints found "
+        f"{rel_path}: multiple test entrypoints found "
         f"({', '.join(options)}) — gap surfaced, none recorded. Run the "
-        "detect-test-regime skill, or edit the charter by hand, to disambiguate.",
+        "detect-test-regime skill, or edit testing.yaml by hand, to disambiguate.",
     )
 
 
