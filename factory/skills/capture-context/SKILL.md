@@ -2,12 +2,15 @@
 name: capture-context
 description: >-
   Initialize docs/agent-context/ — the YAML routing interface between agents
-  and project knowledge — for a new project. capture-context --init scaffolds
-  stack.yaml, workflow.yaml, and governance.yaml from templates in mode:
-  primary, then runs a stakeholder interview that records the answers as
-  inline values. Use when starting a new project's agent context.
+  and project knowledge. capture-context --init scaffolds stack.yaml,
+  workflow.yaml, and governance.yaml from templates in mode: primary, then
+  runs a stakeholder interview that records the answers as inline values.
+  capture-context --init --scan discovers existing documentation in a
+  brownfield project, runs a concern-based interview, populates index files
+  with source pointers, generates reading-guides.yaml, and proposes mode:
+  index when full source coverage is achieved.
 category: requirements
-version: 1.0.0
+version: 1.1.0
 disable-model-invocation: false
 ---
 
@@ -37,12 +40,10 @@ no populated sections yet to route to.
 
 ## Mode selection
 
-| Invocation               | Mode                | When                                            |
-| ------------------------ | ------------------- | ----------------------------------------------- |
-| `capture-context --init` | Greenfield scaffold | Right after vision capture, before requirements |
-
-Brownfield onboarding (`capture-context --init --scan`) is a separate mode,
-covered once that behaviour ships.
+| Invocation                      | Mode                  | When                                            |
+| ------------------------------- | --------------------- | ----------------------------------------------- |
+| `capture-context --init`        | Greenfield scaffold   | Right after vision capture, before requirements |
+| `capture-context --init --scan` | Brownfield onboarding | Existing project with documentation to discover |
 
 ## Mode 1 — `--init` (greenfield)
 
@@ -114,6 +115,137 @@ under `docs/agent-context/` with `mode: primary`; `reading-guides.yaml` was
 not created; any file that already existed was left untouched; stakeholder
 answers are recorded as inline values; `context-lint` (default mode)
 reports zero errors.
+
+## Mode 2 — `--init --scan` (brownfield onboarding)
+
+Discovers existing documentation signals in a project, runs a concern-based
+interview, populates index files with source pointers, generates
+`reading-guides.yaml`, and proposes `mode: index` when full source coverage
+is achieved. Legacy markdown charter projects are detected via format
+detection and offered optional migration.
+
+### Step 1 — Legacy detection
+
+Run format detection (the three-step chain from context-lint). If the
+project has `docs/charter/tech-stack.md` (legacy markdown charter) and no
+`docs/agent-context/` directory:
+
+1. Tell the operator: "This project uses legacy markdown charter files.
+   Would you like to migrate to YAML agent-context?"
+2. If the operator **declines**: stop here — leave the markdown charter
+   unchanged, do not create `docs/agent-context/`, and exit. The project
+   continues using its existing charter files.
+3. If the operator **confirms**: proceed to Step 2. The migration happens
+   as a side effect of the brownfield scan populating the new YAML files.
+
+If `docs/agent-context/` already exists, skip this step.
+
+### Step 2 — Create the skeleton
+
+Same as Mode 1 Step 1 — for each of `stack.yaml`, `workflow.yaml`,
+`governance.yaml`: if `docs/agent-context/<file>` already exists, skip it.
+Otherwise, copy the matching template to `docs/agent-context/<file>`.
+
+### Step 3 — Discovery scan
+
+Scan the project for documentation signals. Look for these common markers:
+
+| Signal                                                   | Indicates                 | Maps to                                         |
+| -------------------------------------------------------- | ------------------------- | ----------------------------------------------- |
+| `pyproject.toml`, `package.json`, `Cargo.toml`, `go.mod` | Languages, frameworks     | `stack.yaml#languages`, `stack.yaml#frameworks` |
+| `docs/adr/`, `docs/decisions/`                           | Architecture decisions    | `governance.yaml#architecture_governance`       |
+| `.github/workflows/`, `.gitlab-ci.yml`, `Jenkinsfile`    | CI/CD configuration       | `workflow.yaml#ci_cd`                           |
+| `pytest.ini`, `jest.config.*`, `.nycrc`                  | Testing setup             | `workflow.yaml#testing`                         |
+| `Dockerfile`, `docker-compose.yml`, `k8s/`               | Infrastructure            | `stack.yaml#infrastructure`                     |
+| `.eslintrc*`, `ruff.toml`, `.flake8`                     | Linting setup             | `workflow.yaml#linting`                         |
+| `CONTRIBUTING.md`, `docs/development.md`                 | Development practices     | `workflow.yaml#getting_started`                 |
+| `.pre-commit-config.yaml`                                | Commit/review conventions | `governance.yaml#commits`                       |
+
+Report what was found to the operator before proceeding to the interview.
+
+### Step 4 — Concern-based interview
+
+For each applicable work-type concern (based on what the scan discovered),
+ask the operator where conventions are documented and propose source paths
+from the scan results. The concerns follow the `reading-guides.yaml`
+template structure:
+
+**Backend** (if backend framework signals found):
+
+- "The scan found [framework]. Where is the backend documented?"
+- Propose source path based on discovered files.
+- Write `name` and `source` to `stack.yaml#frameworks.backend`.
+
+**Frontend** (if frontend framework signals found):
+
+- Same pattern for `stack.yaml#frameworks.frontend`.
+
+**Testing** (if test config signals found):
+
+- "Where are testing conventions documented?"
+- Write to `workflow.yaml#testing` and `governance.yaml#testing_discipline`.
+
+**Architecture** (if ADR directory found):
+
+- "The scan found ADRs at [path]. Is this the architecture decision record?"
+- Write to `governance.yaml#architecture_governance`.
+
+**CI/CD** (if CI config found):
+
+- Write to `workflow.yaml#ci_cd`.
+
+**Packaging/Infrastructure** (if Docker/k8s signals found):
+
+- Write to `stack.yaml#infrastructure`.
+
+For each field, the operator may:
+
+- **Confirm** the proposed source → write `name` and `source` together.
+- **Override** with a different source path → write the override.
+- **Defer** → write `deferred: "<reason>"`.
+- **Skip** → leave as `null`.
+
+Fields with no applicable scan signal are presented at the end as "The scan
+found no signals for [field]. Do you have documentation for this?" — the
+operator can provide a source or skip.
+
+### Step 5 — Reading-guide assembly
+
+After the interview, generate `docs/agent-context/reading-guides.yaml`
+from `factory/rulebooks/templates/context-reading-guides.yaml`. Prune
+concerns that have no populated sections (all their referenced fields are
+still `null` or `deferred`). Keep concerns that have at least one populated
+source pointer.
+
+### Step 6 — Mode determination
+
+Count the non-null, non-deferred leaf fields across all three index files.
+For each, check whether it has a `source:` pointer.
+
+- **Full coverage** (every non-null, non-deferred field has a source):
+  propose `mode: index`. Tell the operator: "All context fields now have
+  sources. Switch to index mode?" If confirmed, set `mode: index` in all
+  three files and strip inline values to names only. If declined, leave
+  `mode: primary`.
+- **Partial coverage**: leave all three files in `mode: primary`. Tell the
+  operator which fields still lack source pointers.
+
+### Step 7 — Validate
+
+Run `factory/scripts/context-lint` — confirm zero errors. Fix any
+`CX-KEYS`, `CX-PARSE`, or `CX-FORMAT` finding before proceeding.
+
+### Step 8 — Commit
+
+```
+docs: initialize agent context (--init --scan)
+```
+
+**Completion**: `stack.yaml`, `workflow.yaml`, `governance.yaml`, and
+`reading-guides.yaml` exist under `docs/agent-context/`; source pointers
+are populated from the discovery scan and concern interview;
+`context-lint` reports zero errors; `mode` is set according to coverage
+(index if full, primary if partial).
 
 ## Validation reference
 
