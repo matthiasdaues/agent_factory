@@ -1,0 +1,25 @@
+mode: primary
+
+languages:
+  - name: null
+    version: null
+    role: null
+    source: null
+
+frameworks:
+  backend: null
+  frontend: null
+  testing: null
+
+data_stores:
+  deferred: "evaluating options"
+  name: "Postgres"
+
+infrastructure: null
+existing_systems: null
+
+licensing:
+  project: null
+  constraints: null
+
+exclusions: null
