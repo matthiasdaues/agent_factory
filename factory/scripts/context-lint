@@ -6,7 +6,8 @@
 
 What: Validates docs/agent-context/ (the YAML agent-context interface
       introduced by ADR-0013 and ADR-0014) with CX-* finding codes:
-      CX-FILE, CX-PARSE, CX-KEYS, CX-NULL, CX-MODE, CX-MODE-INVALID.
+      CX-FILE, CX-PARSE, CX-KEYS, CX-NULL, CX-MODE, CX-MODE-INVALID,
+      CX-SRC, CX-SRC-EXIST, CX-SRC-STALE, CX-GUIDE-REF.
 When: Pre-commit hook when agent-context files change.
 By:   context-lint pre-commit hook; developer-agent during Red-Green.
 
@@ -23,12 +24,22 @@ Validates:
   --planning-gate (CX-NULL)
 - The `mode` field is `primary` or `index` (CX-MODE); any other value is
   an error (CX-MODE-INVALID)
+- Every populated field (a mapping carrying a `name` key) has a `source`
+  pointer once its file is `mode: index` (CX-SRC)
+- Every `source` pointer resolves to a real file on disk, checked
+  relative to the process's current working directory (CX-SRC-EXIST)
+- Every resolvable `source` pointer is not newer than the index file that
+  points at it (CX-SRC-STALE)
+- Every `<file>#<dotted.key.path>` reference in reading-guides.yaml
+  resolves to an existing key in the target index file's actual parsed
+  structure, independent of that key's value (CX-GUIDE-REF)
 
 This story (ST-0190) renamed charter-lint to context-lint and added the
-CX-* codes above. The legacy CH-* charter-validation functions (below,
-under "Legacy charter validation") are preserved unchanged for ST-0192,
-which adds format detection and the CH-* fallback path; they are not
-wired into the default CLI flow.
+first six CX-* codes above; ST-0191 added CX-SRC, CX-SRC-EXIST,
+CX-SRC-STALE, and CX-GUIDE-REF. The legacy CH-* charter-validation
+functions (below, under "Legacy charter validation") are preserved
+unchanged for ST-0192, which adds format detection and the CH-* fallback
+path; they are not wired into the default CLI flow.
 
 No third-party dependencies (Python 3.10+ stdlib only) — YAML is parsed
 by a minimal indentation-based parser scoped to the agent-context schema
@@ -577,6 +588,70 @@ def _find_deferred_conflicts(data: Dict[str, Any]) -> List[str]:
     return found
 
 
+def _find_source_candidates(data: Dict[str, Any]) -> List[Tuple[str, Dict[str, Any]]]:
+    """Return (keypath, node) for every mapping carrying a non-null 'name'
+    key — the populated shape of a leaf field once a value is filled in,
+    under either mode. CX-SRC, CX-SRC-EXIST, and CX-SRC-STALE all start
+    from this same candidate set."""
+    found: List[Tuple[str, Dict[str, Any]]] = []
+    for keypath, node in _walk(data):
+        if isinstance(node, dict) and node.get("name") is not None:
+            found.append((keypath, node))
+    return found
+
+
+def _key_path_exists(data: Dict[str, Any], dotted: str) -> bool:
+    """Return True when a dotted key path (e.g. 'frameworks.backend')
+    resolves to an existing key in data, regardless of that key's value —
+    CX-GUIDE-REF checks presence only, a null value still counts."""
+    node: Any = data
+    for part in dotted.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return False
+        node = node[part]
+    return True
+
+
+def _iter_guide_refs(guide_data: Any):
+    """Yield every '<file>#<dotted.key.path>' reference string from
+    reading-guides.yaml's concern -> [references] mapping. A bare file
+    reference (no '#') routes to the whole file and has nothing to
+    validate here."""
+    if not isinstance(guide_data, dict):
+        return
+    for refs in guide_data.values():
+        if not isinstance(refs, list):
+            continue
+        for ref in refs:
+            if isinstance(ref, str) and "#" in ref:
+                yield ref
+
+
+def _check_guide_refs(
+    guide_data: Any, index_data: Dict[str, Optional[Dict[str, Any]]]
+) -> List[Finding]:
+    """Validate every reading-guide key-path reference against the actual
+    parsed structure of its target index file (CX-GUIDE-REF). A reference
+    to a file that failed to parse, or that names a file outside the three
+    Layer 2 index files, is silently skipped — nothing to check it against."""
+    findings: List[Finding] = []
+    for ref in _iter_guide_refs(guide_data):
+        filename, _, dotted = ref.partition("#")
+        target = index_data.get(filename)
+        if target is None:
+            continue
+        if not _key_path_exists(target, dotted):
+            findings.append(
+                Finding(
+                    "CX-GUIDE-REF",
+                    "warning",
+                    READING_GUIDE_FILE,
+                    f"'{ref}' does not resolve to a key in {filename}",
+                )
+            )
+    return findings
+
+
 def check_index_file(
     path: Path, required_keys: Set[str], planning_gate: bool
 ) -> Tuple[List[Finding], Optional[Dict[str, Any]]]:
@@ -636,6 +711,46 @@ def check_index_file(
             )
         )
 
+    source_candidates = _find_source_candidates(data)
+
+    if mode_val == "index":
+        for keypath, node in source_candidates:
+            if not node.get("source"):
+                findings.append(
+                    Finding(
+                        "CX-SRC",
+                        "warning",
+                        rel,
+                        f"'{keypath}' has a name but no source pointer",
+                    )
+                )
+
+    index_mtime = path.stat().st_mtime
+    for keypath, node in source_candidates:
+        source_val = node.get("source")
+        if not isinstance(source_val, str) or not source_val:
+            continue
+        source_path = Path(source_val)
+        if not source_path.is_file():
+            findings.append(
+                Finding(
+                    "CX-SRC-EXIST",
+                    "warning",
+                    rel,
+                    f"'{keypath}' source does not resolve to a file on disk: {source_val}",
+                )
+            )
+            continue
+        if source_path.stat().st_mtime > index_mtime:
+            findings.append(
+                Finding(
+                    "CX-SRC-STALE",
+                    "info",
+                    rel,
+                    f"'{keypath}' source is newer than the index: {source_val}",
+                )
+            )
+
     return findings, data
 
 
@@ -652,22 +767,26 @@ def check_agent_context(context_dir: Path, planning_gate: bool = False) -> List[
         return findings
 
     any_index_mode = False
+    index_data: Dict[str, Optional[Dict[str, Any]]] = {}
     for filename in INDEX_FILES:
         file_findings, data = check_index_file(
             context_dir / filename, REQUIRED_KEYS[filename], planning_gate
         )
         findings += file_findings
-        if isinstance(data, dict) and data.get("mode") == "index":
+        index_data[filename] = data if isinstance(data, dict) else None
+        if index_data[filename] is not None and index_data[filename].get("mode") == "index":
             any_index_mode = True
 
     guide_path = context_dir / READING_GUIDE_FILE
     if guide_path.is_file():
         try:
-            parse_yaml(guide_path.read_text(encoding="utf-8"))
+            guide_data = parse_yaml(guide_path.read_text(encoding="utf-8"))
         except YamlParseError as exc:
             findings.append(
                 Finding("CX-PARSE", "error", READING_GUIDE_FILE, f"invalid YAML: {exc}")
             )
+        else:
+            findings += _check_guide_refs(guide_data, index_data)
     elif any_index_mode:
         findings.append(
             Finding(

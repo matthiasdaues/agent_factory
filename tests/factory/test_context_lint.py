@@ -1,10 +1,11 @@
 """Contract tests for factory/scripts/context-lint.
 
-Covers ACX-01 through ACX-05 from docs/spec/agent-context-qa-strategy.md —
-the six core CX-* finding codes introduced by ST-0190: CX-FILE, CX-PARSE,
-CX-KEYS, CX-NULL, CX-MODE, CX-MODE-INVALID. CX-SRC, CX-SRC-EXIST,
-CX-SRC-STALE, CX-GUIDE-REF, and CX-FORMAT are out of this story's scope
-(ST-0191/ST-0192) and are not exercised here.
+Covers ACX-01 through ACX-09 from docs/spec/agent-context-qa-strategy.md.
+ACX-01 through ACX-05 are the six core CX-* finding codes introduced by
+ST-0190: CX-FILE, CX-PARSE, CX-KEYS, CX-NULL, CX-MODE, CX-MODE-INVALID.
+ACX-06 through ACX-09 are the four codes ST-0191 added: CX-SRC,
+CX-SRC-EXIST, CX-SRC-STALE, CX-GUIDE-REF. CX-FORMAT (ST-0192) is out of
+this story's scope and is not exercised here.
 
 Each test runs the script as a subprocess with --format json, mirroring the
 existing tests/factory/test_backlog_lint.py pattern for a factory script
@@ -14,6 +15,7 @@ without a .py extension.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -32,9 +34,14 @@ FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "agent-context"
 
 
 def _run_context_lint(
-    context_dir: Path, *, planning_gate: bool = False
+    context_dir: Path, *, planning_gate: bool = False, cwd: Path | None = None
 ) -> tuple[list[dict], dict]:
-    """Run context-lint against context_dir and return (findings, summary)."""
+    """Run context-lint against context_dir and return (findings, summary).
+
+    cwd, when given, is the directory the process runs from — source:
+    pointers resolve relative to it, mirroring how a real invocation from
+    the project root resolves a pointer like 'docs/adr/004.md'.
+    """
     args = [
         sys.executable,
         str(SCRIPT),
@@ -45,7 +52,7 @@ def _run_context_lint(
     ]
     if planning_gate:
         args.append("--planning-gate")
-    result = subprocess.run(args, capture_output=True, text=True, check=False)
+    result = subprocess.run(args, capture_output=True, text=True, check=False, cwd=cwd)
     payload = json.loads(result.stderr)
     return payload["findings"], payload["summary"]
 
@@ -59,9 +66,18 @@ def _findings_with_code(findings: list[dict], code: str) -> list[dict]:
 
 
 def _copy_fixture(name: str, dest: Path) -> Path:
-    """Copy a named fixture directory to dest and return dest."""
+    """Copy a named fixture directory (a relative path under FIXTURES, which
+    may include subdirectories, e.g. 'guide_ref/docs/agent-context') to dest
+    and return dest."""
     shutil.copytree(FIXTURES / name, dest)
     return dest
+
+
+#: Alias used at CX-SRC* call sites: these fixtures are 'project root'
+#: layouts (docs/agent-context/ plus, for some, docs/adr/), needed because
+#: source: pointers like 'docs/adr/004.md' resolve against the process's
+#: cwd — the tests pass cwd=project to make that resolution real.
+_copy_project_fixture = _copy_fixture
 
 
 # --- ACX-01: CX-FILE ------------------------------------------------------
@@ -229,6 +245,147 @@ def test_cx_mode_invalid_reports_error_for_unrecognized_mode(tmp_path: Path) -> 
     # A rejected mode value must not also register as a valid CX-MODE info.
     assert not any(
         f["artifact"] == "stack.yaml" for f in _findings_with_code(findings, "CX-MODE")
+    )
+
+
+# --- ACX-06: CX-SRC ---------------------------------------------------------
+
+
+@pytest.mark.spec("ACX-06")
+def test_cx_src_reports_missing_source_pointer_when_mode_is_index(
+    tmp_path: Path,
+) -> None:
+    """ACX-06-CT-01: stack.yaml is mode: index and frameworks.backend has a
+    name but no source pointer -> CX-SRC warning."""
+    project = _copy_project_fixture("src_missing", tmp_path / "project")
+    context_dir = project / "docs" / "agent-context"
+
+    findings, _ = _run_context_lint(context_dir, cwd=project)
+
+    src_findings = _findings_with_code(findings, "CX-SRC")
+    assert any(
+        f["artifact"] == "stack.yaml" and "frameworks.backend" in f["message"]
+        for f in src_findings
+    )
+    assert all(f["severity"] == "warning" for f in src_findings)
+
+
+# --- ACX-07: CX-SRC-EXIST ---------------------------------------------------
+
+
+@pytest.mark.spec("ACX-07")
+def test_cx_src_exist_reports_unresolvable_source_path(tmp_path: Path) -> None:
+    """ACX-07-CT-01: a source: pointer to a file that does not exist on
+    disk is reported as CX-SRC-EXIST."""
+    project = _copy_project_fixture("src_exist_missing", tmp_path / "project")
+    context_dir = project / "docs" / "agent-context"
+
+    findings, _ = _run_context_lint(context_dir, cwd=project)
+
+    exist_findings = _findings_with_code(findings, "CX-SRC-EXIST")
+    assert any(
+        f["artifact"] == "stack.yaml" and "docs/adr/nonexistent.md" in f["message"]
+        for f in exist_findings
+    )
+    assert all(f["severity"] == "warning" for f in exist_findings)
+
+
+# --- ACX-08: CX-SRC-STALE ---------------------------------------------------
+
+
+@pytest.mark.spec("ACX-08")
+def test_cx_src_stale_reports_source_newer_than_index(tmp_path: Path) -> None:
+    """ACX-08-CT-01: the source file's mtime is bumped past stack.yaml's
+    mtime after the copy, then context-lint reports CX-SRC-STALE."""
+    project = _copy_project_fixture("src_stale", tmp_path / "project")
+    context_dir = project / "docs" / "agent-context"
+    stack_path = context_dir / "stack.yaml"
+    source_path = project / "docs" / "adr" / "004.md"
+
+    index_mtime = stack_path.stat().st_mtime
+    newer = index_mtime + 5
+    os.utime(source_path, (newer, newer))
+
+    findings, _ = _run_context_lint(context_dir, cwd=project)
+
+    stale_findings = _findings_with_code(findings, "CX-SRC-STALE")
+    assert any(
+        f["artifact"] == "stack.yaml" and "docs/adr/004.md" in f["message"]
+        for f in stale_findings
+    )
+    assert all(f["severity"] == "info" for f in stale_findings)
+
+
+@pytest.mark.spec("ACX-08")
+def test_cx_src_stale_not_reported_when_mtimes_are_equal(tmp_path: Path) -> None:
+    """Equal mtimes are treated as not stale (per the story's implementer
+    notes) — this is the boundary the '>' comparison must respect."""
+    project = _copy_project_fixture("src_stale", tmp_path / "project")
+    context_dir = project / "docs" / "agent-context"
+    stack_path = context_dir / "stack.yaml"
+    source_path = project / "docs" / "adr" / "004.md"
+
+    same = stack_path.stat().st_mtime
+    os.utime(source_path, (same, same))
+
+    findings, _ = _run_context_lint(context_dir, cwd=project)
+
+    assert _findings_with_code(findings, "CX-SRC-STALE") == []
+
+
+# --- ACX-09: CX-GUIDE-REF ----------------------------------------------------
+
+
+@pytest.mark.spec("ACX-09")
+def test_cx_guide_ref_no_finding_when_key_path_resolves(tmp_path: Path) -> None:
+    """ACX-09-CT-01: reading-guides.yaml references stack.yaml#frameworks.backend,
+    which exists -> no CX-GUIDE-REF finding for that reference."""
+    context_dir = _copy_fixture("guide_ref/docs/agent-context", tmp_path / "ctx")
+
+    findings, _ = _run_context_lint(context_dir)
+
+    assert not any(
+        "frameworks.backend" in f["message"]
+        for f in _findings_with_code(findings, "CX-GUIDE-REF")
+    )
+
+
+@pytest.mark.spec("ACX-09")
+def test_cx_guide_ref_reports_unresolvable_key_path(tmp_path: Path) -> None:
+    """ACX-09-CT-02: reading-guides.yaml is edited to reference
+    stack.yaml#frameworks.nonexistent, which stack.yaml has no such key
+    for -> CX-GUIDE-REF warning."""
+    context_dir = _copy_fixture("guide_ref/docs/agent-context", tmp_path / "ctx")
+    guide = context_dir / "reading-guides.yaml"
+    guide.write_text(
+        guide.read_text(encoding="utf-8").replace(
+            "frameworks.backend", "frameworks.nonexistent"
+        )
+    )
+
+    findings, _ = _run_context_lint(context_dir)
+
+    ref_findings = _findings_with_code(findings, "CX-GUIDE-REF")
+    assert any(
+        f["artifact"] == "reading-guides.yaml"
+        and "stack.yaml#frameworks.nonexistent" in f["message"]
+        for f in ref_findings
+    )
+    assert all(f["severity"] == "warning" for f in ref_findings)
+
+
+@pytest.mark.spec("ACX-09")
+def test_cx_guide_ref_checks_key_existence_only_not_value(tmp_path: Path) -> None:
+    """ACX-09-CT-03: reading-guides.yaml references stack.yaml#licensing.project,
+    whose value is null -> no CX-GUIDE-REF finding; the key's presence is
+    all that matters."""
+    context_dir = _copy_fixture("guide_ref/docs/agent-context", tmp_path / "ctx")
+
+    findings, _ = _run_context_lint(context_dir)
+
+    assert not any(
+        "licensing.project" in f["message"]
+        for f in _findings_with_code(findings, "CX-GUIDE-REF")
     )
 
 
