@@ -20,7 +20,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 1492
-    total_tokens: 11473
+    total_tokens: 8504
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
@@ -155,11 +155,11 @@ agents:
     total_tokens: 4478
 
 skills:
-  - name: capture-charter
+  - name: capture-context
     category: requirements
-    description: "Scaffold, scan, or complete the project charter under docs/charter/ — three modes: --init creates the skeleton from templates, --init --scan pre-populates it from an existing codebase, and the completeness sweep (no flag) forces every remaining decision and derives Epic 0 setup stories. Use when starting a new project's charter, onboarding a brownfield codebase, or running the pre-planning completeness sweep."
-    path: skills/capture-charter/SKILL.md
-    tokens: 2969
+    description: "Initialize docs/agent-context/ — the YAML routing interface between agents and project knowledge — for a new project. capture-context --init scaffolds stack.yaml, workflow.yaml, and governance.yaml from templates in mode: primary, then runs a stakeholder interview that records the answers as inline values. Use when starting a new project's agent context."
+    path: skills/capture-context/SKILL.md
+    tokens: 1398
   - name: capture-vision
     category: requirements
     description: Capture a project vision through structured interview.
