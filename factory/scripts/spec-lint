@@ -2,17 +2,18 @@
 # /// script
 # requires-python = ">=3.10"
 # ///
-# spec-lint - Deterministic consistency & traceability linter for docs/spec/.
+# spec-lint - Deterministic consistency linter for docs/spec/.
 #
-# What: Parses docs/spec/ Markdown, builds the traceability graph, and reports
-#       deterministic ID/consistency defects — Pass 1 of the spec review.
+# What: Parses docs/spec/ Markdown, checks required artifacts, validates
+#       ID cross-references, and reports deterministic defects — Pass 1 of the
+#       spec review.
 # When: On commit when docs/spec/ changes; on demand via /validate; ahead of
 #       the inspect-spec LLM pass.
 # By:   pre-commit hook `spec-lint` (and its orchestrator variant); the
 #       inspect-spec skill / spec-review-agent.
 #
 # This is the Pass-1 (deterministic) half of the spec review mechanism. It parses
-# the Markdown specification artifacts, builds a traceability graph from the declared
+# the Markdown specification artifacts, checks cross-references between declared
 # IDs (UC-##, BR-###, entities, actors), and reports the defect classes a parser can
 # catch exactly and cheaply — leaving semantic judgement to the inspect-spec LLM pass.
 #
@@ -21,8 +22,7 @@
 #
 # Usage:
 #   ./spec-lint [--spec-dir docs/spec] [--context CONTEXT.md]
-#               [--format text|json] [--graph docs/spec/traceability.json]
-#               [--gate-todos] [--report-only]
+#               [--format text|json] [--gate-todos] [--report-only]
 #
 # Exit code: number of ERROR-severity findings (0 = clean), unless --report-only.
 # Findings are grouped by code so the LLM reviewer and CI can both consume them.
@@ -81,6 +81,7 @@ REQUIRED_UC_SECTIONS = [
 
 REQUIRED_ARTIFACTS = [
     "prd.md",
+    "scope-map.md",
     "supplementary_specs/entity-model.md",
     "supplementary_specs/validation-rules.md",
 ]
@@ -113,18 +114,6 @@ class Graph:
     entities: Set[str] = field(default_factory=set)
     entities_with_attrs: Set[str] = field(default_factory=set)
     edges: List[Dict[str, str]] = field(default_factory=list)
-
-    def as_json(self) -> dict:
-        return {
-            "generated_by": "spec-lint",
-            "nodes": {
-                "actor_goals": sorted(self.actor_goals),
-                "use_cases": sorted(self.use_cases),
-                "business_rules": sorted(self.business_rules_defined),
-                "entities": sorted(self.entities),
-            },
-            "edges": self.edges,
-        }
 
 
 def read(path: Path) -> str:
@@ -208,18 +197,17 @@ def check_use_cases(spec: Path, graph: Graph) -> List[Finding]:
                     )
                 )
 
-        gherkin = fenced_blocks(text, "gherkin") or (
-            [
-                "\n".join(
-                    ln
-                    for ln in text.splitlines()
-                    if re.match(r"\s*(Feature|Scenario|Given|When|Then|And):?", ln)
-                )
+        gherkin = fenced_blocks(text, "gherkin")
+        if not gherkin:
+            # Fallback: unfenced Gherkin keywords (Scenario: / Given / When / Then)
+            kw_lines = [
+                ln
+                for ln in text.splitlines()
+                if re.match(r"\s*(Feature|Scenario|Given|When|Then|And)\s*:", ln)
             ]
-            if "scenario" in low
-            else []
-        )
-        if not gherkin or "scenario" not in low:
+            if kw_lines:
+                gherkin = ["\n".join(kw_lines)]
+        if not gherkin:
             out.append(
                 Finding(
                     "STRUCT002",
@@ -570,20 +558,13 @@ def run(spec: Path, context: Path, gate_todos: bool) -> (List[Finding], Graph):
     return findings, graph
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
         description="Deterministic spec consistency & traceability linter."
     )
     p.add_argument("--spec-dir", default="docs/spec")
     p.add_argument("--context", default="CONTEXT.md")
     p.add_argument("--format", choices=["text", "json"], default="text")
-    p.add_argument(
-        "--graph",
-        nargs="?",
-        const="docs/spec/traceability.json",
-        default=None,
-        help="write the traceability graph as JSON to this path",
-    )
     p.add_argument(
         "--gate-todos", action="store_true", help="treat unresolved todos as an error"
     )
@@ -592,7 +573,7 @@ def main() -> int:
         action="store_true",
         help="always exit 0 (report without gating)",
     )
-    args = p.parse_args()
+    args = p.parse_args(argv)
 
     spec = Path(args.spec_dir)
     if not spec.is_dir():
@@ -602,11 +583,6 @@ def main() -> int:
     findings, graph = run(spec, Path(args.context), args.gate_todos)
     counts = {s: sum(1 for f in findings if f.severity == s) for s in SEVERITY_ORDER}
     _session_log.set_summary(counts)  # folded into the session-log record when active
-
-    if args.graph:
-        Path(args.graph).write_text(
-            json.dumps(graph.as_json(), indent=2) + "\n", encoding="utf-8"
-        )
 
     if args.format == "json":
         print(
@@ -626,9 +602,6 @@ def main() -> int:
             f"{counts['warning']} warning(s), {counts['info']} info "
             f"across {len(list(spec.rglob('*.md')))} spec file(s)."
         )
-        if args.graph:
-            print(f"traceability graph written to {args.graph}")
-
     return 0 if args.report_only else counts["error"]
 
 

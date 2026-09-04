@@ -108,8 +108,8 @@ ______________________________________________________________________
 Pi has no native subagent concept, so a factory agent cannot run in a separate Pi session the way Claude Code spawns a subagent. `run_agent` supplies that missing invocation layer as a project-local extension tool.
 
 - **FR-J1** — The extension `.pi/extensions/run-agent.ts` registers a model-callable tool `run_agent(agent, task, model?)` that resolves `factory/agents/<agent>.md`, resolves the model (`model` argument, else `config/model.conf` `pi.<tier>`, honoring `on_missing`), and spawns a separate `pi` subprocess (`--no-session -a --mode json --model <m> --append-system-prompt <agent> -p <task>`), returning the child's final text and token usage parsed from `message_end`.
-- **FR-J2** — The spawn is a genuinely separate session that never receives the caller's context, preserving author/reviewer independence (BR-030); on a resolution, recursion, or spawn error the tool returns a diagnostic result and launches nothing.
-- **FR-J3** — A fixed recursion-depth bound, carried in an environment variable the parent sets and the child reads, caps nested `run_agent` spawns (BR-035).
+- **FR-J2** — The spawn is a genuinely separate session that never receives the caller's context, preserving author/reviewer independence; on a resolution, recursion, or spawn error the tool returns a diagnostic result and launches nothing.
+- **FR-J3** — A fixed recursion-depth bound, carried in an environment variable the parent sets and the child reads, caps nested `run_agent` spawns.
 - **FR-J4** — The dispatcher tool `dispatch_wave`, layered on the `run_agent` primitive, spawns several agents in parallel — each in its own git worktree, each under a per-story model tier — and integrates `premerge-check`; it ports `implementation-agent`, whose current prose depends on Claude Code's native Agent-tool worktree isolation.
 - **FR-J5** — `run-agent.ts` lives in `factory/config/extensions/`, is symlinked into the git-ignored `.pi/extensions/` by `init-factory`, and is reversed by `remove-factory` to a clean `git status`; it adds no tracked project state.
 

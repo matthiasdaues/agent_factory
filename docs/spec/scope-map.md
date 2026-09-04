@@ -1,6 +1,6 @@
 # Scope Map — Agent Factory
 
-Each row traces a behavioral rule to its specification origin and, when implemented, to the code that realizes it. This is the project's traceability mechanism — it supersedes `traceability.json` for `.feature`-based specifications. Legacy UC-based rules trace through `traceability.json`; new rules trace through this table.
+Each row traces a behavioral rule to its specification origin and, when implemented, to the code that realizes it. This is the project's traceability mechanism.
 
 Status values: `implemented`, `specified`, `deferred`. Confidence is populated by the `reverse-map` skill; other paths leave it empty. Feature Link anchors the rule to implementing code — filled by the `reconciliation-agent` after implementation.
 

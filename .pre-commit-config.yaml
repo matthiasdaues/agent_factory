@@ -184,12 +184,11 @@ repos:
         always_run: true
         stages: [manual]
 
-      # UC-09: Run tests only when src/ or test/ code changes
-      # Matches docs/charter/testing.yaml test_command (project-owned)
+      # UC-09: Run tests when source or test code changes
       - id: run-tests
-        name: run-tests (changed-only mode)
+        name: run-tests
         entry: uv run pytest --tb=short --quiet
         language: system
         pass_filenames: false
-        files: ^(src/|tests?/)
+        files: ^(factory/scripts/|tests?/)
 
