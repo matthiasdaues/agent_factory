@@ -20,7 +20,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 1578
-    total_tokens: 11185
+    total_tokens: 11804
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
@@ -157,9 +157,9 @@ agents:
 skills:
   - name: capture-context
     category: requirements
-    description: "Initialize docs/agent-context/ — the YAML routing interface between agents and project knowledge. capture-context --init scaffolds stack.yaml, workflow.yaml, and governance.yaml from templates in mode: primary, then runs a stakeholder interview that records the answers as inline values. capture-context --init --scan discovers existing documentation in a brownfield project, runs a concern-based interview, populates index files with source pointers, generates reading-guides.yaml, and proposes mode: index when full source coverage is achieved."
+    description: Initialize docs/agent-context/ — the YAML routing interface between agents and project knowledge. capture-context --init scaffolds stack.yaml, workflow.yaml, and governance.yaml from templates, then runs a stakeholder interview that records the answers as inline values. capture-context --init --scan discovers existing documentation in a brownfield project, runs a concern-based interview, populates index files with name and source pointers, and generates reading-guides.yaml.
     path: skills/capture-context/SKILL.md
-    tokens: 2790
+    tokens: 2557
   - name: capture-vision
     category: requirements
     description: Capture a project vision through structured interview.
@@ -397,9 +397,9 @@ skills:
     tokens: 354
   - name: update-context
     category: utility
-    description: "Update a field in docs/agent-context/*.yaml as decisions emerge. Writes inline values directly when mode: primary; writes name and source together when mode: index, refusing any write that lacks a source pointer. Records deferred decisions as deferred: \"reason\" and proposes creating reading-guides.yaml on the first source pointer. Invokable by any agent during any phase."
+    description: "Update a field in docs/agent-context/*.yaml as decisions emerge. Writes name and source together when both are available; writes inline values when only a value exists; records deferred decisions as deferred: \"reason\". Proposes creating reading-guides.yaml on the first source pointer. Invokable by any agent during any phase."
     path: skills/update-context/SKILL.md
-    tokens: 2874
+    tokens: 1882
   - name: validate
     category: utility
     description: Run every applicable deterministic gate on demand, mid-session — the custom lint scripts plus ruff and mdformat — without needing a git commit.
@@ -591,7 +591,7 @@ rulebooks:
   - name: agent-context-composition
     category: conventions
     path: rulebooks/conventions/agent-context-composition.md
-    tokens: 1243
+    tokens: 1231
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md

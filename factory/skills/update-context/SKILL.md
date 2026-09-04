@@ -2,13 +2,12 @@
 name: update-context
 description: >-
   Update a field in docs/agent-context/*.yaml as decisions emerge. Writes
-  inline values directly when mode: primary; writes name and source together
-  when mode: index, refusing any write that lacks a source pointer. Records
-  deferred decisions as deferred: "reason" and proposes creating
-  reading-guides.yaml on the first source pointer. Invokable by any agent
-  during any phase.
+  name and source together when both are available; writes inline values when
+  only a value exists; records deferred decisions as deferred: "reason".
+  Proposes creating reading-guides.yaml on the first source pointer.
+  Invokable by any agent during any phase.
 category: utility
-version: 1.0.0
+version: 2.0.0
 ---
 
 # Update Context
@@ -26,9 +25,7 @@ for the binding structural rules this skill follows, and
 for the lifecycle rationale.
 
 `capture-context` scaffolds the three Layer 2 index files and fills their
-first values for a greenfield project. `update-context` is every write after
-that — the sole write path once an index file carries `mode: index`
-(hand-editing an index file in that mode is forbidden).
+first values. `update-context` is every write after that.
 
 ## When to use this skill
 
@@ -42,28 +39,25 @@ Use this skill when:
   `deferred: "reason"`.
 
 Do not use this skill to read the index files for context — read them
-directly. Do not use it to flip a file's `mode` from `primary` to `index`;
-the bulk mode transition is a separate concern from a single field write.
+directly.
 
 ## Agent-context structure
 
 Three Layer 2 index files under `docs/agent-context/`: `stack.yaml`,
-`workflow.yaml`, `governance.yaml`. Each carries a top-level `mode` field —
-`primary` or `index` — and a set of leaf fields addressed by dotted key path
-(e.g. `stack.yaml#frameworks.backend`). Most leaf fields are plain scalars in
-the template (`backend: null`); a few, such as `stack.yaml#languages`, are
-already structured as a list of mappings (`name`, `version`, `role`,
-`source`) because they can hold more than one entry. The write patterns
-below apply to both shapes — the only difference is whether the target is
-the whole leaf or one sub-key inside an existing mapping.
+`workflow.yaml`, `governance.yaml`. Each carries a set of leaf fields
+addressed by dotted key path (e.g. `stack.yaml#frameworks.backend`). Most
+leaf fields are plain scalars in the template; a few, such as
+`stack.yaml#languages`, are structured as a list of mappings (`name`,
+`version`, `role`, `source`) because they can hold more than one entry. The
+write patterns below apply to both shapes.
 
 ## Workflow
 
 ### 1. Read the current state
 
-Read the target index file and locate the field by its dotted key path. Note
-the file's top-level `mode` and the field's current value (`null`, a scalar,
-a `{name, source}` mapping, or a `{deferred}` mapping).
+Read the target index file and locate the field by its dotted key path.
+Note the field's current value: a scalar, a `{name, source}` mapping, a
+`{deferred}` mapping, or absent.
 
 ### 2. Choose the write pattern
 
@@ -71,21 +65,17 @@ Apply these rules in order — the first one that matches decides the write:
 
 1. **Deferring a decision** → write `deferred: "<reason>"` and go to
    [Deferred fields](#deferred-fields). This replaces whatever was at the
-   field, in either mode.
+   field.
 2. **A source pointer is being recorded** (the operator supplies both the
-   value and a `source:` path, in either mode) → write
-   `name:` and `source:` together. See
-   [Writing name and source together](#writing-name-and-source-together).
-3. **No source pointer, `mode: primary`** → write the inline value directly.
+   value and a `source:` path) → write `name:` and `source:` together.
+   See [Writing name and source together](#writing-name-and-source-together).
+3. **No source pointer available** → write the inline value directly.
    See [Writing inline values](#writing-inline-values).
-4. **No source pointer, `mode: index`** → refuse the write. See
-   [Refusing writes without a source](#refusing-writes-without-a-source).
 
 #### Writing inline values
 
-`mode: primary` means the index file is the primary source of the decision
-— no `source:` pointer is required, or permitted, yet. Write the value
-directly to the field:
+When only a value is available and no source document exists yet, write the
+value directly to the field:
 
 ```yaml
 frameworks:
@@ -93,7 +83,7 @@ frameworks:
 ```
 
 For a structured field (`languages`), fill the value sub-keys (`name`,
-`version`, `role`) and leave `source: null`.
+`version`, `role`) and leave `source:` absent.
 
 #### Writing name and source together
 
@@ -117,24 +107,11 @@ factory rulebook default when both describe the same decision.
 After this write, check the
 [reading-guide creation trigger](#reading-guide-creation-trigger).
 
-#### Refusing writes without a source
-
-`mode: index` means the index file is a downstream routing table — every
-non-null, non-deferred leaf must carry a `source:` pointer. Reject any write
-that would leave a field with an inline value, or a `name` without a
-`source`, once the file is in this mode. Tell the requester which field was
-rejected and that a `source:` pointer is required; do not partially write
-the name and leave the source for later.
-
-This refusal applies regardless of who is attempting the write — an
-operator hand-editing the file or another agent — because `update-context`
-is the sole write path once a file carries `mode: index`.
-
 #### Deferred fields
 
 Write `deferred: "<reason>"` as the **sole key** at the field's leaf
-position. Discard whatever was previously there — a `null`, a scalar value,
-or a `{name, source}` mapping:
+position. Discard whatever was previously there — a scalar value or a
+`{name, source}` mapping:
 
 ```yaml
 data_stores:
@@ -142,9 +119,8 @@ data_stores:
 ```
 
 `deferred` must never coexist with `name` or `source` in the same mapping —
-`context-lint` flags that combination as a `CX-KEYS` error. A deferred field
-is excluded from the primary-to-index transition condition; it is a
-conscious choice to postpone, not a defect.
+`context-lint` flags that combination as a `CX-KEYS` error. A deferred
+field is a conscious choice to postpone, not a defect.
 
 ### 3. Reading-guide creation trigger
 
@@ -165,11 +141,10 @@ exists, do nothing here.
 Run `factory/scripts/context-lint` and confirm zero errors. In particular:
 
 - `CX-KEYS` — a `deferred` key must not coexist with `name` or `source`.
-- `CX-SRC` — a `mode: index` field with a `name` must also have a `source`.
-- `CX-SRC-EXIST` — a `source:` pointer must resolve to a real file on disk.
+- `CX-SRC-EXIST` — a `source:` pointer that looks like a file path must
+  resolve to a real file on disk.
 
-Fix the write before proceeding if any of these fire; a warning-level
-`CX-NULL` on an unrelated field is expected and not a blocker.
+Fix the write before proceeding if any of these fire.
 
 ### 5. Commit
 
@@ -197,16 +172,15 @@ may ride in the same commit as the source-pointer write that triggered it).
 
 ## Example
 
-**Scenario:** `stack.yaml` is `mode: primary`. The operator settles on
-FastAPI for the backend, then later points it at the ADR that recorded the
-choice.
+**Scenario:** The operator settles on FastAPI for the backend, then later
+points it at the ADR that recorded the choice.
 
 **Workflow:**
 
 1. Operator states the decision: FastAPI 0.100 for the backend, no source
-   yet. Read `stack.yaml`, locate `frameworks.backend` (currently `null`),
-   confirm `mode: primary`.
-2. No source pointer, `mode: primary` → write the inline value:
+   yet. Read `stack.yaml`, locate `frameworks.backend` (currently absent or
+   deferred).
+2. No source pointer → write the inline value:
    `backend: FastAPI 0.100`.
 3. Run `context-lint`, confirm zero errors.
 4. Commit: `docs: update agent context stack.yaml — frameworks.backend (ST-0042)`.
@@ -227,72 +201,8 @@ owns the write target. If another agent needs to reference an index-file
 entry, link to it with the `<file>#<dotted.key.path>` convention (e.g.
 "See `stack.yaml#frameworks.backend`.").
 
-## Mode transition — primary to index
-
-When a field write completes (any write pattern except deferral), check the
-transition condition across all three index files. The transition is
-operator-confirmed and one-directional — once in index mode, files do not
-revert to primary.
-
-### Transition condition
-
-Walk the YAML structure of `stack.yaml`, `workflow.yaml`, and
-`governance.yaml`. Classify each leaf field as one of:
-
-- **null** — no value recorded. Excluded from the condition.
-- **deferred** — has `deferred: "<reason>"`. Excluded from the condition.
-- **valued** — has an inline value, a `{name, source}` mapping, or a
-  `{name}` mapping. Included in the condition: must have a `source:` pointer.
-
-The transition condition is met when **every valued leaf across all three
-files has a `source:` pointer**. Null and deferred fields do not block it.
-
-### Prompt and execution
-
-When the transition condition is met and all three files are still
-`mode: primary`:
-
-1. Tell the operator: "All context fields now have sources. Switch to index
-   mode?"
-2. If the operator **declines**: leave all three files in `mode: primary`.
-   Do not prompt again until another field write changes the state.
-3. If the operator **confirms**: execute the atomic flip.
-
-### Atomic flip
-
-In a single commit:
-
-1. Set `mode: index` in all three files.
-2. Strip inline values to names only — convert any bare scalar value
-   (e.g. `backend: "FastAPI 0.100"`) to a `{name, source}` mapping
-   (e.g. `backend: {name: FastAPI, source: docs/adr/004.md}`). Fields
-   already in `{name, source}` form are left as-is.
-3. Preserve all `source:` pointers unchanged.
-4. Preserve all `deferred:` fields unchanged.
-5. Leave `null` fields as `null`.
-
-Commit message:
-
-```
-docs: transition agent context to index mode
-```
-
-### Post-transition validation
-
-Run `factory/scripts/context-lint` — confirm zero errors. In particular:
-
-- `CX-MODE` — all three files report `mode: index`.
-- `CX-SRC` — every non-null, non-deferred field has a `source:` pointer.
-
-### Transition not offered
-
-Do not prompt for transition when:
-
-- Any file is already `mode: index` (the transition is complete).
-- A valued leaf lacks a `source:` pointer (the condition is not met).
-
 ## Validation reference
 
-| Script                         | Mode    | Checks                                                                                                                                |
-| ------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `factory/scripts/context-lint` | default | files exist, YAML parses, required keys present, `mode` is valid, null leaves warn, `deferred` conflicts, `source` presence/existence |
+| Script                         | Checks                                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------------------------ |
+| `factory/scripts/context-lint` | files exist, YAML parses, null leaves are errors, `deferred` conflicts, `source` existence |

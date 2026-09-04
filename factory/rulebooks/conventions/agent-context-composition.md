@@ -2,7 +2,7 @@
 title: Agent Context Composition
 category: architecture
 enforcement: context-lint (CX-* codes), rules.md
-version: 1.0.0
+version: 2.0.0
 ---
 
 # Agent Context Composition
@@ -30,46 +30,39 @@ Lifecycle decision: [ADR-0014](../../../docs/adr/0014-two-layer-routing-with-two
 ## Derived content
 
 Agent context is always derived content. In steady state it links to
-sources; it is never the primary authority. The single exception is
-`mode: primary` during greenfield setup, before source documents exist.
-Direction of truth flows from source documents (handbook, ADRs, code) to the
-index files — never the reverse. `update-context` writes only to
-`docs/agent-context/*.yaml`; it never writes upstream to a source document.
+sources; it is never the primary authority. Early in a greenfield project,
+before source documents exist, fields may hold inline prose values under
+`name:` — but the direction of truth still flows from the project's own
+records (handbook, ADRs, code) toward the index files, never the reverse.
+`update-context` writes only to `docs/agent-context/*.yaml`; it never
+writes upstream to a source document.
 
-## Mode semantics
+## Field states
 
-Each of the three Layer 2 index files carries a top-level `mode` field with
-exactly two legal values:
+Each leaf field in a Layer 2 index file is in exactly one of three states:
 
-- **`mode: primary`** — the index files are the primary source of project
-  decisions. This is the greenfield state, active before a handbook or
-  conventions exist. Fields hold direct values. No `source:` pointers are
-  required.
-- **`mode: index`** — the index files are downstream routing tables. Every
-  non-null, non-deferred leaf field holds a name and a `source:` pointer to
-  the authoritative document. Summaries and compressed values are forbidden
-  in this mode — a name and a link, nothing else.
+- **Valued** — the field carries a `name:` (display label) and optionally a
+  `source:` (the authoritative document). Early fields may have only
+  `name:` with no source yet; mature fields carry both. `name:` is the
+  display label an agent reads; `source:` is the authority it follows.
+- **Deferred** — the field carries `deferred: "<reason>"` as the sole key.
+  A deferral is a conscious choice to postpone, not a defect. `deferred`
+  must never coexist with `name` or `source` in the same mapping.
+- **Absent** — the key does not exist. This means the concept does not
+  apply to this project. Key absence is the correct state for inapplicable
+  fields — do not leave them as `null`.
 
-The transition from `primary` to `index` is one-directional and atomic: all
-three index files flip together, in a single commit, once every non-null,
-non-deferred leaf across all three has a `source:` pointer. `update-context`
-is the sole agent of this transition.
-
-A `null` field means the decision does not apply to this project and is
-excluded from the transition condition. A `deferred: "reason"` mapping means
-the decision is pending; it is also excluded from the transition condition
-and is not itself a lint finding — a deferral is a conscious choice, not a
-defect. `deferred` must be the only key at that field: it must never coexist
-with `name` or `source` in the same mapping.
+`null` is never a valid field state. A `null` leaf is always a lint error
+(`CX-NULL`). If the decision is pending, use `deferred:`. If the concept
+does not apply, remove the key.
 
 ## Write-path ownership
 
 - `capture-context` creates the initial templates and fills first values.
-- `update-context` is the only write path for an index file once it carries
-  `mode: index`. Hand-editing an index file in `mode: index` is forbidden.
+- `update-context` is the write path for index files after initial setup.
 - `detect-test-regime` is the sole writer of `testing.yaml`. It writes
-  directly regardless of the other files' mode, because `testing.yaml` does
-  not participate in the two-mode lifecycle.
+  directly because `testing.yaml` does not participate in the index-file
+  lifecycle.
 - The reading guide (`reading-guides.yaml`) is assembled by `capture-context`
   (brownfield) or proposed by `update-context` (greenfield, on the first
   `source:` pointer). It is never hand-authored as a substitute for the
@@ -93,13 +86,21 @@ own. A `source:` pointer prefers the project-local convention document over
 a factory rulebook default when both describe the same decision — the
 project's own record is the closer, more specific authority.
 
+## Source resolution
+
+A `source:` value is tried as a file path first (`CX-SRC-EXIST`). If it
+does not resolve to a file on disk, it is treated as inline prose — a
+verbal reference or a URL. No lint finding fires for a non-path source;
+`CX-SRC-EXIST` is a warning only when the value looks like a path but the
+file is missing.
+
 ## `testing.yaml` carve-out
 
 `testing.yaml` is a peer file, not an index file. It is always code-derived,
 written directly by `detect-test-regime`, and consumed as structured
-configuration by scripts, hooks, and playbooks. It does not carry `mode`,
-does not participate in the primary/index lifecycle, and is validated by
-`context-lint` for `CX-PARSE` only — `CX-SRC`, `CX-MODE`, and `CX-NULL`
-checks do not apply to it. Consumers resolve its path by checking
-`docs/agent-context/testing.yaml` first, then `docs/charter/testing.yaml` as
-a fallback; the split location does not trigger `CX-FORMAT`.
+configuration by scripts, hooks, and playbooks. It does not participate in
+the index-file lifecycle and is validated by `context-lint` for `CX-PARSE`
+only — `CX-NULL` and `CX-KEYS` checks do not apply to it. Consumers
+resolve its path by checking `docs/agent-context/testing.yaml` first, then
+`docs/charter/testing.yaml` as a fallback; the split location does not
+trigger `CX-FORMAT`.

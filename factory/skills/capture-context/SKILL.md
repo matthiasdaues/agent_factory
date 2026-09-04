@@ -3,14 +3,13 @@ name: capture-context
 description: >-
   Initialize docs/agent-context/ — the YAML routing interface between agents
   and project knowledge. capture-context --init scaffolds stack.yaml,
-  workflow.yaml, and governance.yaml from templates in mode: primary, then
-  runs a stakeholder interview that records the answers as inline values.
+  workflow.yaml, and governance.yaml from templates, then runs a stakeholder
+  interview that records the answers as inline values.
   capture-context --init --scan discovers existing documentation in a
   brownfield project, runs a concern-based interview, populates index files
-  with source pointers, generates reading-guides.yaml, and proposes mode:
-  index when full source coverage is achieved.
+  with name and source pointers, and generates reading-guides.yaml.
 category: requirements
-version: 1.1.0
+version: 2.0.0
 disable-model-invocation: false
 ---
 
@@ -35,17 +34,17 @@ Three Layer 2 index files, one template each at
 `context-governance.yaml` — see
 [Agent Context Composition § The four files](../../rulebooks/conventions/agent-context-composition.md#the-four-files)
 for what each carries. A fourth file, `reading-guides.yaml`, is the Layer 1
-routing table; it is not part of this mode because a greenfield project has
-no populated sections yet to route to.
+routing table; it is not created during greenfield init because a fresh
+project has no populated sections yet to route to.
 
-## Mode selection
+## Invocation
 
-| Invocation                      | Mode                  | When                                            |
-| ------------------------------- | --------------------- | ----------------------------------------------- |
-| `capture-context --init`        | Greenfield scaffold   | Right after vision capture, before requirements |
-| `capture-context --init --scan` | Brownfield onboarding | Existing project with documentation to discover |
+| Invocation                      | When                                            |
+| ------------------------------- | ----------------------------------------------- |
+| `capture-context --init`        | Right after vision capture, before requirements |
+| `capture-context --init --scan` | Existing project with documentation to discover |
 
-## Mode 1 — `--init` (greenfield)
+## `--init` (greenfield)
 
 ### Step 1 — Create the skeleton
 
@@ -54,20 +53,20 @@ For each of `stack.yaml`, `workflow.yaml`, `governance.yaml`: if
 — this skip-if-exists guard protects any values a prior run already
 recorded. Otherwise, copy the matching template
 (`factory/rulebooks/templates/context-<file>`) to
-`docs/agent-context/<file>` unchanged, keeping `mode: primary` and every
-null placeholder exactly as authored.
+`docs/agent-context/<file>` unchanged.
 
-Never create `reading-guides.yaml` in this mode. It routes to populated
-index sections, and a fresh greenfield project has none yet —
+Never create `reading-guides.yaml` in this invocation. It routes to
+populated index sections, and a fresh greenfield project has none yet —
 `update-context` proposes creating it once the first `source:` pointer
 exists.
 
 ### Step 2 — Stakeholder interview
 
 Ask the stakeholder about the project's technology and process choices and
-record every answer as an inline value directly on the matching field.
-`mode: primary` means no `source:` pointer is required, or permitted, at
-this stage.
+record every answer. When the stakeholder provides both a value and a
+source document, write `name:` and `source:` together. When only a value is
+available, write it as inline text under `name:` (or directly for simple
+scalar fields).
 
 | Ask                                                    | Field                                                      |
 | ------------------------------------------------------ | ---------------------------------------------------------- |
@@ -91,18 +90,17 @@ this stage.
 | Architecture governance (ADRs, review gates)?          | `governance.yaml#architecture_governance`                  |
 | Scope boundaries and change process?                   | `governance.yaml#scope`                                    |
 
-Leave a question the stakeholder cannot yet answer as `null` — do not
-invent an answer to fill the gap. A later `capture-context` or
-`update-context` pass fills it in.
+Mark a question the stakeholder cannot yet answer as
+`deferred: "<reason>"` — do not leave it as `null` (null is always an
+error) and do not invent an answer to fill the gap. A later
+`capture-context` or `update-context` pass fills it in. Remove keys that
+the stakeholder confirms do not apply to this project.
 
 ### Step 3 — Validate
 
-Run `factory/scripts/context-lint` (default mode) — confirms all three
-files exist, parse, carry every required top-level key, and report
-`mode: primary`. Every remaining null leaf reports as a `CX-NULL` warning,
-expected at this stage, not an error. Fix any `CX-KEYS` or `CX-PARSE`
-finding before proceeding — those indicate a corrupted template copy, not
-an unanswered question.
+Run `factory/scripts/context-lint` — confirms all three files exist, parse,
+and carry no null leaves. Fix any `CX-NULL`, `CX-KEYS`, or `CX-PARSE`
+finding before proceeding.
 
 ### Step 4 — Commit
 
@@ -111,18 +109,16 @@ docs: initialize agent context (--init)
 ```
 
 **Completion**: `stack.yaml`, `workflow.yaml`, and `governance.yaml` exist
-under `docs/agent-context/` with `mode: primary`; `reading-guides.yaml` was
-not created; any file that already existed was left untouched; stakeholder
-answers are recorded as inline values; `context-lint` (default mode)
-reports zero errors.
+under `docs/agent-context/`; `reading-guides.yaml` was not created; any
+file that already existed was left untouched; stakeholder answers are
+recorded; `context-lint` reports zero errors.
 
-## Mode 2 — `--init --scan` (brownfield onboarding)
+## `--init --scan` (brownfield onboarding)
 
 Discovers existing documentation signals in a project, runs a concern-based
-interview, populates index files with source pointers, generates
-`reading-guides.yaml`, and proposes `mode: index` when full source coverage
-is achieved. Legacy markdown charter projects are detected via format
-detection and offered optional migration.
+interview, populates index files with name and source pointers, and
+generates `reading-guides.yaml`. Legacy markdown charter projects are
+detected via format detection and offered optional migration.
 
 ### Step 1 — Legacy detection
 
@@ -142,7 +138,7 @@ If `docs/agent-context/` already exists, skip this step.
 
 ### Step 2 — Create the skeleton
 
-Same as Mode 1 Step 1 — for each of `stack.yaml`, `workflow.yaml`,
+Same as greenfield Step 1 — for each of `stack.yaml`, `workflow.yaml`,
 `governance.yaml`: if `docs/agent-context/<file>` already exists, skip it.
 Otherwise, copy the matching template to `docs/agent-context/<file>`.
 
@@ -203,39 +199,26 @@ For each field, the operator may:
 - **Confirm** the proposed source → write `name` and `source` together.
 - **Override** with a different source path → write the override.
 - **Defer** → write `deferred: "<reason>"`.
-- **Skip** → leave as `null`.
+- **Remove** → delete the key entirely (not applicable to this project).
 
 Fields with no applicable scan signal are presented at the end as "The scan
 found no signals for [field]. Do you have documentation for this?" — the
-operator can provide a source or skip.
+operator can provide a source, defer, or remove.
 
 ### Step 5 — Reading-guide assembly
 
 After the interview, generate `docs/agent-context/reading-guides.yaml`
 from `factory/rulebooks/templates/context-reading-guides.yaml`. Prune
 concerns that have no populated sections (all their referenced fields are
-still `null` or `deferred`). Keep concerns that have at least one populated
+still `deferred`). Keep concerns that have at least one populated
 source pointer.
 
-### Step 6 — Mode determination
-
-Count the non-null, non-deferred leaf fields across all three index files.
-For each, check whether it has a `source:` pointer.
-
-- **Full coverage** (every non-null, non-deferred field has a source):
-  propose `mode: index`. Tell the operator: "All context fields now have
-  sources. Switch to index mode?" If confirmed, set `mode: index` in all
-  three files and strip inline values to names only. If declined, leave
-  `mode: primary`.
-- **Partial coverage**: leave all three files in `mode: primary`. Tell the
-  operator which fields still lack source pointers.
-
-### Step 7 — Validate
+### Step 6 — Validate
 
 Run `factory/scripts/context-lint` — confirm zero errors. Fix any
 `CX-KEYS`, `CX-PARSE`, or `CX-FORMAT` finding before proceeding.
 
-### Step 8 — Commit
+### Step 7 — Commit
 
 ```
 docs: initialize agent context (--init --scan)
@@ -244,14 +227,13 @@ docs: initialize agent context (--init --scan)
 **Completion**: `stack.yaml`, `workflow.yaml`, `governance.yaml`, and
 `reading-guides.yaml` exist under `docs/agent-context/`; source pointers
 are populated from the discovery scan and concern interview;
-`context-lint` reports zero errors; `mode` is set according to coverage
-(index if full, primary if partial).
+`context-lint` reports zero errors.
 
 ## Validation reference
 
-| Script                         | Mode    | Checks                                                                             |
-| ------------------------------ | ------- | ---------------------------------------------------------------------------------- |
-| `factory/scripts/context-lint` | default | files exist, YAML parses, required keys present, `mode` is valid, null leaves warn |
+| Script                         | Checks                                                                                 |
+| ------------------------------ | -------------------------------------------------------------------------------------- |
+| `factory/scripts/context-lint` | files exist, YAML parses, null leaves are errors, deferred conflicts, source existence |
 
 `validate` runs `context-lint` automatically once `docs/agent-context/`
 exists — invoking it here is a courtesy check during the interactive
