@@ -1,0 +1,27 @@
+mode: primary
+
+languages:
+  - name: Python
+    version: "3.12"
+    role: primary
+    source: docs/adr/001.md
+
+frameworks:
+  backend:
+    name: FastAPI
+    source: docs/adr/001.md
+  frontend: null
+  testing:
+    name: pytest
+    source: docs/adr/001.md
+
+data_stores:
+  deferred: "evaluating options"
+infrastructure: null
+existing_systems: null
+
+licensing:
+  project: null
+  constraints: null
+
+exclusions: null

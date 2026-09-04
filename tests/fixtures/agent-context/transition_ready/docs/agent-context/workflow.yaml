@@ -1,0 +1,13 @@
+mode: primary
+
+repository_layout: null
+getting_started: null
+running: null
+
+testing:
+  name: pytest with conftest
+  source: docs/adr/002.md
+
+linting: null
+ci_cd: null
+branching: null

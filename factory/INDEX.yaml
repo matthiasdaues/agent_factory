@@ -399,7 +399,7 @@ skills:
     category: utility
     description: "Update a field in docs/agent-context/*.yaml as decisions emerge. Writes inline values directly when mode: primary; writes name and source together when mode: index, refusing any write that lacks a source pointer. Records deferred decisions as deferred: \"reason\" and proposes creating reading-guides.yaml on the first source pointer. Invokable by any agent during any phase."
     path: skills/update-context/SKILL.md
-    tokens: 2422
+    tokens: 2874
   - name: validate
     category: utility
     description: Run every applicable deterministic gate on demand, mid-session — the custom lint scripts plus ruff and mdformat — without needing a git commit.
