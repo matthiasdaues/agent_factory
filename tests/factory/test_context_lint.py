@@ -1,11 +1,15 @@
 """Contract tests for factory/scripts/context-lint.
 
-Covers ACX-01 through ACX-09 from docs/spec/agent-context-qa-strategy.md.
-ACX-01 through ACX-05 are the six core CX-* finding codes introduced by
-ST-0190: CX-FILE, CX-PARSE, CX-KEYS, CX-NULL, CX-MODE, CX-MODE-INVALID.
-ACX-06 through ACX-09 are the four codes ST-0191 added: CX-SRC,
-CX-SRC-EXIST, CX-SRC-STALE, CX-GUIDE-REF. CX-FORMAT (ST-0192) is out of
-this story's scope and is not exercised here.
+Covers ACX-01 through ACX-10 and ACX-13 from
+docs/spec/agent-context-qa-strategy.md. ACX-01 through ACX-05 are the six
+core CX-* finding codes introduced by ST-0190: CX-FILE, CX-PARSE, CX-KEYS,
+CX-NULL, CX-MODE, CX-MODE-INVALID. ACX-06 through ACX-09 are the four codes
+ST-0191 added: CX-SRC, CX-SRC-EXIST, CX-SRC-STALE, CX-GUIDE-REF. ACX-10
+(CX-FORMAT) and ACX-13 (testing.yaml's CX-PARSE-only carve-out) are ST-0192
+additions; ACX-11 (the format-detection chain itself) and ACX-12/ACX-14
+(the legacy-charter and testing.yaml-resolution integration scenarios) live
+in their own files -- test_format_detection.py,
+test_context_lint_legacy.py, and test_testing_yaml_resolution.py.
 
 Each test runs the script as a subprocess with --format json, mirroring the
 existing tests/factory/test_backlog_lint.py pattern for a factory script
@@ -386,6 +390,81 @@ def test_cx_guide_ref_checks_key_existence_only_not_value(tmp_path: Path) -> Non
     assert not any(
         "licensing.project" in f["message"]
         for f in _findings_with_code(findings, "CX-GUIDE-REF")
+    )
+
+
+# --- ACX-10: CX-FORMAT ------------------------------------------------------
+
+
+def _run_context_lint_root(root: Path) -> tuple[list[dict], dict]:
+    """Run context-lint against root with neither --context-dir nor
+    --charter-dir, so format detection (ST-0192) drives dispatch -- the
+    counterpart to _run_context_lint above, which always passes an explicit
+    --context-dir and therefore never exercises format detection or the
+    testing.yaml carve-out."""
+    args = [
+        sys.executable,
+        str(SCRIPT),
+        "--root",
+        str(root),
+        "--format",
+        "json",
+    ]
+    result = subprocess.run(args, capture_output=True, text=True, check=False)
+    payload = json.loads(result.stderr)
+    return payload["findings"], payload["summary"]
+
+
+@pytest.mark.spec("ACX-10")
+def test_cx_format_reports_mixed_locations() -> None:
+    """ACX-10-CT-01: docs/agent-context/stack.yaml and
+    docs/charter/tech-stack.md both exist -> a CX-FORMAT error is reported
+    (agent-context.feature Rule: context-lint validates, Scenario: CX-FORMAT
+    reports mixed locations)."""
+    root = FIXTURES / "format_mixed"
+
+    findings, _ = _run_context_lint_root(root)
+
+    format_findings = _findings_with_code(findings, "CX-FORMAT")
+    assert format_findings
+    assert all(f["severity"] == "error" for f in format_findings)
+
+
+@pytest.mark.spec("ACX-10")
+def test_cx_format_does_not_flag_split_testing_yaml_location() -> None:
+    """ACX-10-CT-02: docs/agent-context/stack.yaml exists and testing.yaml
+    exists only at docs/charter/testing.yaml -> no CX-FORMAT error, because
+    testing.yaml is not one of the three format-detection-chain locations
+    (agent-context.feature Rule: context-lint validates, Scenario: CX-FORMAT
+    does not flag split testing.yaml location)."""
+    root = FIXTURES / "testing_yaml_charter_fallback"
+
+    findings, _ = _run_context_lint_root(root)
+
+    assert _findings_with_code(findings, "CX-FORMAT") == []
+
+
+# --- ACX-13: testing.yaml CX-PARSE-only carve-out ---------------------------
+
+
+@pytest.mark.spec("ACX-13")
+def test_testing_yaml_gets_cx_parse_only_not_lifecycle_checks() -> None:
+    """ACX-13-CT-01: docs/agent-context/testing.yaml exists with a shape
+    that would trip CX-MODE-INVALID and CX-NULL if it were validated as a
+    Layer 2 index file (mode: bogus, a null leaf) -- context-lint applies
+    CX-PARSE only; CX-SRC, CX-MODE, CX-MODE-INVALID, CX-NULL, and CX-KEYS
+    never fire for it (agent-context.feature Rule: testing.yaml operates as
+    a lifecycle-exempt peer file, Scenario: context-lint validates
+    testing.yaml with CX-PARSE only)."""
+    root = FIXTURES / "testing_yaml_parse_only"
+
+    findings, _ = _run_context_lint_root(root)
+
+    testing_findings = [f for f in findings if f["artifact"] == "testing.yaml"]
+    assert testing_findings == []
+    exempt_codes = {"CX-SRC", "CX-MODE", "CX-MODE-INVALID", "CX-NULL", "CX-KEYS"}
+    assert not any(
+        f["artifact"] == "testing.yaml" and f["code"] in exempt_codes for f in findings
     )
 
 

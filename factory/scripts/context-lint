@@ -4,14 +4,32 @@
 # ///
 """context-lint — deterministic validation gate for the agent context.
 
-What: Validates docs/agent-context/ (the YAML agent-context interface
-      introduced by ADR-0013 and ADR-0014) with CX-* finding codes:
-      CX-FILE, CX-PARSE, CX-KEYS, CX-NULL, CX-MODE, CX-MODE-INVALID,
-      CX-SRC, CX-SRC-EXIST, CX-SRC-STALE, CX-GUIDE-REF.
-When: Pre-commit hook when agent-context files change.
+What: Validates project context files with CX-* finding codes (CX-FILE,
+      CX-PARSE, CX-KEYS, CX-NULL, CX-MODE, CX-MODE-INVALID, CX-SRC,
+      CX-SRC-EXIST, CX-SRC-STALE, CX-GUIDE-REF, CX-FORMAT) against the
+      YAML agent-context interface (ADR-0013, ADR-0014), or falls back
+      to CH-* codes against the legacy markdown charter for projects
+      that have not migrated.
+When: Pre-commit hook when context/charter files change.
 By:   context-lint pre-commit hook; developer-agent during Red-Green.
 
-Validates:
+Format detection (ST-0192): when invoked with neither --context-dir nor
+--charter-dir, context-lint resolves which context format a project uses
+via a three-step chain, checked in order relative to --root:
+  1. docs/agent-context/stack.yaml  -> YAML agent-context (CX-* codes)
+  2. docs/charter/tech-stack.yaml   -> legacy YAML charter (detection only;
+                                       content validation is out of scope)
+  3. docs/charter/tech-stack.md     -> legacy markdown charter (CH-* codes)
+A project with files at more than one of these three locations gets a
+CX-FORMAT error. testing.yaml is a lifecycle-exempt peer file, resolved
+independently (docs/agent-context/testing.yaml first, falling back to
+docs/charter/testing.yaml) and validated with CX-PARSE only — it never
+participates in CX-FORMAT mixed-location detection and never gets
+CX-SRC/CX-MODE/CX-NULL checks. See detect_format() and
+resolve_testing_yaml() below; both take a `root` Path so other scripts
+and hooks can reuse them (e.g. via `context-lint --print-format`).
+
+Validates (YAML agent-context mode):
 - Each of stack.yaml, workflow.yaml, governance.yaml exists (CX-FILE)
 - reading-guides.yaml exists whenever any index file has mode: index
   (CX-FILE); it is not required while every index file is mode: primary
@@ -33,13 +51,15 @@ Validates:
 - Every `<file>#<dotted.key.path>` reference in reading-guides.yaml
   resolves to an existing key in the target index file's actual parsed
   structure, independent of that key's value (CX-GUIDE-REF)
+- Files exist at more than one format-detection-chain location (CX-FORMAT)
 
 This story (ST-0190) renamed charter-lint to context-lint and added the
 first six CX-* codes above; ST-0191 added CX-SRC, CX-SRC-EXIST,
-CX-SRC-STALE, and CX-GUIDE-REF. The legacy CH-* charter-validation
-functions (below, under "Legacy charter validation") are preserved
-unchanged for ST-0192, which adds format detection and the CH-* fallback
-path; they are not wired into the default CLI flow.
+CX-SRC-STALE, and CX-GUIDE-REF. ST-0192 added the format-detection chain,
+CX-FORMAT, the testing.yaml carve-out, and wired the legacy CH-*
+charter-validation functions (below, under "Legacy charter validation")
+into the default CLI flow as the fallback path for legacy markdown
+projects.
 
 No third-party dependencies (Python 3.10+ stdlib only) — YAML is parsed
 by a minimal indentation-based parser scoped to the agent-context schema
@@ -48,6 +68,8 @@ YAML implementation.
 
 Usage:
   context-lint
+  context-lint --root .
+  context-lint --print-format
   context-lint --context-dir docs/agent-context
   context-lint --planning-gate
   context-lint --format json --report-only
@@ -85,13 +107,14 @@ class Finding:
         )
 
 
-# --- Legacy charter validation (preserved for ST-0192 CH-* fallback) ---------
+# --- Legacy charter validation (CH-* fallback, wired by format detection) ----
 #
 # Everything from here to "--- Agent context validation ---" below is the
 # original charter-lint implementation, unchanged. It validates the legacy
 # markdown charter (docs/charter/*.md) with CH-* finding codes. ST-0192 wires
-# format detection so context-lint dispatches to this path for legacy
-# projects; until then these functions are defined but not called by main().
+# format detection (see "--- Format detection ---" near the bottom of this
+# file) so context-lint dispatches here automatically for legacy markdown
+# projects; --charter-dir still calls it directly, bypassing detection.
 
 # --- YAML frontmatter parser (stdlib only) ------------------------------------
 
@@ -801,6 +824,99 @@ def check_agent_context(context_dir: Path, planning_gate: bool = False) -> List[
     return findings
 
 
+# --- Format detection (ST-0192) ------------------------------------------------
+#
+# The three-step chain a project's context format is resolved through, and
+# the independent testing.yaml carve-out. Both are plain functions taking a
+# `root` Path so other factory scripts, skills, and hooks can import and
+# reuse them once EPIC 4 updates consumer path resolution — this story only
+# wires them into context-lint's own default CLI flow.
+
+#: Format-detection chain, in resolution order. The first entry whose file
+#: exists (relative to `root`) selects the project's context format. When
+#: more than one entry's file exists, CX-FORMAT reports the mixed locations
+#: but the first match in this order still wins for dispatch purposes.
+FORMAT_AGENT_CONTEXT = "agent-context"
+FORMAT_LEGACY_YAML = "legacy-yaml"
+FORMAT_LEGACY_MARKDOWN = "legacy-markdown"
+FORMAT_NONE = "none"
+
+FORMAT_CHAIN: List[Tuple[str, Path]] = [
+    (FORMAT_AGENT_CONTEXT, Path("docs/agent-context/stack.yaml")),
+    (FORMAT_LEGACY_YAML, Path("docs/charter/tech-stack.yaml")),
+    (FORMAT_LEGACY_MARKDOWN, Path("docs/charter/tech-stack.md")),
+]
+
+#: testing.yaml's own two-step resolution order — independent of
+#: FORMAT_CHAIN above, and never a source of CX-FORMAT findings: testing.yaml
+#: is a lifecycle-exempt peer file, not part of the format-detection chain.
+TESTING_YAML_CHAIN: List[Path] = [
+    Path("docs/agent-context/testing.yaml"),
+    Path("docs/charter/testing.yaml"),
+]
+
+
+@dataclass
+class FormatDetection:
+    """Result of walking FORMAT_CHAIN against one project root.
+
+    `mode` is the first chain entry whose file exists (FORMAT_NONE when
+    none do). `findings` carries the CX-FORMAT error when more than one
+    chain entry's file exists — empty in the common single-location case.
+    """
+
+    mode: str
+    findings: List[Finding]
+
+
+def detect_format(root: Path) -> FormatDetection:
+    """Walk FORMAT_CHAIN relative to `root` and resolve the project's
+    context format, per agent-context.feature Rule: Factory consumers
+    resolve context file paths via format detection."""
+    existing = [(name, rel) for name, rel in FORMAT_CHAIN if (root / rel).is_file()]
+
+    mode = existing[0][0] if existing else FORMAT_NONE
+
+    findings: List[Finding] = []
+    if len(existing) > 1:
+        locations = ", ".join(str(rel) for _, rel in existing)
+        findings.append(
+            Finding(
+                "CX-FORMAT",
+                "error",
+                "format-detection",
+                f"context files exist at more than one location: {locations}",
+            )
+        )
+    return FormatDetection(mode, findings)
+
+
+def resolve_testing_yaml(root: Path) -> Optional[Path]:
+    """Resolve testing.yaml's path independently of FORMAT_CHAIN: check
+    docs/agent-context/testing.yaml first, falling back to
+    docs/charter/testing.yaml. Returns None when neither exists — testing.yaml
+    is optional, not required by any format."""
+    for rel in TESTING_YAML_CHAIN:
+        candidate = root / rel
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def check_testing_yaml(path: Optional[Path]) -> List[Finding]:
+    """Validate testing.yaml with CX-PARSE only — its lifecycle-exempt
+    carve-out. No CX-SRC, CX-MODE, CX-MODE-INVALID, CX-NULL, or CX-KEYS
+    checks apply: testing.yaml is a peer file, not a Layer 2 index file."""
+    if path is None:
+        return []
+    rel = path.name
+    try:
+        parse_yaml(path.read_text(encoding="utf-8"))
+    except YamlParseError as exc:
+        return [Finding("CX-PARSE", "error", rel, f"invalid YAML: {exc}")]
+    return []
+
+
 # --- Driver -------------------------------------------------------------------
 
 
@@ -810,9 +926,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--context-dir",
-        default="docs/agent-context",
+        default=None,
         type=Path,
-        help="Path to the agent-context directory (default: docs/agent-context)",
+        help=(
+            "Validate this directory as the agent-context CX-* check directly, "
+            "bypassing format detection (default: resolve via --root instead)."
+        ),
     )
     p.add_argument(
         "--charter-dir",
@@ -820,14 +939,32 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help=(
             "Run the legacy CH-* markdown-charter check against this directory "
-            "instead of the agent-context CX-* check (preserved for ST-0192)."
+            "directly, bypassing format detection."
+        ),
+    )
+    p.add_argument(
+        "--root",
+        default=Path("."),
+        type=Path,
+        help=(
+            "Project root used for format detection and testing.yaml resolution "
+            "when neither --context-dir nor --charter-dir is given (default: .)"
+        ),
+    )
+    p.add_argument(
+        "--print-format",
+        action="store_true",
+        help=(
+            "Print the format-detection-chain result for --root and exit "
+            "(agent-context, legacy-yaml, legacy-markdown, or none); runs no "
+            "validation."
         ),
     )
     p.add_argument(
         "--template-dir",
         default="factory/rulebooks/templates",
         type=Path,
-        help="Path to templates, used only with --charter-dir (default: factory/rulebooks/templates)",
+        help="Path to templates, used only with --charter-dir or the legacy-markdown fallback (default: factory/rulebooks/templates)",
     )
     p.add_argument(
         "--planning-gate",
@@ -849,11 +986,37 @@ def main(argv: list[str] | None = None) -> int:
 
     args = p.parse_args(argv)
 
+    if args.print_format:
+        print(detect_format(args.root).mode)
+        return 0
+
     if args.charter_dir is not None:
         findings, _ = check_charter(args.charter_dir, args.template_dir, args.planning_gate)
-    else:
+    elif args.context_dir is not None:
         findings = check_agent_context(args.context_dir, args.planning_gate)
+    else:
+        # No explicit override: resolve the project's context format via the
+        # three-step chain (ST-0192) and dispatch to the matching validator.
+        detection = detect_format(args.root)
+        findings = list(detection.findings)  # CX-FORMAT, when locations mix
 
+        if detection.mode == FORMAT_AGENT_CONTEXT:
+            findings += check_agent_context(
+                args.root / "docs" / "agent-context", args.planning_gate
+            )
+        elif detection.mode == FORMAT_LEGACY_MARKDOWN:
+            charter_findings, _ = check_charter(
+                args.root / "docs" / "charter", args.template_dir, args.planning_gate
+            )
+            findings += charter_findings
+        # FORMAT_LEGACY_YAML: detection only, content validation is out of
+        # scope for ST-0192 (deferred). FORMAT_NONE: nothing to validate.
+
+        # testing.yaml is a lifecycle-exempt peer file, resolved and
+        # validated independently of whichever format was detected above.
+        findings += check_testing_yaml(resolve_testing_yaml(args.root))
+
+    findings.sort(key=lambda f: (-SEVERITY_ORDER[f.severity], f.code, f.artifact))
     counts = {s: sum(1 for f in findings if f.severity == s) for s in SEVERITY_ORDER}
 
     if args.fmt == "json":
