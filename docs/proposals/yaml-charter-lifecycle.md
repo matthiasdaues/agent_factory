@@ -22,19 +22,19 @@ governance:
     - reliability
 
 estimate:
-  as_of: 2026-09-03
-  basis: decomposition
-  confidence: low
+  as_of: 2026-09-04
+  basis: story-level decomposition (11 stories across 5 EPICs)
+  confidence: medium
   human_review_hours:
-    min: 2.0
-    max: 4.0
+    min: 3.0
+    max: 6.0
   normalized_tokens:
-    min: 15000
-    max: 30000
+    min: 20000
+    max: 45000
   estimated_consumption:
-    min: 225000
-    max: 750000
-    overhead_multiplier: 25
+    min: 300000
+    max: 900000
+    overhead_multiplier: 20
     playbook: feature-addition
 ---
 
