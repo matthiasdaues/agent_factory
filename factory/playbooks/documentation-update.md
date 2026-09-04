@@ -88,7 +88,7 @@ Return to Step 1.1 (re-run reconciliation)
 ### Step 2.1 — Lint Spec
 
 ```bash
-factory/scripts/spec-lint --spec-dir docs/spec --graph docs/spec/traceability.json
+factory/scripts/spec-lint --spec-dir docs/spec
 ```
 
 **If errors** → Fix manually or re-run reconciliation-agent

@@ -17,7 +17,7 @@ Never re-check what Pass 1 already proved. Read `docs/CONTEXT.md` first.
 ## Step 1 — Run the deterministic linter
 
 ```bash
-factory/scripts/spec-lint --spec-dir docs/spec --graph docs/spec/traceability.json
+factory/scripts/spec-lint --spec-dir docs/spec
 ```
 
 `error` findings → Defect without debate. `warning`/`info` → confirm or dismiss during Pass 2.
@@ -41,7 +41,7 @@ Save as `docs/reviews/spec-review-YYYY-MM-DD.md` per [report-format.md](../../fa
 1. **Reviewed specification** — artifacts read, `spec-lint` summary line.
 2. **Deterministic findings** — Pass-1 table, each row Confirmed or Dismissed.
 3. **Semantic findings** — finding table with Characteristic column added.
-4. **Traceability summary** — orphans and gaps from `traceability.json`.
+4. **Traceability summary** — orphans and gaps from the scope map and BR cross-reference checks.
 
 File findings per [finding-format.md](../../factory/rulebooks/conventions/finding-format.md) with tag `SPEC`.
 

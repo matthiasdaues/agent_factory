@@ -45,7 +45,7 @@ All seven documents listed in the proposal's Design section 9 have been updated:
 | UC-09                  | Rewritten for project-owned testing via charter declaration                 |
 | ADR-0003               | Amended with project-owned testing rationale and what changes/stays         |
 | prd.md                 | G9 and FR-I (FR-I1 through FR-I6) revised for charter-declared testing      |
-| UC-10                  | BR-033 and acceptance criteria updated for charter-declared allowlist       |
+| UC-10                  | Acceptance criteria updated for charter-declared allowlist                  |
 | interface-contracts.md | Guardrail binding updated for charter-declared commands                     |
 | validation-rules.md    | BR-023 through BR-029 rewritten for charter-declared, project-owned testing |
 | ADR-0012               | Amended: three-gate sequence becomes two-gate sequence                      |
