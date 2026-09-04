@@ -3,8 +3,9 @@ name: detect-test-regime
 title: Detect Test Regime
 description: >-
   Scan project for test suites and record each one in
-  docs/charter/testing.yaml. Code is the source of truth; the charter
-  is a derived record.
+  testing.yaml (at docs/agent-context/testing.yaml, falling back to
+  docs/charter/testing.yaml). Code is the source of truth; the record
+  is derived.
 inputs:
   - Makefile
   - GNUmakefile
@@ -27,7 +28,7 @@ inputs:
   - tests/
   - test/
 outputs:
-  - docs/charter/testing.yaml
+  - docs/agent-context/testing.yaml (falls back to docs/charter/testing.yaml)
 category: utility
 version: 0.2.0
 ---
@@ -35,17 +36,19 @@ version: 0.2.0
 # Detect Test Regime
 
 Scan the project for every test suite it contains, then write or update
-`docs/charter/testing.yaml` with per-suite records. Code is the source of
-truth — the charter is a derived record, not the other way around. Never
+`testing.yaml` (at `docs/agent-context/testing.yaml`, falling back to
+`docs/charter/testing.yaml` for legacy projects) with per-suite records.
+Code is the source of truth — the record is derived, not the other way
+around. Never
 invent a command the project cannot actually run.
 
 ## When to use this skill
 
 - During `init-factory`, to seed the testing charter from an existing
   codebase.
-- During brownfield onboarding, when `capture-charter` needs to know
+- During brownfield onboarding, when `capture-context` needs to know
   how a project runs its tests before scaffolding gates around it.
-- Whenever `docs/charter/testing.yaml` is missing, empty, or suspected
+- Whenever `testing.yaml` is missing, empty, or suspected
   stale against the current repository.
 - When the planning agent detects a missing or empty testing.yaml before
   slicing stories.
@@ -250,7 +253,7 @@ markers, fixture rules, AI-generated test rules. The suites tell them
 
 ### 7. Record
 
-Write or update `docs/charter/testing.yaml`:
+Write or update `testing.yaml` (at `docs/agent-context/testing.yaml` if that directory exists, otherwise `docs/charter/testing.yaml`):
 
 - `testing_strategy` — path to the testing strategy document (step 6).
 - `test_all` — the composite command (step 5).
@@ -261,7 +264,7 @@ Write or update `docs/charter/testing.yaml`:
   actually observed. Omit unused layers entirely; never set a layer to
   `null` as a placeholder.
 
-If `docs/charter/testing.yaml` already exists, treat it as a prior scan
+If `testing.yaml` already exists, treat it as a prior scan
 result, not ground truth — update fields whose evidence has changed, and
 leave untouched fields that were not re-scanned. Do not silently delete a
 suite or layer entry that this scan did not re-detect without flagging that
@@ -270,7 +273,7 @@ gap to the operator first.
 After writing, run:
 
 ```bash
-factory/scripts/mdformat --number docs/charter/testing.yaml
+factory/scripts/mdformat --number <resolved-testing-yaml-path>
 ```
 
 `testing.yaml` is YAML, not Markdown — `mdformat` is a no-op on it here for
@@ -282,9 +285,9 @@ script rejects the extension.
 - Detection surface should stay broad — new entrypoint conventions
   (`justfile` lowercase, `mise.toml` tasks, language-specific runners) can
   be added to step 1's table as they are encountered.
-- This skill is invoked by `init-factory` and by `capture-charter`
+- This skill is invoked by `init-factory` and by `capture-context`
   during onboarding. It does not itself gate anything — it only detects and
-  records. Downstream gates consume `docs/charter/testing.yaml` afterward.
+  records. Downstream gates consume `testing.yaml` afterward.
 - The charter is a backup reference for ambiguous cases, not the primary
   source of truth. When code and charter disagree, re-run this skill rather
   than trusting the stale charter entry.

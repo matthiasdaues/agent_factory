@@ -6,7 +6,7 @@ inputs:
   - backlog/epics.md
   - docs/spec/*.feature
   - docs/spec/scope-map.md
-  - docs/charter/testing.yaml
+  - testing.yaml (at docs/agent-context/testing.yaml, falling back to docs/charter/testing.yaml)
 outputs:
   - backlog/epics.md
 disable-model-invocation: false
@@ -33,25 +33,25 @@ Behavioral spec: [test-design.feature](../../../docs/spec/test-design.feature).
 
 ## Prerequisite guard
 
-Before doing anything else, check `docs/charter/testing.yaml`:
+Before doing anything else, check `testing.yaml (at docs/agent-context/testing.yaml, falling back to docs/charter/testing.yaml)`:
 
 1. **File does not exist.** Fail immediately:
 
-   > `test-design` requires `docs/charter/testing.yaml`. Run `detect-test-regime`
+   > `test-design` requires `testing.yaml (at docs/agent-context/testing.yaml, falling back to docs/charter/testing.yaml)`. Run `detect-test-regime`
    > first to record the project's test suites and testing strategy link.
 
    Write no output to `backlog/epics.md`.
 
 2. **File exists but has no `testing_strategy:` key.** Fail immediately:
 
-   > `docs/charter/testing.yaml` has no `testing_strategy:` link. Run
+   > `testing.yaml (at docs/agent-context/testing.yaml, falling back to docs/charter/testing.yaml)` has no `testing_strategy:` link. Run
    > `detect-test-regime` to populate it before running `test-design`.
 
    Write no output to `backlog/epics.md`.
 
 3. **File exists but has no `suites:` section.** Fail immediately:
 
-   > `docs/charter/testing.yaml` has no `suites:` section. Run
+   > `testing.yaml (at docs/agent-context/testing.yaml, falling back to docs/charter/testing.yaml)` has no `suites:` section. Run
    > `detect-test-regime` to record the project's test suites before running
    > `test-design`.
 
@@ -70,7 +70,7 @@ configuration and must fail the guard, not proceed with an assumed default.
   `Rule:` groups the Scenarios for one actor-goal pair.
 - `docs/spec/scope-map.md` — joins behavioral-rule sentences to their `.feature`
   source and, once implemented, to the code that realizes them.
-- `docs/charter/testing.yaml` — `testing_strategy:` link, `suites:`, and
+- `testing.yaml (at docs/agent-context/testing.yaml, falling back to docs/charter/testing.yaml)` — `testing_strategy:` link, `suites:`, and
   optional `risk_classes:` overrides.
 - The document at `testing_strategy:` (defaults to
   [testing-strategy.md](../../rulebooks/conventions/testing-strategy.md)) —

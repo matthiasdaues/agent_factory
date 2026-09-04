@@ -17,11 +17,11 @@ Before decomposing, read the existing codebase. List what exists: tables, routes
 
 ## Step 1 — Propose EPIC groupings
 
-Read `docs/spec/scope-map.md` and the `.feature` files under `docs/spec/`. Read `docs/CONTEXT.md` if it exists — use the project's domain vocabulary. Read `docs/charter/*.md` if charter files exist — the charter defines Epic 0 (foundational must-haves).
+Read `docs/spec/scope-map.md` and the `.feature` files under `docs/spec/`. Read `docs/CONTEXT.md` if it exists — use the project's domain vocabulary. Read project context from `docs/agent-context/*.yaml` (falls back to `docs/charter/*.md` for legacy projects) if it exists — the context defines Epic 0 (foundational must-haves).
 
 Group related User Goals into EPICs — each a coherent slice developable and demonstrable independently.
 
-If charter files exist and Epic 0 stories are already in the backlog (created by the `capture-charter` completeness sweep), identify the final Epic 0 story (the last one chronologically). Feature EPICs depend on Epic 0 completion.
+If context files exist and Epic 0 stories are already in the backlog (created by the `capture-context` completeness sweep), identify the final Epic 0 story (the last one chronologically). Feature EPICs depend on Epic 0 completion.
 
 ## Step 1.5a — EPIC-level slice table
 

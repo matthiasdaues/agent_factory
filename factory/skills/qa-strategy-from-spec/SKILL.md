@@ -31,7 +31,7 @@ Read these source artifacts:
     and relationships that create QA risk.
 - `docs/spec/supplementary_specs/interface-contracts.md`
   - Use it to find API, CLI, event, file, or DTO contracts and their owners.
-- `docs/charter/testing.yaml` — charter layer bindings
+- `testing.yaml (at docs/agent-context/testing.yaml, falling back to docs/charter/testing.yaml)` — charter layer bindings
   - Read the `layers` section. Each layer maps a Factory layer name to
     project-specific tooling, infrastructure, entry point, optional
     anti-patterns, and optional fidelity declarations.
@@ -67,7 +67,7 @@ Write one file:
 2. Verify `docs/spec/supplementary_specs/entity-model.md` exists.
 3. Verify `docs/spec/supplementary_specs/interface-contracts.md` exists.
 4. Infer `<feature-name>` from the `.feature` filename.
-5. Read `docs/charter/testing.yaml` if present. Record whether the `layers`
+5. Read `testing.yaml (at docs/agent-context/testing.yaml, falling back to docs/charter/testing.yaml)` if present. Record whether the `layers`
    section exists.
 6. Scan the repository's test infrastructure. Record discovered entry
    points, test directories, fixture files, and runner configurations.
@@ -91,8 +91,8 @@ When the charter is absent or lacks `layers`, emit a gap finding and
 continue with the Factory convention fallback:
 
 ```text
-Gap: docs/charter/testing.yaml missing — falling back to Factory convention layers
-Gap: docs/charter/testing.yaml has no layers section — falling back to Factory convention layers
+Gap: testing.yaml (at docs/agent-context/testing.yaml, falling back to docs/charter/testing.yaml) missing — falling back to Factory convention layers
+Gap: testing.yaml (at docs/agent-context/testing.yaml, falling back to docs/charter/testing.yaml) has no layers section — falling back to Factory convention layers
 ```
 
 ## Step 2 — Extract Feature-Specific QA Signals
@@ -120,7 +120,7 @@ From `interface-contracts.md`, extract:
 
 ## Step 3 — Assign Contract Owners
 
-Apply the charter's layer bindings from `docs/charter/testing.yaml` as the
+Apply the charter's layer bindings from `testing.yaml (at docs/agent-context/testing.yaml, falling back to docs/charter/testing.yaml)` as the
 governing policy for contract-owner assignments. Use
 [testing-strategy.md](../../rulebooks/conventions/testing-strategy.md) for
 shared vocabulary and the overlap-deletion protocol.
@@ -274,7 +274,7 @@ Generated from:
 - Feature spec: `docs/spec/<feature-name>.feature`
 - Entity model: `docs/spec/supplementary_specs/entity-model.md`
 - Interface contracts: `docs/spec/supplementary_specs/interface-contracts.md`
-- Charter layer bindings: `docs/charter/testing.yaml`
+- Charter layer bindings: `testing.yaml (at docs/agent-context/testing.yaml, falling back to docs/charter/testing.yaml)`
 - Repo test infrastructure: conftest.py, tests/, packages/*/tests/
 
 ## Feature

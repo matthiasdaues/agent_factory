@@ -32,7 +32,7 @@ Ask the user: _"Does this analysis look right before I start coding?"_
 
 ## Step 2 — Agree seams
 
-Read `docs/charter/testing.yaml` to identify which suite targets the code under test — use its `root`, `pattern`, and `run_all` command. Read the document referenced by `testing_strategy:` for cluster assignment and test budget.
+Read `testing.yaml` (at `docs/agent-context/testing.yaml`, falling back to `docs/charter/testing.yaml` for legacy projects) to identify which suite targets the code under test — use its `root`, `pattern`, and `run_all` command. Read the document referenced by `testing_strategy:` for cluster assignment and test budget.
 
 Identify the **seams** — public boundaries where tests observe behaviour. Prefer existing, highest-level seams; fewer seams overall is better.
 

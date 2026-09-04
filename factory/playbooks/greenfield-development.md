@@ -62,8 +62,8 @@ capture-charter --init
 ```
 
 **Skill**: `capture-charter` (`--init` mode)
-**Expected outputs**: `docs/charter/tech-stack.md`, `docs/charter/development.md`,
-`docs/charter/house-rules.md` — skeleton created from the templates, answers
+**Expected outputs**: `docs/agent-context/stack.yaml`, `docs/agent-context/workflow.yaml`,
+`docs/agent-context/governance.yaml` (falls back to `docs/charter/*.md` for legacy projects) — skeleton created from the templates, answers
 already known from the vision conversation filled in, everything else left
 `To be decided.`
 
@@ -79,7 +79,7 @@ orchestrator run-phase requirements
 
 As requirements decisions settle a charter entry — a data store, a
 licensing constraint, an integration requirement — the requirements agent
-invokes `update-charter` to record it in `docs/charter/tech-stack.md`
+invokes `update-context` to record it in `docs/agent-context/stack.yaml` (falls back to `docs/charter/tech-stack.md`)
 incrementally, rather than waiting for the completeness sweep.
 
 ### Step 1.2 — Run Spec Review Agent (Separate Session)
@@ -130,7 +130,7 @@ The workspace property `"arc42.projected"` defaults to `"false"` in fresh DSL fi
 
 As architecture decisions settle a charter entry — infrastructure, deployment
 topology, a cloud provider — the architecture agent invokes `update-charter`
-to record it in `docs/charter/tech-stack.md` incrementally.
+to record it in `docs/agent-context/stack.yaml` (falls back to `docs/charter/tech-stack.md`) incrementally.
 
 ### Step 2.2 — Run Architecture Review Agent (Separate Session)
 
@@ -172,9 +172,9 @@ capture-charter
 ```
 
 **Skill**: `capture-charter` (completeness sweep mode, no flag)
-**Expected outputs**: `docs/charter/tech-stack.md` and `docs/charter/development.md`
+**Expected outputs**: `docs/agent-context/stack.yaml` and `docs/agent-context/workflow.yaml` (falls back to `docs/charter/tech-stack.md` and `docs/charter/development.md`)
 with every entry resolved to a concrete answer or an explicit deferral
-(`docs/charter/house-rules.md` may still carry open items), Epic 0 stories
+(`docs/agent-context/governance.yaml` or `docs/charter/house-rules.md` may still carry open items), Epic 0 stories
 (`epic: "Epic 0 — Project Setup"`) written to `backlog/ST-*.md`, including the
 closing "update development.md" story that depends on every other Epic 0 story
 
@@ -203,7 +203,7 @@ orchestrator run-phase planning
 **Agent**: `planning-agent`
 **Expected outputs**: `backlog/ST-*.md` files
 
-The planning agent reads `docs/charter/*.md` and acknowledges that Epic 0
+The planning agent reads the project context from `docs/agent-context/*.yaml` (falls back to `docs/charter/*.md`) and acknowledges that Epic 0
 stories already exist in `backlog/` — written by the charter completeness
 sweep in Step 2.5. It derives feature stories after them: each feature
 story's `deps:` chains to the closing Epic 0 "update development.md" story,
