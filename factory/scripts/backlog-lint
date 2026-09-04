@@ -267,7 +267,7 @@ def check_story(
                 "BL-ENUM",
                 "error",
                 rel,
-                f"status '{status}' not in {{pending, in-progress, done, blocked}}",
+                f"status '{status}' not in {{{', '.join(sorted(VALID_STATUSES))}}}",
             )
         )
 
