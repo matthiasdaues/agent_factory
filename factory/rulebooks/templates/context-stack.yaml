@@ -1,37 +1,10 @@
 # Layer 2 index file: what the project is built with.
 # Copied to docs/agent-context/stack.yaml by capture-context --init.
 #
-# mode: primary  -- greenfield. Fields hold direct values; no source: pointers
-#                   exist yet because no handbook or conventions exist.
-# mode: index    -- mature. Every non-null, non-deferred leaf holds a name and
-#                   a source: pointer to the authoritative document.
-#
-# A field that does not apply to this project stays null. A field with a
-# pending decision becomes `deferred: "reason"` (deferred must be the only
-# key at that field -- it must not coexist with name or source).
+# This is a skeleton. Second-level keys are project-specific — VIRGIL
+# creates them during the stakeholder interview based on what the
+# operator confirms as relevant. See context-interview-guide.yaml for
+# the question set that drives key creation.
 #
 # See factory/rulebooks/conventions/agent-context-composition.md for the
 # binding composition rules.
-
-mode: primary
-
-languages:
-  - name: null
-    version: null
-    role: null
-    source: null
-
-frameworks:
-  backend: null
-  frontend: null
-  testing: null
-
-data_stores: null
-infrastructure: null
-existing_systems: null
-
-licensing:
-  project: null
-  constraints: null
-
-exclusions: null

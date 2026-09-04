@@ -1,24 +1,10 @@
 # Layer 2 index file: how to build, test, and deploy the project.
 # Copied to docs/agent-context/workflow.yaml by capture-context --init.
 #
-# mode: primary  -- greenfield. Fields hold direct values; no source: pointers
-#                   exist yet because no handbook or conventions exist.
-# mode: index    -- mature. Every non-null, non-deferred leaf holds a name and
-#                   a source: pointer to the authoritative document.
-#
-# A field that does not apply to this project stays null. A field with a
-# pending decision becomes `deferred: "reason"` (deferred must be the only
-# key at that field -- it must not coexist with name or source).
+# This is a skeleton. Second-level keys are project-specific — VIRGIL
+# creates them during the stakeholder interview based on what the
+# operator confirms as relevant. See context-interview-guide.yaml for
+# the question set that drives key creation.
 #
 # See factory/rulebooks/conventions/agent-context-composition.md for the
 # binding composition rules.
-
-mode: primary
-
-repository_layout: null
-getting_started: null
-running: null
-testing: null
-linting: null
-ci_cd: null
-branching: null

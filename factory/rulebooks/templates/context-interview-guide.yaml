@@ -1,0 +1,102 @@
+# Interview guide for agent-context setup.
+#
+# Structures the questions VIRGIL and capture-context ask during
+# greenfield (--init) and brownfield (--init --scan) interviews.
+# Each question maps to a target index file, a suggested key name,
+# and the reading-guide concern it belongs to.
+#
+# Skills consume this guide to discover what to ask — they MUST NOT
+# hardcode second-level key paths. The operator confirms or skips
+# each question; only confirmed questions create keys in the index
+# files.
+#
+# Order within each domain is the suggested interview sequence.
+
+stack:
+  - question: "What language(s) and runtime version(s)?"
+    key: languages
+    concern: backend
+    structured: true
+    fields: [name, version, role, source]
+
+  - question: "What backend framework(s)?"
+    key: frameworks.backend
+    concern: backend
+
+  - question: "What frontend framework(s)?"
+    key: frameworks.frontend
+    concern: frontend
+
+  - question: "What testing framework(s)?"
+    key: frameworks.testing
+    concern: testing
+
+  - question: "What data stores (databases, caches, queues)?"
+    key: data_stores
+    concern: backend
+
+  - question: "What infrastructure (hosting, containers, cloud)?"
+    key: infrastructure
+    concern: packaging
+
+  - question: "Any existing systems this integrates with?"
+    key: existing_systems
+    concern: architecture
+
+  - question: "Licensing model and constraints?"
+    key: licensing
+    concern: architecture
+
+  - question: "Anything explicitly out of scope?"
+    key: exclusions
+    concern: architecture
+
+workflow:
+  - question: "Repository layout convention?"
+    key: repository_layout
+    concern: architecture
+
+  - question: "How does a new contributor get started?"
+    key: getting_started
+    concern: architecture
+
+  - question: "How is the project run locally?"
+    key: running
+    concern: backend
+
+  - question: "Testing approach and tooling?"
+    key: testing
+    concern: testing
+
+  - question: "Linting and formatting tools?"
+    key: linting
+    concern: backend
+
+  - question: "CI/CD pipeline?"
+    key: ci_cd
+    concern: packaging
+
+  - question: "Branching model?"
+    key: branching
+    concern: architecture
+
+governance:
+  - question: "Commit conventions?"
+    key: commits
+    concern: architecture
+
+  - question: "Review process?"
+    key: review
+    concern: architecture
+
+  - question: "Testing discipline (coverage expectations, TDD, etc.)?"
+    key: testing_discipline
+    concern: testing
+
+  - question: "Architecture governance (ADRs, review gates)?"
+    key: architecture_governance
+    concern: architecture
+
+  - question: "Scope boundaries and change process?"
+    key: scope
+    concern: architecture
