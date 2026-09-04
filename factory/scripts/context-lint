@@ -5,11 +5,10 @@
 """context-lint — deterministic validation gate for the agent context.
 
 What: Validates project context files with CX-* finding codes (CX-FILE,
-      CX-PARSE, CX-KEYS, CX-NULL, CX-MODE, CX-MODE-INVALID, CX-SRC,
-      CX-SRC-EXIST, CX-SRC-STALE, CX-GUIDE-REF, CX-FORMAT) against the
-      YAML agent-context interface (ADR-0013, ADR-0014), or falls back
-      to CH-* codes against the legacy markdown charter for projects
-      that have not migrated.
+      CX-PARSE, CX-KEYS, CX-NULL, CX-SRC-EXIST, CX-SRC-STALE,
+      CX-GUIDE-REF, CX-FORMAT) against the YAML agent-context interface
+      (ADR-0013), or falls back to CH-* codes against the legacy markdown
+      charter for projects that have not migrated.
 When: Pre-commit hook when context/charter files change.
 By:   context-lint pre-commit hook; developer-agent during Red-Green.
 
@@ -25,25 +24,20 @@ CX-FORMAT error. testing.yaml is a lifecycle-exempt peer file, resolved
 independently (docs/agent-context/testing.yaml first, falling back to
 docs/charter/testing.yaml) and validated with CX-PARSE only — it never
 participates in CX-FORMAT mixed-location detection and never gets
-CX-SRC/CX-MODE/CX-NULL checks. See detect_format() and
+CX-SRC-EXIST/CX-NULL checks. See detect_format() and
 resolve_testing_yaml() below; both take a `root` Path so other scripts
 and hooks can reuse them (e.g. via `context-lint --print-format`).
 
 Validates (YAML agent-context mode):
 - Each of stack.yaml, workflow.yaml, governance.yaml exists (CX-FILE)
-- reading-guides.yaml exists whenever any index file has mode: index
-  (CX-FILE); it is not required while every index file is mode: primary
+- reading-guides.yaml exists whenever any index file has source pointers
+  or the file already exists (CX-FILE)
 - Each present file parses as valid YAML (CX-PARSE)
 - Each index file carries every required top-level key per its template
   schema (CX-KEYS)
 - No field mixes a `deferred` key with `name` or `source` at the same
   field (CX-KEYS)
-- Null leaf values are reported: warning in default mode, error under
-  --planning-gate (CX-NULL)
-- The `mode` field is `primary` or `index` (CX-MODE); any other value is
-  an error (CX-MODE-INVALID)
-- Every populated field (a mapping carrying a `name` key) has a `source`
-  pointer once its file is `mode: index` (CX-SRC)
+- Null leaf values are always errors (CX-NULL)
 - Every `source` pointer resolves to a real file on disk, checked
   relative to the process's current working directory (CX-SRC-EXIST)
 - Every resolvable `source` pointer is not newer than the index file that
@@ -52,14 +46,6 @@ Validates (YAML agent-context mode):
   resolves to an existing key in the target index file's actual parsed
   structure, independent of that key's value (CX-GUIDE-REF)
 - Files exist at more than one format-detection-chain location (CX-FORMAT)
-
-This story (ST-0190) renamed charter-lint to context-lint and added the
-first six CX-* codes above; ST-0191 added CX-SRC, CX-SRC-EXIST,
-CX-SRC-STALE, and CX-GUIDE-REF. ST-0192 added the format-detection chain,
-CX-FORMAT, the testing.yaml carve-out, and wired the legacy CH-*
-charter-validation functions (below, under "Legacy charter validation")
-into the default CLI flow as the fallback path for legacy markdown
-projects.
 
 No third-party dependencies (Python 3.10+ stdlib only) — YAML is parsed
 by a minimal indentation-based parser scoped to the agent-context schema
@@ -394,45 +380,19 @@ def check_charter(
 
 #: The three Layer 2 index files. Always required when the context
 #: directory exists (CX-FILE). reading-guides.yaml is Layer 1 and handled
-#: separately because its requiredness depends on mode.
+#: separately because it is required only when index files have source
+#: pointers or when the file already exists.
 INDEX_FILES = ["stack.yaml", "workflow.yaml", "governance.yaml"]
 
 READING_GUIDE_FILE = "reading-guides.yaml"
 
-#: Required top-level keys per index file, derived from
-#: factory/rulebooks/templates/context-{stack,workflow,governance}.yaml.
+#: Required top-level keys per index file. Second-level keys are
+#: project-specific, created by VIRGIL — not enforced by lint.
 REQUIRED_KEYS: Dict[str, Set[str]] = {
-    "stack.yaml": {
-        "mode",
-        "languages",
-        "frameworks",
-        "data_stores",
-        "infrastructure",
-        "existing_systems",
-        "licensing",
-        "exclusions",
-    },
-    "workflow.yaml": {
-        "mode",
-        "repository_layout",
-        "getting_started",
-        "running",
-        "testing",
-        "linting",
-        "ci_cd",
-        "branching",
-    },
-    "governance.yaml": {
-        "mode",
-        "commits",
-        "review",
-        "testing_discipline",
-        "architecture_governance",
-        "scope",
-    },
+    "stack.yaml": set(),
+    "workflow.yaml": set(),
+    "governance.yaml": set(),
 }
-
-VALID_MODES = {"primary", "index"}
 
 
 class YamlParseError(Exception):
@@ -706,23 +666,8 @@ def check_index_file(
             Finding("CX-KEYS", "error", rel, f"required top-level key '{key}' is missing")
         )
 
-    mode_val = data.get("mode")
-    if "mode" not in missing_keys:
-        if mode_val in VALID_MODES:
-            findings.append(Finding("CX-MODE", "info", rel, f"mode is '{mode_val}'"))
-        else:
-            findings.append(
-                Finding(
-                    "CX-MODE-INVALID",
-                    "error",
-                    rel,
-                    f"unrecognized mode value: {mode_val!r} (must be 'primary' or 'index')",
-                )
-            )
-
-    null_severity = "error" if planning_gate else "warning"
-    for keypath in _find_null_leaves(data, exclude_top_level={"mode"}):
-        findings.append(Finding("CX-NULL", null_severity, rel, f"'{keypath}' is null"))
+    for keypath in _find_null_leaves(data, exclude_top_level=set()):
+        findings.append(Finding("CX-NULL", "error", rel, f"'{keypath}' is null"))
 
     for keypath in _find_deferred_conflicts(data):
         findings.append(
@@ -735,18 +680,6 @@ def check_index_file(
         )
 
     source_candidates = _find_source_candidates(data)
-
-    if mode_val == "index":
-        for keypath, node in source_candidates:
-            if not node.get("source"):
-                findings.append(
-                    Finding(
-                        "CX-SRC",
-                        "warning",
-                        rel,
-                        f"'{keypath}' has a name but no source pointer",
-                    )
-                )
 
     index_mtime = path.stat().st_mtime
     for keypath, node in source_candidates:
@@ -789,7 +722,7 @@ def check_agent_context(context_dir: Path, planning_gate: bool = False) -> List[
     if not context_dir.is_dir():
         return findings
 
-    any_index_mode = False
+    any_sources = False
     index_data: Dict[str, Optional[Dict[str, Any]]] = {}
     for filename in INDEX_FILES:
         file_findings, data = check_index_file(
@@ -797,8 +730,8 @@ def check_agent_context(context_dir: Path, planning_gate: bool = False) -> List[
         )
         findings += file_findings
         index_data[filename] = data if isinstance(data, dict) else None
-        if index_data[filename] is not None and index_data[filename].get("mode") == "index":
-            any_index_mode = True
+        if index_data[filename] is not None and _find_source_candidates(index_data[filename]):
+            any_sources = True
 
     guide_path = context_dir / READING_GUIDE_FILE
     if guide_path.is_file():
@@ -810,13 +743,13 @@ def check_agent_context(context_dir: Path, planning_gate: bool = False) -> List[
             )
         else:
             findings += _check_guide_refs(guide_data, index_data)
-    elif any_index_mode:
+    elif any_sources:
         findings.append(
             Finding(
                 "CX-FILE",
                 "error",
                 READING_GUIDE_FILE,
-                "required file does not exist (an index file has mode: index)",
+                "required file does not exist (index files have source pointers)",
             )
         )
 
@@ -905,8 +838,8 @@ def resolve_testing_yaml(root: Path) -> Optional[Path]:
 
 def check_testing_yaml(path: Optional[Path]) -> List[Finding]:
     """Validate testing.yaml with CX-PARSE only — its lifecycle-exempt
-    carve-out. No CX-SRC, CX-MODE, CX-MODE-INVALID, CX-NULL, or CX-KEYS
-    checks apply: testing.yaml is a peer file, not a Layer 2 index file."""
+    carve-out. No CX-SRC-EXIST, CX-NULL, or CX-KEYS checks apply:
+    testing.yaml is a peer file, not a Layer 2 index file."""
     if path is None:
         return []
     rel = path.name
@@ -969,7 +902,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--planning-gate",
         action="store_true",
-        help="Stricter mode: null fields (CX-NULL) become errors",
+        help="Planning-gate mode (currently identical to default — CX-NULL is always an error)",
     )
     p.add_argument(
         "--format",

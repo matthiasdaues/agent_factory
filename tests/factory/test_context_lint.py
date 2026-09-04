@@ -1,15 +1,14 @@
 """Contract tests for factory/scripts/context-lint.
 
 Covers ACX-01 through ACX-10 and ACX-13 from
-docs/spec/agent-context-qa-strategy.md. ACX-01 through ACX-05 are the six
-core CX-* finding codes introduced by ST-0190: CX-FILE, CX-PARSE, CX-KEYS,
-CX-NULL, CX-MODE, CX-MODE-INVALID. ACX-06 through ACX-09 are the four codes
-ST-0191 added: CX-SRC, CX-SRC-EXIST, CX-SRC-STALE, CX-GUIDE-REF. ACX-10
-(CX-FORMAT) and ACX-13 (testing.yaml's CX-PARSE-only carve-out) are ST-0192
-additions; ACX-11 (the format-detection chain itself) and ACX-12/ACX-14
-(the legacy-charter and testing.yaml-resolution integration scenarios) live
-in their own files -- test_format_detection.py,
-test_context_lint_legacy.py, and test_testing_yaml_resolution.py.
+docs/spec/agent-context-qa-strategy.md. ACX-01 through ACX-04 are the core
+CX-* finding codes: CX-FILE, CX-PARSE, CX-KEYS, CX-NULL. ACX-07 through
+ACX-09 cover CX-SRC-EXIST, CX-SRC-STALE, CX-GUIDE-REF. ACX-10 (CX-FORMAT)
+and ACX-13 (testing.yaml's CX-PARSE-only carve-out) are ST-0192 additions;
+ACX-11 (the format-detection chain itself) and ACX-12/ACX-14 (the
+legacy-charter and testing.yaml-resolution integration scenarios) live in
+their own files -- test_format_detection.py, test_context_lint_legacy.py,
+and test_testing_yaml_resolution.py.
 
 Each test runs the script as a subprocess with --format json, mirroring the
 existing tests/factory/test_backlog_lint.py pattern for a factory script
@@ -101,9 +100,11 @@ def test_cx_file_reports_missing_required_file(tmp_path: Path) -> None:
 
 
 @pytest.mark.spec("ACX-01")
-def test_cx_file_does_not_require_reading_guides_when_primary(tmp_path: Path) -> None:
-    """ACX-01-CT-02: reading-guides.yaml is not required while every index
-    file is mode: primary."""
+def test_cx_file_does_not_require_reading_guides_without_source_pointers(
+    tmp_path: Path,
+) -> None:
+    """ACX-01-CT-02: reading-guides.yaml is not required when no index file
+    has source pointers (fields with a non-null name)."""
     context_dir = _copy_fixture("valid", tmp_path / "ctx")
     assert not (context_dir / "reading-guides.yaml").exists()
 
@@ -116,15 +117,20 @@ def test_cx_file_does_not_require_reading_guides_when_primary(tmp_path: Path) ->
 
 
 @pytest.mark.spec("ACX-01")
-def test_cx_file_requires_reading_guides_when_any_index_is_mode_index(
+def test_cx_file_requires_reading_guides_when_any_index_has_source_pointers(
     tmp_path: Path,
 ) -> None:
-    """Reading-guides.yaml becomes required once any index file transitions
-    to mode: index — the converse of the primary-mode carve-out above."""
+    """Reading-guides.yaml becomes required once any index file contains a
+    field with a non-null name (a source candidate)."""
     context_dir = _copy_fixture("valid", tmp_path / "ctx")
     stack = context_dir / "stack.yaml"
     stack.write_text(
-        stack.read_text(encoding="utf-8").replace("mode: primary", "mode: index", 1)
+        "languages:\n"
+        "  - name: Python\n"
+        "    version: '3.12'\n"
+        "frameworks:\n"
+        "  backend:\n"
+        "    name: FastAPI\n"
     )
 
     findings, _ = _run_context_lint(context_dir)
@@ -141,7 +147,7 @@ def test_cx_file_requires_reading_guides_when_any_index_is_mode_index(
 @pytest.mark.spec("ACX-02")
 def test_cx_parse_reports_invalid_yaml(tmp_path: Path) -> None:
     """ACX-02-CT-01: a YAML syntax error (tab indentation) is reported as
-    CX-PARSE, and stops further validation of that file (no CX-KEYS/CX-MODE
+    CX-PARSE, and stops further validation of that file (no CX-KEYS/CX-NULL
     findings for stack.yaml alongside it)."""
     context_dir = _copy_fixture("invalid_yaml", tmp_path / "ctx")
 
@@ -154,20 +160,6 @@ def test_cx_parse_reports_invalid_yaml(tmp_path: Path) -> None:
 
 
 # --- ACX-03: CX-KEYS --------------------------------------------------------
-
-
-@pytest.mark.spec("ACX-03")
-def test_cx_keys_reports_missing_required_top_level_key(tmp_path: Path) -> None:
-    """ACX-03-CT-01: stack.yaml missing 'languages' is reported as CX-KEYS."""
-    context_dir = _copy_fixture("missing_key", tmp_path / "ctx")
-
-    findings, _ = _run_context_lint(context_dir)
-
-    keys_findings = _findings_with_code(findings, "CX-KEYS")
-    assert any(
-        f["artifact"] == "stack.yaml" and "languages" in f["message"]
-        for f in keys_findings
-    )
 
 
 @pytest.mark.spec("ACX-03")
@@ -195,20 +187,20 @@ def test_cx_keys_reports_deferred_coexisting_with_name_or_source(
 
 
 @pytest.mark.spec("ACX-04")
-def test_cx_null_reports_warning_in_default_mode(tmp_path: Path) -> None:
-    """ACX-04-CT-01: null leaf values are warnings in default mode."""
+def test_cx_null_reports_error(tmp_path: Path) -> None:
+    """ACX-04-CT-01: null leaf values are always errors."""
     context_dir = _copy_fixture("valid", tmp_path / "ctx")
 
     findings, _ = _run_context_lint(context_dir)
 
     null_findings = _findings_with_code(findings, "CX-NULL")
     assert null_findings, "expected CX-NULL findings for the null-placeholder templates"
-    assert all(f["severity"] == "warning" for f in null_findings)
+    assert all(f["severity"] == "error" for f in null_findings)
 
 
 @pytest.mark.spec("ACX-04")
 def test_cx_null_reports_error_under_planning_gate(tmp_path: Path) -> None:
-    """ACX-04-CT-02: the same null leaves become errors under --planning-gate."""
+    """ACX-04-CT-02: null leaves are errors under --planning-gate too."""
     context_dir = _copy_fixture("valid", tmp_path / "ctx")
 
     findings, _ = _run_context_lint(context_dir, planning_gate=True)
@@ -216,62 +208,6 @@ def test_cx_null_reports_error_under_planning_gate(tmp_path: Path) -> None:
     null_findings = _findings_with_code(findings, "CX-NULL")
     assert null_findings
     assert all(f["severity"] == "error" for f in null_findings)
-
-
-# --- ACX-05: CX-MODE / CX-MODE-INVALID --------------------------------------
-
-
-@pytest.mark.spec("ACX-05")
-def test_cx_mode_reports_info_for_valid_mode(tmp_path: Path) -> None:
-    """ACX-05-CT-01: a valid mode value produces a CX-MODE info finding."""
-    context_dir = _copy_fixture("valid", tmp_path / "ctx")
-
-    findings, _ = _run_context_lint(context_dir)
-
-    mode_findings = _findings_with_code(findings, "CX-MODE")
-    assert any(
-        f["artifact"] == "stack.yaml" and f["severity"] == "info" for f in mode_findings
-    )
-
-
-@pytest.mark.spec("ACX-05")
-def test_cx_mode_invalid_reports_error_for_unrecognized_mode(tmp_path: Path) -> None:
-    """ACX-05-CT-02: an unrecognized mode value produces a CX-MODE-INVALID
-    error, not a silent pass and not a crash."""
-    context_dir = _copy_fixture("invalid_mode", tmp_path / "ctx")
-
-    findings, _ = _run_context_lint(context_dir)
-
-    invalid_findings = _findings_with_code(findings, "CX-MODE-INVALID")
-    assert len(invalid_findings) == 1
-    assert invalid_findings[0]["artifact"] == "stack.yaml"
-    assert invalid_findings[0]["severity"] == "error"
-    # A rejected mode value must not also register as a valid CX-MODE info.
-    assert not any(
-        f["artifact"] == "stack.yaml" for f in _findings_with_code(findings, "CX-MODE")
-    )
-
-
-# --- ACX-06: CX-SRC ---------------------------------------------------------
-
-
-@pytest.mark.spec("ACX-06")
-def test_cx_src_reports_missing_source_pointer_when_mode_is_index(
-    tmp_path: Path,
-) -> None:
-    """ACX-06-CT-01: stack.yaml is mode: index and frameworks.backend has a
-    name but no source pointer -> CX-SRC warning."""
-    project = _copy_project_fixture("src_missing", tmp_path / "project")
-    context_dir = project / "docs" / "agent-context"
-
-    findings, _ = _run_context_lint(context_dir, cwd=project)
-
-    src_findings = _findings_with_code(findings, "CX-SRC")
-    assert any(
-        f["artifact"] == "stack.yaml" and "frameworks.backend" in f["message"]
-        for f in src_findings
-    )
-    assert all(f["severity"] == "warning" for f in src_findings)
 
 
 # --- ACX-07: CX-SRC-EXIST ---------------------------------------------------
@@ -450,19 +386,18 @@ def test_cx_format_does_not_flag_split_testing_yaml_location() -> None:
 @pytest.mark.spec("ACX-13")
 def test_testing_yaml_gets_cx_parse_only_not_lifecycle_checks() -> None:
     """ACX-13-CT-01: docs/agent-context/testing.yaml exists with a shape
-    that would trip CX-MODE-INVALID and CX-NULL if it were validated as a
-    Layer 2 index file (mode: bogus, a null leaf) -- context-lint applies
-    CX-PARSE only; CX-SRC, CX-MODE, CX-MODE-INVALID, CX-NULL, and CX-KEYS
-    never fire for it (agent-context.feature Rule: testing.yaml operates as
-    a lifecycle-exempt peer file, Scenario: context-lint validates
-    testing.yaml with CX-PARSE only)."""
+    that would trip CX-NULL if it were validated as a Layer 2 index file
+    (a null leaf) -- context-lint applies CX-PARSE only; CX-SRC-EXIST,
+    CX-NULL, and CX-KEYS never fire for it (agent-context.feature Rule:
+    testing.yaml operates as a lifecycle-exempt peer file, Scenario:
+    context-lint validates testing.yaml with CX-PARSE only)."""
     root = FIXTURES / "testing_yaml_parse_only"
 
     findings, _ = _run_context_lint_root(root)
 
     testing_findings = [f for f in findings if f["artifact"] == "testing.yaml"]
     assert testing_findings == []
-    exempt_codes = {"CX-SRC", "CX-MODE", "CX-MODE-INVALID", "CX-NULL", "CX-KEYS"}
+    exempt_codes = {"CX-SRC-EXIST", "CX-NULL", "CX-KEYS"}
     assert not any(
         f["artifact"] == "testing.yaml" and f["code"] in exempt_codes for f in findings
     )
@@ -473,7 +408,7 @@ def test_testing_yaml_gets_cx_parse_only_not_lifecycle_checks() -> None:
 
 def test_exit_code_equals_error_count(tmp_path: Path) -> None:
     """The process exit code equals the number of error-severity findings."""
-    context_dir = _copy_fixture("invalid_mode", tmp_path / "ctx")
+    context_dir = _copy_fixture("missing_stack", tmp_path / "ctx")
 
     result = subprocess.run(
         [sys.executable, str(SCRIPT), "--context-dir", str(context_dir)],
@@ -491,7 +426,7 @@ def test_exit_code_equals_error_count(tmp_path: Path) -> None:
 
 def test_report_only_always_exits_zero(tmp_path: Path) -> None:
     """--report-only always exits 0, even with error-severity findings."""
-    context_dir = _copy_fixture("invalid_mode", tmp_path / "ctx")
+    context_dir = _copy_fixture("missing_stack", tmp_path / "ctx")
 
     result = subprocess.run(
         [
