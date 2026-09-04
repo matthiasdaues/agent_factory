@@ -57,6 +57,13 @@ repos:
         pass_filenames: false
         files: ^backlog/ST-.*\.md$
 
+      - id: agent_factory_hook-context-lint
+        name: "agent_factory: context-lint (agent-context CX-* validation gate)"
+        entry: factory/scripts/context-lint
+        language: system
+        pass_filenames: false
+        files: ^docs/agent-context/.*\.yaml$
+
       - id: agent_factory_hook-matrix-lint
         name: "agent_factory: matrix-lint (model matrix consistency gate)"
         entry: factory/scripts/matrix-lint --matrix config/model.conf
@@ -138,6 +145,13 @@ repos:
         language: system
         pass_filenames: false
         files: ^backlog/ST-.*\.md$
+
+      - id: context-lint
+        name: context-lint (agent-context CX-* validation gate)
+        entry: factory/scripts/context-lint
+        language: system
+        pass_filenames: false
+        files: ^docs/agent-context/.*\.yaml$
 
       - id: matrix-lint
         name: matrix-lint (model matrix consistency gate)

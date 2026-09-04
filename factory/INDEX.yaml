@@ -587,7 +587,11 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 2996
+    tokens: 3246
+  - name: agent-context-composition
+    category: conventions
+    path: rulebooks/conventions/agent-context-composition.md
+    tokens: 1243
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md

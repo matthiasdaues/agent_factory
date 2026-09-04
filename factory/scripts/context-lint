@@ -1,0 +1,765 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
+"""context-lint — deterministic validation gate for the agent context.
+
+What: Validates docs/agent-context/ (the YAML agent-context interface
+      introduced by ADR-0013 and ADR-0014) with CX-* finding codes:
+      CX-FILE, CX-PARSE, CX-KEYS, CX-NULL, CX-MODE, CX-MODE-INVALID.
+When: Pre-commit hook when agent-context files change.
+By:   context-lint pre-commit hook; developer-agent during Red-Green.
+
+Validates:
+- Each of stack.yaml, workflow.yaml, governance.yaml exists (CX-FILE)
+- reading-guides.yaml exists whenever any index file has mode: index
+  (CX-FILE); it is not required while every index file is mode: primary
+- Each present file parses as valid YAML (CX-PARSE)
+- Each index file carries every required top-level key per its template
+  schema (CX-KEYS)
+- No field mixes a `deferred` key with `name` or `source` at the same
+  field (CX-KEYS)
+- Null leaf values are reported: warning in default mode, error under
+  --planning-gate (CX-NULL)
+- The `mode` field is `primary` or `index` (CX-MODE); any other value is
+  an error (CX-MODE-INVALID)
+
+This story (ST-0190) renamed charter-lint to context-lint and added the
+CX-* codes above. The legacy CH-* charter-validation functions (below,
+under "Legacy charter validation") are preserved unchanged for ST-0192,
+which adds format detection and the CH-* fallback path; they are not
+wired into the default CLI flow.
+
+No third-party dependencies (Python 3.10+ stdlib only) — YAML is parsed
+by a minimal indentation-based parser scoped to the agent-context schema
+(nested mappings, block sequences, scalars, null), not a general-purpose
+YAML implementation.
+
+Usage:
+  context-lint
+  context-lint --context-dir docs/agent-context
+  context-lint --planning-gate
+  context-lint --format json --report-only
+
+Exit code: number of ERROR-severity findings (0 = clean), unless --report-only.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
+
+CHARTER_FILES = ["tech-stack.md", "development.md", "house-rules.md"]
+
+
+@dataclass
+class Finding:
+    """Represents a single validation finding."""
+
+    code: str
+    severity: str
+    artifact: str
+    message: str
+
+    def line(self) -> str:
+        return (
+            f"[{self.severity.upper():7}] {self.code}  {self.artifact}: {self.message}"
+        )
+
+
+# --- Legacy charter validation (preserved for ST-0192 CH-* fallback) ---------
+#
+# Everything from here to "--- Agent context validation ---" below is the
+# original charter-lint implementation, unchanged. It validates the legacy
+# markdown charter (docs/charter/*.md) with CH-* finding codes. ST-0192 wires
+# format detection so context-lint dispatches to this path for legacy
+# projects; until then these functions are defined but not called by main().
+
+# --- YAML frontmatter parser (stdlib only) ------------------------------------
+
+
+def _parse_yaml_value(raw: str) -> Any:
+    """Minimal YAML value parser — handles strings, lists, booleans, null."""
+    val = raw.strip()
+    if not val or val in ("~", "null"):
+        return None
+    if val in ("true", "True", "yes"):
+        return True
+    if val in ("false", "False", "no"):
+        return False
+    if val.startswith("[") and val.endswith("]"):
+        inner = val[1:-1]
+        if not inner.strip():
+            return []
+        return [_unquote(t.strip()) for t in inner.split(",") if t.strip()]
+    return _unquote(val)
+
+
+def _unquote(s: str) -> str:
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in ('"', "'"):
+        return s[1:-1]
+    return s
+
+
+def parse_frontmatter(text: str) -> Tuple[Optional[Dict[str, Any]], str]:
+    """Return (frontmatter_dict | None, body) from ---delimited YAML."""
+    lines = text.split("\n")
+    if not lines or lines[0].strip() != "---":
+        return None, text
+
+    end = None
+    for i, ln in enumerate(lines[1:], start=1):
+        if ln.strip() == "---":
+            end = i
+            break
+    if end is None:
+        return None, text
+
+    fm: Dict[str, Any] = {}
+    current_key: Optional[str] = None
+    current_list: Optional[List[str]] = None
+
+    for ln in lines[1:end]:
+        list_item = re.match(r"^\s+-\s+(.+)$", ln)
+        if list_item and current_key is not None:
+            if current_list is None:
+                current_list = []
+            current_list.append(_unquote(list_item.group(1).strip()))
+            continue
+
+        if current_key is not None and current_list is not None:
+            fm[current_key] = current_list
+            current_list = None
+            current_key = None
+
+        m = re.match(r"^([A-Za-z_][A-Za-z0-9_-]*)\s*:\s*(.*)?$", ln)
+        if m:
+            key = m.group(1)
+            raw_val = (m.group(2) or "").strip()
+            if not raw_val:
+                current_key = key
+                current_list = None
+                fm[key] = None
+            else:
+                current_key = key
+                current_list = None
+                fm[key] = _parse_yaml_value(raw_val)
+
+    if current_key is not None and current_list is not None:
+        fm[current_key] = current_list
+
+    body = "\n".join(lines[end + 1 :])
+    return fm, body
+
+
+# --- Section discovery from templates ------------------------------------------
+
+
+def _extract_sections(text: str) -> Set[str]:
+    """Extract all top-level section headers (## headings) from markdown."""
+    sections: Set[str] = set()
+    for line in text.split("\n"):
+        # Match ## Section Name (not ### or beyond)
+        m = re.match(r"^##\s+(.+)$", line)
+        if m:
+            sections.add(m.group(1).strip())
+    return sections
+
+
+def _load_template_sections(
+    template_dir: Path, charter_file: str
+) -> Set[str]:
+    """Load required sections from template file."""
+    template_map = {
+        "tech-stack.md": "charter-tech-stack.md",
+        "development.md": "charter-development.md",
+        "house-rules.md": "charter-house-rules.md",
+    }
+
+    template_name = template_map.get(charter_file)
+    if not template_name:
+        return set()
+
+    template_path = template_dir / template_name
+    if not template_path.is_file():
+        return set()
+
+    text = template_path.read_text(encoding="utf-8")
+    # Skip frontmatter
+    _, body = parse_frontmatter(text)
+    return _extract_sections(body)
+
+
+def _is_section_empty(text: str, section_name: str) -> bool:
+    """Check if a section has no meaningful content beyond the HTML comment."""
+    lines = text.split("\n")
+    in_section = False
+    section_content = []
+
+    for line in lines:
+        # Start of target section
+        if re.match(rf"^##\s+{re.escape(section_name)}$", line):
+            in_section = True
+            continue
+
+        # End of section (next ## heading or beyond)
+        if in_section and re.match(r"^##", line):
+            break
+
+        if in_section:
+            section_content.append(line)
+
+    # Join content and strip whitespace
+    content = "\n".join(section_content).strip()
+
+    # Remove HTML comment lines
+    content = re.sub(r"<!--.*?-->", "", content, flags=re.DOTALL).strip()
+
+    return len(content) == 0
+
+
+def _has_to_be_decided(text: str) -> bool:
+    """Check if text contains 'To be decided' entries."""
+    return bool(re.search(r"To be decided", text, re.IGNORECASE))
+
+
+# --- Validation checks --------------------------------------------------------
+
+
+def check_charter_file(
+    path: Path, template_sections: Set[str], planning_gate: bool = False
+) -> List[Finding]:
+    """Validate a single charter file."""
+    findings: List[Finding] = []
+    rel = path.name
+
+    if not path.is_file():
+        findings.append(
+            Finding("CH-FILE", "error", rel, f"file does not exist")
+        )
+        return findings
+
+    text = path.read_text(encoding="utf-8")
+
+    # Parse frontmatter
+    fm, body = parse_frontmatter(text)
+    if fm is None:
+        findings.append(
+            Finding(
+                "CH-FM",
+                "error",
+                rel,
+                "file has no valid YAML frontmatter (missing --- delimiters)",
+            )
+        )
+        return findings
+
+    # Check required sections exist
+    actual_sections = _extract_sections(body)
+    for required in sorted(template_sections):
+        if required not in actual_sections:
+            findings.append(
+                Finding(
+                    "CH-SECT",
+                    "error",
+                    rel,
+                    f"required section '## {required}' is missing",
+                )
+            )
+
+    # Check no section is empty
+    for section_name in actual_sections:
+        if _is_section_empty(body, section_name):
+            findings.append(
+                Finding(
+                    "CH-EMPTY",
+                    "error",
+                    rel,
+                    f"section '## {section_name}' is empty",
+                )
+            )
+
+    # Planning gate: check for "To be decided"
+    if planning_gate:
+        if _has_to_be_decided(body):
+            if rel in ["tech-stack.md", "development.md"]:
+                findings.append(
+                    Finding(
+                        "CH-TBD",
+                        "error",
+                        rel,
+                        f"contains 'To be decided' entries (not allowed before planning)",
+                    )
+                )
+            # house-rules.md is allowed to have "To be decided"
+
+    return findings
+
+
+def check_charter(
+    charter_dir: Path,
+    template_dir: Path,
+    planning_gate: bool = False,
+) -> Tuple[List[Finding], bool]:
+    """Validate the entire project charter."""
+    findings: List[Finding] = []
+
+    if not charter_dir.is_dir():
+        findings.append(
+            Finding(
+                "CH-DIR",
+                "error",
+                str(charter_dir),
+                "charter directory does not exist",
+            )
+        )
+        return findings, False
+
+    # Load template sections for each file
+    template_sections_map: Dict[str, Set[str]] = {}
+    for charter_file in CHARTER_FILES:
+        sections = _load_template_sections(template_dir, charter_file)
+        template_sections_map[charter_file] = sections
+
+    # Check each charter file
+    all_exist = True
+    for charter_file in CHARTER_FILES:
+        charter_path = charter_dir / charter_file
+        if not charter_path.is_file():
+            findings.append(
+                Finding(
+                    "CH-FILE",
+                    "error",
+                    charter_file,
+                    f"charter file does not exist at {charter_path}",
+                )
+            )
+            all_exist = False
+        else:
+            template_sections = template_sections_map.get(charter_file, set())
+            findings += check_charter_file(
+                charter_path, template_sections, planning_gate
+            )
+
+    findings.sort(key=lambda f: (-SEVERITY_ORDER[f.severity], f.code, f.artifact))
+    return findings, all_exist
+
+
+# --- Agent context validation (CX-* codes) -------------------------------------
+#
+# Everything below validates docs/agent-context/, the YAML interface
+# introduced by ADR-0013 and ADR-0014. It replaces the CH-* section above as
+# context-lint's default behaviour.
+
+#: The three Layer 2 index files. Always required when the context
+#: directory exists (CX-FILE). reading-guides.yaml is Layer 1 and handled
+#: separately because its requiredness depends on mode.
+INDEX_FILES = ["stack.yaml", "workflow.yaml", "governance.yaml"]
+
+READING_GUIDE_FILE = "reading-guides.yaml"
+
+#: Required top-level keys per index file, derived from
+#: factory/rulebooks/templates/context-{stack,workflow,governance}.yaml.
+REQUIRED_KEYS: Dict[str, Set[str]] = {
+    "stack.yaml": {
+        "mode",
+        "languages",
+        "frameworks",
+        "data_stores",
+        "infrastructure",
+        "existing_systems",
+        "licensing",
+        "exclusions",
+    },
+    "workflow.yaml": {
+        "mode",
+        "repository_layout",
+        "getting_started",
+        "running",
+        "testing",
+        "linting",
+        "ci_cd",
+        "branching",
+    },
+    "governance.yaml": {
+        "mode",
+        "commits",
+        "review",
+        "testing_discipline",
+        "architecture_governance",
+        "scope",
+    },
+}
+
+VALID_MODES = {"primary", "index"}
+
+
+class YamlParseError(Exception):
+    """Raised when the minimal YAML parser below cannot parse a document."""
+
+
+def _strip_comment(line: str) -> str:
+    """Strip a trailing '# comment', respecting quoted strings."""
+    in_single = in_double = False
+    for i, ch in enumerate(line):
+        if ch == "'" and not in_double:
+            in_single = not in_single
+        elif ch == '"' and not in_single:
+            in_double = not in_double
+        elif ch == "#" and not in_single and not in_double:
+            if i == 0 or line[i - 1] in (" ", "\t"):
+                return line[:i]
+    return line
+
+
+def _parse_yaml_scalar(raw: str) -> Any:
+    """Parse a single YAML scalar: null, bool, quoted or bare string."""
+    val = raw.strip()
+    if val == "" or val in ("~", "null", "Null", "NULL"):
+        return None
+    if len(val) >= 2 and val[0] == val[-1] and val[0] in ("'", '"'):
+        return val[1:-1]
+    if val in ("true", "True", "TRUE"):
+        return True
+    if val in ("false", "False", "FALSE"):
+        return False
+    return val
+
+
+def _line_indent(line: str) -> int:
+    """Return the leading-space indent of a line; reject tab indentation."""
+    prefix = line[: len(line) - len(line.lstrip(" \t"))]
+    if "\t" in prefix:
+        raise YamlParseError("tab characters are not allowed for indentation")
+    return len(prefix)
+
+
+_MAPPING_KEY_RE = re.compile(r"^([A-Za-z0-9_][A-Za-z0-9_\-]*)\s*:\s*(.*)$")
+
+
+def parse_yaml(text: str) -> Any:
+    """Parse a restricted YAML subset sufficient for the agent-context schema:
+    nested block mappings, block sequences (including inline first-key
+    sequence items), scalars, and null. Raises YamlParseError on anything
+    that does not fit this subset — including tab indentation and lines
+    that are neither a mapping entry nor a sequence item.
+
+    This is deliberately not a general-purpose YAML implementation: it
+    covers exactly the shapes the four agent-context templates use, per
+    the project's no-third-party-dependency convention for gate scripts.
+    """
+    entries: List[Tuple[int, str]] = []
+    for raw in text.split("\n"):
+        if raw.strip() in ("---", "..."):
+            continue
+        stripped = _strip_comment(raw).rstrip()
+        if stripped.strip() == "":
+            continue
+        indent = _line_indent(stripped)
+        entries.append((indent, stripped.strip()))
+
+    if not entries:
+        return {}
+
+    value, next_idx = _parse_yaml_block(entries, 0, entries[0][0])
+    if next_idx != len(entries):
+        _, bad_content = entries[next_idx]
+        raise YamlParseError(f"unexpected or inconsistently indented line: '{bad_content}'")
+    return value
+
+
+def _parse_yaml_block(
+    entries: List[Tuple[int, str]], idx: int, indent: int
+) -> Tuple[Any, int]:
+    if idx >= len(entries):
+        return None, idx
+    cur_indent, content = entries[idx]
+    if cur_indent != indent:
+        raise YamlParseError(f"inconsistent indentation before '{content}'")
+    if content == "-" or content.startswith("- "):
+        return _parse_yaml_sequence(entries, idx, indent)
+    return _parse_yaml_mapping(entries, idx, indent)
+
+
+def _parse_yaml_sequence(
+    entries: List[Tuple[int, str]], idx: int, indent: int
+) -> Tuple[List[Any], int]:
+    result: List[Any] = []
+    while idx < len(entries) and entries[idx][0] == indent:
+        content = entries[idx][1]
+        if not (content == "-" or content.startswith("- ")):
+            break
+        remainder = "" if content == "-" else content[2:].strip()
+        if remainder == "":
+            idx += 1
+            if idx < len(entries) and entries[idx][0] > indent:
+                item, idx = _parse_yaml_block(entries, idx, entries[idx][0])
+            else:
+                item = None
+        else:
+            m = _MAPPING_KEY_RE.match(remainder)
+            if m:
+                # Inline first-key mapping item, e.g. "- name: Python".
+                # Its effective indent is the column where the key starts.
+                eff_indent = indent + (len(content) - len(remainder))
+                entries[idx] = (eff_indent, remainder)
+                item, idx = _parse_yaml_mapping(entries, idx, eff_indent)
+            else:
+                item = _parse_yaml_scalar(remainder)
+                idx += 1
+        result.append(item)
+    return result, idx
+
+
+def _parse_yaml_mapping(
+    entries: List[Tuple[int, str]], idx: int, indent: int
+) -> Tuple[Dict[str, Any], int]:
+    result: Dict[str, Any] = {}
+    while idx < len(entries) and entries[idx][0] == indent:
+        content = entries[idx][1]
+        if content == "-" or content.startswith("- "):
+            break
+        m = _MAPPING_KEY_RE.match(content)
+        if not m:
+            raise YamlParseError(f"cannot parse mapping entry: '{content}'")
+        key, rest = m.group(1), m.group(2)
+        idx += 1
+        if rest == "":
+            if idx < len(entries) and entries[idx][0] > indent:
+                value, idx = _parse_yaml_block(entries, idx, entries[idx][0])
+            else:
+                value = None
+        else:
+            value = _parse_yaml_scalar(rest)
+        result[key] = value
+    return result, idx
+
+
+def _walk(node: Any, path: str = ""):
+    """Yield (keypath, node) for every dict and every leaf under node."""
+    yield path, node
+    if isinstance(node, dict):
+        for key, value in node.items():
+            child_path = f"{path}.{key}" if path else key
+            yield from _walk(value, child_path)
+    elif isinstance(node, list):
+        for i, value in enumerate(node):
+            yield from _walk(value, f"{path}[{i}]")
+
+
+def _find_null_leaves(data: Dict[str, Any], exclude_top_level: Set[str]) -> List[str]:
+    """Return keypaths of every null leaf, excluding named top-level keys."""
+    found = []
+    for key, value in data.items():
+        if key in exclude_top_level:
+            continue
+        for keypath, node in _walk(value, key):
+            if node is None:
+                found.append(keypath)
+    return found
+
+
+def _find_deferred_conflicts(data: Dict[str, Any]) -> List[str]:
+    """Return keypaths of every mapping where 'deferred' coexists with
+    'name' or 'source'."""
+    found = []
+    for keypath, node in _walk(data):
+        if isinstance(node, dict) and "deferred" in node:
+            if "name" in node or "source" in node:
+                found.append(keypath or "<root>")
+    return found
+
+
+def check_index_file(
+    path: Path, required_keys: Set[str], planning_gate: bool
+) -> Tuple[List[Finding], Optional[Dict[str, Any]]]:
+    """Validate one Layer 2 index file. Returns (findings, parsed_data);
+    parsed_data is None when the file does not exist or fails to parse."""
+    findings: List[Finding] = []
+    rel = path.name
+
+    if not path.is_file():
+        findings.append(Finding("CX-FILE", "error", rel, "required file does not exist"))
+        return findings, None
+
+    text = path.read_text(encoding="utf-8")
+    try:
+        data = parse_yaml(text)
+    except YamlParseError as exc:
+        findings.append(Finding("CX-PARSE", "error", rel, f"invalid YAML: {exc}"))
+        return findings, None
+
+    if not isinstance(data, dict):
+        findings.append(
+            Finding("CX-KEYS", "error", rel, "file does not contain a top-level mapping")
+        )
+        return findings, data
+
+    missing_keys = required_keys - set(data.keys())
+    for key in sorted(missing_keys):
+        findings.append(
+            Finding("CX-KEYS", "error", rel, f"required top-level key '{key}' is missing")
+        )
+
+    mode_val = data.get("mode")
+    if "mode" not in missing_keys:
+        if mode_val in VALID_MODES:
+            findings.append(Finding("CX-MODE", "info", rel, f"mode is '{mode_val}'"))
+        else:
+            findings.append(
+                Finding(
+                    "CX-MODE-INVALID",
+                    "error",
+                    rel,
+                    f"unrecognized mode value: {mode_val!r} (must be 'primary' or 'index')",
+                )
+            )
+
+    null_severity = "error" if planning_gate else "warning"
+    for keypath in _find_null_leaves(data, exclude_top_level={"mode"}):
+        findings.append(Finding("CX-NULL", null_severity, rel, f"'{keypath}' is null"))
+
+    for keypath in _find_deferred_conflicts(data):
+        findings.append(
+            Finding(
+                "CX-KEYS",
+                "error",
+                rel,
+                f"'{keypath}' has 'deferred' coexisting with 'name' or 'source'",
+            )
+        )
+
+    return findings, data
+
+
+def check_agent_context(context_dir: Path, planning_gate: bool = False) -> List[Finding]:
+    """Validate docs/agent-context/ and return every CX-* finding.
+
+    Returns an empty list when context_dir does not exist — an agent-context
+    directory is optional (a legacy-charter project has none); format
+    detection between the two is ST-0192's responsibility, not this
+    function's.
+    """
+    findings: List[Finding] = []
+    if not context_dir.is_dir():
+        return findings
+
+    any_index_mode = False
+    for filename in INDEX_FILES:
+        file_findings, data = check_index_file(
+            context_dir / filename, REQUIRED_KEYS[filename], planning_gate
+        )
+        findings += file_findings
+        if isinstance(data, dict) and data.get("mode") == "index":
+            any_index_mode = True
+
+    guide_path = context_dir / READING_GUIDE_FILE
+    if guide_path.is_file():
+        try:
+            parse_yaml(guide_path.read_text(encoding="utf-8"))
+        except YamlParseError as exc:
+            findings.append(
+                Finding("CX-PARSE", "error", READING_GUIDE_FILE, f"invalid YAML: {exc}")
+            )
+    elif any_index_mode:
+        findings.append(
+            Finding(
+                "CX-FILE",
+                "error",
+                READING_GUIDE_FILE,
+                "required file does not exist (an index file has mode: index)",
+            )
+        )
+
+    findings.sort(key=lambda f: (-SEVERITY_ORDER[f.severity], f.code, f.artifact))
+    return findings
+
+
+# --- Driver -------------------------------------------------------------------
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(
+        description="Deterministic validation gate for the agent context."
+    )
+    p.add_argument(
+        "--context-dir",
+        default="docs/agent-context",
+        type=Path,
+        help="Path to the agent-context directory (default: docs/agent-context)",
+    )
+    p.add_argument(
+        "--charter-dir",
+        default=None,
+        type=Path,
+        help=(
+            "Run the legacy CH-* markdown-charter check against this directory "
+            "instead of the agent-context CX-* check (preserved for ST-0192)."
+        ),
+    )
+    p.add_argument(
+        "--template-dir",
+        default="factory/rulebooks/templates",
+        type=Path,
+        help="Path to templates, used only with --charter-dir (default: factory/rulebooks/templates)",
+    )
+    p.add_argument(
+        "--planning-gate",
+        action="store_true",
+        help="Stricter mode: null fields (CX-NULL) become errors",
+    )
+    p.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        dest="fmt",
+        help="Output format (default: text)",
+    )
+    p.add_argument(
+        "--report-only",
+        action="store_true",
+        help="Always exit 0 (report without gating)",
+    )
+
+    args = p.parse_args(argv)
+
+    if args.charter_dir is not None:
+        findings, _ = check_charter(args.charter_dir, args.template_dir, args.planning_gate)
+    else:
+        findings = check_agent_context(args.context_dir, args.planning_gate)
+
+    counts = {s: sum(1 for f in findings if f.severity == s) for s in SEVERITY_ORDER}
+
+    if args.fmt == "json":
+        # Output JSON to stderr
+        sys.stderr.write(
+            json.dumps(
+                {
+                    "findings": [asdict(f) for f in findings],
+                    "summary": counts,
+                },
+                indent=2,
+            )
+        )
+        sys.stderr.write("\n")
+    else:
+        # Output text to stderr
+        for f in findings:
+            sys.stderr.write(f.line() + "\n")
+        sys.stderr.write(
+            f"\ncontext-lint: {counts['error']} error(s), "
+            f"{counts['warning']} warning(s), {counts['info']} info.\n"
+        )
+
+    return 0 if args.report_only else counts["error"]
+
+
+if __name__ == "__main__":
+    sys.exit(main())

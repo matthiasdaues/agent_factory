@@ -47,6 +47,20 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST** complete all must-have Epic 0 stories before any feature story begins.
 - **MUST** read house-rules and adjust workflow accordingly.
 
+## Agent context composition
+
+→ [agent-context-composition.md](conventions/agent-context-composition.md)
+
+- **MUST** populate `docs/agent-context/` as the factory-facing interface to project knowledge.
+- **MUST** set `mode: primary` when the index files are the primary source of decisions.
+- **MUST** set `mode: index` when the index files are projections of existing documentation.
+- **MUST** include a `source:` pointer on every non-null, non-deferred leaf field when `mode: index`.
+- **MUST NOT** hand-edit an index file that carries `mode: index` (use `update-context`).
+- **MUST NOT** write upstream — `update-context` writes only to `docs/agent-context/*.yaml`, never to source documents.
+- **MUST NOT** place `source:` pointers in `reading-guides.yaml`.
+- **MUST NOT** mix YAML agent-context and markdown charter formats in one project.
+- **MUST** point `source:` at the project-local convention when it exists, not at the factory rulebook default it overrides.
+
 ## Testing
 
 → [testing-strategy.md](conventions/testing-strategy.md)
@@ -181,6 +195,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 ## Referenced from
 
 - [foundational-principles.md](conventions/foundational-principles.md)
+- [agent-context-composition.md](conventions/agent-context-composition.md)
 - [branching-policy.md § Project-Specific Rules](conventions/branching-policy.md#project-specific-rules)
 - [dispatch-contract.md § Project-Specific Rules](conventions/dispatch-contract.md#project-specific-rules)
 - [commit-conventions.md § Story/Bug ID Required](conventions/commit-conventions.md#storybug-id-required)
