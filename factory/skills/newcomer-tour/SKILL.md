@@ -13,8 +13,8 @@ Orient newcomers warmly and briefly.
 
 ## Procedure
 
-1. Ask whether the user has completed a `poc-spike`, created a project
-   charter, or run a Factory playbook.
+1. Ask whether the user has completed a `poc-spike`, set up agent context,
+   or run a Factory playbook.
 2. If yes, offer to skip ahead or start fresh. If no, begin the tour.
 3. Read the full Getting Started section of `factory/docs/factory-guide.md`.
 4. Cover its concepts in order, combining adjacent material when one
@@ -39,7 +39,7 @@ Orient newcomers warmly and briefly.
 - Prefer one clear sentence over a paragraph.
 - Do not announce, preview, and repeat the same point.
 - Do not praise every acknowledgement.
-- Do not assume a charter exists.
+- Do not assume agent context or a charter exists.
 - Do not reference `docs/arc42/beginner-intro.md`.
 - Do not spawn agents or launch a playbook.
 

@@ -90,7 +90,7 @@ At minimum check:
 - Specification (`docs/spec/`)
 - ADRs (`docs/adr/`)
 - Open decisions (`docs/open-decisions.md`)
-- Agent context (`docs/agent-context/`, falls back to `docs/charter/` for legacy projects)
+- Agent context (read `docs/agent-context/reading-guides.yaml` first, then follow key-path references into index files; falls back to `docs/charter/` for legacy projects)
 - Domain model (`docs/CONTEXT.md`)
 - PRD (`docs/prd/`)
 

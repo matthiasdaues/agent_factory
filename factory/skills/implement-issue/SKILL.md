@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 Pick a single story from the backlog (`backlog/ST-NNNN.md`) and implement it using **TDD**. Apply **Clean Architecture** and **SOLID** throughout.
 
-Read `docs/CONTEXT.md` if it exists — match test names and interface vocabulary to the project's domain language. Respect ADRs in the area you're touching.
+Read `docs/CONTEXT.md` if it exists — match test names and interface vocabulary to the project's domain language. Respect ADRs in the area you're touching. Read `docs/agent-context/reading-guides.yaml` to discover which index-file sections are relevant to the story's concern, then follow the key-path references into the index files for project context (falls back to `docs/charter/*.md` for legacy projects).
 
 ## Step 1 — Analyse
 

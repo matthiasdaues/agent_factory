@@ -1,6 +1,6 @@
 ---
 name: qa-strategy-from-spec
-description: Derive a per-feature QA strategy document from a consolidated .feature file, supplementary specs, charter layer bindings, and repository test infrastructure.
+description: Derive a per-feature QA strategy document from a consolidated .feature file, supplementary specs, testing.yaml layer bindings, and repository test infrastructure.
 category: requirements
 disable-model-invocation: false
 ---
@@ -8,7 +8,7 @@ disable-model-invocation: false
 # QA Strategy From Spec
 
 Derive a **per-feature QA plan** from the consolidated Gherkin feature file,
-the supplementary specs, the project charter's layer bindings, and the
+the supplementary specs, the `testing.yaml` layer bindings, and the
 repository's actual test infrastructure. The output tells the `qa-agent` how
 to specialise the generic testing strategy for one feature's contracts,
 boundaries, and risk profile.
