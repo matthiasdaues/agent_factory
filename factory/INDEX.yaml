@@ -19,8 +19,8 @@ agents:
     tier: standard
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
-    tokens: 1492
-    total_tokens: 7270
+    tokens: 1578
+    total_tokens: 11185
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
@@ -38,7 +38,7 @@ agents:
     description: "Capture a project vision, clarify requirements through adversarial interview, and produce a complete specification: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models."
     path: agents/requirements-agent.md
     tokens: 1777
-    total_tokens: 13586
+    total_tokens: 13672
   - name: spec-review-agent
     title: Specification Review Agent
     phase: 1
@@ -73,8 +73,8 @@ agents:
     tier: strong
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
-    tokens: 995
-    total_tokens: 6377
+    tokens: 1035
+    total_tokens: 6461
   - name: implementation-agent
     title: Implementation Agent (Dispatcher)
     phase: 4
@@ -82,8 +82,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints. Each subagent implements one story using TDD on its own feature branch. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 3788
-    total_tokens: 10917
+    tokens: 3853
+    total_tokens: 10982
   - name: reconciliation-agent
     title: Reconciliation Agent
     phase: 4
@@ -151,8 +151,8 @@ agents:
     title: Developer Agent
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
-    tokens: 1929
-    total_tokens: 4478
+    tokens: 1986
+    total_tokens: 4556
 
 skills:
   - name: capture-context
@@ -204,7 +204,7 @@ skills:
     category: requirements
     description: Derive a per-feature QA strategy document from a consolidated .feature file, supplementary specs, charter layer bindings, and repository test infrastructure.
     path: skills/qa-strategy-from-spec/SKILL.md
-    tokens: 3902
+    tokens: 3988
   - name: reverse-map
     category: requirements
     description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation. Writes docs/spec/scope-map.md and seeds docs/CONTEXT.md.
@@ -259,12 +259,12 @@ skills:
     category: planning
     description: Survey codebase, read specs, and present the EPIC slicing approach for user approval. Phase 1 of 4 in the create-backlog sequence.
     path: skills/create-backlog-epics/SKILL.md
-    tokens: 978
+    tokens: 995
   - name: create-backlog-stories
     category: planning
     description: Read confirmed slice tables, write backlog/ST-NNNN.md story files with MoSCoW priorities, dependencies, and quality gates. Phase 4 of 4 in the create-backlog sequence.
     path: skills/create-backlog-stories/SKILL.md
-    tokens: 1202
+    tokens: 1229
   - name: create-backlog-story-slices
     category: planning
     description: Read confirmed backlog/epics.md, sketch story-level slice tables per EPIC, and present them for user approval. Phase 3 of 4 in the create-backlog sequence.
@@ -279,12 +279,12 @@ skills:
     category: planning
     description: Design test scenarios from .feature contracts and the scope map before stories are cut. Assigns one test owner per contract across the backlog, classifies contracts by risk class, and writes concrete failure scenarios into backlog/epics.md. Optional step 2.5 in the create-backlog sequence, between create-backlog-write-epics and create-backlog-story-slices.
     path: skills/test-design/SKILL.md
-    tokens: 3734
+    tokens: 3819
   - name: crap-score
     category: implementation
     description: Compute CRAP (Change Risk Anti-Patterns) per function and block when any exceeds the threshold.
     path: skills/crap-score/SKILL.md
-    tokens: 634
+    tokens: 651
   - name: dependency-check
     category: implementation
     description: Enforce architecture.dsl dependency rules by scanning source imports and writing a JSON gate report.
@@ -294,7 +294,7 @@ skills:
     category: implementation
     description: Implement a single backlog story with TDD — analyse, red-green, commit, check docs.
     path: skills/implement-issue/SKILL.md
-    tokens: 731
+    tokens: 752
   - name: reconcile-spec
     category: implementation
     description: Comprehensive code-vs-spec reconciliation — build truth maps, diff, update or flag every discrepancy.
@@ -342,9 +342,9 @@ skills:
     tokens: 520
   - name: detect-test-regime
     category: utility
-    description: Scan project for test suites and record each one in docs/charter/testing.yaml. Code is the source of truth; the charter is a derived record.
+    description: Scan project for test suites and record each one in testing.yaml (at docs/agent-context/testing.yaml, falling back to docs/charter/testing.yaml). Code is the source of truth; the record is derived.
     path: skills/detect-test-regime/SKILL.md
-    tokens: 2896
+    tokens: 2946
   - name: domain-modeling
     category: utility
     description: Build and sharpen a project's domain model — challenge terminology, record architecture decisions, update docs/CONTEXT.md and docs/adr/ inline as decisions crystallise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
@@ -379,7 +379,7 @@ skills:
     category: utility
     description: Process a meeting transcript into two markdown artifacts — a verbatim protocol and a comparison against the current repository state. Use when the user provides a transcript, mentions "process transcript", or wants to compare a discussion against the spec.
     path: skills/process-transcript/SKILL.md
-    tokens: 1424
+    tokens: 1439
   - name: retrospective
     category: utility
     description: Run a structured session retrospective across five categories. Produces a timestamped report in docs/reviews/.
@@ -404,7 +404,7 @@ skills:
     category: utility
     description: Run every applicable deterministic gate on demand, mid-session — the custom lint scripts plus ruff and mdformat — without needing a git commit.
     path: skills/validate/SKILL.md
-    tokens: 1084
+    tokens: 1093
   - name: adversarial-review
     category: research
     description: Test a claim, its evidence, and refutation attempts against ten review checks, classify defects, and produce a vote tied to exact claim hash.
@@ -468,8 +468,8 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 2995
-    total_tokens: 28874
+    tokens: 3030
+    total_tokens: 28909
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -480,7 +480,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 777
-    total_tokens: 13410
+    total_tokens: 13488
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -492,7 +492,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 944
-    total_tokens: 33607
+    total_tokens: 33672
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -507,8 +507,8 @@ playbooks:
       - implementation-agent
       - reconciliation-agent
       - qa-agent
-    tokens: 4706
-    total_tokens: 73777
+    tokens: 4799
+    total_tokens: 74105
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -525,8 +525,8 @@ playbooks:
       - reconciliation-agent
       - qa-agent
       - coaching-agent
-    tokens: 3078
-    total_tokens: 73273
+    tokens: 3167
+    total_tokens: 73597
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -542,7 +542,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1281
-    total_tokens: 13914
+    total_tokens: 13992
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration

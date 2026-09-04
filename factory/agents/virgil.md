@@ -13,8 +13,8 @@ description: >-
 skills:
   - newcomer-tour
   - explain-concept
-  - capture-charter
-  - update-charter
+  - capture-context
+  - update-context
   - grilling
   - validate
   - draft-proposal
@@ -22,19 +22,19 @@ skills:
 inputs:
   - factory/docs/factory-guide.md
   - factory/INDEX.yaml
-  - docs/charter/tech-stack.md
-  - docs/charter/development.md
-  - docs/charter/house-rules.md
-  - docs/charter/testing.yaml
+  - docs/agent-context/stack.yaml (falls back to docs/charter/tech-stack.md)
+  - docs/agent-context/workflow.yaml (falls back to docs/charter/development.md)
+  - docs/agent-context/governance.yaml (falls back to docs/charter/house-rules.md)
+  - docs/agent-context/testing.yaml (falls back to docs/charter/testing.yaml)
   - factory/rulebooks/templates/charter-tech-stack.md
   - factory/rulebooks/templates/charter-development.md
   - factory/rulebooks/templates/charter-house-rules.md
   - factory/rulebooks/conventions/testing-strategy.md
 outputs:
-  - docs/charter/tech-stack.md
-  - docs/charter/development.md
-  - docs/charter/house-rules.md
-  - docs/charter/testing.yaml
+  - docs/agent-context/stack.yaml (falls back to docs/charter/tech-stack.md)
+  - docs/agent-context/workflow.yaml (falls back to docs/charter/development.md)
+  - docs/agent-context/governance.yaml (falls back to docs/charter/house-rules.md)
+  - docs/agent-context/testing.yaml (falls back to docs/charter/testing.yaml)
   - backlog/ST-*.md
 triggers:
   - "show me around"

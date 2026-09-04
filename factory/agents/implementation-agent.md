@@ -21,7 +21,7 @@ inputs:
   - docs/spec/supplementary_specs/*.md
   - docs/*.md
   - docs/adr/*.md
-  - docs/charter/*.md
+  - docs/agent-context/*.yaml (falls back to docs/charter/*.md for legacy projects)
   - docs/CONTEXT.md
   - factory/rulebooks/conventions/branching-policy.md
   - factory/rulebooks/conventions/dispatch-contract.md
@@ -94,7 +94,7 @@ For Pi: `review` mode uses `run_agent` (serial), never `dispatch_wave`.
 
 ## Workflow
 
-1. **Load backlog + initialise dispatch run** — Parse all `backlog/ST-*.md`: `id`, `status`, `deps`, `tier`, `outputs`. Build dependency graph. Identify **ready stories** (`status: pending`, all `deps` done). Read the charter (`docs/charter/*.md`) to inform model selection and dispatch strategy. Before any subagent launch, call `factory/scripts/dispatch init --base <base-branch> --stories <comma-separated-story-ids>` so the script can create the invocation branch/worktree, preflight output directories, record branch root, and initialise the script-owned ledger under `.current-work/`. If resuming, recover state from that ledger instead of reconstructing from git history.
+1. **Load backlog + initialise dispatch run** — Parse all `backlog/ST-*.md`: `id`, `status`, `deps`, `tier`, `outputs`. Build dependency graph. Identify **ready stories** (`status: pending`, all `deps` done). Read the project context from `docs/agent-context/*.yaml` (falls back to `docs/charter/*.md` for legacy projects) to inform model selection and dispatch strategy. Before any subagent launch, call `factory/scripts/dispatch init --base <base-branch> --stories <comma-separated-story-ids>` so the script can create the invocation branch/worktree, preflight output directories, record branch root, and initialise the script-owned ledger under `.current-work/`. If resuming, recover state from that ledger instead of reconstructing from git history.
 2. **Plan wave** — Call `factory/scripts/dispatch plan --backlog-dir backlog [--stories <ids>]`. Group ready stories by declared `outputs:` overlap (in addition to dependency-readiness, not instead of it):
    - **Epic 0 scheduling**: Identify stories with `epic: "Epic 0 — Project Setup"` and schedule them as **wave 1** with highest priority. No feature story (non-Epic 0) dispatches until all must-have Epic 0 stories reach terminal state. Use the existing dependency mechanism: feature stories carry `deps:` on the final Epic 0 story ("Update development.md"), which chains from all other Epic 0 stories. The agent does not need new scheduling logic — the dependency graph enforces precedence automatically.
    - **Parallel-safe set**: file-disjoint stories → dispatch in parallel within the wave.
@@ -125,16 +125,16 @@ After the developer-agent commits and the dispatcher verifies the commit SHA (St
 
 #### Quality-gates resolution
 
-The dispatcher determines which gates apply to the story by combining two inputs: the per-gate configuration from `docs/charter/testing.yaml`'s `gates` section, and the story-level `quality-gates` override field.
+The dispatcher determines which gates apply to the story by combining two inputs: the per-gate configuration from `testing.yaml`'s `gates` section (at `docs/agent-context/testing.yaml`, falling back to `docs/charter/testing.yaml` for legacy projects), and the story-level `quality-gates` override field.
 
-**Gate discovery from `testing.yaml`:** The dispatcher reads `docs/charter/testing.yaml` and iterates the `gates` section. For each gate entry it reads the `enabled` flag: gates where `enabled` is `false` are skipped. Gates where `enabled` is `true` are included in the resolved gate list. Gate-specific parameters (such as `threshold` for `crap_score`) are passed to the corresponding gate script at invocation time.
+**Gate discovery from `testing.yaml`:** The dispatcher reads `testing.yaml` (resolved via format detection) and iterates the `gates` section. For each gate entry it reads the `enabled` flag: gates where `enabled` is `false` are skipped. Gates where `enabled` is `true` are included in the resolved gate list. Gate-specific parameters (such as `threshold` for `crap_score`) are passed to the corresponding gate script at invocation time.
 
 **Special case — `test_design_verify`:** This gate is implicitly enabled when the story file contains a Failure scenarios section or a Prior Tests section. It is skipped when no test-design output exists in the story. It does not require an explicit `enabled` flag in `testing.yaml`.
 
 **Precedence (highest wins):**
 
 1. **Story-level `quality-gates` field** — if the story's frontmatter declares `quality-gates`, use that list. Exclusion of a default gate requires a justification in the story's `notes:` field.
-2. **Project-level `gates` in `testing.yaml`** — if the story field is absent, read gate configuration from `docs/charter/testing.yaml`'s `gates` section: include each gate where `enabled` is `true`, skip each gate where `enabled` is `false`.
+2. **Project-level `gates` in `testing.yaml`** — if the story field is absent, read gate configuration from `testing.yaml`'s `gates` section (resolved via format detection): include each gate where `enabled` is `true`, skip each gate where `enabled` is `false`.
 3. **Factory hardcoded default** — if neither story nor `testing.yaml` declares gates, apply both: `crap-score`, `dependency-check` (fail-closed).
 
 #### Gate execution
@@ -162,7 +162,7 @@ When any gate fails:
 
 #### Iteration cap and escalation
 
-The maximum number of fix iterations per tier is **3** (Factory default, tunable in `docs/charter/house-rules.md` via `max_gate_fix_iterations`). Counting includes the initial developer run: iteration 1 is the original implementation; iterations 2 and 3 are fix attempts.
+The maximum number of fix iterations per tier is **3** (Factory default, tunable in `docs/agent-context/governance.yaml` or `docs/charter/house-rules.md` via `max_gate_fix_iterations`). Counting includes the initial developer run: iteration 1 is the original implementation; iterations 2 and 3 are fix attempts.
 
 When the cap is hit at the current tier:
 

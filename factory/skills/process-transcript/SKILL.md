@@ -90,7 +90,7 @@ At minimum check:
 - Specification (`docs/spec/`)
 - ADRs (`docs/adr/`)
 - Open decisions (`docs/open-decisions.md`)
-- Charter (`docs/charter/`)
+- Agent context (`docs/agent-context/`, falls back to `docs/charter/` for legacy projects)
 - Domain model (`docs/CONTEXT.md`)
 - PRD (`docs/prd/`)
 

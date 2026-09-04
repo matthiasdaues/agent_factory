@@ -3,7 +3,7 @@ name: create-backlog-stories
 description: "Read confirmed slice tables, write backlog/ST-NNNN.md story files with MoSCoW priorities, dependencies, and quality gates. Phase 4 of 4 in the create-backlog sequence."
 category: planning
 inputs:
-  - docs/charter/testing.yaml
+  - docs/agent-context/testing.yaml (falls back to docs/charter/testing.yaml)
 disable-model-invocation: false
 ---
 
@@ -27,12 +27,12 @@ When charter files exist, extract concrete implementation names (test framework,
 
 For each story, cross-reference against the testing regime:
 
-1. Read `docs/charter/testing.yaml` and its `suites` list.
+1. Read `testing.yaml` (at `docs/agent-context/testing.yaml`, falling back to `docs/charter/testing.yaml` for legacy projects) and its `suites` list.
 2. For each suite, scan the suite's `root` directory for files matching its `pattern`.
 3. Compare discovered test files against the story's acceptance criteria — by filename, test function names, and docstrings where available.
 4. When pre-existing tests match, record their file paths in the story's `tests:` field.
 5. When no existing test covers a criterion, record the target suite for new tests in the story's Notes for the Implementer section (e.g. "New tests target the `backend` suite under `packages/server/backend/tests`").
-6. Read the document referenced by `testing_strategy:` in `docs/charter/testing.yaml` to determine cluster assignment and test budget for the story.
+6. Read the document referenced by `testing_strategy:` in `testing.yaml` to determine cluster assignment and test budget for the story.
 
 **When `backlog/epics.md` contains test-design sections** (produced by the optional test-design skill in phase 2.5), carry them into the story files:
 

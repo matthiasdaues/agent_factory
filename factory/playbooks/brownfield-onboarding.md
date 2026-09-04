@@ -246,8 +246,9 @@ The skill:
 
 1. Scans for signals (package manifests, test configs, linter configs, IaC, CI/CD
    pipelines)
-2. Pre-populates the three charter files (`docs/charter/tech-stack.md`,
-   `docs/charter/development.md`, `docs/charter/house-rules.md`)
+2. Pre-populates the three context files (`docs/agent-context/stack.yaml`,
+   `docs/agent-context/workflow.yaml`, `docs/agent-context/governance.yaml`;
+   falls back to `docs/charter/*.md` for legacy projects)
 3. Presents findings to the stakeholder for confirmation
 
 **⚠️ No Epic 0 derivation in brownfield** — the mise en place (infrastructure,
@@ -255,7 +256,7 @@ setup scripts, configurations) already exists in the scanned codebase. Unlike
 greenfield, which must *create* those artifacts, brownfield *documents* them.
 The charter records reality as it stands.
 
-**Expected output**: `docs/charter/` (three documents), confirmed by
+**Expected output**: `docs/agent-context/` (three index files; falls back to `docs/charter/` for legacy projects), confirmed by
 stakeholder
 
 **If scan incomplete** → Stakeholder corrects or adds findings
@@ -318,7 +319,7 @@ The playbook ends when the following terminal artifacts exist:
 - [ ] `docs/spec/supplementary_specs/*.md` (entity model, state machines, validation rules, interface contracts)
 - [ ] `docs/spec/prd.md` (reverse-engineered product requirements)
 - [ ] `docs/spec/todos.md` (identified specification gaps and technical debt)
-- [ ] `docs/charter/*.md` (project charter: tech-stack, development practices, house rules)
+- [ ] `docs/agent-context/*.yaml` or `docs/charter/*.md` (project context: stack, workflow, governance)
 - [ ] `docs/reviews/atam-review.md` (architecture review findings — all addressed)
 
 **Next Phase:**

@@ -10,15 +10,18 @@ steps:
       - 'docs/proposals/**/*.md'
       - 'docs/spec/**/*.md'
       - 'docs/spec/**/*.feature'
+      - 'docs/agent-context/**/*.yaml'
       - 'docs/charter/**/*.md'
     outputs:
       - 'docs/proposals/**/*.md'
     max_input_tokens: 40000
-  - name: charter-amendment-check
+  - name: context-amendment-check
     inputs:
       - 'docs/proposals/**/*.md'
+      - 'docs/agent-context/**/*.yaml'
       - 'docs/charter/**/*.md'
     outputs:
+      - 'docs/agent-context/**/*.yaml'
       - 'docs/charter/**/*.md'
       - 'backlog/ST-0*.md'
     max_input_tokens: 40000
@@ -261,7 +264,7 @@ multiplies cost by the number of questions asked.
 
 **Manual decision**: Does this feature require charter amendments?
 
-Read [`docs/charter/`](../../docs/charter/) to understand current declarations
+Read project context from [`docs/agent-context/`](../../docs/agent-context/) (falls back to [`docs/charter/`](../../docs/charter/) for legacy projects) to understand current declarations
 for tech stack, development practices, and house rules.
 
 **If no amendments needed** → Skip to Step 0.2.
@@ -269,8 +272,10 @@ for tech stack, development practices, and house rules.
 **If amendments needed**:
 
 1. Invoke [`update-charter`](../skills/update-charter/SKILL.md) to update the
-   relevant section(s) of `docs/charter/tech-stack.md`,
-   `docs/charter/development.md`, or `docs/charter/house-rules.md`.
+   relevant section(s) of `docs/agent-context/stack.yaml`,
+   `docs/agent-context/workflow.yaml`, or `docs/agent-context/governance.yaml`
+   (falls back to `docs/charter/tech-stack.md`, `docs/charter/development.md`,
+   or `docs/charter/house-rules.md` for legacy projects).
 2. Run `factory/scripts/charter-lint --planning-gate` on changed documents to
    ensure completeness.
 3. If new decisions emerge that imply infrastructure, setup, or configuration
