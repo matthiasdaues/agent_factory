@@ -20,7 +20,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 1492
-    total_tokens: 8504
+    total_tokens: 7270
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
@@ -38,7 +38,7 @@ agents:
     description: "Capture a project vision, clarify requirements through adversarial interview, and produce a complete specification: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models."
     path: agents/requirements-agent.md
     tokens: 1777
-    total_tokens: 14820
+    total_tokens: 13586
   - name: spec-review-agent
     title: Specification Review Agent
     phase: 1
@@ -56,7 +56,7 @@ agents:
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
     tokens: 1498
-    total_tokens: 9524
+    total_tokens: 8290
   - name: architecture-review-agent
     title: Architecture Review Agent
     phase: 2
@@ -395,11 +395,11 @@ skills:
     description: Append a quick note to session-scratchpad.md, sectioned by date. Use when the user says "note this down:", "make a note of this:", or invokes "/scratchpad" or "/scratch".
     path: skills/scratchpad/SKILL.md
     tokens: 354
-  - name: update-charter
+  - name: update-context
     category: utility
-    description: Update a section in the project charter (tech-stack, development, or house-rules). Invokable by any agent during any phase. Owns the write target docs/charter/*.md.
-    path: skills/update-charter/SKILL.md
-    tokens: 1234
+    description: "Update a field in docs/agent-context/*.yaml as decisions emerge. Writes inline values directly when mode: primary; writes name and source together when mode: index, refusing any write that lacks a source pointer. Records deferred decisions as deferred: \"reason\" and proposes creating reading-guides.yaml on the first source pointer. Invokable by any agent during any phase."
+    path: skills/update-context/SKILL.md
+    tokens: 2422
   - name: validate
     category: utility
     description: Run every applicable deterministic gate on demand, mid-session — the custom lint scripts plus ruff and mdformat — without needing a git commit.
@@ -457,7 +457,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1108
-    total_tokens: 16211
+    total_tokens: 14977
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -469,7 +469,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 2995
-    total_tokens: 30108
+    total_tokens: 28874
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -508,7 +508,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4706
-    total_tokens: 76245
+    total_tokens: 73777
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -526,7 +526,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 3078
-    total_tokens: 75741
+    total_tokens: 73273
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
