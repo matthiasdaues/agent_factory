@@ -54,57 +54,32 @@ Steps
   3. Copy factory/ from --source into --target, UNLESS --target/factory
      already exists — in that case this step is skipped (not diffed, not
      refreshed; that's the update script's job, factory/scripts/update-factory).
-  4. Create --target/.claude, --target/.github, and --target/.pi (if missing).
+  4. Create the dot-directory for --cli (or all if not specified). --cli is
+     auto-detected from the target when possible.
   5. Symlink factory/{agents,skills,playbooks,rulebooks,scripts,INDEX.yaml}
-     and the orientation file into each CLI's local directory. NON-INTERFERENCE:
-     if an orientation file (.claude/CLAUDE.md, .github/copilot-instructions.md,
-     or AGENTS.md for Pi/Codex) already exists as a real file, a marker-fenced
-     orientation block is prepended (an @-include for Claude Code, inlined
-     content for Copilot CLI, Pi, and Codex). The project's own content is
-     preserved below the block. remove-factory strips the block on uninstall.
-  6. Install the git-safety guardrail for all three CLIs:
-       - Claude Code: symlink the shared hook and wire it into
-         .claude/settings.json (created if absent, merged if present, never
-         duplicated).
-       - Copilot CLI: symlink the shared hook script and JSON matcher into
-         .github/hooks/.
-       - Pi: symlink the project-local extension
-         `.pi/extensions/block-dangerous-git.ts`.
+     and the orientation file into the selected CLI's local directory.
+     NON-INTERFERENCE: if an orientation file (.claude/CLAUDE.md,
+     .github/copilot-instructions.md, or AGENTS.md for Pi/Codex) already
+     exists as a real file, a marker-fenced orientation block is prepended.
+     The project's own content is preserved. remove-factory strips the block.
+  6. Install the git-safety guardrail for the selected CLI.
   7. Provision the project-owned, hash-verified usage runtime, then install
-     usage-capture triggers for Claude Code, Copilot CLI, and Codex only when
-     that runtime is ready.
-     Claude uses merged `Stop`/`SubagentStop` settings; Copilot uses a dedicated
-     Factory-owned `.github/hooks/*.json` file for `agentStop`/`subagentStop`;
-     Codex uses merged `Stop`/`SubagentStop` entries in `.codex/hooks.json` and
-     reports the separate `/hooks` review-and-trust activation step.
+     usage-capture triggers for the selected CLI only when ready.
   8. Copy factory/config/model.conf to --target/config/model.conf, only if
-     absent, then ask for the project name and create config/project.json with
-     that name and a stable generated UUID. Automation may pass --project-name.
-  9. Pre-commit: the ONLY tracked change. If --target/.pre-commit-config.yaml
-     exists, splice Agent Factory's `agent_factory_hook-*` block in beside the
-     project's own hooks (merge-precommit-config). If it doesn't exist, create
-     it carrying just that block. A project's inert `.pre-commit-config.yml`
-     is never touched — pre-commit only auto-reads `.yaml`.
-  10. Emit the single "agent_factory related" .gitignore block (created or
-      appended; rewritten in place on re-run). `.agent-factory/usage/` (the
-      capture trigger's runtime output) already falls under the existing
-      `/.agent-factory/` entry — no new line needed.
-  11. Write .agent-factory/factory-install.json (the removal manifest).
-  12. `uvx pre-commit install`.
-  13. Detect an existing test regime (Makefile/package.json/tox/nox/Justfile/
-      Taskfile/pytest entrypoints) and record it as `test_command` in
-      testing.yaml (docs/agent-context/ or docs/charter/ via format
-      detection) — the deterministic core of the detect-test-regime skill,
-      since this script runs with no AI in the loop. Skipped entirely if
-      that file already exists (NON-INTERFERENCE: it may carry hand-edited
-      or previously-scanned content). No entrypoint
-      found, or several with no way to disambiguate non-interactively: the
-      gap is reported and nothing is written — never guessed. Never touches
-      .pre-commit-config.yaml; test hooks stay project-owned.
+     absent, then ask for the project name and create config/project.json
+     with that name and a stable generated UUID.
+  9. Emit the single "agent_factory related" .gitignore block.
+  10. Write .agent-factory/factory-install.json (the removal manifest).
+
+Pre-commit hooks, test-regime detection, and project fingerprinting are NOT
+part of init. They belong to the fitting — the conversational process where
+VIRGIL learns the project and the project gains its attachment points. See
+the context-aware-init-factory proposal for the lifecycle model.
 
 Usage
-  init-factory                                    # target = cwd, source = this checkout
-  init-factory --target /path/to/project
+  init-factory --cli claude                       # target = cwd, one CLI
+  init-factory --target /path/to/project --cli claude
+  init-factory --target /path/to/project          # auto-detect or all CLIs
   init-factory --target /path/to/project --source /path/to/agent_factory
 
 Exit code: 0 on success (including a clean no-op re-run). 1 on any collision
@@ -137,6 +112,15 @@ FACTORY_CONTENT = [
 ]
 
 DOT_DIRS = [".claude", ".github", ".pi"]
+
+# --cli name -> which dot-dirs and adapters that CLI needs.
+CLI_DOT_DIRS: dict[str, list[str]] = {
+    "claude": [".claude"],
+    "copilot": [".github"],
+    "pi": [".pi"],
+    "codex": [],  # codex uses .codex, .agents, AGENTS.md — not a DOT_DIRS entry
+}
+KNOWN_CLIS = list(CLI_DOT_DIRS.keys())
 
 # dot-dir -> this CLI's root orientation-file path, relative to --target
 ORIENTATION_FILE = {
@@ -222,6 +206,23 @@ MANIFEST_PATH = ".agent-factory/factory-install.json"
 USAGE_RUNTIME = Path(".agent-factory/usage-runtime")
 USAGE_REQUIREMENTS = Path("factory/config/usage-runtime-requirements.txt")
 PROJECT_IDENTITY = Path("config/project.json")
+
+
+def detect_cli(target: Path) -> str | None:
+    """Auto-detect the CLI from existing dot-directories in the target.
+    Returns the CLI name or None if ambiguous/absent."""
+    found = []
+    if (target / ".claude").is_dir():
+        found.append("claude")
+    if (target / ".github").is_dir():
+        found.append("copilot")
+    if (target / ".pi").is_dir():
+        found.append("pi")
+    if (target / ".codex").is_dir() or (target / ".agents").is_dir():
+        found.append("codex")
+    if len(found) == 1:
+        return found[0]
+    return None
 
 
 class Collision(Exception):
@@ -394,8 +395,9 @@ def copy_factory(
     log(report, f"factory/: copied in from {source_factory}")
 
 
-def ensure_dot_dirs(target: Path, install: dict, report: list[str]) -> None:
-    for name in DOT_DIRS:
+def ensure_dot_dirs(target: Path, install: dict, report: list[str],
+                    dot_dirs: list[str] | None = None) -> None:
+    for name in (dot_dirs if dot_dirs is not None else DOT_DIRS):
         path = target / name
 
         if path.exists():
@@ -488,10 +490,11 @@ def _relpath(path: Path, install: dict) -> str:
     return os.path.relpath(path, start=install["_target"])
 
 
-def symlink_factory_content(target: Path, install: dict, report: list[str]) -> None:
+def symlink_factory_content(target: Path, install: dict, report: list[str],
+                            dot_dirs: list[str] | None = None) -> None:
     factory = target / "factory"
 
-    for dot_dir in DOT_DIRS:
+    for dot_dir in (dot_dirs if dot_dirs is not None else DOT_DIRS):
         base = target / dot_dir
 
         for name in FACTORY_CONTENT:
@@ -862,34 +865,47 @@ def _link_orientation(
         install["ignore_root_agents"] = True
 
 
-def install_git_guardrail(target: Path, install: dict, report: list[str]) -> None:
-    _install_claude_guardrail(target, install, report)
-    _install_copilot_guardrail(target, install, report)
-    _install_pi_guardrail(target, install, report)
-    _install_codex_guardrail(target, install, report)
+def install_git_guardrail(target: Path, install: dict, report: list[str],
+                          cli: str | None = None) -> None:
+    if cli in (None, "claude"):
+        _install_claude_guardrail(target, install, report)
+    if cli in (None, "copilot"):
+        _install_copilot_guardrail(target, install, report)
+    if cli in (None, "pi"):
+        _install_pi_guardrail(target, install, report)
+    if cli in (None, "codex"):
+        _install_codex_guardrail(target, install, report)
 
 
-def install_step_guard(target: Path, install: dict, report: list[str]) -> None:
+def install_step_guard(target: Path, install: dict, report: list[str],
+                       cli: str | None = None) -> None:
     """Install step-guard wiring beside the existing native hooks."""
-    _install_claude_step_guard(target, install, report)
-    _install_copilot_step_guard(target, install, report)
-    _install_pi_step_guard(target, install, report)
-    _install_codex_step_guard(target, install, report)
+    if cli in (None, "claude"):
+        _install_claude_step_guard(target, install, report)
+    if cli in (None, "copilot"):
+        _install_copilot_step_guard(target, install, report)
+    if cli in (None, "pi"):
+        _install_pi_step_guard(target, install, report)
+    if cli in (None, "codex"):
+        _install_codex_step_guard(target, install, report)
 
 
-def install_usage_capture(target: Path, install: dict, report: list[str]) -> None:
-    """Install native usage-capture triggers for every supported CLI."""
-    hooks_dir = target / ".claude" / "hooks"
-    hooks_dir.mkdir(parents=True, exist_ok=True)
-
-    link = hooks_dir / "capture-usage.sh"
-    dest = target / "factory" / "config" / "hooks" / "capture-usage.sh"
-    ensure_symlink(link, dest, report, install=install)
-
-    _ensure_claude_capture_settings(target, install, report)
-    _install_copilot_usage_capture(target, install, report)
-    _install_codex_usage_capture(target, install, report)
-    _install_pi_usage_capture(target, install, report)
+def install_usage_capture(target: Path, install: dict, report: list[str],
+                          cli: str | None = None) -> None:
+    """Install native usage-capture triggers for the selected CLI."""
+    if cli in (None, "claude"):
+        hooks_dir = target / ".claude" / "hooks"
+        hooks_dir.mkdir(parents=True, exist_ok=True)
+        link = hooks_dir / "capture-usage.sh"
+        dest = target / "factory" / "config" / "hooks" / "capture-usage.sh"
+        ensure_symlink(link, dest, report, install=install)
+        _ensure_claude_capture_settings(target, install, report)
+    if cli in (None, "copilot"):
+        _install_copilot_usage_capture(target, install, report)
+    if cli in (None, "codex"):
+        _install_codex_usage_capture(target, install, report)
+    if cli in (None, "pi"):
+        _install_pi_usage_capture(target, install, report)
 
 
 def _secure_runtime_tree(root: Path) -> None:
@@ -2269,6 +2285,12 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="non-empty project name (prompted for on a fresh interactive install)",
     )
+    ap.add_argument(
+        "--cli",
+        choices=KNOWN_CLIS,
+        default=None,
+        help="which CLI to wire up (default: auto-detect from target, or all if ambiguous)",
+    )
     args = ap.parse_args(argv)
 
     source_root = (args.source or Path(__file__).resolve().parents[2]).resolve()
@@ -2285,9 +2307,20 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     target = args.target.resolve()
+
+    # Resolve which CLI to wire.
+    cli = args.cli
+    if cli is None:
+        cli = detect_cli(target)
+    if cli is not None:
+        active_dot_dirs = CLI_DOT_DIRS[cli]
+    else:
+        active_dot_dirs = DOT_DIRS
+
     report: list[str] = []
     install: dict = {
         "_target": target,
+        "cli": cli,
         "remove_paths": [],
         "dir_existed": {},
         "orientation": {},
@@ -2302,37 +2335,63 @@ def main(argv: list[str] | None = None) -> int:
         "factory_source": str(source_root),
     }
 
+    if cli:
+        log(report, f"CLI: {cli}")
+    else:
+        log(report, "CLI: not specified, wiring all")
+
     try:
         ensure_target_dir(target, install, report)
         load_prior_manifest(target, install, report)
         ensure_git(target, install, report)
         fix_origin_head(target, report)
         copy_factory(source_factory, target, install, report)
-        ensure_dot_dirs(target, install, report)
-        preflight_codex_adapter(target, install)
-        preflight_copilot_agents(target, install)
-        symlink_factory_content(target, install, report)
-        install_codex_adapter(target, install, report)
-        install_copilot_agents(target, install, report)
-        install_git_guardrail(target, install, report)
-        install_step_guard(target, install, report)
+
+        # Per-CLI wiring — only the selected CLI's dot-dirs and adapters.
+        ensure_dot_dirs(target, install, report, active_dot_dirs)
+
+        if cli in (None, "codex"):
+            preflight_codex_adapter(target, install)
+        if cli in (None, "copilot"):
+            preflight_copilot_agents(target, install)
+
+        symlink_factory_content(target, install, report, active_dot_dirs)
+
+        if cli in (None, "codex"):
+            install_codex_adapter(target, install, report)
+        if cli in (None, "copilot"):
+            install_copilot_agents(target, install, report)
+
+        install_git_guardrail(target, install, report, cli)
+        install_step_guard(target, install, report, cli)
+
         usage_runtime_ready = provision_usage_runtime(target, report)
         if usage_runtime_ready:
-            install_usage_capture(target, install, report)
-        install_pi_invocation_layer(target, install, report)
+            install_usage_capture(target, install, report, cli)
+
+        if cli in (None, "pi"):
+            install_pi_invocation_layer(target, install, report)
+
+        # Universal steps.
         copy_model_matrix(target, install, report)
         ensure_project_identity(target, args.project_name, install, report)
-        handle_precommit(target, install, report)
         write_gitignore_block(target, install, report)
         write_manifest(target, install, report)
         initialize_usage_lifecycle(target, report, args.usage_transcript_retention)
-        pre_commit_install(target, report)
-        detect_test_regime(target, report)
     except Collision as e:
         print(f"init-factory: STOPPED — {e}", file=sys.stderr)
         return 1
 
-    print(f"init-factory: done, {target} is set up")
+    # Receipt.
+    print()
+    print("init-factory: done")
+    print(f"  target:  {target}")
+    if cli:
+        print(f"  cli:     {cli}")
+    else:
+        print("  cli:     all (pass --cli to install for one)")
+    print(f"  undo:    factory/scripts/remove-factory")
+    print()
 
     return 0
 
