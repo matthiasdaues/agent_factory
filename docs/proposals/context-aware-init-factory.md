@@ -279,32 +279,43 @@ it:
 - **detect-test-regime**: the existing precedent for the
   "deterministic core + interpretive skill" split.
 
-## Open questions (genuinely undecided)
+## Open questions — resolved
 
-1. Should the mechanical scan produce `config/project-profile.json` (a
-   new file) or extend the existing `config/project.json` (which currently
-   holds only name and UUID)?
+1. **Where does the scan output go?** → `config/project-context.json`
+   (new file). `project.json` is identity (stable UUID, name);
+   `project-context.json` is observation (changes as the project evolves).
+   Different lifecycles, different files. The fitting state lives in the
+   same file as a `fitting` key — it is part of the project's context, not
+   a separate runtime artifact.
 
-2. Should selective CLI wiring be part of this proposal or a separate one?
-   It has different risk characteristics (compatibility, existing tests).
+2. **Selective CLI wiring — part of this proposal?** → Yes.
+   **Implemented.** `--cli` accepts multiple values, interactive
+   multi-select, `_wants()` gating. Committed and tested.
 
-3. How does the profile interact with the charter? Is it a pre-charter
-   artifact that feeds into capture-charter, or does it become part of the
-   charter itself?
+3. **How does the context interact with the charter?** →
+   `project-context.json` is a pre-charter artifact. It feeds into
+   capture-charter's `--scan` mode as a starting point (confirmed
+   observations, not raw signals). capture-charter enriches it with
+   AI-assisted interpretation. The context file names what was *observed*;
+   the charter says what it *means*.
 
-4. Should init-factory's scan cover the project's dependency tree (parse
-   `pyproject.toml` `[project.dependencies]`, `package.json`
-   `dependencies`) or stay at the manifest-presence level? Depth vs.
-   complexity tradeoff.
+4. **Dependency parsing depth?** → Shallow parse of top-level manifest
+   dependencies (`pyproject.toml` `[project.dependencies]`,
+   `package.json` `dependencies`), matched against a hardcoded
+   known-framework list. No transitive crawl. `tomllib` (stdlib 3.11+)
+   for TOML, `json` for JSON. Still deterministic, still fast.
 
-5. What about monorepos with multiple stacks? The current model assumes one
-   project identity. A monorepo might have Python backend + React frontend +
-   Go CLI.
+5. **Monorepo multi-stack?** → Flat list with evidence paths. If the scan
+   finds `pyproject.toml` at root and `apps/frontend/package.json` in a
+   subdirectory, both appear as observations with their paths as evidence.
+   VIRGIL interprets the pattern ("Is this a monorepo with separate
+   stacks?") during the confirmation step.
 
-6. The "what do you want from the factory" question (Direction B) — is this
-   premature at init time? The newcomer proposal's design says progressive
-   disclosure; the session entrypoint already handles routing. Maybe init
-   should fingerprint silently and the entrypoint should route intelligently.
+6. **"What do you want" at init time?** → No. Init fingerprints silently.
+   The session entrypoint (VIRGIL) routes intelligently based on the
+   fingerprint. CLI selection is the only interactive question at init
+   time. Progressive disclosure wins — ask "what do you want" only after
+   the user has seen what exists.
 
 ## Note — How the factory presents itself (2026-09-05)
 
@@ -332,8 +343,8 @@ anything.
 idempotent, reversible, well-documented — but it's a wall. It wires up
 four CLI ecosystems (Claude Code, Copilot, Pi, Codex) whether you use them
 or not. It creates symlinks into `.claude/`, `.github/`, `.pi/`, `.codex/`
-all at once. Most users use one CLI. The rest is noise in their project
-tree.
+all at once. Most users use one or two CLIs. The rest is noise in their
+project tree.
 
 **The onboarding path has too many forks too early.** Session entrypoint:
 four options. Option B expands into eight sub-options. Option C lists all
@@ -419,7 +430,7 @@ Brownfield:   init ──► unfitted ──► fitting ──► fitted
 
 | State        | What exists                                                        | Factory knows the project? | Project reflects the factory? |
 | ------------ | ------------------------------------------------------------------ | -------------------------- | ----------------------------- |
-| **init**     | `factory/`, one CLI wired, nothing else                            | No                         | No                            |
+| **init**     | `factory/`, selected CLIs wired, pre-commit if absent              | No                         | No                            |
 | **unfitted** | Code, tests, CI — a real project the factory just met              | No                         | No                            |
 | **fitting**  | Partial agent-context, some hooks, fingerprint partial             | Partially                  | Partially                     |
 | **fitted**   | Full agent-context, hooks wired or declined, fingerprint confirmed | Yes                        | Yes                           |
@@ -435,32 +446,34 @@ conventions, stack, test runner, CI, maybe docs. The factory is the
 newcomer. Until the fitting is complete, every session should surface the
 offer: "I don't fully know your project yet. Want to continue the fitting?"
 
-### init — mechanical, minimal, one CLI
+### init — mechanical, minimal, selected CLIs
 
-`init-factory --cli claude` (or auto-detect from cwd). Installs for that
-CLI only. Ships everything — agents, skills, playbooks, scripts — but
-wires up one ecosystem instead of four. No questions beyond the project
-name.
+`init-factory --cli claude copilot` (or auto-detect from cwd, or
+interactive multi-select). Installs for the selected CLIs only. Ships
+everything — agents, skills, playbooks, scripts — but wires up only the
+chosen ecosystems. No questions beyond the project name and CLI selection.
 
 What init does:
 
 - Copy `factory/` into the project.
-- Wire up the detected CLI's dot-directory (`.claude/`, `.github/`, `.pi/`,
-  or `.codex/`). One. Not four.
+- Wire up the selected CLIs' dot-directories (`.claude/`, `.github/`,
+  `.pi/`, `.codex/`). Only the chosen ones — not all four.
 - Create `config/project.json` (name, UUID).
-- Print a receipt: what was created, how to undo.
+- Create `.pre-commit-config.yaml` with factory hooks if no config exists.
+  If a pre-commit config already exists, defer hook merging to the fitting.
+- Print a sectioned receipt: what was created, how to undo.
 
 What init does NOT do:
 
-- Touch `.pre-commit-config.yaml` (hooks are offered during the fitting,
-  not imposed at init).
+- Merge into an existing `.pre-commit-config.yaml` (that belongs in the
+  fitting, where the user can review each hook).
 - Run a mechanical fingerprint (that belongs in the first session, where
   VIRGIL can present and confirm it).
 - Reformat the user's files.
 - Create agent-context, reading guides, or any doc structure.
 
-Adding a second CLI later: `init-factory --cli copilot`. Additive, not
-all-at-once.
+Adding CLIs later: `init-factory --cli copilot`. Additive, not
+destructive.
 
 Success moment: *"That was painless."*
 
@@ -548,13 +561,74 @@ Option A is probably right until there are actual external users.
   experience is the same — minimal init, conversational onboarding,
   progressive depth — but the model is state-driven, not layer-driven.
   States are observable and testable; layers were conceptual.
-- Hooks moved from init to the fitting. The user is asked, not surprised.
-- The mechanical fingerprint moved from init to first session. VIRGIL
-  presents and confirms it rather than writing it silently.
-- The fitted marker makes the transition explicit. The factory knows when
-  to stop asking.
+- Pre-commit hooks: greenfield (no config) → init creates with factory
+  hooks. Brownfield (config exists) → fitting handles the merge.
+- The mechanical fingerprint runs at init time (deterministic, no AI).
+  VIRGIL presents and confirms it at first session — interpretation
+  belongs to the session, not the installer.
+- The fitted marker lives in `config/project-context.json` alongside the
+  scan results. One file, one place to look.
 - The README concern is separated out — it's a presentation problem, not a
-  lifecycle state.
+  lifecycle state. The distribution concern is moot: consumers run
+  `init-factory` against their own project and never browse the source
+  repo.
+
+### `_scan_project_context` specification
+
+Deterministic project scan, added to init-factory. Runs after factory copy
+and CLI wiring. Writes `config/project-context.json`.
+
+**Walk rules.** Recursive from the target directory. Skip directories
+named: `.git`, `node_modules`, `__pycache__`, `.venv`, `venv`, `.tox`,
+`.nox`, `dist`, `build`, `.eggs`, `.mypy_cache`, `.pytest_cache`,
+`.ruff_cache`, `factory` (the just-installed copy). Follow no symlinks.
+
+**Evidence model.** Every observation is `{"name": "...", "evidence": "relative/path"}`. The evidence path is the file that triggered the
+detection, relative to the target root. VIRGIL uses it for confirmation:
+"I see Python because of `pyproject.toml`."
+
+**Detection categories:**
+
+| Category           | Signals                                                                                                                                                                                                           |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `languages`        | Manifest files: `pyproject.toml` → python, `package.json` → javascript, `tsconfig.json` → typescript, `go.mod` → go, `Cargo.toml` → rust, `pom.xml`/`build.gradle` → java, `Gemfile` → ruby                       |
+| `package_managers` | Lockfiles: `uv.lock` → uv, `poetry.lock` → poetry, `Pipfile.lock` → pipenv, `requirements.txt` → pip, `package-lock.json` → npm, `yarn.lock` → yarn, `pnpm-lock.yaml` → pnpm, `go.sum` → go, `Cargo.lock` → cargo |
+| `frameworks`       | Shallow parse of top-level manifest dependencies against a hardcoded known-framework list (fastapi, django, flask, express, next, react, vue, angular, gin, actix-web, spring, rails, etc.)                       |
+| `ci`               | Config dirs/files: `.github/workflows/` → github-actions, `.gitlab-ci.yml` → gitlab-ci, `Jenkinsfile` → jenkins, `.circleci/` → circleci, `bitbucket-pipelines.yml` → bitbucket                                   |
+| `linters`          | Config files: `ruff.toml` or `[tool.ruff]` → ruff, `.eslintrc*`/`eslint.config.*` → eslint, `.prettierrc*` → prettier, `biome.json` → biome, `.rubocop.yml` → rubocop                                             |
+| `test_runners`     | Config/conventions: `conftest.py`/`pytest.ini`/`[tool.pytest]` → pytest, `jest.config.*` → jest, `vitest.config.*` → vitest, `*_test.go` files → go-test                                                          |
+| `docs_tooling`     | Config files: `mkdocs.yml` → mkdocs, `conf.py` → sphinx, `docusaurus.config.*` → docusaurus                                                                                                                       |
+| `docs_structure`   | Presence: `README.md`, `docs/`, `CHANGELOG.md`                                                                                                                                                                    |
+
+**Framework list** (hardcoded, initial set):
+
+Python: `fastapi`, `django`, `flask`, `starlette`, `celery`, `sqlalchemy`
+JavaScript/TypeScript: `express`, `next`, `react`, `vue`, `angular`,
+`svelte`, `nuxt`, `nest`, `hono`
+Go: `gin`, `echo`, `fiber`
+Rust: `actix-web`, `axum`, `rocket`
+Java: `spring-boot`, `spring`
+Ruby: `rails`, `sinatra`
+
+**Fitting state** (written by init, updated by VIRGIL):
+
+```json
+{
+  "fitting": {
+    "status": "unfitted",
+    "fingerprint_confirmed": false,
+    "agent_context_populated": false,
+    "hooks_decided": false
+  }
+}
+```
+
+**Not in scope for this scan** (left for VIRGIL / skills):
+
+- Data stores from docker-compose (too interpretive)
+- Architecture style (needs code reading)
+- Multi-suite test strategy (handled by detect-test-regime skill)
+- Transitive dependency analysis
 
 ## Documentation gaps — newcomer path audit (2026-09-06)
 
@@ -691,13 +765,13 @@ but does not advance any proposal layer directly.
 
 **Doc gaps status (updated 2026-09-06):**
 
-| #   | Gap                               | Status          |
-| --- | --------------------------------- | --------------- |
-| 1   | Model matrix docs                 | Open            |
-| 2   | Tier definitions                  | Open            |
-| 3   | Stale ruff refs in guide          | Open            |
-| 4   | `config/project.json` unexplained | Open            |
-| 5   | Factory directory layout          | Open            |
-| 6   | Factory README "How it works"     | Open            |
-| 7   | Agent context in factory README   | Mentioned, thin |
-| 8   | Agent context creation timing     | Open            |
+| #   | Gap                               | Status |
+| --- | --------------------------------- | ------ |
+| 1   | Model matrix docs                 | Closed |
+| 2   | Tier definitions                  | Closed |
+| 3   | Stale ruff refs in guide          | Closed |
+| 4   | `config/project.json` unexplained | Closed |
+| 5   | Factory directory layout          | Closed |
+| 6   | Factory README "How it works"     | Closed |
+| 7   | Agent context in factory README   | Closed |
+| 8   | Agent context creation timing     | Closed |

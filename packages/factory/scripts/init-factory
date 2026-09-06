@@ -59,16 +59,19 @@ Sections (printed as the run progresses)
                    selected CLI(s).
   Project identity Copy config/model.conf (if absent), create or preserve
                    config/project.json.
+  Project context  Scan the target tree for languages, frameworks, CI, linters,
+  scan             test runners, docs. Write config/project-context.json.
   Gitignore        Emit the single "agent_factory related" .gitignore block.
   Pre-commit       If no .pre-commit-config.yaml exists, create one with
                    factory hooks and run `uvx pre-commit install`.
                    If one exists, leave it alone — merging factory hooks
                    into an existing config is the fitting's job.
 
-Test-regime detection and project fingerprinting are NOT part of init.
-They belong to the fitting — the conversational process where VIRGIL
-learns the project and the project gains its attachment points. See
-the context-aware-init-factory proposal for the lifecycle model.
+The deterministic project context scan runs at init time, but the
+interpretive layer — confirming findings, walking the agent-context
+interview, deciding on hooks — belongs to the fitting, the conversational
+process where VIRGIL learns the project. See the context-aware-init-factory
+proposal for the lifecycle model.
 
 Usage
   init-factory --cli claude                       # target = cwd, one CLI
@@ -94,6 +97,11 @@ import subprocess
 import sys
 import uuid
 from pathlib import Path
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    tomllib = None  # type: ignore[assignment]
 
 # name -> path relative to factory/, symlinked into each dot-dir under the same name
 FACTORY_CONTENT = [
@@ -1663,6 +1671,404 @@ def _wire_capture_event(path: Path, hooks: dict, event: str, report: list[str]) 
     return True
 
 
+# ── Project context scan ───────────────────────────────────────────────
+
+SCAN_SKIP_DIRS = frozenset({
+    ".git", "node_modules", "__pycache__", ".venv", "venv", ".tox", ".nox",
+    "dist", "build", ".eggs", ".mypy_cache", ".pytest_cache", ".ruff_cache",
+    "factory", ".agent-factory", ".current-work", ".claude", ".github", ".pi",
+    ".codex", ".agents",
+})
+
+LANGUAGE_MANIFESTS: dict[str, str] = {
+    "pyproject.toml": "python",
+    "setup.py": "python",
+    "setup.cfg": "python",
+    "package.json": "javascript",
+    "tsconfig.json": "typescript",
+    "go.mod": "go",
+    "Cargo.toml": "rust",
+    "pom.xml": "java",
+    "build.gradle": "java",
+    "build.gradle.kts": "java",
+    "Gemfile": "ruby",
+    "mix.exs": "elixir",
+    "Project.toml": "julia",
+    "composer.json": "php",
+}
+
+PACKAGE_MANAGER_LOCKFILES: dict[str, str] = {
+    "uv.lock": "uv",
+    "poetry.lock": "poetry",
+    "Pipfile.lock": "pipenv",
+    "requirements.txt": "pip",
+    "package-lock.json": "npm",
+    "yarn.lock": "yarn",
+    "pnpm-lock.yaml": "pnpm",
+    "bun.lockb": "bun",
+    "go.sum": "go",
+    "Cargo.lock": "cargo",
+    "Gemfile.lock": "bundler",
+    "mix.lock": "mix",
+    "composer.lock": "composer",
+}
+
+CI_PATH_SIGNALS: dict[str, str] = {
+    ".github/workflows": "github-actions",
+    ".circleci": "circleci",
+}
+
+CI_FILE_SIGNALS: dict[str, str] = {
+    ".gitlab-ci.yml": "gitlab-ci",
+    "Jenkinsfile": "jenkins",
+    "bitbucket-pipelines.yml": "bitbucket",
+    ".travis.yml": "travis",
+    "azure-pipelines.yml": "azure-devops",
+}
+
+LINTER_CONFIGS: dict[str, str] = {
+    "ruff.toml": "ruff",
+    ".eslintrc": "eslint",
+    ".eslintrc.js": "eslint",
+    ".eslintrc.json": "eslint",
+    ".eslintrc.yml": "eslint",
+    "eslint.config.js": "eslint",
+    "eslint.config.mjs": "eslint",
+    "eslint.config.ts": "eslint",
+    ".prettierrc": "prettier",
+    ".prettierrc.js": "prettier",
+    ".prettierrc.json": "prettier",
+    "prettier.config.js": "prettier",
+    "biome.json": "biome",
+    ".rubocop.yml": "rubocop",
+    ".golangci.yml": "golangci-lint",
+    ".golangci.yaml": "golangci-lint",
+    "clippy.toml": "clippy",
+}
+
+TEST_RUNNER_SIGNALS: dict[str, str] = {
+    "conftest.py": "pytest",
+    "pytest.ini": "pytest",
+    "jest.config.js": "jest",
+    "jest.config.ts": "jest",
+    "jest.config.mjs": "jest",
+    "vitest.config.js": "vitest",
+    "vitest.config.ts": "vitest",
+    "vitest.config.mjs": "vitest",
+    "cypress.config.js": "cypress",
+    "cypress.config.ts": "cypress",
+    "playwright.config.js": "playwright",
+    "playwright.config.ts": "playwright",
+    ".rspec": "rspec",
+    "phpunit.xml": "phpunit",
+}
+
+DOCS_TOOLING_SIGNALS: dict[str, str] = {
+    "mkdocs.yml": "mkdocs",
+    "mkdocs.yaml": "mkdocs",
+    "conf.py": "sphinx",
+    "docusaurus.config.js": "docusaurus",
+    "docusaurus.config.ts": "docusaurus",
+    "book.toml": "mdbook",
+}
+
+DOCS_STRUCTURE_SIGNALS = ("README.md", "README.rst", "docs", "CHANGELOG.md")
+
+KNOWN_FRAMEWORKS_PYTHON = frozenset({
+    "fastapi", "django", "flask", "starlette", "celery", "sqlalchemy",
+    "tornado", "sanic", "aiohttp", "pyramid", "bottle", "litestar",
+    "pydantic", "typer", "click",
+})
+KNOWN_FRAMEWORKS_JS = frozenset({
+    "express", "next", "react", "vue", "angular", "svelte", "nuxt",
+    "hono", "fastify", "koa", "gatsby", "remix", "astro", "solid-js",
+    "preact", "ember-source", "vite", "webpack", "esbuild",
+})
+KNOWN_FRAMEWORKS_RUST = frozenset({
+    "actix-web", "axum", "rocket", "warp", "hyper", "tokio", "serde",
+})
+KNOWN_FRAMEWORKS_GO = frozenset({
+    "github.com/gin-gonic/gin",
+    "github.com/labstack/echo",
+    "github.com/gofiber/fiber",
+    "github.com/gorilla/mux",
+    "github.com/go-chi/chi",
+})
+KNOWN_FRAMEWORKS_RUBY = frozenset({
+    "rails", "sinatra", "hanami", "roda",
+})
+
+_DEP_NAME_RE = re.compile(r"^([A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?)")
+
+
+def _extract_dep_name(spec: str) -> str | None:
+    """Extract package name from a PEP 508 dependency specifier."""
+    m = _DEP_NAME_RE.match(spec.strip())
+    return m.group(1).lower() if m else None
+
+
+def _detect_frameworks_pyproject(path: Path) -> list[dict[str, str]]:
+    if tomllib is None:
+        return []
+    try:
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+    except Exception:
+        return []
+    found: list[dict[str, str]] = []
+    evidence = str(path)
+    deps: list[str] = []
+    deps.extend(data.get("project", {}).get("dependencies", []))
+    for group in data.get("project", {}).get("optional-dependencies", {}).values():
+        deps.extend(group)
+    poetry_deps = data.get("tool", {}).get("poetry", {}).get("dependencies", {})
+    if isinstance(poetry_deps, dict):
+        deps.extend(poetry_deps.keys())
+    seen: set[str] = set()
+    for spec in deps:
+        name = _extract_dep_name(spec) if isinstance(spec, str) else None
+        if name and name in KNOWN_FRAMEWORKS_PYTHON and name not in seen:
+            seen.add(name)
+            found.append({"name": name, "evidence": evidence})
+    ruff_in_tool = "ruff" in data.get("tool", {})
+    if ruff_in_tool:
+        found.append({"name": "[tool.ruff]", "evidence": evidence})
+    pytest_in_tool = "pytest" in data.get("tool", {})
+    if pytest_in_tool:
+        found.append({"name": "[tool.pytest]", "evidence": evidence})
+    return found
+
+
+def _detect_frameworks_package_json(path: Path) -> list[dict[str, str]]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    found: list[dict[str, str]] = []
+    evidence = str(path)
+    seen: set[str] = set()
+    for section in ("dependencies", "devDependencies"):
+        for name in data.get(section, {}):
+            normalized = name.lower()
+            if normalized in KNOWN_FRAMEWORKS_JS and normalized not in seen:
+                seen.add(normalized)
+                found.append({"name": name, "evidence": evidence})
+            elif name.startswith("@nestjs/") and "nest" not in seen:
+                seen.add("nest")
+                found.append({"name": "nestjs", "evidence": evidence})
+    return found
+
+
+def _detect_frameworks_cargo(path: Path) -> list[dict[str, str]]:
+    if tomllib is None:
+        return []
+    try:
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+    except Exception:
+        return []
+    found: list[dict[str, str]] = []
+    evidence = str(path)
+    for name in data.get("dependencies", {}):
+        if name in KNOWN_FRAMEWORKS_RUST:
+            found.append({"name": name, "evidence": evidence})
+    return found
+
+
+def _detect_frameworks_gomod(path: Path) -> list[dict[str, str]]:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except Exception:
+        return []
+    found: list[dict[str, str]] = []
+    evidence = str(path)
+    for known in KNOWN_FRAMEWORKS_GO:
+        if known in text:
+            short = known.rsplit("/", 1)[-1]
+            found.append({"name": short, "evidence": evidence})
+    return found
+
+
+def _detect_frameworks_gemfile(path: Path) -> list[dict[str, str]]:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except Exception:
+        return []
+    found: list[dict[str, str]] = []
+    evidence = str(path)
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("gem "):
+            match = re.match(r"""gem\s+['"]([^'"]+)['"]""", stripped)
+            if match:
+                name = match.group(1).lower()
+                if name in KNOWN_FRAMEWORKS_RUBY:
+                    found.append({"name": name, "evidence": evidence})
+    return found
+
+
+def _scan_project_context(target: Path) -> dict:
+    """Deterministic project scan. Walks the target tree, skipping caches and
+    build dirs, and collects observations about languages, frameworks, package
+    managers, CI, linters, test runners, and docs structure."""
+
+    languages: list[dict[str, str]] = []
+    package_managers: list[dict[str, str]] = []
+    frameworks: list[dict[str, str]] = []
+    ci: list[dict[str, str]] = []
+    linters: list[dict[str, str]] = []
+    test_runners: list[dict[str, str]] = []
+    docs_tooling: list[dict[str, str]] = []
+    docs_structure: list[dict[str, str]] = []
+
+    seen_languages: set[str] = set()
+    seen_pkg_mgrs: set[str] = set()
+    seen_ci: set[str] = set()
+    seen_linters: set[str] = set()
+    seen_test_runners: set[str] = set()
+    seen_docs_tooling: set[str] = set()
+    seen_docs_structure: set[str] = set()
+
+    def _rel(p: Path) -> str:
+        return str(p.relative_to(target))
+
+    for ci_path, ci_name in CI_PATH_SIGNALS.items():
+        full = target / ci_path
+        if full.exists() and ci_name not in seen_ci:
+            seen_ci.add(ci_name)
+            ci.append({"name": ci_name, "evidence": ci_path})
+
+    for dirpath_str, dirnames, filenames in os.walk(target, followlinks=False):
+        dirnames[:] = [d for d in dirnames if d not in SCAN_SKIP_DIRS]
+        dirpath = Path(dirpath_str)
+
+        for fname in filenames:
+            fpath = dirpath / fname
+
+            if fname in LANGUAGE_MANIFESTS:
+                lang = LANGUAGE_MANIFESTS[fname]
+                if lang not in seen_languages:
+                    seen_languages.add(lang)
+                    languages.append({"name": lang, "evidence": _rel(fpath)})
+
+            if fname in PACKAGE_MANAGER_LOCKFILES:
+                mgr = PACKAGE_MANAGER_LOCKFILES[fname]
+                if mgr not in seen_pkg_mgrs:
+                    seen_pkg_mgrs.add(mgr)
+                    package_managers.append({"name": mgr, "evidence": _rel(fpath)})
+
+            if fname in CI_FILE_SIGNALS:
+                ci_name = CI_FILE_SIGNALS[fname]
+                if ci_name not in seen_ci:
+                    seen_ci.add(ci_name)
+                    ci.append({"name": ci_name, "evidence": _rel(fpath)})
+
+            if fname in LINTER_CONFIGS:
+                linter = LINTER_CONFIGS[fname]
+                if linter not in seen_linters:
+                    seen_linters.add(linter)
+                    linters.append({"name": linter, "evidence": _rel(fpath)})
+
+            if fname in TEST_RUNNER_SIGNALS:
+                runner = TEST_RUNNER_SIGNALS[fname]
+                if runner not in seen_test_runners:
+                    seen_test_runners.add(runner)
+                    test_runners.append({"name": runner, "evidence": _rel(fpath)})
+
+            if fname in DOCS_TOOLING_SIGNALS:
+                tool = DOCS_TOOLING_SIGNALS[fname]
+                if tool not in seen_docs_tooling:
+                    seen_docs_tooling.add(tool)
+                    docs_tooling.append({"name": tool, "evidence": _rel(fpath)})
+
+            if fname in DOCS_STRUCTURE_SIGNALS:
+                if fname not in seen_docs_structure:
+                    seen_docs_structure.add(fname)
+                    docs_structure.append({"name": fname, "evidence": _rel(fpath)})
+
+            if fname == "pyproject.toml":
+                extras = _detect_frameworks_pyproject(fpath)
+                for e in extras:
+                    if e["name"] == "[tool.ruff]":
+                        if "ruff" not in seen_linters:
+                            seen_linters.add("ruff")
+                            linters.append({"name": "ruff", "evidence": e["evidence"]})
+                    elif e["name"] == "[tool.pytest]":
+                        if "pytest" not in seen_test_runners:
+                            seen_test_runners.add("pytest")
+                            test_runners.append({"name": "pytest", "evidence": e["evidence"]})
+                    else:
+                        frameworks.append(e)
+
+            elif fname == "package.json":
+                frameworks.extend(_detect_frameworks_package_json(fpath))
+
+            elif fname == "Cargo.toml":
+                frameworks.extend(_detect_frameworks_cargo(fpath))
+
+            elif fname == "go.mod":
+                frameworks.extend(_detect_frameworks_gomod(fpath))
+
+            elif fname == "Gemfile":
+                frameworks.extend(_detect_frameworks_gemfile(fpath))
+
+        for dname in dirnames:
+            dpath = dirpath / dname
+            if dname in DOCS_STRUCTURE_SIGNALS:
+                if dname not in seen_docs_structure:
+                    seen_docs_structure.add(dname)
+                    docs_structure.append({"name": dname, "evidence": _rel(dpath)})
+
+    return {
+        "languages": languages,
+        "package_managers": package_managers,
+        "frameworks": frameworks,
+        "ci": ci,
+        "linters": linters,
+        "test_runners": test_runners,
+        "docs_tooling": docs_tooling,
+        "docs_structure": docs_structure,
+        "fitting": {
+            "status": "unfitted",
+            "fingerprint_confirmed": False,
+            "agent_context_populated": False,
+            "hooks_decided": False,
+        },
+    }
+
+
+def write_project_context(
+    target: Path, install: dict, report: list[str]
+) -> None:
+    """Run the deterministic project scan and write config/project-context.json."""
+    path = target / "config" / "project-context.json"
+
+    if path.exists():
+        log(report, "config/project-context.json: already present, left untouched")
+        return
+
+    context = _scan_project_context(target)
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(context, indent=2) + "\n", encoding="utf-8")
+    install["remove_paths"].append("config/project-context.json")
+    install["ignore_project_context"] = True
+
+    counts = []
+    for key in ("languages", "package_managers", "frameworks", "ci",
+                "linters", "test_runners", "docs_tooling", "docs_structure"):
+        items = context[key]
+        if items:
+            names = ", ".join(i["name"] for i in items)
+            counts.append(f"{key}: {names}")
+    if counts:
+        for line in counts:
+            log(report, f"  {line}")
+    else:
+        log(report, "  (no signals detected — empty project or unrecognized stack)")
+    log(report, "config/project-context.json: written")
+
+
 def copy_model_matrix(target: Path, install: dict, report: list[str]) -> None:
     config_dir = target / "config"
     dest = config_dir / "model.conf"
@@ -1968,6 +2374,8 @@ def write_gitignore_block(target: Path, install: dict, report: list[str]) -> Non
         entries.append("/config/model.conf")
     if install.get("ignore_project_identity"):
         entries.append(f"/{PROJECT_IDENTITY}")
+    if install.get("ignore_project_context"):
+        entries.append("/config/project-context.json")
     if install.get("ignore_root_agents"):
         entries.append("/AGENTS.md")
     for entry in sorted(install["github_ignored_entries"]):
@@ -2054,6 +2462,8 @@ def load_prior_manifest(target: Path, install: dict, report: list[str]) -> None:
             install["ignore_model_conf"] = True
         elif p == f"/{PROJECT_IDENTITY}":
             install["ignore_project_identity"] = True
+        elif p == "/config/project-context.json":
+            install["ignore_project_context"] = True
         elif p == "/AGENTS.md":
             install["ignore_root_agents"] = True
         elif p.startswith("/.github/"):
@@ -2447,11 +2857,15 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\n  STOPPED — {e}", file=sys.stderr)
         return 1
 
-    # ── Section 5: Gitignore ────────────────────────────────────────────
+    # ── Section 5: Project context scan ──────────────────────────────────
+    section("Project context scan")
+    write_project_context(target, install, report)
+
+    # ── Section 6: Gitignore ────────────────────────────────────────────
     section("Gitignore")
     write_gitignore_block(target, install, report)
 
-    # ── Section 6: Pre-commit hooks ─────────────────────────────────────
+    # ── Section 7: Pre-commit hooks ─────────────────────────────────────
     section("Pre-commit hooks")
     try:
         handle_precommit(target, install, report)

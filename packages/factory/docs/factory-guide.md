@@ -109,9 +109,35 @@ You do not need anything else to start. Run one `poc-spike`, watch the loop, and
 
 **Everything below is reference material. You don't need it yet.**
 
+## Factory directory layout
+
+After `init-factory` runs, `factory/` contains the full toolset:
+
+```
+factory/
+├── agents/          One markdown file per agent (requirements-agent.md, etc.)
+├── config/          model.conf (tier → model mapping), project.json (identity)
+├── docs/            This guide, proposals, and reference material
+├── fixtures/        Sample data for spikes and demos
+├── INDEX.yaml       Catalog of every agent, skill, playbook, and rulebook
+├── playbooks/       Workflow recipes (greenfield-development.md, bug-fix.md, etc.)
+├── README.md        Prerequisites and install instructions
+├── reports/         Output directory for review and research reports
+├── rulebooks/       Cross-cutting conventions, templates, and schemas
+├── scripts/         Gates, linters, and helper scripts (all stdlib-only Python)
+└── skills/          Reusable how-to procedures (one directory per skill)
+```
+
+`config/` holds two files the installer creates:
+
+- **`project.json`** — project identity: a stable UUID (`project_id`), the human-readable name you gave at install time (`project_name`), and your declared test command. Every usage-capture record carries the project id so records stay attributable even if the directory moves. The `safety_critical_paths` list feeds the tier rubric — outputs matching a glob there are routed to the strong tier.
+- **`model.conf`** — the model matrix. Maps agent tiers to concrete AI model ids, per CLI. See [Model matrix and tiers](#model-matrix-and-tiers) below.
+
+Both files are git-ignored. They are local configuration, not project source.
+
 ## Agent Context
 
-`docs/agent-context/` is a routing switchboard that connects agents to a project's own knowledge. It is not a knowledge base — it tells agents where to look, never what they will find there. Think of it as a stable endpoint: the structure changes slowly, but the content beneath it grows with the project.
+`docs/agent-context/` is a routing switchboard that connects agents to a project's own knowledge. It is not a knowledge base — it tells agents where to look, never what they will find there. Think of it as a stable endpoint: the structure changes slowly, but the content beneath it grows with the project. The directory does not exist after `init-factory` — it is created during onboarding, when VIRGIL walks you through the `capture-context` skill as part of a greenfield or brownfield playbook.
 
 ### How it works
 
@@ -202,7 +228,7 @@ runtime area.
 
 Initialization explicitly asks for a project name; non-interactive automation
 passes `--project-name`. The installer generates a stable UUID and writes both
-values to the git-ignored `config/project.json`. Every usage record contains
+values to the git-ignored `config/project.json` (see [Factory directory layout](#factory-directory-layout) for the full contents of that file). Every usage record contains
 the non-null `project_id` and `project_name`; rerunning initialization preserves
 them.
 
@@ -548,17 +574,52 @@ The `factory/scripts/dispatch` script owns the git state, ledger, and branch/wor
 
 Every story in a wave must reach a terminal state (merged or explicitly blocked/failed) before the next wave launches. The tier rubric in [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md) is the single authoritative source for economy/standard/strong tier assignment.
 
+### Model matrix and tiers
+
+Agent Factory uses three tiers — **economy**, **standard**, and **strong** — to route work to an AI model that matches the task's complexity and risk. A cheap task stays cheap; a safety-critical task gets the strongest model available.
+
+| Tier       | When to use                                                                                                | Cost    |
+| ---------- | ---------------------------------------------------------------------------------------------------------- | ------- |
+| `economy`  | Mechanical, well-scoped work with test coverage: a single-directory change, a schema-bound authoring task. | Lowest  |
+| `standard` | The default. Work that spans multiple directories or has three or more dependencies.                       | Middle  |
+| `strong`   | Risk domains (security, privacy, data integrity), safety-critical paths, or genuinely hard synthesis.      | Highest |
+
+The tier rubric is first-match-wins and lives in [`dispatch-contract.md`](../rulebooks/conventions/dispatch-contract.md). Other documentation cites it rather than restating it.
+
+**`config/model.conf`** maps each tier to a concrete model id for each CLI. The file uses INI-style `[facts]` syntax:
+
+```ini
+[facts]
+copilot.economy  = gpt-5.4-mini
+copilot.standard = gpt-5.4
+copilot.strong   = claude-opus-4-6
+
+pi.economy  = openrouter/anthropic/claude-haiku-4.5
+pi.standard = openrouter/anthropic/claude-sonnet-4.6
+pi.strong   = openrouter/anthropic/claude-opus-4.8
+```
+
+Each line is `cli.tier = model-id`. Claude Code resolves its model natively (through the platform, not through this file), so it has no entries here. Add entries for any CLI you use; remove tiers you never want to reach.
+
+**`on_missing = halt`** is the fallback rule. When a dispatch requests a tier that has no model for the active CLI, the system halts instead of guessing. This prevents a strong-tier task from silently falling back to a weaker model.
+
+Precedence: an explicit `--model` flag overrides `model.conf`, which overrides the CLI's own default (FR-K3).
+
+`matrix-lint` validates the file on every commit. It checks syntax, required fields, and whether each model id is well-formed. Errors block the commit.
+
+**Customizing.** Edit `config/model.conf` directly. Pin your preferred models, swap providers, or add a new CLI. The file is git-ignored local configuration — each developer can have their own mapping. To refresh Pi models against the OpenRouter catalog, run `factory/scripts/openrouter-discover --check` (detects drift) or `--suggest` (proposes replacements).
+
 ### Pre-commit hooks
 
 Agent Factory adds pre-commit hooks to `.pre-commit-config.yaml`. This is the one tracked file the install modifies (besides a `.gitignore` block). Every hook id starts with `agent_factory_hook-`, so the block is easy to find, easy to audit, and safe to remove.
 
-The hooks fall into two groups. Formatters — `mdformat` for Markdown, `ruff` for Python — auto-fix style on commit. Gate scripts — `link-check`, `mermaid-lint`, `spec-lint`, `arch-lint`, `backlog-lint`, `statemachine-lint`, `index-lint`, `transition-lint` — reject a commit when a deterministic check fails.
+The hooks fall into two groups. The formatter — `mdformat` for Markdown — auto-fixes style on commit. Gate scripts — `link-check`, `mermaid-lint`, `spec-lint`, `arch-lint`, `backlog-lint`, `context-lint`, `matrix-lint`, `statemachine-lint`, `index-lint`, `transition-lint` — reject a commit when a deterministic check fails.
 
 #### Nothing is installed into your project
 
 The formatters need external tools, but the hooks never install them into your project tree, your virtualenv, or your global Python packages. They run through `uvx`, which downloads an ephemeral, pinned copy into its own cache (`~/.cache/uv/` or `$UV_CACHE_DIR`) the first time and reuses it afterward. Your `site-packages`, your `node_modules`, your carefully curated tool versions: untouched.
 
-If you already have `ruff` installed globally, `uvx` ignores it. It runs its own pinned version (`ruff@0.16.5` at the time of writing), so the hook produces the same result on every machine regardless of what each developer has installed. The same applies to `mdformat`. This is the same zero-local-install pattern `factory/scripts/structurizr` uses for its Docker dependency.
+If you already have `mdformat` installed globally, `uvx` ignores it. It runs its own pinned version, so the hook produces the same result on every machine regardless of what each developer has installed. This is the same zero-local-install pattern `factory/scripts/structurizr` uses for its Docker dependency.
 
 The gate scripts (`spec-lint`, `arch-lint`, `backlog-lint`, and the rest) are stdlib-only Python. They need nothing beyond the Python interpreter already on your PATH — no pip install, no requirements file, no build step.
 
@@ -572,7 +633,7 @@ Every hook that calls a `factory/scripts/*` gate is wrapped in a one-line bash g
 bash -c '[ -d factory ] || exit 0; exec factory/scripts/<gate> "$@"' --
 ```
 
-If `factory/` is not there, the hook exits 0 — a silent pass. Pre-commit moves on to the next hook. Your colleague commits normally, with no error, no warning, and no trace that Agent Factory was ever involved. The `mdformat` and `ruff` hooks carry the same guard, so even the formatters stay quiet when the factory directory is absent.
+If `factory/` is not there, the hook exits 0 — a silent pass. Pre-commit moves on to the next hook. Your colleague commits normally, with no error, no warning, and no trace that Agent Factory was ever involved. The `mdformat` hook carries the same guard, so even the formatter stays quiet when the factory directory is absent.
 
 This is deliberate. The `.pre-commit-config.yaml` is tracked because it must survive clones and branch switches. The `factory/` directory is untracked because it is local tooling, not project source. The guard bridges the two: hooks exist in the config for anyone who has the factory, and vanish for anyone who does not.
 
@@ -584,7 +645,7 @@ If you have no `.pre-commit-config.yaml`, `init-factory` creates one containing 
 
 #### First commit after setup
 
-The `mdformat` and `ruff` hooks auto-fix formatting. If your first commit fails because "files were modified by this hook," that is the formatters doing their job on files that did not yet match the project style. Re-stage and commit again:
+The `mdformat` hook auto-fixes formatting. If your first commit fails because "files were modified by this hook," that is the formatter doing its job on files that did not yet match the project style. Re-stage and commit again:
 
 ```bash
 git add -u
@@ -685,7 +746,7 @@ Install `uv` — see [factory/README.md § Prerequisites](../README.md#prerequis
 Start Docker Desktop (macOS) or the Docker daemon (Linux). This only blocks `factory/scripts/structurizr` — nothing else needs Docker.
 
 **Your first commit fails, or modifies files you didn't touch**
-Expected — the `mdformat` and `ruff` hooks auto-fix formatting on commit. Re-stage and commit again:
+Expected — the `mdformat` hook auto-fixes formatting on commit. Re-stage and commit again:
 
 ```bash
 git add -u

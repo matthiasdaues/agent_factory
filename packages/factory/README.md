@@ -57,11 +57,15 @@ For other situations — new project, existing codebase, bug, feature, research 
 
 ## How it works
 
-The [factory guide](docs/factory-guide.md) covers:
+Your AI assistant reads an orientation file that loads the factory's agents, skills, and rules. **VIRGIL** — the default session persona — greets you, helps you choose a playbook, and guides you through setup. On your first real project session, VIRGIL walks you through the `capture-context` skill, which creates `docs/agent-context/` — a YAML routing switchboard that tells agents where your project's knowledge lives without duplicating it.
 
+The [factory guide](docs/factory-guide.md) covers the full picture:
+
+- [Factory directory layout](docs/factory-guide.md#factory-directory-layout) — what each subdirectory of `factory/` contains
+- [Agent context](docs/factory-guide.md#agent-context) — how the YAML routing switchboard connects agents to project knowledge, and when it gets created
+- [Model matrix and tiers](docs/factory-guide.md#model-matrix-and-tiers) — how `config/model.conf` maps economy/standard/strong tiers to concrete AI models per CLI
 - What agents, skills, playbooks, and rulebooks are
 - How the check scripts and phase gates work
-- Agent context (the YAML routing switchboard in `docs/agent-context/`)
 - Test execution through hooks and gates
 - CLI-specific notes (Pi subagent support, Codex agent generation)
 - Troubleshooting

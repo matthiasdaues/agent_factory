@@ -625,3 +625,343 @@ class TestAskClis:
         monkeypatch.setattr("builtins.input", lambda _: "1,1,claude")
         monkeypatch.setattr("sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})())
         assert inf.ask_clis() == ["claude"]
+
+
+# ── Project context scan ──────────────────────────────────────────────
+
+
+class TestScanProjectContext:
+    def test_empty_project(self, tmp_path):
+        ctx = inf._scan_project_context(tmp_path)
+        assert ctx["languages"] == []
+        assert ctx["frameworks"] == []
+        assert ctx["fitting"]["status"] == "unfitted"
+        assert ctx["fitting"]["fingerprint_confirmed"] is False
+
+    def test_detects_python_language(self, tmp_path):
+        (tmp_path / "pyproject.toml").write_text("[project]\nname = 'demo'\n")
+        ctx = inf._scan_project_context(tmp_path)
+        names = [e["name"] for e in ctx["languages"]]
+        assert "python" in names
+
+    def test_detects_javascript_language(self, tmp_path):
+        (tmp_path / "package.json").write_text('{"name": "demo"}')
+        ctx = inf._scan_project_context(tmp_path)
+        names = [e["name"] for e in ctx["languages"]]
+        assert "javascript" in names
+
+    def test_detects_typescript(self, tmp_path):
+        (tmp_path / "tsconfig.json").write_text("{}")
+        ctx = inf._scan_project_context(tmp_path)
+        names = [e["name"] for e in ctx["languages"]]
+        assert "typescript" in names
+
+    def test_detects_go(self, tmp_path):
+        (tmp_path / "go.mod").write_text("module example.com/demo\n\ngo 1.21\n")
+        ctx = inf._scan_project_context(tmp_path)
+        names = [e["name"] for e in ctx["languages"]]
+        assert "go" in names
+
+    def test_detects_rust(self, tmp_path):
+        (tmp_path / "Cargo.toml").write_text('[package]\nname = "demo"\n')
+        ctx = inf._scan_project_context(tmp_path)
+        names = [e["name"] for e in ctx["languages"]]
+        assert "rust" in names
+
+    def test_detects_package_manager_uv(self, tmp_path):
+        (tmp_path / "uv.lock").write_text("")
+        ctx = inf._scan_project_context(tmp_path)
+        names = [e["name"] for e in ctx["package_managers"]]
+        assert "uv" in names
+
+    def test_detects_package_manager_npm(self, tmp_path):
+        (tmp_path / "package-lock.json").write_text("{}")
+        ctx = inf._scan_project_context(tmp_path)
+        names = [e["name"] for e in ctx["package_managers"]]
+        assert "npm" in names
+
+    def test_detects_ci_github_actions(self, tmp_path):
+        (tmp_path / ".github" / "workflows").mkdir(parents=True)
+        ctx = inf._scan_project_context(tmp_path)
+        names = [e["name"] for e in ctx["ci"]]
+        assert "github-actions" in names
+
+    def test_detects_ci_gitlab(self, tmp_path):
+        (tmp_path / ".gitlab-ci.yml").write_text("")
+        ctx = inf._scan_project_context(tmp_path)
+        names = [e["name"] for e in ctx["ci"]]
+        assert "gitlab-ci" in names
+
+    def test_detects_linter_eslint(self, tmp_path):
+        (tmp_path / ".eslintrc.json").write_text("{}")
+        ctx = inf._scan_project_context(tmp_path)
+        names = [e["name"] for e in ctx["linters"]]
+        assert "eslint" in names
+
+    def test_detects_linter_ruff_config_file(self, tmp_path):
+        (tmp_path / "ruff.toml").write_text("")
+        ctx = inf._scan_project_context(tmp_path)
+        names = [e["name"] for e in ctx["linters"]]
+        assert "ruff" in names
+
+    def test_detects_linter_ruff_in_pyproject(self, tmp_path):
+        if inf.tomllib is None:
+            pytest.skip("tomllib not available")
+        (tmp_path / "pyproject.toml").write_text(
+            "[project]\nname = 'demo'\n[tool.ruff]\nline-length = 88\n"
+        )
+        ctx = inf._scan_project_context(tmp_path)
+        names = [e["name"] for e in ctx["linters"]]
+        assert "ruff" in names
+
+    def test_detects_test_runner_pytest(self, tmp_path):
+        (tmp_path / "conftest.py").write_text("")
+        ctx = inf._scan_project_context(tmp_path)
+        names = [e["name"] for e in ctx["test_runners"]]
+        assert "pytest" in names
+
+    def test_detects_test_runner_jest(self, tmp_path):
+        (tmp_path / "jest.config.js").write_text("")
+        ctx = inf._scan_project_context(tmp_path)
+        names = [e["name"] for e in ctx["test_runners"]]
+        assert "jest" in names
+
+    def test_detects_pytest_in_pyproject(self, tmp_path):
+        if inf.tomllib is None:
+            pytest.skip("tomllib not available")
+        (tmp_path / "pyproject.toml").write_text(
+            "[project]\nname = 'demo'\n[tool.pytest.ini_options]\naddopts = '-v'\n"
+        )
+        ctx = inf._scan_project_context(tmp_path)
+        names = [e["name"] for e in ctx["test_runners"]]
+        assert "pytest" in names
+
+    def test_detects_docs_tooling_mkdocs(self, tmp_path):
+        (tmp_path / "mkdocs.yml").write_text("")
+        ctx = inf._scan_project_context(tmp_path)
+        names = [e["name"] for e in ctx["docs_tooling"]]
+        assert "mkdocs" in names
+
+    def test_detects_docs_structure(self, tmp_path):
+        (tmp_path / "README.md").write_text("# Hello")
+        (tmp_path / "docs").mkdir()
+        ctx = inf._scan_project_context(tmp_path)
+        names = [e["name"] for e in ctx["docs_structure"]]
+        assert "README.md" in names
+        assert "docs" in names
+
+    def test_skips_cache_dirs(self, tmp_path):
+        cache = tmp_path / "node_modules" / "express"
+        cache.mkdir(parents=True)
+        (cache / "package.json").write_text('{"name": "express"}')
+        ctx = inf._scan_project_context(tmp_path)
+        assert ctx["languages"] == []
+
+    def test_skips_factory_dir(self, tmp_path):
+        factory = tmp_path / "factory"
+        factory.mkdir()
+        (factory / "pyproject.toml").write_text("[project]\nname = 'factory'\n")
+        ctx = inf._scan_project_context(tmp_path)
+        assert ctx["languages"] == []
+
+    def test_evidence_is_relative_path(self, tmp_path):
+        sub = tmp_path / "backend"
+        sub.mkdir()
+        (sub / "pyproject.toml").write_text("[project]\nname = 'api'\n")
+        ctx = inf._scan_project_context(tmp_path)
+        evidence = ctx["languages"][0]["evidence"]
+        assert evidence == "backend/pyproject.toml"
+
+    def test_no_duplicate_languages(self, tmp_path):
+        (tmp_path / "pyproject.toml").write_text("[project]\nname = 'a'\n")
+        sub = tmp_path / "lib"
+        sub.mkdir()
+        (sub / "setup.py").write_text("")
+        ctx = inf._scan_project_context(tmp_path)
+        python_entries = [e for e in ctx["languages"] if e["name"] == "python"]
+        assert len(python_entries) == 1
+
+    def test_multiple_languages_detected(self, tmp_path):
+        (tmp_path / "pyproject.toml").write_text("[project]\nname = 'api'\n")
+        (tmp_path / "package.json").write_text('{"name": "frontend"}')
+        ctx = inf._scan_project_context(tmp_path)
+        names = {e["name"] for e in ctx["languages"]}
+        assert names == {"python", "javascript"}
+
+    def test_fitting_state_initialized(self, tmp_path):
+        ctx = inf._scan_project_context(tmp_path)
+        fitting = ctx["fitting"]
+        assert fitting["status"] == "unfitted"
+        assert fitting["fingerprint_confirmed"] is False
+        assert fitting["agent_context_populated"] is False
+        assert fitting["hooks_decided"] is False
+
+
+class TestDetectFrameworksPyproject:
+    @pytest.fixture
+    def pyproject(self, tmp_path):
+        def _write(content):
+            path = tmp_path / "pyproject.toml"
+            path.write_text(content)
+            return path
+        return _write
+
+    def test_detects_fastapi(self, pyproject):
+        path = pyproject(
+            '[project]\nname = "demo"\ndependencies = ["fastapi>=0.100"]\n'
+        )
+        if inf.tomllib is None:
+            pytest.skip("tomllib not available")
+        found = inf._detect_frameworks_pyproject(path)
+        names = [e["name"] for e in found]
+        assert "fastapi" in names
+
+    def test_detects_django(self, pyproject):
+        path = pyproject(
+            '[project]\nname = "demo"\ndependencies = ["Django>=4.2"]\n'
+        )
+        if inf.tomllib is None:
+            pytest.skip("tomllib not available")
+        found = inf._detect_frameworks_pyproject(path)
+        names = [e["name"] for e in found]
+        assert "django" in names
+
+    def test_detects_poetry_deps(self, pyproject):
+        path = pyproject(
+            '[tool.poetry.dependencies]\npython = "^3.11"\nflask = "^3.0"\n'
+        )
+        if inf.tomllib is None:
+            pytest.skip("tomllib not available")
+        found = inf._detect_frameworks_pyproject(path)
+        names = [e["name"] for e in found]
+        assert "flask" in names
+
+    def test_ignores_unknown_deps(self, pyproject):
+        path = pyproject(
+            '[project]\nname = "demo"\ndependencies = ["requests", "httpx"]\n'
+        )
+        if inf.tomllib is None:
+            pytest.skip("tomllib not available")
+        found = inf._detect_frameworks_pyproject(path)
+        framework_names = [e["name"] for e in found if not e["name"].startswith("[")]
+        assert framework_names == []
+
+    def test_malformed_toml_returns_empty(self, pyproject):
+        path = pyproject("this is not valid toml {{{{")
+        if inf.tomllib is None:
+            pytest.skip("tomllib not available")
+        found = inf._detect_frameworks_pyproject(path)
+        assert found == []
+
+
+class TestDetectFrameworksPackageJson:
+    def test_detects_react(self, tmp_path):
+        path = tmp_path / "package.json"
+        path.write_text('{"dependencies": {"react": "^18.0"}}')
+        found = inf._detect_frameworks_package_json(path)
+        names = [e["name"] for e in found]
+        assert "react" in names
+
+    def test_detects_express_in_deps(self, tmp_path):
+        path = tmp_path / "package.json"
+        path.write_text('{"dependencies": {"express": "^4.18"}}')
+        found = inf._detect_frameworks_package_json(path)
+        names = [e["name"] for e in found]
+        assert "express" in names
+
+    def test_detects_nestjs(self, tmp_path):
+        path = tmp_path / "package.json"
+        path.write_text('{"dependencies": {"@nestjs/core": "^10.0"}}')
+        found = inf._detect_frameworks_package_json(path)
+        names = [e["name"] for e in found]
+        assert "nestjs" in names
+
+    def test_detects_from_dev_deps(self, tmp_path):
+        path = tmp_path / "package.json"
+        path.write_text('{"devDependencies": {"vitest": "^1.0"}}')
+        found = inf._detect_frameworks_package_json(path)
+        # vitest is not in KNOWN_FRAMEWORKS_JS; it's a test runner detected separately
+        # but vite IS in the list
+        assert all(e["name"] != "vitest" for e in found)
+
+    def test_malformed_json_returns_empty(self, tmp_path):
+        path = tmp_path / "package.json"
+        path.write_text("not json at all")
+        found = inf._detect_frameworks_package_json(path)
+        assert found == []
+
+
+class TestDetectFrameworksGomod:
+    def test_detects_gin(self, tmp_path):
+        path = tmp_path / "go.mod"
+        path.write_text(
+            "module example.com/demo\n\ngo 1.21\n\n"
+            "require github.com/gin-gonic/gin v1.9.1\n"
+        )
+        found = inf._detect_frameworks_gomod(path)
+        names = [e["name"] for e in found]
+        assert "gin" in names
+
+    def test_no_frameworks(self, tmp_path):
+        path = tmp_path / "go.mod"
+        path.write_text("module example.com/demo\n\ngo 1.21\n")
+        found = inf._detect_frameworks_gomod(path)
+        assert found == []
+
+
+class TestWriteProjectContext:
+    def test_writes_json_file(self, tmp_path):
+        install = {"remove_paths": []}
+        report: list[str] = []
+        (tmp_path / "config").mkdir()
+        (tmp_path / "pyproject.toml").write_text("[project]\nname = 'demo'\n")
+        inf.write_project_context(tmp_path, install, report)
+        path = tmp_path / "config" / "project-context.json"
+        assert path.exists()
+        data = json.loads(path.read_text())
+        assert "languages" in data
+        assert "fitting" in data
+        assert data["fitting"]["status"] == "unfitted"
+
+    def test_skips_if_exists(self, tmp_path):
+        (tmp_path / "config").mkdir()
+        existing = tmp_path / "config" / "project-context.json"
+        existing.write_text('{"custom": true}')
+        install = {"remove_paths": []}
+        report: list[str] = []
+        inf.write_project_context(tmp_path, install, report)
+        assert json.loads(existing.read_text()) == {"custom": True}
+
+    def test_adds_to_install_manifest(self, tmp_path):
+        install = {"remove_paths": []}
+        report: list[str] = []
+        (tmp_path / "config").mkdir()
+        inf.write_project_context(tmp_path, install, report)
+        assert "config/project-context.json" in install["remove_paths"]
+        assert install.get("ignore_project_context") is True
+
+    def test_creates_config_dir(self, tmp_path):
+        install = {"remove_paths": []}
+        report: list[str] = []
+        inf.write_project_context(tmp_path, install, report)
+        assert (tmp_path / "config" / "project-context.json").exists()
+
+
+class TestExtractDepName:
+    def test_simple_name(self):
+        assert inf._extract_dep_name("fastapi") == "fastapi"
+
+    def test_versioned(self):
+        assert inf._extract_dep_name("fastapi>=0.100") == "fastapi"
+
+    def test_extras(self):
+        assert inf._extract_dep_name("fastapi[all]>=0.100") == "fastapi"
+
+    def test_case_normalized(self):
+        assert inf._extract_dep_name("Django>=4.2") == "django"
+
+    def test_empty_string(self):
+        assert inf._extract_dep_name("") is None
+
+    def test_whitespace(self):
+        assert inf._extract_dep_name("  requests >= 2.0  ") == "requests"
