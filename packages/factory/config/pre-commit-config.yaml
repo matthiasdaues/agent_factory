@@ -36,7 +36,7 @@ repos:
         types: [markdown]
         exclude: ^(factory/|docs/~archive/)
 
-      # Flag raw semicolons inside mermaid code fences.
+      # Flag raw semicolons inside Mermaid code fences.
       # Mermaid silently swallows them, producing broken diagrams.
       - id: agent_factory_hook-mermaid-lint
         name: "agent_factory: mermaid-lint (no raw semicolons)"
@@ -44,8 +44,9 @@ repos:
         language: system
         types: [markdown]
 
-      # Check specification files for internal consistency:
-      # cross-references, required sections, traceability IDs.
+      # Validate Gherkin feature files and supplementary specs in
+      # docs/spec/ — required sections, cross-references between
+      # files, and traceability IDs that link specs to stories.
       - id: agent_factory_hook-spec-lint
         name: "agent_factory: spec-lint (specification consistency & traceability)"
         entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/spec-lint' --
@@ -53,8 +54,9 @@ repos:
         pass_filenames: false
         files: ^docs/spec/
 
-      # Check arc42 docs against the Structurizr DSL workspace.
-      # Catches component names that diverge between prose and model.
+      # Compare architecture documentation against the C4 model
+      # (the Structurizr DSL file). Catches names that appear in
+      # one but not the other. Also validates ADR frontmatter.
       - id: agent_factory_hook-arch-lint
         name: "agent_factory: arch-lint (arc42 <-> Structurizr consistency, ADR frontmatter)"
         entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/arch-lint --docs-dir docs/arc42 --no-validate' --
@@ -62,8 +64,9 @@ repos:
         pass_filenames: false
         files: ^docs/(arc42/(architecture\.dsl|05_building_block_view\.md)|assets/images/.*|adr/.*\.md)$
 
-      # Validate backlog story frontmatter (required fields, status
-      # values, dependency references) and traceability to specs.
+      # Validate backlog story files — required frontmatter fields,
+      # allowed status values, and dependency references that must
+      # point to existing stories.
       - id: agent_factory_hook-backlog-lint
         name: "agent_factory: backlog-lint (story schema & traceability gate)"
         entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/backlog-lint --backlog-dir backlog' --
@@ -71,8 +74,9 @@ repos:
         pass_filenames: false
         files: ^backlog/ST-.*\.md$
 
-      # Check the model matrix for internal consistency:
-      # tier names, model IDs, and required columns.
+      # Validate config/model.conf — the file that maps agent roles
+      # to AI models and cost tiers. Checks for missing columns,
+      # unknown tier names, and duplicate entries.
       - id: agent_factory_hook-matrix-lint
         name: "agent_factory: matrix-lint (model matrix consistency gate)"
         entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/matrix-lint --matrix config/model.conf' --
@@ -80,8 +84,8 @@ repos:
         pass_filenames: false
         files: ^config/model\.conf$
 
-      # Check that pseudocode and Mermaid state diagrams in spec
-      # files describe the same transitions.
+      # When a spec file contains both pseudocode and a Mermaid state
+      # diagram, verify they describe the same states and transitions.
       - id: agent_factory_hook-statemachine-lint
         name: "agent_factory: statemachine-lint (pseudocode <-> Mermaid consistency)"
         entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/statemachine-lint --spec-dir docs/spec' --
@@ -89,18 +93,21 @@ repos:
         pass_filenames: false
         files: ^docs/spec/.*\.md$
 
-      # Regenerate INDEX.yaml from agent/skill/playbook frontmatter.
-      # Keeps the routing index in sync with the actual files.
+      # Regenerate INDEX.yaml whenever agent, skill, or playbook
+      # files change. INDEX.yaml is the routing table that tells
+      # each CLI where to find factory content.
       - id: agent_factory_hook-index-lint
-        name: "agent_factory: index-lint (regenerate INDEX.yaml from agent/skill/playbook frontmatter)"
+        name: "agent_factory: index-lint (regenerate INDEX.yaml)"
         entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/index-lint' --
         language: system
         pass_filenames: false
         files: ^(factory/agents/.*\.md|factory/skills/.*/SKILL\.md|factory/playbooks/.*\.md)$
 
-      # Enforce playbook phase ordering. Blocks commits that skip
-      # or reorder phases in the FSM. Inspects all staged files,
-      # so it always runs — no-op when no phase marker is staged.
+      # Enforce playbook phase ordering. A playbook moves through
+      # phases in a fixed sequence (requirements → architecture →
+      # planning → implementation → QA). This blocks commits that
+      # skip or reorder phases. Inspects all staged files, so it
+      # always runs — no-op when no phase marker is staged.
       - id: agent_factory_hook-transition-lint
         name: "agent_factory: transition-lint (playbook phase-ordering gate)"
         entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/transition-lint' --
