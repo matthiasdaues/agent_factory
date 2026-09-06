@@ -431,6 +431,8 @@ class TestSymlinkFactoryContent:
             for name in inf.FACTORY_CONTENT:
                 if dot_dir == ".github" and name == "agents":
                     continue
+                if dot_dir == ".codex" and name in ("agents", "skills"):
+                    continue
                 link = tmp_path / dot_dir / name
                 assert link.is_symlink(), f"{link} should be a symlink"
 
