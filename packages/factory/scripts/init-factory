@@ -49,37 +49,31 @@ subtree — those are created lazily by the skill that first needs them
 (domain-modeling, todo-format), not eagerly by init.
 
 Steps
-  1. Create --target if missing.
-  2. `git init` if --target isn't already a repo.
-  3. Copy factory/ from --source into --target, UNLESS --target/factory
-     already exists — in that case this step is skipped (not diffed, not
-     refreshed; that's the update script's job, factory/scripts/update-factory).
-  4. Create the dot-directory for --cli (or all if not specified). --cli is
-     auto-detected from the target when possible.
-  5. Symlink factory/{agents,skills,playbooks,rulebooks,scripts,INDEX.yaml}
-     and the orientation file into the selected CLI's local directory.
-     NON-INTERFERENCE: if an orientation file (.claude/CLAUDE.md,
-     .github/copilot-instructions.md, or AGENTS.md for Pi/Codex) already
-     exists as a real file, a marker-fenced orientation block is prepended.
-     The project's own content is preserved. remove-factory strips the block.
-  6. Install the git-safety guardrail for the selected CLI.
-  7. Provision the project-owned, hash-verified usage runtime, then install
-     usage-capture triggers for the selected CLI only when ready.
-  8. Copy factory/config/model.conf to --target/config/model.conf, only if
-     absent, then ask for the project name and create config/project.json
-     with that name and a stable generated UUID.
-  9. Emit the single "agent_factory related" .gitignore block.
-  10. Write .agent-factory/factory-install.json (the removal manifest).
+Sections (printed as the run progresses)
 
-Pre-commit hooks, test-regime detection, and project fingerprinting are NOT
-part of init. They belong to the fitting — the conversational process where
-VIRGIL learns the project and the project gains its attachment points. See
+  Scaffolding     Create --target, git init, copy factory/.
+  CLI selection    Auto-detect from existing dot-dirs, accept --cli, or ask
+                   interactively. --cli accepts multiple values.
+  Wiring           Create dot-dirs, symlink factory content, install
+                   guardrails, step guards, and usage capture for the
+                   selected CLI(s).
+  Project identity Copy config/model.conf (if absent), create or preserve
+                   config/project.json.
+  Gitignore        Emit the single "agent_factory related" .gitignore block.
+  Pre-commit       If no .pre-commit-config.yaml exists, create one with
+                   factory hooks and run `uvx pre-commit install`.
+                   If one exists, leave it alone — merging factory hooks
+                   into an existing config is the fitting's job.
+
+Test-regime detection and project fingerprinting are NOT part of init.
+They belong to the fitting — the conversational process where VIRGIL
+learns the project and the project gains its attachment points. See
 the context-aware-init-factory proposal for the lifecycle model.
 
 Usage
   init-factory --cli claude                       # target = cwd, one CLI
-  init-factory --target /path/to/project --cli claude
-  init-factory --target /path/to/project          # auto-detect or all CLIs
+  init-factory --cli claude copilot               # wire two CLIs
+  init-factory --target /path/to/project          # auto-detect or ask
   init-factory --target /path/to/project --source /path/to/agent_factory
 
 Exit code: 0 on success (including a clean no-op re-run). 1 on any collision
@@ -209,9 +203,17 @@ USAGE_REQUIREMENTS = Path("factory/config/usage-runtime-requirements.txt")
 PROJECT_IDENTITY = Path("config/project.json")
 
 
-def detect_cli(target: Path) -> str | None:
-    """Auto-detect the CLI from existing dot-directories in the target.
-    Returns the CLI name or None if ambiguous/absent."""
+CLI_LABELS = {
+    "claude": "Claude Code",
+    "copilot": "GitHub Copilot CLI",
+    "pi": "Stackblitz Pi",
+    "codex": "OpenAI Codex CLI",
+}
+
+
+def detect_cli(target: Path) -> list[str]:
+    """Auto-detect CLIs from existing dot-directories in the target.
+    Returns a list of detected CLI names (may be empty)."""
     found = []
     if (target / ".claude").is_dir():
         found.append("claude")
@@ -221,9 +223,52 @@ def detect_cli(target: Path) -> str | None:
         found.append("pi")
     if (target / ".codex").is_dir() or (target / ".agents").is_dir():
         found.append("codex")
-    if len(found) == 1:
-        return found[0]
-    return None
+    return found
+
+
+def _wants(clis: list[str] | None, name: str) -> bool:
+    """True when the named CLI is in the active set (None = all)."""
+    return clis is None or name in clis
+
+
+def _active_dot_dirs(clis: list[str] | None) -> list[str]:
+    """Compute the union of dot-dirs for the selected CLIs."""
+    if clis is None:
+        return list(DOT_DIRS)
+    result: list[str] = []
+    for c in clis:
+        for d in CLI_DOT_DIRS[c]:
+            if d not in result:
+                result.append(d)
+    return result
+
+
+def ask_clis() -> list[str] | None:
+    """Interactively ask which CLIs to wire. Returns list or None (all).
+    Falls back to None on non-TTY or empty input."""
+    if not sys.stdin.isatty():
+        return None
+    print("  Which CLIs should be wired? (comma-separated numbers, or 'a' for all)")
+    for i, name in enumerate(KNOWN_CLIS, 1):
+        print(f"    {i}  {name:<10} {CLI_LABELS[name]}")
+    print("    a  all")
+    try:
+        answer = input("  > ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return None
+    if answer in ("a", "all", ""):
+        return None
+    selected: list[str] = []
+    for token in answer.replace(",", " ").split():
+        token = token.strip()
+        if token.isdigit():
+            idx = int(token) - 1
+            if 0 <= idx < len(KNOWN_CLIS) and KNOWN_CLIS[idx] not in selected:
+                selected.append(KNOWN_CLIS[idx])
+        elif token in KNOWN_CLIS and token not in selected:
+            selected.append(token)
+    return selected if selected else None
 
 
 class Collision(Exception):
@@ -231,9 +276,21 @@ class Collision(Exception):
     ours to skip past — stops the whole run, names the exact path."""
 
 
+class _Output:
+    quiet = False
+
+_out = _Output()
+
+
+def section(title: str) -> None:
+    padding = max(1, 54 - len(title))
+    print(f"\n── {title} {'─' * padding}")
+
+
 def log(report: list[str], line: str) -> None:
     report.append(line)
-    print(f"init-factory: {line}")
+    if not _out.quiet:
+        print(f"  {line}")
 
 
 # --------------------------------------------------------------------------- #
@@ -861,45 +918,45 @@ def _link_orientation(
 
 
 def install_git_guardrail(target: Path, install: dict, report: list[str],
-                          cli: str | None = None) -> None:
-    if cli in (None, "claude"):
+                          clis: list[str] | None = None) -> None:
+    if _wants(clis, "claude"):
         _install_claude_guardrail(target, install, report)
-    if cli in (None, "copilot"):
+    if _wants(clis, "copilot"):
         _install_copilot_guardrail(target, install, report)
-    if cli in (None, "pi"):
+    if _wants(clis, "pi"):
         _install_pi_guardrail(target, install, report)
-    if cli in (None, "codex"):
+    if _wants(clis, "codex"):
         _install_codex_guardrail(target, install, report)
 
 
 def install_step_guard(target: Path, install: dict, report: list[str],
-                       cli: str | None = None) -> None:
+                       clis: list[str] | None = None) -> None:
     """Install step-guard wiring beside the existing native hooks."""
-    if cli in (None, "claude"):
+    if _wants(clis, "claude"):
         _install_claude_step_guard(target, install, report)
-    if cli in (None, "copilot"):
+    if _wants(clis, "copilot"):
         _install_copilot_step_guard(target, install, report)
-    if cli in (None, "pi"):
+    if _wants(clis, "pi"):
         _install_pi_step_guard(target, install, report)
-    if cli in (None, "codex"):
+    if _wants(clis, "codex"):
         _install_codex_step_guard(target, install, report)
 
 
 def install_usage_capture(target: Path, install: dict, report: list[str],
-                          cli: str | None = None) -> None:
-    """Install native usage-capture triggers for the selected CLI."""
-    if cli in (None, "claude"):
+                          clis: list[str] | None = None) -> None:
+    """Install native usage-capture triggers for the selected CLIs."""
+    if _wants(clis, "claude"):
         hooks_dir = target / ".claude" / "hooks"
         hooks_dir.mkdir(parents=True, exist_ok=True)
         link = hooks_dir / "capture-usage.sh"
         dest = target / "factory" / "config" / "hooks" / "capture-usage.sh"
         ensure_symlink(link, dest, report, install=install)
         _ensure_claude_capture_settings(target, install, report)
-    if cli in (None, "copilot"):
+    if _wants(clis, "copilot"):
         _install_copilot_usage_capture(target, install, report)
-    if cli in (None, "codex"):
+    if _wants(clis, "codex"):
         _install_codex_usage_capture(target, install, report)
-    if cli in (None, "pi"):
+    if _wants(clis, "pi"):
         _install_pi_usage_capture(target, install, report)
 
 
@@ -1675,10 +1732,6 @@ def handle_precommit(target: Path, install: dict, report: list[str]) -> None:
     template = target / "factory" / "config" / "pre-commit-config.yaml"
 
     if dest.is_symlink():
-        # A legacy install may have symlinked this to the template. That no
-        # longer works: factory/ is now git-ignored, so a tracked symlink into
-        # it would dangle after removal. Convert it to a real file carrying the
-        # same block, so it survives factory/ removal and stays extricable.
         current = (dest.parent / os.readlink(dest)).resolve()
         if current != template.resolve():
             raise Collision(
@@ -1694,54 +1747,32 @@ def handle_precommit(target: Path, install: dict, report: list[str]) -> None:
         dest.write_text(_fresh_precommit_text(template), encoding="utf-8")
         install["precommit"] = {"path": ".pre-commit-config.yaml", "existed": False}
         install["remove_paths"].append(".pre-commit-config.yaml")
-        log(report, ".pre-commit-config.yaml: created with Agent Factory's hook block")
+        log(report, "created .pre-commit-config.yaml with factory hooks")
+        log(report, "hooks: mdformat, link-check, mermaid-lint, spec-lint,")
+        log(report, "       arch-lint, backlog-lint, context-lint, matrix-lint,")
+        log(report, "       statemachine-lint, index-lint, run-tests")
+        pre_commit_install(target, report)
         return
 
-    # If the file is git-tracked, the project manages its own config — don't
-    # clobber it.  The merge script would overwrite dev-repo-specific entries
-    # (bare entries, source paths, extra excludes) with the consumer template.
-    git_tracked = subprocess.run(
-        ["git", "ls-files", "--error-unmatch", str(dest)],
-        capture_output=True, check=False, cwd=target,
-    )
-    if git_tracked.returncode == 0:
-        install.setdefault(
-            "precommit", {"path": ".pre-commit-config.yaml", "existed": True}
-        )
-        log(report, ".pre-commit-config.yaml: git-tracked, left untouched")
-        return
-
-    # Record the original's trailing-newline state so removal restores it exactly.
-    install.setdefault(
-        "precommit_orig_final_newline",
-        dest.read_text(encoding="utf-8").endswith("\n"),
-    )
-    merge_script = target / "factory" / "scripts" / "merge-precommit-config"
-    is_rerun = "precommit" in install
-    cmd = [
-        sys.executable,
-        str(merge_script),
-        "--target",
-        str(dest),
-        "--template",
-        str(template),
-    ]
-    if is_rerun:
-        cmd.append("--update")
-    result = subprocess.run(cmd, check=False)
-
-    if result.returncode != 0:
-        raise Collision(
-            f"{dest} exists with a structure merge-precommit-config couldn't "
-            "handle automatically — see its error above, merge by hand"
-        )
-
-    # setdefault: if a prior run created this file, keep existed=False so the
-    # remover deletes it wholesale rather than only stripping our block.
     install.setdefault(
         "precommit", {"path": ".pre-commit-config.yaml", "existed": True}
     )
-    log(report, ".pre-commit-config.yaml: spliced Agent Factory's hook block in")
+    log(
+        report,
+        ".pre-commit-config.yaml already exists — factory hooks not merged.",
+    )
+    log(
+        report,
+        "The fitting process will offer to splice factory hooks into your",
+    )
+    log(
+        report,
+        "existing config (run the fitting skill, or merge by hand with",
+    )
+    log(
+        report,
+        "factory/scripts/merge-precommit-config).",
+    )
 
 
 def _fresh_precommit_text(template: Path) -> str:
@@ -2283,14 +2314,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--cli",
         choices=KNOWN_CLIS,
+        nargs="+",
         default=None,
-        help="which CLI to wire up (default: auto-detect from target, or all if ambiguous)",
+        help="which CLI(s) to wire (default: auto-detect or ask interactively)",
     )
     args = ap.parse_args(argv)
 
     source_root = (args.source or Path(__file__).resolve().parents[2]).resolve()
-    # Monorepo layout: product source at packages/factory/.
-    # Consumer layout: installed copy at factory/.
     pkg_factory = source_root / "packages" / "factory"
     source_factory = pkg_factory if pkg_factory.is_dir() else source_root / "factory"
 
@@ -2303,19 +2333,12 @@ def main(argv: list[str] | None = None) -> int:
 
     target = args.target.resolve()
 
-    # Resolve which CLI to wire.
-    cli = args.cli
-    if cli is None:
-        cli = detect_cli(target)
-    if cli is not None:
-        active_dot_dirs = CLI_DOT_DIRS[cli]
-    else:
-        active_dot_dirs = DOT_DIRS
+    print("\ninit-factory")
+    print("═" * 54)
 
     report: list[str] = []
     install: dict = {
         "_target": target,
-        "cli": cli,
         "remove_paths": [],
         "dir_existed": {},
         "orientation": {},
@@ -2330,10 +2353,8 @@ def main(argv: list[str] | None = None) -> int:
         "factory_source": str(source_root),
     }
 
-    if cli:
-        log(report, f"CLI: {cli}")
-    else:
-        log(report, "CLI: not specified, wiring all")
+    # ── Section 1: Scaffolding ──────────────────────────────────────────
+    section("Scaffolding")
 
     try:
         ensure_target_dir(target, install, report)
@@ -2341,51 +2362,113 @@ def main(argv: list[str] | None = None) -> int:
         ensure_git(target, install, report)
         fix_origin_head(target, report)
         copy_factory(source_factory, target, install, report)
-
-        # Per-CLI wiring — only the selected CLI's dot-dirs and adapters.
-        ensure_dot_dirs(target, install, report, active_dot_dirs)
-
-        if cli in (None, "codex"):
-            preflight_codex_adapter(target, install)
-        if cli in (None, "copilot"):
-            preflight_copilot_agents(target, install)
-
-        symlink_factory_content(target, install, report, active_dot_dirs)
-
-        if cli in (None, "codex"):
-            install_codex_adapter(target, install, report)
-        if cli in (None, "copilot"):
-            install_copilot_agents(target, install, report)
-
-        install_git_guardrail(target, install, report, cli)
-        install_step_guard(target, install, report, cli)
-
-        usage_runtime_ready = provision_usage_runtime(target, report)
-        if usage_runtime_ready:
-            install_usage_capture(target, install, report, cli)
-
-        if cli in (None, "pi"):
-            install_pi_invocation_layer(target, install, report)
-
-        # Universal steps.
-        copy_model_matrix(target, install, report)
-        ensure_project_identity(target, args.project_name, install, report)
-        write_gitignore_block(target, install, report)
-        write_manifest(target, install, report)
-        initialize_usage_lifecycle(target, report, args.usage_transcript_retention)
     except Collision as e:
-        print(f"init-factory: STOPPED — {e}", file=sys.stderr)
+        print(f"\n  STOPPED — {e}", file=sys.stderr)
         return 1
 
+    # ── Section 2: CLI selection ────────────────────────────────────────
+    clis: list[str] | None = args.cli
+    if clis is None:
+        detected = detect_cli(target)
+        if detected:
+            clis = detected
+        else:
+            section("CLI selection")
+            clis = ask_clis()
+            if clis:
+                log(report, f"selected: {', '.join(clis)}")
+            else:
+                log(report, "wiring all CLIs")
+
+    dot_dirs = _active_dot_dirs(clis)
+    cli_label = ", ".join(clis) if clis else "all"
+    install["cli"] = clis
+    auto = " (auto-detected)" if args.cli is None and clis else ""
+
+    # ── Section 3: Wiring ───────────────────────────────────────────────
+    section(f"Wiring: {cli_label}{auto}")
+
+    try:
+        ensure_dot_dirs(target, install, report, dot_dirs)
+
+        if _wants(clis, "codex"):
+            preflight_codex_adapter(target, install)
+        if _wants(clis, "copilot"):
+            preflight_copilot_agents(target, install)
+
+        _out.quiet = True
+        pre_wire = len(report)
+        symlink_factory_content(target, install, report, dot_dirs)
+        wire_count = len(report) - pre_wire
+        _out.quiet = False
+        log(report, f"{wire_count} factory symlinks")
+
+        if _wants(clis, "codex"):
+            install_codex_adapter(target, install, report)
+        if _wants(clis, "copilot"):
+            install_copilot_agents(target, install, report)
+
+        _out.quiet = True
+        pre_guard = len(report)
+        install_git_guardrail(target, install, report, clis)
+        install_step_guard(target, install, report, clis)
+        guard_count = len(report) - pre_guard
+        _out.quiet = False
+        if guard_count:
+            log(report, f"guardrails and step guards installed ({guard_count} hooks)")
+
+        _out.quiet = True
+        pre_usage = len(report)
+        usage_runtime_ready = provision_usage_runtime(target, report)
+        if usage_runtime_ready:
+            install_usage_capture(target, install, report, clis)
+        usage_count = len(report) - pre_usage
+        _out.quiet = False
+        if usage_runtime_ready:
+            log(report, "usage capture: runtime ready, hooks installed")
+        else:
+            log(report, "usage capture: runtime unavailable, hooks inactive")
+
+        if _wants(clis, "pi"):
+            install_pi_invocation_layer(target, install, report)
+
+    except Collision as e:
+        _out.quiet = False
+        print(f"\n  STOPPED — {e}", file=sys.stderr)
+        return 1
+
+    # ── Section 4: Project identity ─────────────────────────────────────
+    section("Project identity")
+    try:
+        copy_model_matrix(target, install, report)
+        ensure_project_identity(target, args.project_name, install, report)
+    except Collision as e:
+        print(f"\n  STOPPED — {e}", file=sys.stderr)
+        return 1
+
+    # ── Section 5: Gitignore ────────────────────────────────────────────
+    section("Gitignore")
+    write_gitignore_block(target, install, report)
+
+    # ── Section 6: Pre-commit hooks ─────────────────────────────────────
+    section("Pre-commit hooks")
+    try:
+        handle_precommit(target, install, report)
+    except Collision as e:
+        print(f"\n  STOPPED — {e}", file=sys.stderr)
+        return 1
+
+    # ── Finalize (silent) ──────────────────────────────────────────────
+    _out.quiet = True
+    write_manifest(target, install, report)
+    initialize_usage_lifecycle(target, report, args.usage_transcript_retention)
+    _out.quiet = False
+
     # Receipt.
-    print()
-    print("init-factory: done")
-    print(f"  target:  {target}")
-    if cli:
-        print(f"  cli:     {cli}")
-    else:
-        print("  cli:     all (pass --cli to install for one)")
-    print(f"  undo:    factory/scripts/remove-factory")
+    print(f"\n{'═' * 54}")
+    print(f"  target: {target}")
+    print(f"  cli:    {cli_label}")
+    print(f"  undo:   factory/scripts/remove-factory")
     print()
 
     return 0
