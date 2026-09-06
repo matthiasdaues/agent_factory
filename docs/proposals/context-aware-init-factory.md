@@ -1,10 +1,10 @@
 ---
 schema_version: 2
 title: Context-Aware Init-Factory
-status: draft
+status: open
 owner: md@matthiasdaues.de
 created: 2026-09-04
-updated: 2026-09-04
+updated: 2026-09-06
 supersedes:
 
 impact:
@@ -321,26 +321,28 @@ they actually want (`factory/`) is one directory among many, sitting next to
 `orchestrator/` (not yet operational), `poc/`, `sys/`, and
 `session-scratchpad.md`.
 
-**The surface area is intimidating.** 17 agents, 58 skills, 13 playbooks, 48
-scripts, 312 markdown docs. The root README is polished and well-structured,
-but it links to a beginner's intro that references a deprecated flow, a
-factory README that's 160 lines of dense setup prose, and a 700-line factory
-guide. A developer who just wants to try this needs to read a lot before they
-do anything.
+**The surface area is intimidating.** 17 agents, 58 skills, 11 playbooks,
+102 scripts. The root README is polished and well-structured, but it links
+to a beginner's intro that references a deprecated flow, a factory README
+that's 160 lines of dense setup prose, and a 700-line factory guide. A
+developer who just wants to try this needs to read a lot before they do
+anything.
 
-**init-factory is a 2,300-line shell script.** It does its job — idempotent,
-reversible, well-documented — but it's a wall. It wires up four CLI
-ecosystems (Claude Code, Copilot, Pi, Codex) whether you use them or not. It
-creates symlinks into `.claude/`, `.github/`, `.pi/`, `.codex/` all at once.
-Most users use one CLI. The rest is noise in their project tree.
+**init-factory is a 2,340-line Python script.** It does its job —
+idempotent, reversible, well-documented — but it's a wall. It wires up
+four CLI ecosystems (Claude Code, Copilot, Pi, Codex) whether you use them
+or not. It creates symlinks into `.claude/`, `.github/`, `.pi/`, `.codex/`
+all at once. Most users use one CLI. The rest is noise in their project
+tree.
 
 **The onboarding path has too many forks too early.** Session entrypoint:
 four options. Option B expands into eight sub-options. Option C lists all
 agents or all playbooks. A newcomer doesn't know enough to choose. VIRGIL
-and the newcomer-tour exist to solve this, but they activate only after
-init-factory has already dropped 50+ files into the project and the user has
-opened a CLI session. The "show me around" moment comes after the commitment,
-not before it.
+is now the default session persona from the start (commit `2804a1b`), and
+the newcomer-tour exists, but they activate only after init-factory has
+already dropped 50+ files into the project and the user has opened a CLI
+session. The "show me around" moment comes after the commitment, not before
+it.
 
 **The README promises simplicity but the experience delivers complexity.**
 "Three commands to get started" — true. But the first commit modifies files
@@ -383,7 +385,7 @@ The assessment above surfaces three distinct problems that converge at init
 time:
 
 - **Technical onboarding** — init-factory wires four CLIs unconditionally,
-  drops 50+ files, the 2,300-line script does everything at once.
+  drops 50+ files, the 2,340-line script does everything at once.
 - **Mental onboarding** — the path from "what is this" to "I know what to
   do next." Too many forks too early, the good guide is buried, the README
   explains machinery before motivation.
@@ -395,9 +397,127 @@ They stay in one proposal because init-factory is where all three converge —
 the moment the technical wiring happens, the mental model forms, and the
 distribution boundary matters.
 
-## Proposed path — outside in (2026-09-05, revised after UX critique)
+## Proposed path — the fitting (2026-09-06, replaces four-layer sketch)
 
-### Layer 0 — One page, one command, one result
+The earlier four-layer sketch (Layer 0–3) described what the user sees at
+each stage. This revision describes the *states* the project-factory
+relationship moves through and what drives each transition. The user
+experience falls out of the states, not the other way around.
+
+The metaphor is a dressmaker's fitting. The factory brings the craft; the
+project brings the shape. Neither is incomplete without the other — the
+fitting is where they meet. And unlike a meld or a graft, the result is
+separable: `remove-factory` takes the factory off and the project stands on
+its own, unchanged.
+
+### The lifecycle
+
+```
+Greenfield:   init ──────────────────────────────► fitted
+Brownfield:   init ──► unfitted ──► fitting ──► fitted
+```
+
+| State        | What exists                                                        | Factory knows the project? | Project reflects the factory? |
+| ------------ | ------------------------------------------------------------------ | -------------------------- | ----------------------------- |
+| **init**     | `factory/`, one CLI wired, nothing else                            | No                         | No                            |
+| **unfitted** | Code, tests, CI — a real project the factory just met              | No                         | No                            |
+| **fitting**  | Partial agent-context, some hooks, fingerprint partial             | Partially                  | Partially                     |
+| **fitted**   | Full agent-context, hooks wired or declined, fingerprint confirmed | Yes                        | Yes                           |
+
+**Greenfield** skips unfitted and fitting. There is no pre-existing project
+to learn about, so init produces an empty project that the first playbook
+(charter, spec, architecture) shapes from scratch. The project is born
+fitted — the factory's understanding and the project's configuration grow
+together.
+
+**Brownfield** walks through all four states. The project has its own
+conventions, stack, test runner, CI, maybe docs. The factory is the
+newcomer. Until the fitting is complete, every session should surface the
+offer: "I don't fully know your project yet. Want to continue the fitting?"
+
+### init — mechanical, minimal, one CLI
+
+`init-factory --cli claude` (or auto-detect from cwd). Installs for that
+CLI only. Ships everything — agents, skills, playbooks, scripts — but
+wires up one ecosystem instead of four. No questions beyond the project
+name.
+
+What init does:
+
+- Copy `factory/` into the project.
+- Wire up the detected CLI's dot-directory (`.claude/`, `.github/`, `.pi/`,
+  or `.codex/`). One. Not four.
+- Create `config/project.json` (name, UUID).
+- Print a receipt: what was created, how to undo.
+
+What init does NOT do:
+
+- Touch `.pre-commit-config.yaml` (hooks are offered during the fitting,
+  not imposed at init).
+- Run a mechanical fingerprint (that belongs in the first session, where
+  VIRGIL can present and confirm it).
+- Reformat the user's files.
+- Create agent-context, reading guides, or any doc structure.
+
+Adding a second CLI later: `init-factory --cli copilot`. Additive, not
+all-at-once.
+
+Success moment: *"That was painless."*
+
+### unfitted → fitting — VIRGIL opens the conversation
+
+First session after init. VIRGIL detects no agent-context
+(`docs/agent-context/` absent or empty) and no project fingerprint
+(`config/project-profile.json` absent). Instead of the A/B/C/D menu,
+VIRGIL opens with one recommendation:
+
+- Existing codebase, no agent context → "I just met your project. Want to
+  do a quick fitting? Five questions, and I'll know how to help."
+- Empty project → "Nothing here yet. Want to try a quick spike, or start
+  building something real?" (This is the greenfield path — init → fitted.)
+
+The full menu exists as a fallback ("show me all options"), not as the
+default.
+
+The fitting is conversational and incremental. VIRGIL:
+
+1. Runs the mechanical fingerprint (language, test runner, CI, package
+   manager, linter). Presents findings: "I see Python 3.12, pytest, GitHub
+   Actions, ruff. Correct?" Writes confirmed findings to
+   `config/project-profile.json`.
+2. Walks through the agent-context interview (capture-context), one concern
+   at a time. Each confirmed key is written immediately — partial progress
+   is saved, and the user can stop and resume across sessions.
+3. Offers hooks: "Want me to add pre-commit hooks for markdown formatting
+   and link checking?" Yes wires them; no records the decision so the offer
+   doesn't repeat.
+4. Surfaces the factory guide's relevant section when the user hits a
+   concept for the first time. No catalogue upfront. 58 skills, 17 agents,
+   11 playbooks stay invisible until the user's path reaches them.
+
+The fitting persists across sessions. Each session, VIRGIL checks what's
+still missing and offers to continue — not as a blocker, but as a standing
+offer the user can defer.
+
+### fitted — the offer stops
+
+The transition from fitting to fitted happens when:
+
+- Agent-context index files have at least one non-deferred key each, or
+  the user has explicitly deferred all remaining keys.
+- The project fingerprint exists and has been confirmed.
+- Hooks have been installed or explicitly declined.
+- VIRGIL asks "I think I know enough. Anything else?" and the user
+  confirms.
+
+A marker records the fitted state. The "want to continue the fitting?"
+offer stops. Sessions open with "What do you want to work on?" — the
+factory knows the project's shape.
+
+Success moment: *"I didn't have to learn the whole thing to get value from
+it. It learned me."*
+
+### The README (orthogonal to the lifecycle)
 
 The README is the only pre-commitment surface. It has 30 seconds.
 
@@ -406,7 +526,6 @@ The README is the only pre-commitment surface. It has 30 seconds.
   not a footnote).
 - One command to run poc-spike against a scratch directory, no full
   installation required.
-- Success moment: *"I see what this does."*
 
 The distribution problem is solved here or not at all. The consumer's front
 door is the root README, and right now it opens into a construction site.
@@ -423,68 +542,19 @@ Two options, pick one:
 
 Option A is probably right until there are actual external users.
 
-### Layer 1 — Minimal installation, no questions
+### What changed from the four-layer sketch
 
-init-factory detects the CLI in use (or takes `--cli claude`). Installs for
-that CLI only. Ships everything — agents, skills, playbooks, scripts — but
-wires up one ecosystem instead of four. No "guardrails or full workflow"
-question. The user hasn't used either yet; they can't choose. Install the
-lot, for one CLI, quietly.
-
-The mechanical project fingerprint (language, test runner, CI) happens here,
-written to `config/project-profile.json`. Silent. No interaction beyond the
-project name.
-
-First commit should not modify the user's files. If hooks auto-fix
-formatting on factory-owned files, that happens inside init-factory before
-it finishes — not as a surprise on the user's first `git add`.
-
-Success moment: *"That was painless."*
-
-### Layer 2 — First session: one recommendation
-
-VIRGIL reads the project fingerprint. Instead of A/B/C/D, it opens with one
-suggestion:
-
-- Empty project, no code → "Want to try a quick spike?"
-- Existing codebase, no agent context → "Let me learn about your project.
-  Five questions."
-- Agent context already set up → "What do you want to work on?"
-
-The full menu exists as a fallback ("show me all options"), not as the
-default. The recommendation is the default.
-
-Success moment: *"Something useful just happened."*
-
-### Layer 3 — Progressive depth, pull not push
-
-58 skills, 17 agents, 13 playbooks stay invisible until the user's path
-reaches them. No catalogue upfront. The factory guide stays available but
-isn't required reading — VIRGIL surfaces the relevant section when the user
-hits a concept for the first time.
-
-Agent context, reading guides, the interview — all pull-based. The factory
-reveals its depth as you use it, not as a wall of documentation before you
-start.
-
-Success moment: *"I didn't have to learn the whole thing to get value from
-it."*
-
-### UX critique that shaped this revision
-
-- Layers 0 and 1 of the original sketch were merged. The README *is* the
-  zero-commitment contact. Two separate "read before you try" surfaces means
-  neither is the canonical one.
-- Dropped the "ask questions upfront" approach for Layer 1. Progressive
-  installation means installing the minimum and offering expansion later, not
-  asking questions the user can't answer yet.
-- Added success moments per layer — the path should define what the user
-  feels, not just what the system does.
-- Uninstall as a trust signal belongs at Layer 0, not buried in the factory
-  guide.
-- The distribution problem was the hardest of the three and got the least
-  concrete treatment in the first sketch. Option A/B framing addresses it
-  directly.
+- Layers 1–3 collapsed into a lifecycle with named states. The user
+  experience is the same — minimal init, conversational onboarding,
+  progressive depth — but the model is state-driven, not layer-driven.
+  States are observable and testable; layers were conceptual.
+- Hooks moved from init to the fitting. The user is asked, not surprised.
+- The mechanical fingerprint moved from init to first session. VIRGIL
+  presents and confirms it rather than writing it silently.
+- The fitted marker makes the transition explicit. The factory knows when
+  to stop asking.
+- The README concern is separated out — it's a presentation problem, not a
+  lifecycle state.
 
 ## Documentation gaps — newcomer path audit (2026-09-06)
 
@@ -515,9 +585,9 @@ buried in the usage-capture section.
 
 ### 3. Stale ruff references in factory guide
 
-Five mentions (lines 554, 560, 574, 586, 687) still describe ruff as a
+Five mentions (lines 555, 561, 575, 587, 688) still describe ruff as a
 built-in hook. Ruff was removed from both the pre-commit template and the
-source repo config (commit `3b83eaa`). The guide contradicts reality.
+source repo config (commit `a210970`). The guide contradicts reality.
 
 ### 4. `config/project.json`
 
@@ -550,3 +620,84 @@ The guide says "`docs/agent-context/` is a routing switchboard" but never
 says when it gets created. A newcomer looking for it after `init-factory`
 won't find it — it's created during onboarding (greenfield/brownfield
 playbooks), not at install time.
+
+## Baseline update (2026-09-06)
+
+Work done since this proposal was drafted. Updates the starting point for
+the fitting lifecycle.
+
+### Documentation editorial pass
+
+- **`92449e8`** — Switched "operator" wording to "user" across 127 files.
+- **`d5dffa0`** — Editorial pass over all 58 skills. Cut bureaucratic
+  openers ("This skill provides a capability to…"), removed redundant
+  footers, fixed verb agreement. 8 skills rewritten.
+- **`f5deffe`** — Rewrote pre-commit hook comments for clarity. Each hook
+  now has a two-line comment explaining what it checks and why.
+- **`a210970`** — Removed ruff from the pre-commit template and annotated
+  the remaining hooks. The factory guide still has five stale ruff
+  references (gap 3 above — not yet fixed).
+
+### VIRGIL as default session persona
+
+- **`2804a1b`** — VIRGIL is now adopted at the start of every session, not
+  only when option D is chosen. The session entrypoint in AGENTS.md reads
+  the virgil agent definition and adopts its role before presenting the
+  menu. The factory guide introduces VIRGIL in "Your very first session"
+  with the Dante/Purgatory allusion and J.A.R.V.I.S. comparison.
+- This is the foundation for the **unfitted → fitting** transition — VIRGIL
+  is the default voice but does not yet read a project fingerprint or offer
+  a tailored recommendation. The A/B/C/D menu is still the default, not a
+  fallback.
+
+### Pre-commit merge bug fixed
+
+- **`2d8ff9c`** — Three bugs in the init-factory / merge-precommit-config
+  pipeline:
+  1. `_tools_in_target` matched `factory/scripts/mdformat` in the dev
+     repo's development section, triggering the dedup filter and silently
+     dropping the factory's mdformat hook. Fixed: entries using
+     `factory/scripts/` are excluded from the dedup check.
+  2. If `_strip_factory_block` failed silently, the merge would splice a
+     new copy on top of the old one, duplicating the entire block. Fixed:
+     post-strip marker check raises instead of splicing.
+  3. `handle_precommit` ran `merge-precommit-config` even when
+     `.pre-commit-config.yaml` was git-tracked. In the dev repo this
+     overwrote intentional differences (bare entries, source-repo paths,
+     extra excludes) with the consumer template. Fixed: skip merge when the
+     file is git-tracked.
+- New test suite: `tests/factory/test_merge_precommit_config.py` (9 tests).
+
+### Monorepo restructure
+
+- **`eb22486`** — Product source moved to `packages/factory/`. Root
+  `init-factory` is a thin wrapper. `factory/` at root is the installed
+  copy (git-ignored), synced by `update-factory`.
+
+### What this changes for the proposal
+
+The editorial pass addressed the *tone* half of the mental-onboarding
+concern — skills read clearly, hooks explain themselves, the language is
+"user" not "operator." The *structure* half — too many forks, the guide is
+buried, the README leads with machinery — is untouched.
+
+VIRGIL as default persona is the foundation for Layer 2 but not yet the
+thing itself. The four-option menu is still the first thing a user sees.
+The fingerprint-driven recommendation ("I see Python/FastAPI, you probably
+want…") does not exist yet.
+
+The pre-commit fix removes a friction point from the developer experience
+but does not advance any proposal layer directly.
+
+**Doc gaps status (updated 2026-09-06):**
+
+| #   | Gap                               | Status          |
+| --- | --------------------------------- | --------------- |
+| 1   | Model matrix docs                 | Open            |
+| 2   | Tier definitions                  | Open            |
+| 3   | Stale ruff refs in guide          | Open            |
+| 4   | `config/project.json` unexplained | Open            |
+| 5   | Factory directory layout          | Open            |
+| 6   | Factory README "How it works"     | Open            |
+| 7   | Agent context in factory README   | Mentioned, thin |
+| 8   | Agent context creation timing     | Open            |
