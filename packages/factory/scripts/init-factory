@@ -1686,6 +1686,20 @@ def handle_precommit(target: Path, install: dict, report: list[str]) -> None:
         log(report, ".pre-commit-config.yaml: created with Agent Factory's hook block")
         return
 
+    # If the file is git-tracked, the project manages its own config — don't
+    # clobber it.  The merge script would overwrite dev-repo-specific entries
+    # (bare entries, source paths, extra excludes) with the consumer template.
+    git_tracked = subprocess.run(
+        ["git", "ls-files", "--error-unmatch", str(dest)],
+        capture_output=True, check=False, cwd=target,
+    )
+    if git_tracked.returncode == 0:
+        install.setdefault(
+            "precommit", {"path": ".pre-commit-config.yaml", "existed": True}
+        )
+        log(report, ".pre-commit-config.yaml: git-tracked, left untouched")
+        return
+
     # Record the original's trailing-newline state so removal restores it exactly.
     install.setdefault(
         "precommit_orig_final_newline",

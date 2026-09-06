@@ -150,7 +150,9 @@ def existing_item_indent(target_lines: list[str], start: int, end: int) -> int |
 
 def _tools_in_target(target_lines: list[str]) -> set[str]:
     """Return the set of DEDUP_TOOLS names that already appear in any hook
-    entry line in the target (outside of agent_factory_hook-* blocks)."""
+    entry line in the target (outside of agent_factory_hook-* blocks and
+    excluding entries that invoke factory/scripts/ — those are factory
+    tools, not independent project tools)."""
     found: set[str] = set()
     in_factory_block = False
     for line in target_lines:
@@ -162,6 +164,8 @@ def _tools_in_target(target_lines: list[str]) -> set[str]:
         m = HOOK_ENTRY_LINE.match(line)
         if m:
             entry = m.group(1)
+            if "factory/scripts/" in entry:
+                continue
             for tool in DEDUP_TOOLS:
                 if tool in entry:
                     found.add(tool)
@@ -246,6 +250,11 @@ def merge(target_text: str, template_text: str, *, update: bool = False) -> str 
         if not update:
             return None
         target_text = "\n".join(_strip_factory_block(target_text.splitlines()))
+        if marker in target_text:
+            raise ValueError(
+                "the existing agent_factory_hook-* block could not be stripped "
+                "cleanly — merge by hand to avoid duplication"
+            )
 
     target_lines = target_text.splitlines()
     bounds = find_repos_list_bounds(target_lines)
