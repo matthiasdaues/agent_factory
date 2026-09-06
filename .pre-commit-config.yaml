@@ -28,7 +28,7 @@ repos:
         entry: factory/scripts/link-check
         language: system
         types: [markdown]
-        exclude: ^(packages/factory/|docs/~archive/)
+        exclude: ^(factory/|packages/factory/|docs/~archive/)
 
       # Flag raw semicolons inside mermaid code fences.
       # Mermaid silently swallows them, producing broken diagrams.
@@ -130,7 +130,7 @@ repos:
         entry: factory/scripts/link-check
         language: system
         types: [markdown]
-        exclude: ^(packages/factory/|docs/~archive/)
+        exclude: ^(factory/|packages/factory/|docs/~archive/)
 
       - id: spec-lint
         name: spec-lint (specification consistency & traceability)
