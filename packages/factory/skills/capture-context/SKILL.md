@@ -126,12 +126,12 @@ Run format detection (the three-step chain from context-lint). If the
 project has `docs/charter/tech-stack.md` (legacy markdown charter) and no
 `docs/agent-context/` directory:
 
-1. Tell the operator: "This project uses legacy markdown charter files.
+1. Tell the user: "This project uses legacy markdown charter files.
    Would you like to migrate to YAML agent-context?"
-2. If the operator **declines**: stop here — leave the markdown charter
+2. If the user **declines**: stop here — leave the markdown charter
    unchanged, do not create `docs/agent-context/`, and exit. The project
    continues using its existing charter files.
-3. If the operator **confirms**: proceed to Step 2. The migration happens
+3. If the user **confirms**: proceed to Step 2. The migration happens
    as a side effect of the brownfield scan populating the new YAML files.
 
 If `docs/agent-context/` already exists, skip this step.
@@ -157,12 +157,12 @@ Scan the project for documentation signals. Look for these common markers:
 | `CONTRIBUTING.md`, `docs/development.md`                 | Development practices     | `workflow.yaml#getting_started`                 |
 | `.pre-commit-config.yaml`                                | Commit/review conventions | `governance.yaml#commits`                       |
 
-Report what was found to the operator before proceeding to the interview.
+Report what was found to the user before proceeding to the interview.
 
 ### Step 4 — Concern-based interview
 
 For each applicable work-type concern (based on what the scan discovered),
-ask the operator where conventions are documented and propose source paths
+ask the user where conventions are documented and propose source paths
 from the scan results. The concerns follow the `reading-guides.yaml`
 template structure:
 
@@ -194,7 +194,7 @@ template structure:
 
 - Write to `stack.yaml#infrastructure`.
 
-For each field, the operator may:
+For each field, the user may:
 
 - **Confirm** the proposed source → write `name` and `source` together.
 - **Override** with a different source path → write the override.
@@ -203,7 +203,7 @@ For each field, the operator may:
 
 Fields with no applicable scan signal are presented at the end as "The scan
 found no signals for [field]. Do you have documentation for this?" — the
-operator can provide a source, defer, or remove.
+user can provide a source, defer, or remove.
 
 ### Step 5 — Reading-guide assembly
 

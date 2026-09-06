@@ -253,7 +253,7 @@ demo_human_in_the_loop() {
     session_log "system" "-" "START" "Part 1: Human in the Loop"
 
     step "PART 1: Human in the Loop"
-    echo "You are the operator. You will:"
+    echo "You drive the process. You will:"
     echo "  1. Check gates manually"
     echo "  2. Do the work (create files)"
     echo "  3. Advance the marker by calling 'phase advance'"

@@ -15,10 +15,10 @@ Generated from:
 - Summary: The agent context feature introduces a two-layer YAML-based routing interface between factory agents and project knowledge. The primary QA risk is in the validation script (`context-lint`), the format-detection chain shared across all factory consumers, and the mode lifecycle transitions. Backward compatibility with legacy markdown and YAML charter formats is a cross-cutting concern that touches every consumer in the factory inventory.
 - Rules in scope:
   - `Rule: Factory agent reads project context through unified two-layer routing`
-  - `Rule: Operator initializes agent context for a greenfield project`
-  - `Rule: Operator onboards brownfield documentation into agent context`
-  - `Rule: Operator updates agent context as decisions emerge`
-  - `Rule: Operator transitions context from primary to index mode`
+  - `Rule: User initializes agent context for a greenfield project`
+  - `Rule: User onboards brownfield documentation into agent context`
+  - `Rule: User updates agent context as decisions emerge`
+  - `Rule: User transitions context from primary to index mode`
   - `Rule: context-lint validates agent context structure and references`
   - `Rule: Legacy projects continue working without migration`
   - `Rule: testing.yaml operates as a lifecycle-exempt peer file`
@@ -93,7 +93,7 @@ The marker enables traceability from test to contract-owner table and supports m
 | Reading guide references a file that does not exist        | `Scenario: CX-GUIDE-REF reports unresolvable key path`              | Broken routing — agent follows dead reference                             | Contract test    | File existence vs. key-path existence are two different failures           |
 | Both `docs/agent-context/` and `docs/charter/` exist       | `Scenario: CX-FORMAT reports mixed locations`                       | Ambiguous context source                                                  | Contract test    | CX-FORMAT is error severity — blocks, not warns                            |
 | `docs/charter/testing.yaml` only, no `docs/agent-context/` | `Scenario: testing.yaml resolution walks both paths`                | Backward compat — testing.yaml at old path must still work                | Integration test | No CX-FORMAT error for this specific case                                  |
-| All fields have sources, operator declines transition      | `Scenario: Operator declines mode transition`                       | User agency — transition is never automatic                               | Contract test    | Files must remain in mode: primary after decline                           |
+| All fields have sources, user declines transition          | `Scenario: User declines mode transition`                           | User agency — transition is never automatic                               | Contract test    | Files must remain in mode: primary after decline                           |
 | Key-path reference to array-typed key                      | `Scenario: CX-GUIDE-REF validates key-path references`              | Array keys are referenced by parent, not by index                         | Contract test    | e.g., `stack.yaml#languages` references the entire list                    |
 | Greenfield project with no reading guide                   | `Scenario: Greenfield project has no reading guide`                 | No CX-FILE error for missing reading-guides.yaml in primary mode          | Contract test    | Reading guide absence is legal when all index files are mode: primary      |
 
@@ -113,7 +113,7 @@ The marker enables traceability from test to contract-owner table and supports m
 | context-lint silently passes invalid YAML or missing keys (false negative on CX-PARSE, CX-KEYS, CX-FILE) | blocking          | Stop release, fix before merge                        |
 | CX-FORMAT fails to detect mixed locations (legacy project corruption risk)                               | blocking          | Stop release, fix before merge                        |
 | Format detection returns wrong mode (agents read wrong files)                                            | blocking          | Stop release, fix before merge                        |
-| Mode transition fires without operator confirmation                                                      | blocking          | Stop release, fix before merge                        |
+| Mode transition fires without user confirmation                                                          | blocking          | Stop release, fix before merge                        |
 | CX-GUIDE-REF fails to detect broken key-path reference                                                   | fix-in-same-story | Repair in current story or QA loop                    |
 | CX-SRC-STALE false positive on equal mtime                                                               | defer             | File finding or backlog follow-up                     |
 | CX-NULL severity not elevated in `--planning-gate` mode                                                  | fix-in-same-story | Repair in current story or QA loop                    |

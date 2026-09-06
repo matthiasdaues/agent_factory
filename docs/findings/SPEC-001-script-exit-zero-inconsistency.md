@@ -43,7 +43,7 @@ UC-09 specifies phase advance invoking `run-tests` via `script_exit_zero` entry 
 
 **But validation-rules.md § Entry conditions** states:
 
-> - `script_exit_zero`: **always satisfied** in the current implementation — deliberately stubbed, not yet running the named script. See [T-03](../todos.md#t-03-script_exit_zero-condition-type-is-stubbed).
+> - `script_exit_zero`: **always satisfied** in the current implementation — deliberately stubbed, not yet running the named script. See [T-03](../spec/todos.md#t-03-script_exit_zero-condition-type-is-stubbed--partially-resolved).
 
 **And T-03 confirms**:
 
@@ -54,7 +54,7 @@ UC-09 specifies phase advance invoking `run-tests` via `script_exit_zero` entry 
 **Specification inconsistency**: UC-09 describes behavior (phase advance running tests via script_exit_zero) that cannot occur with the current stubbed implementation. This creates false expectations for:
 
 1. Implementers who read UC-09 and believe phase advance already enforces test passage
-2. Operators who configure FSM entry_conditions expecting tests to block phase advance
+2. Users who configure FSM entry_conditions expecting tests to block phase advance
 3. Readers trying to understand what functionality exists versus what is planned
 
 ## Recommended Fix

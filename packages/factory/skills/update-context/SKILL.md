@@ -67,7 +67,7 @@ Apply these rules in order — the first one that matches decides the write:
 1. **Deferring a decision** → write `deferred: "<reason>"` and go to
    [Deferred fields](#deferred-fields). This replaces whatever was at the
    field.
-2. **A source pointer is being recorded** (the operator supplies both the
+2. **A source pointer is being recorded** (the user supplies both the
    value and a `source:` path) → write `name:` and `source:` together.
    See [Writing name and source together](#writing-name-and-source-together).
 3. **No source pointer available** → write the inline value directly.
@@ -133,30 +133,30 @@ maintain `docs/agent-context/reading-guides.yaml`:
 If `reading-guides.yaml` does not exist and the write added a `source:`
 pointer, propose creating it from
 `factory/rulebooks/templates/context-reading-guides.yaml`. Do not create it
-silently; the operator decides whether to accept the proposal now or later.
+silently; the user decides whether to accept the proposal now or later.
 
 #### Concern assignment (new key)
 
-When a new key is added to any index file, ask the operator which concern
+When a new key is added to any index file, ask the user which concern
 it belongs to. Present the concerns already in `reading-guides.yaml`:
 
 > "Which concern does `<key>` belong to? Your current concerns are:
 > `<list>`. Pick one, or name a new one."
 
-Write the operator's answer immediately: add
+Write the user's answer immediately: add
 `<file>#<dotted.key.path>` to that concern's reference list in
-`reading-guides.yaml`. If the operator names a concern that does not exist
+`reading-guides.yaml`. If the user names a concern that does not exist
 yet, create it.
 
 #### Concern reassignment (source change)
 
-When a `source:` pointer changes on an existing key, ask the operator
+When a `source:` pointer changes on an existing key, ask the user
 whether the concern assignment is still correct:
 
 > "`<key>` was under `<concern>`. Source changed to `<new-source>` — still
 > the right concern?"
 
-If the operator says yes, do nothing. If they name a different concern,
+If the user says yes, do nothing. If they name a different concern,
 move the reference.
 
 ### 4. Validate
@@ -195,26 +195,26 @@ may ride in the same commit as the source-pointer write that triggered it).
 
 ## Example
 
-**Scenario:** The operator settles on FastAPI for the backend, then later
-points it at the ADR that recorded the choice.
+**Scenario:** You settle on FastAPI for the backend, then later
+point it at the ADR that recorded the choice.
 
 **Workflow:**
 
-1. Operator states the decision: FastAPI 0.100 for the backend, no source
+1. You state the decision: FastAPI 0.100 for the backend, no source
    yet. Read `stack.yaml`, locate `frameworks.backend` (currently absent or
    deferred).
 2. No source pointer → write the inline value:
    `backend: FastAPI 0.100`.
 3. Run `context-lint`, confirm zero errors.
 4. Commit: `docs: update agent context stack.yaml — frameworks.backend (ST-0042)`.
-5. Later, the operator adds `docs/adr/004-use-fastapi.md` as the source.
+5. Later, the user adds `docs/adr/004-use-fastapi.md` as the source.
    Read `stack.yaml` again, confirm the field still resolves.
 6. A source pointer is being recorded → write
    `backend: {name: FastAPI, source: docs/adr/004-use-fastapi.md}`.
 7. Reading-guide maintenance: `reading-guides.yaml` does not exist →
-   propose creating it from the template. Operator confirms → copy the
+   propose creating it from the template. You confirm → copy the
    template unchanged. Then ask: "Which concern does `frameworks.backend`
-   belong to?" Operator says "backend" → add
+   belong to?" You say "backend" → add
    `stack.yaml#frameworks.backend` to the backend concern.
 8. Run `context-lint`, confirm zero errors.
 9. Commit: `docs: update agent context stack.yaml — frameworks.backend (ADR-0004)`.

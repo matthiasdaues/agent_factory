@@ -268,7 +268,7 @@ If `testing.yaml` already exists, treat it as a prior scan
 result, not ground truth — update fields whose evidence has changed, and
 leave untouched fields that were not re-scanned. Do not silently delete a
 suite or layer entry that this scan did not re-detect without flagging that
-gap to the operator first.
+gap to the user first.
 
 After writing, run:
 

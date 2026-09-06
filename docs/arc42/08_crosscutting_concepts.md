@@ -4,7 +4,7 @@
 
 ## 8.1 Agentic Creation, Deterministic Validation
 
-**Principle**: Creation is agentic; validation is deterministic. Tests, phase-order gates, and dangerous-command checks are triggered mechanically rather than left to agent judgment. Agent guardrails prevent bypass in the managed workflow; human operators who control the Git client retain Git's standard `--no-verify` escape hatch. Other deterministic validators run *on demand*, invoked by a playbook, agent, or operator; their result remains trustworthy because it is a mechanical exit code, not an agent's word.
+**Principle**: Creation is agentic; validation is deterministic. Tests, phase-order gates, and dangerous-command checks are triggered mechanically rather than left to agent judgment. Agent guardrails prevent bypass in the managed workflow; you retain Git's standard `--no-verify` escape hatch when you control the Git client. Other deterministic validators run *on demand*, invoked by a playbook, agent, or you; their result remains trustworthy because it is a mechanical exit code, not an agent's word.
 
 Derived from [`factory/rulebooks/conventions/foundational-principles.md`](../../factory/rulebooks/conventions/foundational-principles.md).
 
@@ -34,7 +34,7 @@ Derived from [`factory/rulebooks/conventions/foundational-principles.md`](../../
 
 Test gate presence exemplifies this principle end-to-end:
 
-1. **Project declares test commands** — the human operator writes `testing.yaml` (resolved via format detection: `docs/agent-context/testing.yaml` first, `docs/charter/testing.yaml` as fallback) with `test_command`, and optionally `test_staged_command` and `test_changed_command`.
+1. **Project declares test commands** — you write `testing.yaml` (resolved via format detection: `docs/agent-context/testing.yaml` first, `docs/charter/testing.yaml` as fallback) with `test_command`, and optionally `test_staged_command` and `test_changed_command`.
 2. **FSM gate resolves the declared command** — `phase advance` reads the FSM entry condition `script_exit_zero` with `charter:test_command`, resolves the actual command from the testing configuration, and executes it. Exit 0 advances; nonzero blocks.
 3. **Agent uses the declared command** — `block-dangerous-git.sh` reads all declared command fields from the testing configuration and allowlists them with exact-string matching. An agent running a declared command proceeds normally.
 4. **Agent blocked from bare test commands** — `block-dangerous-git.sh` denies `pytest`, `npm test`, etc. at PreToolUse unless they exactly match a declared command. Agent cannot bypass or "double-check" — only the declared, mechanically gated result is trustworthy.

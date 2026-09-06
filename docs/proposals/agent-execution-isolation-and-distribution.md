@@ -77,7 +77,7 @@ authority.
 
 ## Motivation
 
-The immediate problem is that an AI CLI started as the human operator inherits
+The immediate problem is that an AI CLI started as you inherits
 that human's UID and therefore their filesystem permissions, credential
 agents, privileged groups, and process authority. Repository instructions and
 tool hooks cannot reliably constrain a process that already possesses those
@@ -127,7 +127,7 @@ deployment prerequisite, not as local isolation.
 ## Goals
 
 1. **Separate identity and prevent escalation.** An agent runs under a
-   dedicated UID whose DAC permissions differ from the human operator's. It
+   dedicated UID whose DAC permissions differ from you's. It
    has no supported route to acquire the human UID, root, privileged groups,
    credential agents, or container-management authority.
 2. **Protect unrelated host files.** Filesystem ownership, permissions, ACLs,
@@ -186,7 +186,7 @@ programs, project tool configuration, and remote content are untrusted. Assume
 the agent can execute arbitrary programs with all authority granted to its
 session.
 
-The human operator, host kernel, operating-system sandbox policy, protected
+You, host kernel, operating-system sandbox policy, protected
 delegation records, administrative provisioning path, and remote Git
 protection are trusted. A future privileged orchestrator control plane and
 publication credential store will join the trusted base only after their
@@ -219,7 +219,7 @@ credential that a human deliberately places inside a readable delegated path.
 Ordinary agents run as a dedicated `agent-factory` operating-system user. It
 has no administrative, container-management, desktop-session, backup, or
 human-login authority. Its private home contains only explicitly provisioned
-Factory and provider state. It cannot read the human operator's home or
+Factory and provider state. It cannot read you's home or
 credential stores.
 
 This UID boundary is the first and load-bearing control. The account has no
@@ -318,7 +318,7 @@ state. A privileged revocation first prevents new launches, terminates and
 reaps every launcher cgroup whose policy references the grant, dismantles its
 namespaces, removes only the recorded ACL entries, and verifies denial under
 the agent UID. Failure at any step leaves the grant marked `revoking`, blocks
-new sessions, and requires operator repair; it never reports successful
+new sessions, and requires user repair; it never reports successful
 revocation. Concurrent sessions with different policies remain confined to
 their own namespaces. Persistent project registration avoids racing ACL
 removal between concurrent sessions; revocation applies to all sessions that
@@ -375,7 +375,7 @@ or another ordinary workflow step, the launcher re-runs the bidirectional ACL
 probe before a subsequent session. A failed probe refuses launch. If a tool
 strips an ACL during a session,
 the affected operation may make the tree temporarily unusable to one identity;
-the session must not broaden permissions itself. The operator runs the
+the session must not broaden permissions itself. You runs the
 privileged reconciliation command, which restores only ACL entries recorded by
 provisioning and re-runs both UID probes before work resumes.
 
@@ -603,7 +603,7 @@ For a tested backend, the release may claim:
 > UID, removes supported escalation paths, and confines filesystem access to an
 > explicit, human-controlled set of canonical paths and access modes through
 > DAC, POSIX ACLs, and sandbox mounts. The agent cannot broaden that set or
-> obtain the human operator's protected unrelated files and credentials
+> obtain you's protected unrelated files and credentials
 > through the supported launcher. This is an access-control claim, not a
 > confidentiality claim for readable grants: interactive sessions may disclose
 > readable content, including the provider credential deliberately provisioned
@@ -804,14 +804,14 @@ Factory CLI must not produce. Measured against them, this proposal improves
 two, defers one to a document that does not exist, and drops one without
 naming it.
 
-| Inherited objective                            | Status here                                                                                |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| 1. Become the operator or gain admin privilege | IMPROVED — the dedicated identity now binds both profiles                                  |
-| 2. Change the policy that constrains it        | PARTIAL — delegation policy is protected; gates, launcher, and agent home are not          |
-| 3. Read unrelated user data or credentials     | MET, subject to backend proof                                                              |
-| 4. Execute arbitrary programs                  | DROPPED — command mediation and executable trust appear in no section, including Non-goals |
-| 5. Mutate protected refs or hide damage        | DEFERRED — and the shipped denials are demoted in the meantime (B1)                        |
-| 6. Publish or contact services unapproved      | PARTIAL — no publication credential; egress unrestricted in every usable posture           |
+| Inherited objective                        | Status here                                                                                |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| 1. Become you or gain admin privilege      | IMPROVED — the dedicated identity now binds both profiles                                  |
+| 2. Change the policy that constrains it    | PARTIAL — delegation policy is protected; gates, launcher, and agent home are not          |
+| 3. Read unrelated user data or credentials | MET, subject to backend proof                                                              |
+| 4. Execute arbitrary programs              | DROPPED — command mediation and executable trust appear in no section, including Non-goals |
+| 5. Mutate protected refs or hide damage    | DEFERRED — and the shipped denials are demoted in the meantime (B1)                        |
+| 6. Publish or contact services unapproved  | PARTIAL — no publication credential; egress unrestricted in every usable posture           |
 
 ### Defect register + amendments
 
@@ -1371,7 +1371,7 @@ explicitly rather than leaving it implied by the provisioning-time framing.
 **MINOR A27 — the post-toolchain ACL probe has no stated failure behavior, and
 its case can pass on the happy path.** Elsewhere the document is precise about
 failing closed. The A19 paragraph says only that the launcher re-runs the
-bidirectional probe "before a subsequent session" and that the operator runs
+bidirectional probe "before a subsequent session" and that you runs
 reconciliation "before work resumes"; it never says a failed probe refuses the
 launch. The matrix row reads "Both UIDs still edit, or reconciliation restores
 recorded ACLs," a disjunction satisfied by a run in which no tool stripped

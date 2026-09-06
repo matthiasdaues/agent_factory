@@ -37,16 +37,16 @@ All worktrees live under `.current-work/worktrees/`, named after their branch. T
 
 ## Blocked operations and their safe forms
 
-The guardrail blocks these in every session, including the operator's own:
+The guardrail blocks these in every session, including yours:
 
 | Blocked                                             | Use instead                                                            |
 | --------------------------------------------------- | ---------------------------------------------------------------------- |
 | Standalone branch creation                          | `git worktree add -b <branch> .current-work/worktrees/<branch> <base>` |
 | `git checkout .` / `git checkout -- .`              | `git checkout HEAD -- <path>`                                          |
-| `git branch -D` (force delete)                      | `git branch -d` (merged only); ask the operator for force deletes      |
+| `git branch -D` (force delete)                      | `git branch -d` (merged only); ask the user for force deletes          |
 | `git commit --no-verify`, `git ... --no-verify`     | Fix the failing hook; never bypass                                     |
 | `git config core.hooksPath …`                       | Do not repoint hooks                                                   |
-| `git reset --hard`, `git clean`, `git push --force` | Ask the operator                                                       |
+| `git reset --hard`, `git clean`, `git push --force` | Ask the user                                                           |
 
 `rm -rf` is separately gated by the safety classifier — ask before destructive removal.
 

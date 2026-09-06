@@ -73,6 +73,7 @@ models/
 /.agents/skills/atam-review
 /.agents/skills/bug-hunt
 /.agents/skills/capture-charter
+/.agents/skills/capture-context
 /.agents/skills/capture-vision
 /.agents/skills/caveman
 /.agents/skills/claim-formulation
@@ -81,6 +82,10 @@ models/
 /.agents/skills/commit
 /.agents/skills/crap-score
 /.agents/skills/create-backlog
+/.agents/skills/create-backlog-epics
+/.agents/skills/create-backlog-stories
+/.agents/skills/create-backlog-story-slices
+/.agents/skills/create-backlog-write-epics
 /.agents/skills/dependency-check
 /.agents/skills/derive-feature
 /.agents/skills/derive-spec
@@ -118,7 +123,9 @@ models/
 /.agents/skills/security-review
 /.agents/skills/source-research
 /.agents/skills/spec-feedback
+/.agents/skills/test-design
 /.agents/skills/update-charter
+/.agents/skills/update-context
 /.agents/skills/validate
 /.agents/skills/write-adr
 /.agents/skills/write-prd

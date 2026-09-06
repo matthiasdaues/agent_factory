@@ -4,7 +4,7 @@
 
 ```mermaid
 graph LR
-    Human["Human Operator"] -->|invokes| RP["run-playbook"]
+    Human["User"] -->|invokes| RP["run-playbook"]
     RP -->|reads| Marker[".agent-factory/playbook-state.yml"]
     RP -->|reads| FSM["factory/playbooks/*.fsm.yml"]
     RP -->|calls| PA["factory/scripts/phase advance"]

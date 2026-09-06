@@ -179,7 +179,7 @@ All three read the same marker (`.current-work/playbook-state.yml`) and FSM (e.g
 | **index-lint**                   | Generates INDEX.yaml from frontmatter with token budget counts; `--check` validates drift                                         | source .md            | INDEX.yaml            |
 | **run-agent** (Pi extension)     | Pi model-callable tool: spawns a separate `pi` session to run one factory agent                                                   | agent .md, model.conf | (none)                |
 | **dispatch-wave** (Pi extension) | Pi model-callable tool: runs a parallel wave of agents, each in its own git worktree, integrating `premerge-check` before merging | agent .md, model.conf | git worktrees, merges |
-| **openrouter-discover**          | Operator aid: queries the OpenRouter catalog to curate/validate `pi.*` tier rows in model.conf, offline of the runtime path       | OpenRouter API        | (none)                |
+| **openrouter-discover**          | Curation tool: queries the OpenRouter catalog to curate/validate `pi.*` tier rows in model.conf, offline of the runtime path      | OpenRouter API        | (none)                |
 
 ## 5.5 Interfaces Summary
 
@@ -197,7 +197,7 @@ Every building block's entry point, invoked how, and by whom:
 | run-step skill               | Any supported CLI (LLM-executed)                          | Skill markdown invoked by AI                                        | (N/A — skill is prose)                        |
 | run-agent (Pi extension)     | Pi session (via `run_agent` tool call)                    | `.pi/extensions/run-agent.ts` → spawns `pi ... -p <task>`           | (tool result: text + usage, or error)         |
 | dispatch-wave (Pi extension) | Pi session (via `dispatch_wave` call)                     | `.pi/extensions/dispatch-wave.ts` → worktree + spawn + merge/item   | (tool result: per-item status, or error)      |
-| openrouter-discover          | Human operator, CI (`--check`)                            | `factory/scripts/openrouter-discover [--list\|--suggest\|--check]`  | 0 (ok), 1 (drift)                             |
+| openrouter-discover          | User, CI (`--check`)                                      | `factory/scripts/openrouter-discover [--list\|--suggest\|--check]`  | 0 (ok), 1 (drift)                             |
 | schema-validate              | Research skills/agents, CLI                               | `factory/scripts/schema-validate <artifact-file> <schema-file>`     | 0 (conforms), 1 (violations), 2 (operational) |
 | policy-validate              | Research skills/agents, CLI                               | `factory/scripts/policy-validate [--pipeline] <artifact-or-dir>...` | 0 (pass), 1 (fail), 2 (operational)           |
 | crap-score                   | Implementation-agent dispatcher                           | `factory/scripts/crap-score [--story-id <id>]`                      | 0 (pass), 1 (fail)                            |

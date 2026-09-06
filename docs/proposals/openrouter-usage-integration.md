@@ -63,7 +63,7 @@ native tokenizer, actual dollar cost, cache hit rates, provider latency, and
 routing decisions. That data exists on OpenRouter's servers for every Pi
 session the factory runs. Today the two data sets are parallel and
 uncorrelated: the factory cannot tell OpenRouter which project or session a
-request belongs to, and an operator cannot navigate from a local usage record
+request belongs to, and you cannot navigate from a local usage record
 to the corresponding server-side view.
 
 Three needs follow:
@@ -71,7 +71,7 @@ Three needs follow:
 1. **Session-level grouping in the provider's UI.** OpenRouter's
    `logs?tab=sessions` view groups requests by a caller-supplied `session_id`.
    Pi sessions through the factory currently appear as isolated, ungrouped
-   requests. An operator debugging a run must correlate by timestamp and model,
+   requests. You debugging a run must correlate by timestamp and model,
    not by a shared identifier.
 
 2. **Project-level cost attribution.** The factory's local records carry
@@ -99,7 +99,7 @@ attributed to a key the factory controls.
   failure mode to agent dispatch.
 
 - **No network calls in `init-factory`.** Key provisioning is a separate
-  operator tool, invoked on demand, following the precedent of
+  curation tool, invoked on demand, following the precedent of
   `openrouter-discover`. `init-factory` installs the session extension via
   symlink — the same mechanism it uses for every other Pi extension.
 
@@ -177,15 +177,15 @@ prefix, preserving the tree structure in the sessions view.
 
 **What this buys immediately:** Every Pi session in the factory appears in
 `openrouter.ai/logs?tab=sessions`, grouped by conversation, labelled with the
-project name and factory session ID. An operator clicks through to see every
+project name and factory session ID. You clicks through to see every
 model call in a run — costs, tokens, latency, provider, cache hits — without
 leaving the OpenRouter UI. No API key management, no analytics queries, no
 beta APIs.
 
 ### Phase 2 — Per-Project API Key Provisioning
 
-A separate operator tool, `factory/scripts/openrouter-provision`, following
-the same pattern as `openrouter-discover`: an operator aid, off the runtime
+A separate curation tool, `factory/scripts/openrouter-provision`, following
+the same pattern as `openrouter-discover`: you aid, off the runtime
 path, stdlib-only, optional. Requires `OPENROUTER_MANAGEMENT_KEY` in the
 environment.
 
@@ -212,7 +212,7 @@ environment.
 **Key injection for subagents:** Conditional on V-2 confirming environment
 variable precedence. The shared helper in `pi-usage.ts` reads the credential
 file; `run-agent.ts` and `dispatch-wave.ts` set `OPENROUTER_API_KEY` in the
-child's environment. Root human sessions remain the operator's
+child's environment. Root human sessions remain you's
 responsibility — `openrouter-provision --action create` emits a reminder:
 "To use this project's OpenRouter key in interactive sessions, run:
 `export OPENROUTER_API_KEY=$(cat .agent-factory/credentials/openrouter-key)`"
@@ -224,7 +224,7 @@ deferred to the V-2 finding.
 
 **Management key scope:** `OPENROUTER_MANAGEMENT_KEY` can create, delete,
 and modify all keys on the account. It is a high-privilege credential. The
-proposal confines it to the operator-invoked provisioning tool; it never
+proposal confines it to you-invoked provisioning tool; it never
 appears on the runtime path, in `init-factory`, or in any agent-accessible
 location.
 
@@ -327,7 +327,7 @@ injection never fails a request.
 ### Interaction with `pi-openrouter-session` (community extension)
 
 The community extension `pi-openrouter-session` (npm package) hooks the same
-`before_provider_request` event. If an operator installs both, the last
+`before_provider_request` event. If you installs both, the last
 writer wins — Pi's `before_provider_request` handlers run in extension load
 order. The factory extension should document this incompatibility. The two
 extensions are not composable because they both set `event.body.session_id`.
@@ -346,7 +346,7 @@ and the model's native tokenizer produce different counts for the same text).
 `openrouter-discover` curates `model.conf` tier rows from the OpenRouter
 catalog. It reads model metadata; it does not read or write usage data.
 `openrouter-provision` manages API keys. The two tools share the pattern
-(operator aid, off the runtime path, stdlib-only, optional
+(curation tool, off the runtime path, stdlib-only, optional
 `OPENROUTER_API_KEY` / `OPENROUTER_MANAGEMENT_KEY`) but have disjoint
 responsibilities.
 
@@ -369,7 +369,7 @@ principle as `usage-capture`.
 | `remove-factory`                       | `.agent-factory/credentials/` removed with the rest of `.agent-factory/` | No effect — orphaned key remains on the account |
 
 The `remove-factory` orphan is a known limitation. `remove-factory` is a
-local operation; it does not make network calls. An operator who removes the
+local operation; it does not make network calls. You who removes the
 factory and wants to clean up the OpenRouter key must run
 `openrouter-provision --action revoke` before `remove-factory`, or delete the
 key manually in the OpenRouter dashboard. The provisioning tool's `--action check` drift gate surfaces orphaned keys when run against a re-initialized
@@ -387,7 +387,7 @@ and `_private_file` (0600) infrastructure. The credential file is:
   tools, and the orchestrator, none of which expose the credentials directory.
 
 The management key (`OPENROUTER_MANAGEMENT_KEY`) is never stored on disk by
-the factory. It exists only in the operator's environment for the duration of
+the factory. It exists only in you's environment for the duration of
 a provisioning command.
 
 ## Open Questions

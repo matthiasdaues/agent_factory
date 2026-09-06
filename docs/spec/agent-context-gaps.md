@@ -8,12 +8,12 @@ Source: docs/proposals/yaml-charter-lifecycle.md
 | Actor              | Goal                                                   | Rule                                                                        | Status    |
 | ------------------ | ------------------------------------------------------ | --------------------------------------------------------------------------- | --------- |
 | Factory Agent      | Read project context through unified two-layer routing | Rule: Factory agent reads project context through unified two-layer routing | specified |
-| Human Operator     | Initialize agent context for a greenfield project      | Rule: Operator initializes agent context for a greenfield project           | specified |
-| Human Operator     | Onboard brownfield documentation into agent context    | Rule: Operator onboards brownfield documentation into agent context         | specified |
-| Human Operator     | Update agent context as decisions emerge               | Rule: Operator updates agent context as decisions emerge                    | specified |
-| Human Operator     | Transition context from primary to index mode          | Rule: Operator transitions context from primary to index mode               | specified |
+| User               | Initialize agent context for a greenfield project      | Rule: User initializes agent context for a greenfield project               | specified |
+| User               | Onboard brownfield documentation into agent context    | Rule: User onboards brownfield documentation into agent context             | specified |
+| User               | Update agent context as decisions emerge               | Rule: User updates agent context as decisions emerge                        | specified |
+| User               | Transition context from primary to index mode          | Rule: User transitions context from primary to index mode                   | specified |
 | context-lint       | Validate agent context structure and references        | Rule: context-lint validates agent context structure and references         | specified |
-| Human Operator     | Continue using a legacy project without migration      | Rule: Legacy projects continue working without migration                    | specified |
+| User               | Continue using a legacy project without migration      | Rule: Legacy projects continue working without migration                    | specified |
 | detect-test-regime | Write testing.yaml independently of lifecycle          | Rule: testing.yaml operates as a lifecycle-exempt peer file                 | specified |
 | Factory Consumer   | Resolve context file paths via format detection        | Rule: Factory consumers resolve context file paths via format detection     | specified |
 | Factory governance | Codify agent context composition rules                 | Rule: Convention codifies agent context composition rules                   | specified |
@@ -30,7 +30,7 @@ None. Every Rule has at least one Scenario.
 
 | Location                                                                                    | Step Text                                                               | Issue                                                                              | Suggested Fix                                                                                                                                                                |
 | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rule: Operator onboards brownfield documentation, Scenario: Concern-based interview         | "When the concern interview completes for backend and testing concerns" | The set of concerns is open-ended; unclear which concerns are mandatory            | Clarify: "When the concern interview completes for each applicable concern discovered during the scan"                                                                       |
+| Rule: User onboards brownfield documentation, Scenario: Concern-based interview             | "When the concern interview completes for backend and testing concerns" | The set of concerns is open-ended; unclear which concerns are mandatory            | Clarify: "When the concern interview completes for each applicable concern discovered during the scan"                                                                       |
 | Rule: Convention codifies agent context composition rules, Scenario: Path updates completed | "no hardcoded docs/charter/ path remains in active factory code"        | "active factory code" is ambiguous — retained legacy templates are not active code | Clarify: "no hardcoded docs/charter/ path remains in factory agents, skills, playbooks, scripts, or hooks (legacy templates retained for backward compatibility are exempt)" |
 
 ## Grilling-Resolved Design Decisions

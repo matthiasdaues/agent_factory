@@ -4,11 +4,11 @@ Realizes: AG-03
 
 ## Primary Actor
 
-Human Operator (receives the completion report)
+User (receives the completion report)
 
 ## Stakeholders & Interests
 
-- **Human Operator** — wants a clear, unambiguous signal that the playbook has run to completion and no further action is needed.
+- **User** — wants a clear, unambiguous signal that the playbook has run to completion and no further action is needed.
 
 ## Trigger
 
@@ -33,7 +33,7 @@ The orchestrator encounters a state where the FSM declares `final: true`.
 
 ## Postconditions
 
-- **Success Guarantee**: the marker remains at the final state; the audit log records completion; the operator has been informed.
+- **Success Guarantee**: the marker remains at the final state; the audit log records completion; you have been informed.
 
 ## Business Rules
 

@@ -22,7 +22,7 @@ Extended Factory Flow Control specification to add test execution via hooks as A
 ### 2. docs/spec/actor-goal-list.md
 
 - Added **AG-09**: "Run project tests deterministically via unavoidable hooks, never via agent-commanded shell execution"
-- Actor: Human Operator
+- Actor: User
 - Level: User Goal
 
 ### 3. docs/spec/../~archive/spec/use_cases/UC-09-run-tests-via-hook.md (NEW)
@@ -36,7 +36,7 @@ Extended Factory Flow Control specification to add test execution via hooks as A
   - Test framework config error (exit 2)
   - Tests fail (exit 1, block operation)
   - Agent attempts direct test execution (blocked by hook)
-  - Human operator commit/push with failing tests (blocked)
+  - User commit/push with failing tests (blocked)
 - Business Rules: BR-023 through BR-027
 - Activity Diagram in Mermaid
 - 6 Gherkin acceptance criteria scenarios

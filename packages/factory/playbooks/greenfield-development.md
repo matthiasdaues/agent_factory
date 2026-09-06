@@ -344,7 +344,7 @@ After this playbook completes, **all feature work enters through the `feature-ad
 3. Circular dependencies detected in backlog
 4. Iteration cap exceeded (e.g., 5 loops on same phase)
 
-**Action**: Escalate to human operator.
+**Action**: Escalate to the user.
 
 ## Utility: Retrospective
 

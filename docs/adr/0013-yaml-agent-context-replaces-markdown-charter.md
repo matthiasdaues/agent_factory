@@ -52,4 +52,4 @@ A new `context-lint` script (replacing `charter-lint`) validates the YAML struct
 
 - Every factory consumer that reads charter files must be updated with format detection and new paths. The proposal's consumer inventory lists approximately 40 affected artifacts across agents, skills, playbooks, scripts, hooks, and templates.
 - Legacy markdown charter projects remain supported but frozen. New features target YAML only.
-- Human operators accustomed to editing markdown must learn the YAML schema. The schema is intentionally minimal: flat keys, `null` placeholders, `name`/`source` pairs.
+- If you are accustomed to editing markdown, you must learn the YAML schema. The schema is intentionally minimal: flat keys, `null` placeholders, `name`/`source` pairs.

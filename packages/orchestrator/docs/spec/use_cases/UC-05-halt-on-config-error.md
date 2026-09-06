@@ -4,11 +4,11 @@ Realizes: AG-05
 
 ## Primary Actor
 
-Human Operator (fixes the configuration)
+User (fixes the configuration)
 
 ## Stakeholders & Interests
 
-- **Human Operator** — wants to know immediately that the failure is a configuration problem (not a work problem) and exactly what is misconfigured.
+- **User** — wants to know immediately that the failure is a configuration problem (not a work problem) and exactly what is misconfigured.
 - **Orchestrator** — wants to distinguish a fixable config error from a retry-worthy work failure.
 
 ## Trigger

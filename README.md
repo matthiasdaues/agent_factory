@@ -14,7 +14,8 @@ Install the factory into your project — new or existing — from a local clone
 
 ```bash
 git clone <agent-factory-repo-url> agent_factory
-../agent_factory/init-factory your-project
+cd agent_factory
+./init-factory your-project
 ```
 
 The script copies a `factory/` directory into your project and asks which AI coding CLI you use, so it only wires up what you need. Currently supported: Claude Code, GitHub Copilot CLI, Pi, and Codex. It touches two tracked files:

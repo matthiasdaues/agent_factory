@@ -85,8 +85,8 @@ Evaluated against the seven requirements-quality characteristics per Wiegers/INC
 - 3a: Test framework detected but command fails (config error, missing dependencies)
 - 5a: One or more tests fail
 - 1a: Agent attempts to run test command directly
-- 1b: Human operator commits with failing tests
-- 1c: Human operator pushes with failing tests
+- 1b: User commits with failing tests
+- 1c: User pushes with failing tests
 
 ✅ All three PRD goals are realized:
 

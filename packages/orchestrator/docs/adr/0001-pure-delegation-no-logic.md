@@ -8,7 +8,7 @@ evaluation: none
 
 ## Context
 
-The orchestrator replaces the human operator pressing "enter" between agent sessions. The question is how much intelligence it should carry.
+The orchestrator replaces you pressing "enter" between agent sessions. The question is how much intelligence it should carry.
 
 Three layers already own every decision the orchestrator might need to make: `phase advance` owns gate evaluation and marker writes, `phase retry` owns iteration-cap enforcement, and `trigger` owns agent resolution, model selection, and prompt composition. These are deterministic, file-driven, and independently callable. ADR-0002 at the factory level established that the orchestrator is "a peer trigger, same standing as a human typing commands."
 

@@ -34,14 +34,14 @@ ______________________________________________________________________
 - **NG2** — Not a general CI system. `pre-commit` and the CLIs do the work; these scripts sequence and gate them.
 - **NG3** — No CLI-failure classification (auth vs. config vs. task failure) at the dispatch layer — a known, named gap. See [T-01](todos.md#t-01-no-cli-failure-classification-in-trigger).
 - **NG4** — No state machine for every playbook. Only `greenfield-development.fsm.yml` exists today; the harness is opt-in per playbook (see [UC-01 § Preconditions](../~archive/spec/use_cases/UC-01-advance-a-playbook-phase.md#preconditions)).
-- **NG5** — No run lock or single-active-run invariant across concurrent operators. The marker is a single flat file; two operators racing the same marker is out of scope. See [T-02](todos.md#t-02-no-concurrent-operator-lock-on-the-marker).
+- **NG5** — No run lock or single-active-run invariant across concurrent users. The marker is a single flat file; two users racing the same marker is out of scope. See [T-02](todos.md#t-02-no-concurrent-user-lock-on-the-marker).
 - **NG6** — No in-place transcript compaction, live token-budget stop, universal cache-miss detector, prose-only cache-restabilisation ritual, or unified cross-CLI transcript format.
 - **NG7** — No retrospective reimplementation of dispatch safeguards already proven by the baseline audit; only verified gaps, missing tests, and contradictory documentation are remediated.
 
 ## 3. Target Actors
 
-- **Human Operator** (primary) — a person driving Agent Factory directly: running scripts by hand, committing code, approving phase gates.
-- **Orchestrator-as-Trigger** (secondary) — the nested `orchestrator/` Python CLI (work in progress — not yet operational), a peer of the Human Operator. It invokes the same `factory/scripts/*` mechanisms programmatically instead of a human typing them.
+- **User** (primary) — a person driving Agent Factory directly: running scripts by hand, committing code, approving phase gates.
+- **Orchestrator-as-Trigger** (secondary) — the nested `orchestrator/` Python CLI (work in progress — not yet operational), a peer of the User. It invokes the same `factory/scripts/*` mechanisms programmatically instead of a human typing them.
 - **CLI-Invoked Agent** (secondary) — the Claude Code, GitHub Copilot CLI, Codex, or Pi agent session that `trigger` dispatches, operating under the scoped permission controls available in that runtime. Under Pi, which has no native subagent concept, this actor is also the caller of the `run_agent` tool: it spawns a fresh Pi session to run another factory agent with separate-session semantics (FR-J).
 - **Phase Participant** (primary) — a human or factory agent completing one workflow phase and handing the next phase to a fresh CLI session without replaying the prior transcript.
 - **Assurance Auditor** (primary) — a requirements, planning, or quality participant who maps accepted dispatch safeguards to observable delivery evidence and files only verified gaps.
@@ -133,12 +133,12 @@ Pi has no native subagent concept, so a factory agent cannot run in a separate P
 
 - Every `factory/scripts/*.py` gate has zero third-party dependencies — Python 3.8+ stdlib only — so gates run without a virtualenv.
 - macOS and Linux only. `init-factory` relies on native, git-tracked symlinks, which Windows does not support the same way.
-- The marker (`.current-work/playbook-state.yml`) is git-ignored, local, single-file state — not a distributed or multi-operator lock.
+- The marker (`.current-work/playbook-state.yml`) is git-ignored, local, single-file state — not a distributed or multi-user lock.
 - Dispatch safeguard assurance interprets the accepted design from immutable proposal baseline `5219c64b6586b7606df346cac668d128bd3c21fe`; later observable implementation evidence may prove a mechanism complete but may not rewrite that design origin.
 
 ## 6. Success Criteria
 
-- A Human Operator can drive `greenfield-development.fsm.yml` end to end using only `transition-lint`, `phase advance`, `phase retry`, and `trigger` — no `orchestrator/` CLI involved.
+- You can drive `greenfield-development.fsm.yml` end to end using only `transition-lint`, `phase advance`, `phase retry`, and `trigger` — no `orchestrator/` CLI involved.
 - `orchestrator/` can drive the identical playbook run through the same four mechanisms, adding no flow-control logic of its own.
 - `factory/INDEX.yaml` always matches what `index-lint` would generate from current frontmatter (`index-lint --check` exits `0`) — no hand-edit drift.
 - A conversational Pi session can invoke a factory agent by name via `run_agent` and receive its result from a separate `pi` session that never saw the caller's context, and `dispatch_wave` can run at least two `developer-agent` sessions in parallel worktrees merged through `premerge-check`.

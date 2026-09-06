@@ -4,17 +4,17 @@ Realizes: AG-01
 
 ## Primary Actor
 
-Human Operator (initiates `run-playbook`; the orchestrator acts mechanically on their behalf thereafter)
+User (initiates `run-playbook`; the orchestrator acts mechanically on their behalf thereafter)
 
 ## Stakeholders & Interests
 
-- **Human Operator** — wants agent sessions dispatched automatically without pressing "enter" between each phase, while retaining the guarantee that no phase is skipped or advanced without passing its gate.
+- **User** — wants agent sessions dispatched automatically without pressing "enter" between each phase, while retaining the guarantee that no phase is skipped or advanced without passing its gate.
 - **AI Agent** — wants to receive the same prompt and context regardless of whether a human or the orchestrator dispatched it.
 - **Gate Mechanism** (`phase advance`) — wants to remain the sole arbiter of whether a transition is valid; the orchestrator must not bypass or re-implement its checks.
 
 ## Trigger
 
-The operator runs `run-playbook --playbook <name> [--from-state <state>] --cli <cli>`.
+You run `run-playbook --playbook <name> [--from-state <state>] --cli <cli>`.
 
 ## Preconditions
 

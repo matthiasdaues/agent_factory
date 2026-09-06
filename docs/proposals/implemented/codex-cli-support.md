@@ -418,7 +418,7 @@ payload, and accounting coverage.
 One bounded manual limitation remains: Codex project trust and `/hooks`
 approval are user-owned security decisions and cannot be activated by the
 installer or automated test. The smoke proves the installed on-disk contract;
-an operator must still review and trust current hook definitions in Codex.
+you must still review and trust current hook definitions in Codex.
 
 ## 11. References
 

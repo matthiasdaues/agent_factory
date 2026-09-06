@@ -733,7 +733,7 @@ a conflict exists, this section governs.
 The agent context is a routing switchboard with a stable interface. The top-level key structure
 (stack, workflow, governance, and concern names in the reading guide) is a slowly-changing dimension
 owned by the factory. Everything below the top-level keys is project-specific, created by VIRGIL
-during the interview, and owned by the project operator. The operator may add, rename, or remove
+during the interview, and owned by you. You may add, rename, or remove
 second-level keys at any time.
 
 ### 2. Mode concept eliminated
@@ -750,7 +750,7 @@ Each field is self-describing. `name:` is always a display label for humans scan
 document exists) or a file path to the authoritative document. `context-lint` determines which:
 `CX-SRC-EXIST` tries to resolve `source:` as a local file path; if it resolves, the source is a
 pointer and the link is validated; if it does not resolve, the source is inline prose and no
-finding is raised. URLs, verbal references, and other non-file-path values are the operator's
+finding is raised. URLs, verbal references, and other non-file-path values are you's
 responsibility — the lint checks what it can and does not perform theater on what it cannot.
 
 ### 3. Two field states only
@@ -763,7 +763,7 @@ A key in an index file has exactly two valid states:
 | Deferred | `deferred: "reason"` | Applies to this project, decision pending |
 
 Key absence means the concept does not apply to this project. VIRGIL creates only keys the
-operator confirms as relevant during the interview. There is no `null` state — a `null` value in
+user confirms as relevant during the interview. There is no `null` state — a `null` value in
 any index file is an error (`CX-NULL`), always, in every lint mode. `null` indicates that VIRGIL
 created a key without recording an answer, which is a defect in the interview flow.
 
@@ -775,7 +775,7 @@ unresolved placeholders.
 
 All three index files receive the same lint treatment at `--planning-gate`. The original design
 gave `governance.yaml` special leniency (allowing `null` past the planning gate). This exception
-is removed. The `deferred:` mechanism handles pending governance decisions — the operator records
+is removed. The `deferred:` mechanism handles pending governance decisions — you records
 the reason, and the planning gate accepts it. No file-level behavioral differences in the linter.
 
 ### 5. Templates and interview guide separated
@@ -785,13 +785,13 @@ second-level keys with `null` placeholders, and they do not structure the interv
 
 A separate interview guide (`factory/rulebooks/templates/context-interview-guide.yaml`) structures
 VIRGIL's conversation: what to ask, in what order, and what the answers map to. VIRGIL reads the
-guide, asks the questions, and creates only the keys the operator confirms. This eliminates the
+guide, asks the questions, and creates only the keys you confirms. This eliminates the
 double-duty problem where templates were both file skeleton and interview script.
 
 ### 6. Concern-by-concern interview, no bulk
 
 VIRGIL presents scan results and interview questions concern by concern. There is no bulk-confirm
-option. The deliberation at each concern is the point — it forces the operator to consider each
+option. The deliberation at each concern is the point — it forces you to consider each
 piece of project knowledge individually. Rubber-stamping a bulk dump risks wrong source pointers
 that go undetected for months.
 
@@ -805,9 +805,9 @@ named role to understand what is happening.
 
 The reading guide is the index of project knowledge, not a one-time creation artifact.
 `update-context` maintains it: when a key is added or a source pointer changes, `update-context`
-asks the operator which concern the key belongs to ("Which concern does this belong to? Here are
+asks you which concern the key belongs to ("Which concern does this belong to? Here are
 your current concerns: [list]. Pick one, or name a new one.") and updates the reading guide
-immediately. One question per change, asked in the moment when the operator has context.
+immediately. One question per change, asked in the moment when you has context.
 
 ### 9. Skills discover structure through the reading guide
 
@@ -820,9 +820,9 @@ more tokens per skill invocation but keeps skills decoupled from project-specifi
 
 When the factory adds new suggested keys in a future version, existing projects do not have those
 keys. The reconciliation agent, during its regular passes, compares the project's agent context
-against the factory's current interview guide and surfaces new suggested keys to the operator.
-This prevents amnesia — concepts the operator rejected are re-examined when the factory evolves,
-and the operator can confirm or dismiss them.
+against the factory's current interview guide and surfaces new suggested keys to you.
+This prevents amnesia — concepts you rejected are re-examined when the factory evolves,
+and you can confirm or dismiss them.
 
 ### Revised `context-lint` codes
 

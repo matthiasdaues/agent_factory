@@ -24,8 +24,8 @@ Generated from:
   - `Rule: Developer-Agent consumes test-design as prescribed RED phase`
   - `Rule: Developer-Agent falls back without test-design output`
   - `Rule: Testing strategy defines risk-class conventions`
-  - `Rule: Human Operator configures risk classes per project in testing.yaml`
-  - `Rule: Human Operator configures gate thresholds in testing.yaml`
+  - `Rule: User configures risk classes per project in testing.yaml`
+  - `Rule: User configures gate thresholds in testing.yaml`
   - `Rule: Dispatcher reads gate configuration from testing.yaml`
   - `Rule: Test-design-verify gate validates test-design completeness`
   - `Rule: CRAP score reads threshold from testing.yaml gates section`

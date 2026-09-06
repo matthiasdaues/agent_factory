@@ -99,13 +99,13 @@ stateDiagram-v2
 
 ### Notes
 
-- **NO_CONTEXT** means no `docs/agent-context/` directory exists and no legacy charter is present. `capture-context --init` bootstraps to PRIMARY; `capture-context --init --scan` may go directly to INDEX if the brownfield scan achieves full source coverage and the operator confirms.
+- **NO_CONTEXT** means no `docs/agent-context/` directory exists and no legacy charter is present. `capture-context --init` bootstraps to PRIMARY; `capture-context --init --scan` may go directly to INDEX if the brownfield scan achieves full source coverage and you confirm.
 - **PRIMARY** is the greenfield mode: index files are the upstream source of project decisions. Values are written directly. No `source:` pointers are required. The reading guide may or may not exist.
 - **INDEX** is the mature mode: index files are downstream routing tables. Every non-null, non-deferred leaf field has a `source:` pointer. Hand-editing is forbidden; only `update-context` may write. The reading guide must exist.
 - **Transition condition** (PRIMARY → INDEX): every non-null, non-deferred leaf field across all three index files has a `source:` pointer. `context-lint` verifies this via `CX-SRC`. Null fields and `deferred:` mappings are excluded from the condition.
 - **Transition atomicity**: all three index files advance together in a single commit. Per-file partial transitions are not supported.
 - **No reverse transition**: once in INDEX mode, files do not return to PRIMARY. The transition is one-directional.
-- **Operator confirmation**: the transition is never automatic. `update-context` prompts the operator; the operator confirms or declines. Declining leaves all three files in PRIMARY.
+- **User confirmation**: the transition is never automatic. `update-context` prompts you; you confirm or decline. Declining leaves all three files in PRIMARY.
 - **Legacy charter** projects (markdown or YAML under `docs/charter/`) are not modeled by this state machine. They continue to use `charter-lint` with CH-\* codes until migration.
 
 ## Referenced from

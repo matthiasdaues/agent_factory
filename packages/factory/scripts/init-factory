@@ -2258,11 +2258,14 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     source_root = (args.source or Path(__file__).resolve().parents[2]).resolve()
-    source_factory = source_root / "factory"
+    # Monorepo layout: product source at packages/factory/.
+    # Consumer layout: installed copy at factory/.
+    pkg_factory = source_root / "packages" / "factory"
+    source_factory = pkg_factory if pkg_factory.is_dir() else source_root / "factory"
 
     if not source_factory.is_dir():
         print(
-            f"init-factory: no factory/ found at {source_factory} — pass --source explicitly",
+            f"init-factory: no factory/ found at {source_root} — pass --source explicitly",
             file=sys.stderr,
         )
         return 1

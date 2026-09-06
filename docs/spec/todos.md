@@ -8,9 +8,9 @@ Deferred decisions and named gaps found while reverse-engineering this specifica
 
 - [ ] Decide whether `trigger` should classify failures itself, or whether that stays a caller-side concern.
 
-## T-02: No concurrent-operator lock on the marker
+## T-02: No concurrent-user lock on the marker
 
-`.current-work/playbook-state.yml` is a single flat file with no locking. Two operators (human and `orchestrator/`, or two humans) racing an advance/retry against the same marker can interleave incorrectly. Out of scope for the current single-operator-at-a-time usage pattern.
+`.current-work/playbook-state.yml` is a single flat file with no locking. Two users (human and `orchestrator/`, or two humans) racing an advance/retry against the same marker can interleave incorrectly. Out of scope for the current single-user-at-a-time usage pattern.
 
 - [ ] Decide whether a lock file (or an atomic compare-and-swap on `recorded_at`) is worth adding, or whether this stays a documented usage constraint.
 

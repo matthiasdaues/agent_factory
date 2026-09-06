@@ -127,7 +127,7 @@ Every field in an index file is in one of three states:
 
 ### How VIRGIL sets it up
 
-During project setup, VIRGIL walks through a structured interview concern by concern. Each question maps to an index file and a suggested key. The operator confirms which keys are relevant, provides values (and source pointers when documents already exist), defers what is not yet decided, and skips what does not apply. Only confirmed keys are created — the structure is tailored to the project, not a one-size-fits-all template.
+During project setup, VIRGIL walks through a structured interview concern by concern. Each question maps to an index file and a suggested key. You confirm which keys are relevant, provide values (and source pointers when documents already exist), defer what is not yet decided, and skip what does not apply. Only confirmed keys are created — the structure is tailored to your project, not a one-size-fits-all template.
 
 ### What you control
 
@@ -145,12 +145,11 @@ Most phases have two agents: an **author** and a **reviewer**. The author produc
 
 In addition to the phase-chain agents, several **Phase 0 utility agents** support the work without belonging to a specific phase:
 
-- **chat-agent** — open-ended conversation that helps an idea find its shape. Starts formless and coalesces into the right next step: a feature proposal, a research brief, a spike, or just a finished conversation.
-- **kit-manager** — sets up agent context (`docs/agent-context/`), runs a structured interview to fill gaps, and accepts ad-hoc reference material. See [Agent Context](#agent-context).
+- **VIRGIL** — the guide you meet before the work has a definite shape. The name is both an allusion and an acronym: Virgil guided Dante through unfamiliar territory, and the letters stand for *Versatile Interactive Resource: Guide, Instructor, Liaison*. VIRGIL helps an idea find its shape through open-ended conversation and coalesces into the right next step: a feature proposal, a research brief, a spike, or just a finished conversation. It also sets up agent context (`docs/agent-context/`) through the `capture-context` skill, running a structured interview to fill gaps. See [Agent Context](#agent-context).
 - **coaching-agent** — runs retrospectives, extracts action items, and tracks process improvements across sessions.
 - **proposal-review-agent** — reviews a feature proposal for clarity, feasibility, and planning readiness. Consultative on drafts, adversarial on open proposals.
 
-These agents form a natural pipeline from idea to feature delivery. A typical flow: **chat-agent** explores an idea → the `draft-proposal` skill crystallizes it into a proposal → **proposal-review-agent** pressure-tests the proposal → the `feature-addition` playbook delivers the feature through the phase chain.
+These agents form a natural pipeline from idea to feature delivery. A typical flow: **VIRGIL** explores an idea → the `draft-proposal` skill crystallizes it into a proposal → **proposal-review-agent** pressure-tests the proposal → the `feature-addition` playbook delivers the feature through the phase chain.
 
 The full list, grouped by phase, is in [`factory/INDEX.yaml`](../INDEX.yaml). Each entry includes a `tokens` field (tiktoken cl100k_base token count of the agent's prompt text) and a `total_tokens` field (body + referenced skills + referenced rulebooks) for context window budget planning.
 

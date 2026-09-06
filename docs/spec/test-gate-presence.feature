@@ -5,19 +5,19 @@ Feature: Test Gate Presence over Test Execution
   Factory's guardrails and FSM gates read that declaration. Factory never owns
   test execution, framework detection, or structured test output.
 
-  Rule: Human Operator declares project test commands via charter
-    # actor: Human Operator
+  Rule: User declares project test commands via charter
+    # actor: User
     # @docs/charter/testing.yaml (new artifact)
 
     Scenario: Project declares test commands in testing.yaml
       Given a project at the repository root
-      When the operator creates docs/charter/testing.yaml with test_command
+      When the user creates docs/charter/testing.yaml with test_command
       Then Factory's FSM gates can resolve the test command
       And block-dangerous-git.sh can read the agent allowlist
 
     Scenario: Project declares optional mode commands
       Given docs/charter/testing.yaml exists with test_command
-      When the operator adds test_staged_command and test_changed_command
+      When the user adds test_staged_command and test_changed_command
       Then all three commands are available to FSM gates and guardrails
       And each command is a project-defined shell command, not a framework name
 
@@ -28,7 +28,7 @@ Feature: Test Gate Presence over Test Execution
       And Factory's gates resolve test_command the same way any consumer project would
 
   Rule: FSM gate conditions resolve test command from charter
-    # actor: Human Operator, Orchestrator-as-Trigger
+    # actor: User, Orchestrator-as-Trigger
     # @factory/playbooks/greenfield-development.fsm.yml
     # @factory/playbooks/bug-fix.fsm.yml
 
@@ -102,7 +102,7 @@ Feature: Test Gate Presence over Test Execution
       And bare test command deny patterns still apply
 
   Rule: Factory does not inject test hooks into pre-commit config
-    # actor: Human Operator
+    # actor: User
     # @factory/config/pre-commit-config.yaml
 
     Scenario: Pre-commit config contains no test-related hooks
@@ -117,7 +117,7 @@ Feature: Test Gate Presence over Test Execution
       And the project's existing test hooks are preserved
 
   Rule: Factory deletes run-tests and mutation-analysis scripts
-    # actor: Human Operator
+    # actor: User
     # @factory/scripts/run-tests (deleted)
     # @factory/scripts/mutation-analysis (deleted)
 
@@ -132,7 +132,7 @@ Feature: Test Gate Presence over Test Execution
       And mutation testing is entirely the project's responsibility
 
   Rule: Detect-test-regime skill discovers test entrypoints during onboarding
-    # actor: Human Operator
+    # actor: User
     # @factory/skills/detect-test-regime/SKILL.md
     # @factory/scripts/init-factory
 
@@ -145,17 +145,17 @@ Feature: Test Gate Presence over Test Execution
     Scenario: Multiple test entrypoints detected
       Given a project with both a Makefile test target and a package.json test script
       When the detect-test-regime skill runs during onboarding
-      Then it asks the operator for disambiguation
+      Then it asks the user for disambiguation
       And does not guess which entrypoint to use
 
     Scenario: No test entrypoint detected
       Given a project with no conventional test entrypoints
       When the detect-test-regime skill runs during onboarding
-      Then it surfaces the gap to the operator
+      Then it surfaces the gap to the user
       And offers to help build project-owned test infrastructure
 
   Rule: Dispatcher gate sequence reduces from three to two
-    # actor: Human Operator, CLI-Invoked Agent
+    # actor: User, CLI-Invoked Agent
     # @factory/agents/implementation-agent.md
     # @docs/adr/0012-dispatcher-owned-semantic-gate-loop.md
 
@@ -178,7 +178,7 @@ Feature: Test Gate Presence over Test Execution
       And the maximum fix iterations before blocking is three
 
   Rule: Mutation-analysis skill provides setup guidance
-    # actor: Human Operator
+    # actor: User
     # @factory/skills/mutation-analysis/SKILL.md
 
     Scenario: Mutation-analysis skill describes setup process
@@ -188,7 +188,7 @@ Feature: Test Gate Presence over Test Execution
       And it does not reference factory/scripts/mutation-analysis
 
   Rule: Remove-factory leaves project test infrastructure intact
-    # actor: Human Operator
+    # actor: User
     # @factory/scripts/remove-factory
 
     Scenario: Remove-factory preserves testing.yaml
@@ -205,7 +205,7 @@ Feature: Test Gate Presence over Test Execution
       And bare test commands become available again
 
   Rule: Gate contract is exit-code-only
-    # actor: Human Operator, Orchestrator-as-Trigger
+    # actor: User, Orchestrator-as-Trigger
     # @factory/scripts/phase
 
     Scenario: Factory does not parse structured test output
@@ -225,18 +225,18 @@ Feature: Test Gate Presence over Test Execution
       Then the gate fails regardless of stdout content
 
   Rule: Charter declares layer bindings for QA strategy grounding
-    # actor: Human Operator
+    # actor: User
     # @docs/charter/testing.yaml
 
     Scenario: Project declares layer bindings in testing.yaml
       Given docs/charter/testing.yaml exists with test_command
-      When the operator adds a layers section mapping Factory layer names to tooling
+      When the user adds a layers section mapping Factory layer names to tooling
       Then each layer declares tool, infrastructure, entry_point, and optional anti_patterns
       And unused layers are omitted, not set to null
 
     Scenario: Layer declares fidelity for environment reality
       Given docs/charter/testing.yaml declares an integration_test layer
-      When the operator adds a fidelity map to the layer
+      When the user adds a fidelity map to the layer
       Then each entry names a dependency and whether it is real or substituted
       And qa-strategy-from-spec checks fidelity against contract requirements
 

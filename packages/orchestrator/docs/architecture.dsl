@@ -5,9 +5,9 @@ workspace "Orchestrator" "run-playbook — step-at-a-time FSM runner" {
     }
 
     model {
-        humanOperator = person "Human Operator" "Initiates playbook runs, handles human gates"
+        user = person "User" "Initiates playbook runs, handles human gates"
 
-        orchestrator = softwareSystem "Orchestrator (run-playbook)" "Replaces the human operator pressing enter between agent sessions" {
+        orchestrator = softwareSystem "Orchestrator (run-playbook)" "Replaces you pressing enter between agent sessions" {
             runPlaybook = container "run-playbook" "While loop calling phase/trigger scripts" "Python 3.10+ stdlib"
         }
 
@@ -27,7 +27,7 @@ workspace "Orchestrator" "run-playbook — step-at-a-time FSM runner" {
 
         aiCli = softwareSystem "AI CLI" "Claude Code or GitHub Copilot CLI"
 
-        humanOperator -> orchestrator "invokes run-playbook"
+        user -> orchestrator "invokes run-playbook"
         runPlaybook -> phaseAdvance "calls (check gate / advance marker)"
         runPlaybook -> phaseRetry "calls (check iteration cap)"
         runPlaybook -> trigger "calls (dispatch agent)"

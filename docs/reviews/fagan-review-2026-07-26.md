@@ -11,7 +11,7 @@
 - Specification basis: `ST-0060` through `ST-0064`, the survey-mode design,
   dispatch contract, research validation architecture, and the existing
   falsification contracts.
-- Explicitly excluded: `HANDOFF.md` and all operator/restored paths named in the
+- Explicitly excluded: `HANDOFF.md` and all user/restored paths named in the
   QA assignment.
 
 ## Changed-file coverage

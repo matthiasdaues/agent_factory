@@ -1,6 +1,6 @@
 ---
 id: RETRO-0002
-title: Safety hook traps operator when it contains conflict markers
+title: Safety hook traps user when it contains conflict markers
 status: open
 severity: major
 category: reliability
@@ -9,7 +9,7 @@ found_by: session-retrospective
 tags: [retro, safety-hook, conflict, git]
 ---
 
-# RETRO-0002: Safety hook traps operator when it contains conflict markers
+# RETRO-0002: Safety hook traps user when it contains conflict markers
 
 During a rebase of `feat/guardrail-in-init-factory`, merge conflicts left `<<<<<<<` markers inside `block-dangerous-git.sh`. The corrupted script then blocked ALL git commands — including the cleanup commands needed to recover (`git reset --hard`, `git rebase --abort`). Recovery required manual file editing and low-level git plumbing (`git read-tree`, `git checkout-index`).
 

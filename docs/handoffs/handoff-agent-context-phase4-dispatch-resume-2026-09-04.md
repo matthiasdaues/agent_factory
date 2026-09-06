@@ -56,7 +56,7 @@ These failures exist on the base commit `4e78d3f` as well -- verified by the dev
 
 1. **Fix the 69 pre-existing failures** -- correct approach but significant scope (separate chore)
 2. **Scope the `run-tests` hook** -- add `--ignore=tests/orchestrator` to the hook entry in `.pre-commit-config.yaml` so the hook only runs factory and unit tests; fix the 5 `test_test_design_verify.py` failures separately
-3. **Operator commits with `SKIP=run-tests`** -- the guardrail hook blocks AI agents from using SKIP, but a human operator can run `SKIP=run-tests git commit -m "test: add contract tests for context-lint (ST-0190)"` from the story worktree
+3. **User commits with `SKIP=run-tests`** -- the guardrail hook blocks AI agents from using SKIP, but you can run `SKIP=run-tests git commit -m "test: add contract tests for context-lint (ST-0190)"` from the story worktree
 
 Option 3 is fastest for immediate unblocking. The test files are already staged -- no edits needed.
 

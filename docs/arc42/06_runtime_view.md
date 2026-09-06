@@ -16,7 +16,7 @@ Factory ensures test gates exist; the project decides what runs inside them. Tes
 
 ```mermaid
 sequenceDiagram
-    participant H as Human Operator
+    participant H as User
     participant PA as phase advance
     participant FSM as FSM + Marker
     participant C as docs/charter/testing.yaml
@@ -179,7 +179,7 @@ The agent-context index files have a two-mode lifecycle: `mode: primary` (greenf
 
 ```mermaid
 sequenceDiagram
-    participant H as Human Operator
+    participant H as User
     participant UC as update-context skill
     participant IF as Index Files (stack/workflow/governance)
     participant CL as context-lint
@@ -189,12 +189,12 @@ sequenceDiagram
     UC->>IF: Check transition condition across all three files
     IF-->>UC: Every non-null, non-deferred leaf has source pointer
     UC->>H: "All fields have sources. Switch to index mode?"
-    alt Operator confirms
+    alt User confirms
         UC->>IF: Set mode: index in all three files (single commit)
         UC->>IF: Strip inline values to names only, preserve source pointers
         UC->>CL: Validate updated files
         CL-->>UC: CX-MODE: index (info), no CX-SRC findings
-    else Operator declines
+    else User declines
         UC-->>H: Files remain in mode: primary
     end
 ```

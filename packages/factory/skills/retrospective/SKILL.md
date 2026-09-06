@@ -25,7 +25,7 @@ Rules:
 
 - Concrete example per item, not a general principle.
 - Friction: state root cause and cost (time, rework, risk).
-- Stop/Continue/Start: actionable — a future agent or operator can follow it.
+- Stop/Continue/Start: actionable — a future agent or user can follow it.
 - Zero items in a category: say so. Do not pad.
 
 When the session usage record is available, read its provider-qualified

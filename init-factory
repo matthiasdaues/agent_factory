@@ -3,10 +3,26 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 INIT_SCRIPT="$SCRIPT_DIR/packages/factory/scripts/init-factory"
+UPDATE_SCRIPT="$SCRIPT_DIR/packages/factory/scripts/update-factory"
+
+usage() {
+  cat >&2 <<EOF
+Usage:
+  $0 <target-project-directory>          Install factory into a project
+  $0 --update <target-project-directory> Update an existing installation
+EOF
+  exit 1
+}
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <target-project-directory>" >&2
-  exit 1
+  usage
+fi
+
+if [[ "$1" == "--update" ]]; then
+  shift
+  TARGET="${1:-.}"
+  shift 2>/dev/null || true
+  exec "$UPDATE_SCRIPT" --target "$TARGET" --source "$SCRIPT_DIR" "$@"
 fi
 
 TARGET="$1"

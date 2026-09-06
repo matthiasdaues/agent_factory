@@ -5,22 +5,22 @@ Source: docs/proposals/test-gate-presence-over-test-execution.md
 
 ## Actor-Goal Matrix
 
-| Actor                                   | Goal                                               | Rule                                                                        | Status    |
-| --------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------- | --------- |
-| Human Operator                          | Declare project test commands via charter          | Rule: Human Operator declares project test commands via charter             | specified |
-| Human Operator, Orchestrator-as-Trigger | Resolve test command from charter for FSM gates    | Rule: FSM gate conditions resolve test command from charter                 | specified |
-| CLI-Invoked Agent                       | Run only charter-declared test commands            | Rule: Guardrail allowlists charter-declared test commands for agents        | specified |
-| Human Operator                          | Ensure Factory injects no test hooks               | Rule: Factory does not inject test hooks into pre-commit config             | specified |
-| Human Operator                          | Delete run-tests and mutation-analysis scripts     | Rule: Factory deletes run-tests and mutation-analysis scripts               | specified |
-| Human Operator                          | Detect existing test entrypoints during onboarding | Rule: Detect-test-regime skill discovers test entrypoints during onboarding | specified |
-| Human Operator, CLI-Invoked Agent       | Use two-gate dispatcher sequence                   | Rule: Dispatcher gate sequence reduces from three to two                    | specified |
-| Human Operator                          | Mutation-analysis skill as setup guidance          | Rule: Mutation-analysis skill provides setup guidance                       | specified |
-| Human Operator                          | Remove-factory leaves test infrastructure intact   | Rule: Remove-factory leaves project test infrastructure intact              | specified |
-| Human Operator, Orchestrator-as-Trigger | Gate contract is exit-code-only                    | Rule: Gate contract is exit-code-only                                       | specified |
-| Human Operator                          | Declare layer bindings for QA strategy grounding   | Rule: Charter declares layer bindings for QA strategy grounding             | specified |
-| CLI-Invoked Agent                       | Ground contract-owner assignments in charter       | Rule: QA strategy grounds contract-owner assignments in charter             | specified |
-| CLI-Invoked Agent                       | Feed back test-harness mismatches                  | Rule: Developer-agent feeds back test-harness mismatches                    | specified |
-| CLI-Invoked Agent                       | Classify mutation survivors by contract ownership  | Rule: Mutation-analysis skill classifies survivors by contract ownership    | specified |
+| Actor                         | Goal                                               | Rule                                                                        | Status    |
+| ----------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------- | --------- |
+| User                          | Declare project test commands via charter          | Rule: User declares project test commands via charter                       | specified |
+| User, Orchestrator-as-Trigger | Resolve test command from charter for FSM gates    | Rule: FSM gate conditions resolve test command from charter                 | specified |
+| CLI-Invoked Agent             | Run only charter-declared test commands            | Rule: Guardrail allowlists charter-declared test commands for agents        | specified |
+| User                          | Ensure Factory injects no test hooks               | Rule: Factory does not inject test hooks into pre-commit config             | specified |
+| User                          | Delete run-tests and mutation-analysis scripts     | Rule: Factory deletes run-tests and mutation-analysis scripts               | specified |
+| User                          | Detect existing test entrypoints during onboarding | Rule: Detect-test-regime skill discovers test entrypoints during onboarding | specified |
+| User, CLI-Invoked Agent       | Use two-gate dispatcher sequence                   | Rule: Dispatcher gate sequence reduces from three to two                    | specified |
+| User                          | Mutation-analysis skill as setup guidance          | Rule: Mutation-analysis skill provides setup guidance                       | specified |
+| User                          | Remove-factory leaves test infrastructure intact   | Rule: Remove-factory leaves project test infrastructure intact              | specified |
+| User, Orchestrator-as-Trigger | Gate contract is exit-code-only                    | Rule: Gate contract is exit-code-only                                       | specified |
+| User                          | Declare layer bindings for QA strategy grounding   | Rule: Charter declares layer bindings for QA strategy grounding             | specified |
+| CLI-Invoked Agent             | Ground contract-owner assignments in charter       | Rule: QA strategy grounds contract-owner assignments in charter             | specified |
+| CLI-Invoked Agent             | Feed back test-harness mismatches                  | Rule: Developer-agent feeds back test-harness mismatches                    | specified |
+| CLI-Invoked Agent             | Classify mutation survivors by contract ownership  | Rule: Mutation-analysis skill classifies survivors by contract ownership    | specified |
 
 ## Missing Rules
 

@@ -19,17 +19,17 @@ Without a deterministic validation gate, the four YAML files that make up the ag
 
 ### Demo
 
-01. The operator copies the four YAML templates (stack, workflow, governance, reading-guides) into `docs/agent-context/` and runs `context-lint`.
+01. The user copies the four YAML templates (stack, workflow, governance, reading-guides) into `docs/agent-context/` and runs `context-lint`.
 02. context-lint reports CX-NULL warnings for every null placeholder field and a CX-MODE info message confirming `mode: primary`.
-03. The operator introduces a YAML syntax error in `stack.yaml` and re-runs context-lint.
+03. The user introduces a YAML syntax error in `stack.yaml` and re-runs context-lint.
 04. context-lint reports a CX-PARSE error for the malformed file.
-05. The operator fixes the syntax, sets `mode: index`, removes a `source:` pointer from one field, and re-runs.
+05. The user fixes the syntax, sets `mode: index`, removes a `source:` pointer from one field, and re-runs.
 06. context-lint reports a CX-SRC warning for the field missing its source pointer.
-07. The operator adds a reference `stack.yaml#frameworks.nonexistent` to `reading-guides.yaml` and re-runs.
+07. The user adds a reference `stack.yaml#frameworks.nonexistent` to `reading-guides.yaml` and re-runs.
 08. context-lint reports a CX-GUIDE-REF warning for the unresolvable key path.
-09. The operator creates a legacy `docs/charter/tech-stack.md` alongside `docs/agent-context/` and re-runs.
+09. The user creates a legacy `docs/charter/tech-stack.md` alongside `docs/agent-context/` and re-runs.
 10. context-lint reports a CX-FORMAT error for the mixed locations.
-11. The operator removes `docs/agent-context/`, keeps only `docs/charter/*.md`, and re-runs.
+11. The user removes `docs/agent-context/`, keeps only `docs/charter/*.md`, and re-runs.
 12. context-lint reports CH-\* findings using the existing charter-lint validation rules.
 
 ### Scope
@@ -81,21 +81,21 @@ The templates and validation from EPIC 1 let someone create agent-context files 
 
 ### Actor Goals
 
-- Human Operator initializes agent context for a greenfield project by running `capture-context --init`, which creates three index-file templates with `mode: primary` and null placeholders (no reading guide, because no handbook exists yet)
-- Human Operator onboards brownfield documentation into agent context by running `capture-context --init --scan`, which discovers documentation signals, runs a concern-based interview, populates index files with source pointers (`source:` fields pointing at the project's authoritative documents), and generates `reading-guides.yaml` (the Layer 1 routing file that maps work-type concerns to Layer 2 index sections)
-- Human Operator uses legacy markdown charter projects without forced migration -- capture-context detects the format and operates on whatever it finds
+- User initializes agent context for a greenfield project by running `capture-context --init`, which creates three index-file templates with `mode: primary` and null placeholders (no reading guide, because no handbook exists yet)
+- User onboards brownfield documentation into agent context by running `capture-context --init --scan`, which discovers documentation signals, runs a concern-based interview, populates index files with source pointers (`source:` fields pointing at the project's authoritative documents), and generates `reading-guides.yaml` (the Layer 1 routing file that maps work-type concerns to Layer 2 index sections)
+- User uses legacy markdown charter projects without forced migration -- capture-context detects the format and operates on whatever it finds
 
 ### Demo
 
-01. The operator runs `capture-context --init` in a new, empty project.
+01. The user runs `capture-context --init` in a new, empty project.
 02. Three YAML files appear in `docs/agent-context/`: `stack.yaml`, `workflow.yaml`, `governance.yaml`, each with `mode: primary` and null placeholder values.
 03. `reading-guides.yaml` is not created (greenfield projects have no handbook to route to).
-04. The operator runs `context-lint` and gets CX-NULL warnings but no errors -- the files are structurally valid.
-05. The operator runs `capture-context --init --scan` in a brownfield project that has `pyproject.toml`, `docs/adr/`, and `.github/workflows/`.
+04. The user runs `context-lint` and gets CX-NULL warnings but no errors -- the files are structurally valid.
+05. The user runs `capture-context --init --scan` in a brownfield project that has `pyproject.toml`, `docs/adr/`, and `.github/workflows/`.
 06. The scan discovers languages, frameworks, CI/CD configuration, and decision documentation from those files.
-07. For each applicable concern (backend, testing, architecture), the concern interview asks the operator where conventions are documented and proposes source paths based on the scan.
+07. For each applicable concern (backend, testing, architecture), the concern interview asks the user where conventions are documented and proposes source paths based on the scan.
 08. After the interview completes, all four agent-context files are populated with source pointers from the discovered documentation.
-09. The operator runs `context-lint` and the files pass validation.
+09. The user runs `context-lint` and the files pass validation.
 10. If the scan achieves full source coverage (every non-null, non-deferred field has a `source:` pointer), capture-context proposes setting `mode: index`.
 
 ### Scope
@@ -143,24 +143,24 @@ After agent-context files are initialized (EPIC 2), the project evolves: decisio
 
 ### Actor Goals
 
-- Human Operator updates agent-context fields as decisions emerge -- writing inline values when `mode: primary`, writing name-and-source pairs when `mode: index`, and recording deferred decisions with `deferred: "reason"` mappings
-- Human Operator transitions the agent context from primary to index mode -- update-context checks the transition condition (every non-null, non-deferred leaf field across all three index files has a `source:` pointer), prompts the operator, and flips all three files atomically in a single commit
+- User updates agent-context fields as decisions emerge -- writing inline values when `mode: primary`, writing name-and-source pairs when `mode: index`, and recording deferred decisions with `deferred: "reason"` mappings
+- User transitions the agent context from primary to index mode -- update-context checks the transition condition (every non-null, non-deferred leaf field across all three index files has a `source:` pointer), prompts the user, and flips all three files atomically in a single commit
 - update-context proposes creating `reading-guides.yaml` when the first `source:` pointer is written and no reading guide exists yet
 
 ### Demo
 
-01. The operator has three index files in `mode: primary` with some null fields (status quo from EPIC 2).
-02. The operator invokes `update-context` to record a technology choice for `stack.yaml#frameworks.backend`.
+01. The user has three index files in `mode: primary` with some null fields (status quo from EPIC 2).
+02. The user invokes `update-context` to record a technology choice for `stack.yaml#frameworks.backend`.
 03. update-context writes the inline value `FastAPI 0.100` directly to the field.
-04. The operator invokes `update-context` to add a source pointer for the same field, pointing at `docs/adr/004-use-fastapi.md`.
+04. The user invokes `update-context` to add a source pointer for the same field, pointing at `docs/adr/004-use-fastapi.md`.
 05. update-context writes both `name: FastAPI` and `source: docs/adr/004-use-fastapi.md` to the field.
 06. Since this is the first source pointer and no `reading-guides.yaml` exists, update-context proposes creating the reading guide from the template.
-07. The operator defers the `data_stores` decision with reason "evaluating options."
+07. The user defers the `data_stores` decision with reason "evaluating options."
 08. update-context writes `deferred: "evaluating options"` to the `data_stores` field, replacing any prior value.
-09. The operator fills source pointers for all remaining non-null, non-deferred fields.
+09. The user fills source pointers for all remaining non-null, non-deferred fields.
 10. update-context detects that the transition condition is met and prompts: "All context fields now have sources. Switch to index mode?"
-11. The operator confirms. update-context flips `mode` to `index` in all three files in a single commit, strips inline values to names only, and preserves source pointers.
-12. The operator runs `context-lint` and the index-mode files pass validation.
+11. The user confirms. update-context flips `mode` to `index` in all three files in a single commit, strips inline values to names only, and preserves source pointers.
+12. The user runs `context-lint` and the index-mode files pass validation.
 
 ### Scope
 
@@ -170,7 +170,7 @@ After agent-context files are initialized (EPIC 2), the project evolves: decisio
 - Primary-mode writes -- update-context writes inline values directly to index-file fields when `mode: primary`
 - Index-mode writes -- update-context writes both `name` and `source` together when `mode: index`; refuses writes without a source pointer in index mode
 - Deferred-field handling -- records `deferred: "reason"` as the sole key at the field's leaf position; no coexistence with `name` or `source`
-- Mode-transition logic -- checks transition condition (every non-null, non-deferred leaf across all three files has `source:`), prompts operator, executes atomic flip across all three files in one commit, strips inline values to names
+- Mode-transition logic -- checks transition condition (every non-null, non-deferred leaf across all three files has `source:`), prompts the user, executes atomic flip across all three files in one commit, strips inline values to names
 - Reading-guide creation trigger -- when update-context writes the first `source:` pointer and no `reading-guides.yaml` exists, it proposes creating one from the template
 
 **Out:**
@@ -209,19 +209,19 @@ EPICs 1 through 3 deliver the agent-context machinery -- templates, validation, 
 ### Actor Goals
 
 - Factory Consumer (any agent, skill, script, or hook that reads project context) resolves context file paths via the format-detection chain -- finding files at `docs/agent-context/` for new projects or falling back to `docs/charter/` for legacy projects
-- Human Operator runs any factory workflow (greenfield-development, feature-addition, bug-fix) against a YAML agent-context project or a legacy markdown charter project without path errors
+- User runs any factory workflow (greenfield-development, feature-addition, bug-fix) against a YAML agent-context project or a legacy markdown charter project without path errors
 - Legacy projects continue working without migration -- format detection falls back transparently
 
 ### Demo
 
-1. The operator has a project with `docs/agent-context/` YAML files (status quo from EPICs 1-3).
-2. The operator runs `grep -r 'docs/charter' factory/agents/ factory/skills/ factory/playbooks/ factory/scripts/ factory/config/` across the active factory code.
+1. The user has a project with `docs/agent-context/` YAML files (status quo from EPICs 1-3).
+2. The user runs `grep -r 'docs/charter' factory/agents/ factory/skills/ factory/playbooks/ factory/scripts/ factory/config/` across the active factory code.
 3. Zero matches appear (legacy templates under `factory/rulebooks/templates/charter-*.md` are exempt -- retained for backward compatibility).
-4. The operator triggers the `block-dangerous-git` hook (PreToolUse guard) in a project where `testing.yaml` lives at `docs/agent-context/testing.yaml`.
+4. The user triggers the `block-dangerous-git` hook (PreToolUse guard) in a project where `testing.yaml` lives at `docs/agent-context/testing.yaml`.
 5. The hook resolves the test command from the new location and correctly allowlists it.
-6. The operator runs `factory/scripts/phase advance` in the same project.
+6. The user runs `factory/scripts/phase advance` in the same project.
 7. The script resolves `testing.yaml` via format detection and executes the test command.
-8. The operator repeats steps 4 through 7 in a legacy project with `docs/charter/testing.yaml`.
+8. The user repeats steps 4 through 7 in a legacy project with `docs/charter/testing.yaml`.
 9. Both the hook and the phase script resolve the test command from the old location -- legacy behavior is preserved.
 
 ### Scope
@@ -269,9 +269,9 @@ EPICs 1 through 4 deliver working machinery, but a project owner who has not rea
 
 ### Actor Goals
 
-- Human Operator understands how to connect their project's existing documentation, conventions, and practices to the factory through agent-context
-- Human Operator understands what they control (their source documents, their concern list in the reading guide, the pace of mode transition) versus what the factory reads (the routing table, never modifying source documents)
-- Human Operator customizes the reading guide for their project's concerns (adding, removing, or renaming concern keys)
+- User understands how to connect their project's existing documentation, conventions, and practices to the factory through agent-context
+- User understands what they control (their source documents, their concern list in the reading guide, the pace of mode transition) versus what the factory reads (the routing table, never modifying source documents)
+- User customizes the reading guide for their project's concerns (adding, removing, or renaming concern keys)
 - New user encounters agent-context during the newcomer-tour and understands where it fits in the factory workflow
 
 ### Demo
@@ -280,8 +280,8 @@ EPICs 1 through 4 deliver working machinery, but a project owner who has not rea
 2. The section explains that `docs/agent-context/` is a routing table pointing at the project's own documentation -- not a copy of it.
 3. The guide walks through primary mode (values written directly during greenfield setup) and index mode (pure links to source documents after conventions exist).
 4. The guide shows how to customize the reading guide by adding project-specific concerns (e.g. `pipeline:`, `ml:`) and mapping them to index-file sections.
-5. The guide explains what the factory reads versus what the project owner controls -- the factory never writes to source documents, and mode transition requires explicit operator confirmation.
-6. The operator opens the README and finds a cross-reference to the agent-context section in the factory guide.
+5. The guide explains what the factory reads versus what the project owner controls -- the factory never writes to source documents, and mode transition requires explicit user confirmation.
+6. The user opens the README and finds a cross-reference to the agent-context section in the factory guide.
 7. A new user runs the newcomer-tour and the tour mentions agent-context as part of project setup, pointing at the factory guide for details.
 
 ### Scope
@@ -304,7 +304,7 @@ EPIC 1 (convention and templates must exist to reference accurately), EPIC 2 (ca
 
 ### Boundaries
 
-- Factory documentation: `factory/docs/factory-guide.md` (the authoritative how-to guide for Human Operators) and `factory/README.md` (the entry-point document)
+- Factory documentation: `factory/docs/factory-guide.md` (the authoritative how-to guide for Users) and `factory/README.md` (the entry-point document)
 - Catalog: newcomer-tour skill content (resolved through INDEX.yaml, executed by VIRGIL during onboarding)
 
 ### Size

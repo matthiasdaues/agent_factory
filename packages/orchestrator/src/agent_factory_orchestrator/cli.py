@@ -1,6 +1,6 @@
 """run-playbook — step-at-a-time FSM runner.
 
-Replaces the human operator pressing "enter" between agent sessions.
+Replaces you pressing "enter" between agent sessions.
 Reads the marker, resolves the current state's agent, dispatches via
 trigger, waits, checks the out-gate via phase advance, and self-chains
 on success. Stops at human gates, final states, and halt conditions.

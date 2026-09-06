@@ -43,14 +43,14 @@ Feature: Agent Context
       When a factory agent reads the agent context
       Then the agent receives only stack.yaml, workflow.yaml, and governance.yaml
 
-  Rule: Operator initializes agent context for a greenfield project
-    # actor: Human Operator
+  Rule: User initializes agent context for a greenfield project
+    # actor: User
     # @factory/skills/capture-context/SKILL.md
     # @factory/scripts/init-factory
 
     Scenario: capture-context --init creates three index-file templates
       Given no docs/agent-context/ directory exists
-      When the operator runs capture-context --init
+      When the user runs capture-context --init
       Then docs/agent-context/stack.yaml is created from the template with mode: primary and null placeholders
       And docs/agent-context/workflow.yaml is created from the template with mode: primary and null placeholders
       And docs/agent-context/governance.yaml is created from the template with mode: primary and null placeholders
@@ -58,21 +58,21 @@ Feature: Agent Context
 
     Scenario: capture-context --init does not overwrite existing context
       Given docs/agent-context/stack.yaml already exists with populated values
-      When the operator runs capture-context --init
+      When the user runs capture-context --init
       Then the existing stack.yaml is preserved unchanged
 
     Scenario: Stakeholder interview fills greenfield index values directly
       Given three index files exist with mode: primary
-      When the operator answers stakeholder questions about technology choices
+      When the user answers stakeholder questions about technology choices
       Then capture-context writes the answers as inline values to the appropriate index file fields
 
-  Rule: Operator onboards brownfield documentation into agent context
-    # actor: Human Operator
+  Rule: User onboards brownfield documentation into agent context
+    # actor: User
     # @factory/skills/capture-context/SKILL.md
 
     Scenario: capture-context --init --scan discovers documentation signals
       Given a project with pyproject.toml, docs/adr/, and .github/workflows/
-      When the operator runs capture-context --init --scan
+      When the user runs capture-context --init --scan
       Then the scan identifies languages, frameworks, CI/CD, and decision documentation from those files
 
     Scenario: Concern-based interview populates indexes and reading guide
@@ -86,7 +86,7 @@ Feature: Agent Context
       Given capture-context --init --scan has populated all non-null, non-deferred fields with source pointers
       When the scan completes
       Then capture-context proposes setting mode: index across all three files
-      And the operator confirms or declines the transition
+      And the user confirms or declines the transition
 
     Scenario: Brownfield scan with partial coverage sets primary mode
       Given capture-context --init --scan has populated some fields but others remain without source pointers
@@ -95,18 +95,18 @@ Feature: Agent Context
 
     Scenario: Brownfield scan detects legacy markdown charter and offers migration
       Given docs/charter/tech-stack.md exists as a legacy markdown charter
-      When the operator runs capture-context --init --scan
+      When the user runs capture-context --init --scan
       Then capture-context operates on the existing markdown format
       And offers migration to YAML agent-context as an optional step
 
-    Scenario: Operator declines brownfield migration
+    Scenario: User declines brownfield migration
       Given capture-context has offered migration from markdown charter to YAML agent-context
-      When the operator declines the migration
+      When the user declines the migration
       Then the markdown charter files remain unchanged
       And no docs/agent-context/ directory is created
 
-  Rule: Operator updates agent context as decisions emerge
-    # actor: Human Operator (via update-context skill)
+  Rule: User updates agent context as decisions emerge
+    # actor: User (via update-context skill)
     # @factory/skills/update-context/SKILL.md
 
     Scenario: update-context writes inline values when mode is primary
@@ -132,30 +132,30 @@ Feature: Agent Context
 
     Scenario: update-context writes deferred field
       Given stack.yaml has mode: primary
-      And the operator defers the data_stores decision with reason "evaluating options"
+      And the user defers the data_stores decision with reason "evaluating options"
       When update-context records the deferral
       Then the data_stores field becomes deferred: "evaluating options"
       And no other keys coexist with the deferred key at that field
 
-  Rule: Operator transitions context from primary to index mode
-    # actor: Human Operator (via update-context skill)
+  Rule: User transitions context from primary to index mode
+    # actor: User (via update-context skill)
 
     Scenario: Transition condition is met
       Given all three index files have mode: primary
       And every non-null, non-deferred leaf field across all three files has a source pointer
       When update-context checks the transition condition
-      Then update-context prompts the operator to switch to index mode
+      Then update-context prompts the user to switch to index mode
 
-    Scenario: Operator confirms mode transition
+    Scenario: User confirms mode transition
       Given update-context has prompted for mode transition
-      When the operator confirms
+      When the user confirms
       Then all three index files are set to mode: index in a single atomic commit
       And inline values are stripped to names only
       And source pointers are preserved
 
-    Scenario: Operator declines mode transition
+    Scenario: User declines mode transition
       Given update-context has prompted for mode transition
-      When the operator declines
+      When the user declines
       Then all three files remain in mode: primary
 
     Scenario: Transition blocked by null field without deferral
@@ -277,7 +277,7 @@ Feature: Agent Context
       Then no CX-FORMAT error is reported for the testing.yaml location
 
   Rule: Legacy projects continue working without migration
-    # actor: Human Operator
+    # actor: User
     # @factory/scripts/context-lint
 
     Scenario: Format detection resolves legacy markdown charter

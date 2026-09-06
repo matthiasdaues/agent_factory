@@ -91,7 +91,7 @@ On ReDispatch:
 State: BLOCKED
 On ReDispatch:
   ChangeState(PREPARED)
-  # operator-initiated recovery after resolving the blocking condition
+  # user-initiated recovery after resolving the blocking condition
 ```
 
 ```mermaid
@@ -127,20 +127,20 @@ Feature: Wave Planning
   Scenario: Stories with no dependencies or overlaps are assigned to wave 1
     Given stories ST-001 and ST-002 have no declared dependencies
     And their output globs expand to disjoint file sets against the working tree
-    When the operator runs dispatch plan
+    When the user runs dispatch plan
     Then both stories are assigned to wave 1
     And both are marked parallel-safe
 
   Scenario: A dependency chain produces sequential waves
     Given ST-002 declares a dependency on ST-001
-    When the operator runs dispatch plan
+    When the user runs dispatch plan
     Then ST-001 is assigned to wave 1
     And ST-002 is assigned to wave 2
 
   Scenario: File-overlapping stories within the same wave are serialized
     Given ST-001 and ST-002 have output globs that expand to at least one shared file
     And neither depends on the other
-    When the operator runs dispatch plan
+    When the user runs dispatch plan
     Then ST-001 and ST-002 are in the same wave
     And they are placed in a serial chain
 
@@ -148,27 +148,27 @@ Feature: Wave Planning
     Given ST-001 has outputs ["src/module_a/**/*.py"]
     And ST-002 has outputs ["src/module_b/**/*.py"]
     And no concrete file exists under both src/module_a/ and src/module_b/
-    When the operator runs dispatch plan
+    When the user runs dispatch plan
     Then ST-001 and ST-002 are parallel-safe
 
   Scenario: A glob matching zero files is treated conservatively as its directory prefix
     Given ST-003 has outputs ["src/new_module/**/*.py"]
     And src/new_module/ does not exist yet
     And ST-004 has outputs ["src/new_module/config.py"]
-    When the operator runs dispatch plan
+    When the user runs dispatch plan
     Then ST-003 and ST-004 are serialized
     # Conservative: ambiguous overlap under the same prefix forces serialization
 
   # Phase 3
   Scenario: Tier suggestion is computed per story from the rubric
     Given stories with varying risk_domains, output spans, and test declarations
-    When the operator runs dispatch plan
+    When the user runs dispatch plan
     Then each story carries a suggested tier derived from the rubric
     And the suggestion is included in the wave plan YAML
 
   Scenario: The plan includes serial chains and parallel sets per wave
     Given wave 1 contains three stories, two parallel-safe and one serial with a third
-    When the operator runs dispatch plan
+    When the user runs dispatch plan
     Then the output shows the parallel set and the serial chain separately within wave 1
 ```
 
@@ -183,7 +183,7 @@ Feature: Dispatch Initialization
   Scenario: Atomic creation of feature branch, worktree, and ledger
     Given the base branch exists and is clean
     And config/project.json contains a valid test_command
-    When the operator runs dispatch init --base dev --stories ST-001,ST-002
+    When the user runs dispatch init --base dev --stories ST-001,ST-002
     Then a feature branch is created from the base branch tip
     And a worktree is created for the feature branch
     And a dispatch ledger is initialized at .current-work/<feature-branch>/dispatch-ledger.yaml
@@ -191,46 +191,46 @@ Feature: Dispatch Initialization
 
   Scenario: Existing ledger for the target branch blocks initialization
     Given a dispatch ledger exists at .current-work/<target-branch>/dispatch-ledger.yaml
-    When the operator runs dispatch init whose target branch resolves to <target-branch>
+    When the user runs dispatch init whose target branch resolves to <target-branch>
     Then dispatch exits non-zero
     And reports that a dispatch is already active for this branch
 
   Scenario: Untracked target directories block initialization
     Given the base branch has untracked files in a directory a story's outputs touch
     And --baseline-commit is not given
-    When the operator runs dispatch init
+    When the user runs dispatch init
     Then dispatch exits non-zero
     And reports the untracked directory conflict
 
   Scenario: Baseline commit option commits untracked state before branching
     Given the base branch has untracked files in target directories
-    When the operator runs dispatch init --baseline-commit --yes
+    When the user runs dispatch init --baseline-commit --yes
     Then a baseline commit is created on the base branch
     And the feature branch is cut from the baseline commit
 
   Scenario: Baseline commit requires confirmation because it mutates a shared branch
     Given the base branch has untracked files in target directories
-    When the operator runs dispatch init --baseline-commit without --yes
+    When the user runs dispatch init --baseline-commit without --yes
     Then dispatch prints the base branch name and the files to be committed
     And prompts for interactive confirmation before proceeding
     And exits non-zero if confirmation is denied
 
   Scenario: Missing test_command blocks initialization
     Given config/project.json does not contain a test_command key
-    When the operator runs dispatch init
+    When the user runs dispatch init
     Then dispatch exits non-zero
 
   # Phase 3
   Scenario: Strong tier suggestion against lower declared tier blocks init
     Given a story is suggested as strong by the rubric but declares tier economy
-    When the operator runs dispatch init
+    When the user runs dispatch init
     Then dispatch exits non-zero
     And reports the blocking tier mismatch
 
   # Phase 3
   Scenario: Non-blocking tier mismatch produces a warning
     Given a story is suggested as economy but declares tier standard
-    When the operator runs dispatch init
+    When the user runs dispatch init
     Then dispatch warns about the mismatch
     And initialization proceeds
 
@@ -238,24 +238,24 @@ Feature: Dispatch Initialization
     Given a branch named feature/my-work exists
     And its tip is reachable from the base branch
     And config/project.json contains a valid test_command
-    When the operator runs dispatch init --base main --feature-branch feature/my-work --stories ST-001,ST-002
+    When the user runs dispatch init --base main --feature-branch feature/my-work --stories ST-001,ST-002
     Then no new branch is created
     And the dispatch ledger is initialized at .current-work/feature/my-work/dispatch-ledger.yaml
     And all named stories are recorded as pending
 
   Scenario: Non-existent feature branch is rejected
     Given no branch named feature/missing exists
-    When the operator runs dispatch init --base main --feature-branch feature/missing --stories ST-001
+    When the user runs dispatch init --base main --feature-branch feature/missing --stories ST-001
     Then dispatch exits non-zero
 
   Scenario: Feature branch unreachable from base is rejected
     Given a branch named feature/diverged exists
     And its tip is not reachable from the base branch
-    When the operator runs dispatch init --base main --feature-branch feature/diverged --stories ST-001
+    When the user runs dispatch init --base main --feature-branch feature/diverged --stories ST-001
     Then dispatch exits non-zero
 
   Scenario: Baseline-commit is incompatible with feature-branch
-    When the operator runs dispatch init --base main --feature-branch feature/x --baseline-commit --stories ST-001
+    When the user runs dispatch init --base main --feature-branch feature/x --baseline-commit --stories ST-001
     Then dispatch exits non-zero
     And reports that --baseline-commit and --feature-branch are mutually exclusive
 ```
@@ -271,20 +271,20 @@ Feature: Wave Lifecycle
 
   Scenario: Wave 1 can be prepared without a prior-wave check
     Given the dispatch has just been initialized with no prior waves
-    When the operator runs dispatch prepare-wave 1
+    When the user runs dispatch prepare-wave 1
     Then the prior-wave gate is satisfied vacuously
     And wave 1 stories are prepared normally
 
   Scenario: Prior wave must be fully terminal before preparing the next
     Given wave 1 has stories ST-001 (done) and ST-002 (dispatched)
-    When the operator runs dispatch prepare-wave 2
+    When the user runs dispatch prepare-wave 2
     Then dispatch exits non-zero
     And reports ST-002 as non-terminal
 
   Scenario: Parallel-safe stories each get a branch, worktree, and manifest
     Given wave 1 is fully terminal
     And wave 2 contains parallel-safe stories ST-003 and ST-004
-    When the operator runs dispatch prepare-wave 2
+    When the user runs dispatch prepare-wave 2
     Then each story gets a story branch from the feature branch tip
     And each gets a story worktree
     And the branch-to-worktree mapping is verified via git worktree list --porcelain
@@ -294,7 +294,7 @@ Feature: Wave Lifecycle
 
   Scenario: Serial chain heads are prepared but chain links stay pending
     Given wave 2 contains a serial chain ST-005 then ST-006
-    When the operator runs dispatch prepare-wave 2
+    When the user runs dispatch prepare-wave 2
     Then ST-005 is prepared with a branch, worktree, and manifest
     And ST-006 remains pending
 
@@ -306,12 +306,12 @@ Feature: Wave Lifecycle
 
   Scenario: All stories terminal allows wave closure
     Given wave 1 has stories ST-001 (done) and ST-002 (blocked)
-    When the operator runs dispatch close-wave 1
+    When the user runs dispatch close-wave 1
     Then dispatch exits zero
 
   Scenario: Non-terminal story blocks wave closure
     Given wave 1 has ST-001 (done) and ST-002 (dispatched)
-    When the operator runs dispatch close-wave 1
+    When the user runs dispatch close-wave 1
     Then dispatch exits non-zero
 ```
 
@@ -327,45 +327,45 @@ Feature: Story Lifecycle
 
   Scenario: Chain link is prepared after predecessor is done
     Given ST-005 is done and ST-006 depends on ST-005
-    When the operator runs dispatch prepare-story ST-006
+    When the user runs dispatch prepare-story ST-006
     Then ST-006's story branch is cut from ST-005's merge commit
     And verify-base runs against that merge commit
     And ST-006 is recorded as prepared
 
   Scenario: Non-done predecessor blocks preparation
     Given ST-005 is dispatched (not done)
-    When the operator runs dispatch prepare-story ST-006
+    When the user runs dispatch prepare-story ST-006
     Then dispatch exits non-zero
 
   # --- mark-dispatched ---
 
   Scenario: Prepared story transitions to dispatching
     Given ST-003 is in prepared state
-    When the operator runs dispatch mark-dispatching ST-003
+    When the user runs dispatch mark-dispatching ST-003
     Then the ledger records ST-003 as dispatching
 
   Scenario: Non-prepared story cannot be marked dispatching
     Given ST-003 is in pending state
-    When the operator runs dispatch mark-dispatching ST-003
+    When the user runs dispatch mark-dispatching ST-003
     Then dispatch exits non-zero
     And reports that mark-dispatching requires a prepared story
 
   Scenario: Dispatching story transitions to dispatched on spawn confirmation
     Given ST-003 is in dispatching state
     And the subagent spawn returned an acknowledgment
-    When the operator runs dispatch mark-dispatched ST-003
+    When the user runs dispatch mark-dispatched ST-003
     Then the ledger records ST-003 as dispatched
 
   Scenario: Non-prepared story cannot be marked dispatched
     Given ST-003 is in pending state
-    When the operator runs dispatch mark-dispatched ST-003
+    When the user runs dispatch mark-dispatched ST-003
     Then dispatch exits non-zero
     And reports that mark-dispatched requires a prepared story
 
   Scenario: Spawn failure from dispatching transitions to failed
     Given ST-003 is in dispatching state
     And the subagent spawn failed or timed out
-    When the operator runs dispatch mark-failed ST-003 --class environment --evidence <finding>
+    When the user runs dispatch mark-failed ST-003 --class environment --evidence <finding>
     Then the ledger records ST-003 as failed
     And the attempt is recorded with class environment
 
@@ -373,7 +373,7 @@ Feature: Story Lifecycle
 
   Scenario: Non-terminal story can be blocked
     Given ST-003 is in prepared state
-    When the operator runs dispatch mark-blocked ST-003 --reason "design question"
+    When the user runs dispatch mark-blocked ST-003 --reason "design question"
     Then the ledger records ST-003 as blocked with the given reason
 
   # --- verify-story ---
@@ -381,24 +381,24 @@ Feature: Story Lifecycle
   Scenario: Valid SHA on correct branch passes verification
     Given ST-003 reports a 40-character commit SHA
     And that SHA exists and is on ST-003's story branch
-    When the operator runs dispatch verify-story ST-003 --sha <sha>
+    When the user runs dispatch verify-story ST-003 --sha <sha>
     Then the ledger records the verified SHA
 
   Scenario: Non-existent SHA is rejected
     Given the reported SHA does not exist in the repository
-    When the operator runs dispatch verify-story ST-003 --sha <sha>
+    When the user runs dispatch verify-story ST-003 --sha <sha>
     Then dispatch exits non-zero
 
   Scenario: SHA on wrong branch is rejected
     Given the SHA exists but is not on ST-003's story branch
-    When the operator runs dispatch verify-story ST-003 --sha <sha>
+    When the user runs dispatch verify-story ST-003 --sha <sha>
     Then dispatch exits non-zero
 
   # --- merge-story ---
 
   Scenario: Successful merge with green test suite
     Given ST-003 is verified and its story branch is clean
-    When the operator runs dispatch merge-story ST-003
+    When the user runs dispatch merge-story ST-003
     Then premerge-check runs with the story's output globs
     And the story branch is merged into the feature branch
     And the story status is updated to done in the merge commit
@@ -407,7 +407,7 @@ Feature: Story Lifecycle
 
   Scenario: Merge conflict aborts and marks blocked
     Given ST-003's story branch conflicts with the feature branch
-    When the operator runs dispatch merge-story ST-003
+    When the user runs dispatch merge-story ST-003
     Then the merge is aborted via git merge --abort
     And ST-003 is marked blocked with reason "merge conflict"
 
@@ -428,7 +428,7 @@ Feature: Story Lifecycle
 
   Scenario: Dry-run reports premerge-check result without merging
     Given ST-003's story branch is ready to merge
-    When the operator runs dispatch merge-story ST-003 --dry-run
+    When the user runs dispatch merge-story ST-003 --dry-run
     Then premerge-check runs and its result is reported
     And no merge commit is created
     And the ledger is not modified
@@ -443,7 +443,7 @@ Feature: Story Lifecycle
 
   Scenario: suggest-merge-args recommends --max-files for the final feature-to-dev merge
     Given the dispatch ledger contains multiple stories, each with a declared outputs count
-    When the operator runs dispatch suggest-merge-args
+    When the user runs dispatch suggest-merge-args
     Then dispatch prints a recommended --max-files value equal to the sum of every story's
       outputs count, floored at the premerge-check default of 20
     And the command only reads the ledger and backlog files; it does not merge or modify state
@@ -452,19 +452,19 @@ Feature: Story Lifecycle
 
   Scenario: Record a blocking condition
     Given ST-003 is in any non-terminal state
-    When the operator runs dispatch mark-blocked ST-003 --reason "awaiting design decision"
+    When the user runs dispatch mark-blocked ST-003 --reason "awaiting design decision"
     Then the ledger records ST-003 as blocked with the given reason
 
   # --- mark-failed ---
 
   Scenario: Basic failure transition accepts optional failure metadata
     Given ST-003 is dispatching or dispatched
-    When the operator runs dispatch mark-failed ST-003 --class acceptance_unmet --evidence docs/findings/IMPL-0001.md
+    When the user runs dispatch mark-failed ST-003 --class acceptance_unmet --evidence docs/findings/IMPL-0001.md
     Then the ledger records ST-003 as failed
     And the failure-class and evidence flags are accepted but not required in Phase 1
 
   Scenario: All seven failure classes are accepted
-    When the operator runs dispatch mark-failed with each of the following classes
+    When the user runs dispatch mark-failed with each of the following classes
       | class                    | disposition                          |
       | context_missing          | re-dispatch, same tier, amend inputs |
       | contract_violation       | re-dispatch, same tier; terminal on second occurrence |
@@ -476,24 +476,24 @@ Feature: Story Lifecycle
     Then each is recorded as a valid failure with its disposition
 
   Scenario: Unknown failure class is rejected
-    When the operator runs dispatch mark-failed ST-003 --class "unknown_class"
+    When the user runs dispatch mark-failed ST-003 --class "unknown_class"
     Then dispatch exits non-zero
 
   Scenario: Untracked evidence path is rejected
-    When the operator runs dispatch mark-failed ST-003 --class acceptance_unmet --evidence /tmp/notes.txt
+    When the user runs dispatch mark-failed ST-003 --class acceptance_unmet --evidence /tmp/notes.txt
     Then dispatch exits non-zero
 
   # --- re-dispatch (dispatch re-dispatch <story-id>) ---
 
   Scenario: Re-dispatch validates story is in failed or blocked state
     Given ST-003 is in dispatched state
-    When the operator runs dispatch re-dispatch ST-003
+    When the user runs dispatch re-dispatch ST-003
     Then dispatch exits non-zero
     And reports that re-dispatch requires a failed or blocked story
 
   Scenario: Re-dispatch cleans up old branch and worktree before re-preparing
     Given ST-003 is failed and its story branch and worktree still exist
-    When the operator runs dispatch re-dispatch ST-003
+    When the user runs dispatch re-dispatch ST-003
     Then the old story worktree is removed
     And the old story branch is deleted
     And a fresh story branch is cut from the current feature branch tip
@@ -504,7 +504,7 @@ Feature: Story Lifecycle
   # Phase 3
   Scenario: context_missing failure re-dispatches at same tier with amended handoff
     Given ST-003 failed with class context_missing
-    When the operator runs dispatch re-dispatch ST-003
+    When the user runs dispatch re-dispatch ST-003
     Then a new attempt is created at the same tier
     And the handoff contract is regenerated with amended inputs
     And ST-003 transitions from failed to prepared
@@ -512,14 +512,14 @@ Feature: Story Lifecycle
   # Phase 3
   Scenario: contract_violation first occurrence re-dispatches at same tier
     Given ST-003 failed with class contract_violation for the first time
-    When the operator runs dispatch re-dispatch ST-003
+    When the user runs dispatch re-dispatch ST-003
     Then a new attempt is created at the same tier
     And ST-003 transitions from failed to prepared
 
   # Phase 3
   Scenario: contract_violation second occurrence is terminal
     Given ST-003 has two prior attempts both with class contract_violation
-    When the operator runs dispatch re-dispatch ST-003
+    When the user runs dispatch re-dispatch ST-003
     Then dispatch exits non-zero
     And reports that contract_violation is terminal after two occurrences
 
@@ -527,20 +527,20 @@ Feature: Story Lifecycle
   Scenario: environment failure re-dispatches after fix at same tier
     Given ST-003 failed with class environment
     And the environment issue has been resolved
-    When the operator runs dispatch re-dispatch ST-003
+    When the user runs dispatch re-dispatch ST-003
     Then a new attempt is created at the same tier
 
   # Phase 3
   Scenario: spend_death failure re-dispatches at same tier
     Given ST-003 failed with class spend_death
-    When the operator runs dispatch re-dispatch ST-003
+    When the user runs dispatch re-dispatch ST-003
     Then a new attempt is created at the same tier
 
   # Phase 3
   Scenario: seam_defect failure re-dispatches seam session at same tier
     Given ST-003 has strategy seams-first
     And the seam session failed with class seam_defect
-    When the operator runs dispatch re-dispatch ST-003
+    When the user runs dispatch re-dispatch ST-003
     Then a new seam session attempt is created at the same tier
     And the story's escalation slot is not consumed
 
@@ -548,7 +548,7 @@ Feature: Story Lifecycle
   Scenario: acceptance_unmet failure requires escalation before re-dispatch
     Given ST-003 failed with class acceptance_unmet
     And ST-003 has not been escalated
-    When the operator runs dispatch re-dispatch ST-003
+    When the user runs dispatch re-dispatch ST-003
     Then dispatch exits non-zero
     And reports that escalation is required for acceptance_unmet
 
@@ -556,16 +556,16 @@ Feature: Story Lifecycle
   Scenario: contradictory_evidence failure requires escalation before re-dispatch
     Given ST-003 failed with class contradictory_evidence
     And ST-003 has not been escalated
-    When the operator runs dispatch re-dispatch ST-003
+    When the user runs dispatch re-dispatch ST-003
     Then dispatch exits non-zero
     And reports that escalation is required for contradictory_evidence
 
   # --- blocked story recovery ---
 
-  Scenario: Blocked story can be re-dispatched after operator resolves the condition
+  Scenario: Blocked story can be re-dispatched after user resolves the condition
     Given ST-003 is blocked with reason "merge conflict"
-    And the operator has resolved the conflict
-    When the operator runs dispatch re-dispatch ST-003
+    And the user has resolved the conflict
+    When the user runs dispatch re-dispatch ST-003
     Then ST-003 transitions from blocked to prepared
     And a new attempt is created
 
@@ -573,7 +573,7 @@ Feature: Story Lifecycle
 
   Scenario: Dispatch status renders the current ledger
     Given the ledger contains stories in various states
-    When the operator runs dispatch status
+    When the user runs dispatch status
     Then a human-readable table is printed showing story ID, wave, status, branch, and SHA
 ```
 
@@ -587,13 +587,13 @@ Feature: Subcommand Idempotency
 
   Scenario: Re-running a successful subcommand is a no-op
     Given dispatch prepare-wave 2 has already succeeded
-    When the operator runs dispatch prepare-wave 2 again
+    When the user runs dispatch prepare-wave 2 again
     Then no duplicate branches, worktrees, or ledger entries are created
     And the exit code is zero
 
   Scenario: Re-running after failure resumes from recorded state
     Given dispatch prepare-wave 2 failed after preparing ST-003 but before ST-004
-    When the operator runs dispatch prepare-wave 2 again
+    When the user runs dispatch prepare-wave 2 again
     Then ST-003 is recognized as already prepared
     And ST-004 is prepared from scratch
 ```
@@ -637,7 +637,7 @@ Feature: Step Manifest Lifecycle
 
   Scenario: Stale manifest is cleared by dispatch clear-manifest
     Given a step manifest exists but the agent died without cleanup
-    When the operator runs dispatch clear-manifest --force --worktree <path>
+    When the user runs dispatch clear-manifest --force --worktree <path>
     Then the stale manifest is removed
     And a warning is logged
     And the recovery is recorded in the ledger
@@ -901,7 +901,7 @@ Feature: Evidence-Gated Escalation
     And no scope violation exists
     And the story is not already at strong tier
     And no other story in the wave has escalated
-    When the operator runs dispatch escalate <story-id>
+    When the user runs dispatch escalate <story-id>
     Then the escalation is granted
     And the ledger records the new tier (one level above previous)
 
@@ -910,46 +910,46 @@ Feature: Evidence-Gated Escalation
     And the attempt's failure class is contradictory_evidence
     And the attempt records the commit SHA and normalized total
     And all other escalation conditions are met
-    When the operator runs dispatch escalate <story-id>
+    When the user runs dispatch escalate <story-id>
     Then the escalation is granted
 
   Scenario: No prior impl attempt blocks escalation
     Given a ledger without an attempts key for the story
-    When the operator runs dispatch escalate <story-id>
+    When the user runs dispatch escalate <story-id>
     Then dispatch exits non-zero
 
   Scenario: Non-qualifying failure class blocks escalation
     Given a story's prior attempt has failure class context_missing
-    When the operator runs dispatch escalate <story-id>
+    When the user runs dispatch escalate <story-id>
     Then dispatch exits non-zero
 
   Scenario: Already at strong tier blocks escalation (saturation)
     Given a story is already at strong tier
-    When the operator runs dispatch escalate <story-id>
+    When the user runs dispatch escalate <story-id>
     Then dispatch exits non-zero
 
   Scenario: Wave escalation slot already taken blocks escalation
     Given another story in the same wave has escalation_granted: true in its ledger entry
-    When the operator runs dispatch escalate <story-id>
+    When the user runs dispatch escalate <story-id>
     Then dispatch exits non-zero
     # The wave escalation predicate scans all story entries in the wave
     # for escalation_granted: true. No separate wave-level counter.
 
   Scenario: Second escalation for the same story blocks
     Given a story already escalated once
-    When the operator runs dispatch escalate <story-id>
+    When the user runs dispatch escalate <story-id>
     Then dispatch exits non-zero
 
   Scenario: Verify-base failure blocks escalation
     Given verify-base fails for the story's branch
-    When the operator runs dispatch escalate <story-id>
+    When the user runs dispatch escalate <story-id>
     Then dispatch exits non-zero
     And the ledger is unchanged
 
   Scenario: Second qualifying failure in wave after escalation slot is taken
     Given another story in the same wave already escalated
     And a story fails with acceptance_unmet
-    When the operator attempts to escalate this story
+    When the user attempts to escalate this story
     Then escalation is denied
     And the story is marked blocked with reason "wave_escalation_exhausted"
     And the story is eligible for escalation in a later wave of this or a subsequent dispatch
@@ -1089,19 +1089,19 @@ Feature: Interruption Safety
 
   Scenario: Subcommand interrupted before any ledger write is idempotent on re-run
     Given dispatch prepare-wave 2 is interrupted before writing any ledger entry
-    When the operator runs dispatch prepare-wave 2 again
+    When the user runs dispatch prepare-wave 2 again
     Then the subcommand runs from scratch and succeeds
 
   Scenario: Subcommand interrupted after partial ledger writes resumes
     Given dispatch prepare-wave 2 prepared ST-003 but was interrupted before ST-004
-    When the operator runs dispatch prepare-wave 2 again
+    When the user runs dispatch prepare-wave 2 again
     Then ST-003 is recognized as already prepared
     And ST-004 is prepared from scratch
 
   Scenario: merge-story interrupted between merge commit and test suite reverts
     Given dispatch merge-story ST-003 created the merge commit
     And was interrupted before the test suite completed
-    When the operator runs dispatch merge-story ST-003 again
+    When the user runs dispatch merge-story ST-003 again
     Then the prior merge commit is detected
     And the test suite runs against the existing merge
     # The merge is not duplicated
@@ -1135,12 +1135,12 @@ Feature: Verification Immutability
 
   Scenario: verify-story leaves the index unchanged
     Given the working tree and index are in a known state
-    When the operator runs dispatch verify-story ST-003 --sha <sha>
+    When the user runs dispatch verify-story ST-003 --sha <sha>
     Then git status --porcelain produces the same output as before the command
 
   Scenario: verify-story leaves the working tree unchanged
     Given the working tree contains uncommitted modifications
-    When the operator runs dispatch verify-story ST-003 --sha <sha>
+    When the user runs dispatch verify-story ST-003 --sha <sha>
     Then no working-tree file has been added, removed, or modified by the command
 
   Scenario: premerge-check within merge-story does not stage files

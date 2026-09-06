@@ -10,7 +10,7 @@ evaluation: pugh-matrix
 
 `orchestrator/` used to run its own `PhaseRunner`: an independent state machine that decided which phase a run was in, whether a gate had passed, and when to advance. `factory/scripts/{transition-lint,phase,trigger}` existed, but as helpers `orchestrator/` called internally — a human or a different AI CLI session had no independent way to gate, advance, cap, or dispatch a playbook run without going through the orchestrator process.
 
-That ownership has inverted. `factory/scripts/transition-lint`, `factory/scripts/phase`, `factory/scripts/trigger`, and the `run-step` skill now read and write the marker (`.current-work/playbook-state.yml`) and the playbook's `.fsm.yml` directly. They are deterministic, file-driven, and require no orchestrator process to run. `orchestrator/` still exists, and still calls these same mechanisms — but so does a Human Operator typing commands by hand, on equal footing. Neither owns sequencing or gating anymore; both are triggers of the same underlying mechanism.
+That ownership has inverted. `factory/scripts/transition-lint`, `factory/scripts/phase`, `factory/scripts/trigger`, and the `run-step` skill now read and write the marker (`.current-work/playbook-state.yml`) and the playbook's `.fsm.yml` directly. They are deterministic, file-driven, and require no orchestrator process to run. `orchestrator/` still exists, and still calls these same mechanisms — but so does a human typing commands by hand, on equal footing. Neither owns sequencing or gating anymore; both are triggers of the same underlying mechanism.
 
 This reverses this repo's own prior architecture. Anyone who last touched this code before the inversion would reasonably assume `orchestrator/`'s `PhaseRunner` still decides "what phase are we in" — it is surprising without this context, hard to reverse once `orchestrator/` stops maintaining its own competing phase logic, and the shape below is the result of a real trade-off among genuine alternatives. All three bars the [`write-adr` skill](../../factory/skills/write-adr/SKILL.md) sets for offering an ADR are met.
 
@@ -35,7 +35,7 @@ B wins decisively. C is actively worse than the status quo — two independent, 
 
 `factory/scripts/{transition-lint,phase,trigger}` and the `run-step` skill are the flow-control owner: they alone gate which files may be staged in which phase, advance the marker, cap retries, and dispatch agents, from state that lives in files (the marker, the FSM, `INDEX.yaml`) rather than inside any one process.
 
-`orchestrator/` is one possible trigger of these mechanisms — a stand-in for a human manually running `transition-lint`, `phase advance`, `phase retry`, and `trigger` by hand. A Human Operator and the orchestrator CLI are peers: both only invoke `factory/` tooling; neither holds flow-control authority the other lacks.
+`orchestrator/` is one possible trigger of these mechanisms — a stand-in for a human manually running `transition-lint`, `phase advance`, `phase retry`, and `trigger` by hand. You and the orchestrator CLI are peers: both only invoke `factory/` tooling; neither holds flow-control authority the other lacks.
 
 `orchestrator/` keeps its own `RUN`/`RUN_LOCK` bookkeeping and invocation audit trail — concerns distinct from "what phase are we in," which `factory/` does not duplicate (see [PRD § NG1](../spec/prd.md#non-goals)).
 

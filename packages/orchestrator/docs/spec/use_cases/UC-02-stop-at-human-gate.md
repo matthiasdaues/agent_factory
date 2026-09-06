@@ -4,11 +4,11 @@ Realizes: AG-02
 
 ## Primary Actor
 
-Human Operator
+User
 
 ## Stakeholders & Interests
 
-- **Human Operator** — wants to be clearly informed when a decision point requires their judgement, and wants to resume the run with a single re-invocation after acting.
+- **User** — wants to be clearly informed when a decision point requires their judgement, and wants to resume the run with a single re-invocation after acting.
 - **Orchestrator** — wants to stop cleanly (not error) so that re-invocation picks up from the same state.
 
 ## Trigger
@@ -82,7 +82,7 @@ Feature: Stop at a human gate
   Scenario: Resume after human action satisfies conditions
     Given a marker at state PHASE_3_APPROVAL
     And the human has satisfied the forward transition's entry conditions
-    When the operator re-invokes run-playbook
+    When you re-invoke run-playbook
     Then phase advance succeeds
     And the marker advances to PHASE_4_IMPLEMENTATION
 ```

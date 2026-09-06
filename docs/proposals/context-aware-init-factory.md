@@ -485,3 +485,68 @@ it."*
 - The distribution problem was the hardest of the three and got the least
   concrete treatment in the first sketch. Option A/B framing addresses it
   directly.
+
+## Documentation gaps — newcomer path audit (2026-09-06)
+
+Tracing the newcomer journey from first contact (root README) through setup
+(factory README) to reference (factory guide). Each gap is something a
+newcomer encounters but cannot learn about from the documentation.
+
+### 1. Model matrix (`config/model.conf`)
+
+The file exists after install. The `matrix-lint` hook validates it. The
+orchestrator README says "model is resolved from `config/model.conf` based on
+the agent's tier." No doc explains:
+
+- What it is (maps agent tiers to AI models, per CLI)
+- What tiers are (economy / standard / strong) and which agents use which
+- The `cli.tier = model-id` format
+- How to customize it for your own CLI or models
+- What `on_missing = halt` does
+
+Not mentioned in the factory README or the factory guide at all.
+
+### 2. Tiers
+
+The concept behind the model matrix. No user-facing doc defines what
+economy/standard/strong means, which agents use which tier, or how tier
+relates to cost. The word "tier" never appears in the factory guide except
+buried in the usage-capture section.
+
+### 3. Stale ruff references in factory guide
+
+Five mentions (lines 554, 560, 574, 586, 687) still describe ruff as a
+built-in hook. Ruff was removed from both the pre-commit template and the
+source repo config (commit `3b83eaa`). The guide contradicts reality.
+
+### 4. `config/project.json`
+
+Appears in the factory README reference table and the guide's usage-capture
+section. No explanation of what it does or whether the user should care.
+
+### 5. Factory directory layout
+
+After install, the user has `factory/` containing agents/, skills/,
+playbooks/, rulebooks/, scripts/, config/, docs/, fixtures/, reports/. No
+map. The factory README says "The script copies a `factory/` directory" and
+stops. The guide introduces each concept but never shows the directory tree.
+
+### 6. Factory README "How it works" section
+
+Just a bullet list linking to the guide. Omits agent context, model matrix,
+and config/ entirely. A newcomer who reads only the README misses that these
+exist.
+
+### 7. Agent context not mentioned in factory README
+
+The root README mentions it. The factory guide has a full section. But the
+factory README — the setup doc where a newcomer goes after cloning — never
+mentions it. The newcomer following the install path won't know it exists
+until VIRGIL asks about it in a session.
+
+### 8. Agent context creation timing
+
+The guide says "`docs/agent-context/` is a routing switchboard" but never
+says when it gets created. A newcomer looking for it after `init-factory`
+won't find it — it's created during onboarding (greenfield/brownfield
+playbooks), not at install time.

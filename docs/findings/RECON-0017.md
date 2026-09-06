@@ -15,7 +15,7 @@ canonical pre-commit configuration and covered fresh installation, merge, and
 idempotence. `init-factory` now explicitly installs both the `pre-commit` and
 `pre-push` Git hook types, so the configured stage actually fires. The
 implementation pass also corrected the prior claim that a client-side pre-push
-hook has no bypass: human operators can use `git push --no-verify`; managed
+hook has no bypass: you can use `git push --no-verify`; managed
 agents remain subject to Factory guardrails.
 
 **What is wrong:** ADR-0003 (status: accepted, unsuperseded) and

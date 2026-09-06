@@ -30,7 +30,7 @@ This decision was not a choice among competing approaches; it was the only optio
 
 ## Decision
 
-Test execution happens via three mechanically triggered gates. Agents are blocked from running bare test commands. Human operators retain Git's standard `--no-verify` escape hatch for client-side pre-commit and pre-push hooks; the phase-advance gate has no equivalent Git bypass.
+Test execution happens via three mechanically triggered gates. Agents are blocked from running bare test commands. You retain Git's standard `--no-verify` escape hatch for client-side pre-commit and pre-push hooks; the phase-advance gate has no equivalent Git bypass.
 
 **Hook integration points:**
 
@@ -123,10 +123,10 @@ Factory stops owning test execution entirely. The `factory/scripts/run-tests` sc
 
 - **Client-side hooks are bypassable by humans** — both commit and push accept `--no-verify`. This is an operational gate for normal workflows, not a repository security boundary. Enforce organization-wide policy with required CI or server-side controls.
 - **Project must declare test commands** — no `docs/charter/testing.yaml` means no test gates. The `detect-test-regime` skill scans for existing entrypoints during onboarding, but the project is responsible for the declaration.
-- **Phase advance becomes test-dependent** — a single failing test blocks phase transition. Deliberately strict; the alternative (advancing with red tests) violates the gate's purpose. Operator can fix tests or temporarily remove the `script_exit_zero` condition from FSM if gate is incorrect.
+- **Phase advance becomes test-dependent** — a single failing test blocks phase transition. Deliberately strict; the alternative (advancing with red tests) violates the gate's purpose. You can fix the tests or temporarily remove the `script_exit_zero` condition from the FSM if the gate is incorrect.
 
 ## Referenced from
 
-- [UC-09 — Ensure Project-Owned Test Gates Exist](../spec/use_cases/UC-09-run-tests-via-hook.md)
+- [UC-09 — Ensure Project-Owned Test Gates Exist](../~archive/spec/use_cases/UC-09-run-tests-via-hook.md)
 - [foundational-principles.md § Agentic Creation, Deterministic Validation](../../factory/rulebooks/conventions/foundational-principles.md#agentic-creation-deterministic-validation)
 - [08_crosscutting_concepts.md § 8.1](../arc42/08_crosscutting_concepts.md#81-agentic-creation-deterministic-validation)

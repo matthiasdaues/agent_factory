@@ -19,7 +19,8 @@ Optional: **tiktoken** (`pip install tiktoken`) for token counting in INDEX.yaml
 
 ```bash
 git clone <agent-factory-repo-url> agent_factory
-../agent_factory/init-factory your-project
+cd agent_factory
+./init-factory your-project
 ```
 
 The script copies a `factory/` directory into your project and asks which CLI you use. It touches two tracked files:

@@ -144,5 +144,5 @@ add:
 
 Keep whatever tool-specific identifiers help trace a report entry back to the
 mutation tool's own output (a mutant ID, a raw status string) as additional
-fields — they are useful for operator review but are not part of the
+fields — they are useful for human review but are not part of the
 contract this skill enforces.

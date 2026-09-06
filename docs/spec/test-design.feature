@@ -215,7 +215,7 @@ Feature: Test Design Skill
       Then no workflow step fails due to missing test-design output
 
   Rule: Testing strategy defines risk-class conventions
-    # actor: Human Operator
+    # actor: User
     # @factory/rulebooks/conventions/testing-strategy.md
 
     Scenario: Testing strategy declares three default risk classes
@@ -236,8 +236,8 @@ Feature: Test Design Skill
       And standard has equivalence budget of one per equivalence class plus boundaries
       And structural has no test-design budget because the linter owns it
 
-  Rule: Human Operator configures risk classes per project in testing.yaml
-    # actor: Human Operator
+  Rule: User configures risk classes per project in testing.yaml
+    # actor: User
     # @docs/charter/testing.yaml
     # @factory/rulebooks/templates/charter-testing.yaml
 
@@ -259,8 +259,8 @@ Feature: Test Design Skill
       Then it includes a risk_classes section with format, budget, and optional requires fields
       And the schema is defined by a concrete YAML example
 
-  Rule: Human Operator configures gate thresholds in testing.yaml
-    # actor: Human Operator
+  Rule: User configures gate thresholds in testing.yaml
+    # actor: User
     # @docs/charter/testing.yaml
     # @factory/rulebooks/templates/charter-testing.yaml
 

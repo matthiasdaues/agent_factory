@@ -71,7 +71,7 @@ All design decisions are recorded in the proposal and ADRs:
 
 - **YAML over markdown** (ADR-0013): machine parseability, staleness resistance, per-field source pointers.
 - **Two-layer routing** (ADR-0014): reading guide (Layer 1) over index files (Layer 2) — prevents drift between independent routing tables.
-- **Two-mode lifecycle** (ADR-0014): primary → index transition, one-directional, operator-confirmed, atomic across all three index files.
+- **Two-mode lifecycle** (ADR-0014): primary → index transition, one-directional, user-confirmed, atomic across all three index files.
 - **Format detection** (ADR-0013): three-step chain for backward compatibility. testing.yaml resolved independently.
 - **testing.yaml carve-out**: lifecycle-exempt peer, CX-PARSE only, written by detect-test-regime.
 

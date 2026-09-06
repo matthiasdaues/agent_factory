@@ -74,6 +74,16 @@ repos:
         pass_filenames: false
         files: ^backlog/ST-.*\.md$
 
+      # Validate the YAML files in docs/agent-context/ where the
+      # project declares its tech stack, workflow, and governance
+      # decisions. Agents read these to adapt their behavior.
+      - id: agent_factory_hook-context-lint
+        name: "agent_factory: context-lint (agent-context validation gate)"
+        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/context-lint' --
+        language: system
+        pass_filenames: false
+        files: ^docs/agent-context/.*\.yaml$
+
       # Validate config/model.conf — the file that maps agent roles
       # to AI models and cost tiers. Checks for missing columns,
       # unknown tier names, and duplicate entries.

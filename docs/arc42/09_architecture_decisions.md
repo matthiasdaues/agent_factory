@@ -27,7 +27,7 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 
 ### Ownership and Control
 
-**ADR-0002** establishes that `factory/scripts/{transition-lint,phase,trigger}` and the `run-step` skill own flow control state (the marker, FSM, gates). `orchestrator/` is one possible trigger among peers (human operator, orchestrator CLI). This inversion makes playbook runs CLI-agnostic and resume-from-observable-state by design.
+**ADR-0002** establishes that `factory/scripts/{transition-lint,phase,trigger}` and the `run-step` skill own flow control state (the marker, FSM, gates). `orchestrator/` is one possible trigger among peers (you at the terminal, orchestrator CLI). This inversion makes playbook runs CLI-agnostic and resume-from-observable-state by design.
 
 ### Validation Strategy
 
@@ -45,7 +45,7 @@ All follow the "Agentic Creation, Deterministic Validation" principle: agents cr
 
 ### Pi Invocation Layer
 
-**ADR-0004** establishes that Pi, which has no native subagent concept, runs a factory agent by spawning a separate `pi` subprocess through the model-callable `run_agent` tool (a project-local extension). This restores author/reviewer independence and parallel dispatch under Pi over the exact mechanism Pi's own documentation sanctions, rejecting in-context role-play (fails independence) and a custom agent hierarchy (fights Pi's design, YAGNI). **ADR-0005** keeps Pi tier→model resolution static and offline in `model.conf`, adding `openrouter-discover` as a separate operator aid for curating and validating `pi.*` OpenRouter rows — never a network call on the runtime path.
+**ADR-0004** establishes that Pi, which has no native subagent concept, runs a factory agent by spawning a separate `pi` subprocess through the model-callable `run_agent` tool (a project-local extension). This restores author/reviewer independence and parallel dispatch under Pi over the exact mechanism Pi's own documentation sanctions, rejecting in-context role-play (fails independence) and a custom agent hierarchy (fights Pi's design, YAGNI). **ADR-0005** keeps Pi tier→model resolution static and offline in `model.conf`, adding `openrouter-discover` as a separate curation tool for validating `pi.*` OpenRouter rows — never a network call on the runtime path.
 
 ### Research Feature Structure and Validation
 

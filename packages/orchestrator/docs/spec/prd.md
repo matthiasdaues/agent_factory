@@ -2,7 +2,7 @@
 
 ## Vision
 
-The orchestrator replaces the human operator pressing "enter" between agent sessions. It is a mechanical dispatcher that rides the playbook's FSM rails, advancing the state marker one step at a time by delegating all decisions to the existing gate mechanism.
+The orchestrator replaces you pressing "enter" between agent sessions. It is a mechanical dispatcher that rides the playbook's FSM rails, advancing the state marker one step at a time by delegating all decisions to the existing gate mechanism.
 
 ## Problem statement
 
@@ -34,7 +34,7 @@ Agent Factory's playbooks define a complete state machine: states, transitions, 
 
 | ID   | Actor          | Description                                                                    |
 | ---- | -------------- | ------------------------------------------------------------------------------ |
-| A-01 | Human operator | Initiates playbook runs, handles human gates, investigates halts               |
+| A-01 | User           | Initiates playbook runs, handles human gates, investigates halts               |
 | A-02 | Orchestrator   | The dispatcher module itself — reads state, dispatches agents, advances marker |
 | A-03 | AI agent       | The invoked agent (architecture-agent, qa-agent, etc.) — does the actual work  |
 | A-04 | Gate mechanism | `phase advance` + `phase retry` — evaluates conditions, writes marker          |

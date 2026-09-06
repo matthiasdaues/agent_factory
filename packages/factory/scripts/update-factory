@@ -94,7 +94,10 @@ def _run_init(source: Path, target: Path) -> int:
     factory/ refresh. Subprocess so the replace-and-reinstall boundary and the
     sourced script's own idempotency/collision handling stay exactly the
     script's — update-factory adds no re-implementation of init's wiring."""
-    init = source / "factory" / "scripts" / "init-factory"
+    # Monorepo layout: scripts live at packages/factory/scripts/.
+    # Consumer layout: scripts live at factory/scripts/.
+    pkg_init = source / "packages" / "factory" / "scripts" / "init-factory"
+    init = pkg_init if pkg_init.exists() else source / "factory" / "scripts" / "init-factory"
     result = subprocess.run(
         [
             sys.executable,
@@ -152,10 +155,13 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         source = Path(recorded).resolve()
 
-    source_factory = source / "factory"
+    # Monorepo layout: product source at packages/factory/.
+    # Consumer layout: installed copy at factory/.
+    pkg_factory = source / "packages" / "factory"
+    source_factory = pkg_factory if pkg_factory.is_dir() else source / "factory"
     if not source_factory.is_dir():
         print(
-            f"update-factory: no factory/ found at {source_factory} — pass "
+            f"update-factory: no factory/ found at {source} — pass "
             "--source explicitly",
             file=sys.stderr,
         )

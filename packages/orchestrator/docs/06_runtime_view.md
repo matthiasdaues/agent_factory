@@ -4,7 +4,7 @@
 
 ```mermaid
 sequenceDiagram
-    participant H as Human Operator
+    participant H as User
     participant O as run-playbook
     participant M as Marker File
     participant F as FSM File
@@ -72,7 +72,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant H as Human Operator
+    participant H as User
     participant O as run-playbook
     participant M as Marker File
     participant F as FSM File

@@ -4,11 +4,11 @@ Realizes: AG-04
 
 ## Primary Actor
 
-Human Operator (investigates the halt)
+User (investigates the halt)
 
 ## Stakeholders & Interests
 
-- **Human Operator** — wants to know that a loop has been exhausted, why, and what to do next.
+- **User** — wants to know that a loop has been exhausted, why, and what to do next.
 - **Orchestrator** — wants to stop cleanly with a non-zero exit code that distinguishes a cap-halt from a config error.
 
 ## Trigger
