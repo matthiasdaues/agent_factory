@@ -7,11 +7,7 @@ disable-model-invocation: false
 
 # Research Planning
 
-This skill provides a capability for turning a validated research brief into the
-structured plan appropriate to its mode. It does not control the workflow
-sequence — the playbook controls when planning occurs and how the plan is used.
-
-## Capability
+Turn a validated research brief into the structured plan appropriate to its mode. The playbook controls when planning occurs and how the plan is used; this skill covers what the plan contains and how to write it.
 
 Read the brief's `mode` before choosing the output contract. An omitted mode
 means `survey`.
@@ -26,24 +22,9 @@ means `survey`.
   and structured by
   [`research-plan.md`](../../rulebooks/templates/research-plan.md).
 
-## Falsification Plan Output
+## Falsification Plan
 
-For a `falsification` brief, transform the validated brief into a research plan
-that defines:
-
-- research questions,
-- competing conjectures where relevant,
-- evidence requirements,
-- refutation strategies,
-- assignments,
-- review requirements,
-- stop conditions.
-
-## Output
-
-The skill produces a research plan artifact validated against [`factory/rulebooks/schemas/research-plan.schema.json`](../../rulebooks/schemas/research-plan.schema.json).
-
-Each plan must contain:
+For a `falsification` brief, produce a research plan validated against [`research-plan.schema.json`](../../rulebooks/schemas/research-plan.schema.json). Each plan must contain:
 
 | Field                   | Purpose                                             |
 | ----------------------- | --------------------------------------------------- |
@@ -73,9 +54,3 @@ and conjectures are admittable by construction:
 - State **reviewers-per-claim** and **tests-per-claim** for each tier the plan uses (standard, and high-risk if any). At least three reviewers assess each material claim; high-risk claims may take five.
 - Set **tests-per-claim equal to the number of tests actually executed** under the protocol (typically one severe test per reviewer). Admission requires one executed test record per planned test, so this number is the count conjecture authors must plan to.
 - Conjecture authors read these numbers and plan exactly that many severe tests (see [`claim-formulation`](../claim-formulation/SKILL.md) and [`refutation-design`](../refutation-design/SKILL.md)); planning more tests than the protocol runs makes a claim unadmittable regardless of merit.
-
-## Responsibility
-
-This skill is **responsible for** planning research work: framing questions, identifying assumptions, specifying what evidence counts, and defining review criteria.
-
-This skill is **not responsible for** controlling workflow: that is the playbook's role. It is not responsible for executing the research, collecting sources, running tests, reviewing claims, or generating the report.

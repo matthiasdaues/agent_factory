@@ -7,7 +7,7 @@ disable-model-invocation: false
 
 # Write ADR
 
-Document a single architecture decision following **ADR according to Nygard**. Apply **Clean Architecture** and **SOLID** as evaluation criteria where relevant. You MUST apply the **YAGNI** principlt. You MUST write short and precise prose, follow "Strunk & White".
+Document a single architecture decision following **ADR according to Nygard**. Apply **Clean Architecture** and **SOLID** as evaluation criteria where relevant. You MUST apply the **YAGNI** principle. You MUST write short and precise prose, follow "Strunk & White".
 
 Read `docs/arc42/CONTEXT.md` if it exists — use the project's domain vocabulary.
 

@@ -7,11 +7,7 @@ disable-model-invocation: false
 
 # Source Research
 
-This skill provides a capability for finding and documenting sources to answer one bounded research assignment. It does not control the workflow sequence — the playbook controls when source research occurs and how sources are used.
-
-## Capability
-
-Execute research for a single bounded assignment by finding sources and recording evidence for evaluation.
+Find and document sources for one bounded research assignment. The playbook controls when source research occurs and how sources are used; this skill covers how to find, assess, and record evidence.
 
 Each source record must document:
 
@@ -33,9 +29,3 @@ Each source record must document:
 The skill produces source-record artifacts validated against [`factory/rulebooks/schemas/research-source-record.schema.json`](../../rulebooks/schemas/research-source-record.schema.json).
 
 Refer to [`factory/rulebooks/templates/research-source-record.md`](../../rulebooks/templates/research-source-record.md) for the template structure.
-
-## Responsibility
-
-This skill is **responsible for** finding sources and recording evidence: locating material, assessing provenance, identifying source families, noting limitations, and preserving the chain of custody.
-
-This skill is **not responsible for** controlling workflow: that is the playbook's role. It is not responsible for planning research, proposing claims, designing tests, reviewing claims, or generating the report.

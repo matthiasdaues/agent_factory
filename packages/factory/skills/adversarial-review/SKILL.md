@@ -6,11 +6,7 @@ category: research
 
 # Adversarial Review
 
-This skill provides a capability to conduct an adversarial review of a claim within a falsification-driven research workflow. The skill does not control the sequence of the research process — the playbook controls sequence.
-
-## Purpose
-
-Apply a structured set of ten review checks to assess whether a claim is defensible given its evidence, tests, and attempted refutations. Classify any defects found, and produce a review artifact and a corresponding vote tied to the exact claim hash. The review determines whether a claim may survive and advance to the final report.
+Review one claim against ten structured checks, classify defects, and cast a vote tied to the claim's content hash. The vote determines whether the claim survives into the final report. The playbook controls when reviews occur and how many reviewers assess each claim; this skill covers what one reviewer does.
 
 ## Input Artifacts
 
@@ -85,7 +81,3 @@ A claim survives only when:
 - No blocker remains.
 - No material refutation remains unanswered.
 - All votes refer to the current claim hash.
-
-## Capability, Not Sequence
-
-This skill provides a capability for one reviewer to conduct one adversarial review. It does not decide when reviews occur, how many reviewers assess a claim, how votes are tallied, or what happens next. The research playbook controls the sequence of reviews, the number of reviewers required, and the decision rules for survival.

@@ -7,9 +7,7 @@ disable-model-invocation: false
 
 # Research Synthesis
 
-This skill provides a capability to turn recorded source records into a
-source-grounded survey report. It does not control workflow sequence — the
-survey playbook controls when synthesis occurs and how the result is released.
+Turn recorded source records into a source-grounded survey report. The survey playbook controls when synthesis occurs and how the result is released; this skill covers how to write the report.
 
 ## Input
 
@@ -40,9 +38,3 @@ The report must include:
 Validate the completed report with `factory/scripts/schema-validate` against
 the survey-report schema. Check that every finding cites at least one recorded
 source record and that uncertainty, gaps, and limitations remain explicit.
-
-## Responsibility
-
-This skill is responsible for source-grounded synthesis and clear reporting of
-its bounds. It is not responsible for gathering sources, choosing the survey's
-scope, or controlling the playbook sequence.

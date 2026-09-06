@@ -6,19 +6,17 @@ category: research
 
 # Research Reporting
 
-This skill provides a capability to compose a final research report from a frozen claim register in a falsification-driven research workflow. The skill does not control the sequence of the research process — the playbook controls sequence.
+Compose the final research report from a frozen claim register. The playbook controls when the register is frozen and when the report is written; this skill covers how to write it.
 
-## Purpose
+The report must:
 
-Convert the completed, frozen claim register into a final research report that:
+- Use only surviving claims as its factual basis.
+- Cite the claim IDs that support each factual statement.
+- Preserve all material qualifications, scope limits, and uncertainties.
+- Distinguish findings from recommendations.
+- Not conduct new research, create new claims, or present surviving claims as proved.
 
-- Uses only surviving claims as its factual basis.
-- Cites the claim IDs that support each factual statement.
-- Preserves all material qualifications, scope limits, and uncertainties.
-- Distinguishes findings from recommendations.
-- Does not conduct new research, create new claims, or present surviving claims as proved.
-
-The final report is the deliverable output of the research workflow and must accurately represent what was found, what remains uncertain, and what tests were failed.
+The report is the deliverable output of the research workflow. It must accurately represent what was found, what remains uncertain, and which tests failed.
 
 ## Input Artifacts
 
@@ -116,7 +114,3 @@ The frozen claim register must be validated before report writing begins. The re
 - All material qualifications are present.
 - No required limits are omitted.
 - Sources and evidence are accurately described.
-
-## Capability, Not Sequence
-
-This skill provides a capability for one report writer to compose one report from a frozen claim register. It does not decide when the register is frozen, how many writers contribute, or what happens to the report after it is drafted. The research playbook controls the sequence of report generation and review.

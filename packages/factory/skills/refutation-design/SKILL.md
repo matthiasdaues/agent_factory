@@ -7,11 +7,7 @@ disable-model-invocation: false
 
 # Refutation Design
 
-Design tests and evidence conditions that would refute or falsify a claim. This skill provides a capability; it does not control the sequence or rhythm of the research workflow — the playbook does.
-
-## Purpose
-
-Specify what evidence or observations would count as refutation, then design severe tests to attempt to find that evidence. The output is a set of test records and planned tests — structured artifacts that drive the refutation phase of the research workflow. This step embodies the principle that a hypothesis with no conceivable refutation is not science; it is dogma.
+Specify what evidence would count as refutation of a claim, then design severe tests to look for that evidence. The output is a set of test records and planned tests — structured artifacts that drive the refutation phase. A hypothesis with no conceivable refutation is not science; it is dogma. The playbook controls when refutation design occurs; this skill covers how to design and run the tests.
 
 ## Inputs
 

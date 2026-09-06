@@ -7,11 +7,7 @@ disable-model-invocation: false
 
 # Claim Formulation
 
-Formulate a single precise and testable claim from recorded evidence. This skill provides a capability; it does not control the sequence or rhythm of the research workflow — the playbook does.
-
-## Purpose
-
-Transform evidence collected during a research assignment into one clear, atomic claim that can be refuted. The output conjecture embodies the claim against a template and schema, recording its scope, assumptions, supporting evidence, contrary evidence, and content hash for use in subsequent validation and review steps.
+Turn evidence from a research assignment into one precise, testable claim that can be refuted. The output is a conjecture artifact recording the claim's scope, assumptions, supporting and contrary evidence, and a content hash for change tracking. The playbook controls when formulation occurs; this skill covers how to write one claim.
 
 ## Inputs
 
