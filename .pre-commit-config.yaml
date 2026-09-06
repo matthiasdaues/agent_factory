@@ -1,28 +1,28 @@
-# Pre-commit hooks for the agent_factory project.
+# Pre-commit hooks for the agent_factory source repository.
+#
+# Two blocks: the first (agent_factory_hook-*) is what init-factory
+# installs in consumer projects. The second (unprefixed) is this
+# repo's own development hooks. Both run here.
+#
+# Every hook uses factory/scripts/ — the installed tool copy at root,
+# not the source under packages/factory/. Language-specific linters
+# (ruff, eslint, etc.) are not included; add them per project during
+# onboarding.
+
 repos:
+  # ── Consumer hooks (installed by init-factory) ─────────────────
   - repo: local
     hooks:
-      # formats all markdown files — zero local install, see factory/scripts/mdformat
+      # Normalize markdown formatting (headings, lists, tables).
+      # Prevents style drift across authors and agents.
       - id: agent_factory_hook-mdformat
         name: "agent_factory: mdformat"
         entry: factory/scripts/mdformat --number
         language: system
         types: [markdown]
 
-      # lints all python files (skip if the project isn't Python) — zero local install, via uvx
-      - id: agent_factory_hook-ruff-check
-        name: "agent_factory: ruff check"
-        entry: uvx ruff@0.16.5 check --fix
-        language: system
-        types_or: [python, pyi, jupyter]
-
-      # lints python code blocks in markdown — zero local install, via uvx
-      - id: agent_factory_hook-ruff-format
-        name: "agent_factory: ruff format"
-        entry: uvx ruff@0.16.5 format
-        language: system
-        types_or: [python, pyi, jupyter]
-
+      # Verify that relative links between markdown files resolve.
+      # Catches renames, moves, and typos before they reach review.
       - id: agent_factory_hook-link-check
         name: "agent_factory: link-check (local Markdown links)"
         entry: factory/scripts/link-check
@@ -30,12 +30,16 @@ repos:
         types: [markdown]
         exclude: ^(packages/factory/|docs/~archive/)
 
+      # Flag raw semicolons inside mermaid code fences.
+      # Mermaid silently swallows them, producing broken diagrams.
       - id: agent_factory_hook-mermaid-lint
         name: "agent_factory: mermaid-lint (no raw semicolons)"
         entry: factory/scripts/mermaid-lint
         language: system
         types: [markdown]
 
+      # Check specification files for internal consistency:
+      # cross-references, required sections, traceability IDs.
       - id: agent_factory_hook-spec-lint
         name: "agent_factory: spec-lint (specification consistency & traceability)"
         entry: factory/scripts/spec-lint
@@ -43,6 +47,8 @@ repos:
         pass_filenames: false
         files: ^docs/spec/
 
+      # Check arc42 docs against the Structurizr DSL workspace.
+      # Catches component names that diverge between prose and model.
       - id: agent_factory_hook-arch-lint
         name: "agent_factory: arch-lint (arc42 <-> Structurizr consistency, ADR frontmatter)"
         entry: factory/scripts/arch-lint --docs-dir docs/arc42 --no-validate
@@ -50,6 +56,8 @@ repos:
         pass_filenames: false
         files: ^docs/(arc42/(architecture\.dsl|05_building_block_view\.md)|assets/images/.*|adr/.*\.md)$
 
+      # Validate backlog story frontmatter (required fields, status
+      # values, dependency references) and traceability to specs.
       - id: agent_factory_hook-backlog-lint
         name: "agent_factory: backlog-lint (story schema & traceability gate)"
         entry: factory/scripts/backlog-lint --backlog-dir backlog
@@ -57,6 +65,8 @@ repos:
         pass_filenames: false
         files: ^backlog/ST-.*\.md$
 
+      # Validate agent-context YAML files (stack, workflow,
+      # governance) against their schemas.
       - id: agent_factory_hook-context-lint
         name: "agent_factory: context-lint (agent-context CX-* validation gate)"
         entry: factory/scripts/context-lint
@@ -64,6 +74,8 @@ repos:
         pass_filenames: false
         files: ^docs/agent-context/.*\.yaml$
 
+      # Check the model matrix for internal consistency:
+      # tier names, model IDs, and required columns.
       - id: agent_factory_hook-matrix-lint
         name: "agent_factory: matrix-lint (model matrix consistency gate)"
         entry: factory/scripts/matrix-lint --matrix config/model.conf
@@ -71,6 +83,8 @@ repos:
         pass_filenames: false
         files: ^config/model\.conf$
 
+      # Check that pseudocode and Mermaid state diagrams in spec
+      # files describe the same transitions.
       - id: agent_factory_hook-statemachine-lint
         name: "agent_factory: statemachine-lint (pseudocode <-> Mermaid consistency)"
         entry: factory/scripts/statemachine-lint --spec-dir docs/spec
@@ -78,6 +92,8 @@ repos:
         pass_filenames: false
         files: ^docs/spec/.*\.md$
 
+      # Regenerate INDEX.yaml from agent/skill/playbook frontmatter.
+      # Keeps the routing index in sync with the actual files.
       - id: agent_factory_hook-index-lint
         name: "agent_factory: index-lint (regenerate INDEX.yaml from agent/skill/playbook frontmatter)"
         entry: factory/scripts/index-lint
@@ -85,8 +101,9 @@ repos:
         pass_filenames: false
         files: ^(packages/factory/agents/.*\.md|packages/factory/skills/.*/SKILL\.md|packages/factory/playbooks/.*\.md)$
 
-      # governs phase ORDERING between playbook states (not artifact validity);
-      # inspects everything staged, so it always runs — no-op without a marker
+      # Enforce playbook phase ordering. Blocks commits that skip
+      # or reorder phases in the FSM. Inspects all staged files,
+      # so it always runs — no-op when no phase marker is staged.
       - id: agent_factory_hook-transition-lint
         name: "agent_factory: transition-lint (playbook phase-ordering gate)"
         entry: factory/scripts/transition-lint
@@ -95,28 +112,18 @@ repos:
         always_run: true
         stages: [manual]
 
+  # ── Development hooks (this repo only) ─────────────────────────
   - repo: local
     hooks:
-      # formats all markdown files — zero local install, see factory/scripts/mdformat
+      # Same as above, without the agent_factory_hook- prefix.
+      # Duplicated so this repo's own commits also pass the gates
+      # when the consumer block is not installed by init-factory.
+
       - id: mdformat
         name: mdformat
         entry: factory/scripts/mdformat --number
         language: system
         types: [markdown]
-
-      # lints all python files (skip if the project isn't Python) — zero local install, via uvx
-      - id: ruff-check
-        name: ruff check
-        entry: uvx ruff@0.16.5 check --fix
-        language: system
-        types_or: [python, pyi, jupyter]
-
-      # lints python code blocks in markdown — zero local install, via uvx
-      - id: ruff-format
-        name: ruff format
-        entry: uvx ruff@0.16.5 format
-        language: system
-        types_or: [python, pyi, jupyter]
 
       - id: link-check
         name: link-check (local Markdown links)
@@ -174,8 +181,6 @@ repos:
         pass_filenames: false
         files: ^(packages/factory/agents/.*\.md|packages/factory/skills/.*/SKILL\.md|packages/factory/playbooks/.*\.md|packages/factory/rulebooks/(?!templates/).*\.md)$
 
-      # governs phase ORDERING between playbook states (not artifact validity);
-      # inspects everything staged, so it always runs — no-op without a marker
       - id: transition-lint
         name: transition-lint (playbook phase-ordering gate)
         entry: factory/scripts/transition-lint
@@ -184,11 +189,10 @@ repos:
         always_run: true
         stages: [manual]
 
-      # UC-09: Run tests when source or test code changes
+      # Run the test suite when factory scripts or tests change.
       - id: run-tests
         name: run-tests
         entry: uv run pytest --tb=short --quiet
         language: system
         pass_filenames: false
         files: ^(packages/factory/scripts/|tests?/)
-

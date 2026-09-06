@@ -63,7 +63,7 @@ REPO_ITEM_START = re.compile(r"^  - repo:\s*\S")
 # Tools that projects commonly provide their own hooks for.  When the target
 # already has a hook whose entry invokes one of these, the corresponding
 # factory hook is dropped from the splice to avoid running the tool twice.
-DEDUP_TOOLS = {"ruff", "mdformat"}
+DEDUP_TOOLS = {"mdformat"}
 
 
 def find_template_block(template_text: str) -> list[str]:
