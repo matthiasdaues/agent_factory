@@ -358,26 +358,9 @@ class TestHandlePrecommit:
         assert "agent_factory_hook-test" in content
         assert install["precommit"]["existed"] is False
 
-    def test_existing_untouched_gets_splice(self, tmp_path):
+    def test_existing_config_deferred_to_fitting(self, tmp_path):
         self._make_template(tmp_path)
-        # Create the merge-precommit-config script (needed for splicing)
-        merge_script = tmp_path / "factory" / "scripts" / "merge-precommit-config"
-        merge_script.write_text(
-            "#!/usr/bin/env python3\n"
-            "import sys, argparse\n"
-            "p = argparse.ArgumentParser()\n"
-            "p.add_argument('--target')\n"
-            "p.add_argument('--template')\n"
-            "p.add_argument('--update', action='store_true')\n"
-            "args = p.parse_args()\n"
-            "from pathlib import Path\n"
-            "t = Path(args.target)\n"
-            "existing = t.read_text()\n"
-            "tpl = Path(args.template).read_text()\n"
-            "t.write_text(existing + '\\n' + tpl)\n"
-        )
-        merge_script.chmod(0o755)
-        (tmp_path / ".pre-commit-config.yaml").write_text(
+        original = (
             "repos:\n"
             "  - repo: local\n"
             "    hooks:\n"
@@ -386,12 +369,13 @@ class TestHandlePrecommit:
             "        entry: echo mine\n"
             "        language: system\n"
         )
+        (tmp_path / ".pre-commit-config.yaml").write_text(original)
         install = {"remove_paths": []}
         report: list[str] = []
         inf.handle_precommit(tmp_path, install, report)
-        content = (tmp_path / ".pre-commit-config.yaml").read_text()
-        assert "my-project-hook" in content
+        assert (tmp_path / ".pre-commit-config.yaml").read_text() == original
         assert install["precommit"]["existed"] is True
+        assert any("fitting" in r.lower() for r in report)
 
 
 class TestSymlinkFactoryContent:
@@ -523,3 +507,121 @@ class TestGitignoreIdempotency:
         gi = (tmp_path / ".gitignore").read_text()
         assert gi.count(inf.GITIGNORE_BEGIN) == 1
         assert gi.count(inf.GITIGNORE_END) == 1
+
+
+class TestDetectCli:
+    """detect_cli returns a list of detected CLIs from dot-dirs."""
+
+    def test_detects_claude(self, tmp_path):
+        (tmp_path / ".claude").mkdir()
+        assert inf.detect_cli(tmp_path) == ["claude"]
+
+    def test_detects_copilot(self, tmp_path):
+        (tmp_path / ".github").mkdir()
+        assert inf.detect_cli(tmp_path) == ["copilot"]
+
+    def test_detects_codex_from_dotcodex(self, tmp_path):
+        (tmp_path / ".codex").mkdir()
+        assert inf.detect_cli(tmp_path) == ["codex"]
+
+    def test_detects_codex_from_dotagents(self, tmp_path):
+        (tmp_path / ".agents").mkdir()
+        assert inf.detect_cli(tmp_path) == ["codex"]
+
+    def test_detects_multiple(self, tmp_path):
+        (tmp_path / ".claude").mkdir()
+        (tmp_path / ".github").mkdir()
+        result = inf.detect_cli(tmp_path)
+        assert "claude" in result
+        assert "copilot" in result
+        assert len(result) == 2
+
+    def test_empty_when_nothing(self, tmp_path):
+        assert inf.detect_cli(tmp_path) == []
+
+
+class TestWants:
+    """_wants() gating for multi-CLI dispatch."""
+
+    def test_none_means_all(self):
+        assert inf._wants(None, "claude")
+        assert inf._wants(None, "codex")
+
+    def test_present_in_list(self):
+        assert inf._wants(["claude", "copilot"], "claude")
+
+    def test_absent_from_list(self):
+        assert not inf._wants(["claude"], "codex")
+
+    def test_empty_list_rejects_all(self):
+        assert not inf._wants([], "claude")
+
+
+class TestActiveDotDirs:
+    """_active_dot_dirs() computes the union for selected CLIs."""
+
+    def test_none_returns_all(self):
+        assert inf._active_dot_dirs(None) == list(inf.DOT_DIRS)
+
+    def test_single_cli(self):
+        assert inf._active_dot_dirs(["claude"]) == [".claude"]
+
+    def test_multiple_clis(self):
+        result = inf._active_dot_dirs(["claude", "copilot"])
+        assert result == [".claude", ".github"]
+
+    def test_codex_contributes_dotcodex(self):
+        result = inf._active_dot_dirs(["codex"])
+        assert result == [".codex"]
+
+    def test_no_duplicates(self):
+        result = inf._active_dot_dirs(["claude", "claude"])
+        assert result == [".claude"]
+
+
+class TestAskClis:
+    """ask_clis() parses interactive input."""
+
+    def test_single_number(self, monkeypatch):
+        monkeypatch.setattr("builtins.input", lambda _: "1")
+        monkeypatch.setattr("sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})())
+        assert inf.ask_clis() == ["claude"]
+
+    def test_multiple_numbers_comma(self, monkeypatch):
+        monkeypatch.setattr("builtins.input", lambda _: "1,3")
+        monkeypatch.setattr("sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})())
+        assert inf.ask_clis() == ["claude", "pi"]
+
+    def test_multiple_numbers_space(self, monkeypatch):
+        monkeypatch.setattr("builtins.input", lambda _: "2 4")
+        monkeypatch.setattr("sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})())
+        assert inf.ask_clis() == ["copilot", "codex"]
+
+    def test_names(self, monkeypatch):
+        monkeypatch.setattr("builtins.input", lambda _: "claude copilot")
+        monkeypatch.setattr("sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})())
+        assert inf.ask_clis() == ["claude", "copilot"]
+
+    def test_all(self, monkeypatch):
+        monkeypatch.setattr("builtins.input", lambda _: "a")
+        monkeypatch.setattr("sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})())
+        assert inf.ask_clis() is None
+
+    def test_empty_means_all(self, monkeypatch):
+        monkeypatch.setattr("builtins.input", lambda _: "")
+        monkeypatch.setattr("sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})())
+        assert inf.ask_clis() is None
+
+    def test_invalid_input_returns_none(self, monkeypatch):
+        monkeypatch.setattr("builtins.input", lambda _: "xyz 99")
+        monkeypatch.setattr("sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})())
+        assert inf.ask_clis() is None
+
+    def test_non_tty_returns_none(self, monkeypatch):
+        monkeypatch.setattr("sys.stdin", type("FakeNoTTY", (), {"isatty": lambda self: False})())
+        assert inf.ask_clis() is None
+
+    def test_no_duplicates(self, monkeypatch):
+        monkeypatch.setattr("builtins.input", lambda _: "1,1,claude")
+        monkeypatch.setattr("sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})())
+        assert inf.ask_clis() == ["claude"]
