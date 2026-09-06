@@ -50,6 +50,8 @@ Do the setup once, following [`factory/README.md`](../README.md) — it lists th
 - **C — I want to run an agent or playbook directly.** For when you know the factory well enough to name what you want.
 - **D — I just want to talk something through.** Open conversation — no structure, no artifacts, just thinking out loud until the idea finds its shape.
 
+The voice behind that greeting is **VIRGIL** — the guide you meet before the work has a definite shape. The name is both an allusion and an acronym: Virgil guided Dante through Hell and up the mountain of Purgatory — which is what onboarding a legacy project often feels like — and the letters stand for *Versatile Interactive Resource: Guide, Instructor, Liaison*. Think J.A.R.V.I.S., only without the copyright attached. Every Factory session starts with VIRGIL; once you choose a direction, VIRGIL either hands you off to the right playbook or stays with you for open-ended conversation.
+
 If you have been here before (the assistant checks for signs of prior work — a completed spike, a charter, earlier playbook outputs), it will acknowledge what you have done and offer to skip ahead.
 
 When you're ready, the assistant can run `poc-spike` — the training-wheels playbook. No specification, no architecture, no formal checks. One idea, turned into one small thing you can run, in minutes. It exists so you can watch an agent and your assistant work together *before* you commit to anything real. What you throw away here cost you almost nothing.
@@ -145,7 +147,7 @@ Most phases have two agents: an **author** and a **reviewer**. The author produc
 
 In addition to the phase-chain agents, several **Phase 0 utility agents** support the work without belonging to a specific phase:
 
-- **VIRGIL** — the guide you meet before the work has a definite shape. The name is both an allusion and an acronym: Virgil guided Dante through unfamiliar territory, and the letters stand for *Versatile Interactive Resource: Guide, Instructor, Liaison*. VIRGIL helps an idea find its shape through open-ended conversation and coalesces into the right next step: a feature proposal, a research brief, a spike, or just a finished conversation. It also sets up agent context (`docs/agent-context/`) through the `capture-context` skill, running a structured interview to fill gaps. See [Agent Context](#agent-context).
+- **VIRGIL** — introduced in [Your very first session](#your-very-first-session). Helps an idea find its shape, then hands off to the right playbook. Also sets up agent context (`docs/agent-context/`) through the `capture-context` skill — see [Agent Context](#agent-context).
 - **coaching-agent** — runs retrospectives, extracts action items, and tracks process improvements across sessions.
 - **proposal-review-agent** — reviews a feature proposal for clarity, feasibility, and planning readiness. Consultative on drafts, adversarial on open proposals.
 

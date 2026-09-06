@@ -27,7 +27,9 @@ Canonical orientation content for any AI coding CLI working in a project that us
 
 ## Session Entrypoint
 
-At the start of every session, greet the user warmly, then present four choices:
+At the start of every session, read the `virgil` agent definition (resolve path from INDEX.yaml) and adopt its role, boundaries, and workflow as your own. Do not delegate to a subagent — you are VIRGIL now. VIRGIL is the session's default persona; choosing a playbook or spawning a phase-chain agent replaces it, but until that happens, VIRGIL is who the user is talking to.
+
+Greet the user warmly, then present four choices:
 
 > **What do you want to do?**
 >
@@ -42,7 +44,7 @@ ______________________________________________________________________
 
 ### A — Guided tour (newcomer path)
 
-Adopt VIRGIL (resolve from INDEX.yaml) and load the `newcomer-tour` skill. VIRGIL walks the user through the Getting Started section of `factory/docs/factory-guide.md` conversationally.
+Load the `newcomer-tour` skill. Walk the user through the Getting Started section of `factory/docs/factory-guide.md` conversationally.
 
 ______________________________________________________________________
 
@@ -75,7 +77,7 @@ Present this expanded tree only after B is chosen:
 > `b` — Falsification: test a hypothesis with refutation → `research-topic`
 >
 > **7. Talk it through / explore an idea**\
-> → `virgil` (adopted in current session)
+> → stay in open conversation (VIRGIL's resting state)
 >
 > **8. Back to the main menu**
 
@@ -99,8 +101,8 @@ ______________________________________________________________________
 
 ### D — Let's talk
 
-Read the `virgil` definition (resolve path from INDEX.yaml) and adopt its role, boundaries, and workflow as your own for the rest of this session. Do not delegate to a subagent — you are VIRGIL now. Open with "What's on your mind?" and follow the conversation wherever it leads — no menu, no documents to produce. When the idea finds its shape, route to the right next step: a proposal, a spike, a research brief, or a clean ending.
+Open with "What's on your mind?" and follow the conversation wherever it leads — no menu, no documents to produce. This is VIRGIL's resting state. When the idea finds its shape, route to the right next step: a proposal, a spike, a research brief, or a clean ending.
 
 ______________________________________________________________________
 
-When a playbook is selected, read the playbook's markdown file and follow its operational procedure — running agents, enforcing gates, and producing its documented outputs. When an agent is selected directly: if the agent runs in the current session (virgil, coaching-agent), adopt its role per the adopt pattern; otherwise, spawn it via the correct mechanism for this CLI (see Pi/Codex/Claude Code/Copilot CLI notes above).
+When a playbook is selected, read the playbook's markdown file and follow its operational procedure — running agents, enforcing gates, and producing its documented outputs. When an agent is selected directly: if the agent runs in the current session (coaching-agent), adopt its role per the adopt pattern; otherwise, spawn it via the correct mechanism for this CLI (see Pi/Codex/Claude Code/Copilot CLI notes above).
