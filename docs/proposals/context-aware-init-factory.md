@@ -305,3 +305,183 @@ it:
    premature at init time? The newcomer proposal's design says progressive
    disclosure; the session entrypoint already handles routing. Maybe init
    should fingerprint silently and the entrypoint should route intelligently.
+
+## Note — How the factory presents itself (2026-09-05)
+
+Opinionated developer's-eye assessment of the repo, structure, init process,
+and onboarding as they stand today. Recorded as context for whatever shape
+this proposal takes.
+
+**The repo doesn't know what it is to the outside world.** The root is
+simultaneously the factory toolset, the factory's own development project,
+and a documentation archive. A newcomer clones this and sees `backlog/`,
+`docs/proposals/`, `docs/findings/`, `docs/reviews/`, 197 story files, 119
+findings, 72 reviews, 39 proposals — none of which are theirs. The thing
+they actually want (`factory/`) is one directory among many, sitting next to
+`orchestrator/` (not yet operational), `poc/`, `sys/`, and
+`session-scratchpad.md`.
+
+**The surface area is intimidating.** 17 agents, 58 skills, 13 playbooks, 48
+scripts, 312 markdown docs. The root README is polished and well-structured,
+but it links to a beginner's intro that references a deprecated flow, a
+factory README that's 160 lines of dense setup prose, and a 700-line factory
+guide. A developer who just wants to try this needs to read a lot before they
+do anything.
+
+**init-factory is a 2,300-line shell script.** It does its job — idempotent,
+reversible, well-documented — but it's a wall. It wires up four CLI
+ecosystems (Claude Code, Copilot, Pi, Codex) whether you use them or not. It
+creates symlinks into `.claude/`, `.github/`, `.pi/`, `.codex/` all at once.
+Most users use one CLI. The rest is noise in their project tree.
+
+**The onboarding path has too many forks too early.** Session entrypoint:
+four options. Option B expands into eight sub-options. Option C lists all
+agents or all playbooks. A newcomer doesn't know enough to choose. VIRGIL
+and the newcomer-tour exist to solve this, but they activate only after
+init-factory has already dropped 50+ files into the project and the user has
+opened a CLI session. The "show me around" moment comes after the commitment,
+not before it.
+
+**The README promises simplicity but the experience delivers complexity.**
+"Three commands to get started" — true. But the first commit modifies files
+because hooks auto-fix formatting. The factory guide explains this as
+expected behavior. That's a red flag to most developers: I ran the installer
+and it immediately changed my files.
+
+**Internal project artifacts leak into the consumer story.** `docs/` contains
+arc42, ADRs, specs, findings, handoffs — all about Agent Factory itself. When
+init-factory copies `factory/` into a consumer project, that's clean. But the
+repo the consumer cloned also has `backlog/ST-0001.md` through `ST-0206.md`.
+There's no `.gitattributes` marking these as development-only. A consumer
+browsing the repo for guidance sees the factory's own 200-story backlog
+alongside the documentation meant for them.
+
+**The naming carries cognitive load.** Skills named `create-backlog-epics`,
+`create-backlog-write-epics`, `create-backlog-stories`,
+`create-backlog-story-slices` — four skills whose names only differ by
+suffix. `capture-context` vs `update-context` vs
+`agent-context-composition` (a convention, not a skill). `grilling` vs
+`grill-me` vs `grill-with-docs`. The taxonomy is precise but not obvious.
+
+**The factory guide is good but buried.** It's the single best document in
+the repo — explains concepts clearly, builds from simple to complex. But it
+lives at `factory/docs/factory-guide.md`, two levels deep, behind a README
+that already told you a lot. By the time someone reaches it they've either
+figured things out or given up.
+
+**Bottom line:** The factory is built for power users who already know what
+they're doing. The engineering underneath is solid — reversible installation,
+deterministic gates, separation of concerns. But the presentation assumes
+the reader already understands why they need specialist agents, phase-gated
+workflows, and YAML routing interfaces. It explains *how* thoroughly and
+*what* precisely, but the *why should I care right now* gets lost in the
+volume.
+
+## Three concerns, one proposal (2026-09-05)
+
+The assessment above surfaces three distinct problems that converge at init
+time:
+
+- **Technical onboarding** — init-factory wires four CLIs unconditionally,
+  drops 50+ files, the 2,300-line script does everything at once.
+- **Mental onboarding** — the path from "what is this" to "I know what to
+  do next." Too many forks too early, the good guide is buried, the README
+  explains machinery before motivation.
+- **Factory distribution** — the repo conflates the installable toolset
+  with its own development history. Consumers see 200 stories, 119 findings,
+  and 39 proposals that aren't theirs.
+
+They stay in one proposal because init-factory is where all three converge —
+the moment the technical wiring happens, the mental model forms, and the
+distribution boundary matters.
+
+## Proposed path — outside in (2026-09-05, revised after UX critique)
+
+### Layer 0 — One page, one command, one result
+
+The README is the only pre-commitment surface. It has 30 seconds.
+
+- What problem this solves (one paragraph, one before/after).
+- "Try it — one command removes everything" (reversibility as trust signal,
+  not a footnote).
+- One command to run poc-spike against a scratch directory, no full
+  installation required.
+- Success moment: *"I see what this does."*
+
+The distribution problem is solved here or not at all. The consumer's front
+door is the root README, and right now it opens into a construction site.
+Two options, pick one:
+
+- **Option A** — The consumer never browses the source repo. The README
+  targets them, the development artifacts (`backlog/`, `docs/proposals/`,
+  `docs/findings/`) are flagged as internal with a one-line boundary note at
+  the top of the repo map. Cheap, honest, good enough.
+- **Option B** — The consumer-facing docs live at a separate surface (docs
+  site, GitHub Pages, a standalone `docs/getting-started/` that init-factory
+  can serve). The root README becomes a contributor README. Clean separation
+  but more to maintain.
+
+Option A is probably right until there are actual external users.
+
+### Layer 1 — Minimal installation, no questions
+
+init-factory detects the CLI in use (or takes `--cli claude`). Installs for
+that CLI only. Ships everything — agents, skills, playbooks, scripts — but
+wires up one ecosystem instead of four. No "guardrails or full workflow"
+question. The user hasn't used either yet; they can't choose. Install the
+lot, for one CLI, quietly.
+
+The mechanical project fingerprint (language, test runner, CI) happens here,
+written to `config/project-profile.json`. Silent. No interaction beyond the
+project name.
+
+First commit should not modify the user's files. If hooks auto-fix
+formatting on factory-owned files, that happens inside init-factory before
+it finishes — not as a surprise on the user's first `git add`.
+
+Success moment: *"That was painless."*
+
+### Layer 2 — First session: one recommendation
+
+VIRGIL reads the project fingerprint. Instead of A/B/C/D, it opens with one
+suggestion:
+
+- Empty project, no code → "Want to try a quick spike?"
+- Existing codebase, no agent context → "Let me learn about your project.
+  Five questions."
+- Agent context already set up → "What do you want to work on?"
+
+The full menu exists as a fallback ("show me all options"), not as the
+default. The recommendation is the default.
+
+Success moment: *"Something useful just happened."*
+
+### Layer 3 — Progressive depth, pull not push
+
+58 skills, 17 agents, 13 playbooks stay invisible until the user's path
+reaches them. No catalogue upfront. The factory guide stays available but
+isn't required reading — VIRGIL surfaces the relevant section when the user
+hits a concept for the first time.
+
+Agent context, reading guides, the interview — all pull-based. The factory
+reveals its depth as you use it, not as a wall of documentation before you
+start.
+
+Success moment: *"I didn't have to learn the whole thing to get value from
+it."*
+
+### UX critique that shaped this revision
+
+- Layers 0 and 1 of the original sketch were merged. The README *is* the
+  zero-commitment contact. Two separate "read before you try" surfaces means
+  neither is the canonical one.
+- Dropped the "ask questions upfront" approach for Layer 1. Progressive
+  installation means installing the minimum and offering expansion later, not
+  asking questions the user can't answer yet.
+- Added success moments per layer — the path should define what the user
+  feels, not just what the system does.
+- Uninstall as a trust signal belongs at Layer 0, not buried in the factory
+  guide.
+- The distribution problem was the hardest of the three and got the least
+  concrete treatment in the first sketch. Option A/B framing addresses it
+  directly.

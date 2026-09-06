@@ -52,7 +52,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 # Directory of this script, used to locate schema-validate and the schemas.
 _SCRIPT_DIR = Path(__file__).resolve().parent
@@ -124,7 +124,7 @@ class CheckResult:
 
     def __init__(self, name: str):
         self.name = name
-        self.failures: List[str] = []
+        self.failures: list[str] = []
 
     def fail(self, message: str) -> None:
         self.failures.append(message)
@@ -153,7 +153,7 @@ def _load_json(path: Path) -> Any:
         raise SystemExit(2)
 
 
-def _infer_kind(path: Path, data: Any) -> Optional[str]:
+def _infer_kind(path: Path, data: Any) -> str | None:
     """Determine an artifact's kind from its `artifact_type` field or file name.
 
     An explicit `artifact_type` wins; otherwise the file-name prefix is matched
@@ -171,13 +171,13 @@ def _infer_kind(path: Path, data: Any) -> Optional[str]:
     return None
 
 
-def _gather_files(paths: List[str]) -> List[Path]:
+def _gather_files(paths: list[str]) -> list[Path]:
     """Expand CLI paths into a sorted list of JSON files.
 
     A directory contributes every `*.json` under it (recursively, matching the
     playbook's nested output layout); a file contributes itself.
     """
-    files: List[Path] = []
+    files: list[Path] = []
     for raw in paths:
         p = Path(raw)
         if p.is_dir():
@@ -199,15 +199,15 @@ class ArtifactSet:
     one final report; the rest are lists.
     """
 
-    def __init__(self, artifacts: List[Artifact]):
+    def __init__(self, artifacts: list[Artifact]):
         self.artifacts = artifacts
-        self.conjectures: List[Artifact] = []
-        self.sources: List[Artifact] = []
-        self.tests: List[Artifact] = []
-        self.reviews: List[Artifact] = []
-        self.votes: List[Artifact] = []
-        self.register: Optional[Artifact] = None
-        self.report: Optional[Artifact] = None
+        self.conjectures: list[Artifact] = []
+        self.sources: list[Artifact] = []
+        self.tests: list[Artifact] = []
+        self.reviews: list[Artifact] = []
+        self.votes: list[Artifact] = []
+        self.register: Artifact | None = None
+        self.report: Artifact | None = None
 
         for art in artifacts:
             if art.kind == "conjecture":
@@ -226,8 +226,8 @@ class ArtifactSet:
                 self.report = art
 
         # claim_id -> conjecture; content_hash -> conjecture (current version).
-        self.conjecture_by_claim: Dict[str, Artifact] = {}
-        self.conjecture_by_hash: Dict[str, Artifact] = {}
+        self.conjecture_by_claim: dict[str, Artifact] = {}
+        self.conjecture_by_hash: dict[str, Artifact] = {}
         for c in self.conjectures:
             claim_id = c.data.get("claim_id")
             if isinstance(claim_id, str):
@@ -237,8 +237,8 @@ class ArtifactSet:
                 self.conjecture_by_hash[content_hash] = c
 
         # review_id -> review; claim_id -> [reviews].
-        self.review_by_id: Dict[str, Artifact] = {}
-        self.reviews_by_claim: Dict[str, List[Artifact]] = {}
+        self.review_by_id: dict[str, Artifact] = {}
+        self.reviews_by_claim: dict[str, list[Artifact]] = {}
         for r in self.reviews:
             self.review_by_id[r.record_id] = r
             claim_id = r.data.get("claim_id")
@@ -246,21 +246,21 @@ class ArtifactSet:
                 self.reviews_by_claim.setdefault(claim_id, []).append(r)
 
         # claim_id -> [tests].
-        self.tests_by_claim: Dict[str, List[Artifact]] = {}
+        self.tests_by_claim: dict[str, list[Artifact]] = {}
         for t in self.tests:
             claim_id = t.data.get("claim_id")
             if isinstance(claim_id, str):
                 self.tests_by_claim.setdefault(claim_id, []).append(t)
 
         # source_identity -> source_family.
-        self.family_by_source: Dict[str, str] = {}
+        self.family_by_source: dict[str, str] = {}
         for s in self.sources:
             ident = s.data.get("source_identity")
             family = s.data.get("source_family")
             if isinstance(ident, str) and isinstance(family, str):
                 self.family_by_source[ident] = family
 
-    def current_hash(self, claim_id: str) -> Optional[str]:
+    def current_hash(self, claim_id: str) -> str | None:
         """Content hash of the current conjecture for `claim_id`, or None."""
         c = self.conjecture_by_claim.get(claim_id)
         if c is None:
@@ -268,7 +268,7 @@ class ArtifactSet:
         h = c.data.get("content_hash")
         return h if isinstance(h, str) else None
 
-    def votes_for_claim(self, claim_id: str) -> List[Artifact]:
+    def votes_for_claim(self, claim_id: str) -> list[Artifact]:
         """Votes whose review references `claim_id` (via review_ref -> review)."""
         result = []
         for v in self.votes:
@@ -276,7 +276,7 @@ class ArtifactSet:
                 result.append(v)
         return result
 
-    def _vote_claim_id(self, vote: Artifact) -> Optional[str]:
+    def _vote_claim_id(self, vote: Artifact) -> str | None:
         """Resolve a vote to its claim id through its referenced review."""
         review_ref = vote.data.get("review_ref")
         review = self.review_by_id.get(review_ref) if review_ref else None
@@ -386,7 +386,7 @@ def check_source_family_independence(s: ArtifactSet) -> CheckResult:
         family_of = {ident: s.family_by_source[ident] for ident in cited}
         if len(cited) > len(set(family_of.values())):
             # At least two cited sources collapse to one family.
-            families: Dict[str, List[str]] = {}
+            families: dict[str, list[str]] = {}
             for ident, fam in family_of.items():
                 families.setdefault(fam, []).append(ident)
             dupes = {f: ids for f, ids in families.items() if len(ids) > 1}
@@ -397,7 +397,7 @@ def check_source_family_independence(s: ArtifactSet) -> CheckResult:
     return result
 
 
-def _valid_decisive_votes(s: ArtifactSet, claim_id: str) -> Tuple[int, int, int]:
+def _valid_decisive_votes(s: ArtifactSet, claim_id: str) -> tuple[int, int, int]:
     """Return (survive, refute, stale) counts among current-hash votes.
 
     A vote whose `claim_hash` does not match the claim's current content hash was
@@ -418,7 +418,7 @@ def _valid_decisive_votes(s: ArtifactSet, claim_id: str) -> Tuple[int, int, int]
     return survive, refute, stale
 
 
-def _current_reviews(s: ArtifactSet, claim_id: str) -> List[Artifact]:
+def _current_reviews(s: ArtifactSet, claim_id: str) -> list[Artifact]:
     """Reviews of `claim_id` not superseded by a claim-hash change.
 
     A review that carries a `claim_hash` different from the current one was cast
@@ -435,7 +435,7 @@ def _current_reviews(s: ArtifactSet, claim_id: str) -> List[Artifact]:
     return out
 
 
-def _register_claim_ids(register_data: dict, bucket: str) -> List[str]:
+def _register_claim_ids(register_data: dict, bucket: str) -> list[str]:
     """Collect claim ids from one register bucket (surviving/refuted/...)."""
     ids = []
     for entry in register_data.get(bucket, []):
@@ -597,7 +597,7 @@ def check_report_traceability(s: ArtifactSet) -> CheckResult:
     return result
 
 
-def run_policy_checks(s: ArtifactSet, quorum: int) -> List[CheckResult]:
+def run_policy_checks(s: ArtifactSet, quorum: int) -> list[CheckResult]:
     """Run every policy check in a fixed order and return their results."""
     return [
         check_reference_integrity(s),
@@ -614,7 +614,7 @@ def run_policy_checks(s: ArtifactSet, quorum: int) -> List[CheckResult]:
 # --------------------------------------------------------------------------- #
 
 
-def _load_artifacts(files: List[Path]) -> List[Artifact]:
+def _load_artifacts(files: list[Path]) -> list[Artifact]:
     """Load and classify every file, exiting 2 on an unclassifiable artifact."""
     artifacts = []
     for f in files:
@@ -631,7 +631,7 @@ def _load_artifacts(files: List[Path]) -> List[Artifact]:
     return artifacts
 
 
-def _report_checks(results: List[CheckResult]) -> bool:
+def _report_checks(results: list[CheckResult]) -> bool:
     """Print one PASS/FAIL line per check; return True when all passed."""
     all_ok = True
     for r in results:
@@ -644,7 +644,7 @@ def _report_checks(results: List[CheckResult]) -> bool:
     return all_ok
 
 
-def _run_schema_stage(files: List[Path], schemas_dir: Path) -> bool:
+def _run_schema_stage(files: list[Path], schemas_dir: Path) -> bool:
     """Validate each artifact against its schema; return True when all conform.
 
     Stops and returns False at the first artifact that fails schema validation,
@@ -662,6 +662,7 @@ def _run_schema_stage(files: List[Path], schemas_dir: Path) -> bool:
             [sys.executable, str(_SCHEMA_VALIDATE), str(f), str(schema_path)],
             capture_output=True,
             text=True,
+            check=False,
         )
         if proc.returncode != 0:
             print(f"[FAIL] schema: {f.name}")
@@ -672,7 +673,7 @@ def _run_schema_stage(files: List[Path], schemas_dir: Path) -> bool:
     return True
 
 
-def main(argv: List[str]) -> int:
+def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="policy-validate",
         description=(
@@ -711,11 +712,9 @@ def main(argv: List[str]) -> int:
         print("policy-validate: no artifacts found", file=sys.stderr)
         return 2
 
-    if args.pipeline:
-        # Stage 1 — schema. Stop here if any artifact is malformed.
-        if not _run_schema_stage(files, args.schemas_dir):
-            print("\npolicy-validate: stopped at schema stage")
-            return 1
+    if args.pipeline and not _run_schema_stage(files, args.schemas_dir):
+        print("\npolicy-validate: stopped at schema stage")
+        return 1
 
     # Stage 2 — policy.
     artifacts = _load_artifacts(files)

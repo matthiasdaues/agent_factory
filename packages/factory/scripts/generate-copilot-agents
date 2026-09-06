@@ -79,7 +79,7 @@ def _inject_tools(text: str, tools: list[str]) -> str:
         fm_body += "\n"
 
     tools_yaml = "tools:\n" + "".join(f"  - {t}\n" for t in tools)
-    body_after = text[close + 4:]
+    body_after = text[close + 4 :]
 
     return "---\n" + OWNED_MARKER + "\n" + fm_body + tools_yaml + "---" + body_after
 

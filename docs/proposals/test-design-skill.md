@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: "Test Design Skill"
-status: accepted
+status: implemented
 owner: md@matthiasdaues.de
 created: 2026-09-01
 updated: 2026-09-01

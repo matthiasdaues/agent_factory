@@ -33,7 +33,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any, List
+from typing import Any
 
 # Map each JSON Schema `type` name to the Python type(s) that satisfy it. `bool`
 # is a subclass of `int` in Python, so integer/number checks must exclude it
@@ -68,13 +68,13 @@ def _is_type(instance: Any, type_name: str) -> bool:
     return isinstance(instance, expected)
 
 
-def _check_format(instance: str, fmt: str, path: str, errors: List[str]) -> None:
+def _check_format(instance: str, fmt: str, path: str, errors: list[str]) -> None:
     """Validate the supported string `format` keywords (`date-time`)."""
     if fmt == "date-time" and not _RE_DATE_TIME.match(instance):
         errors.append(f"{path}: '{instance}' is not a valid date-time (RFC 3339)")
 
 
-def validate(instance: Any, schema: Any, path: str = "$") -> List[str]:
+def validate(instance: Any, schema: Any, path: str = "$") -> list[str]:
     """Validate *instance* against *schema*, returning a list of violations.
 
     Pure and side-effect free: it walks nested objects and arrays and collects
@@ -82,7 +82,7 @@ def validate(instance: Any, schema: Any, path: str = "$") -> List[str]:
     conforms to the supported keyword subset. `path` is a running JSON-path-ish
     location used only for messages.
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     # `const` — exact-value match. Checked first so a mismatched const need not
     # also satisfy the other keywords.
@@ -118,8 +118,8 @@ def validate(instance: Any, schema: Any, path: str = "$") -> List[str]:
     return errors
 
 
-def _validate_object(instance: dict, schema: dict, path: str) -> List[str]:
-    errors: List[str] = []
+def _validate_object(instance: dict, schema: dict, path: str) -> list[str]:
+    errors: list[str] = []
 
     for field in schema.get("required", []):
         if field not in instance:
@@ -147,8 +147,8 @@ def _validate_object(instance: dict, schema: dict, path: str) -> List[str]:
     return errors
 
 
-def _validate_array(instance: list, schema: dict, path: str) -> List[str]:
-    errors: List[str] = []
+def _validate_array(instance: list, schema: dict, path: str) -> list[str]:
+    errors: list[str] = []
 
     if "minItems" in schema and len(instance) < schema["minItems"]:
         errors.append(
@@ -199,7 +199,7 @@ def _load_json(path: Path, label: str) -> Any:
         raise SystemExit(2)
 
 
-def main(argv: List[str]) -> int:
+def main(argv: list[str]) -> int:
     if len(argv) != 2:
         print("usage: schema-validate <artifact-file> <schema-file>", file=sys.stderr)
         return 2

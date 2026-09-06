@@ -28,7 +28,7 @@ repos:
         entry: factory/scripts/link-check
         language: system
         types: [markdown]
-        exclude: ^(factory/|docs/~archive/)
+        exclude: ^(packages/factory/|docs/~archive/)
 
       - id: agent_factory_hook-mermaid-lint
         name: "agent_factory: mermaid-lint (no raw semicolons)"
@@ -83,7 +83,7 @@ repos:
         entry: factory/scripts/index-lint
         language: system
         pass_filenames: false
-        files: ^(factory/agents/.*\.md|factory/skills/.*/SKILL\.md|factory/playbooks/.*\.md)$
+        files: ^(packages/factory/agents/.*\.md|packages/factory/skills/.*/SKILL\.md|packages/factory/playbooks/.*\.md)$
 
       # governs phase ORDERING between playbook states (not artifact validity);
       # inspects everything staged, so it always runs — no-op without a marker
@@ -123,7 +123,7 @@ repos:
         entry: factory/scripts/link-check
         language: system
         types: [markdown]
-        exclude: ^(factory/|docs/~archive/)
+        exclude: ^(packages/factory/|docs/~archive/)
 
       - id: spec-lint
         name: spec-lint (specification consistency & traceability)
@@ -172,7 +172,7 @@ repos:
         entry: factory/scripts/index-lint
         language: system
         pass_filenames: false
-        files: ^(factory/agents/.*\.md|factory/skills/.*/SKILL\.md|factory/playbooks/.*\.md|factory/rulebooks/(?!templates/).*\.md)$
+        files: ^(packages/factory/agents/.*\.md|packages/factory/skills/.*/SKILL\.md|packages/factory/playbooks/.*\.md|packages/factory/rulebooks/(?!templates/).*\.md)$
 
       # governs phase ORDERING between playbook states (not artifact validity);
       # inspects everything staged, so it always runs — no-op without a marker
@@ -190,5 +190,5 @@ repos:
         entry: uv run pytest --tb=short --quiet
         language: system
         pass_filenames: false
-        files: ^(factory/scripts/|tests?/)
+        files: ^(packages/factory/scripts/|tests?/)
 

@@ -63,7 +63,7 @@ def fetch_catalog(url: str = CATALOG_URL, timeout: float = 20.0) -> list[dict]:
         raise RuntimeError(f"could not fetch OpenRouter catalog: {exc}") from exc
     data = payload.get("data")
     if not isinstance(data, list):
-        raise RuntimeError("unexpected catalog shape: no 'data' list")
+        raise TypeError("unexpected catalog shape: no 'data' list")
     return data
 
 
