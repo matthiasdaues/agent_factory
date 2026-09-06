@@ -10,7 +10,7 @@ Part of [Agent Factory](../../README.md).
 | -------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | **Git ≥ 2.x**        | Version control                                               | macOS: `xcode-select --install`. Linux: `sudo apt install git` / `sudo dnf install git`.                                              |
 | **Python ≥ 3.10**    | Runs init and check scripts                                   | macOS: `brew install python@3.12`. Linux: `sudo apt install python3.12` or equivalent.                                                |
-| **uv**               | Runs `mdformat`, `ruff`, `pre-commit` without global installs | `curl -LsSf https://astral.sh/uv/install.sh \| sh` ([docs](https://docs.astral.sh/uv/))                                               |
+| **uv**               | Runs check tools and pre-commit hooks without global installs | `curl -LsSf https://astral.sh/uv/install.sh \| sh` ([docs](https://docs.astral.sh/uv/))                                               |
 | **An AI coding CLI** | Runs agents and skills                                        | [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [GitHub Copilot CLI](https://docs.github.com/en/copilot), Pi, or Codex |
 
 Optional: **tiktoken** (`pip install tiktoken`) for token counting in INDEX.yaml; **Docker** for rendering architecture diagrams.
@@ -34,7 +34,7 @@ git status   # .gitignore and .pre-commit-config.yaml are the only tracked chang
 git add -A && git commit -m "init: wire up Agent Factory"
 ```
 
-If the first commit reformats files, that is `mdformat` or `ruff` — re-stage and commit again.
+If the first commit reformats files, that is the pre-commit hooks auto-fixing — re-stage and commit again.
 
 Works the same against an existing repo with its own pre-commit config. Details in the [factory guide § Using this in an existing repo](docs/factory-guide.md#using-this-in-an-existing-repo).
 
