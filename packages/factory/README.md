@@ -47,9 +47,26 @@ factory/scripts/remove-factory
 
 Reads the install manifest and reverses everything. Your pre-commit hooks, orientation files, and workflows come back as they were.
 
+## What you configure
+
+The installer creates two local config files (git-ignored) and one directory is created later during onboarding:
+
+- **`config/project.json`** — project identity: a stable UUID, the human-readable name you gave at install time, your declared test command, and `safety_critical_paths` (file globs that route work to the strongest AI model tier). Every usage record carries the project id.
+- **`config/model.conf`** — maps agent tiers (`economy`, `standard`, `strong`) to concrete AI model ids, per CLI. If a dispatch requests a tier with no mapping, `on_missing = halt` stops it — no silent fallback. Claude Code resolves models natively and has no entries here. See the [factory guide § Model matrix and tiers](docs/factory-guide.md#model-matrix-and-tiers).
+- **`docs/agent-context/`** — a YAML routing switchboard that tells agents where your project's knowledge lives. Created during your first real playbook run (greenfield or brownfield), when VIRGIL walks you through the `capture-context` interview. See the [factory guide § Agent Context](docs/factory-guide.md#agent-context).
+
+All three are local configuration, not project source. Edit them directly any time.
+
+## Runtime directories
+
+Two git-ignored directories appear as you work. You never create them by hand.
+
+- **`.agent-factory/`** — the factory's private runtime area. Holds the install manifest (`factory-install.json`), the usage-capture runtime (tokenizer, adapters), and all recorded usage data (`usage/*.jsonl` and `usage/transcripts/`). Created by `init-factory`; removed cleanly by `remove-factory`. You read usage records here; you never edit them.
+- **`.current-work/`** — ephemeral working state for the active playbook run. Holds the phase-gate marker (`playbook-state.yml`), per-story step manifests, the dispatch ledger, and session logs. Scoped to your local machine and the current piece of work — not portable, not meant to be committed. Disappears when the work is done.
+
 ## First playbook
 
-Open your AI coding CLI in the project directory. It reads the orientation file and presents a menu.
+Open your AI coding CLI in the project directory. **VIRGIL** — the built-in guide — greets you with four options: a newcomer tour (A), a situation-based playbook picker (B), direct agent/playbook access (C), or open conversation (D). If you have an existing codebase, VIRGIL first offers a short **fitting** — a few questions to confirm its guesses about your stack and wire up the right hooks. Skip it any time.
 
 To see things work before committing to a real project, pick [`poc-spike`](playbooks/poc-spike.md). One idea in, one runnable prototype out.
 

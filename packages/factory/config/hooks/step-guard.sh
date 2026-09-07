@@ -61,6 +61,13 @@ if [ "$GUARD_TYPE" != "bash" ] && [ -n "${PATCH_PATHS:-}" ]; then
 fi
 
 if [ "$GUARD_TYPE" != "bash" ]; then
+  if [ -z "$PATH_VALUE" ]; then
+    # Debug: dump the unmatched tool event for post-mortem diagnosis.
+    DEBUG_DIR="$PROJECT_DIR/.current-work"
+    if [ -d "$DEBUG_DIR" ]; then
+      printf '%s' "$INPUT" | jq . > "$DEBUG_DIR/step-guard-debug.json" 2>/dev/null || true
+    fi
+  fi
   EVENT=$(jq -n --arg path "$PATH_VALUE" '{path: $path}')
 fi
 

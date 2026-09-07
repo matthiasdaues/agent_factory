@@ -88,10 +88,14 @@ extending it here. Consult `factory/docs/factory-guide.md` and
 
 ## Fitting
 
-Fitting tailors the factory to a brownfield project — one that has an
-existing codebase, test runner, CI, or other stack signals. Greenfield
-projects (`fitting.status == "greenfield"`) skip the fitting entirely;
-there is no existing stack to learn about.
+Fitting tailors the factory to a project's existing stack — its codebase,
+test runner, CI, and other signals. Brownfield projects walk all four
+steps below. Greenfield projects (`fitting.status == "greenfield"`) skip
+fingerprint confirmation and agent context (there is no existing stack to
+learn about), but **still walk step 0 (model matrix)** — every project
+needs model mappings configured before dispatch can route work. After
+step 0, set `fitting.model_matrix_configured` to `true` and continue to
+the session menu.
 
 Fitting walks four steps in order; each flips a key in
 `config/project-context.json` when done. The user can stop at any point —

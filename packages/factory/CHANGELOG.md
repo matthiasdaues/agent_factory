@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.6.0 — 2026-09-07
+
+Documentation release. Closes the gap between running `init-factory` and
+starting your first playbook, and hardens the hooks and rulebook for
+day-to-day use.
+
+### Documentation
+
+- **Onboarding bridge.** Getting Started now explains what `init-factory`
+  put on disk — `project-context.json`, `model.conf`, `agent-context/` —
+  so newcomers are not surprised when a playbook references them. Context
+  added as a fifth vocabulary entry; INDEX.yaml positioned as a human
+  reference, not just a machine lookup.
+- **Newcomer tour expanded.** Tour steps now cover config artifacts and
+  the fitting session, with greenfield model-matrix awareness in VIRGIL.
+- **READMEs refreshed.** Root and `packages/factory/` READMEs updated
+  for current structure.
+- **Nine broken doc links repaired.** `orchestrator/` →
+  `packages/orchestrator/`, `tests/orchestrator/` → `tests/factory/`,
+  `spec/use_cases/` → `~archive/spec/use_cases/`, and one dead README
+  anchor removed.
+
+### Features
+
+- **Factory-freshness check.** A new hook warns (never blocks) on the
+  first tool call of each session when the installed `factory/` is out of
+  sync with `packages/factory/`. Implemented for all CLIs: bash hook
+  (Claude/Copilot/Codex), TypeScript extension (Pi), and Copilot hook
+  config. `init-factory` stamps and `update-factory` refreshes the tree
+  hash.
+
+### Fixes
+
+- **step-guard: no manifest, no restriction.** The empty-path rejection
+  fired before checking whether a step manifest was loaded, blocking
+  sessions without `.current-work/current-step.yml`. Reordered: no
+  manifest means no restrictions. Adds a debug dump for path-extraction
+  misses.
+- **Codex skill resolution path.** The rulebook's INDEX.yaml resolution
+  example said `.codex/skills/` but init-factory installs skills to
+  `.agents/skills/`.
+
 ## 0.5.0 — 2026-09-07
 
 First versioned release. Factory version is tracked in `factory/VERSION`

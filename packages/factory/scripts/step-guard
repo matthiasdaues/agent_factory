@@ -325,11 +325,11 @@ def main(argv: list[str] | None = None) -> int:
         manifest_data = None
 
     if args.guard_type in {"read", "write"}:
+        if manifest_data is None:
+            return 0
         if not isinstance(path, str) or not path:
             print("step-guard: tool event must include a string path", file=sys.stderr)
             return 2
-        if manifest_data is None:
-            return 0
         declared = manifest_data
         if args.guard_type == "read":
             return 0 if _read_allowed(path, declared["inputs"]) else 1
