@@ -195,6 +195,31 @@ class TestMainRoundTrip:
         rc = sg.main(["--guard-type", "read"])
         assert rc == 0
 
+    def test_empty_path_no_manifest_allows(self, tmp_path, monkeypatch):
+        import io
+        import json
+
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(
+            "sys.stdin", io.StringIO(json.dumps({"path": ""}))
+        )
+        rc = sg.main(["--guard-type", "write"])
+        assert rc == 0
+
+    def test_empty_path_with_manifest_rejects(self, tmp_path, monkeypatch):
+        import io
+        import json
+
+        manifest = tmp_path / ".current-work" / "current-step.yml"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text("inputs:\n  - docs/*.md\noutputs:\n  - src/*.py\n")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(
+            "sys.stdin", io.StringIO(json.dumps({"path": ""}))
+        )
+        rc = sg.main(["--guard-type", "write"])
+        assert rc == 2
+
     def test_invalid_json_exits_two(self, tmp_path, monkeypatch):
         import io
 
