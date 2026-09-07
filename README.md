@@ -33,6 +33,8 @@ After installation, open your AI coding CLI in the project directory. **VIRGIL**
 
 For prerequisites (Git, Python 3.10+, uv, an AI coding CLI) and the full inventory of what init-factory creates, see the [factory setup guide](packages/factory/README.md).
 
+> **Note on paths.** This is a monorepo — source lives under `packages/factory/`. After installation, your project has `factory/` (a copy). Links in this README point to the source tree; after install, `factory/README.md` and `factory/docs/factory-guide.md` in your project have the same content with paths that work from there.
+
 ## What is in the box
 
 **Agents** are specialist roles — one for requirements, one for architecture, one for planning, and so on. Each runs in its own session with a defined scope, inputs, and outputs. They do not freelance.

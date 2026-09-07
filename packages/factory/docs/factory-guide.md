@@ -16,18 +16,19 @@ That is the whole problem Agent Factory solves. You do not need to be a professi
 
 Everything else is detail. Agent Factory never runs off and builds the whole thing while you look away. It works in small, visible moves, and it stops to show you each one. If a move looks wrong, you say so, and it tries again. This is deliberate: an AI is a fast but noisy worker, and the cure for noise is frequent, cheap checking — by a tool, a test, or you.
 
-### The four words you will keep hearing
+### The five words you will keep hearing
 
-Agent Factory hands your assistant four kinds of things. Learn these four words and the rest of this guide stops feeling foreign.
+Agent Factory hands your assistant five kinds of things. Learn these five words and the rest of this guide stops feeling foreign.
 
-| Word         | Plain meaning                                                                    | Everyday analogy                                   |
-| ------------ | -------------------------------------------------------------------------------- | -------------------------------------------------- |
-| **Agent**    | One *job* — "write the requirements," "review the architecture," "fix one bug."  | A specialist you hire for one task.                |
-| **Skill**    | One *how-to* an agent follows to do a job well.                                  | The written procedure the specialist works from.   |
-| **Playbook** | A *recipe* — which agents to run, in what order, for a common situation.         | The plan for the whole job, start to finish.       |
-| **Gate**     | An *automatic check* that catches mistakes before you waste time reviewing them. | The quality inspector who won't let bad work pass. |
+| Word         | Plain meaning                                                                                                           | Everyday analogy                                   |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| **Agent**    | One *job* — "write the requirements," "review the architecture," "fix one bug."                                         | A specialist you hire for one task.                |
+| **Skill**    | One *how-to* an agent follows to do a job well.                                                                         | The written procedure the specialist works from.   |
+| **Playbook** | A *recipe* — which agents to run, in what order, for a common situation.                                                | The plan for the whole job, start to finish.       |
+| **Gate**     | An *automatic check* that catches mistakes before you waste time reviewing them.                                        | The quality inspector who won't let bad work pass. |
+| **Context**  | A small set of files where your project declares its stack, workflow, and rules. Agents read these instead of guessing. | The project fact sheet pinned to the wall.         |
 
-You never memorise the full list. Your assistant reads a catalogue — [`INDEX.yaml`](../INDEX.yaml) — and picks the right agent or skill for what you asked. Your job is to know *that these things exist* so you understand what the assistant is doing when it says "I'll use the requirements agent now."
+You never memorise the full list. Your assistant reads a catalogue — [`INDEX.yaml`](../INDEX.yaml) — and picks the right agent or skill for what you asked. Your job is to know *that these things exist* so you understand what the assistant is doing when it says "I'll use the requirements agent now." INDEX.yaml is also useful to you directly: it lists every agent, skill, and playbook with a one-line description, the phase it belongs to, and its token cost — handy when you want to see what is available or estimate how much a playbook run will consume.
 
 ### Two ways to run it (manual mode only)
 
@@ -40,6 +41,16 @@ The single most important habit Agent Factory builds in is this: **the worker an
 When one agent writes a specification, a *different* agent reviews it — in a fresh session, without ever seeing the first agent's reasoning. It sees only the finished document, the way a stranger would. This is the same reason you don't approve your own expense report or review your own pull request. You cannot catch the mistake you cannot see, because the same blind spot that made it hides it.
 
 You are what makes this real. When the requirements, architecture, or developer agent finishes and hands you its artifacts, you open a **second, clean session** and start the matching reviewer there — pointed at those artifacts and nothing else. The blank session is the isolation: the reviewer cannot lean on a conversation it never had. Author then reviewer, write then check — a fresh window between the two.
+
+### What init-factory put on your disk
+
+After setup, three things exist that you will encounter later. You do not need to touch them now, but knowing they are there prevents surprises:
+
+- **`config/project.json`** — your project's identity card: a stable UUID, the name you gave at install time, and your declared test command. You will never edit this by hand in normal use.
+- **`config/model.conf`** — the model matrix. It controls which AI model handles which kind of work. Economy agents handle routine tasks; strong agents handle architecture and review. If you use multiple AI coding CLIs, each one gets its own mapping here. The fitting walk-through (below) helps you configure it; greenfield projects get sensible defaults.
+- **`docs/agent-context/`** — does not exist yet. It is created during your first real playbook run, when the assistant interviews you about your project's stack, workflow, and governance. Think of it as a small switchboard that tells agents where your project's knowledge lives, so they look things up instead of guessing.
+
+All three are local configuration, not project source — they are git-ignored and belong to your machine.
 
 ### Your very first session
 
@@ -106,6 +117,16 @@ The full list, with a sentence on each, lives in [§ Playbooks](#playbooks) belo
 - Run your first spike: `poc-spike`
 
 You do not need anything else to start. Run one `poc-spike`, watch the loop, and come back for the rest when you are curious. The factory rewards learning by doing.
+
+### Before your first real playbook
+
+After a spike or two, you will want to run a full playbook — `greenfield-development`, `brownfield-onboarding`, or `feature-addition`. Before you do, three things are worth understanding. None of them are complicated, but all three will appear without warning if you skip this section.
+
+**Agent context.** The first real playbook run will ask you to set up `docs/agent-context/` — a handful of YAML files where you declare your project's stack (languages, frameworks, databases), workflow (how to build, test, deploy), and governance (code standards, review rules, security policies). The assistant walks you through it as a structured interview; you confirm, correct, or defer each item. Agents read these files instead of guessing. You fill them in once and update them as decisions change. See [§ Agent Context](#agent-context) below for the full picture.
+
+**The model matrix.** `config/model.conf` maps agent tiers — economy, standard, strong — to concrete AI models. If you use multiple coding CLIs (Claude Code, Copilot CLI, Pi, Codex), each one needs its own model ids here. The fitting walk-through configures this interactively. If you are building a greenfield project and skipped the fitting, the defaults work — but open `config/model.conf` at least once so you know it exists. See [§ Model matrix and tiers](#model-matrix-and-tiers) below.
+
+**The phase chain.** Full playbooks drive work through five phases in order — requirements, architecture, planning, implementation, quality — with a different agent for each. The author/reviewer split described earlier applies at every phase. You do not need to memorize the chain; the playbook tells you what comes next. But knowing the shape helps you understand why the assistant asks for a specification before it writes code, or why it opens a fresh session for a review.
 
 **Everything below is reference material. You don't need it yet.**
 
