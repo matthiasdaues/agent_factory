@@ -41,6 +41,11 @@ fi
 
 GUARD="$PROJECT_DIR/factory/scripts/step-guard"
 
+# factory/ is git-ignored; on a fresh clone the guard script won't exist yet.
+if [ ! -x "$GUARD" ]; then
+  exit 0
+fi
+
 if [ "$GUARD_TYPE" != "bash" ] && [ -n "${PATCH_PATHS:-}" ]; then
   # Check each path from the patch against the guard.
   while IFS= read -r P; do
