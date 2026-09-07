@@ -70,17 +70,18 @@ fitting state:
 
 **`fitting.status == "unfitted"`** — init-factory scanned the project but
 the results have not been confirmed yet. Summarize what the scan found and
-offer the fitting:
+offer the fitting. **Stop here and wait for the user's response.** Do not
+load the session menu yet.
 
 > "I see init-factory scanned this project — \[languages, frameworks, CI,
-> linters from the observations\]. Want to walk through the fitting, or do
-> you have something else in mind?"
+> linters from the observations\]. Want to walk through the fitting, or
+> would you rather skip to the main menu?"
 
-If the user accepts, run the fitting flow (see below). If they decline,
-fall through to the session menu.
+If the user accepts → run the fitting flow (see below).
+If the user declines → load and present `factory/config/session-menu.md`.
 
-**Anything else** (no file, `fitting.status == "fitted"`, or user declined
-fitting) — read and present `factory/config/session-menu.md`.
+**Anything else** (no file, `fitting.status == "fitted"`) — read and
+present `factory/config/session-menu.md` immediately.
 
 ## Skills
 
