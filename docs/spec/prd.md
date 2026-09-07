@@ -33,15 +33,15 @@ ______________________________________________________________________
 - **NG1** — Not a re-implementation of `orchestrator/`'s `PhaseRunner`. `orchestrator/` may call these same mechanisms; `factory/` does not duplicate its run-state model (`RUN`, `RUN_LOCK`, single-active-run invariant).
 - **NG2** — Not a general CI system. `pre-commit` and the CLIs do the work; these scripts sequence and gate them.
 - **NG3** — No CLI-failure classification (auth vs. config vs. task failure) at the dispatch layer — a known, named gap. See [T-01](todos.md#t-01-no-cli-failure-classification-in-trigger).
-- **NG4** — No state machine for every playbook. Only `greenfield-development.fsm.yml` exists today; the harness is opt-in per playbook (see [UC-01 § Preconditions](use_cases/UC-01-advance-a-playbook-phase.md#preconditions)).
-- **NG5** — No run lock or single-active-run invariant across concurrent operators. The marker is a single flat file; two operators racing the same marker is out of scope. See [T-02](todos.md#t-02-no-concurrent-operator-lock-on-the-marker).
+- **NG4** — No state machine for every playbook. Only `greenfield-development.fsm.yml` exists today; the harness is opt-in per playbook (see [UC-01 § Preconditions](../~archive/spec/use_cases/UC-01-advance-a-playbook-phase.md#preconditions)).
+- **NG5** — No run lock or single-active-run invariant across concurrent users. The marker is a single flat file; two users racing the same marker is out of scope. See [T-02](todos.md#t-02-no-concurrent-user-lock-on-the-marker).
 - **NG6** — No in-place transcript compaction, live token-budget stop, universal cache-miss detector, prose-only cache-restabilisation ritual, or unified cross-CLI transcript format.
 - **NG7** — No retrospective reimplementation of dispatch safeguards already proven by the baseline audit; only verified gaps, missing tests, and contradictory documentation are remediated.
 
 ## 3. Target Actors
 
-- **Human Operator** (primary) — a person driving Agent Factory directly: running scripts by hand, committing code, approving phase gates.
-- **Orchestrator-as-Trigger** (secondary) — the nested `orchestrator/` Python CLI (work in progress — not yet operational), a peer of the Human Operator. It invokes the same `factory/scripts/*` mechanisms programmatically instead of a human typing them.
+- **User** (primary) — a person driving Agent Factory directly: running scripts by hand, committing code, approving phase gates.
+- **Orchestrator-as-Trigger** (secondary) — the nested `orchestrator/` Python CLI (work in progress — not yet operational), a peer of the User. It invokes the same `factory/scripts/*` mechanisms programmatically instead of a human typing them.
 - **CLI-Invoked Agent** (secondary) — the Claude Code, GitHub Copilot CLI, Codex, or Pi agent session that `trigger` dispatches, operating under the scoped permission controls available in that runtime. Under Pi, which has no native subagent concept, this actor is also the caller of the `run_agent` tool: it spawns a fresh Pi session to run another factory agent with separate-session semantics (FR-J).
 - **Phase Participant** (primary) — a human or factory agent completing one workflow phase and handing the next phase to a fresh CLI session without replaying the prior transcript.
 - **Assurance Auditor** (primary) — a requirements, planning, or quality participant who maps accepted dispatch safeguards to observable delivery evidence and files only verified gaps.
@@ -108,8 +108,8 @@ ______________________________________________________________________
 Pi has no native subagent concept, so a factory agent cannot run in a separate Pi session the way Claude Code spawns a subagent. `run_agent` supplies that missing invocation layer as a project-local extension tool.
 
 - **FR-J1** — The extension `.pi/extensions/run-agent.ts` registers a model-callable tool `run_agent(agent, task, model?)` that resolves `factory/agents/<agent>.md`, resolves the model (`model` argument, else `config/model.conf` `pi.<tier>`, honoring `on_missing`), and spawns a separate `pi` subprocess (`--no-session -a --mode json --model <m> --append-system-prompt <agent> -p <task>`), returning the child's final text and token usage parsed from `message_end`.
-- **FR-J2** — The spawn is a genuinely separate session that never receives the caller's context, preserving author/reviewer independence (BR-030); on a resolution, recursion, or spawn error the tool returns a diagnostic result and launches nothing.
-- **FR-J3** — A fixed recursion-depth bound, carried in an environment variable the parent sets and the child reads, caps nested `run_agent` spawns (BR-035).
+- **FR-J2** — The spawn is a genuinely separate session that never receives the caller's context, preserving author/reviewer independence; on a resolution, recursion, or spawn error the tool returns a diagnostic result and launches nothing.
+- **FR-J3** — A fixed recursion-depth bound, carried in an environment variable the parent sets and the child reads, caps nested `run_agent` spawns.
 - **FR-J4** — The dispatcher tool `dispatch_wave`, layered on the `run_agent` primitive, spawns several agents in parallel — each in its own git worktree, each under a per-story model tier — and integrates `premerge-check`; it ports `implementation-agent`, whose current prose depends on Claude Code's native Agent-tool worktree isolation.
 - **FR-J5** — `run-agent.ts` lives in `factory/config/extensions/`, is symlinked into the git-ignored `.pi/extensions/` by `init-factory`, and is reversed by `remove-factory` to a clean `git status`; it adds no tracked project state.
 
@@ -133,12 +133,12 @@ Pi has no native subagent concept, so a factory agent cannot run in a separate P
 
 - Every `factory/scripts/*.py` gate has zero third-party dependencies — Python 3.8+ stdlib only — so gates run without a virtualenv.
 - macOS and Linux only. `init-factory` relies on native, git-tracked symlinks, which Windows does not support the same way.
-- The marker (`.current-work/playbook-state.yml`) is git-ignored, local, single-file state — not a distributed or multi-operator lock.
+- The marker (`.current-work/playbook-state.yml`) is git-ignored, local, single-file state — not a distributed or multi-user lock.
 - Dispatch safeguard assurance interprets the accepted design from immutable proposal baseline `5219c64b6586b7606df346cac668d128bd3c21fe`; later observable implementation evidence may prove a mechanism complete but may not rewrite that design origin.
 
 ## 6. Success Criteria
 
-- A Human Operator can drive `greenfield-development.fsm.yml` end to end using only `transition-lint`, `phase advance`, `phase retry`, and `trigger` — no `orchestrator/` CLI involved.
+- You can drive `greenfield-development.fsm.yml` end to end using only `transition-lint`, `phase advance`, `phase retry`, and `trigger` — no `orchestrator/` CLI involved.
 - `orchestrator/` can drive the identical playbook run through the same four mechanisms, adding no flow-control logic of its own.
 - `factory/INDEX.yaml` always matches what `index-lint` would generate from current frontmatter (`index-lint --check` exits `0`) — no hand-edit drift.
 - A conversational Pi session can invoke a factory agent by name via `run_agent` and receive its result from a separate `pi` session that never saw the caller's context, and `dispatch_wave` can run at least two `developer-agent` sessions in parallel worktrees merged through `premerge-check`.
@@ -155,7 +155,7 @@ Pi has no native subagent concept, so a factory agent cannot run in a separate P
 
 ## Referenced from
 
-- [actor-goal-list.md](actor-goal-list.md)
+- [actor-goal-list.md](../~archive/spec/actor-goal-list.md)
 - [../README.md § Table of Contents](../README.md#table-of-contents) — the arc42 architecture documentation and Structurizr C4 model built from this specification.
 - [Accepted dispatch-efficiency proposal](../proposals/implemented/agent-dispatch-token-efficiency.md) — design origin for FR-L's assurance audit.
 - [Accepted session-control proposal](../proposals/implemented/proposal-session-transcript-token-control.md) — design origin for FR-K's external workflow contract.

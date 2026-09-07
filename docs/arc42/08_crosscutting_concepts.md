@@ -4,7 +4,7 @@
 
 ## 8.1 Agentic Creation, Deterministic Validation
 
-**Principle**: Creation is agentic; validation is deterministic. Tests, phase-order gates, and dangerous-command checks are triggered mechanically rather than left to agent judgment. Agent guardrails prevent bypass in the managed workflow; human operators who control the Git client retain Git's standard `--no-verify` escape hatch. Other deterministic validators run *on demand*, invoked by a playbook, agent, or operator; their result remains trustworthy because it is a mechanical exit code, not an agent's word.
+**Principle**: Creation is agentic; validation is deterministic. Tests, phase-order gates, and dangerous-command checks are triggered mechanically rather than left to agent judgment. Agent guardrails prevent bypass in the managed workflow; you retain Git's standard `--no-verify` escape hatch when you control the Git client. Other deterministic validators run *on demand*, invoked by a playbook, agent, or you; their result remains trustworthy because it is a mechanical exit code, not an agent's word.
 
 Derived from [`factory/rulebooks/conventions/foundational-principles.md`](../../factory/rulebooks/conventions/foundational-principles.md).
 
@@ -34,12 +34,12 @@ Derived from [`factory/rulebooks/conventions/foundational-principles.md`](../../
 
 Test gate presence exemplifies this principle end-to-end:
 
-1. **Project declares test commands** — the human operator writes `docs/charter/testing.yaml` with `test_command`, and optionally `test_staged_command` and `test_changed_command`.
-2. **FSM gate resolves charter** — `phase advance` reads the FSM entry condition `script_exit_zero` with `charter:test_command`, resolves the actual command from the charter, and executes it. Exit 0 advances; nonzero blocks.
-3. **Agent uses charter-declared command** — `block-dangerous-git.sh` reads all declared command fields from the charter and allowlists them with exact-string matching. An agent running a charter-declared command proceeds normally.
-4. **Agent blocked from bare test commands** — `block-dangerous-git.sh` denies `pytest`, `npm test`, etc. at PreToolUse unless they exactly match a charter-declared command. Agent cannot bypass or "double-check" — only the charter-declared, mechanically gated result is trustworthy.
+1. **Project declares test commands** — you write `testing.yaml` (resolved via format detection: `docs/agent-context/testing.yaml` first, `docs/charter/testing.yaml` as fallback) with `test_command`, and optionally `test_staged_command` and `test_changed_command`.
+2. **FSM gate resolves the declared command** — `phase advance` reads the FSM entry condition `script_exit_zero` with `charter:test_command`, resolves the actual command from the testing configuration, and executes it. Exit 0 advances; nonzero blocks.
+3. **Agent uses the declared command** — `block-dangerous-git.sh` reads all declared command fields from the testing configuration and allowlists them with exact-string matching. An agent running a declared command proceeds normally.
+4. **Agent blocked from bare test commands** — `block-dangerous-git.sh` denies `pytest`, `npm test`, etc. at PreToolUse unless they exactly match a declared command. Agent cannot bypass or "double-check" — only the declared, mechanically gated result is trustworthy.
 
-**Result**: Test gates exist by charter declaration. Factory ensures the gates are present and reads exit codes only. The project owns test execution, framework choice, and structured test output. Agents use only charter-declared commands.
+**Result**: Test gates exist by project declaration. Factory ensures the gates are present and reads exit codes only. The project owns test execution, framework choice, and structured test output. Agents use only declared commands.
 
 ## 8.2 Hook-Triggered Validation Pattern
 
@@ -61,11 +61,11 @@ Agents do not have unrestricted shell access. Every command passes through a Pre
 2. Matches it against a deny list (destructive git commands, test commands).
 3. Exits 0 (allow) or 2 (deny). Exit 2 surfaces as a denial message to the agent; the command never executes.
 
-This is **preventive validation**, not reactive. The agent never sees test output from a run it initiated unless it runs a charter-declared command.
+This is **preventive validation**, not reactive. The agent never sees test output from a run it initiated unless it runs a project-declared command.
 
-## 8.3 Charter Declaration and Test Entrypoint Discovery
+## 8.3 Project-Declared Test Configuration
 
-Testing is project-owned infrastructure. Factory does not detect frameworks, construct test commands, or own test execution. The project declares its test commands in `docs/charter/testing.yaml`:
+Testing is project-owned infrastructure. Factory does not detect frameworks, construct test commands, or own test execution. The project declares its test commands in `testing.yaml`, resolved via format detection (`docs/agent-context/testing.yaml` first, `docs/charter/testing.yaml` as fallback):
 
 | Field                  | Purpose                                                          | Used By                                      |
 | ---------------------- | ---------------------------------------------------------------- | -------------------------------------------- |
@@ -74,7 +74,7 @@ Testing is project-owned infrastructure. Factory does not detect frameworks, con
 | `test_changed_command` | Fast feedback on changed files (optional)                        | Agent allowlist                              |
 | `layers`               | Layer bindings mapping Factory layer names to tooling (optional) | QA strategy grounding                        |
 
-**Zero-install**: Factory does not install test frameworks. It reads the charter and executes the declared command as-is. If the charter is absent or `test_command` is missing, the FSM gate blocks with a clear message.
+**Zero-install**: Factory does not install test frameworks. It reads the test configuration and executes the declared command as-is. If `testing.yaml` is absent or `test_command` is missing, the FSM gate blocks with a clear message.
 
 **Exit-code-only contract** (BR-027): Factory reads only the exit code; structured test output (JSON summaries, coverage reports) is the project's concern, not Factory's.
 
@@ -175,11 +175,27 @@ The `@`-reference notation links Gherkin Rules and Scenarios to the source code 
 
 **Lifecycle:** `derive-feature` annotates existing code at Phase 1; the developer agent writes step definitions against `@`-referenced code at Phase 4; the reconciliation agent fills missing `@`-references at Phase 5. After reconciliation, every Rule carries at least one `@`-reference. Absence of an `@`-reference in the Phase 1 `.feature` file means "this behavior does not exist yet." After reconciliation, absence means "this behavior was specified but no code implements it" — a finding.
 
+## 8.11 Agent Context as Cross-Cutting Concern
+
+The agent context (`docs/agent-context/`) is the factory-facing interface to all project knowledge. It is a cross-cutting concern: every factory agent, skill, playbook, script, and hook that needs project knowledge reads the agent context rather than scanning the project's documentation tree directly.
+
+**Two-layer routing** separates "what should I read for this kind of work?" (Layer 1: `reading-guides.yaml`) from "what was decided about this topic, and where is it documented?" (Layer 2: `stack.yaml`, `workflow.yaml`, `governance.yaml`). Sources are maintained in exactly one place (the index files). See [ADR-0014](../adr/0014-two-layer-routing-with-two-mode-lifecycle.md).
+
+**Two-mode lifecycle** lets the context start as a notepad (`mode: primary`, greenfield) and mature into a pure link index (`mode: index`, after handbook and conventions exist). The transition is one-directional and atomic across all three index files. See [state-machines.md § Agent Context Mode Lifecycle](../spec/supplementary_specs/state-machines.md#agent-context-mode-lifecycle).
+
+**Format detection** ensures backward compatibility. Factory consumers walk a three-step chain to determine whether the project uses YAML agent-context, legacy YAML charter, or legacy markdown charter. `testing.yaml` path resolution is independent. See [ADR-0013](../adr/0013-yaml-agent-context-replaces-markdown-charter.md).
+
+**Validation** is deterministic. `context-lint` enforces structure, key presence, mode compliance, source-pointer integrity, and reading-guide reference resolution via `CX-*` finding codes. It runs both as a pre-commit hook and on demand. See [05_building_block_view.md § 5.2.5](05_building_block_view.md#525-agent-context-validation-context-lint).
+
+**Guiding rule**: The agent context is a routing table, not a knowledge base -- it tells agents where to look, never what they will find.
+
 ## Referenced from
 
 - [foundational-principles.md](../../factory/rulebooks/conventions/foundational-principles.md)
 - [05_building_block_view.md § 5.2.1](05_building_block_view.md#521-project-owned-test-gates-via-charter-declaration)
 - [05_building_block_view.md § 5.2.3](05_building_block_view.md#523-semantic-quality-gates-crap-score-mutation-analysis-dependency-check)
+- [05_building_block_view.md § 5.2.5](05_building_block_view.md#525-agent-context-validation-context-lint)
 - [06_runtime_view.md § 6.2](06_runtime_view.md#62-test-gate-presence)
 - [06_runtime_view.md § 6.3](06_runtime_view.md#63-semantic-gate-loop)
+- [06_runtime_view.md § 6.4](06_runtime_view.md#64-agent-context-mode-transition)
 - [09_architecture_decisions.md](09_architecture_decisions.md)

@@ -172,9 +172,9 @@ ______________________________________________________________________
 - 🟡 **Minor**: No framework override config - if auto-detection picks wrong framework, must change project structure
 - 🟢 **Non-risk**: Two-mode simplicity is appropriate for hook use case (not interactive test runner)
 
-**Sensitivity**: **HIGH** - agent workflow degradation is severe. **LOW** for human operator workflow.
+**Sensitivity**: **HIGH** - agent workflow degradation is severe. **LOW** for user workflow.
 
-**Assessment**: Simplicity for human operators is good. Agent developer experience is significantly degraded (ATAM-0001). Framework override gap is minor but annoying.
+**Assessment**: Simplicity for users is good. Agent developer experience is significantly degraded (ATAM-0001). Framework override gap is minor but annoying.
 
 ______________________________________________________________________
 

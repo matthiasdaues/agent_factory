@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: Newcomer Onboarding and Incremental Brownfield
-status: accepted
+status: implemented
 owner: md@matthiasdaues.de
 created: 2026-08-28
 updated: 2026-08-28

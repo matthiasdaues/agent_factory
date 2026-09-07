@@ -165,7 +165,7 @@ erDiagram
 
 - **FSM_DEFINITION** is one `factory/playbooks/<name>.fsm.yml` file. Only `greenfield-development` has one today — see [PRD § NG4](../prd.md#non-goals). `phase advance`, `phase retry`, and `transition-lint` each parse it independently with the same minimal, indentation-based subset parser (block mappings, block sequences including sequences of multi-key mappings, inline comments, scalars) — not a general YAML library, matching this repo's zero-dependency convention.
 - **STATE_DEFINITION.outputs** is a list of glob patterns (`*` within a segment, `**` across segments, `?` one non-separator character) that `transition-lint` matches staged file paths against, and `run-step` matches on-disk files against, to decide state ownership.
-- **GATE_CONDITION.type = script_exit_zero** is stubbed to always pass in the current implementation — a named, deferred gap. See [T-03](../todos.md#t-03-script_exit_zero-condition-type-is-stubbed).
+- **GATE_CONDITION.type = script_exit_zero** is stubbed to always pass in the current implementation — a named, deferred gap. See [T-03](../todos.md#t-03-script_exit_zero-condition-type-is-stubbed--partially-resolved).
 - **HALT_CONDITION** of type `max_iterations` is the only type `phase retry` currently enforces; `script_failure` and `circular_dependency` are declared in `greenfield-development.fsm.yml` but have no enforcing script yet — see [T-04](../todos.md#t-04-halt_conditions-types-other-than-max_iterations-are-unenforced).
 - **PLAYBOOK_STATE_MARKER** is the single source of truth for "where is this run" — one flat file at `.current-work/playbook-state.yml`, git-ignored. Full field-level rules in [validation-rules.md](validation-rules.md).
 - **FINDING.status** is read from the finding file's YAML frontmatter (a `---`-delimited block whose first line is exactly `---`); `no_open_findings` conditions count files matching a glob whose `status` is exactly `open`. Filing conventions: [finding-format.md § When to file](../../../factory/rulebooks/conventions/finding-format.md#when-to-file).
@@ -177,7 +177,155 @@ erDiagram
 - **SCOPE_MAP_ROW** is one row in `docs/spec/scope-map.md`. The table always has five columns: Rule, Status, Confidence, Sources, Feature Link. `confidence` is populated by the `reverse-map` skill during brownfield onboarding; rows created by `derive-feature` or `scope-map-migration` leave it empty. `sources` names the spec or evidence origin (UC file, .feature file, test file). `feature_link` anchors the conceptual rule to the implementing code — the bridge between the specification plane and the codebase. It is empty when the rule is `specified` (not yet implemented) or when the implementing code has not been identified; the `reconciliation-agent` fills it after implementation. The confidence hierarchy follows a forensic evidence model: passing tests are `verified`, code entry points are `high`, external docs are progressively lower. See [newcomer-onboarding.feature](../newcomer-onboarding.feature).
 - **ANCHOR_FILE_SET** is the minimum prerequisite for `feature-addition` after brownfield-lite onboarding. The three files are checked by file existence, not by a gate marker. Their presence signals readiness for feature work; their absence suggests running `brownfield-onboarding` first.
 
+## Test-Design Entities
+
+The test-design skill introduces entities that bridge the specification plane (`.feature` contracts, scope map) to the planning plane (`backlog/epics.md`, story files). These entities are document structures within `backlog/epics.md` and `backlog/ST-NNNN.md`, not database records.
+
+```mermaid
+erDiagram
+    EPIC_BUILDING_BLOCK ||--o{ TEST_DESIGN_SECTION : "gains (when test-design runs)"
+    EPIC_BUILDING_BLOCK ||--o{ PRIOR_TESTS_SECTION : "gains (for non-owning stories)"
+    TEST_DESIGN_SECTION ||--|| RISK_CLASS : "classified by"
+    TEST_DESIGN_SECTION ||--o{ FAILURE_SCENARIO : "contains"
+    TEST_DESIGN_SECTION ||--o{ WAIVER : "may contain"
+    PRIOR_TESTS_SECTION ||--o{ TEST_REFERENCE : "lists"
+    RISK_CLASS_CONFIG }o--|| RISK_CLASS : "overrides defaults for"
+    GATE_CONFIG ||--o{ GATE_ENTRY : "contains"
+    SCOPE_MAP_ROW }o--|| TEST_DESIGN_SECTION : "traced from (via trace ID)"
+
+    RISK_CLASS {
+        string name "critical | standard | structural | custom"
+        string format "forbidden | scenario | linter"
+        string budget "unbounded | equivalence"
+        list requires "optional — named invariants"
+    }
+    RISK_CLASS_CONFIG {
+        string source "testing.yaml risk_classes section"
+        string precedence "testing.yaml > strategy doc > Factory convention"
+    }
+    TEST_DESIGN_SECTION {
+        string contract_id "trace ID e.g. DOM-01"
+        string risk_class "critical | standard | structural"
+        string layer "contract_test | integration_test | etc."
+        list failure_scenarios "Given/When/Then[/Forbidden] blocks"
+    }
+    PRIOR_TESTS_SECTION {
+        string contract_id "trace ID"
+        list test_references "module::function pairs from owning story"
+    }
+    FAILURE_SCENARIO {
+        string given "precondition"
+        string when "action"
+        string then "expected outcome"
+        string forbidden "nullable — specific failure mode (critical only)"
+    }
+    WAIVER {
+        string contract_id "trace ID"
+        string owner_path "tests/test_module.py::test_function"
+        string format "blockquote line in Test Design section"
+    }
+    TEST_REFERENCE {
+        string module "test file path"
+        string function "specific test function name"
+    }
+    GATE_CONFIG {
+        string source "docs/charter/testing.yaml gates section"
+    }
+    GATE_ENTRY {
+        string name "crap_score | mutation_testing | test_design_verify"
+        bool enabled "true | false"
+        float threshold "nullable — gate-specific"
+    }
+```
+
+### Notes
+
+- **RISK_CLASS** has three Factory convention defaults (`critical`, `standard`, `structural`). Projects may add custom classes in `docs/charter/testing.yaml`'s `risk_classes:` section. Precedence: `testing.yaml` inline > project-linked strategy document > Factory convention defaults.
+- **TEST_DESIGN_SECTION** is a markdown section (`#### Test Design`) within a story's building-block entry in `backlog/epics.md`. It is carried verbatim into the corresponding `backlog/ST-NNNN.md` by `create-backlog-stories`.
+- **PRIOR_TESTS_SECTION** is a markdown section (`#### Prior Tests`) for non-owning stories. The developer-agent runs these tests first and must keep them green.
+- **WAIVER** is a blockquote line within the `#### Test Design` section: `> Waiver: DOM-01 — owned by tests/test_domain.py::test_entity_uniqueness`. The `test-design-verify` gate parses these and validates the named test module exists.
+- **GATE_CONFIG** is a new section in `docs/charter/testing.yaml` that centralizes gate configuration. It does not define gate execution ordering — [ADR-0012](../../adr/0012-dispatcher-owned-semantic-gate-loop.md) owns the dispatcher's gate sequence.
+- **GATE_ENTRY** configures an individual gate. `test_design_verify` is implicitly enabled when test-design output exists in the story and skipped otherwise.
+
+## Agent Context Entities
+
+The agent context is the factory-facing interface to project knowledge. It replaces the charter as the structured contract between factory agents and the project's self-determined practices. The two-layer architecture (reading guide over index files) and two-mode lifecycle (primary then index) are modeled below.
+
+```mermaid
+erDiagram
+    READING_GUIDE ||--o{ CONCERN_ENTRY : "routes by concern"
+    CONCERN_ENTRY ||--o{ KEY_PATH_REFERENCE : "lists"
+    KEY_PATH_REFERENCE }o--|| INDEX_FILE : "points into"
+    INDEX_FILE ||--o{ INDEX_FIELD : "declares"
+    INDEX_FILE ||--|| MODE_STATE : "has"
+    INDEX_FIELD ||--o| DEFERRED_MARKER : "may carry"
+    INDEX_FIELD ||--o| SOURCE_POINTER : "may carry"
+    CX_FINDING }o--|| INDEX_FILE : "reported against"
+    CX_FINDING }o--o| READING_GUIDE : "reported against"
+    TESTING_YAML }o--o| CX_FINDING : "CX-PARSE only"
+    FORMAT_DETECTION ||--o| INDEX_FILE : "selects"
+
+    READING_GUIDE {
+        string path "docs/agent-context/reading-guides.yaml"
+        string role "Layer 1 — concern-based routing"
+    }
+    CONCERN_ENTRY {
+        string concern "e.g. backend, frontend, testing"
+        list references "key-path notation strings"
+    }
+    KEY_PATH_REFERENCE {
+        string file "e.g. stack.yaml"
+        string key_path "nullable — dotted path e.g. frameworks.backend"
+    }
+    INDEX_FILE {
+        string name "stack.yaml | workflow.yaml | governance.yaml"
+        string path "docs/agent-context/<name>"
+        string mode "primary | index"
+    }
+    INDEX_FIELD {
+        string key "dotted key path within the index file"
+        string value "nullable — inline value when mode is primary"
+        string name "nullable — lookup name when mode is index"
+        string source "nullable — path to authoritative document"
+    }
+    MODE_STATE {
+        string mode "primary | index"
+    }
+    DEFERRED_MARKER {
+        string reason "human-readable deferral reason"
+    }
+    SOURCE_POINTER {
+        string path "relative path to authoritative project document"
+    }
+    TESTING_YAML {
+        string path "docs/agent-context/testing.yaml or docs/charter/testing.yaml"
+        string role "peer file — machine-readable test config, no lifecycle"
+        string writer "detect-test-regime (sole owner)"
+    }
+    FORMAT_DETECTION {
+        string result "yaml-agent-context | legacy-yaml-charter | legacy-markdown-charter | CX-FORMAT error"
+    }
+    CX_FINDING {
+        string code "CX-FILE | CX-PARSE | CX-KEYS | CX-NULL | CX-MODE | CX-MODE-INVALID | CX-SRC | CX-SRC-EXIST | CX-SRC-STALE | CX-GUIDE-REF | CX-FORMAT"
+        string severity "error | warning | info"
+        string message "human-readable finding text"
+    }
+```
+
+### Notes
+
+- **READING_GUIDE** is Layer 1 of the agent context. It routes by work-type concern (backend, frontend, testing, architecture, packaging, and project-specific additions) to sections in the Layer 2 index files. It carries no `source:` pointers — only key-path references. It does not participate in the two-mode lifecycle. It is absent in greenfield projects until the first `source:` pointer is written.
+- **KEY_PATH_REFERENCE** uses the notation `<file>#<dotted.key.path>` (e.g. `stack.yaml#frameworks.backend`). A bare file reference (`stack.yaml`) means the entire file. `context-lint` validates these references via `CX-GUIDE-REF` by confirming the key path exists in the target file's YAML structure — key existence only, not value content.
+- **INDEX_FILE** is one of the three Layer 2 files (`stack.yaml`, `workflow.yaml`, `governance.yaml`). Each covers a distinct domain of project knowledge. They carry `source:` pointers to authoritative project documents and participate in the two-mode lifecycle.
+- **INDEX_FIELD** has different shapes depending on mode. In `mode: primary`, a field may be a scalar value, `null`, or a `deferred:` mapping. In `mode: index`, a field carries `name:` and `source:` together. The `deferred:` mapping replaces the entire field value — `deferred` is the sole key; any coexisting `name`/`source` key is a `CX-KEYS` error.
+- **MODE_STATE** is one of `primary` (greenfield — index files are the upstream source) or `index` (mature — index files are downstream routing tables). The transition from `primary` to `index` is one-directional and atomic across all three index files. See [state-machines.md](state-machines.md).
+- **TESTING_YAML** is a peer file outside the two-mode lifecycle. It is written by `detect-test-regime`, not by `update-context`. `context-lint` validates it with `CX-PARSE` only — no `CX-SRC`, `CX-MODE`, or `CX-NULL` checks apply. Format detection resolves its path independently: `docs/agent-context/testing.yaml` first, `docs/charter/testing.yaml` as fallback, with no `CX-FORMAT` error for the split location.
+- **FORMAT_DETECTION** is a shared subfunction used by all factory consumers. It walks a three-step chain: `docs/agent-context/stack.yaml` → `docs/charter/tech-stack.yaml` → `docs/charter/tech-stack.md`. Files in more than one location produce a `CX-FORMAT` error. `testing.yaml` is resolved independently and does not trigger mixed-location errors.
+- **CX_FINDING** replaces the charter-lint `CH-*` codes for YAML agent-context validation. Legacy markdown charter projects continue to use the existing `CH-*` codes.
+
 ## Referenced from
 
-- [actor-goal-list.md](../actor-goal-list.md)
-- [UC-01](../use_cases/UC-01-advance-a-playbook-phase.md)
+- [actor-goal-list.md](../../~archive/spec/actor-goal-list.md)
+- [UC-01](../../~archive/spec/use_cases/UC-01-advance-a-playbook-phase.md)
+- [test-design.feature](../test-design.feature)
+- [agent-context.feature](../agent-context.feature)

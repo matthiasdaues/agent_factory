@@ -92,7 +92,7 @@ No new Major or Critical defect was found across consistency, ambiguity, verifia
 
 Two non-blocking Minor wording issues remain report-only:
 
-- UC-11's Human Operator stakeholder interest still says omissions are caught “mechanically,” although BR-038 and BR-049 correctly divide structural lint from semantic omission detection. Replace “omissions caught mechanically” with wording that covers mechanical defects plus semantic omissions.
+- UC-11's User stakeholder interest still says omissions are caught “mechanically,” although BR-038 and BR-049 correctly divide structural lint from semantic omission detection. Replace “omissions caught mechanically” with wording that covers mechanical defects plus semantic omissions.
 - The validation-rules heading “BR-037…BR-042” omits BR-049 even though that section defines it. Include BR-049 in the heading or rename the heading without a numeric range.
 
 ### Final disposition

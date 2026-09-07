@@ -59,7 +59,7 @@ unapproved destructive and external actions.
 Compromise, prompt injection, or faulty reasoning inside a Factory CLI must not
 allow that process to:
 
-1. Become the human operator or obtain administrative privileges.
+1. Become you or obtain administrative privileges.
 2. Change the policy that constrains it.
 3. Read unrelated user data or credentials.
 4. Execute arbitrary downloaded or workspace-provided programs.
@@ -96,7 +96,7 @@ repository and outside the CLI's writable identity.
 ### 1. User Management and Execution Identity
 
 Create a dedicated operating-system account, `agent-factory`, for Factory
-CLIs. It must not share the human operator's identity.
+CLIs. It must not share you's identity.
 
 The account has:
 

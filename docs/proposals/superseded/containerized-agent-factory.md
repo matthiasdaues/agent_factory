@@ -371,7 +371,7 @@ The modes share implementations and differ only in declared scope:
 
 The gate runner, not `.pre-commit-config.yaml`, owns ordering, applicability,
 exit semantics, and reporting. It invokes the current Factory scripts such as
-[`run-tests`](../../../factory/scripts/run-tests) and the applicable deterministic
+`run-tests` (deleted — see ADR-0003 amendment) and the applicable deterministic
 linters. Git hooks, pre-commit, pre-push, and phase transitions are thin
 adapters to this interface.
 
@@ -854,12 +854,12 @@ revision that returns this proposal to `open`.
   missing image implicitly.
 - `init`, `update`, and `doctor` work offline on a cold host using the packaged
   pre-commit executable and Factory-owned hook environments.
-- Operator documentation makes protected remote refs, required independent CI,
+- User documentation makes protected remote refs, required independent CI,
   repository backups, and tested restoration prerequisites for recoverability.
 - The full acceptance proof matrix passes on every supported runtime.
 - Specifications and arc42 architecture document the new launcher, image,
   runtime identity, trust, gate, hook, dependency, and failure contracts.
-- Factory operator documentation includes installation, initialization,
+- Factory user documentation includes installation, initialization,
   updating, credential provisioning, troubleshooting, removal, and the exact
   limits of the security claim.
 - Independent architecture and security reviews have no open blocking or major
@@ -907,14 +907,14 @@ The hardening proposal states six outcomes that compromise inside a Factory CLI
 must not produce. Measured against them, this proposal is a strong control for
 three and silent on three.
 
-| Hardening objective                            | Status here                                                          |
-| ---------------------------------------------- | -------------------------------------------------------------------- |
-| 1. Become the operator or gain admin privilege | PARTIAL — host root is denied, but the agent acts as the human's UID |
-| 2. Change the policy that constrains it        | MET — trusted installation record, host-controlled digest            |
-| 3. Read unrelated user data or credentials     | MET — the host home, `.ssh`, and cloud configuration are unmounted   |
-| 4. Execute arbitrary programs                  | NOT ADDRESSED — no command broker, no executable allowlist           |
-| 5. Mutate protected Git refs or hide damage    | REGRESSED — see BLOCKER B1                                           |
-| 6. Publish or contact services unapproved      | NOT ADDRESSED — `standard` posture is unrestricted egress            |
+| Hardening objective                         | Status here                                                          |
+| ------------------------------------------- | -------------------------------------------------------------------- |
+| 1. Become you or gain admin privilege       | PARTIAL — host root is denied, but the agent acts as the human's UID |
+| 2. Change the policy that constrains it     | MET — trusted installation record, host-controlled digest            |
+| 3. Read unrelated user data or credentials  | MET — the host home, `.ssh`, and cloud configuration are unmounted   |
+| 4. Execute arbitrary programs               | NOT ADDRESSED — no command broker, no executable allowlist           |
+| 5. Mutate protected Git refs or hide damage | REGRESSED — see BLOCKER B1                                           |
+| 6. Publish or contact services unapproved   | NOT ADDRESSED — `standard` posture is unrestricted egress            |
 
 Objectives 4 and 6 are legitimately a different layer of defense, and the
 proposal is honest about the egress limit inside its threat model. The defect
@@ -952,7 +952,7 @@ protected ref*.
 **MAJOR A1 — the identity model contradicts the hardening proposal, and
 neither document defers to the other.** Hardening §1 requires a dedicated
 `agent-factory` operating-system account that "must not share the human
-operator's identity," and states that direct execution under the human account
+user's identity," and states that direct execution under the human account
 is unsupported because it defeats identity separation. This proposal's central
 probe asserts the opposite invariant: writes must "retain invoking host
 ownership," Podman uses `keep-id`, and Docker maps container UID 0 to the
@@ -1085,7 +1085,7 @@ recoverable from authoritative remote refs and backups. This proposal grants
 the agent read-write access to the whole mount, `.git` included, and defers
 protecting the project from its agent. That deferral is only tolerable when
 the remote is protected. *Amendment:* name remote branch protection and
-backup as documented deployment prerequisites in the operator documentation
+backup as documented deployment prerequisites in you documentation
 Completion Criterion.
 
 ### Recommendation
@@ -1162,7 +1162,7 @@ audit record and must not be edited.
 | A7       | ACCEPTED — reference counting, dry-run default, retention window, quota; correctly deferred with `prepare`                                  |
 | A8       | ACCEPTED — 500 ms p95 budget and a bounded validation cache; residue in A17                                                                 |
 | A9       | ACCEPTED — the narrower gain is stated in the Motivation                                                                                    |
-| A10      | ACCEPTED — prerequisites stated in the design and in the operator-documentation criterion                                                   |
+| A10      | ACCEPTED — prerequisites stated in the design and in you-documentation criterion                                                            |
 | Check 02 | NOT ADDRESSED — see A20                                                                                                                     |
 
 The remediation resolution table above covers the eleven lettered findings but
@@ -1272,11 +1272,11 @@ executes project content, and that the cache covers topology and hook strategy
 only, never gate results.
 
 **NOTE A18 — "append-only" is a property against the container, not the
-operator.** The invoking user owns the sink and can rewrite it; true
+user.** The invoking user owns the sink and can rewrite it; true
 append-only storage needs privilege this design does not claim. The trust model
 makes this acceptable, since the human is trusted, but the word should be
 qualified so that a later reader does not treat the sink as evidence against
-the operator.
+you.
 
 **NOTE A19 — the marker migration has no ordering rule.** The proposal states
 that `.current-work/verify-base-ok` and `.current-work/premerge-check-ok`

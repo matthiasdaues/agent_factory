@@ -22,7 +22,7 @@ That framing no longer describes the code-as-built. `config/model.conf`
 (added in `1bf179b`), and `pi.*` (present before this delta and re-pointed
 to Qwen/GLM in the same commit). An accepted, load-bearing ADR whose
 Context says "only `copilot.*` exist today" misdescribes the implemented
-state to any operator reading it. The Decision body itself (curate Pi
+state to any user reading it. The Decision body itself (curate Pi
 tiers statically in `model.conf`, discovery is a separate offline aid)
 remains accurate; only the Context paragraph is stale. It also omits that
 `codex.*` rows exist and follow the same curated-tier router pattern.
