@@ -44,13 +44,15 @@ You are what makes this real. When the requirements, architecture, or developer 
 
 ### What init-factory put on your disk
 
-After setup, three things exist that you will encounter later. You do not need to touch them now, but knowing they are there prevents surprises:
+After setup, several things exist that you will encounter later. You do not need to touch them now, but knowing they are there prevents surprises:
 
 - **`config/project.json`** — your project's identity card: a stable UUID, the name you gave at install time, and your declared test command. You will never edit this by hand in normal use.
 - **`config/model.conf`** — the model matrix. It controls which AI model handles which kind of work. Economy agents handle routine tasks; strong agents handle architecture and review. If you use multiple AI coding CLIs, each one gets its own mapping here. The fitting walk-through (below) helps you configure it; greenfield projects get sensible defaults.
-- **`docs/agent-context/`** — does not exist yet. It is created during your first real playbook run, when the assistant interviews you about your project's stack, workflow, and governance. Think of it as a small switchboard that tells agents where your project's knowledge lives, so they look things up instead of guessing.
+- **`config/project-context.json`** — a deterministic scan of your project's languages, frameworks, CI, linters, test runners, and docs structure. Written once at install time; the fitting process uses it to confirm what the scan found. Greenfield projects get an empty scan with `fitting.status: "greenfield"`.
+- **`docs/agent-context/testing.yaml`** — if init-factory detects a single unambiguous test entrypoint (a `Makefile` test target, `pytest.ini`, `package.json` test script, etc.), it records the `test_command` here. When multiple candidates exist, it asks you to choose; when none are found, the file is not created.
+- **`docs/agent-context/`** — does not exist yet (apart from `testing.yaml` above, if created). The rest is created during your first real playbook run, when the assistant interviews you about your project's stack, workflow, and governance. Think of it as a small switchboard that tells agents where your project's knowledge lives, so they look things up instead of guessing.
 
-All three are local configuration, not project source — they are git-ignored and belong to your machine.
+All of these are local configuration, not project source — they are git-ignored and belong to your machine.
 
 ### Your very first session
 
@@ -748,7 +750,42 @@ The script is idempotent: run it again any time, and anything already correctly 
 
 `--source` is optional on installs created after the field was recorded: `init-factory` stores the checkout it copied from (`factory_source`) in `.agent-factory/factory-install.json`, and `update-factory` reads that as its default. Only `factory/` is replaced — the project's own files, the `.gitignore`/`.pre-commit-config.yaml` edits, and the `.agent-factory/` usage-tracking transcripts and lifecycle state are all preserved. You can also run the installed copy from inside the project with `--source` if you no longer have the original checkout path in the manifest.
 
+**Checking for local changes before updating.** Before replacing `factory/`, `update-factory` compares per-file SHA-256 checksums recorded at install time against the currently installed files. Files you added (custom skills, agents, scripts) or modified (tweaked prompts, adjusted rules) are detected and reported. Run `--check` to see the report without touching anything:
+
+```bash
+factory/scripts/update-factory --check
+```
+
+When user changes are found, the update stops by default (exit code 2). Pass `--force` to proceed anyway — changed and added files are preserved in `.agent-factory/factory-user-changes/<timestamp>/` so nothing is lost:
+
+```bash
+factory/scripts/update-factory --force
+```
+
+Installations created before checksum recording was introduced have no baseline to compare against. In that case the update proceeds as before (full replacement) and records checksums for future updates.
+
 If the sourced `init-factory` stops on a collision, `update-factory` rolls the refresh back: the old `factory/` is moved aside (not deleted) and restored in place, so the project is never left without a `factory/` and dangling runtime symlinks. Resolve the reported collision and re-run `update-factory` to finish.
+
+**Adding or removing CLIs after install.** You do not need to re-run the full installer to wire a new CLI or unwire one you no longer use. `init-factory` supports incremental CLI management:
+
+```bash
+# Add Copilot CLI wiring to an existing install
+factory/scripts/init-factory --add copilot
+
+# Add multiple CLIs at once
+factory/scripts/init-factory --add copilot codex
+
+# Interactive menu (omit the CLI name)
+factory/scripts/init-factory --add
+
+# Remove Pi wiring
+factory/scripts/init-factory --remove pi
+
+# Interactive removal menu
+factory/scripts/init-factory --remove
+```
+
+`--add` creates the dot-directory, symlinks factory content, installs guardrails, step guards, usage capture, and freshness hooks for the new CLI, regenerates any adapter agents (Copilot, Codex), and updates the `.gitignore` block. `--remove` reverses all of that for the named CLI, strips its orientation block from any existing orientation file, and prunes empty dot-directories. Both update the install manifest so `remove-factory` stays accurate.
 
 To trigger the install conversationally instead of from a shell, use the `init-factory` skill (`factory/skills/init-factory/SKILL.md`): it confirms the target with you, runs the script, and relays its output.
 
@@ -775,7 +812,10 @@ git commit -m "<same message>"
 ```
 
 **`factory/` looks out of date after you update your `agent_factory` checkout**
-`init-factory` only copies `factory/` in once. To bring an installed project up to date, run `factory/scripts/update-factory` (see “Updating it again” above) instead of re-running `init-factory`.
+`init-factory` only copies `factory/` in once. To bring an installed project up to date, run `factory/scripts/update-factory` (see “Updating it again” above) instead of re-running `init-factory`. Run `update-factory --check` first to see whether you made local changes to `factory/` that the update would replace.
+
+**`origin/HEAD` is dangling after a `master` → `main` rename**
+`init-factory` detects and repairs a dangling `origin/HEAD` symref automatically. It tries `git remote set-head origin --auto` first (requires network), then falls back to scanning locally-known remote-tracking branches for `main` or `master`. This is best-effort and never aborts the install.
 
 **Symlinks don't work on Windows**
 Agent Factory targets macOS and Linux only. Both rely on native, git-tracked symlinks, which Windows doesn't support the same way.

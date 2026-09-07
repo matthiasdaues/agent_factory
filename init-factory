@@ -8,8 +8,13 @@ UPDATE_SCRIPT="$SCRIPT_DIR/packages/factory/scripts/update-factory"
 usage() {
   cat >&2 <<EOF
 Usage:
-  $0 <target-project-directory>          Install factory into a project
-  $0 --update <target-project-directory> Update an existing installation
+  $0 <target-project-directory> [flags]   Install factory into a project
+  $0 --update <target> [--check] [--force] [--source <dir>]
+                                           Update an existing installation
+  $0 --add [cli ...] --target <dir>        Add CLI wiring to existing install
+  $0 --remove [cli ...] --target <dir>     Remove CLI wiring
+
+Any extra flags are forwarded to the underlying script.
 EOF
   exit 1
 }
@@ -23,6 +28,10 @@ if [[ "$1" == "--update" ]]; then
   TARGET="${1:-.}"
   shift 2>/dev/null || true
   exec "$UPDATE_SCRIPT" --target "$TARGET" --source "$SCRIPT_DIR" "$@"
+fi
+
+if [[ "$1" == "--add" || "$1" == "--remove" ]]; then
+  exec "$INIT_SCRIPT" "$@"
 fi
 
 TARGET="$1"
