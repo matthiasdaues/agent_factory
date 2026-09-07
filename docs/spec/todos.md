@@ -1,6 +1,6 @@
 # Todos — Factory Flow Control
 
-Deferred decisions and named gaps found while reverse-engineering this specification from `factory/`'s code, per [rules.md § Todos](../../factory/rulebooks/rules.md#todos). None of these block the mechanisms documented in [use_cases/](use_cases/) — each is a known, intentional gap in the current implementation, not a defect this spec papers over.
+Deferred decisions and named gaps found while reverse-engineering this specification from `factory/`'s code, per [rules.md § Todos](../../factory/rulebooks/rules.md#todos). None of these block the mechanisms documented in [../~archive/spec/use_cases/](../~archive/spec/use_cases/) — each is a known, intentional gap in the current implementation, not a defect this spec papers over.
 
 ## T-01: No CLI-failure classification in `trigger`
 
@@ -8,9 +8,9 @@ Deferred decisions and named gaps found while reverse-engineering this specifica
 
 - [ ] Decide whether `trigger` should classify failures itself, or whether that stays a caller-side concern.
 
-## T-02: No concurrent-operator lock on the marker
+## T-02: No concurrent-user lock on the marker
 
-`.current-work/playbook-state.yml` is a single flat file with no locking. Two operators (human and `orchestrator/`, or two humans) racing an advance/retry against the same marker can interleave incorrectly. Out of scope for the current single-operator-at-a-time usage pattern.
+`.current-work/playbook-state.yml` is a single flat file with no locking. Two users (human and `orchestrator/`, or two humans) racing an advance/retry against the same marker can interleave incorrectly. Out of scope for the current single-user-at-a-time usage pattern.
 
 - [ ] Decide whether a lock file (or an atomic compare-and-swap on `recorded_at`) is worth adding, or whether this stays a documented usage constraint.
 
@@ -47,7 +47,7 @@ Superseded by the Test Gate Presence over Test Execution feature ([proposal](../
 
 ## T-08: Pi guardrail is an extension, weaker than the native hook path
 
-Under Pi the git-safety guardrail is a project-local extension loaded only after project trust resolves, not a native `PreToolUse` hook. A non-interactive run that has not saved trust (or is not launched with `-a`) can skip it. `run_agent` passes `-a` on every spawn (BR-031) so its children load the guardrail, but the parent Pi session's own guardrail still depends on trust. Documented in [factory/docs/factory-guide.md § CLI safety guardrails](../../factory/docs/factory-guide.md#cli-safety-guardrails).
+Under Pi the git-safety guardrail is a project-local extension loaded only after project trust resolves, not a native `PreToolUse` hook. A non-interactive run that has not saved trust (or is not launched with `-a`) can skip it. `run_agent` passes `-a` on every spawn so its children load the guardrail, but the parent Pi session's own guardrail still depends on trust. Documented in [factory/docs/factory-guide.md § CLI safety guardrails](../../factory/docs/factory-guide.md#cli-safety-guardrails).
 
 - [ ] Decide whether to recommend the global `~/.pi/agent/extensions/` install or a container as the stronger default for Pi.
 

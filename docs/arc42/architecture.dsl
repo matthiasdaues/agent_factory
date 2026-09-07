@@ -24,9 +24,10 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
             }
             
             # Validation container
-            validator = container "Validator" "Enforces gates, permissions, charter-declared test gate presence, and semantic quality checks" "Bash/Python" {
+            validator = container "Validator" "Enforces gates, permissions, project-declared test gate presence, agent-context structure, and semantic quality checks" "Bash/Python" {
                 transitionLint = component "transition-lint" "Pre-commit hook blocking out-of-phase files" "Python"
-                blockDangerousGit = component "block-dangerous-git.sh" "PreToolUse hook blocking destructive commands and allowlisting charter-declared test commands" "Bash"
+                blockDangerousGit = component "block-dangerous-git.sh" "PreToolUse hook blocking destructive commands and allowlisting project-declared test commands via format-detected testing.yaml" "Bash"
+                contextLint = component "context-lint" "Validates agent-context YAML structure, key presence, mode compliance, source-pointer integrity, and reading-guide references (CX-* codes); falls back to charter-lint CH-* codes for legacy markdown projects" "Python"
                 schemaValidate = component "schema-validate" "Deterministic JSON-Schema validator for research artifacts: stage 1 of the schema->policy->semantic validation order" "Python"
                 policyValidate = component "policy-validate" "Deterministic research-policy validator: stage 2; --pipeline runs schema then policy in order, stopping at the first failure" "Python"
                 crapScore = component "crap-score" "CRAP scoring gate: cyclomatic complexity weighted against test coverage, diff-scoped per story" "Bash/Python"
@@ -72,6 +73,8 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
         # Relationships - Validator
         transitionLint -> stateFiles "Reads marker for current state"
         blockDangerousGit -> cliAgent "Blocks destructive commands before execution"
+        cliAgent -> contextLint "Validate skill or pre-commit hook invokes context-lint on agent-context files"
+        git -> contextLint "Fires pre-commit"
         cliAgent -> schemaValidate "Research skills/agents validate an artifact against its schema (stage 1)"
         cliAgent -> policyValidate "Research skills/agents validate artifacts against enforceable policy (stage 2)"
         policyValidate -> schemaValidate "Chains stage 1 in --pipeline mode"

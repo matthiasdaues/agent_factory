@@ -1,97 +1,82 @@
 # Agent Factory
 
-**Turn a rough idea into production-quality code—with an AI engineering team you can inspect, guide, and trust.**
+Without Agent Factory, every AI coding session starts from scratch. The model guesses your stack, invents a workflow, skips the review, and there is no record of what happened or why. You get code, maybe, but no process.
 
-Agent Factory equips your AI coding CLI with specialist agents, proven engineering methods, repeatable playbooks, and automated quality gates. You approve the important decisions; the factory does the structured work.
+With Agent Factory, specialist agents handle requirements, architecture, planning, implementation, and QA in separate sessions. Authors and reviewers never share a session, so no agent approves its own work. Deterministic scripts check formatting, schemas, traceability, and architecture consistency before anything reaches human review. You approve the decisions that shape the product.
 
-[Get started](factory/README.md) · [Read the beginner's guide](docs/arc42/beginner-intro.md) · [See how it works](docs/arc42/concepts.md)
-
-![Agent Factory turns a human-guided idea into production-ready software through specialist AI agents, independent review, and deterministic quality gates.](docs/assets/images/agent-factory-hero.svg)
-
-## AI can write code. Agent Factory helps it engineer software.
-
-One long prompt is not a development process. Agent Factory turns AI-assisted coding into a sequence of focused jobs, independent reviews, and mechanical checks.
-
-- **Specialists, not one generalist** — requirements, architecture, planning, implementation, and QA each have a dedicated agent.
-- **Independent review** — authors and reviewers work in separate sessions, so an agent never approves its own work.
-- **Deterministic quality gates** — scripts catch structural defects before AI judgement or human review is spent on them.
-- **Proven methods** — Gherkin feature specifications, arc42, Structurizr, ATAM, INVEST, TDD, Fagan inspection, and OWASP are built into the workflow.
-- **You stay in control** — human approval gates protect the decisions that shape the product.
-
-## From idea to production
-
-```text
-Requirements ↔ Review → Architecture ↔ Review → Planning → Implementation → Reconciliation ↔ QA
+```
+Creation is agentic. Validation is deterministic. Decisions remain human.
 ```
 
-The full workflow takes a project through five engineering phases. Each phase produces inspectable artifacts and creates a stronger foundation for the next.
+## Try it
 
-You do not need the full chain for every task. Included playbooks provide shorter routes for prototypes, bug fixes, new features, existing codebases, and research.
+Install into any project — new or existing. One command in, one command out.
 
-## Choose your starting point
+```bash
+# Install
+git clone <agent-factory-repo-url> agent_factory
+cd agent_factory
+./init-factory /path/to/your-project
 
-| I want to…                                   | Start here                                              |
-| -------------------------------------------- | ------------------------------------------------------- |
-| Understand the idea without running commands | [Beginner's introduction](docs/arc42/beginner-intro.md) |
-| Install Agent Factory in a project           | [Factory quick start](factory/README.md)                |
-| See the agents, gates, and design principles | [How Agent Factory works](docs/arc42/concepts.md)       |
-| Explore the toolset itself                   | [`factory/`](factory/README.md)                         |
-| Understand the architecture                  | [Architecture documentation](docs/README.md)            |
-| Try automated workflow execution             | [`orchestrator/`](orchestrator/README.md)               |
+# Remove — everything the factory added, nothing else
+your-project/factory/scripts/remove-factory
+```
 
-## What you get
+Removal is precise: a manifest records exactly what was created, and `remove-factory` reverses it. Your code, configuration, and git history are never modified by installation.
 
-### Specialist agents
+The installer asks which AI coding CLI you use and wires up only what you need. Currently supported: Claude Code, GitHub Copilot CLI, Pi, and Codex. It touches two tracked files:
 
-Dedicated agents interview stakeholders, write and review specifications, design architecture, plan delivery, implement stories with TDD, reconcile documentation, and inspect quality and security.
+- **`.pre-commit-config.yaml`** — factory hooks are added as a `- repo: local` block, prefixed `agent_factory_hook-` so they are easy to identify. If you already have a pre-commit config, your hooks are left untouched and the factory defers hook setup to the first session.
+- **`.gitignore`** — a marker-delimited block is appended, listing the files Agent Factory added.
 
-### Reusable skills
+After installation, open your AI coding CLI in the project directory. If you have an existing codebase, the factory offers a short fitting — a few questions to learn your stack, confirm its guesses, and wire up the right hooks. Skip it if you want; come back to it any time.
 
-Each skill captures a focused engineering technique. Skills keep agent sessions short, precise, and grounded in repeatable practice instead of improvised prompting.
+For prerequisites (Git, Python 3.10+, uv, an AI coding CLI) and the full inventory of what init-factory creates, see the [factory setup guide](packages/factory/README.md).
 
-### Situation-specific playbooks
+## Contributing
 
-Pick a recipe that fits the work: explore an idea, run a quick spike, build a greenfield product, onboard an existing codebase, add a feature, fix a bug, or conduct falsification-driven research.
-
-### Automated checks
-
-Formatting, schemas, traceability, architecture consistency, tests, and phase-entry rules are checked by deterministic scripts. Failures are reproducible and actionable.
-
-### Safety by design
-
-Project-local resources take precedence, dangerous Git operations are guarded, and installation is idempotent and reversible. Agent Factory adds tooling without taking ownership of your repository.
-
-## Quick start
-
-Install the factory into a new or existing project:
+To work on Agent Factory itself, clone the repo and run init-factory against it:
 
 ```bash
 git clone <agent-factory-repo-url> agent_factory
-mkdir my-project && cd my-project
-../agent_factory/factory/scripts/init-factory
+cd agent_factory
+./init-factory .
 ```
 
-Then open your supported AI coding CLI in `my-project` and choose a playbook. For prerequisites, supported CLIs, removal, and the complete walkthrough, see the [Factory quick start](factory/README.md).
+This installs a local `factory/` copy (gitignored) so the repo uses its own tooling. Product source lives under `packages/` — the installed `factory/` is the tool, `packages/factory/` is the code you edit. Run `factory/scripts/update-factory` after changes to refresh the installed copy.
 
-For the fastest first experiment, try the [`poc-spike`](factory/playbooks/poc-spike.md) playbook. It turns one idea into a runnable prototype without requiring the full production workflow.
+## What is in the box
 
-## Built around a simple principle
+**Agents** are specialist roles — one for requirements, one for architecture, one for planning, and so on. Each runs in its own session with a defined scope, inputs, and outputs. They do not freelance.
 
-> Creation is agentic. Validation is deterministic. Decisions remain human.
+**Skills** are focused techniques an agent can invoke: capture project context, run a Fagan inspection, derive a QA strategy from a Gherkin spec, design test scenarios. There are about sixty of them. You do not need to know them upfront — agents reach for the right skill when they need it.
 
-Agent Factory uses AI where interpretation and synthesis matter. It uses scripts where correctness can be checked mechanically. It asks you to approve choices whose consequences belong to you.
+**Playbooks** are step-by-step recipes for common situations: build something new, onboard an existing codebase, add a feature, fix a bug, run a research investigation. Pick the one that fits; it tells the agents what to do and in what order.
 
-The result is not autonomous software development. It is a disciplined collaboration between human judgement, specialist AI agents, and reproducible engineering controls.
+**Scripts** are deterministic checks: linting, schema validation, traceability gates, architecture consistency, pre-merge verification. They run automatically through git hooks and phase gates. When they fail, the output is specific and actionable.
 
-## Repository map
+**Agent context** is a small set of YAML files where your project declares its stack, workflow, and governance decisions. Agents read these instead of guessing or asking. You fill them in once; they stay current as decisions change.
 
-- **[`factory/`](factory/README.md)** — the installable toolset: agents, skills, playbooks, rulebooks, scripts, and checks. Start here to use Agent Factory.
-- **[`orchestrator/`](orchestrator/README.md)** — the optional CLI for driving playbooks automatically. It is under active development.
-- **[`docs/`](docs/arc42/concepts.md)** — concepts, specifications, decisions, reviews, and arc42 architecture documentation.
-- **`backlog/`, `config/`** — this repository's own planning and configuration, maintained with Agent Factory.
+## Products
 
-## Project status
+This is a monorepo. Each product has its own documentation.
 
-The core factory toolset is usable today. The optional orchestrator is still a work in progress, and its interfaces may evolve.
+| Product                                                     | What it does                             | Status           |
+| ----------------------------------------------------------- | ---------------------------------------- | ---------------- |
+| [`packages/factory/`](packages/factory/README.md)           | The installable toolset. Start here.     | Usable           |
+| [`packages/orchestrator/`](packages/orchestrator/README.md) | CLI for driving playbooks automatically. | Work in progress |
 
-Agent Factory is licensed under the [MIT License](LICENSE). Created by [Matthias Daues](AUTHORS.md).
+## Repository internals
+
+Everything below supports this repository's own development. It is maintained using Agent Factory itself. You can ignore it if you are here to use the toolset.
+
+| Directory  | Contents                                                                 |
+| ---------- | ------------------------------------------------------------------------ |
+| `docs/`    | Architecture (arc42), specifications, ADRs, proposals, findings, reviews |
+| `backlog/` | Development story files                                                  |
+| `tests/`   | Test suite for factory scripts                                           |
+| `config/`  | Repository configuration                                                 |
+
+## License
+
+[MIT](LICENSE). Created by [Matthias Daues](AUTHORS.md).

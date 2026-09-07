@@ -18,7 +18,7 @@ Two updates are needed after this branch merges to dev:
 
 2. **14 new Rules to add as `implemented`**: The following Rules from `docs/spec/test-gate-presence.feature` need scope-map rows with status `implemented` and Source `test-gate-presence.feature`:
 
-   - Human Operator declares project test commands via charter
+   - User declares project test commands via charter
    - FSM gate conditions resolve test command from charter
    - Guardrail allowlists charter-declared test commands for agents
    - Factory does not inject test hooks into pre-commit config

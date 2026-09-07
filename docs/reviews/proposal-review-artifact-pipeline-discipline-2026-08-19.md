@@ -230,7 +230,7 @@ as a first-release deliverable, but `impact.boundaries` lists only
   manifest blocks every subsequent `write-step-manifest` call in that working
   directory until a human runs `--clear`. One sentence of failure behavior
   (the template's optional "Design Details" section exists for exactly this)
-  would save the first operator confusion.
+  would save the first user confusion.
 - **No-supersede scope note.** The write-refusal guard blocks *any* second
   concurrent step in the same working directory, not just a same-role
   supersede — broader than the [rules.md § Dispatch](../../factory/rulebooks/rules.md#dispatch)

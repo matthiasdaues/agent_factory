@@ -1,0 +1,3528 @@
+#!/usr/bin/env python3
+"""init-factory — idempotent, *tracelessly removable* setup: wire Agent Factory
+into a target project without interfering with what's already there.
+
+What: Copies factory/ in and symlinks the per-CLI resources, guardrails, and
+      config, recording everything for clean removal.
+When: Once per project to install the toolset (re-run to update).
+By:   run by hand (a shell, no AI needed); the init-factory skill relays it.
+
+Works identically whether `--target` is a brand-new empty directory or an
+existing repo with its own history, docs, CI workflows, and hooks. Two
+promises govern every step:
+
+  1. NON-INTERFERENCE. init-factory never overwrites, reformats, or shadows a
+     file the project already owns. An existing orientation file, an existing
+     pre-commit config, existing .github/workflows — all are left exactly as
+     they were. Where Agent Factory needs to add something, it adds it beside
+     the project's own content, never on top of it.
+
+  2. TRACELESS REMOVAL. Everything Agent Factory drops into the target is
+     either (a) git-ignored under a single, marker-delimited "agent_factory
+     related" block, so it never enters the project's tracked history at all,
+     or (b) — for the one file that must be tracked, the pre-commit config —
+     added as hooks whose ids are prefixed `agent_factory_hook-`, extricable
+     by that prefix. A companion script, `factory/scripts/remove-factory`,
+     reverses the whole install back to a clean `git status`. init-factory
+     records exactly what it did in `.agent-factory/factory-install.json` so
+     the remover can be exact.
+
+Why .github can't just be git-ignored wholesale: the target's own GitHub
+Actions live in `.github/workflows/`. Ignoring all of `.github` would hide
+that CI infrastructure from git. So init-factory ignores only the specific
+entries it adds under `.github/` (the CLI symlinks, the hooks dir, and — only
+when init-factory itself created it — copilot-instructions.md), never the
+directory as a whole.
+
+Pi has no native PreToolUse hook file like Claude Code or Copilot CLI. For pi,
+init-factory instead scaffolds a project-local extension under `.pi/extensions/`
+that blocks the same dangerous bash/git patterns when the project is trusted
+and project-local extensions are loaded.
+
+Deliberately NOT bundled into a skill by default — this can be run directly,
+standalone, with no AI in the loop at all (`init-factory` is a normal
+executable). A thin skill wrapper exists for CLIs that want to invoke it
+conversationally, but nothing about using Agent Factory requires it.
+
+Does not scaffold docs/spec/, docs/adr/, docs/CONTEXT.md, or any other docs/
+subtree — those are created lazily by the skill that first needs them
+(domain-modeling, todo-format), not eagerly by init.
+
+Steps
+Sections (printed as the run progresses)
+
+  Scaffolding     Create --target, git init, copy factory/.
+  CLI selection    Auto-detect from existing dot-dirs, accept --cli, or ask
+                   interactively. --cli accepts multiple values.
+  Wiring           Create dot-dirs, symlink factory content, install
+                   guardrails, step guards, and usage capture for the
+                   selected CLI(s).
+  Project identity Copy config/model.conf (if absent), create or preserve
+                   config/project.json.
+  Project context  Scan the target tree for languages, frameworks, CI, linters,
+  scan             test runners, docs. Write config/project-context.json.
+  Gitignore        Emit the single "agent_factory related" .gitignore block.
+  Pre-commit       If no .pre-commit-config.yaml exists, create one with
+                   factory hooks and run `uvx pre-commit install`.
+                   If one exists, leave it alone — merging factory hooks
+                   into an existing config is the fitting's job.
+
+The deterministic project context scan runs at init time, but the
+interpretive layer — confirming findings, walking the agent-context
+interview, deciding on hooks — belongs to the fitting, the conversational
+process where VIRGIL learns the project. See the context-aware-init-factory
+proposal for the lifecycle model.
+
+Usage
+  init-factory --cli claude                       # target = cwd, one CLI
+  init-factory --cli claude copilot               # wire two CLIs
+  init-factory --target /path/to/project          # auto-detect or ask
+  init-factory --target /path/to/project --source /path/to/agent_factory
+  init-factory --add                              # interactive: pick CLIs to add
+  init-factory --add copilot                      # add copilot to existing install
+  init-factory --remove                           # interactive: pick CLIs to remove
+  init-factory --remove claude codex              # remove specific CLIs
+
+Exit code: 0 on success (including a clean no-op re-run). 1 on any collision
+or unsupported existing state — the first step that can't proceed stops the
+whole run before touching anything later.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import shutil
+import stat
+import subprocess
+import sys
+import uuid
+from pathlib import Path
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    tomllib = None  # type: ignore[assignment]
+
+# name -> path relative to factory/, symlinked into each dot-dir under the same name
+FACTORY_CONTENT = [
+    "agents",
+    "skills",
+    "playbooks",
+    "rulebooks",
+    "scripts",
+    "INDEX.yaml",
+]
+
+DOT_DIRS = [".claude", ".github", ".pi", ".codex"]
+
+# --cli name -> which dot-dirs and adapters that CLI needs.
+CLI_DOT_DIRS: dict[str, list[str]] = {
+    "claude": [".claude"],
+    "copilot": [".github"],
+    "pi": [".pi"],
+    "codex": [".codex"],
+}
+KNOWN_CLIS = list(CLI_DOT_DIRS.keys())
+
+# dot-dir -> this CLI's root orientation-file path, relative to --target
+ORIENTATION_FILE = {
+    ".claude": ".claude/CLAUDE.md",
+    ".github": ".github/copilot-instructions.md",
+    ".pi": "AGENTS.md",
+    ".codex": "AGENTS.md",
+}
+
+# The exact PreToolUse/Bash hook command string that wires the git-safety
+# guardrail into a project's .claude/settings.json.
+CLAUDE_GUARDRAIL_HOOK_COMMAND = (
+    '"$CLAUDE_PROJECT_DIR"/.claude/hooks/block-dangerous-git.sh'
+)
+
+CLAUDE_STEP_GUARD_HOOK_COMMANDS = {
+    "Read": 'GUARD_TYPE=read "$CLAUDE_PROJECT_DIR"/.claude/hooks/step-guard.sh',
+    "Edit": 'GUARD_TYPE=write "$CLAUDE_PROJECT_DIR"/.claude/hooks/step-guard.sh',
+    "Write": 'GUARD_TYPE=write "$CLAUDE_PROJECT_DIR"/.claude/hooks/step-guard.sh',
+    "Bash": 'GUARD_TYPE=bash "$CLAUDE_PROJECT_DIR"/.claude/hooks/step-guard.sh',
+}
+
+# The exact Stop/SubagentStop hook command string that wires the usage-capture
+# trigger into a project's .claude/settings.json. One hook-pair covers both
+# the human main session (Stop) and every dispatched sub-agent (SubagentStop)
+# within the CLI; the shared script tells them apart via the hook payload's
+# own `hook_event_name`, not via a different command string.
+CLAUDE_CAPTURE_HOOK_COMMAND = '"$CLAUDE_PROJECT_DIR"/.claude/hooks/capture-usage.sh'
+CLAUDE_CAPTURE_HOOK_EVENTS = ("Stop", "SubagentStop")
+
+# Codex exposes the same lifecycle event names through its project-level
+# `.codex/hooks.json`. Keep the command exact so remove-factory can identify
+# only Factory's entries without disturbing project hooks.
+CODEX_CAPTURE_HOOK_EVENTS = ("Stop", "SubagentStop")
+CODEX_GUARDRAIL_HOOK_COMMAND = (
+    '"$(git rev-parse --show-toplevel)/.codex/hooks/block-dangerous-git.sh"'
+)
+CODEX_CAPTURE_HOOK_COMMAND = (
+    '"$(git rev-parse --show-toplevel)/.codex/hooks/capture-codex-usage.sh"'
+)
+CODEX_STEP_GUARD_HOOK_COMMANDS = {
+    "Read": 'GUARD_TYPE=read "$(git rev-parse --show-toplevel)"/.codex/hooks/step-guard.sh',
+    "Edit": 'GUARD_TYPE=write "$(git rev-parse --show-toplevel)"/.codex/hooks/step-guard.sh',
+    "Write": 'GUARD_TYPE=write "$(git rev-parse --show-toplevel)"/.codex/hooks/step-guard.sh',
+    "apply_patch": 'GUARD_TYPE=write "$(git rev-parse --show-toplevel)"/.codex/hooks/step-guard.sh',
+    "Bash": 'GUARD_TYPE=bash "$(git rev-parse --show-toplevel)"/.codex/hooks/step-guard.sh',
+}
+
+COPILOT_STEP_GUARD_MATCHERS = {
+    "Read": ("read_file", "view"),
+    "Edit": ("edit", "apply_patch"),
+    "Write": ("write_file", "create"),
+    "Bash": ("bash",),
+}
+COPILOT_OWNED_MARKER = "# Generated by Agent Factory; do not edit."
+
+CODEX_AGENT_OWNED_MARKER = "# Generated by Agent Factory; do not edit.\n"
+
+# Marker lines that fence the single .gitignore block. remove-factory strips
+# everything between them (inclusive). Keep these strings in sync there.
+GITIGNORE_BEGIN = "# >>> agent_factory related >>>"
+GITIGNORE_END = "# <<< agent_factory related <<<"
+
+# Marker lines that fence the orientation-include block injected into a
+# project's existing orientation file. remove-factory strips the block
+# (inclusive) on uninstall.
+ORIENTATION_BEGIN = "<!-- >>> agent_factory orientation >>>"
+ORIENTATION_END = "<!-- <<< agent_factory orientation <<< -->"
+
+# Per-CLI include directives.  Claude Code supports @-includes (path relative
+# to the file's directory); Copilot CLI and Pi have no native include so the
+# full AGENTS.md content is inlined between the markers.
+ORIENTATION_INCLUDE = {
+    ".claude": "@../factory/config/AGENTS.md\n",
+}
+
+RULEBOOK_LINK_TARGETS = {
+    ".github": "../factory/rulebooks/rules.md",
+    ".pi": "factory/rulebooks/rules.md",
+    ".codex": "factory/rulebooks/rules.md",
+}
+
+MANIFEST_PATH = ".agent-factory/factory-install.json"
+FACTORY_VERSION_FILE = Path("factory/VERSION")
+USAGE_RUNTIME = Path(".agent-factory/usage-runtime")
+USAGE_REQUIREMENTS = Path("factory/config/usage-runtime-requirements.txt")
+PROJECT_IDENTITY = Path("config/project.json")
+
+
+def _read_factory_version(target: Path) -> str:
+    """Read the factory package version from factory/VERSION."""
+    path = target / FACTORY_VERSION_FILE
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return "unknown"
+
+
+CLI_LABELS = {
+    "claude": "Claude Code",
+    "copilot": "GitHub Copilot CLI",
+    "pi": "Stackblitz Pi",
+    "codex": "OpenAI Codex CLI",
+}
+
+
+def detect_cli(target: Path) -> list[str]:
+    """Auto-detect CLIs from existing dot-directories in the target.
+    Returns a list of detected CLI names (may be empty)."""
+    found = []
+    if (target / ".claude").is_dir():
+        found.append("claude")
+    if (target / ".github").is_dir():
+        found.append("copilot")
+    if (target / ".pi").is_dir():
+        found.append("pi")
+    if (target / ".codex").is_dir() or (target / ".agents").is_dir():
+        found.append("codex")
+    return found
+
+
+def _wants(clis: list[str] | None, name: str) -> bool:
+    """True when the named CLI is in the active set (None = all)."""
+    return clis is None or name in clis
+
+
+def _active_dot_dirs(clis: list[str] | None) -> list[str]:
+    """Compute the union of dot-dirs for the selected CLIs."""
+    if clis is None:
+        return list(DOT_DIRS)
+    result: list[str] = []
+    for c in clis:
+        for d in CLI_DOT_DIRS[c]:
+            if d not in result:
+                result.append(d)
+    return result
+
+
+def ask_clis() -> list[str] | None:
+    """Interactively ask which CLIs to wire. Returns list or None (all).
+    Falls back to None on non-TTY or empty input."""
+    if not sys.stdin.isatty():
+        return None
+    print("  Which CLIs should be wired?")
+    for i, name in enumerate(KNOWN_CLIS, 1):
+        print(f"    {i}  {name:<10} {CLI_LABELS[name]}")
+    print()
+    print("  Enter one or more (e.g. 1,3 or claude copilot), 'a' for all:")
+    try:
+        answer = input("  > ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return None
+    if answer in ("a", "all", ""):
+        return None
+    selected: list[str] = []
+    for token in answer.replace(",", " ").split():
+        token = token.strip()
+        if token.isdigit():
+            idx = int(token) - 1
+            if 0 <= idx < len(KNOWN_CLIS) and KNOWN_CLIS[idx] not in selected:
+                selected.append(KNOWN_CLIS[idx])
+        elif token in KNOWN_CLIS and token not in selected:
+            selected.append(token)
+    return selected if selected else None
+
+
+class Collision(Exception):
+    """Raised when a step finds something at a destination path that isn't
+    ours to skip past — stops the whole run, names the exact path."""
+
+
+class _Output:
+    quiet = False
+
+_out = _Output()
+
+
+def section(title: str) -> None:
+    padding = max(1, 54 - len(title))
+    print(f"\n── {title} {'─' * padding}")
+
+
+def log(report: list[str], line: str) -> None:
+    report.append(line)
+    if not _out.quiet:
+        print(f"  {line}")
+
+
+# --------------------------------------------------------------------------- #
+# Steps
+# --------------------------------------------------------------------------- #
+
+
+def ensure_target_dir(target: Path, install: dict, report: list[str]) -> None:
+    if target.exists():
+        log(report, f"target directory exists: {target}")
+        return
+
+    target.mkdir(parents=True)
+    log(report, f"created target directory: {target}")
+
+
+def ensure_git(target: Path, install: dict, report: list[str]) -> None:
+    if (target / ".git").exists():
+        # setdefault: a prior run may have recorded that WE created this repo.
+        install.setdefault("git_initialized_by_us", False)
+        log(report, "git: already a repo, left untouched")
+        return
+
+    subprocess.run(["git", "init", str(target)], check=True, capture_output=True)
+    install["git_initialized_by_us"] = True
+    log(report, "git: initialized new repo")
+
+
+def fix_origin_head(target: Path, report: list[str]) -> None:
+    """Detect and repair a dangling `origin/HEAD` symref.
+
+    `origin/HEAD` is a local symref that should point at the remote's default
+    branch (e.g. `refs/remotes/origin/main`). It goes dangling — pointing at a
+    branch that no longer exists locally, most often `origin/master` after the
+    remote's default moved to `main` — whenever a clone predates that rename.
+    Tools that resolve `origin/HEAD` (merge-base lookups, default-branch
+    detection) then fail silently. This is a best-effort repair: it never
+    raises and never aborts init, regardless of git or network state.
+
+    Repair order:
+      1. No-op if `origin/HEAD` already resolves to an existing ref.
+      2. Try `git remote set-head origin --auto`, which asks the remote which
+         branch is its default (requires network).
+      3. If that fails (no network, no `origin` remote, ...), fall back to
+         scanning locally-known `refs/remotes/origin/*` for `main` or
+         `master` (preferring `main`) and point the symref there directly.
+    """
+    try:
+        valid = subprocess.run(
+            ["git", "rev-parse", "--verify", "-q", "refs/remotes/origin/HEAD"],
+            cwd=target,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if valid.returncode == 0:
+            log(report, "origin/HEAD: valid, no repair needed")
+            return
+
+        auto = subprocess.run(
+            ["git", "remote", "set-head", "origin", "--auto"],
+            cwd=target,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if auto.returncode == 0:
+            log(
+                report, "origin/HEAD: dangling, repaired via git remote set-head --auto"
+            )
+            return
+
+        # `--auto` needs network (or no `origin` remote exists at all) —
+        # fall back to what's already known locally.
+        branches = subprocess.run(
+            [
+                "git",
+                "for-each-ref",
+                "--format=%(refname:short)",
+                "refs/remotes/origin/",
+            ],
+            cwd=target,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if branches.returncode != 0:
+            log(
+                report,
+                "origin/HEAD: dangling, repair skipped — "
+                f"could not list local remote-tracking refs ({branches.stderr.strip()})",
+            )
+            return
+
+        names = {
+            line.split("/", 1)[1]
+            for line in branches.stdout.splitlines()
+            if "/" in line
+        }
+        for candidate in ("main", "master"):
+            if candidate not in names:
+                continue
+
+            fallback = subprocess.run(
+                [
+                    "git",
+                    "symbolic-ref",
+                    "refs/remotes/origin/HEAD",
+                    f"refs/remotes/origin/{candidate}",
+                ],
+                cwd=target,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if fallback.returncode == 0:
+                log(
+                    report,
+                    f"origin/HEAD: dangling, repaired locally to "
+                    f"refs/remotes/origin/{candidate} (offline fallback)",
+                )
+            else:
+                log(
+                    report,
+                    "origin/HEAD: dangling, offline fallback failed — "
+                    f"{fallback.stderr.strip()}",
+                )
+            return
+
+        log(
+            report,
+            "origin/HEAD: dangling, repair skipped — "
+            "no local origin/main or origin/master to fall back to",
+        )
+    except OSError as exc:
+        # git itself unavailable, or some other OS-level failure — this repair
+        # is best-effort and must never abort init.
+        log(report, f"origin/HEAD: repair skipped — {exc}")
+
+
+def copy_factory(
+    source_factory: Path, target: Path, install: dict, report: list[str]
+) -> None:
+    dest = target / "factory"
+
+    # factory/ is unconditionally Agent Factory's own toolset — always record
+    # it for removal, whether we copy it now or it was copied on a prior run.
+    install["remove_paths"].append("factory")
+
+    if dest.exists():
+        log(
+            report,
+            "factory/: already present, skipped — refreshing an existing "
+            "factory/ is the update script's job (factory/scripts/update-factory), "
+            "not init's",
+        )
+        return
+
+    shutil.copytree(source_factory, dest, symlinks=False)
+    log(report, f"factory/: copied in from {source_factory}")
+
+
+def ensure_dot_dirs(target: Path, install: dict, report: list[str],
+                    dot_dirs: list[str] | None = None) -> None:
+    for name in (dot_dirs if dot_dirs is not None else DOT_DIRS):
+        path = target / name
+
+        if path.exists():
+            install["dir_existed"][name] = True
+            log(report, f"{name}/: already present, continuing")
+            continue
+
+        path.mkdir()
+        install["dir_existed"][name] = False
+        install["remove_paths"].append(name)
+        log(report, f"{name}/: created")
+
+
+def ensure_symlink(
+    link: Path, dest: Path, report: list[str], install: dict | None = None
+) -> bool:
+    """Create a relative symlink at `link` pointing to `dest`. Returns True if
+    a new link was created, False if it was already correct. Records created
+    links in install["remove_paths"] when `install` is passed."""
+    rel = os.path.relpath(dest, start=link.parent)
+
+    if link.is_symlink():
+        current = (link.parent / os.readlink(link)).resolve()
+
+        if current == dest.resolve():
+            if install is not None:
+                install["remove_paths"].append(_relpath(link, install))
+            log(report, f"skip (already linked): {link}")
+            return False
+
+        raise Collision(f"{link} is already a symlink to {current}, not to {dest}")
+
+    if link.exists():
+        # When both sides are directories, merge factory entries individually
+        # instead of requiring a wholesale symlink.
+        if link.is_dir() and dest.is_dir() and install is not None:
+            return _merge_into_existing_dir(link, dest, report, install)
+        raise Collision(f"{link} already exists and is not a symlink to {dest}")
+
+    link.symlink_to(rel)
+    if install is not None:
+        install["remove_paths"].append(_relpath(link, install))
+    log(report, f"linked: {link} -> {rel}")
+    return True
+
+
+def _merge_into_existing_dir(
+    link: Path, dest: Path, report: list[str], install: dict
+) -> bool:
+    """Symlink each entry from *dest* into the existing *link* directory.
+
+    Used when the project already owns a directory at a path the factory would
+    normally replace with a single directory symlink (e.g. `.github/scripts`
+    already contains project scripts).  Individual entries are tracked in
+    ``install["remove_paths"]`` for removal, and the parent is recorded in
+    ``install["merged_dirs"]`` so remove-factory knows NOT to ``rmtree`` it.
+    """
+    created_any = False
+    merged_key = _relpath(link, install)
+    install.setdefault("merged_dirs", []).append(merged_key)
+
+    for child in sorted(dest.iterdir()):
+        child_link = link / child.name
+        child_rel = os.path.relpath(child, start=child_link.parent)
+
+        if child_link.is_symlink():
+            current = (child_link.parent / os.readlink(child_link)).resolve()
+            if current == child.resolve():
+                install["remove_paths"].append(_relpath(child_link, install))
+                log(report, f"skip (already merged): {child_link}")
+                continue
+            raise Collision(
+                f"{child_link} is already a symlink to {current}, not to {child}"
+            )
+
+        if child_link.exists():
+            log(report, f"skip (project owns): {child_link}")
+            continue
+
+        child_link.symlink_to(child_rel)
+        install["remove_paths"].append(_relpath(child_link, install))
+        log(report, f"merged: {child_link} -> {child_rel}")
+        created_any = True
+
+    log(report, f"merged factory entries into existing dir: {link}")
+    return created_any
+
+
+def _relpath(path: Path, install: dict) -> str:
+    return os.path.relpath(path, start=install["_target"])
+
+
+def symlink_factory_content(target: Path, install: dict, report: list[str],
+                            dot_dirs: list[str] | None = None) -> None:
+    factory = target / "factory"
+
+    for dot_dir in (dot_dirs if dot_dirs is not None else DOT_DIRS):
+        base = target / dot_dir
+
+        for name in FACTORY_CONTENT:
+            if dot_dir == ".github" and name == "agents":
+                continue  # Copilot agents are generated, not symlinked
+            if dot_dir == ".codex" and name in ("agents", "skills"):
+                continue  # agents generated into .codex/agents/; skills go to .agents/skills/
+            ensure_symlink(base / name, factory / name, report, install=install)
+            # .github and .codex entries are ignored individually (never the
+            # whole dir); .claude and .pi are ignored wholesale.
+            if dot_dir == ".github":
+                merged_key = _relpath(base / name, install)
+                if merged_key in install.get("merged_dirs", []):
+                    for child_rel in install["remove_paths"]:
+                        if child_rel.startswith(merged_key + "/"):
+                            install["github_ignored_entries"].add(child_rel)
+                else:
+                    install["github_ignored_entries"].add(f".github/{name}")
+            elif dot_dir == ".codex":
+                install["codex_ignored_entries"].add(f".codex/{name}")
+
+        _link_orientation(target, dot_dir, factory, install, report)
+
+
+def _ensure_project_directory(path: Path, install: dict, report: list[str]) -> None:
+    """Create a shared project directory without following foreign symlinks."""
+    if path.is_symlink() or (path.exists() and not path.is_dir()):
+        raise Collision(f"{path} exists and is not a project directory")
+    if path.exists():
+        return
+    path.mkdir()
+    log(report, f"{_relpath(path, install)}/: created")
+
+
+def _preflight_codex_link(link: Path, dest: Path) -> None:
+    """Accept an absent or exact Factory link, rejecting every foreign path."""
+    if link.is_symlink():
+        current = (link.parent / os.readlink(link)).resolve()
+        if current != dest.resolve():
+            raise Collision(f"{link} is already a symlink to {current}, not to {dest}")
+        return
+    if link.exists():
+        raise Collision(f"{link} already exists and is not a symlink to {dest}")
+
+
+def _has_codex_agent_marker(path: Path) -> bool:
+    if path.is_symlink() or not path.is_file():
+        return False
+    try:
+        with path.open(encoding="utf-8") as stream:
+            return stream.readline() == CODEX_AGENT_OWNED_MARKER
+    except (OSError, UnicodeError):
+        return False
+
+
+def preflight_codex_adapter(target: Path, install: dict) -> None:
+    """Validate the Codex-specific footprint (.agents/, generated agents, hooks).
+
+    The .codex/ dot-dir itself is created by ensure_dot_dirs and validated there.
+    This function covers what's unique to codex: .agents/ tree, agent generation
+    targets, and hook script destinations."""
+    factory = target / "factory"
+    directory_paths = (
+        target / ".agents",
+        target / ".agents/skills",
+        target / ".codex/agents",
+        target / ".codex/hooks",
+    )
+    for path in directory_paths:
+        if path.is_symlink() or (path.exists() and not path.is_dir()):
+            raise Collision(f"unsafe Codex directory path: {path}")
+
+    # Orientation (AGENTS.md) is validated and linked by _link_orientation
+    # via symlink_factory_content — no preflight needed here.
+
+    for source in sorted((factory / "skills").iterdir()):
+        if source.is_dir() and (source / "SKILL.md").is_file():
+            _preflight_codex_link(target / ".agents/skills" / source.name, source)
+    # Standard factory symlinks (playbooks, rulebooks, scripts, INDEX.yaml)
+    # are validated and created by symlink_factory_content.
+    for name in ("block-dangerous-git.sh", "capture-codex-usage.sh", "step-guard.sh"):
+        _preflight_codex_link(
+            target / ".codex/hooks" / name,
+            target / "factory/config/hooks" / name,
+        )
+
+    prior_agents = install["codex_generated_agents"]
+    desired_agents = {
+        f".codex/agents/{source.stem}.toml"
+        for source in sorted((factory / "agents").glob("*.md"))
+    }
+    for relative in desired_agents:
+        destination = target / relative
+        if not (destination.exists() or destination.is_symlink()):
+            continue
+        if relative not in prior_agents or not _has_codex_agent_marker(destination):
+            raise Collision(f"foreign Codex agent collision: {destination}")
+
+    agents_dir = target / ".codex/agents"
+    if agents_dir.is_dir():
+        for path in agents_dir.glob("*.toml"):
+            relative = _relpath(path, install)
+            if _has_codex_agent_marker(path) and relative not in prior_agents:
+                raise Collision(f"unmanifested Codex agent ownership marker: {path}")
+
+    hooks_path = target / ".codex/hooks.json"
+    if hooks_path.is_symlink():
+        raise Collision(f"unsafe Codex hooks file: {hooks_path}")
+    if hooks_path.exists():
+        info = hooks_path.stat()
+        if (
+            not stat.S_ISREG(info.st_mode)
+            or info.st_nlink != 1
+            or (hasattr(os, "geteuid") and info.st_uid != os.geteuid())
+        ):
+            raise Collision(f"unsafe Codex hooks file: {hooks_path}")
+        try:
+            config = json.loads(hooks_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError, UnicodeError) as exc:
+            raise Collision(f"{hooks_path} exists but isn't valid JSON ({exc})")
+        if not isinstance(config, dict):
+            raise Collision(
+                f"{hooks_path} exists but its top-level JSON isn't an object"
+            )
+        hooks = config.get("hooks", {})
+        if not isinstance(hooks, dict):
+            raise Collision(f"{hooks_path}: 'hooks' key exists but isn't an object")
+        for event in ("PreToolUse", *CODEX_CAPTURE_HOOK_EVENTS):
+            if event in hooks and not isinstance(hooks[event], list):
+                raise Collision(
+                    f"{hooks_path}: 'hooks.{event}' exists but isn't a list"
+                )
+
+
+def install_codex_adapter(target: Path, install: dict, report: list[str]) -> None:
+    """Install Codex's .agents/ tree and generated agent adapters.
+
+    The .codex/ dot-dir and its standard factory symlinks (playbooks, rulebooks,
+    scripts, INDEX.yaml) are already handled by ensure_dot_dirs and
+    symlink_factory_content. This function covers the codex-specific layout:
+    .agents/skills/ symlinks, .codex/agents/*.toml generation, and sub-dirs."""
+    factory = target / "factory"
+    agents_root = target / ".agents"
+    skills_dir = agents_root / "skills"
+    generated_dir = target / ".codex" / "agents"
+
+    for directory in (agents_root, skills_dir, generated_dir):
+        _ensure_project_directory(directory, install, report)
+
+    for source in sorted((factory / "skills").iterdir()):
+        if not source.is_dir() or not (source / "SKILL.md").is_file():
+            continue
+        link = skills_dir / source.name
+        ensure_symlink(link, source, report, install=install)
+        install["agents_ignored_entries"].add(_relpath(link, install))
+
+    generator = factory / "scripts" / "generate-codex-agents"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(generator),
+            "--agents-dir",
+            str(factory / "agents"),
+            "--output-dir",
+            str(generated_dir),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        reason = result.stderr.strip() or result.stdout.strip() or "generation failed"
+        raise Collision(f"Codex agent generation failed: {reason}")
+    log(report, result.stdout.strip())
+    install["codex_generated_agents"] = set()
+    for source in sorted((factory / "agents").glob("*.md")):
+        generated = generated_dir / f"{source.stem}.toml"
+        relative = _relpath(generated, install)
+        install["remove_paths"].append(relative)
+        install["codex_ignored_entries"].add(relative)
+        install["codex_generated_agents"].add(relative)
+
+
+def _has_copilot_agent_marker(path: Path) -> bool:
+    if path.is_symlink() or not path.is_file():
+        return False
+    try:
+        text = path.read_text(encoding="utf-8")
+        if not text.startswith("---"):
+            return False
+        close = text.find("\n---", 3)
+        if close == -1:
+            return False
+        return COPILOT_OWNED_MARKER in text[:close]
+    except (OSError, UnicodeError):
+        return False
+
+
+def preflight_copilot_agents(target: Path, install: dict) -> None:
+    """Validate the Copilot agents directory before generating into it."""
+    factory = target / "factory"
+    agents_dir = target / ".github" / "agents"
+
+    if agents_dir.is_symlink():
+        current = (agents_dir.parent / os.readlink(agents_dir)).resolve()
+        canonical = (factory / "agents").resolve()
+        if current != canonical:
+            raise Collision(
+                f".github/agents is a symlink to {current}, not to {canonical}"
+            )
+        return  # Will be replaced during install
+
+    if not agents_dir.is_dir():
+        return  # Will be created
+
+    prior = install["copilot_generated_agents"]
+    desired = {
+        f".github/agents/{src.name}"
+        for src in sorted((factory / "agents").glob("*.md"))
+    }
+    for relative in desired:
+        destination = target / relative
+        if not destination.exists():
+            continue
+        if relative in prior or _has_copilot_agent_marker(destination):
+            continue
+        if destination.is_symlink():
+            current = (destination.parent / os.readlink(destination)).resolve()
+            canonical = (factory / "agents" / destination.name).resolve()
+            if current == canonical:
+                continue  # Old symlink from prior init; will be replaced
+        try:
+            if (
+                destination.read_bytes()
+                == (factory / "agents" / destination.name).read_bytes()
+            ):
+                continue  # Byte-identical copy from prior init
+        except OSError:
+            pass
+        raise Collision(f"foreign Copilot agent collision: {destination}")
+
+    for path in agents_dir.glob("*.md"):
+        relative = _relpath(path, install)
+        if _has_copilot_agent_marker(path) and relative not in prior:
+            raise Collision(f"unmanifested Copilot agent ownership marker: {path}")
+
+
+def install_copilot_agents(target: Path, install: dict, report: list[str]) -> None:
+    """Generate Copilot agent definitions with tools: frontmatter."""
+    factory = target / "factory"
+    agents_dir = target / ".github" / "agents"
+
+    if agents_dir.is_symlink():
+        agents_dir.unlink()
+        log(
+            report,
+            ".github/agents: removed directory symlink (replaced by generated copies)",
+        )
+
+    agents_dir.mkdir(parents=True, exist_ok=True)
+
+    generator = factory / "scripts" / "generate-copilot-agents"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(generator),
+            "--agents-dir",
+            str(factory / "agents"),
+            "--output-dir",
+            str(agents_dir),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        reason = result.stderr.strip() or result.stdout.strip() or "generation failed"
+        raise Collision(f"Copilot agent generation failed: {reason}")
+    log(report, result.stdout.strip())
+
+    install["copilot_generated_agents"] = set()
+    for source in sorted((factory / "agents").glob("*.md")):
+        generated = agents_dir / source.name
+        relative = _relpath(generated, install)
+        install["remove_paths"].append(relative)
+        install["copilot_generated_agents"].add(relative)
+    install["github_ignored_entries"].add(".github/agents")
+
+
+def _orientation_block(dot_dir: str, factory: Path) -> str:
+    """Build the marker-fenced orientation block for a given CLI."""
+    include = ORIENTATION_INCLUDE.get(dot_dir)
+    if include is not None:
+        body = include
+    else:
+        body = (factory / "config" / "AGENTS.md").read_text(encoding="utf-8")
+        if not body.endswith("\n"):
+            body += "\n"
+        target = RULEBOOK_LINK_TARGETS.get(dot_dir)
+        if target is not None:
+            body = body.replace("](../rulebooks/rules.md)", f"]({target})")
+    return (
+        ORIENTATION_BEGIN
+        + "\n"
+        + "Added by init-factory; remove with factory/scripts/remove-factory.\n"
+        + body
+        + ORIENTATION_END
+        + "\n"
+    )
+
+
+def _inject_orientation(
+    path: Path,
+    dot_dir: str,
+    factory: Path,
+    install: dict,
+    report: list[str],
+) -> None:
+    """Prepend a marker-fenced orientation block to an existing orientation
+    file.  Idempotent: refreshes the block on re-run, skips if current."""
+    rel = _relpath(path, install)
+    block = _orientation_block(dot_dir, factory)
+    existing = path.read_text(encoding="utf-8")
+
+    if ORIENTATION_BEGIN in existing and ORIENTATION_END in existing:
+        pre, rest = existing.split(ORIENTATION_BEGIN, 1)
+        _, post = rest.split(ORIENTATION_END, 1)
+        rebuilt = pre + block + post.lstrip("\n")
+        if rebuilt != existing:
+            path.write_text(rebuilt, encoding="utf-8")
+            log(report, f"{rel}: refreshed Agent Factory orientation block")
+        else:
+            log(report, f"{rel}: orientation block already current")
+        install["orientation"][rel] = "injected"
+        return
+
+    install.setdefault("orientation_orig_final_newline", {}).setdefault(
+        rel, existing.endswith("\n")
+    )
+    header = block + "\n"
+    path.write_text(header + existing, encoding="utf-8")
+    install["orientation"][rel] = "injected"
+    log(report, f"{rel}: prepended Agent Factory orientation block")
+
+
+def _link_orientation(
+    target: Path, dot_dir: str, factory: Path, install: dict, report: list[str]
+) -> None:
+    rel = ORIENTATION_FILE[dot_dir]
+    link = target / rel
+    dest = factory / "config" / "AGENTS.md"
+
+    if link.is_symlink():
+        current = (link.parent / os.readlink(link)).resolve()
+        if current == dest.resolve():
+            install["remove_paths"].append(rel)
+            install["orientation"][rel] = "linked"
+            log(report, f"skip (already linked): {rel}")
+        else:
+            install["orientation"][rel] = "external"
+            log(report, f"{rel}: symlinked externally to {current} — left untouched.")
+            log(report, f"  To use factory integration, add an include of")
+            log(report, f"  factory/rulebooks/rules.md to your own file.")
+        if dot_dir == ".github":
+            install["github_ignored_entries"].add(rel)
+        elif dot_dir in (".pi", ".codex"):
+            install["ignore_root_agents"] = True
+        return
+
+    if link.exists():
+        _inject_orientation(link, dot_dir, factory, install, report)
+        return
+
+    ensure_symlink(link, dest, report, install=install)
+    install["orientation"][rel] = "linked"
+    if dot_dir == ".github":
+        install["github_ignored_entries"].add(rel)
+    elif dot_dir in (".pi", ".codex"):
+        install["ignore_root_agents"] = True
+
+
+def install_git_guardrail(target: Path, install: dict, report: list[str],
+                          clis: list[str] | None = None) -> None:
+    if _wants(clis, "claude"):
+        _install_claude_guardrail(target, install, report)
+    if _wants(clis, "copilot"):
+        _install_copilot_guardrail(target, install, report)
+    if _wants(clis, "pi"):
+        _install_pi_guardrail(target, install, report)
+    if _wants(clis, "codex"):
+        _install_codex_guardrail(target, install, report)
+
+
+def install_step_guard(target: Path, install: dict, report: list[str],
+                       clis: list[str] | None = None) -> None:
+    """Install step-guard wiring beside the existing native hooks."""
+    if _wants(clis, "claude"):
+        _install_claude_step_guard(target, install, report)
+    if _wants(clis, "copilot"):
+        _install_copilot_step_guard(target, install, report)
+    if _wants(clis, "pi"):
+        _install_pi_step_guard(target, install, report)
+    if _wants(clis, "codex"):
+        _install_codex_step_guard(target, install, report)
+
+
+def install_usage_capture(target: Path, install: dict, report: list[str],
+                          clis: list[str] | None = None) -> None:
+    """Install native usage-capture triggers for the selected CLIs."""
+    if _wants(clis, "claude"):
+        hooks_dir = target / ".claude" / "hooks"
+        hooks_dir.mkdir(parents=True, exist_ok=True)
+        link = hooks_dir / "capture-usage.sh"
+        dest = target / "factory" / "config" / "hooks" / "capture-usage.sh"
+        ensure_symlink(link, dest, report, install=install)
+        _ensure_claude_capture_settings(target, install, report)
+    if _wants(clis, "copilot"):
+        _install_copilot_usage_capture(target, install, report)
+    if _wants(clis, "codex"):
+        _install_codex_usage_capture(target, install, report)
+    if _wants(clis, "pi"):
+        _install_pi_usage_capture(target, install, report)
+
+
+def _secure_runtime_tree(root: Path) -> None:
+    """Make the project-owned runtime private without following symlinks."""
+    os.chmod(root, 0o700, follow_symlinks=False)
+    for entry in os.scandir(root):
+        info = entry.stat(follow_symlinks=False)
+        path = Path(entry.path)
+        if stat.S_ISLNK(info.st_mode):
+            continue
+        if stat.S_ISDIR(info.st_mode):
+            _secure_runtime_tree(path)
+        elif stat.S_ISREG(info.st_mode):
+            os.chmod(path, 0o700 if info.st_mode & 0o111 else 0o600)
+
+
+def provision_usage_runtime(target: Path, report: list[str]) -> bool:
+    """Install hash-verified tokenizer dependencies before hooks activate.
+
+    Network access, when needed, is confined to this user-invoked init step.
+    ``UV_OFFLINE`` is passed explicitly so an offline init either uses already
+    cached verified artifacts or leaves capture inactive with a clear report.
+    """
+    requirements = target / USAGE_REQUIREMENTS
+    runtime = target / USAGE_RUNTIME
+    ready = runtime / ".requirements-sha256"
+    if runtime.is_symlink() or (runtime.exists() and not runtime.is_dir()):
+        log(report, f"usage capture unavailable: unsafe runtime path {runtime}")
+        return False
+    if runtime.exists() and ready.exists():
+        ready.unlink()
+
+    runtime.parent.mkdir(parents=True, exist_ok=True)
+    os.chmod(runtime.parent, 0o700)
+    stage = runtime.parent / f"usage-runtime-stage-{uuid.uuid4()}"
+    backup = runtime.parent / f"usage-runtime-old-{uuid.uuid4()}"
+    offline = os.environ.get("UV_OFFLINE", "").lower() not in ("", "0", "false", "no")
+    common = ["--offline"] if offline else []
+    try:
+        digest = hashlib.sha256(requirements.read_bytes()).hexdigest()
+        create = subprocess.run(
+            ["uv", "venv", *common, "--no-python-downloads", str(stage)],
+            cwd=target,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if create.returncode != 0:
+            raise RuntimeError(create.stderr.strip() or "uv venv failed")
+        python = stage / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        sync = subprocess.run(
+            [
+                "uv",
+                "pip",
+                "sync",
+                *common,
+                "--require-hashes",
+                "--no-build",
+                "--no-python-downloads",
+                "--python",
+                str(python),
+                str(requirements),
+            ],
+            cwd=target,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if sync.returncode != 0:
+            raise RuntimeError(sync.stderr.strip() or "uv pip sync failed")
+        marker = stage / ".requirements-sha256"
+        marker.write_text(digest + "\n", encoding="ascii")
+        _secure_runtime_tree(stage)
+        if runtime.exists():
+            runtime.rename(backup)
+        stage.rename(runtime)
+        if backup.exists():
+            shutil.rmtree(backup, ignore_errors=True)
+        log(report, "usage capture runtime: exact hash-verified environment ready")
+        return True
+    except (OSError, RuntimeError) as exc:
+        if stage.exists():
+            shutil.rmtree(stage)
+        if backup.exists() and not runtime.exists():
+            backup.rename(runtime)
+        log(report, f"usage capture unavailable; lifecycle hooks left inactive — {exc}")
+        return False
+
+
+def _install_pi_usage_capture(target: Path, install: dict, report: list[str]) -> None:
+    """Install Pi's native human-session shutdown trigger and shared bridge."""
+    extensions_dir = _ensure_pi_extensions_dir(target, install, report)
+    for name in ("capture-usage.ts", "pi-usage.ts"):
+        ensure_symlink(
+            extensions_dir / name,
+            target / "factory" / "config" / "extensions" / name,
+            report,
+            install=install,
+        )
+
+
+def _install_codex_usage_capture(
+    target: Path, install: dict, report: list[str]
+) -> None:
+    """Merge Factory's Codex lifecycle hooks into project hook config."""
+    hooks_dir = _ensure_codex_hooks_dir(target, install, report)
+    install["codex_ignored_entries"].add(".codex/hooks/capture-codex-usage.sh")
+
+    ensure_symlink(
+        hooks_dir / "capture-codex-usage.sh",
+        target / "factory/config/hooks/capture-codex-usage.sh",
+        report,
+        install=install,
+    )
+
+    path, config, hooks, existed = _load_codex_hooks(target, install)
+
+    changed = False
+    for event in CODEX_CAPTURE_HOOK_EVENTS:
+        entries = hooks.setdefault(event, [])
+        if not isinstance(entries, list):
+            raise Collision(f"{path}: 'hooks.{event}' exists but isn't a list")
+        already_wired = any(
+            isinstance(hook, dict) and hook.get("command") == CODEX_CAPTURE_HOOK_COMMAND
+            for entry in entries
+            for hook in (entry.get("hooks", []) if isinstance(entry, dict) else [])
+        )
+        if not already_wired:
+            entries.append(
+                {"hooks": [{"type": "command", "command": CODEX_CAPTURE_HOOK_COMMAND}]}
+            )
+            _record_codex_handler(
+                install,
+                {"event": event, "command": CODEX_CAPTURE_HOOK_COMMAND},
+            )
+            changed = True
+
+    if changed or not existed:
+        path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+        log(report, ".codex/hooks.json: wired Stop/SubagentStop usage capture")
+
+    log(
+        report,
+        "Codex usage capture: installed but not active until trusted; "
+        "start Codex, open /hooks, then review and trust the project hooks",
+    )
+
+
+def _ensure_codex_hooks_dir(target: Path, install: dict, report: list[str]) -> Path:
+    hooks_dir = target / ".codex" / "hooks"
+    _ensure_project_directory(hooks_dir, install, report)
+    return hooks_dir
+
+
+def _record_codex_handler(install: dict, handler: dict) -> None:
+    if handler not in install["codex_hook_handlers"]:
+        install["codex_hook_handlers"].append(handler)
+
+
+def _load_codex_hooks(target: Path, install: dict) -> tuple[Path, dict, dict, bool]:
+    """Load the shared Codex hook document while preserving ownership facts."""
+    path = target / ".codex" / "hooks.json"
+    existed = path.exists()
+    if existed:
+        install.setdefault("codex_hooks_existed", True)
+        raw = path.read_text(encoding="utf-8")
+        if install.get("codex_hooks_existed", True):
+            install.setdefault("codex_hooks_original", raw)
+        try:
+            config = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise Collision(f"{path} exists but isn't valid JSON ({exc})")
+        if not isinstance(config, dict):
+            raise Collision(f"{path} exists but its top-level JSON isn't an object")
+    else:
+        config = {}
+        install["codex_hooks_existed"] = False
+        install["remove_paths"].append(".codex/hooks.json")
+        install["codex_ignored_entries"].add(".codex/hooks.json")
+
+    hooks = config.setdefault("hooks", {})
+    if not isinstance(hooks, dict):
+        raise Collision(f"{path}: 'hooks' key exists but isn't an object")
+    return path, config, hooks, existed
+
+
+def _install_codex_guardrail(target: Path, install: dict, report: list[str]) -> None:
+    """Install Codex's Bash matcher without disturbing project hook entries."""
+    hooks_dir = _ensure_codex_hooks_dir(target, install, report)
+    link = hooks_dir / "block-dangerous-git.sh"
+    ensure_symlink(
+        link,
+        target / "factory/config/hooks/block-dangerous-git.sh",
+        report,
+        install=install,
+    )
+    install["codex_ignored_entries"].add(_relpath(link, install))
+
+    path, config, hooks, existed = _load_codex_hooks(target, install)
+    entries = hooks.setdefault("PreToolUse", [])
+    if not isinstance(entries, list):
+        raise Collision(f"{path}: 'hooks.PreToolUse' exists but isn't a list")
+    already_wired = any(
+        isinstance(hook, dict) and hook.get("command") == CODEX_GUARDRAIL_HOOK_COMMAND
+        for entry in entries
+        for hook in (entry.get("hooks", []) if isinstance(entry, dict) else [])
+    )
+    if already_wired:
+        log(report, ".codex/hooks.json: git-safety guardrail already wired")
+        return
+    entries.append(
+        {
+            "matcher": "^Bash$",
+            "hooks": [{"type": "command", "command": CODEX_GUARDRAIL_HOOK_COMMAND}],
+        }
+    )
+    _record_codex_handler(
+        install,
+        {
+            "event": "PreToolUse",
+            "matcher": "^Bash$",
+            "command": CODEX_GUARDRAIL_HOOK_COMMAND,
+        },
+    )
+    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    action = "created" if not existed else "added"
+    log(report, f".codex/hooks.json: {action} Codex git-safety guardrail")
+
+
+def _install_copilot_usage_capture(
+    target: Path, install: dict, report: list[str]
+) -> None:
+    """Install an isolated Copilot version-1 hook file.
+
+    Copilot combines `.github/hooks/*.json`, so a dedicated Factory-owned file
+    is merge-safe without parsing or rewriting project-owned hook files.
+    """
+    hooks_dir = target / ".github" / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+    install["github_ignored_entries"].add(".github/hooks")
+
+    for name in ("capture-copilot-usage.sh", "capture-usage.json"):
+        ensure_symlink(
+            hooks_dir / name,
+            target / "factory" / "config" / "hooks" / name,
+            report,
+            install=install,
+        )
+
+    log(
+        report,
+        "Copilot usage capture: agentStop totals include child activity; "
+        "subagentStop is attribution-only (general-purpose emits no child hook)",
+    )
+
+
+def _install_claude_guardrail(target: Path, install: dict, report: list[str]) -> None:
+    hooks_dir = target / ".claude" / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+
+    link = hooks_dir / "block-dangerous-git.sh"
+    dest = target / "factory" / "config" / "hooks" / "block-dangerous-git.sh"
+    ensure_symlink(link, dest, report, install=install)
+
+    _ensure_claude_guardrail_settings(target, install, report)
+
+
+def _install_claude_step_guard(target: Path, install: dict, report: list[str]) -> None:
+    hooks_dir = target / ".claude" / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+
+    link = hooks_dir / "step-guard.sh"
+    dest = target / "factory" / "config" / "hooks" / "step-guard.sh"
+    ensure_symlink(link, dest, report, install=install)
+
+    _ensure_claude_step_guard_settings(target, install, report)
+
+
+def _install_copilot_guardrail(target: Path, install: dict, report: list[str]) -> None:
+    hooks_dir = target / ".github" / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+    install["github_ignored_entries"].add(".github/hooks")
+
+    script_link = hooks_dir / "block-dangerous-git.sh"
+    script_dest = target / "factory" / "config" / "hooks" / "block-dangerous-git.sh"
+    ensure_symlink(script_link, script_dest, report, install=install)
+
+    config_link = hooks_dir / "block-dangerous-git.json"
+    config_dest = target / "factory" / "config" / "hooks" / "block-dangerous-git.json"
+    ensure_symlink(config_link, config_dest, report, install=install)
+
+
+def _install_copilot_step_guard(target: Path, install: dict, report: list[str]) -> None:
+    hooks_dir = target / ".github" / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+    install["github_ignored_entries"].add(".github/hooks")
+
+    for name in ("step-guard.sh", "step-guard.json"):
+        ensure_symlink(
+            hooks_dir / name,
+            target / "factory" / "config" / "hooks" / name,
+            report,
+            install=install,
+        )
+
+
+def _install_codex_step_guard(target: Path, install: dict, report: list[str]) -> None:
+    """Merge Factory's Codex step-guard hooks into project hook config."""
+    hooks_dir = _ensure_codex_hooks_dir(target, install, report)
+    install["codex_ignored_entries"].add(".codex/hooks/step-guard.sh")
+
+    ensure_symlink(
+        hooks_dir / "step-guard.sh",
+        target / "factory" / "config" / "hooks" / "step-guard.sh",
+        report,
+        install=install,
+    )
+
+    path, config, hooks, existed = _load_codex_hooks(target, install)
+    entries = hooks.setdefault("PreToolUse", [])
+    if not isinstance(entries, list):
+        raise Collision(f"{path}: 'hooks.PreToolUse' exists but isn't a list")
+
+    changed = False
+    for event, command in CODEX_STEP_GUARD_HOOK_COMMANDS.items():
+        already_wired = any(
+            isinstance(entry, dict)
+            and entry.get("matcher") == event
+            and any(
+                isinstance(hook, dict) and hook.get("command") == command
+                for hook in (entry.get("hooks", []) if isinstance(entry, dict) else [])
+            )
+            for entry in entries
+        )
+        if already_wired:
+            continue
+        entries.append(
+            {
+                "matcher": event,
+                "hooks": [{"type": "command", "command": command}],
+            }
+        )
+        _record_codex_handler(
+            install,
+            {"event": "PreToolUse", "matcher": event, "command": command},
+        )
+        changed = True
+
+    if changed or not existed:
+        path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+        log(report, ".codex/hooks.json: wired step-guard PreToolUse entries")
+
+
+def _ensure_pi_extensions_dir(target: Path, install: dict, report: list[str]) -> Path:
+    extensions_dir = target / ".pi" / "extensions"
+    if not extensions_dir.exists():
+        extensions_dir.mkdir(parents=True)
+        install["remove_paths"].append(".pi/extensions")
+        log(report, ".pi/extensions: created")
+    return extensions_dir
+
+
+def _install_pi_guardrail(target: Path, install: dict, report: list[str]) -> None:
+    extensions_dir = _ensure_pi_extensions_dir(target, install, report)
+
+    link = extensions_dir / "block-dangerous-git.ts"
+    dest = target / "factory" / "config" / "extensions" / "block-dangerous-git.ts"
+    ensure_symlink(link, dest, report, install=install)
+
+
+def _install_pi_step_guard(target: Path, install: dict, report: list[str]) -> None:
+    extensions_dir = _ensure_pi_extensions_dir(target, install, report)
+
+    link = extensions_dir / "step-guard.ts"
+    dest = target / "factory" / "config" / "extensions" / "step-guard.ts"
+    ensure_symlink(link, dest, report, install=install)
+
+
+def install_pi_invocation_layer(target: Path, install: dict, report: list[str]) -> None:
+    """Symlink the Pi invocation-layer extensions into .pi/extensions/. Pi has
+    no native subagent concept; run_agent runs one factory agent in a separate
+    Pi session, and dispatch_wave runs a parallel, worktree-isolated wave of
+    them (ADR-0004, UC-10, FR-J4)."""
+    extensions_dir = _ensure_pi_extensions_dir(target, install, report)
+
+    for name in ("run-agent.ts", "dispatch-wave.ts", "pi-usage.ts"):
+        link = extensions_dir / name
+        dest = target / "factory" / "config" / "extensions" / name
+        ensure_symlink(link, dest, report, install=install)
+
+
+def _ensure_claude_guardrail_settings(
+    target: Path, install: dict, report: list[str]
+) -> None:
+    path = target / ".claude" / "settings.json"
+
+    if not path.exists():
+        settings = {
+            "hooks": {
+                "PreToolUse": [
+                    {
+                        "matcher": "Bash",
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": CLAUDE_GUARDRAIL_HOOK_COMMAND,
+                            }
+                        ],
+                    }
+                ]
+            }
+        }
+        path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+        install["claude_settings_existed"] = False
+        # Recorded for removal in case .claude/ itself pre-existed and so isn't
+        # deleted wholesale; harmless when .claude/ is removed as a unit.
+        install["remove_paths"].append(".claude/settings.json")
+        log(report, ".claude/settings.json: created with git-safety guardrail hook")
+        return
+
+    # setdefault: if a prior run created it, keep existed=False (it's ours).
+    install.setdefault("claude_settings_existed", True)
+
+    try:
+        settings = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise Collision(
+            f"{path} exists but isn't valid JSON ({e}) — wire the git-safety "
+            "guardrail hook in by hand: a PreToolUse/Bash hook running "
+            f"{CLAUDE_GUARDRAIL_HOOK_COMMAND}"
+        )
+
+    if not isinstance(settings, dict):
+        raise Collision(
+            f"{path} exists but its top-level JSON isn't an object — wire the "
+            f"git-safety guardrail hook in by hand: a PreToolUse/Bash hook running "
+            f"{CLAUDE_GUARDRAIL_HOOK_COMMAND}"
+        )
+
+    hooks = settings.setdefault("hooks", {})
+    if not isinstance(hooks, dict):
+        raise Collision(
+            f"{path}: 'hooks' key exists but isn't an object — wire it in by hand"
+        )
+
+    pre_tool_use = hooks.setdefault("PreToolUse", [])
+    if not isinstance(pre_tool_use, list):
+        raise Collision(
+            f"{path}: 'hooks.PreToolUse' exists but isn't a list — wire the "
+            "git-safety guardrail hook in by hand"
+        )
+
+    for entry in pre_tool_use:
+        entry_hooks = entry.get("hooks", []) if isinstance(entry, dict) else []
+        for hook in entry_hooks:
+            if (
+                isinstance(hook, dict)
+                and hook.get("command") == CLAUDE_GUARDRAIL_HOOK_COMMAND
+            ):
+                log(
+                    report,
+                    ".claude/settings.json: git-safety guardrail hook already wired in",
+                )
+                return
+
+    pre_tool_use.append(
+        {
+            "matcher": "Bash",
+            "hooks": [{"type": "command", "command": CLAUDE_GUARDRAIL_HOOK_COMMAND}],
+        }
+    )
+    path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+    log(report, ".claude/settings.json: added git-safety guardrail hook")
+
+
+def _ensure_claude_step_guard_settings(
+    target: Path, install: dict, report: list[str]
+) -> None:
+    """Wire the step-guard Read/Edit/Write/Bash entries into
+    .claude/settings.json, preserving unrelated hooks."""
+    path = target / ".claude" / "settings.json"
+
+    if not path.exists():
+        settings = {
+            "hooks": {
+                "PreToolUse": [
+                    {
+                        "matcher": tool_name,
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": command,
+                            }
+                        ],
+                    }
+                    for tool_name, command in CLAUDE_STEP_GUARD_HOOK_COMMANDS.items()
+                ]
+            }
+        }
+        path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+        install["claude_settings_existed"] = False
+        install["remove_paths"].append(".claude/settings.json")
+        log(report, ".claude/settings.json: created with step-guard hook entries")
+        return
+
+    install.setdefault("claude_settings_existed", True)
+
+    try:
+        settings = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise Collision(
+            f"{path} exists but isn't valid JSON ({e}) — wire the step-guard "
+            "hooks in by hand"
+        )
+
+    if not isinstance(settings, dict):
+        raise Collision(
+            f"{path} exists but its top-level JSON isn't an object — wire the "
+            "step-guard hooks in by hand"
+        )
+
+    hooks = settings.setdefault("hooks", {})
+    if not isinstance(hooks, dict):
+        raise Collision(
+            f"{path}: 'hooks' key exists but isn't an object — wire it in by hand"
+        )
+
+    changed = False
+    for tool_name, command in CLAUDE_STEP_GUARD_HOOK_COMMANDS.items():
+        changed = (
+            _wire_claude_step_guard_event(path, hooks, tool_name, command, report)
+            or changed
+        )
+        changed = (
+            _migrate_legacy_step_guard_event(hooks, tool_name, command, report)
+            or changed
+        )
+
+    if changed:
+        path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+
+
+def _wire_claude_step_guard_event(
+    path: Path, hooks: dict, tool_name: str, command: str, report: list[str]
+) -> bool:
+    pre_tool_use = hooks.setdefault("PreToolUse", [])
+    if not isinstance(pre_tool_use, list):
+        raise Collision(
+            f"{path}: 'hooks.PreToolUse' exists but isn't a list — wire the "
+            "step-guard hook in by hand"
+        )
+
+    for entry in pre_tool_use:
+        if not isinstance(entry, dict) or entry.get("matcher") != tool_name:
+            continue
+        entry_hooks = entry.get("hooks", [])
+        for hook in entry_hooks:
+            if isinstance(hook, dict) and hook.get("command") == command:
+                log(
+                    report,
+                    f".claude/settings.json: {tool_name} step-guard hook already wired in",
+                )
+                return False
+
+    pre_tool_use.append(
+        {
+            "matcher": tool_name,
+            "hooks": [{"type": "command", "command": command}],
+        }
+    )
+    log(report, f".claude/settings.json: added {tool_name} step-guard hook")
+    return True
+
+
+def _migrate_legacy_step_guard_event(
+    hooks: dict, tool_name: str, command: str, report: list[str]
+) -> bool:
+    """Remove old-format top-level tool-name event keys left by pre-fix installs."""
+    entries = hooks.get(tool_name)
+    if not isinstance(entries, list):
+        return False
+    kept = []
+    removed = False
+    for entry in entries:
+        entry_hooks = entry.get("hooks", []) if isinstance(entry, dict) else []
+        if any(
+            isinstance(h, dict) and h.get("command") == command for h in entry_hooks
+        ):
+            removed = True
+        else:
+            kept.append(entry)
+    if not removed:
+        return False
+    if kept:
+        hooks[tool_name] = kept
+    else:
+        del hooks[tool_name]
+    log(
+        report,
+        f".claude/settings.json: migrated legacy {tool_name} step-guard event to PreToolUse",
+    )
+    return True
+
+
+def _ensure_claude_capture_settings(
+    target: Path, install: dict, report: list[str]
+) -> None:
+    """Wire the usage-capture Stop/SubagentStop entries into
+    .claude/settings.json, mirroring `_ensure_claude_guardrail_settings`
+    above: created if absent, merged if present, one entry per event, never
+    duplicated, never touching hooks the project already owns (including the
+    guardrail's own PreToolUse entry, which this function never looks at)."""
+    path = target / ".claude" / "settings.json"
+
+    if not path.exists():
+        settings = {
+            "hooks": {
+                event: [
+                    {
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": CLAUDE_CAPTURE_HOOK_COMMAND,
+                            }
+                        ]
+                    }
+                ]
+                for event in CLAUDE_CAPTURE_HOOK_EVENTS
+            }
+        }
+        path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+        install["claude_settings_existed"] = False
+        install["remove_paths"].append(".claude/settings.json")
+        log(
+            report,
+            ".claude/settings.json: created with usage-capture Stop/SubagentStop hooks",
+        )
+        return
+
+    # setdefault: if a prior run (or the guardrail install just above) created
+    # it, keep existed=False (it's ours).
+    install.setdefault("claude_settings_existed", True)
+
+    try:
+        settings = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise Collision(
+            f"{path} exists but isn't valid JSON ({e}) — wire the usage-capture "
+            "hooks in by hand: Stop and SubagentStop hooks running "
+            f"{CLAUDE_CAPTURE_HOOK_COMMAND}"
+        )
+
+    if not isinstance(settings, dict):
+        raise Collision(
+            f"{path} exists but its top-level JSON isn't an object — wire the "
+            f"usage-capture hooks in by hand: Stop and SubagentStop hooks "
+            f"running {CLAUDE_CAPTURE_HOOK_COMMAND}"
+        )
+
+    hooks = settings.setdefault("hooks", {})
+    if not isinstance(hooks, dict):
+        raise Collision(
+            f"{path}: 'hooks' key exists but isn't an object — wire it in by hand"
+        )
+
+    changed = False
+    for event in CLAUDE_CAPTURE_HOOK_EVENTS:
+        changed = _wire_capture_event(path, hooks, event, report) or changed
+
+    if changed:
+        path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+
+
+def _wire_capture_event(path: Path, hooks: dict, event: str, report: list[str]) -> bool:
+    """Append the usage-capture command entry under hooks[event] unless
+    already present. Returns True iff it added a new entry (so the caller
+    only rewrites the file when something actually changed)."""
+    entries = hooks.setdefault(event, [])
+    if not isinstance(entries, list):
+        raise Collision(
+            f"{path}: 'hooks.{event}' exists but isn't a list — wire the "
+            "usage-capture hook in by hand"
+        )
+
+    for entry in entries:
+        entry_hooks = entry.get("hooks", []) if isinstance(entry, dict) else []
+        for hook in entry_hooks:
+            if (
+                isinstance(hook, dict)
+                and hook.get("command") == CLAUDE_CAPTURE_HOOK_COMMAND
+            ):
+                log(
+                    report,
+                    f".claude/settings.json: {event} usage-capture hook already wired in",
+                )
+                return False
+
+    entries.append(
+        {"hooks": [{"type": "command", "command": CLAUDE_CAPTURE_HOOK_COMMAND}]}
+    )
+    log(report, f".claude/settings.json: added {event} usage-capture hook")
+    return True
+
+
+# ── Project context scan ───────────────────────────────────────────────
+
+SCAN_SKIP_DIRS = frozenset({
+    ".git", "node_modules", "__pycache__", ".venv", "venv", ".tox", ".nox",
+    "dist", "build", ".eggs", ".mypy_cache", ".pytest_cache", ".ruff_cache",
+    "factory", ".agent-factory", ".current-work", ".claude", ".github", ".pi",
+    ".codex", ".agents",
+})
+
+LANGUAGE_MANIFESTS: dict[str, str] = {
+    "pyproject.toml": "python",
+    "setup.py": "python",
+    "setup.cfg": "python",
+    "package.json": "javascript",
+    "tsconfig.json": "typescript",
+    "go.mod": "go",
+    "Cargo.toml": "rust",
+    "pom.xml": "java",
+    "build.gradle": "java",
+    "build.gradle.kts": "java",
+    "Gemfile": "ruby",
+    "mix.exs": "elixir",
+    "Project.toml": "julia",
+    "composer.json": "php",
+}
+
+PACKAGE_MANAGER_LOCKFILES: dict[str, str] = {
+    "uv.lock": "uv",
+    "poetry.lock": "poetry",
+    "Pipfile.lock": "pipenv",
+    "requirements.txt": "pip",
+    "package-lock.json": "npm",
+    "yarn.lock": "yarn",
+    "pnpm-lock.yaml": "pnpm",
+    "bun.lockb": "bun",
+    "go.sum": "go",
+    "Cargo.lock": "cargo",
+    "Gemfile.lock": "bundler",
+    "mix.lock": "mix",
+    "composer.lock": "composer",
+}
+
+CI_PATH_SIGNALS: dict[str, str] = {
+    ".github/workflows": "github-actions",
+    ".circleci": "circleci",
+}
+
+CI_FILE_SIGNALS: dict[str, str] = {
+    ".gitlab-ci.yml": "gitlab-ci",
+    "Jenkinsfile": "jenkins",
+    "bitbucket-pipelines.yml": "bitbucket",
+    ".travis.yml": "travis",
+    "azure-pipelines.yml": "azure-devops",
+}
+
+LINTER_CONFIGS: dict[str, str] = {
+    "ruff.toml": "ruff",
+    ".eslintrc": "eslint",
+    ".eslintrc.js": "eslint",
+    ".eslintrc.json": "eslint",
+    ".eslintrc.yml": "eslint",
+    "eslint.config.js": "eslint",
+    "eslint.config.mjs": "eslint",
+    "eslint.config.ts": "eslint",
+    ".prettierrc": "prettier",
+    ".prettierrc.js": "prettier",
+    ".prettierrc.json": "prettier",
+    "prettier.config.js": "prettier",
+    "biome.json": "biome",
+    ".rubocop.yml": "rubocop",
+    ".golangci.yml": "golangci-lint",
+    ".golangci.yaml": "golangci-lint",
+    "clippy.toml": "clippy",
+}
+
+TEST_RUNNER_SIGNALS: dict[str, str] = {
+    "conftest.py": "pytest",
+    "pytest.ini": "pytest",
+    "jest.config.js": "jest",
+    "jest.config.ts": "jest",
+    "jest.config.mjs": "jest",
+    "vitest.config.js": "vitest",
+    "vitest.config.ts": "vitest",
+    "vitest.config.mjs": "vitest",
+    "cypress.config.js": "cypress",
+    "cypress.config.ts": "cypress",
+    "playwright.config.js": "playwright",
+    "playwright.config.ts": "playwright",
+    ".rspec": "rspec",
+    "phpunit.xml": "phpunit",
+}
+
+DOCS_TOOLING_SIGNALS: dict[str, str] = {
+    "mkdocs.yml": "mkdocs",
+    "mkdocs.yaml": "mkdocs",
+    "conf.py": "sphinx",
+    "docusaurus.config.js": "docusaurus",
+    "docusaurus.config.ts": "docusaurus",
+    "book.toml": "mdbook",
+}
+
+DOCS_STRUCTURE_SIGNALS = ("README.md", "README.rst", "docs", "CHANGELOG.md")
+
+KNOWN_FRAMEWORKS_PYTHON = frozenset({
+    "fastapi", "django", "flask", "starlette", "celery", "sqlalchemy",
+    "tornado", "sanic", "aiohttp", "pyramid", "bottle", "litestar",
+    "pydantic", "typer", "click",
+})
+KNOWN_FRAMEWORKS_JS = frozenset({
+    "express", "next", "react", "vue", "angular", "svelte", "nuxt",
+    "hono", "fastify", "koa", "gatsby", "remix", "astro", "solid-js",
+    "preact", "ember-source", "vite", "webpack", "esbuild",
+})
+KNOWN_FRAMEWORKS_RUST = frozenset({
+    "actix-web", "axum", "rocket", "warp", "hyper", "tokio", "serde",
+})
+KNOWN_FRAMEWORKS_GO = frozenset({
+    "github.com/gin-gonic/gin",
+    "github.com/labstack/echo",
+    "github.com/gofiber/fiber",
+    "github.com/gorilla/mux",
+    "github.com/go-chi/chi",
+})
+KNOWN_FRAMEWORKS_RUBY = frozenset({
+    "rails", "sinatra", "hanami", "roda",
+})
+
+_DEP_NAME_RE = re.compile(r"^([A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?)")
+
+
+def _extract_dep_name(spec: str) -> str | None:
+    """Extract package name from a PEP 508 dependency specifier."""
+    m = _DEP_NAME_RE.match(spec.strip())
+    return m.group(1).lower() if m else None
+
+
+def _detect_frameworks_pyproject(path: Path) -> list[dict[str, str]]:
+    if tomllib is None:
+        return []
+    try:
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+    except Exception:
+        return []
+    found: list[dict[str, str]] = []
+    evidence = str(path)
+    deps: list[str] = []
+    deps.extend(data.get("project", {}).get("dependencies", []))
+    for group in data.get("project", {}).get("optional-dependencies", {}).values():
+        deps.extend(group)
+    poetry_deps = data.get("tool", {}).get("poetry", {}).get("dependencies", {})
+    if isinstance(poetry_deps, dict):
+        deps.extend(poetry_deps.keys())
+    seen: set[str] = set()
+    for spec in deps:
+        name = _extract_dep_name(spec) if isinstance(spec, str) else None
+        if name and name in KNOWN_FRAMEWORKS_PYTHON and name not in seen:
+            seen.add(name)
+            found.append({"name": name, "evidence": evidence})
+    ruff_in_tool = "ruff" in data.get("tool", {})
+    if ruff_in_tool:
+        found.append({"name": "[tool.ruff]", "evidence": evidence})
+    pytest_in_tool = "pytest" in data.get("tool", {})
+    if pytest_in_tool:
+        found.append({"name": "[tool.pytest]", "evidence": evidence})
+    return found
+
+
+def _detect_frameworks_package_json(path: Path) -> list[dict[str, str]]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    found: list[dict[str, str]] = []
+    evidence = str(path)
+    seen: set[str] = set()
+    for section in ("dependencies", "devDependencies"):
+        for name in data.get(section, {}):
+            normalized = name.lower()
+            if normalized in KNOWN_FRAMEWORKS_JS and normalized not in seen:
+                seen.add(normalized)
+                found.append({"name": name, "evidence": evidence})
+            elif name.startswith("@nestjs/") and "nest" not in seen:
+                seen.add("nest")
+                found.append({"name": "nestjs", "evidence": evidence})
+    return found
+
+
+def _detect_frameworks_cargo(path: Path) -> list[dict[str, str]]:
+    if tomllib is None:
+        return []
+    try:
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+    except Exception:
+        return []
+    found: list[dict[str, str]] = []
+    evidence = str(path)
+    for name in data.get("dependencies", {}):
+        if name in KNOWN_FRAMEWORKS_RUST:
+            found.append({"name": name, "evidence": evidence})
+    return found
+
+
+def _detect_frameworks_gomod(path: Path) -> list[dict[str, str]]:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except Exception:
+        return []
+    found: list[dict[str, str]] = []
+    evidence = str(path)
+    for known in KNOWN_FRAMEWORKS_GO:
+        if known in text:
+            short = known.rsplit("/", 1)[-1]
+            found.append({"name": short, "evidence": evidence})
+    return found
+
+
+def _detect_frameworks_gemfile(path: Path) -> list[dict[str, str]]:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except Exception:
+        return []
+    found: list[dict[str, str]] = []
+    evidence = str(path)
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("gem "):
+            match = re.match(r"""gem\s+['"]([^'"]+)['"]""", stripped)
+            if match:
+                name = match.group(1).lower()
+                if name in KNOWN_FRAMEWORKS_RUBY:
+                    found.append({"name": name, "evidence": evidence})
+    return found
+
+
+def _scan_project_context(target: Path) -> dict:
+    """Deterministic project scan. Walks the target tree, skipping caches and
+    build dirs, and collects observations about languages, frameworks, package
+    managers, CI, linters, test runners, and docs structure."""
+
+    languages: list[dict[str, str]] = []
+    package_managers: list[dict[str, str]] = []
+    frameworks: list[dict[str, str]] = []
+    ci: list[dict[str, str]] = []
+    linters: list[dict[str, str]] = []
+    test_runners: list[dict[str, str]] = []
+    docs_tooling: list[dict[str, str]] = []
+    docs_structure: list[dict[str, str]] = []
+
+    seen_languages: set[str] = set()
+    seen_pkg_mgrs: set[str] = set()
+    seen_ci: set[str] = set()
+    seen_linters: set[str] = set()
+    seen_test_runners: set[str] = set()
+    seen_docs_tooling: set[str] = set()
+    seen_docs_structure: set[str] = set()
+
+    def _rel(p: Path) -> str:
+        return str(p.relative_to(target))
+
+    for ci_path, ci_name in CI_PATH_SIGNALS.items():
+        full = target / ci_path
+        if full.exists() and ci_name not in seen_ci:
+            seen_ci.add(ci_name)
+            ci.append({"name": ci_name, "evidence": ci_path})
+
+    for dirpath_str, dirnames, filenames in os.walk(target, followlinks=False):
+        dirnames[:] = [d for d in dirnames if d not in SCAN_SKIP_DIRS]
+        dirpath = Path(dirpath_str)
+
+        for fname in filenames:
+            fpath = dirpath / fname
+
+            if fname in LANGUAGE_MANIFESTS:
+                lang = LANGUAGE_MANIFESTS[fname]
+                if lang not in seen_languages:
+                    seen_languages.add(lang)
+                    languages.append({"name": lang, "evidence": _rel(fpath)})
+
+            if fname in PACKAGE_MANAGER_LOCKFILES:
+                mgr = PACKAGE_MANAGER_LOCKFILES[fname]
+                if mgr not in seen_pkg_mgrs:
+                    seen_pkg_mgrs.add(mgr)
+                    package_managers.append({"name": mgr, "evidence": _rel(fpath)})
+
+            if fname in CI_FILE_SIGNALS:
+                ci_name = CI_FILE_SIGNALS[fname]
+                if ci_name not in seen_ci:
+                    seen_ci.add(ci_name)
+                    ci.append({"name": ci_name, "evidence": _rel(fpath)})
+
+            if fname in LINTER_CONFIGS:
+                linter = LINTER_CONFIGS[fname]
+                if linter not in seen_linters:
+                    seen_linters.add(linter)
+                    linters.append({"name": linter, "evidence": _rel(fpath)})
+
+            if fname in TEST_RUNNER_SIGNALS:
+                runner = TEST_RUNNER_SIGNALS[fname]
+                if runner not in seen_test_runners:
+                    seen_test_runners.add(runner)
+                    test_runners.append({"name": runner, "evidence": _rel(fpath)})
+
+            if fname in DOCS_TOOLING_SIGNALS:
+                tool = DOCS_TOOLING_SIGNALS[fname]
+                if tool not in seen_docs_tooling:
+                    seen_docs_tooling.add(tool)
+                    docs_tooling.append({"name": tool, "evidence": _rel(fpath)})
+
+            if fname in DOCS_STRUCTURE_SIGNALS:
+                if fname not in seen_docs_structure:
+                    seen_docs_structure.add(fname)
+                    docs_structure.append({"name": fname, "evidence": _rel(fpath)})
+
+            if fname == "pyproject.toml":
+                extras = _detect_frameworks_pyproject(fpath)
+                for e in extras:
+                    if e["name"] == "[tool.ruff]":
+                        if "ruff" not in seen_linters:
+                            seen_linters.add("ruff")
+                            linters.append({"name": "ruff", "evidence": e["evidence"]})
+                    elif e["name"] == "[tool.pytest]":
+                        if "pytest" not in seen_test_runners:
+                            seen_test_runners.add("pytest")
+                            test_runners.append({"name": "pytest", "evidence": e["evidence"]})
+                    else:
+                        frameworks.append(e)
+
+            elif fname == "package.json":
+                frameworks.extend(_detect_frameworks_package_json(fpath))
+
+            elif fname == "Cargo.toml":
+                frameworks.extend(_detect_frameworks_cargo(fpath))
+
+            elif fname == "go.mod":
+                frameworks.extend(_detect_frameworks_gomod(fpath))
+
+            elif fname == "Gemfile":
+                frameworks.extend(_detect_frameworks_gemfile(fpath))
+
+        for dname in dirnames:
+            dpath = dirpath / dname
+            if dname in DOCS_STRUCTURE_SIGNALS:
+                if dname not in seen_docs_structure:
+                    seen_docs_structure.add(dname)
+                    docs_structure.append({"name": dname, "evidence": _rel(dpath)})
+
+    observations = {
+        "languages": languages,
+        "package_managers": package_managers,
+        "frameworks": frameworks,
+        "ci": ci,
+        "linters": linters,
+        "test_runners": test_runners,
+        "docs_tooling": docs_tooling,
+        "docs_structure": docs_structure,
+    }
+
+    has_signals = any(observations[k] for k in observations)
+
+    if has_signals:
+        fitting = {
+            "status": "unfitted",
+            "model_matrix_configured": False,
+            "fingerprint_confirmed": False,
+            "agent_context_populated": False,
+            "hooks_decided": False,
+        }
+    else:
+        fitting = {
+            "status": "greenfield",
+            "model_matrix_configured": False,
+            "fingerprint_confirmed": True,
+            "agent_context_populated": True,
+            "hooks_decided": True,
+        }
+
+    return {**observations, "fitting": fitting}
+
+
+def write_project_context(
+    target: Path, install: dict, report: list[str]
+) -> None:
+    """Run the deterministic project scan and write config/project-context.json."""
+    path = target / "config" / "project-context.json"
+
+    if path.exists():
+        log(report, "config/project-context.json: already present, left untouched")
+        return
+
+    context = _scan_project_context(target)
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(context, indent=2) + "\n", encoding="utf-8")
+    install["remove_paths"].append("config/project-context.json")
+    install["ignore_project_context"] = True
+
+    counts = []
+    for key in ("languages", "package_managers", "frameworks", "ci",
+                "linters", "test_runners", "docs_tooling", "docs_structure"):
+        items = context[key]
+        if items:
+            names = ", ".join(i["name"] for i in items)
+            counts.append(f"{key}: {names}")
+    if counts:
+        for line in counts:
+            log(report, f"  {line}")
+    else:
+        log(report, "  (no signals detected — greenfield project)")
+    log(report, "config/project-context.json: written")
+    if context["fitting"]["status"] == "greenfield":
+        log(report, "  fitting: greenfield — no existing stack to fit, session opens with menu")
+
+
+MODEL_MATRIX_HEADER = """\
+# Model Config — Agent Session Orchestrator
+#
+# Each factory agent declares a tier: economy, standard, or strong.
+# When the factory dispatches an agent, it looks up <cli>.<tier> here
+# to decide which model runs the job.
+#
+#   economy  — routine tasks, fast and cheap (linting, formatting, small edits)
+#   standard — most work (feature implementation, documentation, research)
+#   strong   — architecture, review, complex reasoning
+#
+# How to configure
+# ────────────────
+# Replace every CONFIGURE-ME with a model ID your account can access.
+# Use the model ID your provider expects:
+#
+#   Claude Code  → Anthropic model IDs     (claude-haiku-4-5, claude-sonnet-4-6, claude-opus-4-8)
+#   Copilot CLI  → GitHub model names      (gpt-4o-mini, gpt-4o, claude-opus-4-6)
+#   Pi           → OpenRouter prefixed IDs (openrouter/anthropic/claude-sonnet-4.6)
+#   Codex        → OpenAI model IDs        (gpt-4o-mini, gpt-4o, o3)
+#
+# For Pi on OpenRouter, run `factory/scripts/openrouter-discover --suggest`
+# to get tier picks from the live catalog.
+#
+# Validate after editing:
+#   factory/scripts/matrix-lint --matrix config/model.conf
+#
+# Precedence: --model flag > model.conf > CLI default.
+# If on_missing is "halt", a missing tier stops dispatch with an error.
+# Set it to "auto" to let the CLI fall back to its own default model.
+
+[facts]
+"""
+
+MODEL_MATRIX_STANZAS: dict[str, str] = {
+    "claude": """\
+# Claude Code
+claude.economy  = CONFIGURE-ME
+claude.standard = CONFIGURE-ME
+claude.strong   = CONFIGURE-ME
+""",
+    "copilot": """\
+# GitHub Copilot CLI
+copilot.economy  = CONFIGURE-ME
+copilot.standard = CONFIGURE-ME
+copilot.strong   = CONFIGURE-ME
+""",
+    "pi": """\
+# Pi via OpenRouter — validate/refresh with
+# `factory/scripts/openrouter-discover --check` (drift) / `--suggest` (picks).
+pi.economy  = CONFIGURE-ME
+pi.standard = CONFIGURE-ME
+pi.strong   = CONFIGURE-ME
+""",
+    "codex": """\
+# OpenAI Codex CLI
+codex.economy  = CONFIGURE-ME
+codex.standard = CONFIGURE-ME
+codex.strong   = CONFIGURE-ME
+""",
+}
+
+MODEL_MATRIX_FOOTER = """\
+# Fallback when a tier has no model for the active CLI
+on_missing = halt
+"""
+
+
+def _generate_model_matrix(clis: list[str] | None) -> str:
+    """Build a model.conf with only the installed CLIs, placeholder IDs."""
+    active = KNOWN_CLIS if clis is None else clis
+    body = MODEL_MATRIX_HEADER
+    for cli in active:
+        stanza = MODEL_MATRIX_STANZAS.get(cli)
+        if stanza:
+            body += stanza + "\n"
+    body += MODEL_MATRIX_FOOTER
+    return body
+
+
+def copy_model_matrix(target: Path, install: dict, report: list[str]) -> None:
+    config_dir = target / "config"
+    dest = config_dir / "model.conf"
+
+    if dest.exists():
+        log(
+            report,
+            "config/model.conf: already present, left untouched (meant to diverge per project)",
+        )
+        return
+
+    if not config_dir.exists():
+        config_dir.mkdir(parents=True)
+        install["remove_paths"].append("config")
+
+    clis = install.get("cli")
+    dest.write_text(_generate_model_matrix(clis), encoding="utf-8")
+    install["remove_paths"].append("config/model.conf")
+    install["ignore_model_conf"] = True
+    log(report, "config/model.conf: generated for installed CLIs (configure model IDs during fitting)")
+
+
+def ensure_project_identity(
+    target: Path, project_name: str | None, install: dict, report: list[str]
+) -> None:
+    """Create the stable, project-local identity consumed by usage capture."""
+    path = target / PROJECT_IDENTITY
+    if path.exists():
+        try:
+            identity = json.loads(path.read_text(encoding="utf-8"))
+            uuid.UUID(identity["project_id"])
+            if (
+                not isinstance(identity["project_name"], str)
+                or not identity["project_name"].strip()
+            ):
+                raise ValueError("project_name must be a non-empty string")
+        except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+            raise Collision(f"{PROJECT_IDENTITY}: invalid project identity: {exc}")
+        log(report, f"{PROJECT_IDENTITY}: already present, identity preserved")
+        return
+
+    if project_name is None:
+        try:
+            project_name = input("Project name: ").strip()
+        except (EOFError, OSError) as exc:
+            raise Collision(
+                "project name is required; pass --project-name for non-interactive init"
+            ) from exc
+    else:
+        project_name = project_name.strip()
+    if not project_name:
+        raise Collision("project name must not be empty")
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    identity = {
+        "project_id": str(uuid.uuid4()),
+        "project_name": project_name,
+    }
+    path.write_text(json.dumps(identity, indent=2) + "\n", encoding="utf-8")
+    install["remove_paths"].append(str(PROJECT_IDENTITY))
+    install["ignore_project_identity"] = True
+    log(report, f"{PROJECT_IDENTITY}: created project identity")
+
+
+def handle_precommit(target: Path, install: dict, report: list[str]) -> None:
+    dest = target / ".pre-commit-config.yaml"
+    template = target / "factory" / "config" / "pre-commit-config.yaml"
+
+    if dest.is_symlink():
+        current = (dest.parent / os.readlink(dest)).resolve()
+        if current != template.resolve():
+            raise Collision(
+                f"{dest} is already a symlink to {current}, not to {template}"
+            )
+        dest.unlink()
+        dest.write_text(_fresh_precommit_text(template), encoding="utf-8")
+        install["precommit"] = {"path": ".pre-commit-config.yaml", "existed": False}
+        log(report, ".pre-commit-config.yaml: replaced legacy symlink with real file")
+        return
+
+    if not dest.exists():
+        dest.write_text(_fresh_precommit_text(template), encoding="utf-8")
+        install["precommit"] = {"path": ".pre-commit-config.yaml", "existed": False}
+        install["remove_paths"].append(".pre-commit-config.yaml")
+        log(report, "created .pre-commit-config.yaml with factory hooks")
+        log(report, "hooks: mdformat, link-check, mermaid-lint, spec-lint,")
+        log(report, "       arch-lint, backlog-lint, context-lint, matrix-lint,")
+        log(report, "       statemachine-lint, index-lint, run-tests")
+        pre_commit_install(target, report)
+        return
+
+    install.setdefault(
+        "precommit", {"path": ".pre-commit-config.yaml", "existed": True}
+    )
+    log(
+        report,
+        ".pre-commit-config.yaml already exists — factory hooks not merged.",
+    )
+    log(
+        report,
+        "The fitting process will offer to splice factory hooks into your",
+    )
+    log(
+        report,
+        "existing config (run the fitting skill, or merge by hand with",
+    )
+    log(
+        report,
+        "factory/scripts/merge-precommit-config).",
+    )
+
+
+def _fresh_precommit_text(template: Path) -> str:
+    """A standalone .pre-commit-config.yaml carrying only Agent Factory's
+    `- repo: local` block (extracted verbatim from the template)."""
+    lines = template.read_text(encoding="utf-8").splitlines()
+    for i, line in enumerate(lines):
+        if line.rstrip() == "  - repo: local":
+            block = "\n".join(lines[i:])
+            break
+    else:
+        raise Collision(
+            f"{template} has no `- repo: local` block to build a config from"
+        )
+
+    header = (
+        "# Created by Agent Factory init-factory. The agent_factory_hook-* hooks\n"
+        "# below are added here and removed by factory/scripts/remove-factory\n"
+        "# (extricable by their id prefix). Safe to delete if it holds nothing else.\n"
+        "repos:\n"
+    )
+    return header + block + "\n"
+
+
+def _scan_test_entrypoints(target: Path) -> list[tuple[str, str]]:
+    """Deterministic subset of the detect-test-regime skill's step-1 scan
+    (factory/skills/detect-test-regime/SKILL.md): check each conventional
+    test entrypoint for concrete evidence — never mere file presence — and
+    return one (label, command) pair per entrypoint found. init-factory has
+    no AI in the loop, so this mirrors the skill's table mechanically rather
+    than delegating to it; keep the two in sync as the table grows."""
+    candidates: list[tuple[str, str]] = []
+
+    def read(path: Path) -> str:
+        try:
+            return path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            return ""
+
+    makefile = target / "Makefile"
+    if makefile.is_file() and re.search(r"(?m)^test:", read(makefile)):
+        candidates.append(("Makefile `test` target", "make test"))
+
+    package_json = target / "package.json"
+    if package_json.is_file():
+        try:
+            data = json.loads(read(package_json) or "{}")
+        except json.JSONDecodeError:
+            data = {}
+        if isinstance(data, dict) and "test" in (data.get("scripts") or {}):
+            candidates.append(("package.json `test` script", "npm test"))
+
+    pyproject_text = (
+        read(target / "pyproject.toml") if (target / "pyproject.toml").is_file() else ""
+    )
+
+    if (target / "tox.ini").is_file() or "[tool.tox]" in pyproject_text:
+        candidates.append(("tox", "tox"))
+
+    if (target / "noxfile.py").is_file():
+        candidates.append(("noxfile.py", "nox"))
+
+    justfile = target / "Justfile"
+    if justfile.is_file() and re.search(r"(?m)^test:", read(justfile)):
+        candidates.append(("Justfile `test` recipe", "just test"))
+
+    taskfile = target / "Taskfile.yml"
+    if taskfile.is_file():
+        text = read(taskfile)
+        if re.search(r"(?m)^tasks:", text) and re.search(r"(?m)^\s+test:", text):
+            candidates.append(("Taskfile.yml `test` task", "task test"))
+
+    # Both pytest evidence sources imply the same command; only record once.
+    if "[tool.pytest.ini_options]" in pyproject_text:
+        candidates.append(("pyproject.toml `[tool.pytest.ini_options]`", "pytest"))
+    elif (target / "pytest.ini").is_file():
+        candidates.append(("pytest.ini", "pytest"))
+    elif "[tool:pytest]" in read(target / "setup.cfg"):
+        candidates.append(("setup.cfg `[tool:pytest]`", "pytest"))
+
+    return candidates
+
+
+def _resolve_testing_yaml(target: Path) -> Path:
+    """Return the testing.yaml path via format detection."""
+    ac_path = target / "docs" / "agent-context" / "testing.yaml"
+    if ac_path.is_file():
+        return ac_path
+    charter_path = target / "docs" / "charter" / "testing.yaml"
+    if charter_path.is_file():
+        return charter_path
+    ac_dir = target / "docs" / "agent-context"
+    if ac_dir.is_dir():
+        return ac_path
+    return ac_path
+
+
+def _write_testing_yaml(target: Path, command: str) -> None:
+    path = _resolve_testing_yaml(target)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "# docs/agent-context/testing.yaml — project test command declaration\n"
+        "# Detected by Agent Factory's detect-test-regime scan during init-factory.\n"
+        "# Code is the source of truth; this file is a derived record — re-run\n"
+        "# the detect-test-regime skill by hand once the project's test setup\n"
+        "# changes. Schema: factory/rulebooks/templates/charter-testing.yaml\n"
+        "\n"
+        f'test_command: "{command}"\n',
+        encoding="utf-8",
+    )
+
+
+def detect_test_regime(target: Path, report: list[str]) -> None:
+    """Scan for an existing test regime and record it in
+    testing.yaml (docs/agent-context/ or docs/charter/ via format detection)
+    — the deterministic core of the detect-test-regime skill (step 2: one
+    entrypoint records, several ask rather than guess, none surfaces the
+    gap). Never writes to .pre-commit-config.yaml: test hooks stay
+    project-owned (BR-029)."""
+    path = _resolve_testing_yaml(target)
+    if path.exists():
+        log(report, f"{path.relative_to(target)}: already present, left untouched")
+        return
+
+    by_command: dict[str, list[str]] = {}
+    for label, command in _scan_test_entrypoints(target):
+        by_command.setdefault(command, []).append(label)
+
+    rel_path = path.relative_to(target)
+    if not by_command:
+        log(
+            report,
+            f"{rel_path}: no test entrypoint detected — gap "
+            "surfaced. Build project-owned test infrastructure, or run the "
+            "detect-test-regime skill once one exists.",
+        )
+        return
+
+    if len(by_command) == 1:
+        command = next(iter(by_command))
+        _write_testing_yaml(target, command)
+        log(
+            report,
+            f"{rel_path}: created, test_command={command!r} "
+            f"(detected via {', '.join(by_command[command])})",
+        )
+        return
+
+    # Several distinct commands found: do not guess (skill step 2). Ask
+    # interactively; a non-interactive run (no TTY, or a blank answer)
+    # surfaces the gap instead of picking one.
+    options = sorted(by_command)
+    print("init-factory: multiple possible test commands detected:")
+    for i, command in enumerate(options, start=1):
+        print(f"  {i}. {command}  ({', '.join(by_command[command])})")
+    try:
+        choice = input(
+            f"Which is the project's canonical test_command? [1-{len(options)}, blank to skip]: "
+        ).strip()
+    except (EOFError, OSError):
+        choice = ""
+
+    if choice.isdigit() and 1 <= int(choice) <= len(options):
+        command = options[int(choice) - 1]
+        _write_testing_yaml(target, command)
+        log(
+            report,
+            f"{rel_path}: created, test_command={command!r} (user-selected)",
+        )
+        return
+
+    log(
+        report,
+        f"{rel_path}: multiple test entrypoints found "
+        f"({', '.join(options)}) — gap surfaced, none recorded. Run the "
+        "detect-test-regime skill, or edit testing.yaml by hand, to disambiguate.",
+    )
+
+
+def write_gitignore_block(target: Path, install: dict, report: list[str]) -> None:
+    path = target / ".gitignore"
+
+    clis = install.get("cli")
+    entries = [
+        "/factory/",
+        "/.agent-factory/",
+        "/.current-work/",
+        "/session-scratchpad.md",
+    ]
+    if _wants(clis, "claude"):
+        entries.append("/.claude/")
+    if _wants(clis, "pi"):
+        entries.append("/.pi/")
+    if install.get("ignore_model_conf"):
+        entries.append("/config/model.conf")
+    if install.get("ignore_project_identity"):
+        entries.append(f"/{PROJECT_IDENTITY}")
+    if install.get("ignore_project_context"):
+        entries.append("/config/project-context.json")
+    if install.get("ignore_root_agents"):
+        entries.append("/AGENTS.md")
+    for entry in sorted(install["github_ignored_entries"]):
+        entries.append("/" + entry)
+    for entry in sorted(install["codex_ignored_entries"]):
+        entries.append("/" + entry)
+    for entry in sorted(install["agents_ignored_entries"]):
+        entries.append("/" + entry)
+
+    install["ignored_paths"] = entries
+
+    body = [
+        GITIGNORE_BEGIN,
+        "# Added by init-factory; remove with factory/scripts/remove-factory.",
+        *entries,
+        GITIGNORE_END,
+    ]
+    block = "\n".join(body) + "\n"
+
+    if not path.exists():
+        path.write_text(block, encoding="utf-8")
+        install["gitignore_existed"] = False
+        install.setdefault("gitignore_orig_final_newline", True)
+        install["remove_paths"].append(".gitignore")
+        log(report, ".gitignore: created with the agent_factory related block")
+        return
+
+    # setdefault: if a prior run created .gitignore, keep existed=False.
+    install.setdefault("gitignore_existed", True)
+    existing = path.read_text(encoding="utf-8")
+
+    if GITIGNORE_BEGIN in existing and GITIGNORE_END in existing:
+        pre, rest = existing.split(GITIGNORE_BEGIN, 1)
+        _, post = rest.split(GITIGNORE_END, 1)
+        rebuilt = pre.rstrip("\n") + "\n\n" + block + post.lstrip("\n")
+        if rebuilt != existing:
+            path.write_text(rebuilt, encoding="utf-8")
+            log(report, ".gitignore: refreshed the agent_factory related block")
+        else:
+            log(report, ".gitignore: agent_factory related block already current")
+        return
+
+    # First append: preserve the project's exact bytes. Record whether the
+    # original ended with a newline so remove-factory can restore it precisely,
+    # rather than leaving a stray trailing newline behind.
+    had_nl = existing.endswith("\n")
+    install.setdefault("gitignore_orig_final_newline", had_nl)
+    base = existing if had_nl else existing + "\n"
+    path.write_text(base + "\n" + block, encoding="utf-8")
+    log(report, ".gitignore: appended the agent_factory related block")
+
+
+def load_prior_manifest(target: Path, install: dict, report: list[str]) -> None:
+    """Seed `install` from a previous run's manifest so an idempotent re-run
+    preserves what init already knows is Agent Factory's — steps that skip
+    because a path already exists would otherwise lose that knowledge, leaving
+    the remover unable to clean it up."""
+    path = target / MANIFEST_PATH
+
+    if not path.exists():
+        return
+
+    try:
+        prior = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return
+
+    install["remove_paths"] = list(prior.get("remove_paths", []))
+    install["merged_dirs"] = list(prior.get("merged_dirs", []))
+    install["orientation"] = dict(prior.get("orientation", {}))
+    if "cli" in prior:
+        install["cli"] = prior["cli"]
+    if prior.get("precommit"):
+        install["precommit"] = prior["precommit"]
+    for key in (
+        "git_initialized_by_us",
+        "gitignore_existed",
+        "gitignore_orig_final_newline",
+        "precommit_orig_final_newline",
+        "claude_settings_existed",
+    ):
+        if key in prior:
+            install[key] = prior[key]
+    for p in prior.get("ignored_paths", []):
+        if p == "/config/model.conf":
+            install["ignore_model_conf"] = True
+        elif p == f"/{PROJECT_IDENTITY}":
+            install["ignore_project_identity"] = True
+        elif p == "/config/project-context.json":
+            install["ignore_project_context"] = True
+        elif p == "/AGENTS.md":
+            install["ignore_root_agents"] = True
+        elif p.startswith("/.github/"):
+            install["github_ignored_entries"].add(p.lstrip("/"))
+        elif p.startswith("/.codex/"):
+            install["codex_ignored_entries"].add(p.lstrip("/"))
+        elif p.startswith("/.agents/"):
+            install["agents_ignored_entries"].add(p.lstrip("/"))
+
+    if "orientation_orig_final_newline" in prior:
+        install["orientation_orig_final_newline"] = prior[
+            "orientation_orig_final_newline"
+        ]
+
+    if "codex_hooks_existed" in prior:
+        install["codex_hooks_existed"] = prior["codex_hooks_existed"]
+    if "codex_hooks_original" in prior:
+        install["codex_hooks_original"] = prior["codex_hooks_original"]
+    install["copilot_generated_agents"] = set(prior.get("copilot_generated_agents", []))
+    install["codex_generated_agents"] = set(prior.get("codex_generated_agents", []))
+    install["codex_hook_handlers"] = list(prior.get("codex_hook_handlers", []))
+    prior_hooks_hash = prior.get("codex_hooks_installed_sha256")
+    hooks_path = target / ".codex/hooks.json"
+    hooks_unchanged = (
+        isinstance(prior_hooks_hash, str)
+        and hooks_path.is_file()
+        and not hooks_path.is_symlink()
+        and hashlib.sha256(hooks_path.read_bytes()).hexdigest() == prior_hooks_hash
+    )
+    install["codex_hooks_restore_original"] = bool(
+        prior.get("codex_hooks_restore_original", True) and hooks_unchanged
+    )
+
+    log(report, f"{MANIFEST_PATH}: prior install found, preserving its records")
+
+
+def write_manifest(target: Path, install: dict, report: list[str]) -> None:
+    manifest_path = target / MANIFEST_PATH
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+
+    hooks_path = target / ".codex/hooks.json"
+    hooks_sha256 = (
+        hashlib.sha256(hooks_path.read_bytes()).hexdigest()
+        if hooks_path.is_file() and not hooks_path.is_symlink()
+        else None
+    )
+    payload = {
+        "version": 1,
+        "factory_version": _read_factory_version(target),
+        "cli": install.get("cli"),
+        "git_initialized_by_us": install.get("git_initialized_by_us", False),
+        "gitignore_existed": install.get("gitignore_existed", True),
+        "gitignore_markers": {"begin": GITIGNORE_BEGIN, "end": GITIGNORE_END},
+        "gitignore_orig_final_newline": install.get(
+            "gitignore_orig_final_newline", True
+        ),
+        "precommit": install.get("precommit", {}),
+        "precommit_orig_final_newline": install.get(
+            "precommit_orig_final_newline", True
+        ),
+        "precommit_hook_id_prefix": "agent_factory_hook-",
+        "claude_settings_existed": install.get("claude_settings_existed", True),
+        "codex_hooks_existed": install.get("codex_hooks_existed", True),
+        "codex_hooks_original": install.get("codex_hooks_original"),
+        "codex_hooks_installed_sha256": hooks_sha256,
+        "codex_hooks_restore_original": install.get(
+            "codex_hooks_restore_original", True
+        ),
+        "copilot_generated_agents": sorted(install["copilot_generated_agents"]),
+        "codex_generated_agents": sorted(install["codex_generated_agents"]),
+        "codex_hook_handlers": install["codex_hook_handlers"],
+        "orientation": install.get("orientation", {}),
+        "orientation_markers": {
+            "begin": ORIENTATION_BEGIN,
+            "end": ORIENTATION_END,
+        },
+        "orientation_orig_final_newline": install.get(
+            "orientation_orig_final_newline", {}
+        ),
+        "ignored_paths": install.get("ignored_paths", []),
+        "remove_paths": _dedup(install["remove_paths"]),
+        "merged_dirs": sorted(set(install.get("merged_dirs", []))),
+        "factory_source": install.get("factory_source"),
+    }
+    manifest_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    log(report, f"{MANIFEST_PATH}: wrote removal manifest")
+
+
+def _private_directory(path: Path) -> None:
+    path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    info = path.lstat()
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+        raise Collision(f"unsafe Factory usage directory: {path}")
+    os.chmod(path, 0o700, follow_symlinks=False)
+
+
+def _private_file(path: Path, content: str) -> None:
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        info = None
+    if info is not None and (
+        not stat.S_ISREG(info.st_mode)
+        or info.st_nlink != 1
+        or (hasattr(os, "geteuid") and info.st_uid != os.geteuid())
+    ):
+        raise Collision(f"unsafe Factory usage file: {path}")
+    fd = os.open(
+        path,
+        os.O_CREAT | os.O_TRUNC | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0),
+        0o600,
+    )
+    try:
+        opened = os.fstat(fd)
+        if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
+            raise Collision(f"unsafe Factory usage file: {path}")
+        os.fchmod(fd, 0o600)
+        os.write(fd, content.encode("utf-8"))
+    finally:
+        os.close(fd)
+
+
+def _repair_private_tree(root: Path) -> None:
+    """Repair only safe, owner-owned Factory usage descendants."""
+    if not root.exists() or root.is_symlink():
+        return
+    for entry in os.scandir(root):
+        info = entry.stat(follow_symlinks=False)
+        if stat.S_ISLNK(info.st_mode):
+            continue
+        if hasattr(os, "geteuid") and info.st_uid != os.geteuid():
+            continue
+        path = Path(entry.path)
+        if stat.S_ISDIR(info.st_mode):
+            os.chmod(path, 0o700, follow_symlinks=False)
+            _repair_private_tree(path)
+        elif stat.S_ISREG(info.st_mode) and info.st_nlink == 1:
+            fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+            try:
+                opened = os.fstat(fd)
+                if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
+                    continue
+                os.fchmod(fd, 0o600)
+            finally:
+                os.close(fd)
+
+
+def initialize_usage_lifecycle(
+    target: Path, report: list[str], transcript_retention: str | None = None
+) -> None:
+    """Pre-create and probe the atomic Pi registration fence and registry."""
+    control = target / ".agent-factory" / "usage-control"
+    usage = target / ".agent-factory" / "usage"
+    _private_directory(control)
+    _private_directory(control / "pending")
+    _private_directory(usage)
+    _private_directory(usage / ".capture")
+    state = control / "state.json"
+    if not state.exists():
+        _private_file(
+            state,
+            json.dumps({"mode": "active", "generation": str(uuid.uuid4())}) + "\n",
+        )
+        log(report, ".agent-factory/usage-control: initialized")
+    else:
+        state_info = state.lstat()
+        if (
+            stat.S_ISLNK(state_info.st_mode)
+            or not stat.S_ISREG(state_info.st_mode)
+            or (hasattr(os, "geteuid") and state_info.st_uid != os.geteuid())
+        ):
+            raise Collision(f"unsafe Factory usage state: {state}")
+        os.chmod(state, 0o600, follow_symlinks=False)
+    config = control / "config.json"
+    if transcript_retention is not None or not config.exists():
+        mode = transcript_retention or "full"
+        _private_file(config, json.dumps({"transcript_retention": mode}) + "\n")
+    else:
+        config_info = config.lstat()
+        if (
+            stat.S_ISLNK(config_info.st_mode)
+            or not stat.S_ISREG(config_info.st_mode)
+            or config_info.st_nlink != 1
+            or (hasattr(os, "geteuid") and config_info.st_uid != os.geteuid())
+        ):
+            raise Collision(f"unsafe Factory usage config: {config}")
+        os.chmod(config, 0o600, follow_symlinks=False)
+    _repair_private_tree(usage)
+    _repair_private_tree(control)
+    probe = control / "pending" / f"hardlink-probe-{uuid.uuid4()}"
+    try:
+        os.link(state, probe)
+    except OSError as exc:
+        log(
+            report,
+            "Pi usage capture unavailable: the project filesystem does not "
+            f"support the required same-volume hard-link registration fence ({exc})",
+        )
+    finally:
+        probe.unlink(missing_ok=True)
+
+
+def _dedup(paths: list[str]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for p in paths:
+        if p not in seen:
+            seen.add(p)
+            out.append(p)
+    return out
+
+
+def pre_commit_install(target: Path, report: list[str]) -> None:
+    result = subprocess.run(
+        [
+            "uvx",
+            "pre-commit",
+            "install",
+            "--hook-type",
+            "pre-commit",
+            "--hook-type",
+            "pre-push",
+        ],
+        cwd=target,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    if result.returncode != 0:
+        log(report, f"uvx pre-commit install: FAILED — {result.stderr.strip()}")
+        return
+
+    log(report, "uvx pre-commit install (pre-commit, pre-push): done")
+
+
+def _pick_clis_interactive(
+    prompt: str, choices: list[str], allow_all: bool = False
+) -> list[str] | None:
+    """Present a numbered menu of CLIs and return the user's selection.
+    Returns None on cancel/empty, the selected list otherwise."""
+    if not sys.stdin.isatty():
+        return None
+    print(f"  {prompt}")
+    for i, name in enumerate(choices, 1):
+        print(f"    {i}  {name:<10} {CLI_LABELS[name]}")
+    if allow_all:
+        print(f"    a  all")
+    print()
+    try:
+        answer = input("  > ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return None
+    if not answer:
+        return None
+    if allow_all and answer in ("a", "all"):
+        return list(choices)
+    selected: list[str] = []
+    for token in answer.replace(",", " ").split():
+        token = token.strip()
+        if token.isdigit():
+            idx = int(token) - 1
+            if 0 <= idx < len(choices) and choices[idx] not in selected:
+                selected.append(choices[idx])
+        elif token in choices and token not in selected:
+            selected.append(token)
+    return selected if selected else None
+
+
+def _path_cli(rel: str) -> str | None:
+    """Map a remove_path to the CLI it belongs to, or None for shared."""
+    if rel.startswith(".claude/") or rel == ".claude":
+        return "claude"
+    if rel.startswith(".github/") or rel == ".github":
+        return "copilot"
+    if rel.startswith(".pi/") or rel == ".pi":
+        return "pi"
+    if rel.startswith((".codex/", ".agents/")) or rel in (".codex", ".agents"):
+        return "codex"
+    return None
+
+
+def _strip_claude_hooks(target: Path) -> None:
+    """Strip Agent Factory hook entries from .claude/settings.json."""
+    path = target / ".claude" / "settings.json"
+    if not path.exists():
+        return
+
+    try:
+        settings = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return
+
+    hooks = settings.get("hooks")
+    if not isinstance(hooks, dict):
+        return
+
+    changed = False
+    for event_list in list(hooks.values()):
+        if not isinstance(event_list, list):
+            continue
+        before = len(event_list)
+        kept = []
+        for entry in event_list:
+            if isinstance(entry, dict):
+                entry_hooks = entry.get("hooks")
+                if isinstance(entry_hooks, list):
+                    filtered = [
+                        h for h in entry_hooks
+                        if not (
+                            isinstance(h, dict)
+                            and isinstance(h.get("command", ""), str)
+                            and ".claude/hooks/" in h.get("command", "")
+                        )
+                    ]
+                    if len(filtered) != len(entry_hooks):
+                        changed = True
+                        if filtered:
+                            kept.append({**entry, "hooks": filtered})
+                        continue
+            kept.append(entry)
+        if len(kept) != before:
+            changed = True
+        event_list[:] = kept
+
+    for event in list(hooks.keys()):
+        if not hooks[event]:
+            del hooks[event]
+
+    if changed:
+        if not hooks:
+            settings.pop("hooks", None)
+        path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+
+
+def do_add(target: Path, source_factory: Path, add_args: list[str] | None) -> int:
+    """Add CLI wiring to an existing install."""
+    manifest_path = target / MANIFEST_PATH
+    if not manifest_path.exists():
+        print(
+            "init-factory --add: no install manifest — run init-factory first",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        prior = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"init-factory --add: can't read manifest: {e}", file=sys.stderr)
+        return 1
+
+    existing = prior.get("cli")
+    if existing is None:
+        existing = list(KNOWN_CLIS)
+
+    available = [c for c in KNOWN_CLIS if c not in existing]
+    if not available:
+        print("init-factory --add: all CLIs already wired")
+        return 0
+
+    if add_args:
+        chosen = [c for c in add_args if c in available]
+        already = [c for c in add_args if c in existing]
+        if already:
+            print(f"  already installed: {', '.join(already)}")
+        if not chosen:
+            print("  nothing to add")
+            return 0
+    else:
+        section("Add CLI")
+        chosen = _pick_clis_interactive(
+            "Which CLIs to add?", available, allow_all=True
+        )
+        if not chosen:
+            print("  cancelled")
+            return 0
+
+    print("\ninit-factory --add")
+    print("═" * 54)
+
+    report: list[str] = []
+    install: dict = {
+        "_target": target,
+        "remove_paths": [],
+        "dir_existed": {},
+        "orientation": {},
+        "github_ignored_entries": set(),
+        "codex_ignored_entries": set(),
+        "agents_ignored_entries": set(),
+        "copilot_generated_agents": set(),
+        "codex_generated_agents": set(),
+        "codex_hook_handlers": [],
+        "codex_hooks_restore_original": True,
+        "ignore_root_agents": False,
+        "factory_source": prior.get("factory_source"),
+    }
+    load_prior_manifest(target, install, report)
+
+    factory = target / "factory"
+    combined = existing + chosen
+    dot_dirs = _active_dot_dirs(chosen)
+
+    section(f"Wiring: {', '.join(chosen)}")
+
+    try:
+        ensure_dot_dirs(target, install, report, dot_dirs)
+
+        if "codex" in chosen:
+            preflight_codex_adapter(target, install)
+        if "copilot" in chosen:
+            preflight_copilot_agents(target, install)
+
+        _out.quiet = True
+        pre_wire = len(report)
+        symlink_factory_content(target, install, report, dot_dirs)
+        wire_count = len(report) - pre_wire
+        _out.quiet = False
+        log(report, f"{wire_count} factory symlinks")
+
+        if "codex" in chosen:
+            install_codex_adapter(target, install, report)
+        if "copilot" in chosen:
+            install_copilot_agents(target, install, report)
+
+        _out.quiet = True
+        pre_guard = len(report)
+        install_git_guardrail(target, install, report, chosen)
+        install_step_guard(target, install, report, chosen)
+        guard_count = len(report) - pre_guard
+        _out.quiet = False
+        if guard_count:
+            log(report, f"guardrails and step guards ({guard_count} hooks)")
+
+        _out.quiet = True
+        pre_usage = len(report)
+        usage_runtime_ready = provision_usage_runtime(target, report)
+        if usage_runtime_ready:
+            install_usage_capture(target, install, report, chosen)
+        usage_count = len(report) - pre_usage
+        _out.quiet = False
+        if usage_runtime_ready:
+            log(report, "usage capture: hooks installed")
+
+        for dd in dot_dirs:
+            _link_orientation(target, dd, factory, install, report)
+
+        if "pi" in chosen:
+            install_pi_invocation_layer(target, install, report)
+
+    except Collision as e:
+        _out.quiet = False
+        print(f"\n  STOPPED — {e}", file=sys.stderr)
+        return 1
+
+    install["cli"] = combined
+
+    section("Gitignore")
+    write_gitignore_block(target, install, report)
+
+    _out.quiet = True
+    write_manifest(target, install, report)
+    _out.quiet = False
+
+    print(f"\n{'═' * 54}")
+    print(f"  added: {', '.join(chosen)}")
+    print(f"  all:   {', '.join(combined)}")
+    print()
+    return 0
+
+
+def do_remove(target: Path, remove_args: list[str] | None) -> int:
+    """Remove CLI wiring from an existing install."""
+    manifest_path = target / MANIFEST_PATH
+    if not manifest_path.exists():
+        print(
+            "init-factory --remove: no install manifest — nothing to remove",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        prior = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"init-factory --remove: can't read manifest: {e}", file=sys.stderr)
+        return 1
+
+    existing = prior.get("cli")
+    if existing is None:
+        existing = list(KNOWN_CLIS)
+
+    if not existing:
+        print("init-factory --remove: no CLIs installed")
+        return 0
+
+    if remove_args:
+        chosen = [c for c in remove_args if c in existing]
+        not_installed = [c for c in remove_args if c not in existing]
+        if not_installed:
+            print(f"  not installed: {', '.join(not_installed)}")
+        if not chosen:
+            print("  nothing to remove")
+            return 0
+    else:
+        section("Remove CLI")
+        chosen = _pick_clis_interactive(
+            "Which CLIs to remove?", existing, allow_all=True
+        )
+        if not chosen:
+            print("  cancelled")
+            return 0
+
+    remaining = [c for c in existing if c not in chosen]
+
+    if not remaining:
+        print(
+            "\n  Removing all CLIs. To uninstall Agent Factory entirely,\n"
+            "  use factory/scripts/remove-factory instead.\n"
+        )
+
+    print("\ninit-factory --remove")
+    print("═" * 54)
+
+    report: list[str] = []
+    remove_paths = prior.get("remove_paths", [])
+
+    section(f"Removing: {', '.join(chosen)}")
+
+    # Partition paths by CLI
+    cli_paths: dict[str, list[str]] = {c: [] for c in chosen}
+    shared_paths: list[str] = []
+    kept_paths: list[str] = []
+
+    for rel in remove_paths:
+        owner = _path_cli(rel)
+        if owner and owner in cli_paths:
+            cli_paths[owner].append(rel)
+        elif owner and owner not in chosen:
+            kept_paths.append(rel)
+        else:
+            kept_paths.append(rel)
+            shared_paths.append(rel)
+
+    # AGENTS.md is shared between pi and codex
+    agents_md_owners = {"pi", "codex"}
+    agents_md_remaining = agents_md_owners - set(chosen)
+    remaining_set = set(remaining)
+
+    # Delete CLI-specific paths (deepest first)
+    for cli_name in chosen:
+        paths = sorted(cli_paths[cli_name], key=lambda p: p.count("/"), reverse=True)
+        for rel in paths:
+            path = target / rel
+            if path.is_symlink():
+                path.unlink()
+                log(report, f"removed: {rel}")
+            elif path.is_dir():
+                shutil.rmtree(path)
+                log(report, f"removed: {rel}")
+            elif path.exists():
+                path.unlink()
+                log(report, f"removed: {rel}")
+
+    # AGENTS.md is shared by pi and codex — only remove when neither remains
+    agents_md = target / "AGENTS.md"
+    if (agents_md.exists() or agents_md.is_symlink()) and not (
+        agents_md_remaining & remaining_set
+    ):
+        agents_md.unlink()
+        log(report, "removed: AGENTS.md")
+        kept_paths = [p for p in kept_paths if p != "AGENTS.md"]
+
+    # Strip claude hooks from settings.json (if claude removed but settings survive)
+    if "claude" in chosen and (target / ".claude" / "settings.json").exists():
+        if prior.get("claude_settings_existed"):
+            _strip_claude_hooks(target)
+            log(report, ".claude/settings.json: stripped Factory hook entries")
+
+    # Strip orientation blocks for removed CLIs
+    orientation = prior.get("orientation", {})
+    markers = prior.get("orientation_markers", {})
+    begin = markers.get("begin", ORIENTATION_BEGIN)
+    end = markers.get("end", ORIENTATION_END)
+    new_orientation = dict(orientation)
+
+    remaining_dot_dirs = set(_active_dot_dirs(remaining))
+    remaining_ori_files = {
+        ORIENTATION_FILE[dd] for dd in remaining_dot_dirs
+        if dd in ORIENTATION_FILE
+    }
+
+    for dd in _active_dot_dirs(chosen):
+        ori_rel = ORIENTATION_FILE.get(dd)
+        if not ori_rel:
+            continue
+        if ori_rel in remaining_ori_files:
+            continue
+        status = orientation.get(ori_rel)
+        if status == "injected":
+            path = target / ori_rel
+            if path.exists():
+                text = path.read_text(encoding="utf-8")
+                if begin in text and end in text:
+                    pre, rest = text.split(begin, 1)
+                    _, post = rest.split(end, 1)
+                    post = post.lstrip("\n")
+                    restored = pre.rstrip("\n")
+                    if restored:
+                        restored += "\n"
+                    restored += post
+                    restored = restored.rstrip("\n")
+                    if restored:
+                        restored += "\n"
+                    if restored.strip():
+                        path.write_text(restored, encoding="utf-8")
+                        log(report, f"{ori_rel}: stripped Factory orientation block")
+                    else:
+                        path.unlink()
+                        log(report, f"{ori_rel}: removed (only held Factory block)")
+        new_orientation.pop(ori_rel, None)
+
+    # Prune empty dot-dirs
+    for dd in _active_dot_dirs(chosen):
+        dd_path = target / dd
+        if dd_path.is_dir() and not any(dd_path.iterdir()):
+            dd_path.rmdir()
+            log(report, f"removed empty: {dd}")
+
+    # Rebuild install dict for manifest + gitignore update
+    install: dict = {
+        "_target": target,
+        "remove_paths": kept_paths,
+        "dir_existed": {},
+        "orientation": new_orientation,
+        "cli": remaining if remaining else [],
+        "github_ignored_entries": set(),
+        "codex_ignored_entries": set(),
+        "agents_ignored_entries": set(),
+        "copilot_generated_agents": set(),
+        "codex_generated_agents": set(),
+        "codex_hook_handlers": [],
+        "codex_hooks_restore_original": True,
+        "ignore_root_agents": False,
+    }
+
+    # Preserve shared state from prior manifest
+    for key in (
+        "git_initialized_by_us", "gitignore_existed",
+        "gitignore_orig_final_newline", "precommit",
+        "precommit_orig_final_newline", "claude_settings_existed",
+        "factory_source",
+    ):
+        if key in prior:
+            install[key] = prior[key]
+
+    # Rebuild ignored entries for remaining CLIs only
+    for p in prior.get("ignored_paths", []):
+        if p == "/config/model.conf":
+            install["ignore_model_conf"] = True
+        elif p == f"/{PROJECT_IDENTITY}":
+            install["ignore_project_identity"] = True
+        elif p == "/config/project-context.json":
+            install["ignore_project_context"] = True
+        elif p == "/AGENTS.md":
+            if agents_md_remaining & remaining_set:
+                install["ignore_root_agents"] = True
+        elif p.startswith("/.github/") and "copilot" in remaining:
+            install["github_ignored_entries"].add(p.lstrip("/"))
+        elif p.startswith("/.codex/") and "codex" in remaining:
+            install["codex_ignored_entries"].add(p.lstrip("/"))
+        elif p.startswith("/.agents/") and "codex" in remaining:
+            install["agents_ignored_entries"].add(p.lstrip("/"))
+
+    if "copilot" in remaining:
+        install["copilot_generated_agents"] = set(
+            prior.get("copilot_generated_agents", [])
+        )
+    if "codex" in remaining:
+        install["codex_generated_agents"] = set(
+            prior.get("codex_generated_agents", [])
+        )
+        install["codex_hook_handlers"] = list(
+            prior.get("codex_hook_handlers", [])
+        )
+        for key in ("codex_hooks_existed", "codex_hooks_original",
+                     "codex_hooks_restore_original"):
+            if key in prior:
+                install[key] = prior[key]
+
+    section("Gitignore")
+    write_gitignore_block(target, install, report)
+
+    _out.quiet = True
+    write_manifest(target, install, report)
+    _out.quiet = False
+
+    print(f"\n{'═' * 54}")
+    print(f"  removed: {', '.join(chosen)}")
+    if remaining:
+        print(f"  remaining: {', '.join(remaining)}")
+    else:
+        print("  no CLIs wired — factory install preserved")
+        print("  use factory/scripts/remove-factory to uninstall entirely")
+    print()
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument(
+        "--source",
+        type=Path,
+        default=None,
+        help="agent_factory checkout to copy factory/ from (default: the checkout this script itself lives in)",
+    )
+    ap.add_argument(
+        "--target",
+        type=Path,
+        default=Path("."),
+        help="project directory to initialize (default: cwd)",
+    )
+    ap.add_argument(
+        "--usage-transcript-retention",
+        choices=("full", "omit"),
+        default=None,
+    )
+    ap.add_argument(
+        "--project-name",
+        default=None,
+        help="non-empty project name (prompted for on a fresh interactive install)",
+    )
+    ap.add_argument(
+        "--cli",
+        choices=KNOWN_CLIS,
+        nargs="+",
+        default=None,
+        help="which CLI(s) to wire (default: auto-detect or ask interactively)",
+    )
+    action = ap.add_mutually_exclusive_group()
+    action.add_argument(
+        "--add",
+        choices=KNOWN_CLIS,
+        nargs="*",
+        default=None,
+        help="add CLI wiring to an existing install (interactive menu if no CLIs given)",
+    )
+    action.add_argument(
+        "--remove",
+        choices=KNOWN_CLIS,
+        nargs="*",
+        default=None,
+        help="remove CLI wiring from an existing install (interactive menu if no CLIs given)",
+    )
+    args = ap.parse_args(argv)
+
+    target = args.target.resolve()
+
+    if args.add is not None:
+        source_root = (args.source or Path(__file__).resolve().parents[2]).resolve()
+        pkg_factory = source_root / "packages" / "factory"
+        source_factory = pkg_factory if pkg_factory.is_dir() else source_root / "factory"
+        if not source_factory.is_dir():
+            print(
+                f"init-factory: no factory/ found at {source_root} — pass --source explicitly",
+                file=sys.stderr,
+            )
+            return 1
+        return do_add(target, source_factory, args.add or None)
+
+    if args.remove is not None:
+        return do_remove(target, args.remove or None)
+
+    source_root = (args.source or Path(__file__).resolve().parents[2]).resolve()
+    pkg_factory = source_root / "packages" / "factory"
+    source_factory = pkg_factory if pkg_factory.is_dir() else source_root / "factory"
+
+    if not source_factory.is_dir():
+        print(
+            f"init-factory: no factory/ found at {source_root} — pass --source explicitly",
+            file=sys.stderr,
+        )
+        return 1
+
+    print("\ninit-factory")
+    print("═" * 54)
+
+    report: list[str] = []
+    install: dict = {
+        "_target": target,
+        "remove_paths": [],
+        "dir_existed": {},
+        "orientation": {},
+        "github_ignored_entries": set(),
+        "codex_ignored_entries": set(),
+        "agents_ignored_entries": set(),
+        "copilot_generated_agents": set(),
+        "codex_generated_agents": set(),
+        "codex_hook_handlers": [],
+        "codex_hooks_restore_original": True,
+        "ignore_root_agents": False,
+        "factory_source": str(source_root),
+    }
+
+    # ── Section 1: Scaffolding ──────────────────────────────────────────
+    section("Scaffolding")
+
+    try:
+        ensure_target_dir(target, install, report)
+        load_prior_manifest(target, install, report)
+        ensure_git(target, install, report)
+        fix_origin_head(target, report)
+        copy_factory(source_factory, target, install, report)
+    except Collision as e:
+        print(f"\n  STOPPED — {e}", file=sys.stderr)
+        return 1
+
+    # ── Section 2: CLI selection ────────────────────────────────────────
+    clis: list[str] | None = args.cli
+    if clis is None:
+        detected = detect_cli(target)
+        if detected:
+            clis = detected
+        else:
+            section("CLI selection")
+            clis = ask_clis()
+            if clis:
+                log(report, f"selected: {', '.join(clis)}")
+            else:
+                log(report, "wiring all CLIs")
+
+    dot_dirs = _active_dot_dirs(clis)
+    cli_label = ", ".join(clis) if clis else "all"
+    install["cli"] = clis
+    auto = " (auto-detected)" if args.cli is None and clis else ""
+
+    # ── Section 3: Wiring ───────────────────────────────────────────────
+    section(f"Wiring: {cli_label}{auto}")
+
+    try:
+        ensure_dot_dirs(target, install, report, dot_dirs)
+
+        if _wants(clis, "codex"):
+            preflight_codex_adapter(target, install)
+        if _wants(clis, "copilot"):
+            preflight_copilot_agents(target, install)
+
+        _out.quiet = True
+        pre_wire = len(report)
+        symlink_factory_content(target, install, report, dot_dirs)
+        wire_count = len(report) - pre_wire
+        _out.quiet = False
+        log(report, f"{wire_count} factory symlinks")
+
+        if _wants(clis, "codex"):
+            install_codex_adapter(target, install, report)
+        if _wants(clis, "copilot"):
+            install_copilot_agents(target, install, report)
+
+        _out.quiet = True
+        pre_guard = len(report)
+        install_git_guardrail(target, install, report, clis)
+        install_step_guard(target, install, report, clis)
+        guard_count = len(report) - pre_guard
+        _out.quiet = False
+        if guard_count:
+            log(report, f"guardrails and step guards installed ({guard_count} hooks)")
+
+        _out.quiet = True
+        pre_usage = len(report)
+        usage_runtime_ready = provision_usage_runtime(target, report)
+        if usage_runtime_ready:
+            install_usage_capture(target, install, report, clis)
+        usage_count = len(report) - pre_usage
+        _out.quiet = False
+        if usage_runtime_ready:
+            log(report, "usage capture: runtime ready, hooks installed")
+        else:
+            log(report, "usage capture: runtime unavailable, hooks inactive")
+
+        if _wants(clis, "pi"):
+            install_pi_invocation_layer(target, install, report)
+
+    except Collision as e:
+        _out.quiet = False
+        print(f"\n  STOPPED — {e}", file=sys.stderr)
+        return 1
+
+    # ── Section 4: Project identity ─────────────────────────────────────
+    section("Project identity")
+    try:
+        copy_model_matrix(target, install, report)
+        ensure_project_identity(target, args.project_name, install, report)
+    except Collision as e:
+        print(f"\n  STOPPED — {e}", file=sys.stderr)
+        return 1
+
+    # ── Section 5: Project context scan ──────────────────────────────────
+    section("Project context scan")
+    write_project_context(target, install, report)
+
+    # ── Section 6: Gitignore ────────────────────────────────────────────
+    section("Gitignore")
+    write_gitignore_block(target, install, report)
+
+    # ── Section 7: Pre-commit hooks ─────────────────────────────────────
+    section("Pre-commit hooks")
+    try:
+        handle_precommit(target, install, report)
+    except Collision as e:
+        print(f"\n  STOPPED — {e}", file=sys.stderr)
+        return 1
+
+    # ── Finalize (silent) ──────────────────────────────────────────────
+    _out.quiet = True
+    write_manifest(target, install, report)
+    initialize_usage_lifecycle(target, report, args.usage_transcript_retention)
+    _out.quiet = False
+
+    # Receipt.
+    print(f"\n{'═' * 54}")
+    print(f"  target: {target}")
+    print(f"  cli:    {cli_label}")
+    print(f"  undo:   factory/scripts/remove-factory")
+    print()
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

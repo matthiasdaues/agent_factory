@@ -1,0 +1,10 @@
+# Layer 2 index file: what the project is built with.
+# Copied to docs/agent-context/stack.yaml by capture-context --init.
+#
+# This is a skeleton. Second-level keys are project-specific — VIRGIL
+# creates them during the stakeholder interview based on what the
+# operator confirms as relevant. See context-interview-guide.yaml for
+# the question set that drives key creation.
+#
+# See factory/rulebooks/conventions/agent-context-composition.md for the
+# binding composition rules.

@@ -180,7 +180,7 @@ and requires `--yes` or interactive confirmation before committing).
 With `--feature-branch`: skip branch creation and initialize the ledger on
 the named existing branch. The branch must exist and its tip must be
 reachable from `--base`. If a dispatch ledger already exists for this
-branch under `.current-work/`, initialization is rejected — the operator
+branch under `.current-work/`, initialization is rejected — you
 must close or remove the existing dispatch first. `--baseline-commit` is
 incompatible with `--feature-branch`.
 
@@ -253,7 +253,7 @@ removal of an active manifest.
 Additional transitions:
 
 - `prepared → failed` (spawn failure)
-- `prepared → blocked` (operator blocks before dispatch)
+- `prepared → blocked` (user blocks before dispatch)
 - `failed → prepared` (re-dispatch)
 - `blocked → prepared` (re-dispatch after resolution)
 
@@ -548,7 +548,7 @@ git branch and merge history for terminal states (done, merged branches).
 Non-terminal story states require re-preparation via `dispatch prepare-wave`
 or `dispatch prepare-story`. If both the ledger and the feature branch are
 lost (e.g., `.current-work/` deleted and branch reset), recovery is manual:
-the operator must inspect `git reflog`, identify surviving story branches,
+you must inspect `git reflog`, identify surviving story branches,
 and re-initialize the dispatch.
 
 **Wave escalation tracking.** The "no other story in this wave has already
@@ -584,7 +584,7 @@ the signal exists.
 
 **Plan/init tier evaluation.** `dispatch plan` and `dispatch init` evaluate
 the tier rubric through the same code path. `plan` is informational — it
-shows the suggestion so the operator can review before committing.
+shows the suggestion so you can review before committing.
 `init` is authoritative — it gates on mismatches. If stories change between
 `plan` and `init`, the `init` evaluation governs.
 

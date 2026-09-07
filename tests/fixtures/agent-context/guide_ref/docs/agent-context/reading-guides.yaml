@@ -1,0 +1,5 @@
+backend:
+  - stack.yaml#frameworks.backend
+
+docs:
+  - stack.yaml#licensing.project

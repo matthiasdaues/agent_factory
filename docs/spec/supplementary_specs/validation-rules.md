@@ -6,8 +6,8 @@ Field- and behavior-level rules each mechanism enforces, grouped by the entity o
 
 - `playbook` and `state` are required. `phase advance` and `phase retry` both refuse (non-zero exit) if either is missing from an existing marker file.
 - `state` must name a state defined in the resolved FSM. `transition-lint` reports `TL-STATE` (error) if it does not; `phase advance` and `phase retry` fail resolving the current state's transitions in the same case.
-- `recorded_at` is written in UTC, `%Y-%m-%dT%H:%M:%SZ` format, always from the writing script's own `datetime.now(timezone.utc)` call — never accepted as an input field (BR-006).
-- `iteration` is an integer, defaulting to `1` when absent or unparseable. `phase advance` always resets it to `1` on a successful advance (BR-005); `phase retry` is the only mechanism that increments it.
+- `recorded_at` is written in UTC, `%Y-%m-%dT%H:%M:%SZ` format, always from the writing script's own `datetime.now(timezone.utc)` call — never accepted as an input field.
+- `iteration` is an integer, defaulting to `1` when absent or unparseable. `phase advance` always resets it to `1` on a successful advance; `phase retry` is the only mechanism that increments it.
 - The marker is rendered as flat `key: value` lines in a fixed field order (`playbook`, `state`, `gate`, `result`, `open_findings`, `next`, `iteration`, `recorded_by`, `recorded_at`); a value of `None` renders as the literal `null`.
 - The marker file lives at `.current-work/playbook-state.yml` and is git-ignored — local, single-machine state, never committed, never a distributed lock (see [PRD § Constraints](../prd.md#5-constraints)).
 
@@ -16,7 +16,7 @@ Field- and behavior-level rules each mechanism enforces, grouped by the entity o
 - `file_exists`: satisfied if `repo_root.glob(path)` yields at least one match.
 - `files_exist`: satisfied if every path in `paths` yields at least one glob match; the unmet reason lists every missing path by name.
 - `no_open_findings`: satisfied if zero matching finding files (by `pattern` or `patterns`, globbed under `docs/findings/`) have frontmatter `status: open`. A file whose frontmatter cannot be parsed (no leading `---` block) is not counted as open.
-- `script_exit_zero`: executes the named script and checks for exit code 0. When the `script` field uses the `charter:<field>` notation (e.g. `charter:test_command`), the evaluator reads the `charter_file` path from the condition, parses the YAML, and resolves the named field to the actual command before execution. Blocks with a clear message when the charter file is absent or the field is missing. See [UC-09](../use_cases/UC-09-run-tests-via-hook.md) and [ADR-0003](../../adr/0003-test-execution-via-hooks.md).
+- `script_exit_zero`: executes the named script and checks for exit code 0. When the `script` field uses the `charter:<field>` notation (e.g. `charter:test_command`), the evaluator reads the `charter_file` path from the condition, parses the YAML, and resolves the named field to the actual command before execution. Blocks with a clear message when the charter file is absent or the field is missing. See [UC-09](../../~archive/spec/use_cases/UC-09-run-tests-via-hook.md) and [ADR-0003](../../adr/0003-test-execution-via-hooks.md).
 - An `entry_conditions` name with no matching entry in `gate_conditions` is treated as unmet, with the reason `"<name> (not defined in gate_conditions)"`.
 - Unmet conditions are collected exhaustively, not short-circuited — a refusal always lists every unmet condition, not just the first.
 
@@ -41,7 +41,7 @@ This resolution order is why `halt_conditions` must name the **author** state be
 - **Never** a bare interpreter wildcard: an allowlist entry that only scopes the outer command while leaving `python3 *`, `uv *`, `uvx *`, or `npm *` unscoped is treated as equivalent to no scoping, and is excluded on that basis.
 - Every allowlist entry is derived from a command literally observed in this repo's own playbooks, skills, agents, and config files — grep-verified, not guessed ahead of a real need, per [YAGNI](../../../factory/rulebooks/conventions/foundational-principles.md#yagni). Adding a new entry requires the same evidence standard.
 - Claude Code's allow/deny lists use its own `Bash(<cmd> *)` glob syntax; Copilot CLI's use its colon-wildcard `shell(<cmd>:*)` syntax. The two-word-prefix form (`shell(git commit:*)`) is confirmed against GitHub's own documentation; the three-word forms (`shell(uv run pytest:*)`) follow the same pattern but are unconfirmed — see [T-05](../todos.md#t-05-copilot-clis-three-word-shell-wildcard-syntax-unconfirmed).
-- The deny list mirrors [`block-dangerous-git.sh`](../../../factory/config/hooks/block-dangerous-git.sh)'s own pattern list exactly (BR-020) — a second, independent layer, not a substitute for it.
+- The deny list mirrors [`block-dangerous-git.sh`](../../../factory/config/hooks/block-dangerous-git.sh)'s own pattern list exactly — a second, independent layer, not a substitute for it.
 - `--interactive` mode constructs no allow/deny list at all; it launches a live session the actor controls directly, after printing the composed prompt (BR-013).
 
 ## Phase handoff and result envelope (BR-037…BR-042)
@@ -114,7 +114,7 @@ The `feature-addition` playbook checks for the existence of three anchor files b
 - The check is file-existence only — no content validation, no gate marker, no structural inspection.
 - If all three exist, the prerequisite passes and the playbook proceeds normally.
 - If any file is missing, the playbook reports which files are absent and suggests running `brownfield-onboarding` to establish the baseline.
-- Full specification artifacts (`docs/spec/prd.md`, `docs/spec/use_cases/UC-*.md`, `docs/spec/supplementary_specs/*.md`) are optional inputs that deepen the process when present, not prerequisites.
+- Full specification artifacts (`docs/spec/prd.md`, `docs/spec/*.feature`, `docs/spec/scope-map.md`, `docs/spec/supplementary_specs/*.md`) are optional inputs that deepen the process when present, not prerequisites.
 - The anchor-file check does not distinguish between a brownfield-lite baseline (Stage 1 only) and a fully reverse-engineered project (Stage 2 complete). The depth is a continuum; the prerequisite only establishes the minimum.
 
 See [newcomer-onboarding.feature](../newcomer-onboarding.feature) and [entity-model.md § ANCHOR_FILE_SET](entity-model.md).
@@ -144,13 +144,78 @@ See [newcomer-onboarding.feature](../newcomer-onboarding.feature).
 ## Referenced from
 
 - [entity-model.md](entity-model.md)
-- [UC-01](../use_cases/UC-01-advance-a-playbook-phase.md)
-- [UC-03](../use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md)
-- [UC-04](../use_cases/UC-04-dispatch-an-agent-via-trigger.md)
-- [UC-06](../use_cases/UC-06-regenerate-the-catalog.md)
-- [UC-08](../use_cases/UC-08-initialize-agent-factory-into-a-project.md)
-- [UC-09](../use_cases/UC-09-run-tests-via-hook.md)
-- [UC-11](../use_cases/UC-11-cross-a-phase-boundary.md)
+- [UC-01](../../~archive/spec/use_cases/UC-01-advance-a-playbook-phase.md)
+- [UC-03](../../~archive/spec/use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md)
+- [UC-04](../../~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md)
+- [UC-06](../../~archive/spec/use_cases/UC-06-regenerate-the-catalog.md)
+- [UC-08](../../~archive/spec/use_cases/UC-08-initialize-agent-factory-into-a-project.md)
+- [UC-09](../../~archive/spec/use_cases/UC-09-run-tests-via-hook.md)
+- [UC-11](../../~archive/spec/use_cases/UC-11-cross-a-phase-boundary.md)
+
+## Test-design validation (BR-051, BR-052, BR-053, BR-054, BR-055)
+
+- **BR-051**: The test-design skill requires `detect-test-regime` as a prerequisite. If `docs/charter/testing.yaml` lacks a `testing_strategy:` link or a `suites:` section, the skill fails with a diagnostic message and produces no output. This is a hard prerequisite, not a fallback path.
+- **BR-052**: Test ownership is resolved in a single backlog-wide pass through `backlog/epics.md`. Each contract has exactly one owning story determined by dependency order: the story that introduces the contract's infrastructure or first exercises it (earliest in dependency-sorted order among stories that trace the contract). No contract is tested twice at the same layer.
+- **BR-053**: Risk-class classification follows a three-level precedence chain: `testing.yaml` `risk_classes:` overrides > project-linked strategy document > Factory convention defaults. The Factory convention defines three risk classes: `critical` (format: `forbidden`, budget: `unbounded`), `standard` (format: `scenario`, budget: `equivalence`), `structural` (format: `linter`). Projects may add custom risk classes; custom classes must define at least `format` and `budget`.
+- **BR-054**: The `test-design-verify` gate validates the trace-to-scenario resolution chain. Exit codes follow the gate convention: `0` = pass, `1` = validation failure, `2` = configuration error. The gate is conditionally active — it runs when the story has `#### Test Design` or `#### Prior Tests` sections and exits `0` with no findings when neither exists.
+- **BR-055**: The `gates` section in `docs/charter/testing.yaml` configures individual gates (enabled/disabled, thresholds). It does not define execution ordering; [ADR-0012](../../adr/0012-dispatcher-owned-semantic-gate-loop.md) owns the dispatcher's gate sequence. The CRAP-score script reads `gates.crap_score.threshold` from `testing.yaml`, replacing the dead-code `read_threshold_from_house_rules()` function. When the `gates` section is absent, the script falls back to its hardcoded default of 30.
+
+## Agent context validation (`context-lint`, CX-\* codes)
+
+`context-lint` validates the structural integrity, key presence, reference consistency, and mode compliance of agent-context files. It replaces `charter-lint` for YAML agent-context projects; legacy markdown charter projects continue to use `charter-lint` with CH-\* codes.
+
+### CX-\* finding codes
+
+| Code              | Severity                            | Condition                                                                                                                                                                                                                                           |
+| ----------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CX-FILE`         | error                               | A required file is missing. The three index files are always required when `docs/agent-context/` exists. `reading-guides.yaml` is required only when `mode: index` in any index file, or when the file already exists                               |
+| `CX-PARSE`        | error                               | A file does not parse as valid YAML                                                                                                                                                                                                                 |
+| `CX-KEYS`         | error                               | A required top-level key is missing per template schema, or `deferred:` coexists with `name:`/`source:` at the same leaf position                                                                                                                   |
+| `CX-NULL`         | warning / error (`--planning-gate`) | A leaf field has value `null`. Warning in default mode; error in `--planning-gate` mode                                                                                                                                                             |
+| `CX-MODE`         | info                                | Reports the `mode` field value when it is a recognized value (`primary` or `index`). Informational only                                                                                                                                             |
+| `CX-MODE-INVALID` | error                               | The `mode` field contains an unrecognized value (neither `primary` nor `index`). Invalid mode values block because mode governs the entire lifecycle                                                                                                |
+| `CX-SRC`          | warning                             | When `mode: index`, a non-null, non-deferred leaf field has no `source:` pointer                                                                                                                                                                    |
+| `CX-SRC-EXIST`    | warning                             | A `source:` pointer does not resolve to an existing file (path checked relative to repo root)                                                                                                                                                       |
+| `CX-SRC-STALE`    | info                                | A source file's modification time is more recent than the index file's modification time                                                                                                                                                            |
+| `CX-GUIDE-REF`    | warning                             | A reading-guide key-path reference does not resolve to an existing key in the target index file. Checks key existence only — whether the value is null, deferred, or missing a source pointer is owned by CX-NULL, CX-SRC, and CX-MODE respectively |
+| `CX-FORMAT`       | error                               | Files exist in more than one location (e.g. both `docs/agent-context/stack.yaml` and `docs/charter/tech-stack.md`). `testing.yaml` is exempt — its location does not trigger this error                                                             |
+
+### Field-level rules
+
+- `mode` must be exactly `primary` or `index`. A recognized value is reported by `CX-MODE` (info). Any other value is reported by `CX-MODE-INVALID` (error).
+- `deferred: "reason"` replaces the entire field value. It is the sole key in a mapping at the leaf position. Any coexisting `name`/`source` key alongside `deferred` is a `CX-KEYS` error.
+- Deferred fields are excluded from the transition condition (PRIMARY → INDEX) and do not produce a `CX-SRC` finding.
+- Null fields are excluded from the transition condition and do not produce a `CX-SRC` finding.
+- In `mode: index`, `update-context` writes both `name` and `source` together. A field with `name` but no `source` is a `CX-SRC` finding.
+
+### testing.yaml carve-out
+
+`testing.yaml` is a peer file outside the two-mode lifecycle. `context-lint` validates it with `CX-PARSE` only. The following checks do not apply to `testing.yaml`:
+
+- `CX-SRC` (no source pointers expected)
+- `CX-MODE` (no mode field)
+- `CX-NULL` (null values are schema-level, not lifecycle-level)
+- `CX-KEYS` (schema is governed by detect-test-regime, not by index-file templates)
+
+### testing.yaml path resolution
+
+`testing.yaml` path resolution is independent of the main format-detection chain:
+
+1. `docs/agent-context/testing.yaml` is checked first.
+2. `docs/charter/testing.yaml` is used as fallback.
+3. No `CX-FORMAT` error is raised for a `testing.yaml` at the old path when index files are at the new path.
+4. When both paths exist, `docs/agent-context/testing.yaml` takes precedence.
+
+### Format detection chain
+
+All factory consumers share the same format-detection chain:
+
+1. `docs/agent-context/stack.yaml` exists → YAML agent-context mode (CX-\* codes).
+2. `docs/charter/tech-stack.yaml` exists → legacy YAML charter mode.
+3. `docs/charter/tech-stack.md` exists → legacy markdown charter mode (CH-\* codes).
+4. Files in more than one location → `CX-FORMAT` error.
+
+See [agent-context.feature](../agent-context.feature) and [interface-contracts.md § context-lint](interface-contracts.md).
 
 ## Dispatch ledger (`dispatch`)
 

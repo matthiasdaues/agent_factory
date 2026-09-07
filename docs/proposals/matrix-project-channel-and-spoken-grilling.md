@@ -50,7 +50,7 @@ the terminal and use Element for text, spoken clarification, artifacts,
 notifications, and bounded Factory commands.
 
 The Matrix edge remains a message switchboard, not a workflow authority. A
-Factory Session Controller acts as a third operator peer over the same public
+Factory Session Controller acts as a third user peer over the same public
 Factory CLI used by a human or the orchestrator, while Factory scripts retain
 exclusive authority over workflow-state legality and deterministic gates. The
 channel works with either today's host-native Factory installation or the
@@ -62,7 +62,7 @@ control.
 
 Agent Factory currently assumes that a human stays close to a terminal to
 provide instructions, observe progress, answer human gates, and conduct
-requirements or design interviews. The Factory already separates operator
+requirements or design interviews. The Factory already separates user
 intent from workflow mechanics: humans and the orchestrator invoke the same
 scripts, while scripts and deterministic gates own state. A remote interface
 should add another peer at that boundary rather than bridge Matrix directly
@@ -74,7 +74,7 @@ general autonomous personal agent. It is a narrow Matrix edge plus a
 project-aware Factory conversational session. The edge transports and renders;
 the conversational session supports clarifying discussion in text or voice
 messages and may run a suitable project-local workflow, such as
-[`grilling`](../../factory/skills/grilling/SKILL.md), when the operator asks for
+[`grilling`](../../factory/skills/grilling/SKILL.md), when you ask for
 that interview style. The Factory validates and records durable results.
 
 The system must remain optional and independently deployable. Projects that
@@ -151,12 +151,12 @@ Example:
   "project_id": "687cf46a-25f6-4e98-9c62-278612aafd9f",
   "canonical_project_root": "/srv/projects/example",
   "runtime_backend": "host-native",
-  "allowed_operators": ["@matthias:example.org"],
+  "allowed_users": ["@matthias:example.org"],
   "enabled": true
 }
 ```
 
-Changing the room, project root, runtime backend, image trust, or operator set
+Changing the room, project root, runtime backend, image trust, or user set
 is a terminal-only administrative action. Rebinding is forbidden while a run,
 human gate, or clarification session is active. A room upgrade creates a new
 room ID and requires an explicit migration; it never inherits project authority
@@ -198,7 +198,7 @@ cryptographic blast radius.
 
 ### Factory Session Controller
 
-The Session Controller is the explicit third operator peer. It owns lifecycle
+The Session Controller is the explicit third user peer. It owns lifecycle
 and routing that neither the Matrix Edge nor Factory scripts should own:
 
 - load host-controlled room/project/runtime bindings;
@@ -267,7 +267,7 @@ never rewrites the other's source records.
 Inbound types:
 
 - `task_message`;
-- `operator_decision`;
+- `user_decision`;
 - `cancellation_request`;
 - `artifact_submission`; and
 - `notification_acknowledgement`.
@@ -320,7 +320,7 @@ Setup:
 04. Authenticates a dedicated Matrix bot device.
 05. Stores its token, sync data, and E2EE keys outside the project.
 06. Creates or selects an encrypted project room.
-07. Registers the exact room ID and allowed operator.
+07. Registers the exact room ID and allowed user.
 08. Configures local or explicitly external model, STT, and TTS profiles.
 09. Starts the Matrix Edge, Session Controller, and Media Sandbox provisionally.
 10. Performs a two-way encrypted verification.
@@ -342,10 +342,10 @@ A Matrix event cannot activate, bind, or expand its own authority.
 
 For a host-native backend, activation additionally states that remote Factory
 operations run as the configured host identity with that identity's filesystem,
-credential, and network access. The operator must explicitly accept that risk;
+credential, and network access. You must explicitly accept that risk;
 the host-native adapter runs under a dedicated restricted operating-system
 identity where the platform supports it. Setup fails if the configured identity
-has broader access than the diagnostics and the operator has not explicitly
+has broader access than the diagnostics and you have not explicitly
 accepted the reported access profile. This is a security-policy distinction,
 not merely a different status label.
 
@@ -429,9 +429,9 @@ The system publishes what it transcribed. Corrections create append-only
 transcript revisions rather than rewriting the source event. A correction
 invalidates every derived summary, working decision, candidate command, or
 document diff that depended on the corrected turn. Those outputs are re-derived
-and remain unconfirmed until the operator confirms them again. It does not rely
+and remain unconfirmed until the user confirms them again. It does not rely
 on a supposedly calibrated speech-model confidence score; detectable ambiguity,
-terminology mismatch, or an operator correction triggers clarification.
+terminology mismatch, or a user correction triggers clarification.
 
 At `finish`, the conversational agent produces a summary and any outputs
 appropriate to the selected workflow. A document-bound workflow may amend its
@@ -442,7 +442,7 @@ textual challenge response.
 A document-bound session records the target's canonical path and content hash
 when it starts and before every write or proposed diff. A move, deletion, or
 conflicting content change suspends document mutation and finish until the
-operator explicitly restarts against the new target or accepts a conflict-aware
+user explicitly restarts against the new target or accepts a conflict-aware
 rebase. Unrelated changes that rebase cleanly do not force the discussion to be
 discarded.
 
@@ -533,7 +533,7 @@ events; missing E2EE keys suspend the channel rather than falling back to
 plaintext.
 
 Room migration, bot-device rotation, credential compromise, runtime-backend
-change, project-path change, or operator revocation suspends active remote
+change, project-path change, or user revocation suspends active remote
 control, invalidates outstanding challenges, and requires local verification
 before reactivation.
 
@@ -559,7 +559,7 @@ transcript bodies by default.
 
 - Matrix and Element only; no Telegram or Signal adapters.
 - One encrypted Matrix control room per Factory project.
-- A host-controlled room/project/operator/runtime registry.
+- A host-controlled room/project/user/runtime registry.
 - A regular Matrix bot with a dedicated verified device.
 - Standard shared-bot and hardened per-project-bot deployment profiles.
 - Local terminal setup, two-way verification, explicit activation, persistent
@@ -592,7 +592,7 @@ transcript bodies by default.
 - Matrix application-service privileges.
 - Multiple active clarification sessions in one project.
 - Rooms controlling multiple projects or projects with multiple active rooms.
-- Multi-operator consensus and quorum decisions.
+- Multi-user consensus and quorum decisions.
 - Automatic room-upgrade inheritance.
 - General-purpose assistant tools in the Matrix Edge.
 - Cloud STT or TTS by default.
@@ -634,8 +634,8 @@ The owning automated or integration-test layer must cover:
 | Factory state changes while approval is in transit          | Stale decision rejected                                            |
 | Room upgraded or migrated                                   | Old room loses authority                                           |
 | Bot device state lost or rotated                            | Channel suspended pending verification                             |
-| Operator revoked with outstanding challenges                | Challenges invalidated                                             |
-| Unauthorized user invited to room                           | No operator authority gained                                       |
+| User revoked with outstanding challenges                    | Challenges invalidated                                             |
+| Unauthorized user invited to room                           | No user authority gained                                           |
 | Voice event outside active clarification thread             | Stored as note, not routed as answer                               |
 | Stale controller submits an old lease epoch                 | Factory command rejects it without mutation                        |
 | Corrected turn fed a derived decision or diff               | Derived output invalidated pending reconfirmation                  |
@@ -713,7 +713,7 @@ returns this proposal to `open`.
 - Specifications and arc42 architecture document the Matrix Edge, Session
   Controller, runtime port, Media Sandbox, broker records, lifecycle states,
   authority boundaries, and failure behavior.
-- Operator documentation covers setup, verification, activation, normal Matrix
+- User documentation covers setup, verification, activation, normal Matrix
   use, host-native and container selection, health, suspension, repair, room
   migration, key rotation, backup, recovery, retention, and removal.
 - Independent architecture and security reviews have no open blocking or major

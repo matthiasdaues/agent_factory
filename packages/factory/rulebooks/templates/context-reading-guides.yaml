@@ -1,0 +1,39 @@
+# Layer 1: routes by work-type concern to sections in the Layer 2 index
+# files (stack.yaml, workflow.yaml, governance.yaml). Carries no source:
+# pointers -- only key-path references using <file>#<dotted.key.path>
+# notation. A bare file reference (e.g. "stack.yaml") means the entire file
+# is relevant.
+#
+# Not created by capture-context --init for a greenfield project -- there is
+# no handbook yet to route to. update-context proposes creating this file
+# from this template once the first source: pointer is written to an index
+# file. A project deletes concerns that do not apply and adds its own
+# (a well-named key, e.g. "pipeline:" or "ml:", is enough for an agent to
+# match it to the task at hand).
+#
+# See factory/rulebooks/conventions/agent-context-composition.md for the
+# binding composition rules.
+
+backend:
+  - stack.yaml#frameworks.backend
+  - workflow.yaml#testing
+  - workflow.yaml#linting
+  - governance.yaml#review
+
+frontend:
+  - stack.yaml#frameworks.frontend
+  - workflow.yaml#testing
+  - governance.yaml#review
+
+testing:
+  - workflow.yaml#testing
+  - governance.yaml#testing_discipline
+
+architecture:
+  - stack.yaml
+  - governance.yaml#architecture_governance
+
+packaging:
+  - stack.yaml#frameworks
+  - workflow.yaml#ci_cd
+  - governance.yaml#scope

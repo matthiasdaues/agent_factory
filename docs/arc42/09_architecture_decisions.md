@@ -20,12 +20,14 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0010 | [Refresh an installed factory/ by remove-and-reinstall](../adr/0010-refresh-installed-factory-by-remove-and-reinstall.md)                                     | accepted               | none        |
 | 0011 | [Gherkin .feature as consolidated specification format](../adr/0011-gherkin-feature-as-consolidated-specification-format.md)                                  | proposed               | pugh-matrix |
 | 0012 | [Dispatcher-owned semantic gate loop](../adr/0012-dispatcher-owned-semantic-gate-loop.md)                                                                     | proposed               | pugh-matrix |
+| 0013 | [YAML agent context replaces markdown charter](../adr/0013-yaml-agent-context-replaces-markdown-charter.md)                                                   | proposed               | pugh-matrix |
+| 0014 | [Two-layer routing with two-mode lifecycle](../adr/0014-two-layer-routing-with-two-mode-lifecycle.md)                                                         | proposed               | none        |
 
 ## Key Decisions
 
 ### Ownership and Control
 
-**ADR-0002** establishes that `factory/scripts/{transition-lint,phase,trigger}` and the `run-step` skill own flow control state (the marker, FSM, gates). `orchestrator/` is one possible trigger among peers (human operator, orchestrator CLI). This inversion makes playbook runs CLI-agnostic and resume-from-observable-state by design.
+**ADR-0002** establishes that `factory/scripts/{transition-lint,phase,trigger}` and the `run-step` skill own flow control state (the marker, FSM, gates). `orchestrator/` is one possible trigger among peers (you at the terminal, orchestrator CLI). This inversion makes playbook runs CLI-agnostic and resume-from-observable-state by design.
 
 ### Validation Strategy
 
@@ -43,7 +45,7 @@ All follow the "Agentic Creation, Deterministic Validation" principle: agents cr
 
 ### Pi Invocation Layer
 
-**ADR-0004** establishes that Pi, which has no native subagent concept, runs a factory agent by spawning a separate `pi` subprocess through the model-callable `run_agent` tool (a project-local extension). This restores author/reviewer independence and parallel dispatch under Pi over the exact mechanism Pi's own documentation sanctions, rejecting in-context role-play (fails independence) and a custom agent hierarchy (fights Pi's design, YAGNI). **ADR-0005** keeps Pi tier→model resolution static and offline in `model.conf`, adding `openrouter-discover` as a separate operator aid for curating and validating `pi.*` OpenRouter rows — never a network call on the runtime path.
+**ADR-0004** establishes that Pi, which has no native subagent concept, runs a factory agent by spawning a separate `pi` subprocess through the model-callable `run_agent` tool (a project-local extension). This restores author/reviewer independence and parallel dispatch under Pi over the exact mechanism Pi's own documentation sanctions, rejecting in-context role-play (fails independence) and a custom agent hierarchy (fights Pi's design, YAGNI). **ADR-0005** keeps Pi tier→model resolution static and offline in `model.conf`, adding `openrouter-discover` as a separate curation tool for validating `pi.*` OpenRouter rows — never a network call on the runtime path.
 
 ### Research Feature Structure and Validation
 
@@ -119,6 +121,28 @@ each developer commit: CRAP scoring, dependency checking, then proceed-or-fix.
 Maximum three fix iterations per tier before the story escalates or is marked
 blocked. Mutation testing is project-owned infrastructure that Factory encourages
 via the `mutation-analysis` skill (see [ADR-0012 § Amended](../adr/0012-dispatcher-owned-semantic-gate-loop.md#amended)).
+
+### Agent Context Format and Structure
+
+**ADR-0013** replaces the markdown charter (`docs/charter/`) with a YAML-based
+agent context (`docs/agent-context/`). Three format alternatives were evaluated
+via Pugh Matrix: markdown (baseline), YAML, and JSON. YAML dominates on machine
+parseability, staleness resistance, and per-field source pointers while
+maintaining human readability parity with markdown. Format detection provides
+backward compatibility: factory consumers walk a three-step chain and select the
+appropriate validation mode. A new `context-lint` script (replacing
+`charter-lint`) validates the YAML structure with `CX-*` finding codes.
+
+**ADR-0014** records the two structural mechanisms that sit on top of the format
+decision. Two-layer routing separates concern-based access (Layer 1:
+`reading-guides.yaml`) from decision-domain indexing (Layer 2: `stack.yaml`,
+`workflow.yaml`, `governance.yaml`), keeping source pointers in exactly one
+place. A two-mode lifecycle lets greenfield projects write values directly
+(`mode: primary`) and mature projects maintain a pure link index
+(`mode: index`); the transition is one-directional and atomic. Neither mechanism
+has genuine alternatives: two layers resolve a concrete drift failure from the
+single-layer predecessor, and two modes follow from the greenfield-to-mature
+constraint.
 
 ## Superseded Decisions
 
