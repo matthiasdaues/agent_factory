@@ -78,6 +78,10 @@ Usage
   init-factory --cli claude copilot               # wire two CLIs
   init-factory --target /path/to/project          # auto-detect or ask
   init-factory --target /path/to/project --source /path/to/agent_factory
+  init-factory --add                              # interactive: pick CLIs to add
+  init-factory --add copilot                      # add copilot to existing install
+  init-factory --remove                           # interactive: pick CLIs to remove
+  init-factory --remove claude codex              # remove specific CLIs
 
 Exit code: 0 on success (including a clean no-op re-run). 1 on any collision
 or unsupported existing state — the first step that can't proceed stops the
@@ -914,7 +918,24 @@ def _link_orientation(
     link = target / rel
     dest = factory / "config" / "AGENTS.md"
 
-    if link.exists() and not link.is_symlink():
+    if link.is_symlink():
+        current = (link.parent / os.readlink(link)).resolve()
+        if current == dest.resolve():
+            install["remove_paths"].append(rel)
+            install["orientation"][rel] = "linked"
+            log(report, f"skip (already linked): {rel}")
+        else:
+            install["orientation"][rel] = "external"
+            log(report, f"{rel}: symlinked externally to {current} — left untouched.")
+            log(report, f"  To use factory integration, add an include of")
+            log(report, f"  factory/rulebooks/rules.md to your own file.")
+        if dot_dir == ".github":
+            install["github_ignored_entries"].add(rel)
+        elif dot_dir in (".pi", ".codex"):
+            install["ignore_root_agents"] = True
+        return
+
+    if link.exists():
         _inject_orientation(link, dot_dir, factory, install, report)
         return
 
@@ -2362,14 +2383,17 @@ def detect_test_regime(target: Path, report: list[str]) -> None:
 def write_gitignore_block(target: Path, install: dict, report: list[str]) -> None:
     path = target / ".gitignore"
 
+    clis = install.get("cli")
     entries = [
         "/factory/",
-        "/.claude/",
-        "/.pi/",
         "/.agent-factory/",
         "/.current-work/",
         "/session-scratchpad.md",
     ]
+    if _wants(clis, "claude"):
+        entries.append("/.claude/")
+    if _wants(clis, "pi"):
+        entries.append("/.pi/")
     if install.get("ignore_model_conf"):
         entries.append("/config/model.conf")
     if install.get("ignore_project_identity"):
@@ -2446,6 +2470,8 @@ def load_prior_manifest(target: Path, install: dict, report: list[str]) -> None:
     install["remove_paths"] = list(prior.get("remove_paths", []))
     install["merged_dirs"] = list(prior.get("merged_dirs", []))
     install["orientation"] = dict(prior.get("orientation", {}))
+    if "cli" in prior:
+        install["cli"] = prior["cli"]
     if prior.get("precommit"):
         install["precommit"] = prior["precommit"]
     for key in (
@@ -2512,6 +2538,7 @@ def write_manifest(target: Path, install: dict, report: list[str]) -> None:
     )
     payload = {
         "version": 1,
+        "cli": install.get("cli"),
         "git_initialized_by_us": install.get("git_initialized_by_us", False),
         "gitignore_existed": install.get("gitignore_existed", True),
         "gitignore_markers": {"begin": GITIGNORE_BEGIN, "end": GITIGNORE_END},
@@ -2698,6 +2725,477 @@ def pre_commit_install(target: Path, report: list[str]) -> None:
     log(report, "uvx pre-commit install (pre-commit, pre-push): done")
 
 
+def _pick_clis_interactive(
+    prompt: str, choices: list[str], allow_all: bool = False
+) -> list[str] | None:
+    """Present a numbered menu of CLIs and return the user's selection.
+    Returns None on cancel/empty, the selected list otherwise."""
+    if not sys.stdin.isatty():
+        return None
+    print(f"  {prompt}")
+    for i, name in enumerate(choices, 1):
+        print(f"    {i}  {name:<10} {CLI_LABELS[name]}")
+    if allow_all:
+        print(f"    a  all")
+    print()
+    try:
+        answer = input("  > ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return None
+    if not answer:
+        return None
+    if allow_all and answer in ("a", "all"):
+        return list(choices)
+    selected: list[str] = []
+    for token in answer.replace(",", " ").split():
+        token = token.strip()
+        if token.isdigit():
+            idx = int(token) - 1
+            if 0 <= idx < len(choices) and choices[idx] not in selected:
+                selected.append(choices[idx])
+        elif token in choices and token not in selected:
+            selected.append(token)
+    return selected if selected else None
+
+
+def _path_cli(rel: str) -> str | None:
+    """Map a remove_path to the CLI it belongs to, or None for shared."""
+    if rel.startswith(".claude/") or rel == ".claude":
+        return "claude"
+    if rel.startswith(".github/") or rel == ".github":
+        return "copilot"
+    if rel.startswith(".pi/") or rel == ".pi":
+        return "pi"
+    if rel.startswith((".codex/", ".agents/")) or rel in (".codex", ".agents"):
+        return "codex"
+    return None
+
+
+def _strip_claude_hooks(target: Path) -> None:
+    """Strip Agent Factory hook entries from .claude/settings.json."""
+    path = target / ".claude" / "settings.json"
+    if not path.exists():
+        return
+
+    try:
+        settings = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return
+
+    hooks = settings.get("hooks")
+    if not isinstance(hooks, dict):
+        return
+
+    changed = False
+    for event_list in list(hooks.values()):
+        if not isinstance(event_list, list):
+            continue
+        before = len(event_list)
+        kept = []
+        for entry in event_list:
+            if isinstance(entry, dict):
+                entry_hooks = entry.get("hooks")
+                if isinstance(entry_hooks, list):
+                    filtered = [
+                        h for h in entry_hooks
+                        if not (
+                            isinstance(h, dict)
+                            and isinstance(h.get("command", ""), str)
+                            and ".claude/hooks/" in h.get("command", "")
+                        )
+                    ]
+                    if len(filtered) != len(entry_hooks):
+                        changed = True
+                        if filtered:
+                            kept.append({**entry, "hooks": filtered})
+                        continue
+            kept.append(entry)
+        if len(kept) != before:
+            changed = True
+        event_list[:] = kept
+
+    for event in list(hooks.keys()):
+        if not hooks[event]:
+            del hooks[event]
+
+    if changed:
+        if not hooks:
+            settings.pop("hooks", None)
+        path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+
+
+def do_add(target: Path, source_factory: Path, add_args: list[str] | None) -> int:
+    """Add CLI wiring to an existing install."""
+    manifest_path = target / MANIFEST_PATH
+    if not manifest_path.exists():
+        print(
+            "init-factory --add: no install manifest — run init-factory first",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        prior = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"init-factory --add: can't read manifest: {e}", file=sys.stderr)
+        return 1
+
+    existing = prior.get("cli")
+    if existing is None:
+        existing = list(KNOWN_CLIS)
+
+    available = [c for c in KNOWN_CLIS if c not in existing]
+    if not available:
+        print("init-factory --add: all CLIs already wired")
+        return 0
+
+    if add_args:
+        chosen = [c for c in add_args if c in available]
+        already = [c for c in add_args if c in existing]
+        if already:
+            print(f"  already installed: {', '.join(already)}")
+        if not chosen:
+            print("  nothing to add")
+            return 0
+    else:
+        section("Add CLI")
+        chosen = _pick_clis_interactive(
+            "Which CLIs to add?", available, allow_all=True
+        )
+        if not chosen:
+            print("  cancelled")
+            return 0
+
+    print("\ninit-factory --add")
+    print("═" * 54)
+
+    report: list[str] = []
+    install: dict = {
+        "_target": target,
+        "remove_paths": [],
+        "dir_existed": {},
+        "orientation": {},
+        "github_ignored_entries": set(),
+        "codex_ignored_entries": set(),
+        "agents_ignored_entries": set(),
+        "copilot_generated_agents": set(),
+        "codex_generated_agents": set(),
+        "codex_hook_handlers": [],
+        "codex_hooks_restore_original": True,
+        "ignore_root_agents": False,
+        "factory_source": prior.get("factory_source"),
+    }
+    load_prior_manifest(target, install, report)
+
+    factory = target / "factory"
+    combined = existing + chosen
+    dot_dirs = _active_dot_dirs(chosen)
+
+    section(f"Wiring: {', '.join(chosen)}")
+
+    try:
+        ensure_dot_dirs(target, install, report, dot_dirs)
+
+        if "codex" in chosen:
+            preflight_codex_adapter(target, install)
+        if "copilot" in chosen:
+            preflight_copilot_agents(target, install)
+
+        _out.quiet = True
+        pre_wire = len(report)
+        symlink_factory_content(target, install, report, dot_dirs)
+        wire_count = len(report) - pre_wire
+        _out.quiet = False
+        log(report, f"{wire_count} factory symlinks")
+
+        if "codex" in chosen:
+            install_codex_adapter(target, install, report)
+        if "copilot" in chosen:
+            install_copilot_agents(target, install, report)
+
+        _out.quiet = True
+        pre_guard = len(report)
+        install_git_guardrail(target, install, report, chosen)
+        install_step_guard(target, install, report, chosen)
+        guard_count = len(report) - pre_guard
+        _out.quiet = False
+        if guard_count:
+            log(report, f"guardrails and step guards ({guard_count} hooks)")
+
+        _out.quiet = True
+        pre_usage = len(report)
+        usage_runtime_ready = provision_usage_runtime(target, report)
+        if usage_runtime_ready:
+            install_usage_capture(target, install, report, chosen)
+        usage_count = len(report) - pre_usage
+        _out.quiet = False
+        if usage_runtime_ready:
+            log(report, "usage capture: hooks installed")
+
+        for dd in dot_dirs:
+            _link_orientation(target, dd, factory, install, report)
+
+        if "pi" in chosen:
+            install_pi_invocation_layer(target, install, report)
+
+    except Collision as e:
+        _out.quiet = False
+        print(f"\n  STOPPED — {e}", file=sys.stderr)
+        return 1
+
+    install["cli"] = combined
+
+    section("Gitignore")
+    write_gitignore_block(target, install, report)
+
+    _out.quiet = True
+    write_manifest(target, install, report)
+    _out.quiet = False
+
+    print(f"\n{'═' * 54}")
+    print(f"  added: {', '.join(chosen)}")
+    print(f"  all:   {', '.join(combined)}")
+    print()
+    return 0
+
+
+def do_remove(target: Path, remove_args: list[str] | None) -> int:
+    """Remove CLI wiring from an existing install."""
+    manifest_path = target / MANIFEST_PATH
+    if not manifest_path.exists():
+        print(
+            "init-factory --remove: no install manifest — nothing to remove",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        prior = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"init-factory --remove: can't read manifest: {e}", file=sys.stderr)
+        return 1
+
+    existing = prior.get("cli")
+    if existing is None:
+        existing = list(KNOWN_CLIS)
+
+    if not existing:
+        print("init-factory --remove: no CLIs installed")
+        return 0
+
+    if remove_args:
+        chosen = [c for c in remove_args if c in existing]
+        not_installed = [c for c in remove_args if c not in existing]
+        if not_installed:
+            print(f"  not installed: {', '.join(not_installed)}")
+        if not chosen:
+            print("  nothing to remove")
+            return 0
+    else:
+        section("Remove CLI")
+        chosen = _pick_clis_interactive(
+            "Which CLIs to remove?", existing, allow_all=True
+        )
+        if not chosen:
+            print("  cancelled")
+            return 0
+
+    remaining = [c for c in existing if c not in chosen]
+
+    if not remaining:
+        print(
+            "\n  Removing all CLIs. To uninstall Agent Factory entirely,\n"
+            "  use factory/scripts/remove-factory instead.\n"
+        )
+
+    print("\ninit-factory --remove")
+    print("═" * 54)
+
+    report: list[str] = []
+    remove_paths = prior.get("remove_paths", [])
+
+    section(f"Removing: {', '.join(chosen)}")
+
+    # Partition paths by CLI
+    cli_paths: dict[str, list[str]] = {c: [] for c in chosen}
+    shared_paths: list[str] = []
+    kept_paths: list[str] = []
+
+    for rel in remove_paths:
+        owner = _path_cli(rel)
+        if owner and owner in cli_paths:
+            cli_paths[owner].append(rel)
+        elif owner and owner not in chosen:
+            kept_paths.append(rel)
+        else:
+            kept_paths.append(rel)
+            shared_paths.append(rel)
+
+    # AGENTS.md is shared between pi and codex
+    agents_md_owners = {"pi", "codex"}
+    agents_md_remaining = agents_md_owners - set(chosen)
+    remaining_set = set(remaining)
+
+    # Delete CLI-specific paths (deepest first)
+    for cli_name in chosen:
+        paths = sorted(cli_paths[cli_name], key=lambda p: p.count("/"), reverse=True)
+        for rel in paths:
+            path = target / rel
+            if path.is_symlink():
+                path.unlink()
+                log(report, f"removed: {rel}")
+            elif path.is_dir():
+                shutil.rmtree(path)
+                log(report, f"removed: {rel}")
+            elif path.exists():
+                path.unlink()
+                log(report, f"removed: {rel}")
+
+    # AGENTS.md is shared by pi and codex — only remove when neither remains
+    agents_md = target / "AGENTS.md"
+    if (agents_md.exists() or agents_md.is_symlink()) and not (
+        agents_md_remaining & remaining_set
+    ):
+        agents_md.unlink()
+        log(report, "removed: AGENTS.md")
+        kept_paths = [p for p in kept_paths if p != "AGENTS.md"]
+
+    # Strip claude hooks from settings.json (if claude removed but settings survive)
+    if "claude" in chosen and (target / ".claude" / "settings.json").exists():
+        if prior.get("claude_settings_existed"):
+            _strip_claude_hooks(target)
+            log(report, ".claude/settings.json: stripped Factory hook entries")
+
+    # Strip orientation blocks for removed CLIs
+    orientation = prior.get("orientation", {})
+    markers = prior.get("orientation_markers", {})
+    begin = markers.get("begin", ORIENTATION_BEGIN)
+    end = markers.get("end", ORIENTATION_END)
+    new_orientation = dict(orientation)
+
+    remaining_dot_dirs = set(_active_dot_dirs(remaining))
+    remaining_ori_files = {
+        ORIENTATION_FILE[dd] for dd in remaining_dot_dirs
+        if dd in ORIENTATION_FILE
+    }
+
+    for dd in _active_dot_dirs(chosen):
+        ori_rel = ORIENTATION_FILE.get(dd)
+        if not ori_rel:
+            continue
+        if ori_rel in remaining_ori_files:
+            continue
+        status = orientation.get(ori_rel)
+        if status == "injected":
+            path = target / ori_rel
+            if path.exists():
+                text = path.read_text(encoding="utf-8")
+                if begin in text and end in text:
+                    pre, rest = text.split(begin, 1)
+                    _, post = rest.split(end, 1)
+                    post = post.lstrip("\n")
+                    restored = pre.rstrip("\n")
+                    if restored:
+                        restored += "\n"
+                    restored += post
+                    restored = restored.rstrip("\n")
+                    if restored:
+                        restored += "\n"
+                    if restored.strip():
+                        path.write_text(restored, encoding="utf-8")
+                        log(report, f"{ori_rel}: stripped Factory orientation block")
+                    else:
+                        path.unlink()
+                        log(report, f"{ori_rel}: removed (only held Factory block)")
+        new_orientation.pop(ori_rel, None)
+
+    # Prune empty dot-dirs
+    for dd in _active_dot_dirs(chosen):
+        dd_path = target / dd
+        if dd_path.is_dir() and not any(dd_path.iterdir()):
+            dd_path.rmdir()
+            log(report, f"removed empty: {dd}")
+
+    # Rebuild install dict for manifest + gitignore update
+    install: dict = {
+        "_target": target,
+        "remove_paths": kept_paths,
+        "dir_existed": {},
+        "orientation": new_orientation,
+        "cli": remaining if remaining else [],
+        "github_ignored_entries": set(),
+        "codex_ignored_entries": set(),
+        "agents_ignored_entries": set(),
+        "copilot_generated_agents": set(),
+        "codex_generated_agents": set(),
+        "codex_hook_handlers": [],
+        "codex_hooks_restore_original": True,
+        "ignore_root_agents": False,
+    }
+
+    # Preserve shared state from prior manifest
+    for key in (
+        "git_initialized_by_us", "gitignore_existed",
+        "gitignore_orig_final_newline", "precommit",
+        "precommit_orig_final_newline", "claude_settings_existed",
+        "factory_source",
+    ):
+        if key in prior:
+            install[key] = prior[key]
+
+    # Rebuild ignored entries for remaining CLIs only
+    for p in prior.get("ignored_paths", []):
+        if p == "/config/model.conf":
+            install["ignore_model_conf"] = True
+        elif p == f"/{PROJECT_IDENTITY}":
+            install["ignore_project_identity"] = True
+        elif p == "/config/project-context.json":
+            install["ignore_project_context"] = True
+        elif p == "/AGENTS.md":
+            if agents_md_remaining & remaining_set:
+                install["ignore_root_agents"] = True
+        elif p.startswith("/.github/") and "copilot" in remaining:
+            install["github_ignored_entries"].add(p.lstrip("/"))
+        elif p.startswith("/.codex/") and "codex" in remaining:
+            install["codex_ignored_entries"].add(p.lstrip("/"))
+        elif p.startswith("/.agents/") and "codex" in remaining:
+            install["agents_ignored_entries"].add(p.lstrip("/"))
+
+    if "copilot" in remaining:
+        install["copilot_generated_agents"] = set(
+            prior.get("copilot_generated_agents", [])
+        )
+    if "codex" in remaining:
+        install["codex_generated_agents"] = set(
+            prior.get("codex_generated_agents", [])
+        )
+        install["codex_hook_handlers"] = list(
+            prior.get("codex_hook_handlers", [])
+        )
+        for key in ("codex_hooks_existed", "codex_hooks_original",
+                     "codex_hooks_restore_original"):
+            if key in prior:
+                install[key] = prior[key]
+
+    section("Gitignore")
+    write_gitignore_block(target, install, report)
+
+    _out.quiet = True
+    write_manifest(target, install, report)
+    _out.quiet = False
+
+    print(f"\n{'═' * 54}")
+    print(f"  removed: {', '.join(chosen)}")
+    if remaining:
+        print(f"  remaining: {', '.join(remaining)}")
+    else:
+        print("  no CLIs wired — factory install preserved")
+        print("  use factory/scripts/remove-factory to uninstall entirely")
+    print()
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument(
@@ -2729,7 +3227,39 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="which CLI(s) to wire (default: auto-detect or ask interactively)",
     )
+    action = ap.add_mutually_exclusive_group()
+    action.add_argument(
+        "--add",
+        choices=KNOWN_CLIS,
+        nargs="*",
+        default=None,
+        help="add CLI wiring to an existing install (interactive menu if no CLIs given)",
+    )
+    action.add_argument(
+        "--remove",
+        choices=KNOWN_CLIS,
+        nargs="*",
+        default=None,
+        help="remove CLI wiring from an existing install (interactive menu if no CLIs given)",
+    )
     args = ap.parse_args(argv)
+
+    target = args.target.resolve()
+
+    if args.add is not None:
+        source_root = (args.source or Path(__file__).resolve().parents[2]).resolve()
+        pkg_factory = source_root / "packages" / "factory"
+        source_factory = pkg_factory if pkg_factory.is_dir() else source_root / "factory"
+        if not source_factory.is_dir():
+            print(
+                f"init-factory: no factory/ found at {source_root} — pass --source explicitly",
+                file=sys.stderr,
+            )
+            return 1
+        return do_add(target, source_factory, args.add or None)
+
+    if args.remove is not None:
+        return do_remove(target, args.remove or None)
 
     source_root = (args.source or Path(__file__).resolve().parents[2]).resolve()
     pkg_factory = source_root / "packages" / "factory"
@@ -2741,8 +3271,6 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
-
-    target = args.target.resolve()
 
     print("\ninit-factory")
     print("═" * 54)

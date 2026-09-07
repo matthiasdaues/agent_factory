@@ -8,6 +8,7 @@ assembly, manifest round-trip.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -221,6 +222,22 @@ class TestWriteGitignoreBlock:
         gi = (tmp_path / ".gitignore").read_text()
         assert "*.pyc" in gi
         assert inf.GITIGNORE_BEGIN in gi
+
+    def test_excludes_cli_dirs_not_in_cli_list(self, tmp_path):
+        install = {
+            "cli": ["copilot"],
+            "remove_paths": [],
+            "github_ignored_entries": {".github/copilot-instructions.md"},
+            "codex_ignored_entries": set(),
+            "agents_ignored_entries": set(),
+        }
+        report: list[str] = []
+        inf.write_gitignore_block(tmp_path, install, report)
+        gi = (tmp_path / ".gitignore").read_text()
+        assert "/.claude/" not in gi
+        assert "/.pi/" not in gi
+        assert "/.github/copilot-instructions.md" in gi
+        assert "/factory/" in gi
 
     def test_refreshes_existing_block(self, tmp_path):
         existing = f"*.pyc\n\n{inf.GITIGNORE_BEGIN}\n/factory/\n{inf.GITIGNORE_END}\n"
@@ -627,6 +644,81 @@ class TestAskClis:
         assert inf.ask_clis() == ["claude"]
 
 
+# ── Orientation file handling ─────────────────────────────────────────
+
+
+class TestLinkOrientation:
+    @pytest.fixture
+    def setup(self, tmp_path):
+        """Set up a minimal target with factory/config/AGENTS.md."""
+        factory = tmp_path / "factory"
+        factory.mkdir()
+        config = factory / "config"
+        config.mkdir()
+        agents_md = config / "AGENTS.md"
+        agents_md.write_text("# Orientation\nFactory content here.\n")
+        install = {
+            "remove_paths": [],
+            "orientation": {},
+            "_target": tmp_path,
+            "github_ignored_entries": set(),
+            "codex_ignored_entries": set(),
+            "agents_ignored_entries": set(),
+        }
+        return tmp_path, factory, install
+
+    def test_creates_symlink_when_absent(self, setup):
+        target, factory, install = setup
+        claude_dir = target / ".claude"
+        claude_dir.mkdir()
+        report: list[str] = []
+        inf._link_orientation(target, ".claude", factory, install, report)
+        link = target / ".claude" / "CLAUDE.md"
+        assert link.is_symlink()
+        assert install["orientation"][".claude/CLAUDE.md"] == "linked"
+
+    def test_injects_block_into_existing_real_file(self, setup):
+        target, factory, install = setup
+        claude_dir = target / ".claude"
+        claude_dir.mkdir()
+        claude_md = claude_dir / "CLAUDE.md"
+        claude_md.write_text("# My custom instructions\nDo things my way.\n")
+        report: list[str] = []
+        inf._link_orientation(target, ".claude", factory, install, report)
+        content = claude_md.read_text()
+        assert inf.ORIENTATION_BEGIN in content
+        assert "My custom instructions" in content
+        assert install["orientation"][".claude/CLAUDE.md"] == "injected"
+
+    def test_skips_external_symlink(self, setup):
+        target, factory, install = setup
+        claude_dir = target / ".claude"
+        claude_dir.mkdir()
+        external = target / "my-shared-claude.md"
+        external.write_text("# External instructions\n")
+        claude_md = claude_dir / "CLAUDE.md"
+        claude_md.symlink_to(external)
+        report: list[str] = []
+        inf._link_orientation(target, ".claude", factory, install, report)
+        assert claude_md.is_symlink()
+        current = (claude_md.parent / os.readlink(claude_md)).resolve()
+        assert current == external.resolve()
+        assert install["orientation"][".claude/CLAUDE.md"] == "external"
+        assert any("left untouched" in r for r in report)
+
+    def test_recognizes_factory_symlink(self, setup):
+        target, factory, install = setup
+        claude_dir = target / ".claude"
+        claude_dir.mkdir()
+        claude_md = claude_dir / "CLAUDE.md"
+        dest = factory / "config" / "AGENTS.md"
+        claude_md.symlink_to(os.path.relpath(dest, claude_dir))
+        report: list[str] = []
+        inf._link_orientation(target, ".claude", factory, install, report)
+        assert install["orientation"][".claude/CLAUDE.md"] == "linked"
+        assert any("already linked" in r for r in report)
+
+
 # ── Project context scan ──────────────────────────────────────────────
 
 
@@ -965,3 +1057,108 @@ class TestExtractDepName:
 
     def test_whitespace(self):
         assert inf._extract_dep_name("  requests >= 2.0  ") == "requests"
+
+
+class TestPathCli:
+    def test_claude_paths(self):
+        assert inf._path_cli(".claude/settings.json") == "claude"
+        assert inf._path_cli(".claude") == "claude"
+        assert inf._path_cli(".claude/hooks/block.sh") == "claude"
+
+    def test_copilot_paths(self):
+        assert inf._path_cli(".github/copilot-instructions.md") == "copilot"
+        assert inf._path_cli(".github/hooks/guard.sh") == "copilot"
+
+    def test_pi_paths(self):
+        assert inf._path_cli(".pi/extensions") == "pi"
+        assert inf._path_cli(".pi") == "pi"
+
+    def test_codex_paths(self):
+        assert inf._path_cli(".codex/agents/virgil.toml") == "codex"
+        assert inf._path_cli(".agents/skills/grilling") == "codex"
+
+    def test_shared_paths(self):
+        assert inf._path_cli("factory") is None
+        assert inf._path_cli("config/model.conf") is None
+        assert inf._path_cli("AGENTS.md") is None
+        assert inf._path_cli(".agent-factory/factory-install.json") is None
+
+
+class TestDoAdd:
+    def test_fails_without_manifest(self, tmp_path):
+        rc = inf.do_add(tmp_path, tmp_path, ["claude"])
+        assert rc == 1
+
+    def test_reports_all_installed(self, tmp_path):
+        manifest_path = tmp_path / ".agent-factory" / "factory-install.json"
+        manifest_path.parent.mkdir(parents=True)
+        manifest_path.write_text(json.dumps({"cli": None}))
+        rc = inf.do_add(tmp_path, tmp_path, ["claude"])
+        assert rc == 0
+
+
+class TestDoRemove:
+    def test_fails_without_manifest(self, tmp_path):
+        rc = inf.do_remove(tmp_path, ["claude"])
+        assert rc == 1
+
+    def test_reports_not_installed(self, tmp_path):
+        manifest_path = tmp_path / ".agent-factory" / "factory-install.json"
+        manifest_path.parent.mkdir(parents=True)
+        manifest_path.write_text(json.dumps({
+            "cli": ["copilot"],
+            "remove_paths": [],
+            "orientation": {},
+        }))
+        rc = inf.do_remove(tmp_path, ["claude"])
+        assert rc == 0
+
+    def test_preserves_shared_orientation_when_other_cli_remains(self, tmp_path):
+        """Removing codex must not strip AGENTS.md orientation when pi remains."""
+        agents_md = tmp_path / "AGENTS.md"
+        begin = inf.ORIENTATION_BEGIN
+        end = inf.ORIENTATION_END
+        agents_md.write_text(
+            f"# Project\n{begin}\nFactory content\n{end}\nUser content\n"
+        )
+        manifest_path = tmp_path / ".agent-factory" / "factory-install.json"
+        manifest_path.parent.mkdir(parents=True)
+        gitignore = tmp_path / ".gitignore"
+        gitignore.write_text("# project\n")
+        manifest_path.write_text(json.dumps({
+            "cli": ["pi", "codex"],
+            "remove_paths": [],
+            "orientation": {"AGENTS.md": "injected"},
+            "orientation_markers": {"begin": begin, "end": end},
+            "ignored_paths": [],
+            "gitignore_existed": True,
+            "gitignore_orig_final_newline": True,
+        }))
+        rc = inf.do_remove(tmp_path, ["codex"])
+        assert rc == 0
+        text = agents_md.read_text()
+        assert begin in text, "orientation block should be preserved for pi"
+
+    def test_removes_cli_paths(self, tmp_path):
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+        settings = claude_dir / "settings.json"
+        settings.write_text("{}")
+        manifest_path = tmp_path / ".agent-factory" / "factory-install.json"
+        manifest_path.parent.mkdir(parents=True)
+        gitignore = tmp_path / ".gitignore"
+        gitignore.write_text("# project\n")
+        manifest_path.write_text(json.dumps({
+            "cli": ["claude", "copilot"],
+            "remove_paths": [".claude/settings.json", ".claude"],
+            "orientation": {},
+            "ignored_paths": [],
+            "gitignore_existed": True,
+            "gitignore_orig_final_newline": True,
+        }))
+        rc = inf.do_remove(tmp_path, ["claude"])
+        assert rc == 0
+        assert not settings.exists()
+        manifest = json.loads(manifest_path.read_text())
+        assert "claude" not in (manifest.get("cli") or [])
+        assert "copilot" in (manifest.get("cli") or [])

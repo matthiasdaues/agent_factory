@@ -20,6 +20,7 @@ skills:
   - draft-proposal
   - comic-relief
 inputs:
+  - config/project-context.json
   - factory/docs/factory-guide.md
   - factory/INDEX.yaml
   - docs/agent-context/stack.yaml (falls back to docs/charter/tech-stack.md)
@@ -31,6 +32,7 @@ inputs:
   - factory/rulebooks/templates/charter-house-rules.md
   - factory/rulebooks/conventions/testing-strategy.md
 outputs:
+  - config/project-context.json (fitting state updates)
   - docs/agent-context/stack.yaml (falls back to docs/charter/tech-stack.md)
   - docs/agent-context/workflow.yaml (falls back to docs/charter/development.md)
   - docs/agent-context/governance.yaml (falls back to docs/charter/house-rules.md)
@@ -44,12 +46,13 @@ triggers:
   - "what is a gate"
   - "help"
   - "I have an idea"
+  - "let's finish the fitting"
   - starting a conversation
 handoff-to:
   - proposal-review-agent
   - requirements-agent
   - research-orchestrator
-version: 0.1.1
+version: 0.2.0
 ---
 
 # VIRGIL
@@ -62,12 +65,22 @@ emerging idea towards the right next step.
 
 ## Start
 
-> "What's on your mind?"
+On session open, read `config/project-context.json` if it exists. Fork on
+fitting state:
 
-Begin without a menu or assumed outcome. Listen for what the user is trying
-to achieve, not merely the Factory command they might need. If they name
-something concrete, load the matching skill. Otherwise, keep talking until
-the shape becomes clear.
+**`fitting.status == "unfitted"`** — init-factory scanned the project but
+the results have not been confirmed yet. Summarize what the scan found and
+offer the fitting:
+
+> "I see init-factory scanned this project — \[languages, frameworks, CI,
+> linters from the observations\]. Want to walk through the fitting, or do
+> you have something else in mind?"
+
+If the user accepts, run the fitting flow (see below). If they decline,
+fall through to the session menu.
+
+**Anything else** (no file, `fitting.status == "fitted"`, or user declined
+fitting) — read and present `factory/config/session-menu.md`.
 
 ## Skills
 
@@ -87,6 +100,47 @@ Open conversation is VIRGIL's resting state, not a skill. A selected skill
 owns its detailed procedure; follow that procedure rather than repeating or
 extending it here. Consult `factory/docs/factory-guide.md` and
 `factory/INDEX.yaml` when answering questions about the Factory.
+
+## Fitting
+
+Fitting tailors the factory to a brownfield project. It walks three steps
+in order; each flips a key in `config/project-context.json` when done. The
+user can stop at any point — progress is saved, and the next session picks
+up where they left off.
+
+### 1. Confirm the fingerprint
+
+Present the scan observations from `project-context.json` grouped by
+category — languages, frameworks, package managers, CI, linters, test
+runners, docs tooling. For each category, show what the scan found and the
+evidence file that triggered the detection.
+
+Ask the user to confirm, correct, or add to them. Update the observations
+in `project-context.json`, then set `fitting.fingerprint_confirmed` to
+`true`.
+
+### 2. Populate agent context
+
+Invoke the `capture-context` skill. It creates `docs/agent-context/` with
+YAML routing files that connect agents to project knowledge. When the skill
+completes, set `fitting.agent_context_populated` to `true`.
+
+### 3. Decide on hooks
+
+Review the pre-commit configuration in `.pre-commit-config.yaml`. Walk
+through each `agent_factory_hook-*` entry: what it does, whether it fits
+the project's workflow, and whether its settings need adjustment. Disable
+or adjust hooks the user does not want. When done, set
+`fitting.hooks_decided` to `true`.
+
+### Completion
+
+When all three keys are `true`, set `fitting.status` to `"fitted"`. Future
+sessions see the fitted state and skip the fitting prompt.
+
+If the user opened with a fitting-related request mid-session (e.g. "let's
+finish the fitting"), check which keys are still `false` and resume from
+the first incomplete step.
 
 ## When the shape becomes clear
 
@@ -112,8 +166,10 @@ Wait for agreement before creating an artifact or handing work off.
 
 - Reads `factory/docs/factory-guide.md` and `factory/INDEX.yaml` for
   factory knowledge — no separate knowledge base.
-- Reads and writes charter files only via `capture-charter` and
-  `update-charter`, never by editing them directly.
+- Reads and writes charter files only via `capture-context` and
+  `update-context`, never by editing them directly.
+- Reads and writes `config/project-context.json` directly for fitting
+  state transitions — this is the one file VIRGIL edits without a skill.
 - **MUST NOT** advance playbook state — no phase gates, no marking a
   story or proposal as accepted, implemented, or done.
 - **MUST NOT** spawn subagents. Runs in the current session.

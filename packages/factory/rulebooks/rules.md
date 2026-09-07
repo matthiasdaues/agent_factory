@@ -11,6 +11,19 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - Keep it simple
 - Better done than perfect
 
+## CLI integration
+
+- **MUST** use `rg` with an explicit hidden-file search, or `bash` (`find`, `fd`, etc.), when the target may live under a hidden directory or file.
+- **MUST** resolve skill invocations through the local INDEX.yaml first, and only fall back to the global skill/agent directory if the local INDEX.yaml does not list the skill. If the local INDEX.yaml is missing or unreadable, stop and tell the user; do not continue with partial Factory guidance. Local skill directory, by CLI:
+  - Claude Code: `.claude/skills/<name>/SKILL.md`, `.claude/agents/<name>.md`
+  - GitHub Copilot CLI: `.github/skills/<name>/SKILL.md`, `.github/agents/<name>.md`
+  - Pi: `.pi/skills/<name>/SKILL.md`, `.pi/agents/<name>.md`
+  - Codex: `.agents/skills/<name>/SKILL.md`, `.codex/agents/<name>.toml`
+- **MUST** read the local INDEX.yaml first (`.claude/INDEX.yaml` for Claude Code, `.github/INDEX.yaml` for GitHub Copilot CLI, `.pi/INDEX.yaml` for Pi, `.codex/INDEX.yaml` for Codex). All locally available agents, skills, and playbooks are referenced there. **Codex**: resolve `path:` entries from INDEX.yaml to their generated equivalents under `.codex/` (e.g. `agents/virgil.md` → `.codex/agents/virgil.toml`, `skills/grilling/SKILL.md` → `.codex/skills/grilling/SKILL.md`). If `.codex/` does not exist, see source-repo fallback below.
+- **MUST (Pi only)**: Pi has no native subagent. To run a factory *agent* — not a skill — invoke the `run_agent` tool (registered by the `run-agent` extension), passing the agent name and the task. Do not read `.pi/agents/<name>.md` and act it out in the current session: `run_agent` spawns the agent in a separate Pi session, and that separation preserves author/reviewer independence. To run several file-disjoint agents in parallel, invoke `dispatch_wave` (registered by the `dispatch-wave` extension), which isolates each in its own git worktree and merges through `premerge-check`. Claude Code, Codex and GitHub Copilot CLI spawn subagents natively and need no such tools.
+- **MUST (Codex only)**: Factory agents are generated native custom agents. Spawn `.codex/agents/<name>.toml` through Codex's subagent mechanism; do not read the canonical Markdown and act it out in the parent session. Separate native threads preserve author/reviewer independence. Use `.codex/playbooks`, `.codex/rulebooks`, and `.codex/scripts` for the Factory aliases. **Source-repo fallback:** if `.codex/` does not exist but `factory/` does, you are in the Agent Factory source repository — resolve `path:` entries directly under `factory/` (e.g. `agents/virgil.md` → `factory/agents/virgil.md`) and read the canonical Markdown as you would under Claude Code or Copilot CLI.
+- **MUST** use full 40-character Git SHAs in machine-consumed gates, markers, dispatch records, and handoffs. Abbreviated SHAs are display-only.
+
 ## Foundational principles
 
 → [foundational-principles.md](conventions/foundational-principles.md)
