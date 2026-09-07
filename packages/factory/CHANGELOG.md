@@ -1,5 +1,52 @@
 # Changelog
 
+## 0.7.0 — 2026-09-07
+
+Hardens the update path and closes the documentation gap between script
+mechanism and user-facing reference.
+
+### Features
+
+- **Update-factory modification detection.** `update-factory` now
+  compares the installed `factory/` against per-file SHA-256 checksums
+  recorded at install time (`.agent-factory/factory-checksums.json`).
+  Modified, added, and removed files are reported individually. The
+  update stops (exit 2) when user changes are detected. `--force`
+  preserves changed files under
+  `.agent-factory/factory-user-changes/<timestamp>/` and proceeds;
+  `--check` reports without touching anything. Rollback on failure
+  restores the previous `factory/` automatically.
+- **`--add` / `--remove` CLI management.** Incrementally add or remove
+  CLI wiring after install — dot-directories, symlinks, guardrails,
+  step guards, usage capture, freshness hooks, and generated agents —
+  without re-running the full installer. The root `init-factory` wrapper
+  now forwards `--add` and `--remove` to the underlying script.
+- **Factory fitting completed.** Agent-context YAML files populated
+  (`stack.yaml`, `workflow.yaml`, `governance.yaml`,
+  `reading-guides.yaml`) and `config/model.conf` configured with
+  concrete model IDs for the Agent Factory project itself.
+
+### Fixes
+
+- **step-guard bail-early.** Guard-existence and jq-availability checks
+  now run before stdin/event parsing, so missing infrastructure exits 0
+  instead of crashing the session with "hook errored".
+
+### Documentation
+
+- **README reference tables expanded.** CLI flag tables for both scripts;
+  "What init-factory creates" table extended from 8 to 16 rows covering
+  step guard hooks, freshness check, usage capture hooks, generated
+  agents, hook config, project-context.json, test regime, usage runtime,
+  usage lifecycle, and install checksums.
+- **Factory guide expanded.** "What init-factory put on your disk"
+  section adds `config/project-context.json` and
+  `docs/agent-context/testing.yaml`. "Updating it again" section now
+  documents `--check`, `--force`, and `--add`/`--remove` with code
+  examples. New troubleshooting entry for dangling `origin/HEAD` repair.
+- **Install section rewritten.** Explains wrapper delegation, update
+  workflow, and CLI add/remove in dedicated subsections.
+
 ## 0.6.0 — 2026-09-07
 
 Documentation release. Closes the gap between running `init-factory` and
