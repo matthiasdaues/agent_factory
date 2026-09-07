@@ -1,37 +1,37 @@
 # Agent Factory
 
-Agent Factory adds structure to AI-assisted software development. It gives your AI coding CLI a set of specialist agents, engineering playbooks, and automated checks — so you get a repeatable process instead of ad-hoc prompting.
+Without Agent Factory, every AI coding session starts from scratch. The model guesses your stack, invents a workflow, skips the review, and there is no record of what happened or why. You get code, maybe, but no process.
 
-Agents handle requirements, architecture, planning, implementation, and QA in separate sessions. Once a text or piece of code has been created, it is reviewed. Authors and reviewers never share a session, so no agent approves its own work. Deterministic scripts check formatting, schemas, traceability, and architecture consistency before anything reaches human review. You approve the decisions that shape the product.
+With Agent Factory, specialist agents handle requirements, architecture, planning, implementation, and QA in separate sessions. Authors and reviewers never share a session, so no agent approves its own work. Deterministic scripts check formatting, schemas, traceability, and architecture consistency before anything reaches human review. You approve the decisions that shape the product.
 
 ```
 Creation is agentic. Validation is deterministic. Decisions remain human.
 ```
 
-## Using Agent Factory
+## Try it
 
-Install the factory into your project — new or existing — from a local clone of this repo.
+Install into any project — new or existing. One command in, one command out.
 
 ```bash
+# Install
 git clone <agent-factory-repo-url> agent_factory
 cd agent_factory
-./init-factory your-project
+./init-factory /path/to/your-project
+
+# Remove — everything the factory added, nothing else
+your-project/factory/scripts/remove-factory
 ```
 
-The script copies a `factory/` directory into your project and asks which AI coding CLI you use, so it only wires up what you need. Currently supported: Claude Code, GitHub Copilot CLI, Pi, and Codex. It touches two tracked files:
+Removal is precise: a manifest records exactly what was created, and `remove-factory` reverses it. Your code, configuration, and git history are never modified by installation.
 
-- **`.pre-commit-config.yaml`** — Agent Factory's hooks are added as a `- repo: local` block at the top, prefixed `agent_factory_hook-` so they are easy to identify. If you already have a pre-commit config, your hooks are left untouched. If you do not have one, a new file is created.
-- **`.gitignore`** — a single marker-delimited block is appended, listing the files Agent Factory added. It ignores `.github/` entries individually — your Actions workflows stay tracked.
+The installer asks which AI coding CLI you use and wires up only what you need. Currently supported: Claude Code, GitHub Copilot CLI, Pi, and Codex. It touches two tracked files:
 
-Everything else is git-ignored. Your existing code, configuration, and git history are not modified. A manifest records exactly what was created, so removal is precise:
+- **`.pre-commit-config.yaml`** — factory hooks are added as a `- repo: local` block, prefixed `agent_factory_hook-` so they are easy to identify. If you already have a pre-commit config, your hooks are left untouched and the factory defers hook setup to the first session.
+- **`.gitignore`** — a marker-delimited block is appended, listing the files Agent Factory added.
 
-```bash
-factory/scripts/remove-factory
-```
+After installation, open your AI coding CLI in the project directory. If you have an existing codebase, the factory offers a short fitting — a few questions to learn your stack, confirm its guesses, and wire up the right hooks. Skip it if you want; come back to it any time.
 
-After installation, open your AI coding CLI in the project directory. It reads the orientation file and asks what you want to do.
-
-For the full inventory of what init-factory creates, prerequisites (Git, Python 3.10+, uv, an AI coding CLI), and supported CLIs, see the [factory setup guide](packages/factory/README.md).
+For prerequisites (Git, Python 3.10+, uv, an AI coding CLI) and the full inventory of what init-factory creates, see the [factory setup guide](packages/factory/README.md).
 
 ## Contributing
 
