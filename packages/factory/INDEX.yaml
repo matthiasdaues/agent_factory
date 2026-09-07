@@ -20,8 +20,8 @@ agents:
     tier: standard
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
-    tokens: 2717
-    total_tokens: 15209
+    tokens: 2752
+    total_tokens: 15244
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
