@@ -854,3 +854,51 @@ If you already have a `.claude/CLAUDE.md` with your own instructions:
 If you don't want the factory orientation at all, the external-symlink
 case applies: init-factory logs advice and moves on. Your file, your
 rules.
+
+## Implementation status (2026-09-07)
+
+Work done against the proposed lifecycle and fitting design.
+
+### Greenfield path
+
+Empty projects — no language manifests, no CI, no linters, no signals at
+all — now get `fitting.status = "greenfield"` with the project-knowledge
+keys (`fingerprint_confirmed`, `agent_context_populated`, `hooks_decided`)
+pre-set to `true`. `model_matrix_configured` stays `false` — the model
+matrix still needs configuration regardless of project state.
+
+AGENTS.md treats any status other than `"unfitted"` as fitted, so
+greenfield sessions open straight to the session menu. This matches the
+proposed lifecycle: `init → fitted` for greenfield, no fitting detour.
+
+### Step-guard graceful degradation
+
+`factory/config/hooks/step-guard.sh` now exits 0 when
+`factory/scripts/step-guard` is absent. factory/ is git-ignored, so on a
+fresh clone or partial install the hook is inert rather than blocking every
+tool call. Same pattern the usage-capture hooks already use.
+
+### README rewrite
+
+The root README now leads with a before/after contrast (the problem AI
+coding has without structure) instead of a feature list. Reversibility is
+a first-class promise next to installation, not a footnote. The fitting
+offer for brownfield projects is mentioned in the install section.
+
+### Pre-commit brownfield deferral
+
+Already implemented. When `.pre-commit-config.yaml` exists at init time,
+init-factory logs "factory hooks not merged" and defers hook setup to the
+fitting session. Only greenfield projects (no pre-commit config) get a
+factory-created config at init time.
+
+### What remains
+
+- **Fitting steps 1–3** (fingerprint confirmation, agent-context
+  population, hooks decision): spec'd in `virgil.md`, not yet exercised
+  with real users. The procedures and key transitions are defined; they
+  activate when someone runs a fitting.
+- **Multi-provider model discovery**: proposal drafted
+  (`docs/proposals/multi-provider-model-discovery.md`), no implementation.
+  Would replace `openrouter-discover` with a generic `model-discover`
+  script.
