@@ -37,7 +37,7 @@ The change must:
 - Be developed test-first through the public `factory/scripts/run-tests` CLI.
 - Preserve selected command exit codes.
 - Preserve the documented JSON summary contract.
-- Update [UC-09](../spec/use_cases/UC-09-run-tests-via-hook.md) and [ADR-0003](../adr/0003-test-execution-via-hooks.md) where their documented precedence
+- Update [UC-09](../~archive/spec/use_cases/UC-09-run-tests-via-hook.md) and [ADR-0003](../adr/0003-test-execution-via-hooks.md) where their documented precedence
   contradicts this requirement.
 - Keep framework inference as a compatibility fallback.
 - Avoid absorbing consumer-project environment knowledge into Factory.
