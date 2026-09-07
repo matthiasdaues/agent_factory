@@ -39,10 +39,12 @@ project has no populated sections yet to route to.
 
 ## Invocation
 
-| Invocation                      | When                                            |
-| ------------------------------- | ----------------------------------------------- |
-| `capture-context --init`        | Right after vision capture, before requirements |
-| `capture-context --init --scan` | Existing project with documentation to discover |
+| Invocation                                | When                                                                          |
+| ----------------------------------------- | ----------------------------------------------------------------------------- |
+| `capture-context --init`                  | Right after vision capture, before requirements                               |
+| `capture-context --init --scan`           | Existing project with documentation to discover                               |
+| `capture-context --init --minimal`        | Fast-path greenfield fitting — 6 questions, rest deferred                     |
+| `capture-context --init --scan --minimal` | Fast-path brownfield fitting — full scan, 6-question interview, rest deferred |
 
 ## `--init` (greenfield)
 
@@ -112,6 +114,110 @@ docs: initialize agent context (--init)
 under `docs/agent-context/`; `reading-guides.yaml` was not created; any
 file that already existed was left untouched; stakeholder answers are
 recorded; `context-lint` reports zero errors.
+
+## `--init --minimal` (fast-path, greenfield)
+
+Runs the greenfield skeleton step, then interviews on 6 fields instead of
+19 — enough for agents to route work, in a fraction of the stakeholder
+time.
+
+### Step 1 — Create the skeleton
+
+Same as `--init` Step 1.
+
+### Step 2 — Pre-fill deferred fields
+
+Before the interview, write every field **not** in the 6-field set below
+as `deferred: "full context pass pending"` across `stack.yaml`,
+`workflow.yaml`, and `governance.yaml`. This satisfies context-lint's
+null-leaf check ahead of the interview — the interview only ever narrows
+which fields already carry `deferred`, it never leaves a field `null`.
+
+### Step 3 — Minimal interview
+
+Ask only these six questions and record answers as inline values:
+
+| Ask                                      | Field                            |
+| ---------------------------------------- | -------------------------------- |
+| What language(s) and runtime version(s)? | `stack.yaml#languages`           |
+| What backend framework?                  | `stack.yaml#frameworks.backend`  |
+| What frontend framework (if any)?        | `stack.yaml#frameworks.frontend` |
+| How is the project run locally?          | `workflow.yaml#running`          |
+| Testing approach and test runner?        | `workflow.yaml#testing`          |
+| Branching model?                         | `workflow.yaml#branching`        |
+
+This set is fixed by design, not configurable per project.
+
+### Step 4 — Validate
+
+Run `factory/scripts/context-lint`, same as `--init` Step 3.
+
+### Step 5 — Commit
+
+```
+docs: initialize agent context (--init --minimal)
+```
+
+**Completion**: `stack.yaml`, `workflow.yaml`, and `governance.yaml` exist
+under `docs/agent-context/`; the 6 minimal fields carry stakeholder
+answers; every other field is `deferred: "full context pass pending"`;
+`context-lint` reports zero errors.
+
+## `--init --scan --minimal` (fast-path, brownfield)
+
+Runs the same discovery scan as `--init --scan`, but narrows the
+interview to the 6 minimal fields.
+
+### Steps 1-3 — Legacy detection, skeleton, discovery scan
+
+Identical to `--init --scan` Steps 1-3. The scan is never reduced — only
+the interview that follows it is.
+
+### Step 4 — Pre-fill deferred fields
+
+Before the interview, write every field not in the 6-field set as
+`deferred: "full context pass pending"` — **including fields the scan
+found signals for**. That scan evidence is not discarded; it is held,
+unpresented, for the full pass to surface later.
+
+### Step 5 — Minimal interview
+
+Present only the 6 minimal fields (same table as `--init --minimal`
+Step 3) for confirmation, override, or defer:
+
+- For the fields the scan can auto-detect among the six — languages,
+  `frameworks.backend`, `frameworks.frontend`, testing — propose the scan
+  result as the answer, following the same confirm/override/defer/remove
+  rules as `--init --scan` Step 4.
+- For the two the scan cannot detect — running locally, branching model —
+  ask directly.
+
+Non-minimal fields the scan found signals for are **held, not
+presented** — they stay `deferred: "full context pass pending"` from
+Step 4 until a full pass runs.
+
+### Step 6 — Reading-guide assembly
+
+Generate `docs/agent-context/reading-guides.yaml` from the source
+pointers the minimal interview confirmed. Prune concerns whose referenced
+fields are all still `deferred` — the same pruning rule as `--init --scan`
+Step 5.
+
+### Step 7 — Validate
+
+Same as `--init --scan` Step 6.
+
+### Step 8 — Commit
+
+```
+docs: initialize agent context (--init --scan --minimal)
+```
+
+**Completion**: the full discovery scan ran; the 6 minimal fields carry
+confirmed values (from scan or stakeholder); every other field — scanned
+or not — is `deferred: "full context pass pending"`; `reading-guides.yaml`
+contains only concerns with at least one non-deferred field;
+`context-lint` reports zero errors.
 
 ## `--init --scan` (brownfield onboarding)
 
@@ -228,6 +334,21 @@ docs: initialize agent context (--init --scan)
 `reading-guides.yaml` exist under `docs/agent-context/`; source pointers
 are populated from the discovery scan and concern interview;
 `context-lint` reports zero errors.
+
+## Full pass after a minimal pass
+
+When `--init` or `--init --scan` runs later **without** `--minimal`
+against an already-initialized `docs/agent-context/`, detect fields still
+marked `deferred: "full context pass pending"` and present only those for
+completion — do not restart the full 19-question interview from scratch.
+
+- **Brownfield**: any scan results that were held (not presented) during
+  an earlier minimal pass are proposed alongside the deferred fields,
+  following the same confirm/override/defer/remove rules as `--init --scan` Step 4.
+- Fields that already carry a value are shown for confirmation, not
+  re-asked.
+- This detection applies regardless of whether the prior pass used
+  `--minimal` — any deferred field is a candidate for completion.
 
 ## Validation reference
 
