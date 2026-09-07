@@ -727,8 +727,8 @@ class TestScanProjectContext:
         ctx = inf._scan_project_context(tmp_path)
         assert ctx["languages"] == []
         assert ctx["frameworks"] == []
-        assert ctx["fitting"]["status"] == "unfitted"
-        assert ctx["fitting"]["fingerprint_confirmed"] is False
+        assert ctx["fitting"]["status"] == "greenfield"
+        assert ctx["fitting"]["fingerprint_confirmed"] is True
 
     def test_detects_python_language(self, tmp_path):
         (tmp_path / "pyproject.toml").write_text("[project]\nname = 'demo'\n")
@@ -880,10 +880,21 @@ class TestScanProjectContext:
         names = {e["name"] for e in ctx["languages"]}
         assert names == {"python", "javascript"}
 
-    def test_fitting_state_initialized(self, tmp_path):
+    def test_fitting_state_greenfield(self, tmp_path):
+        ctx = inf._scan_project_context(tmp_path)
+        fitting = ctx["fitting"]
+        assert fitting["status"] == "greenfield"
+        assert fitting["model_matrix_configured"] is False
+        assert fitting["fingerprint_confirmed"] is True
+        assert fitting["agent_context_populated"] is True
+        assert fitting["hooks_decided"] is True
+
+    def test_fitting_state_brownfield(self, tmp_path):
+        (tmp_path / "pyproject.toml").write_text("[project]\nname = 'demo'\n")
         ctx = inf._scan_project_context(tmp_path)
         fitting = ctx["fitting"]
         assert fitting["status"] == "unfitted"
+        assert fitting["model_matrix_configured"] is False
         assert fitting["fingerprint_confirmed"] is False
         assert fitting["agent_context_populated"] is False
         assert fitting["hooks_decided"] is False

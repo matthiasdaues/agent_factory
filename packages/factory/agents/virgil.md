@@ -88,10 +88,14 @@ extending it here. Consult `factory/docs/factory-guide.md` and
 
 ## Fitting
 
-Fitting tailors the factory to a brownfield project. It walks four steps
-in order; each flips a key in `config/project-context.json` when done. The
-user can stop at any point — progress is saved, and the next session picks
-up where they left off.
+Fitting tailors the factory to a brownfield project — one that has an
+existing codebase, test runner, CI, or other stack signals. Greenfield
+projects (`fitting.status == "greenfield"`) skip the fitting entirely;
+there is no existing stack to learn about.
+
+Fitting walks four steps in order; each flips a key in
+`config/project-context.json` when done. The user can stop at any point —
+progress is saved, and the next session picks up where they left off.
 
 ### 0. Configure the model matrix
 

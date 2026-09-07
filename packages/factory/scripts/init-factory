@@ -2050,7 +2050,7 @@ def _scan_project_context(target: Path) -> dict:
                     seen_docs_structure.add(dname)
                     docs_structure.append({"name": dname, "evidence": _rel(dpath)})
 
-    return {
+    observations = {
         "languages": languages,
         "package_managers": package_managers,
         "frameworks": frameworks,
@@ -2059,14 +2059,28 @@ def _scan_project_context(target: Path) -> dict:
         "test_runners": test_runners,
         "docs_tooling": docs_tooling,
         "docs_structure": docs_structure,
-        "fitting": {
+    }
+
+    has_signals = any(observations[k] for k in observations)
+
+    if has_signals:
+        fitting = {
             "status": "unfitted",
             "model_matrix_configured": False,
             "fingerprint_confirmed": False,
             "agent_context_populated": False,
             "hooks_decided": False,
-        },
-    }
+        }
+    else:
+        fitting = {
+            "status": "greenfield",
+            "model_matrix_configured": False,
+            "fingerprint_confirmed": True,
+            "agent_context_populated": True,
+            "hooks_decided": True,
+        }
+
+    return {**observations, "fitting": fitting}
 
 
 def write_project_context(
@@ -2097,8 +2111,10 @@ def write_project_context(
         for line in counts:
             log(report, f"  {line}")
     else:
-        log(report, "  (no signals detected — empty project or unrecognized stack)")
+        log(report, "  (no signals detected — greenfield project)")
     log(report, "config/project-context.json: written")
+    if context["fitting"]["status"] == "greenfield":
+        log(report, "  fitting: greenfield — no existing stack to fit, session opens with menu")
 
 
 MODEL_MATRIX_HEADER = """\
