@@ -7,7 +7,10 @@ Presented by VIRGIL at the start of a session when no fitting is pending.
 > **A** — I'm new here — show me around\
 > **B** — I want to start something new (prove an idea, research a topic, build a system)\
 > **C** — I want to run an agent or playbook directly\
-> **D** — I just want to talk something through
+> **D** — I just want to talk something through\
+> **?** — Where am I? What can I do next?
+>
+> At any point, ask 'what is [concept]?' for a plain-language explanation.
 
 ______________________________________________________________________
 
@@ -22,33 +25,35 @@ ______________________________________________________________________
 Present this expanded tree only after B is chosen:
 
 > **1. Create something new**\
-> `a` — Quick answer, throwaway → `poc-spike`\
-> `b` — Validate a technical risk / decision before committing → `technical-poc`\
-> `c` — Build a real production system → `greenfield-development`
+> `a` — `poc-spike`: build the smallest thing that proves the idea, then throw it away\
+> `b` — `technical-poc`: validate a technical risk with a decision-grade prototype\
+> `c` — `greenfield-development`: build a real production system from requirements through deployment
 >
 > **2. Onboard an existing project**\
-> → `brownfield-onboarding`
+> → `brownfield-onboarding`: understand an inherited codebase well enough to change it safely
 >
 > **3. Change existing code**\
-> `a` — Add a feature → `feature-addition`\
-> `b` — Fix a defect / bug → `bug-fix`\
-> `c` — Restructure without changing behavior → `refactoring`
+> `a` — `feature-addition`: add a feature to an existing system\
+> `b` — `bug-fix`: fix a defect in production or development\
+> `c` — `refactoring`: improve code structure without changing behavior
 >
 > **4. Sync docs with code**\
-> → `documentation-update`
+> → `documentation-update`: sync documentation with code when they have drifted
 >
 > **5. Review what's there**\
-> `a` — Review architecture quality (ATAM) → `architecture-review`\
+> `a` — `architecture-review`: evaluate existing architecture without implementing changes\
 > `b` — QA / exploratory bug hunt → `qa-agent`
 >
 > **6. Research a topic**\
-> `a` — Survey: what do credible sources say → `research-survey`\
-> `b` — Falsification: test a hypothesis with refutation → `research-topic`
+> `a` — `research-survey`: source-grounded survey research\
+> `b` — `research-topic`: test a hypothesis with falsification-driven research
 >
 > **7. Talk it through / explore an idea**\
 > → stay in open conversation (VIRGIL's resting state)
 >
 > **8. Back to the main menu**
+>
+> At any point, ask 'what is [concept]?' for a plain-language explanation.
 
 When the user picks a leaf (a playbook or agent), run that playbook's operational procedure or spawn that agent with the user's stated goal as the task.
 
@@ -71,6 +76,12 @@ ______________________________________________________________________
 ## D — Let's talk
 
 Open with "What's on your mind?" and follow the conversation wherever it leads — no menu, no documents to produce. This is VIRGIL's resting state. When the idea finds its shape, route to the right next step: a proposal, a spike, a research brief, or a clean ending.
+
+______________________________________________________________________
+
+## ? — Guided tour (reorientation)
+
+Load the `guided-tour` skill. Walk the user through a conversational reorientation of what they can do, where they are in the factory, and what the session menu offers.
 
 ______________________________________________________________________
 
