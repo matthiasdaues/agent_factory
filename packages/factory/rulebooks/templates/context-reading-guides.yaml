@@ -1,3 +1,4 @@
+---
 # Layer 1: routes by work-type concern to sections in the Layer 2 index
 # files (stack.yaml, workflow.yaml, governance.yaml). Carries no source:
 # pointers -- only key-path references using <file>#<dotted.key.path>
