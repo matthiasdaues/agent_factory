@@ -12,16 +12,17 @@ By:   run by hand (a shell, no AI needed); companion to init-factory and
       remove-factory. Run it from the checkout (`--target <project>`) or from
       inside the installed project (`--source <checkout>`); either works.
 
-Why remove-and-reinstall rather than diff-and-merge: `target/factory/` holds no
-project-owned state — it is fully git-ignored, manifest-whitelisted for removal,
-and is meant to be an exact mirror of the checkout — so a byte-exact
-replacement can never lose work, and it is the only way to reach the guaranteed
-state "installed copy == current source." A recency merge ("whichever file's
-mtime is newer wins") is rejected: the contract is fully determined by
-(target, source), and file mtimes are the wrong oracle anyway — `git
-clone`/`pull` stamps every file with checkout time, not last-edit time — so a
-timestamp merge can only introduce nondeterministic divergence, never help
-reach the mirror.
+Safety: Before replacing factory/, the script compares per-file checksums
+recorded at install time against the currently installed files. Files that
+the user added (custom skills, agents, scripts) or modified (tweaked prompts,
+adjusted rules) are detected and reported. When user changes are found, the
+update stops unless --force is passed. With --force, user-changed and
+user-added files are preserved in .agent-factory/factory-user-changes/ so
+nothing is lost.
+
+Installations created before checksum recording was introduced have no
+baseline to compare against. In that case the update proceeds as before
+(full replacement) and records checksums for future updates.
 
 What is *not* touched: only `factory/` is replaced. The project's own files,
 the `.gitignore`/`.pre-commit-config.yaml` edits, and the `.agent-factory/`
@@ -48,14 +49,18 @@ Usage
   update-factory --target /path/to/project                 # source from manifest
   update-factory --target /path/to/project --source /path/to/agent_factory
   update-factory --source /path/to/agent_factory           # target = cwd
+  update-factory --check                                   # report changes, don't update
+  update-factory --force                                   # update despite user changes
 
 Exit code: 0 on success. 1 if the target isn't an init-factory'd project, if no
 source can be resolved, or if the sourced init-factory stops on a collision.
+2 if user modifications were detected and --force was not passed.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -65,6 +70,10 @@ import uuid
 from pathlib import Path
 
 MANIFEST_PATH = ".agent-factory/factory-install.json"
+CHECKSUMS_PATH = ".agent-factory/factory-checksums.json"
+USER_CHANGES_DIR = ".agent-factory/factory-user-changes"
+CHECKSUM_SKIP_PREFIXES = ("__pycache__/",)
+CHECKSUM_SKIP_SUFFIXES = (".pyc",)
 
 
 class ManifestUnreadable(Exception):
@@ -89,13 +98,132 @@ def load_manifest(target: Path) -> dict | None:
     return manifest if isinstance(manifest, dict) else None
 
 
+# ── Checksum detection ─────────────────────────────────────────────────
+
+
+def _should_checksum(rel: str) -> bool:
+    return (
+        not any(rel.startswith(p) or f"/{p}" in rel for p in CHECKSUM_SKIP_PREFIXES)
+        and not any(rel.endswith(s) for s in CHECKSUM_SKIP_SUFFIXES)
+    )
+
+
+def _compute_checksums(factory_dir: Path) -> dict[str, str]:
+    checksums: dict[str, str] = {}
+    for path in sorted(factory_dir.rglob("*")):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(factory_dir).as_posix()
+        if not _should_checksum(rel):
+            continue
+        checksums[rel] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return checksums
+
+
+def _read_checksums(target: Path) -> dict[str, str] | None:
+    path = target / CHECKSUMS_PATH
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        files = data.get("files")
+        return files if isinstance(files, dict) else None
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _write_checksums(target: Path, factory_dir: Path) -> None:
+    checksums = _compute_checksums(factory_dir)
+    out = target / CHECKSUMS_PATH
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(
+        json.dumps({"version": 1, "files": checksums}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _detect_modifications(
+    target: Path,
+) -> tuple[list[str], list[str], list[str]] | None:
+    """Compare installed factory/ against stored checksums.
+
+    Returns (modified, added, removed) lists of relative paths, or None
+    when no baseline checksums exist (pre-checksum install).
+    """
+    stored = _read_checksums(target)
+    if stored is None:
+        return None
+
+    factory_dir = target / "factory"
+    if not factory_dir.is_dir():
+        return None
+
+    current = _compute_checksums(factory_dir)
+
+    modified = [r for r in current if r in stored and current[r] != stored[r]]
+    added = [r for r in current if r not in stored]
+    removed = [r for r in stored if r not in current]
+
+    return modified, added, removed
+
+
+def _report_modifications(
+    modified: list[str], added: list[str], removed: list[str],
+) -> None:
+    """Print a human-readable report of user changes."""
+    total = len(modified) + len(added) + len(removed)
+    print(f"\n  Found {total} user change(s) in factory/:\n")
+    if modified:
+        print("  Modified (content differs from install baseline):")
+        for f in modified:
+            print(f"    M  {f}")
+    if added:
+        print("  Added (not in original install):")
+        for f in added:
+            print(f"    A  {f}")
+    if removed:
+        print("  Removed (present at install, now absent):")
+        for f in removed:
+            print(f"    D  {f}")
+    print()
+
+
+def _preserve_user_changes(
+    target: Path, modified: list[str], added: list[str],
+) -> Path | None:
+    """Copy user-modified and user-added files to a dated directory.
+
+    Returns the directory path, or None if there was nothing to preserve.
+    """
+    to_save = modified + added
+    if not to_save:
+        return None
+
+    from datetime import datetime
+
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    dest = target / USER_CHANGES_DIR / stamp
+    factory_dir = target / "factory"
+
+    for rel in to_save:
+        src = factory_dir / rel
+        if not src.exists():
+            continue
+        out = dest / rel
+        out.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, out)
+
+    return dest if dest.exists() else None
+
+
+# ── Init delegation ────────────────────────────────────────────────────
+
+
 def _run_init(source: Path, target: Path) -> int:
     """Invoke the *sourced* init-factory to re-apply the install after the
     factory/ refresh. Subprocess so the replace-and-reinstall boundary and the
     sourced script's own idempotency/collision handling stay exactly the
     script's — update-factory adds no re-implementation of init's wiring."""
-    # Monorepo layout: scripts live at packages/factory/scripts/.
-    # Consumer layout: scripts live at factory/scripts/.
     pkg_init = source / "packages" / "factory" / "scripts" / "init-factory"
     init = pkg_init if pkg_init.exists() else source / "factory" / "scripts" / "init-factory"
     result = subprocess.run(
@@ -112,6 +240,9 @@ def _run_init(source: Path, target: Path) -> int:
     return result.returncode
 
 
+# ── Main ───────────────────────────────────────────────────────────────
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--target", type=Path, default=Path("."))
@@ -122,6 +253,17 @@ def main(argv: list[str] | None = None) -> int:
         help="agent_factory checkout whose factory/ is the new state "
         "(default: the source recorded in the install manifest)",
     )
+    ap.add_argument(
+        "--force",
+        action="store_true",
+        help="proceed even when user modifications are detected; "
+        "changed files are preserved under .agent-factory/factory-user-changes/",
+    )
+    ap.add_argument(
+        "--check",
+        action="store_true",
+        help="report user modifications and exit without updating",
+    )
     args = ap.parse_args(argv)
 
     target = args.target.resolve()
@@ -129,7 +271,7 @@ def main(argv: list[str] | None = None) -> int:
         manifest = load_manifest(target)
     except ManifestUnreadable as exc:
         print(
-            f"update-factory: {MANIFEST_PATH} exists but is not valid JSON ({exc})",
+            f"update-factory: {CHECKSUMS_PATH} exists but is not valid JSON ({exc})",
             file=sys.stderr,
         )
         return 1
@@ -140,6 +282,48 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
+
+    # ── Modification detection ─────────────────────────────────────────
+
+    result = _detect_modifications(target)
+    if result is not None:
+        modified, added, removed = result
+        has_changes = bool(modified or added or removed)
+
+        if has_changes:
+            _report_modifications(modified, added, removed)
+
+            if args.check:
+                return 2
+
+            if not args.force:
+                print(
+                    "  User modifications detected. The update would replace these.\n"
+                    "  Options:\n"
+                    "    --force   proceed and preserve changed files in\n"
+                    f"              {USER_CHANGES_DIR}/<timestamp>/\n"
+                    "    --check   re-run with --check to see the full report\n",
+                    file=sys.stderr,
+                )
+                return 2
+
+            saved = _preserve_user_changes(target, modified, added)
+            if saved:
+                log(f"preserved {len(modified) + len(added)} user-changed files in {saved}")
+        elif args.check:
+            log("no user modifications detected in factory/")
+            return 0
+    else:
+        if args.check:
+            log("no checksum baseline found (pre-checksum install) — "
+                "cannot detect modifications; run update once to establish baseline")
+            return 0
+        log("no checksum baseline — proceeding (first update will record baseline)")
+
+    if args.check:
+        return 0
+
+    # ── Resolve source ─────────────────────────────────────────────────
 
     if args.source is not None:
         source = args.source.resolve()
@@ -155,8 +339,6 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         source = Path(recorded).resolve()
 
-    # Monorepo layout: product source at packages/factory/.
-    # Consumer layout: installed copy at factory/.
     pkg_factory = source / "packages" / "factory"
     source_factory = pkg_factory if pkg_factory.is_dir() else source / "factory"
     if not source_factory.is_dir():
@@ -176,11 +358,8 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    # Only factory/ is replaced. .agent-factory/ (usage transcripts + lifecycle
-    # state) and the project's own files are deliberately left in place. Move
-    # the old factory/ aside (rather than deleting it) so a failed reinstall can
-    # restore it and the project is never left without a factory/ and dangling
-    # runtime symlinks.
+    # ── Replace factory/ ───────────────────────────────────────────────
+
     backup: Path | None = None
     if target_factory.is_dir():
         backup_dir = target / ".agent-factory"
@@ -210,6 +389,7 @@ def main(argv: list[str] | None = None) -> int:
         log("removed the update backup")
 
     _stamp_tree_hash(source, target)
+    _write_checksums(target, target_factory)
     log("done, factory/ is now current")
     return 0
 

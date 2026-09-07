@@ -251,6 +251,81 @@ def _factory_tree_hash(source: str | None) -> str | None:
         return None
 
 
+CHECKSUMS_PATH = ".agent-factory/factory-checksums.json"
+CHECKSUM_SKIP_PREFIXES = ("__pycache__/",)
+CHECKSUM_SKIP_SUFFIXES = (".pyc",)
+
+
+def _should_checksum(rel: str) -> bool:
+    """Return True when a factory-relative path should be checksummed."""
+    return (
+        not any(rel.startswith(p) or f"/{p}" in rel for p in CHECKSUM_SKIP_PREFIXES)
+        and not any(rel.endswith(s) for s in CHECKSUM_SKIP_SUFFIXES)
+    )
+
+
+def compute_factory_checksums(factory_dir: Path) -> dict[str, str]:
+    """Walk factory/ and return {relative_posix_path: sha256hex}."""
+    checksums: dict[str, str] = {}
+    for path in sorted(factory_dir.rglob("*")):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(factory_dir).as_posix()
+        if not _should_checksum(rel):
+            continue
+        checksums[rel] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return checksums
+
+
+def write_factory_checksums(target: Path, factory_dir: Path) -> None:
+    """Compute and persist per-file checksums for the installed factory/."""
+    checksums = compute_factory_checksums(factory_dir)
+    out = target / CHECKSUMS_PATH
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(
+        json.dumps({"version": 1, "files": checksums}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def read_factory_checksums(target: Path) -> dict[str, str] | None:
+    """Return the stored per-file checksums, or None if not recorded."""
+    path = target / CHECKSUMS_PATH
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        files = data.get("files")
+        return files if isinstance(files, dict) else None
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def detect_factory_modifications(
+    target: Path,
+) -> tuple[list[str], list[str], list[str]] | None:
+    """Compare installed factory/ against stored checksums.
+
+    Returns (modified, added, removed) lists of relative paths, or None
+    when no baseline checksums exist (pre-checksum install).
+    """
+    stored = read_factory_checksums(target)
+    if stored is None:
+        return None
+
+    factory_dir = target / "factory"
+    if not factory_dir.is_dir():
+        return None
+
+    current = compute_factory_checksums(factory_dir)
+
+    modified = [r for r in current if r in stored and current[r] != stored[r]]
+    added = [r for r in current if r not in stored]
+    removed = [r for r in stored if r not in current]
+
+    return modified, added, removed
+
+
 CLI_LABELS = {
     "claude": "Claude Code",
     "copilot": "GitHub Copilot CLI",
@@ -499,6 +574,7 @@ def copy_factory(
         return
 
     shutil.copytree(source_factory, dest, symlinks=False)
+    write_factory_checksums(target, dest)
     log(report, f"factory/: copied in from {source_factory}")
 
 

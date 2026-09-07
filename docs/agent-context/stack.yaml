@@ -1,0 +1,28 @@
+# Layer 2 index file: what the project is built with.
+# mode: index — fields are projections of existing documentation.
+
+mode: index
+
+languages:
+  python:
+    name: "Python >=3.10"
+    source: pyproject.toml
+
+integrations:
+  claude_code:
+    name: "Claude Code CLI"
+    source: .claude/INDEX.yaml
+  copilot_cli:
+    name: "GitHub Copilot CLI"
+    source: .github/INDEX.yaml
+  pi:
+    name: "Pi"
+    source: .pi/INDEX.yaml
+  codex:
+    name: "Codex"
+    source: .codex/INDEX.yaml
+
+licensing:
+  project:
+    name: "See LICENSE"
+    source: LICENSE

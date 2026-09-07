@@ -1150,6 +1150,95 @@ class TestDoRemove:
         text = agents_md.read_text()
         assert begin in text, "orientation block should be preserved for pi"
 
+class TestFactoryChecksums:
+    """Per-file checksum recording and modification detection."""
+
+    def _make_factory(self, tmp_path):
+        factory = tmp_path / "factory"
+        factory.mkdir()
+        (factory / "scripts").mkdir()
+        (factory / "scripts" / "step-guard").write_text("#!/usr/bin/env python3\npass\n")
+        (factory / "skills").mkdir()
+        (factory / "skills" / "tdd").mkdir()
+        (factory / "skills" / "tdd" / "SKILL.md").write_text("# TDD skill\n")
+        (factory / "__pycache__").mkdir()
+        (factory / "__pycache__" / "lib.cpython-310.pyc").write_bytes(b"\x00")
+        return factory
+
+    def test_compute_checksums_skips_pycache(self, tmp_path):
+        factory = self._make_factory(tmp_path)
+        checksums = inf.compute_factory_checksums(factory)
+        assert "scripts/step-guard" in checksums
+        assert "skills/tdd/SKILL.md" in checksums
+        assert not any("__pycache__" in k for k in checksums)
+        assert not any(k.endswith(".pyc") for k in checksums)
+
+    def test_write_and_read_roundtrip(self, tmp_path):
+        factory = self._make_factory(tmp_path)
+        inf.write_factory_checksums(tmp_path, factory)
+        stored = inf.read_factory_checksums(tmp_path)
+        assert stored is not None
+        assert "scripts/step-guard" in stored
+
+    def test_detect_no_modifications(self, tmp_path):
+        factory = self._make_factory(tmp_path)
+        inf.write_factory_checksums(tmp_path, factory)
+        result = inf.detect_factory_modifications(tmp_path)
+        assert result is not None
+        modified, added, removed = result
+        assert modified == []
+        assert added == []
+        assert removed == []
+
+    def test_detect_modified_file(self, tmp_path):
+        factory = self._make_factory(tmp_path)
+        inf.write_factory_checksums(tmp_path, factory)
+        (factory / "skills" / "tdd" / "SKILL.md").write_text("# TDD skill\nCustomized.\n")
+        result = inf.detect_factory_modifications(tmp_path)
+        modified, added, removed = result
+        assert "skills/tdd/SKILL.md" in modified
+        assert added == []
+        assert removed == []
+
+    def test_detect_added_file(self, tmp_path):
+        factory = self._make_factory(tmp_path)
+        inf.write_factory_checksums(tmp_path, factory)
+        (factory / "skills" / "custom").mkdir()
+        (factory / "skills" / "custom" / "SKILL.md").write_text("# Custom\n")
+        result = inf.detect_factory_modifications(tmp_path)
+        modified, added, removed = result
+        assert modified == []
+        assert "skills/custom/SKILL.md" in added
+
+    def test_detect_removed_file(self, tmp_path):
+        factory = self._make_factory(tmp_path)
+        inf.write_factory_checksums(tmp_path, factory)
+        (factory / "skills" / "tdd" / "SKILL.md").unlink()
+        result = inf.detect_factory_modifications(tmp_path)
+        modified, added, removed = result
+        assert "skills/tdd/SKILL.md" in removed
+
+    def test_no_baseline_returns_none(self, tmp_path):
+        self._make_factory(tmp_path)
+        result = inf.detect_factory_modifications(tmp_path)
+        assert result is None
+
+    def test_copy_factory_records_checksums(self, tmp_path):
+        (tmp_path / "source").mkdir()
+        source = self._make_factory(tmp_path / "source")
+        target = tmp_path / "project"
+        target.mkdir()
+        report: list[str] = []
+        install = {"remove_paths": []}
+        inf.copy_factory(source.parent / "factory", target, install, report)
+        assert (target / ".agent-factory" / "factory-checksums.json").exists()
+        stored = inf.read_factory_checksums(target)
+        assert stored is not None
+        assert "scripts/step-guard" in stored
+
+
+class TestDoRemoveCLIPaths:
+
     def test_removes_cli_paths(self, tmp_path):
         claude_dir = tmp_path / ".claude"
         claude_dir.mkdir()
