@@ -20,8 +20,8 @@ agents:
     tier: standard
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
-    tokens: 2752
-    total_tokens: 15244
+    tokens: 2751
+    total_tokens: 15257
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
@@ -160,7 +160,7 @@ skills:
     category: requirements
     description: Initialize docs/agent-context/ — the YAML routing interface between agents and project knowledge. capture-context --init scaffolds stack.yaml, workflow.yaml, and governance.yaml from templates, then runs a stakeholder interview that records the answers as inline values. capture-context --init --scan discovers existing documentation in a brownfield project, runs a concern-based interview, populates index files with name and source pointers, and generates reading-guides.yaml.
     path: skills/capture-context/SKILL.md
-    tokens: 3708
+    tokens: 3722
   - name: capture-vision
     category: requirements
     description: Capture a project vision through structured interview.

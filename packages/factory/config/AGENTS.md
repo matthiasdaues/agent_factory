@@ -23,7 +23,12 @@ Summarize what the scan found (languages, frameworks, CI, linters from the obser
 
 If the file exists and `fitting.status` is `"fitting"`:
 
-Read the five fitting keys from `config/project-context.json` → `fitting`:
+Read the five fitting keys from `config/project-context.json` → `fitting`.
+These values are cached; `init-factory` re-derives them from tracked
+artifacts on each run. If fitting progress looks stale after a pull,
+suggest running `init-factory --update .` to reconcile.
+
+Keys:
 
 | Key                       | Step name           |
 | ------------------------- | ------------------- |

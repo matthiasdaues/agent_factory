@@ -138,9 +138,9 @@ in `project-context.json`, then set `fitting.fingerprint_confirmed` to
 
 ### 2. Populate agent context
 
-Invoke the `capture-context` skill with `--minimal`: `--init --scan --minimal` for brownfield, `--init --minimal` for greenfield. This asks 6
-questions instead of 19 — the fastest path to enough context for agents to
-route work. When the skill completes, set
+Invoke the `capture-context` skill with `--minimal`: `--init --scan --minimal` for brownfield, `--init --minimal` for greenfield. This asks
+6 questions instead of 19 — the fastest path to enough context for agents
+to route work. When the skill completes, set
 `fitting.agent_context_populated` to `true`.
 
 Then offer the full pass explicitly: "I have enough to work with. Want to

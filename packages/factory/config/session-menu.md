@@ -42,7 +42,7 @@ Present this expanded tree only after B is chosen:
 >
 > **5. Review what's there**\
 > `a` — `architecture-review`: evaluate existing architecture without implementing changes\
-> `b` — QA / exploratory bug hunt → `qa-agent`
+> `b` — `qa-agent`: review code for correctness, security, and robustness
 >
 > **6. Research a topic**\
 > `a` — `research-survey`: source-grounded survey research\

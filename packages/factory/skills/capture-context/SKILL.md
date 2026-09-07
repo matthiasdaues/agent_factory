@@ -183,14 +183,17 @@ unpresented, for the full pass to surface later.
 ### Step 5 — Minimal interview
 
 Present only the 6 minimal fields (same table as `--init --minimal`
-Step 3) for confirmation, override, or defer:
+Step 3) for confirmation or override:
 
 - For the fields the scan can auto-detect among the six — languages,
   `frameworks.backend`, `frameworks.frontend`, testing — propose the scan
-  result as the answer, following the same confirm/override/defer/remove
-  rules as `--init --scan` Step 4.
+  result as the answer, following the same confirm/override/remove rules
+  as `--init --scan` Step 4.
 - For the two the scan cannot detect — running locally, branching model —
   ask directly.
+
+All 6 minimal fields must be answered — defer is not available in the
+minimal interview.
 
 Non-minimal fields the scan found signals for are **held, not
 presented** — they stay `deferred: "full context pass pending"` from

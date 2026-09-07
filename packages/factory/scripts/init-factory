@@ -2235,7 +2235,10 @@ def _parse_simple_yaml_mapping(text: str) -> dict:
     agent-context index files: nested block mappings of scalars, no
     sequences. Unparsable lines are skipped rather than raising — this is
     a fitting-signal probe, not a validator (context-lint owns validation).
-    Returns {} for empty or unrecognised content."""
+    Returns {} for empty or unrecognised content.
+
+    Limitation: comment stripping via split('#') does not respect quoted
+    strings, so a value like ``name: "C# runtime"`` would truncate."""
     entries: list[tuple[int, str]] = []
     for raw in text.splitlines():
         if raw.strip() in ("---", "..."):
@@ -2353,7 +2356,7 @@ def _fitting_status(fitting: dict) -> str:
         "test_regime_detected",
         "hooks_decided",
     )
-    values = [fitting[k] for k in keys]
+    values = [fitting.get(k, False) for k in keys]
     if all(values):
         return "fitted"
     if not any(values):
@@ -2536,10 +2539,9 @@ def _reconcile_project_context(target: Path, path: Path, report: list[str]) -> N
     fitting.update(derived)
     fitting["status"] = _fitting_status(fitting)
 
-    cached["fitting"] = fitting
-    path.write_text(json.dumps(cached, indent=2) + "\n", encoding="utf-8")
-
     if changed:
+        cached["fitting"] = fitting
+        path.write_text(json.dumps(cached, indent=2) + "\n", encoding="utf-8")
         log(report, "config/project-context.json: fitting keys reconciled against tracked artifacts")
     else:
         log(report, "config/project-context.json: already present, fitting keys confirmed")

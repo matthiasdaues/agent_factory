@@ -563,7 +563,7 @@ def _stdlib_load(text: str) -> dict[str, Any]:
 
     for line in text.splitlines():
         stripped = line.lstrip()
-        if not stripped or stripped.startswith("#"):
+        if not stripped or stripped.startswith("#") or stripped == "---":
             continue
         indent = len(line) - len(stripped)
 
