@@ -177,9 +177,11 @@ or adjust hooks the user does not want. When done, set
 When all five keys are `true`, set `fitting.status` to `"fitted"`. Future
 sessions see the fitted state and skip the fitting prompt.
 
-If the user opened with a fitting-related request mid-session (e.g. "let's
-finish the fitting"), check which keys are still `false` and resume from
-the first incomplete step.
+When the user chooses to continue fitting — either from a mid-session
+request (e.g. "let's finish the fitting") or from the session-start
+routing when `fitting.status` is `"fitting"` — check which keys are still
+`false` and resume from the first incomplete step. Present only the
+incomplete steps; skip the completed ones.
 
 ## When the shape becomes clear
 
