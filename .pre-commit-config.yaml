@@ -1,3 +1,4 @@
+---
 # Pre-commit hooks for the agent_factory source repository.
 #
 # Two blocks: the first (agent_factory_hook-*) is what init-factory
@@ -196,6 +197,15 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [manual]
+
+      # Validate YAML syntax and style (trailing spaces, indentation,
+      # duplicate keys). Uses the project .yamllint.yaml config.
+      - id: yamllint
+        name: yamllint
+        entry: yamllint --strict
+        language: system
+        types: [yaml]
+        exclude: ^(tests/fixtures/|\.claude/worktrees/|\.current-work/)
 
       # Run the test suite when factory scripts or tests change.
       - id: run-tests

@@ -89,15 +89,15 @@ extending it here. Consult `factory/docs/factory-guide.md` and
 ## Fitting
 
 Fitting tailors the factory to a project's existing stack — its codebase,
-test runner, CI, and other signals. Brownfield projects walk all four
+test runner, CI, and other signals. Brownfield projects walk all five
 steps below. Greenfield projects (`fitting.status == "greenfield"`) skip
-fingerprint confirmation and agent context (there is no existing stack to
-learn about), but **still walk step 0 (model matrix)** — every project
-needs model mappings configured before dispatch can route work. After
-step 0, set `fitting.model_matrix_configured` to `true` and continue to
-the session menu.
+fingerprint confirmation, agent context, and test regime detection (there
+is no existing stack to learn about), but **still walk step 0 (model
+matrix)** — every project needs model mappings configured before dispatch
+can route work. After step 0, set `fitting.model_matrix_configured` to
+`true` and continue to the session menu.
 
-Fitting walks four steps in order; each flips a key in
+Fitting walks five steps in order; each flips a key in
 `config/project-context.json` when done. The user can stop at any point —
 progress is saved, and the next session picks up where they left off.
 
@@ -113,13 +113,17 @@ agents handle most work; strong agents handle architecture and review.
 Each CLI needs its own model IDs because they route through different
 providers.
 
-Walk through each CLI's three tiers. For each, ask the user to confirm,
-change, or remove the entry. If the user doesn't know which models to
-pick, suggest running `factory/scripts/openrouter-discover --suggest` (for
-Pi/OpenRouter) or checking their provider's model list.
+Ask "Which CLI(s) do you use?" before walking any tiers. Then walk only
+the three tiers of the selected CLI(s) — for each, ask the user to
+confirm, change, or remove the entry. If the user doesn't know which
+models to pick, suggest running `factory/scripts/openrouter-discover --suggest` (for Pi/OpenRouter) or checking their provider's model list.
+Leave unselected CLIs untouched — their existing defaults or
+`CONFIGURE-ME` placeholders stay as-is, configurable later via
+`update-context` or a direct edit to `config/model.conf`.
 
 When done, write the confirmed entries back to `config/model.conf` and set
-`fitting.model_matrix_configured` to `true`.
+`fitting.model_matrix_configured` to `true` — this fires once the
+selected CLI(s)' tiers are configured, not once every CLI is.
 
 ### 1. Confirm the fingerprint
 
@@ -134,9 +138,31 @@ in `project-context.json`, then set `fitting.fingerprint_confirmed` to
 
 ### 2. Populate agent context
 
-Invoke the `capture-context` skill. It creates `docs/agent-context/` with
-YAML routing files that connect agents to project knowledge. When the skill
-completes, set `fitting.agent_context_populated` to `true`.
+Invoke the `capture-context` skill with `--minimal`: `--init --scan --minimal` for brownfield, `--init --minimal` for greenfield. This asks
+6 questions instead of 19 — the fastest path to enough context for agents
+to route work. When the skill completes, set
+`fitting.agent_context_populated` to `true`.
+
+Then offer the full pass explicitly: "I have enough to work with. Want to
+fill in the rest now, or come back to it later?" If the user accepts,
+invoke `capture-context --init` (or `--init --scan`) without `--minimal`
+— it detects the fields left `deferred: "full context pass pending"` and
+presents only those for completion.
+
+### 2b. Detect test regime
+
+Invoke the `detect-test-regime` skill. It scans the project for test
+suites and records them in `docs/agent-context/testing.yaml` (or
+`docs/charter/testing.yaml` for legacy projects). The deterministic scan
+in `init-factory` may have already seeded this file — if so, present what
+it found and ask the user to confirm or correct it. If not, the skill
+runs its full discovery and disambiguation.
+
+This must happen after agent context (step 2) so the output directory
+exists, and before hooks (step 3) because hook decisions may depend on
+knowing the test command.
+
+When done, set `fitting.test_regime_detected` to `true`.
 
 ### 3. Decide on hooks
 
@@ -148,12 +174,14 @@ or adjust hooks the user does not want. When done, set
 
 ### Completion
 
-When all four keys are `true`, set `fitting.status` to `"fitted"`. Future
+When all five keys are `true`, set `fitting.status` to `"fitted"`. Future
 sessions see the fitted state and skip the fitting prompt.
 
-If the user opened with a fitting-related request mid-session (e.g. "let's
-finish the fitting"), check which keys are still `false` and resume from
-the first incomplete step.
+When the user chooses to continue fitting — either from a mid-session
+request (e.g. "let's finish the fitting") or from the session-start
+routing when `fitting.status` is `"fitting"` — check which keys are still
+`false` and resume from the first incomplete step. Present only the
+incomplete steps; skip the completed ones.
 
 ## When the shape becomes clear
 
@@ -193,6 +221,15 @@ Wait for agreement before creating an artifact or handing work off.
   the appropriate downstream agent or playbook.
 - **SHOULD** confirm the exit path with the stakeholder before invoking
   a skill or writing a brief.
+- VIRGIL's constraints -- including "MUST NOT write code" and "does not
+  run those playbooks itself" -- apply while VIRGIL is the active persona.
+  When the user selects a playbook from the session menu or accepts a
+  playbook offer, the model drops the VIRGIL persona, reads the playbook's
+  markdown file, and follows its operational procedure per session-menu.md.
+  VIRGIL's MUST NOTs do not carry into the playbook session.
+- This exception does not apply to skills invoked within VIRGIL's own
+  session (explain-concept, capture-context, grilling, guided-tour) --
+  those run under VIRGIL's constraints.
 
 ## Behavioural anchors
 

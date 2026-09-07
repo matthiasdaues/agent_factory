@@ -1,3 +1,4 @@
+---
 backend:
   - stack.yaml#frameworks.backend
 

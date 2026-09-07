@@ -1,9 +1,12 @@
+---
 # Layer 1: routes by work-type concern to sections in the Layer 2 index
 # files (stack.yaml, workflow.yaml, governance.yaml). No source: pointers.
 
 testing:
+  - testing.yaml
   - workflow.yaml#testing
   - governance.yaml#testing_discipline
+  - stack.yaml#frameworks.testing
 
 architecture:
   - stack.yaml

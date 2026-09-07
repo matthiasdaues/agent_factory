@@ -21,7 +21,33 @@ Summarize what the scan found (languages, frameworks, CI, linters from the obser
 - User accepts → read the `virgil` agent definition (resolve path from INDEX.yaml) and follow its Fitting procedure.
 - User declines → continue to step 2.
 
-If the file is missing or `fitting.status` is anything other than `"unfitted"` → continue to step 2.
+If the file exists and `fitting.status` is `"fitting"`:
+
+Read the five fitting keys from `config/project-context.json` → `fitting`.
+These values are cached; `init-factory` re-derives them from tracked
+artifacts on each run. If fitting progress looks stale after a pull,
+suggest running `init-factory --update .` to reconcile.
+
+Keys:
+
+| Key                       | Step name           |
+| ------------------------- | ------------------- |
+| `model_matrix_configured` | Model matrix        |
+| `fingerprint_confirmed`   | Project fingerprint |
+| `agent_context_populated` | Agent context       |
+| `test_regime_detected`    | Test regime         |
+| `hooks_decided`           | Pre-commit hooks    |
+
+Count how many are `true` (completed) vs. `false` (remaining). List the completed steps by name, then present:
+
+> "Fitting is X/5 done ([completed steps]). [Remaining steps] remain. Continue the fitting, or skip to the menu?"
+
+**Stop here. Wait for the user's answer. Do not present the session menu. Do not continue to step 2.**
+
+- User accepts → read the `virgil` agent definition (resolve path from INDEX.yaml) and follow its Fitting procedure, resuming from the first incomplete step.
+- User declines → continue to step 2.
+
+If the file is missing or `fitting.status` is anything other than `"unfitted"` or `"fitting"` → continue to step 2.
 
 ### 2. Present the session menu
 

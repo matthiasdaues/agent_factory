@@ -317,3 +317,181 @@ EPIC 1 (convention and templates must exist to reference accurately), EPIC 2 (ca
 | ------- | ----------------------------------------------------------- | -------- | ---- | ------------------------------------------------------------------------------------------------------------------ |
 | ST-0199 | Grill stakeholder to shape the agent-context user interface | strong   | S    | Low complexity (structured interview via grill-with-docs skill), high uncertainty (outcome depends on stakeholder) |
 | ST-0200 | Write agent-context guidance in factory documentation       | standard | S    | Low complexity (structured writing from grilling output), moderate effort (3 files), low uncertainty               |
+
+______________________________________________________________________
+
+# EPICs -- Progressive Fitting and Session Continuity
+
+Proposal trace: [progressive-fitting-and-session-continuity.md](../docs/proposals/progressive-fitting-and-session-continuity.md)
+
+## EPIC 6: Complete a minimum-viable fitting in under 5 minutes
+
+### Why this EPIC exists
+
+Fitting currently front-loads 30-60 minutes of configuration before the user has seen a single agent work. Step 0 asks for 12 model decisions (4 CLIs x 3 tiers) when the user typically uses one CLI. Step 2 runs a 19-question stakeholder interview covering topics the user may not have decided yet. This EPIC restructures both steps so the user answers only what matters now -- 3 model tiers for their active CLI and 6 essential context questions -- and defers everything else to a later full pass. The result: the factory demonstrates capability before asking for commitment.
+
+### Actor Goals
+
+- User completes a minimum-viable fitting by answering 6 context questions instead of 19, with all other fields marked as deferred
+- User configures model tiers (economy, standard, strong model assignments) for only the CLI they actually use, reducing step 0 from 12 decisions to 3
+- VIRGIL (the session guide agent) defaults to the minimal pass for brownfield projects and offers the full pass as an explicit follow-up option
+- A later `capture-context` run (without `--minimal`) detects deferred fields and presents only those for completion, without re-asking already-answered questions
+
+### Demo
+
+1. The user starts a brownfield fitting. VIRGIL's step 0 asks "Which CLI(s) do you use?" The user selects "Claude Code."
+2. VIRGIL walks through 3 model tiers for Claude Code only. The other CLIs keep their defaults or `CONFIGURE-ME` placeholders.
+3. VIRGIL's step 2 invokes `capture-context --init --scan --minimal`. The scan runs in full (detecting languages, frameworks, test runners from project files).
+4. The interview presents 6 questions. For the 4 questions covered by scan auto-detection (languages, frameworks, testing, linting), the user confirms scan results. The user answers 2 questions manually (how to run locally, branching model).
+5. All other agent-context fields are written as `deferred: "full context pass pending"`.
+6. The user runs `context-lint` (the validation script) and the output is clean -- deferred values are valid, no nulls.
+7. VIRGIL offers: "I have enough to work with. Want to fill in the rest now, or come back to it later?"
+
+### Scope
+
+**In:**
+
+- `--minimal` flag for capture-context -- a new invocation mode (`--init --minimal` for greenfield, `--init --scan --minimal` for brownfield) that interviews on 6 fields only (language/runtime, backend framework, frontend framework, running locally, testing approach, branching model) and pre-fills all other fields with `deferred: "full context pass pending"` before the interview begins so context-lint sees deferred values rather than nulls
+- `--minimal` composition with `--scan` -- the discovery scan runs in full; only the interview scope is reduced to the 6 minimal fields; scan results for minimal fields are proposed as answers for confirmation; scan results for non-minimal fields are held, not presented, and wait for the full pass; `reading-guides.yaml` is assembled from confirmed source pointers only, with concerns that have only deferred fields pruned
+- Full-pass deferred-field detection -- when the user later runs `capture-context --init` or `--init --scan` without `--minimal`, the skill detects existing deferred fields and presents only those for completion; already-valued fields are shown for confirmation but not re-asked from scratch
+- CLI-scoped model matrix -- VIRGIL's fitting step 0 asks "Which CLI(s) do you use?" first; only the selected CLI's three tiers are configured; other CLIs keep existing defaults or `CONFIGURE-ME` placeholders; `fitting.model_matrix_configured` is set to `true` once the active CLI is fully configured
+- VIRGIL default invocation -- fitting step 2 invokes `--init --scan --minimal` for brownfield and `--init --minimal` for greenfield by default; VIRGIL offers the full pass as an explicit option after the minimal pass completes
+
+**Out:**
+
+- Changes to the full 19-question interview (the questions themselves are fine; only the default invocation path changes)
+- Automatic detection of which questions to defer based on project signals (the 6-question set is fixed, not configurable)
+- Cross-session memory or learning progress tracking
+
+### Dependencies
+
+None. This EPIC modifies the capture-context skill definition and VIRGIL's fitting steps, both of which exist and are stable.
+
+### Boundaries
+
+- Skill definition: capture-context SKILL.md (adds `--minimal` invocation mode and deferred-field semantics)
+- Agent definition: virgil.md (fitting steps 0 and 2 change their default invocation behavior)
+
+### Size
+
+1 story.
+
+### Building-Block Inventory
+
+| Story   | Capability                                                                                   | Tier     | Size | Basis                                                                                                                       |
+| ------- | -------------------------------------------------------------------------------------------- | -------- | ---- | --------------------------------------------------------------------------------------------------------------------------- |
+| ST-0207 | Complete fitting with minimal configuration by answering 6 questions and configuring one CLI | standard | M    | Medium effort (two files with substantial text additions), medium complexity (behavioral spec in SKILL.md), low uncertainty |
+
+## EPIC 7: Navigate the session menu with clear descriptions and discoverable help
+
+### Why this EPIC exists
+
+The session menu presents bare playbook names (`poc-spike`, `technical-poc`, `greenfield-development`) with no indication of what each one does. A user who just completed the newcomer tour knows five vocabulary words but has no catalog. Two existing skills -- explain-concept (plain-language explanations of factory concepts) and guided-tour (mid-session reorientation) -- work correctly but appear in no menu, no footer, and no visible affordance. This EPIC surfaces what already exists so the user can find it at the moments confusion is most likely.
+
+### Actor Goals
+
+- User sees one-line descriptions next to every playbook name in the B menu (derived from each playbook's opening paragraph -- the playbook file remains the source of truth)
+- User sees a persistent footer in the session menu and B menu that says: "At any point, ask 'what is [concept]?' for a plain-language explanation"
+- User can type "?" from the session menu to invoke the guided-tour skill for mid-session reorientation
+
+### Demo
+
+1. The user opens the session menu and sees option "?" after option D: "Where am I? What can I do next?"
+2. The user picks B and sees the expanded tree. Each leaf has a one-line description: `a -- poc-spike: build the smallest thing that proves the idea, then throw it away`.
+3. At the bottom of the B menu, a footer reads: "At any point, ask 'what is [concept]?' for a plain-language explanation."
+4. The user types "what is a gate?" and gets an explain-concept response calibrated to their experience level.
+5. The user types "?" and gets a guided-tour reorientation showing where they are and what they can do next.
+
+### Scope
+
+**In:**
+
+- One-line descriptions for every B menu leaf -- each description is derived from the playbook's opening paragraph; descriptions are written into `session-menu.md` so they render as part of the menu presentation
+- Explain-concept footer -- a single line added to the session menu and repeated in the B menu, making the existing explain-concept skill discoverable at the point where confusion is most likely
+- Guided-tour `?` option -- a new line after option D in the session menu that invokes the existing guided-tour skill; the `?` mnemonic follows CLI convention for help
+
+**Out:**
+
+- Changes to the explain-concept or guided-tour skill definitions (both already work correctly; this EPIC only surfaces them)
+- Automatic detection of user confusion to proactively offer explain-concept (explicitly deferred per proposal)
+
+### Dependencies
+
+None. All three skills (explain-concept, guided-tour, newcomer-tour) and the session menu exist and are stable.
+
+### Boundaries
+
+- Session configuration: session-menu.md (menu entries, descriptions, and footer text)
+- Catalog: playbook files under `factory/playbooks/` (read to derive one-line descriptions; not modified)
+
+### Size
+
+1 story.
+
+### Building-Block Inventory
+
+| Story   | Capability                                                            | Tier    | Size | Basis                                                                                              |
+| ------- | --------------------------------------------------------------------- | ------- | ---- | -------------------------------------------------------------------------------------------------- |
+| ST-0208 | Surface navigation aids and playbook descriptions in the session menu | economy | S    | Low complexity (text additions to one file), low uncertainty (all referenced skills already exist) |
+
+## EPIC 8: Resume a partially fitted project without losing progress
+
+### Why this EPIC exists
+
+Three related problems compound into one effect: a returning user or new collaborator cannot reliably resume or inherit a partial fitting. First, VIRGIL's persona constraints ("MUST NOT write code") have no exception clause for playbook transitions, so offering poc-spike after the newcomer tour produces either a refusal or a silent constraint drop. Second, fitting state in `config/project-context.json` is untracked and does not survive a fresh clone, even though the artifacts it describes (agent-context files, pre-commit hooks) are tracked. Third, a partially fitted project shows "want to walk through the fitting?" with no indication of progress. This EPIC fixes all three: the persona transition is made explicit, fitting state is derived from observable artifacts, and progress is surfaced.
+
+### Actor Goals
+
+- User who finishes the newcomer tour and accepts a playbook offer (e.g., poc-spike) sees the model drop the VIRGIL persona and follow the playbook's operational procedure without a refusal or silent constraint drop
+- Collaborator who clones a fitted repo and runs init-factory gets fitting keys derived from tracked artifacts -- `agent_context_populated`, `fingerprint_confirmed`, `test_regime_detected`, and `hooks_decided` reflect the observable state of the filesystem, not a stale or missing cache
+- Returning user with a partially complete fitting sees a progress summary ("Fitting is 3/5 done -- model matrix, fingerprint, and context populated. Test regime and hooks remain.") and can choose to continue or skip to the menu
+
+### Demo
+
+1. A newcomer completes the newcomer tour. VIRGIL offers poc-spike. The user accepts.
+2. The model drops VIRGIL's constraints (including "MUST NOT write code") and reads the poc-spike playbook. The user sees code written without a refusal.
+3. A collaborator clones a repo where another user completed the full fitting. The collaborator runs `init-factory`.
+4. init-factory checks tracked artifacts: `docs/agent-context/stack.yaml` exists with non-deferred values, `.pre-commit-config.yaml` has the factory marker, `docs/agent-context/testing.yaml` exists. It derives `agent_context_populated: true`, `fingerprint_confirmed: true`, `test_regime_detected: true`, `hooks_decided: true`.
+5. Only `model_matrix_configured` is `false` (model.conf is untracked -- model choice is user-specific).
+6. `config/project-context.json` is written with `fitting.status: "fitting"` (4/5 keys true).
+7. On the next session start, AGENTS.md routes to the `"fitting"` handler. VIRGIL reads the fitting keys and presents: "Fitting is 4/5 done (fingerprint, agent context, test regime, hooks). Model matrix remains. Continue the fitting, or skip to the menu?"
+8. The user chooses to continue. VIRGIL resumes at step 0 (model matrix).
+
+### Scope
+
+**In:**
+
+- Explicit persona-transition rule -- an exception clause added to VIRGIL's boundaries: VIRGIL's constraints apply while VIRGIL is the active persona; when the user selects a playbook from the session menu or accepts a playbook offer, the model drops the VIRGIL persona and follows the playbook's operational procedure; VIRGIL's MUST NOTs do not carry into the playbook session
+- Newcomer-tour boundary update -- "Do not spawn agents or launch a playbook" becomes "Do not launch a playbook directly -- offer it and let the session menu handle the transition"
+- Fitting-state derivation in init-factory -- when `config/project-context.json` exists or is being created, check tracked artifacts against derivation rules: `fingerprint_confirmed` from non-empty observations in project-context.json, `agent_context_populated` from `docs/agent-context/stack.yaml` with at least one non-deferred leaf, `test_regime_detected` from non-null testing fields in workflow.yaml or existence of testing.yaml, `hooks_decided` from factory marker block in `.pre-commit-config.yaml`; `model_matrix_configured` is non-derivable (model.conf is untracked in target projects); when cache disagrees with a derivable artifact, the artifact wins and the cache is overwritten silently; `fitting.status` is derived: `"fitted"` when all keys are true, `"unfitted"` when none are, `"fitting"` otherwise
+- Fitting-progress surfacing in AGENTS.md -- handle `"fitting"` as a third state in the session-start flow; when status is `"fitting"`, present a progress summary with completed and remaining steps before offering to continue or skip; step names map to fitting keys: model matrix, project fingerprint, agent context, test regime, pre-commit hooks
+
+**Out:**
+
+- Persona-transition logic for skills invoked within VIRGIL's own session (explain-concept, capture-context, grilling run under VIRGIL's constraints as today -- only playbook selection triggers the transition)
+- Cross-session memory or user profiles
+- Playbook-level breadcrumbs (explicitly deferred per proposal until proven needed)
+
+### Dependencies
+
+None at the EPIC level. Story-level dependencies exist within this EPIC (fitting-progress surfacing depends on correct derivation).
+
+### Boundaries
+
+- Agent definition: virgil.md (persona-transition exception clause in boundaries section)
+- Tour skill: newcomer-tour SKILL.md (boundary wording change)
+- Installation script: init-factory (Python derivation logic for fitting keys from tracked artifacts)
+- Session configuration: AGENTS.md (routing for `"fitting"` state with progress summary)
+- Test suite: tests/factory/test_init_factory.py (derivation logic tests)
+
+### Size
+
+3 stories.
+
+### Building-Block Inventory
+
+| Story   | Capability                                                      | Tier     | Size | Basis                                                                                                                                       |
+| ------- | --------------------------------------------------------------- | -------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| ST-0209 | Add explicit persona transition at the VIRGIL/playbook boundary | economy  | S    | Low complexity (text additions to two files), low uncertainty (behavioral rule, not code)                                                   |
+| ST-0210 | Derive fitting state from tracked artifacts in init-factory     | standard | M    | Medium complexity (Python derivation logic with 5 rules, test coverage for each), medium uncertainty (edge cases around artifact detection) |
+| ST-0211 | Surface fitting progress when fitting is partially complete     | economy  | S    | Low complexity (text additions to two files), low uncertainty; depends on ST-0210 for correct derived state                                 |

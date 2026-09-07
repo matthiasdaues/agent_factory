@@ -2225,6 +2225,145 @@ def _detect_frameworks_gemfile(path: Path) -> list[dict[str, str]]:
     return found
 
 
+FACTORY_HOOK_ID_PREFIX = "agent_factory_hook-"
+
+_YAML_KEY_RE = re.compile(r"^([A-Za-z0-9_][A-Za-z0-9_\-]*)\s*:\s*(.*)$")
+
+
+def _parse_simple_yaml_mapping(text: str) -> dict:
+    """Best-effort parse of the restricted YAML subset used by the
+    agent-context index files: nested block mappings of scalars, no
+    sequences. Unparsable lines are skipped rather than raising — this is
+    a fitting-signal probe, not a validator (context-lint owns validation).
+    Returns {} for empty or unrecognised content.
+
+    Limitation: comment stripping via split('#') does not respect quoted
+    strings, so a value like ``name: "C# runtime"`` would truncate."""
+    entries: list[tuple[int, str]] = []
+    for raw in text.splitlines():
+        if raw.strip() in ("---", "..."):
+            continue
+        line = raw.split("#", 1)[0].rstrip()
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        entries.append((indent, line.strip()))
+    if not entries:
+        return {}
+
+    def parse_block(idx: int, indent: int) -> tuple[dict, int]:
+        result: dict = {}
+        while idx < len(entries) and entries[idx][0] == indent:
+            content = entries[idx][1]
+            m = _YAML_KEY_RE.match(content)
+            if not m:
+                idx += 1
+                continue
+            key, rest = m.group(1), m.group(2).strip()
+            idx += 1
+            if rest:
+                result[key] = rest
+            elif idx < len(entries) and entries[idx][0] > indent:
+                value, idx = parse_block(idx, entries[idx][0])
+                result[key] = value
+            else:
+                result[key] = None
+        return result, idx
+
+    value, _ = parse_block(0, entries[0][0])
+    return value
+
+
+def _has_populated_leaf(node: object, exclude_keys: frozenset = frozenset()) -> bool:
+    """True when `node` contains at least one non-null leaf that is not
+    solely a `{deferred: ...}` placeholder (see the update-context skill's
+    deferred-field convention)."""
+    if isinstance(node, dict):
+        if not node:
+            return False
+        if set(node.keys()) == {"deferred"}:
+            return False
+        return any(
+            _has_populated_leaf(v)
+            for k, v in node.items()
+            if k not in exclude_keys
+        )
+    return node is not None
+
+
+def _derive_fitting_keys(target: Path) -> dict:
+    """Derive the four inspectable fitting keys from tracked artifacts, so a
+    collaborator who clones a fitted repo inherits the team's fitting
+    decisions instead of seeing everything reset to false. `model_matrix_
+    configured` is deliberately absent -- config/model.conf is untracked and
+    user-specific, so it is never derived (see write_project_context)."""
+    fingerprint_confirmed = False
+    project_context_path = target / "config" / "project-context.json"
+    if project_context_path.exists():
+        try:
+            cached = json.loads(project_context_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            cached = {}
+        if isinstance(cached, dict) and (cached.get("languages") or cached.get("frameworks")):
+            fingerprint_confirmed = True
+
+    agent_context_populated = False
+    stack_path = target / "docs" / "agent-context" / "stack.yaml"
+    if stack_path.exists():
+        try:
+            parsed = _parse_simple_yaml_mapping(stack_path.read_text(encoding="utf-8"))
+        except OSError:
+            parsed = {}
+        agent_context_populated = _has_populated_leaf(parsed, exclude_keys=frozenset({"mode"}))
+
+    test_regime_detected = (
+        (target / "docs" / "agent-context" / "testing.yaml").exists()
+        or (target / "docs" / "charter" / "testing.yaml").exists()
+    )
+    if not test_regime_detected:
+        workflow_path = target / "docs" / "agent-context" / "workflow.yaml"
+        if workflow_path.exists():
+            try:
+                parsed = _parse_simple_yaml_mapping(workflow_path.read_text(encoding="utf-8"))
+            except OSError:
+                parsed = {}
+            test_regime_detected = _has_populated_leaf(parsed.get("testing"))
+
+    hooks_decided = False
+    precommit_path = target / ".pre-commit-config.yaml"
+    if precommit_path.exists():
+        try:
+            hooks_decided = FACTORY_HOOK_ID_PREFIX in precommit_path.read_text(encoding="utf-8")
+        except OSError:
+            hooks_decided = False
+
+    return {
+        "fingerprint_confirmed": fingerprint_confirmed,
+        "agent_context_populated": agent_context_populated,
+        "test_regime_detected": test_regime_detected,
+        "hooks_decided": hooks_decided,
+    }
+
+
+def _fitting_status(fitting: dict) -> str:
+    """Derive fitting.status from its five keys: fitted when all true,
+    unfitted when none are, fitting otherwise. Does not apply to the
+    greenfield path, which has its own status value."""
+    keys = (
+        "model_matrix_configured",
+        "fingerprint_confirmed",
+        "agent_context_populated",
+        "test_regime_detected",
+        "hooks_decided",
+    )
+    values = [fitting.get(k, False) for k in keys]
+    if all(values):
+        return "fitted"
+    if not any(values):
+        return "unfitted"
+    return "fitting"
+
+
 def _scan_project_context(target: Path) -> dict:
     """Deterministic project scan. Walks the target tree, skipping caches and
     build dirs, and collects observations about languages, frameworks, package
@@ -2354,30 +2493,70 @@ def _scan_project_context(target: Path) -> dict:
         fitting = {
             "status": "unfitted",
             "model_matrix_configured": False,
-            "fingerprint_confirmed": False,
-            "agent_context_populated": False,
-            "hooks_decided": False,
+            **_derive_fitting_keys(target),
         }
+        fitting["status"] = _fitting_status(fitting)
     else:
         fitting = {
             "status": "greenfield",
             "model_matrix_configured": False,
             "fingerprint_confirmed": True,
             "agent_context_populated": True,
+            "test_regime_detected": True,
             "hooks_decided": True,
         }
 
     return {**observations, "fitting": fitting}
 
 
+def _reconcile_project_context(target: Path, path: Path, report: list[str]) -> None:
+    """Read an existing config/project-context.json, re-derive its four
+    inspectable fitting keys from tracked artifacts, and overwrite any
+    cached value they contradict -- so a collaborator who clones a fitted
+    repo inherits the team's fitting decisions instead of seeing a stale
+    cache. `model_matrix_configured` is preserved from the cache untouched
+    (config/model.conf is untracked and never derived). A greenfield cache
+    is left as-is: it has no artifacts to derive fitting keys from."""
+    try:
+        cached = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        log(report, "config/project-context.json: unreadable, left untouched")
+        return
+
+    if not isinstance(cached, dict):
+        log(report, "config/project-context.json: unexpected shape, left untouched")
+        return
+
+    cached_fitting = cached.get("fitting")
+    if not isinstance(cached_fitting, dict) or cached_fitting.get("status") == "greenfield":
+        log(report, "config/project-context.json: already present, left untouched")
+        return
+
+    fitting = dict(cached_fitting)
+    fitting["model_matrix_configured"] = bool(fitting.get("model_matrix_configured", False))
+    derived = _derive_fitting_keys(target)
+    changed = any(fitting.get(key) != value for key, value in derived.items())
+    fitting.update(derived)
+    fitting["status"] = _fitting_status(fitting)
+
+    if changed:
+        cached["fitting"] = fitting
+        path.write_text(json.dumps(cached, indent=2) + "\n", encoding="utf-8")
+        log(report, "config/project-context.json: fitting keys reconciled against tracked artifacts")
+    else:
+        log(report, "config/project-context.json: already present, fitting keys confirmed")
+
+
 def write_project_context(
     target: Path, install: dict, report: list[str]
 ) -> None:
-    """Run the deterministic project scan and write config/project-context.json."""
+    """Run the deterministic project scan and write config/project-context.json.
+    If the file already exists, reconcile its fitting keys against tracked
+    artifacts instead of leaving a stale cache untouched."""
     path = target / "config" / "project-context.json"
 
     if path.exists():
-        log(report, "config/project-context.json: already present, left untouched")
+        _reconcile_project_context(target, path, report)
         return
 
     context = _scan_project_context(target)
@@ -3792,11 +3971,15 @@ def main(argv: list[str] | None = None) -> int:
     section("Project context scan")
     write_project_context(target, install, report)
 
-    # ── Section 6: Gitignore ────────────────────────────────────────────
+    # ── Section 6: Test regime detection ──────────────────────────────────
+    section("Test regime detection")
+    detect_test_regime(target, report)
+
+    # ── Section 7: Gitignore ────────────────────────────────────────────
     section("Gitignore")
     write_gitignore_block(target, install, report)
 
-    # ── Section 7: Pre-commit hooks ─────────────────────────────────────
+    # ── Section 8: Pre-commit hooks ─────────────────────────────────────
     section("Pre-commit hooks")
     try:
         handle_precommit(target, install, report)

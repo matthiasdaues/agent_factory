@@ -1,3 +1,4 @@
+---
 # Bug Fix Workflow State Machine
 # Executable gate-enforced workflow derived from bug-fix.md
 
@@ -11,19 +12,19 @@ gate_conditions:
     type: files_exist
     paths:
       - docs/findings/BUG-*.md
-  
+
   bug_open:
     type: no_open_findings
     pattern: BUG-*.md
     inverted: true  # At least one BUG-*.md must be open
-  
+
   tests_exist:
     type: files_exist
     paths:
       - tests/**/*
       - test/**/*
       - "*_test.*"
-  
+
   code_exists:
     type: files_exist
     paths:
@@ -33,19 +34,19 @@ gate_conditions:
       - "*.py"
       - "*.js"
       - "*.ts"
-  
+
   tests_pass:
     type: script_exit_zero
     script: "charter:test_command"
     charter_file: [docs/agent-context/testing.yaml, docs/charter/testing.yaml]
     # Resolved via format detection: docs/agent-context/testing.yaml first, docs/charter/testing.yaml fallback
-  
+
   no_new_qa_findings:
     type: no_open_findings
     patterns:
       - FAGAN-*.md
       - SEC-*.md
-  
+
   bug_resolved:
     type: no_open_findings
     pattern: BUG-*.md
@@ -58,7 +59,7 @@ states:
       - bug_filed
       - code_exists
       - tests_exist
-    
+
     on:
       StartFix:
         transitions:
@@ -69,13 +70,13 @@ states:
     description: Create bug finding if not present
     entry_conditions:
       - code_exists
-    
+
     agent: null  # Manual or via QA agent
     session: stateless
-    
+
     outputs:
       - docs/findings/BUG-*.md
-    
+
     on:
       BugFiled:
         exit_conditions:
@@ -92,10 +93,10 @@ states:
     entry_conditions:
       - bug_filed
       - bug_open
-    
+
     agent: developer-agent
     session: stateful
-    
+
     outputs:
       - src/**/*
       - lib/**/*
@@ -103,7 +104,7 @@ states:
       - test/**/*
       - "*_test.*"
       - git commits  # fix: <description> (BUG-NNNN)
-    
+
     on:
       FixImplemented:
         exit_conditions:
@@ -121,16 +122,16 @@ states:
       - bug_filed
       - code_exists
       - tests_exist
-    
+
     agent: qa-agent
     session: stateless
-    
+
     outputs:
       - docs/reviews/qa-review-*.md
       - docs/findings/FAGAN-*.md
       - docs/findings/SEC-*.md
       - docs/findings/BUG-*.md  # New bugs found during QA
-    
+
     on:
       QAComplete:
         exit_conditions:
@@ -147,13 +148,13 @@ states:
     entry_conditions:
       - bug_filed
       - no_new_qa_findings
-    
+
     agent: null  # Manual status update
     session: stateless
-    
+
     outputs:
       - docs/findings/BUG-*.md  # status: resolved
-    
+
     on:
       BugResolved:
         exit_conditions:
@@ -170,7 +171,7 @@ states:
       - bug_filed
       - bug_resolved
       - no_new_qa_findings
-    
+
     final: true
 
 # Halt conditions (circuit breakers)
@@ -180,7 +181,7 @@ halt_conditions:
     event: FixImplemented
     limit: 3
     message: "Fix implementation looped 3 times. Review approach or escalate."
-  
+
   - type: max_iterations
     state: QA_VALIDATION
     event: QAComplete

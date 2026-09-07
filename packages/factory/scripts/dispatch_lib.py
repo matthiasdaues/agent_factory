@@ -453,8 +453,8 @@ class Ledger:
 
 def _dump_yaml(data: dict[str, Any]) -> str:
     if yaml is not None:
-        return yaml.dump(data, default_flow_style=False, sort_keys=False)
-    return _stdlib_dump(data)
+        return "---\n" + yaml.dump(data, default_flow_style=False, sort_keys=False)
+    return "---\n" + _stdlib_dump(data) + "\n"
 
 
 def _load_yaml(text: str) -> dict[str, Any]:
@@ -563,7 +563,7 @@ def _stdlib_load(text: str) -> dict[str, Any]:
 
     for line in text.splitlines():
         stripped = line.lstrip()
-        if not stripped or stripped.startswith("#"):
+        if not stripped or stripped.startswith("#") or stripped == "---":
             continue
         indent = len(line) - len(stripped)
 

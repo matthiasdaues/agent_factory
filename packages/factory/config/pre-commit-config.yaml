@@ -1,3 +1,4 @@
+---
 # Agent Factory pre-commit hooks — installed into consumer projects.
 #
 # init-factory splices this block into the project's .pre-commit-config.yaml.
