@@ -285,8 +285,9 @@ script rejects the extension.
 - Detection surface should stay broad — new entrypoint conventions
   (`justfile` lowercase, `mise.toml` tasks, language-specific runners) can
   be added to step 1's table as they are encountered.
-- This skill is invoked by `init-factory` and by `capture-context`
-  during onboarding. It does not itself gate anything — it only detects and
+- This skill is invoked during fitting (step 2b) by VIRGIL, and its
+  deterministic core runs in `init-factory` at install time to seed
+  `testing.yaml`. It does not itself gate anything — it only detects and
   records. Downstream gates consume `testing.yaml` afterward.
 - The charter is a backup reference for ambiguous cases, not the primary
   source of truth. When code and charter disagree, re-run this skill rather

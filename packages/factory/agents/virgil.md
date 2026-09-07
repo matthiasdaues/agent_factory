@@ -89,15 +89,15 @@ extending it here. Consult `factory/docs/factory-guide.md` and
 ## Fitting
 
 Fitting tailors the factory to a project's existing stack — its codebase,
-test runner, CI, and other signals. Brownfield projects walk all four
+test runner, CI, and other signals. Brownfield projects walk all five
 steps below. Greenfield projects (`fitting.status == "greenfield"`) skip
-fingerprint confirmation and agent context (there is no existing stack to
-learn about), but **still walk step 0 (model matrix)** — every project
-needs model mappings configured before dispatch can route work. After
-step 0, set `fitting.model_matrix_configured` to `true` and continue to
-the session menu.
+fingerprint confirmation, agent context, and test regime detection (there
+is no existing stack to learn about), but **still walk step 0 (model
+matrix)** — every project needs model mappings configured before dispatch
+can route work. After step 0, set `fitting.model_matrix_configured` to
+`true` and continue to the session menu.
 
-Fitting walks four steps in order; each flips a key in
+Fitting walks five steps in order; each flips a key in
 `config/project-context.json` when done. The user can stop at any point —
 progress is saved, and the next session picks up where they left off.
 
@@ -138,6 +138,21 @@ Invoke the `capture-context` skill. It creates `docs/agent-context/` with
 YAML routing files that connect agents to project knowledge. When the skill
 completes, set `fitting.agent_context_populated` to `true`.
 
+### 2b. Detect test regime
+
+Invoke the `detect-test-regime` skill. It scans the project for test
+suites and records them in `docs/agent-context/testing.yaml` (or
+`docs/charter/testing.yaml` for legacy projects). The deterministic scan
+in `init-factory` may have already seeded this file — if so, present what
+it found and ask the user to confirm or correct it. If not, the skill
+runs its full discovery and disambiguation.
+
+This must happen after agent context (step 2) so the output directory
+exists, and before hooks (step 3) because hook decisions may depend on
+knowing the test command.
+
+When done, set `fitting.test_regime_detected` to `true`.
+
 ### 3. Decide on hooks
 
 Review the pre-commit configuration in `.pre-commit-config.yaml`. Walk
@@ -148,7 +163,7 @@ or adjust hooks the user does not want. When done, set
 
 ### Completion
 
-When all four keys are `true`, set `fitting.status` to `"fitted"`. Future
+When all five keys are `true`, set `fitting.status` to `"fitted"`. Future
 sessions see the fitted state and skip the fitting prompt.
 
 If the user opened with a fitting-related request mid-session (e.g. "let's

@@ -2356,6 +2356,7 @@ def _scan_project_context(target: Path) -> dict:
             "model_matrix_configured": False,
             "fingerprint_confirmed": False,
             "agent_context_populated": False,
+            "test_regime_detected": False,
             "hooks_decided": False,
         }
     else:
@@ -2364,6 +2365,7 @@ def _scan_project_context(target: Path) -> dict:
             "model_matrix_configured": False,
             "fingerprint_confirmed": True,
             "agent_context_populated": True,
+            "test_regime_detected": True,
             "hooks_decided": True,
         }
 
@@ -3792,11 +3794,15 @@ def main(argv: list[str] | None = None) -> int:
     section("Project context scan")
     write_project_context(target, install, report)
 
-    # ── Section 6: Gitignore ────────────────────────────────────────────
+    # ── Section 6: Test regime detection ──────────────────────────────────
+    section("Test regime detection")
+    detect_test_regime(target, report)
+
+    # ── Section 7: Gitignore ────────────────────────────────────────────
     section("Gitignore")
     write_gitignore_block(target, install, report)
 
-    # ── Section 7: Pre-commit hooks ─────────────────────────────────────
+    # ── Section 8: Pre-commit hooks ─────────────────────────────────────
     section("Pre-commit hooks")
     try:
         handle_precommit(target, install, report)
