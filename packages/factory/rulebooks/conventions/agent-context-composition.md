@@ -80,9 +80,11 @@ permitted to resolve across both locations (see next section).
 ## Source-pointer direction of truth
 
 Sources are maintained in exactly one place: the three Layer 2 index files.
-`reading-guides.yaml` references index-file sections only
-(`<file>#<dotted.key.path>`); it must never carry a `source:` pointer of its
-own. A `source:` pointer prefers the project-local convention document over
+`reading-guides.yaml` references index-file sections and peer files
+(`<file>#<dotted.key.path>` or bare `<file>`); it must never carry a
+`source:` pointer of its own. Peer files like `testing.yaml` carry the same
+trust level as index files — they are factory-managed derived content, so
+excluding them from routing would leave agents blind to the richest records. A `source:` pointer prefers the project-local convention document over
 a factory rulebook default when both describe the same decision — the
 project's own record is the closer, more specific authority.
 

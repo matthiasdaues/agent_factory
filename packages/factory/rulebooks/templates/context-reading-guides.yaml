@@ -1,9 +1,9 @@
 ---
 # Layer 1: routes by work-type concern to sections in the Layer 2 index
-# files (stack.yaml, workflow.yaml, governance.yaml). Carries no source:
-# pointers -- only key-path references using <file>#<dotted.key.path>
-# notation. A bare file reference (e.g. "stack.yaml") means the entire file
-# is relevant.
+# files (stack.yaml, workflow.yaml, governance.yaml) and peer files
+# (e.g. testing.yaml). Carries no source: pointers — only key-path
+# references using <file>#<dotted.key.path> notation or bare file references.
+# A bare file reference (e.g. "stack.yaml") means the entire file is relevant.
 #
 # Not created by capture-context --init for a greenfield project -- there is
 # no handbook yet to route to. update-context proposes creating this file
@@ -27,8 +27,10 @@ frontend:
   - governance.yaml#review
 
 testing:
+  - testing.yaml
   - workflow.yaml#testing
   - governance.yaml#testing_discipline
+  - stack.yaml#frameworks.testing
 
 architecture:
   - stack.yaml
