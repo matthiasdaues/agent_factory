@@ -3,6 +3,24 @@
 
 set -eu
 
+# Bail early when guard infrastructure is absent — before reading stdin or
+# calling jq, so missing dependencies never turn into "hook errored".
+PROJECT_DIR=$(git rev-parse --show-toplevel 2>/dev/null || true)
+if [ -z "$PROJECT_DIR" ]; then
+  exit 0
+fi
+
+GUARD="$PROJECT_DIR/factory/scripts/step-guard"
+
+if [ ! -x "$GUARD" ]; then
+  exit 0
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "step-guard adapter: jq not found, passing through" >&2
+  exit 0
+fi
+
 INPUT=$(cat)
 GUARD_TYPE=${GUARD_TYPE:-${STEP_GUARD_TYPE:-}}
 
@@ -32,18 +50,6 @@ else
         grep -oP '^\*{3} (?:Add|Update|Delete) File: \K.+' || true)
     fi
   fi
-fi
-
-PROJECT_DIR=$(git rev-parse --show-toplevel 2>/dev/null)
-if [ -z "$PROJECT_DIR" ]; then
-  exit 0
-fi
-
-GUARD="$PROJECT_DIR/factory/scripts/step-guard"
-
-# factory/ is git-ignored; on a fresh clone the guard script won't exist yet.
-if [ ! -x "$GUARD" ]; then
-  exit 0
 fi
 
 if [ "$GUARD_TYPE" != "bash" ] && [ -n "${PATCH_PATHS:-}" ]; then
