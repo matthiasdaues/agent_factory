@@ -899,6 +899,204 @@ class TestScanProjectContext:
         assert fitting["agent_context_populated"] is False
         assert fitting["hooks_decided"] is False
 
+    def test_brownfield_no_tracked_artifacts_all_keys_false(self, tmp_path):
+        """ST-0210 scenario 2: no derivable artifacts -> every key false,
+        status unfitted."""
+        (tmp_path / "pyproject.toml").write_text("[project]\nname = 'demo'\n")
+        ctx = inf._scan_project_context(tmp_path)
+        fitting = ctx["fitting"]
+        assert fitting["status"] == "unfitted"
+        assert fitting["model_matrix_configured"] is False
+        assert fitting["fingerprint_confirmed"] is False
+        assert fitting["agent_context_populated"] is False
+        assert fitting["test_regime_detected"] is False
+        assert fitting["hooks_decided"] is False
+
+    def test_brownfield_partial_artifacts_mixed_status_fitting(self, tmp_path):
+        """ST-0210 scenario 3: some but not all artifacts present -> mixed
+        keys, status fitting."""
+        (tmp_path / "pyproject.toml").write_text("[project]\nname = 'demo'\n")
+        ac_dir = tmp_path / "docs" / "agent-context"
+        ac_dir.mkdir(parents=True)
+        (ac_dir / "stack.yaml").write_text(
+            "mode: index\n\nlanguages:\n  python:\n    name: Python\n    source: pyproject.toml\n"
+        )
+        ctx = inf._scan_project_context(tmp_path)
+        fitting = ctx["fitting"]
+        assert fitting["agent_context_populated"] is True
+        assert fitting["fingerprint_confirmed"] is False
+        assert fitting["test_regime_detected"] is False
+        assert fitting["hooks_decided"] is False
+        assert fitting["status"] == "fitting"
+
+    def test_model_matrix_configured_never_derived_true_from_scan(self, tmp_path):
+        """model_matrix_configured has no artifact to derive from -- a fresh
+        scan always reports it false, regardless of what else is present."""
+        (tmp_path / "pyproject.toml").write_text("[project]\nname = 'demo'\n")
+        ac_dir = tmp_path / "docs" / "agent-context"
+        ac_dir.mkdir(parents=True)
+        (ac_dir / "stack.yaml").write_text(
+            "mode: index\n\nlanguages:\n  python:\n    name: Python\n    source: pyproject.toml\n"
+        )
+        (ac_dir / "testing.yaml").write_text("suites: []\n")
+        (tmp_path / ".pre-commit-config.yaml").write_text(
+            "repos:\n  - repo: local\n    hooks:\n      - id: agent_factory_hook-mdformat\n"
+        )
+        ctx = inf._scan_project_context(tmp_path)
+        assert ctx["fitting"]["model_matrix_configured"] is False
+
+
+class TestDeriveFittingKeys:
+    """Unit coverage for _derive_fitting_keys, one case per rule in the
+    ST-0210 derivation table."""
+
+    def test_fingerprint_confirmed_true_when_cache_has_languages(self, tmp_path):
+        (tmp_path / "config").mkdir()
+        (tmp_path / "config" / "project-context.json").write_text(
+            json.dumps({"languages": [{"name": "python", "evidence": "pyproject.toml"}]})
+        )
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["fingerprint_confirmed"] is True
+
+    def test_fingerprint_confirmed_true_when_cache_has_frameworks(self, tmp_path):
+        (tmp_path / "config").mkdir()
+        (tmp_path / "config" / "project-context.json").write_text(
+            json.dumps({"languages": [], "frameworks": [{"name": "django", "evidence": "x"}]})
+        )
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["fingerprint_confirmed"] is True
+
+    def test_fingerprint_not_confirmed_without_cache_file(self, tmp_path):
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["fingerprint_confirmed"] is False
+
+    def test_fingerprint_not_confirmed_when_cache_has_no_signals(self, tmp_path):
+        (tmp_path / "config").mkdir()
+        (tmp_path / "config" / "project-context.json").write_text(
+            json.dumps({"languages": [], "frameworks": []})
+        )
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["fingerprint_confirmed"] is False
+
+    def test_agent_context_populated_true_with_real_leaf(self, tmp_path):
+        ac_dir = tmp_path / "docs" / "agent-context"
+        ac_dir.mkdir(parents=True)
+        (ac_dir / "stack.yaml").write_text(
+            "mode: index\n\nlanguages:\n  python:\n    name: Python\n    source: pyproject.toml\n"
+        )
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["agent_context_populated"] is True
+
+    def test_agent_context_not_populated_when_absent(self, tmp_path):
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["agent_context_populated"] is False
+
+    def test_agent_context_not_populated_when_only_deferred(self, tmp_path):
+        ac_dir = tmp_path / "docs" / "agent-context"
+        ac_dir.mkdir(parents=True)
+        (ac_dir / "stack.yaml").write_text(
+            'mode: index\n\nlanguages:\n  deferred: "pending interview"\n'
+        )
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["agent_context_populated"] is False
+
+    def test_agent_context_not_populated_when_only_mode_key(self, tmp_path):
+        ac_dir = tmp_path / "docs" / "agent-context"
+        ac_dir.mkdir(parents=True)
+        (ac_dir / "stack.yaml").write_text("mode: index\n")
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["agent_context_populated"] is False
+
+    def test_test_regime_detected_via_agent_context_testing_yaml(self, tmp_path):
+        ac_dir = tmp_path / "docs" / "agent-context"
+        ac_dir.mkdir(parents=True)
+        (ac_dir / "testing.yaml").write_text("suites: []\n")
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["test_regime_detected"] is True
+
+    def test_test_regime_detected_via_charter_testing_yaml(self, tmp_path):
+        charter_dir = tmp_path / "docs" / "charter"
+        charter_dir.mkdir(parents=True)
+        (charter_dir / "testing.yaml").write_text("suites: []\n")
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["test_regime_detected"] is True
+
+    def test_test_regime_detected_via_workflow_testing_field(self, tmp_path):
+        ac_dir = tmp_path / "docs" / "agent-context"
+        ac_dir.mkdir(parents=True)
+        (ac_dir / "workflow.yaml").write_text(
+            "mode: index\n\ntesting:\n  name: pytest\n  source: pyproject.toml\n"
+        )
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["test_regime_detected"] is True
+
+    def test_test_regime_not_detected_when_workflow_testing_deferred(self, tmp_path):
+        ac_dir = tmp_path / "docs" / "agent-context"
+        ac_dir.mkdir(parents=True)
+        (ac_dir / "workflow.yaml").write_text(
+            'mode: index\n\ntesting:\n  deferred: "not yet decided"\n'
+        )
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["test_regime_detected"] is False
+
+    def test_test_regime_not_detected_when_nothing_present(self, tmp_path):
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["test_regime_detected"] is False
+
+    def test_hooks_decided_true_with_factory_marker(self, tmp_path):
+        (tmp_path / ".pre-commit-config.yaml").write_text(
+            "repos:\n  - repo: local\n    hooks:\n      - id: agent_factory_hook-mdformat\n"
+        )
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["hooks_decided"] is True
+
+    def test_hooks_not_decided_without_factory_marker(self, tmp_path):
+        (tmp_path / ".pre-commit-config.yaml").write_text(
+            "repos:\n  - repo: local\n    hooks:\n      - id: ruff\n"
+        )
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["hooks_decided"] is False
+
+    def test_hooks_not_decided_when_file_absent(self, tmp_path):
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["hooks_decided"] is False
+
+    def test_derive_fitting_keys_never_returns_model_matrix_configured(self, tmp_path):
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert "model_matrix_configured" not in derived
+
+
+class TestFittingStatus:
+    def test_all_true_is_fitted(self):
+        fitting = {
+            "model_matrix_configured": True,
+            "fingerprint_confirmed": True,
+            "agent_context_populated": True,
+            "test_regime_detected": True,
+            "hooks_decided": True,
+        }
+        assert inf._fitting_status(fitting) == "fitted"
+
+    def test_all_false_is_unfitted(self):
+        fitting = {
+            "model_matrix_configured": False,
+            "fingerprint_confirmed": False,
+            "agent_context_populated": False,
+            "test_regime_detected": False,
+            "hooks_decided": False,
+        }
+        assert inf._fitting_status(fitting) == "unfitted"
+
+    def test_mixed_is_fitting(self):
+        fitting = {
+            "model_matrix_configured": False,
+            "fingerprint_confirmed": True,
+            "agent_context_populated": True,
+            "test_regime_detected": False,
+            "hooks_decided": False,
+        }
+        assert inf._fitting_status(fitting) == "fitting"
+
 
 class TestDetectFrameworksPyproject:
     @pytest.fixture
@@ -1048,6 +1246,185 @@ class TestWriteProjectContext:
         report: list[str] = []
         inf.write_project_context(tmp_path, install, report)
         assert (tmp_path / "config" / "project-context.json").exists()
+
+
+class TestReconcileProjectContext:
+    """ST-0210 scenario 4: an existing cache is reconciled against tracked
+    artifacts on every write_project_context call, and the artifact wins
+    when it contradicts the cache."""
+
+    @staticmethod
+    def _seed_cache(tmp_path: Path, fitting: dict, **extra) -> Path:
+        (tmp_path / "config").mkdir()
+        path = tmp_path / "config" / "project-context.json"
+        payload = {"languages": [], "frameworks": [], "fitting": fitting, **extra}
+        path.write_text(json.dumps(payload))
+        return path
+
+    def test_stale_false_cache_flipped_true_by_new_artifact(self, tmp_path):
+        cache_path = self._seed_cache(
+            tmp_path,
+            {
+                "status": "unfitted",
+                "model_matrix_configured": False,
+                "fingerprint_confirmed": False,
+                "agent_context_populated": False,
+                "test_regime_detected": False,
+                "hooks_decided": False,
+            },
+        )
+        ac_dir = tmp_path / "docs" / "agent-context"
+        ac_dir.mkdir(parents=True)
+        (ac_dir / "stack.yaml").write_text(
+            "mode: index\n\nlanguages:\n  python:\n    name: Python\n    source: pyproject.toml\n"
+        )
+        install = {"remove_paths": []}
+        report: list[str] = []
+        inf.write_project_context(tmp_path, install, report)
+        data = json.loads(cache_path.read_text())
+        assert data["fitting"]["agent_context_populated"] is True
+        assert data["fitting"]["status"] == "fitting"
+
+    def test_all_tracked_artifacts_present_yields_four_of_five_and_fitting(self, tmp_path):
+        cache_path = self._seed_cache(
+            tmp_path,
+            {
+                "status": "unfitted",
+                "model_matrix_configured": False,
+                "fingerprint_confirmed": False,
+                "agent_context_populated": False,
+                "test_regime_detected": False,
+                "hooks_decided": False,
+            },
+            languages=[{"name": "python", "evidence": "pyproject.toml"}],
+        )
+        ac_dir = tmp_path / "docs" / "agent-context"
+        ac_dir.mkdir(parents=True)
+        (ac_dir / "stack.yaml").write_text(
+            "mode: index\n\nlanguages:\n  python:\n    name: Python\n    source: pyproject.toml\n"
+        )
+        (ac_dir / "testing.yaml").write_text("suites: []\n")
+        (tmp_path / ".pre-commit-config.yaml").write_text(
+            "repos:\n  - repo: local\n    hooks:\n      - id: agent_factory_hook-mdformat\n"
+        )
+        install = {"remove_paths": []}
+        report: list[str] = []
+        inf.write_project_context(tmp_path, install, report)
+        fitting = json.loads(cache_path.read_text())["fitting"]
+        true_count = sum(1 for k in (
+            "model_matrix_configured", "fingerprint_confirmed",
+            "agent_context_populated", "test_regime_detected", "hooks_decided",
+        ) if fitting[k])
+        assert true_count == 4
+        assert fitting["model_matrix_configured"] is False
+        assert fitting["status"] == "fitting"
+
+    def test_true_cache_flipped_false_when_artifact_removed(self, tmp_path):
+        cache_path = self._seed_cache(
+            tmp_path,
+            {
+                "status": "fitting",
+                "model_matrix_configured": False,
+                "fingerprint_confirmed": False,
+                "agent_context_populated": True,
+                "test_regime_detected": False,
+                "hooks_decided": False,
+            },
+        )
+        install = {"remove_paths": []}
+        report: list[str] = []
+        inf.write_project_context(tmp_path, install, report)
+        data = json.loads(cache_path.read_text())
+        assert data["fitting"]["agent_context_populated"] is False
+        assert data["fitting"]["status"] == "unfitted"
+
+    def test_model_matrix_configured_preserved_from_cache(self, tmp_path):
+        cache_path = self._seed_cache(
+            tmp_path,
+            {
+                "status": "fitting",
+                "model_matrix_configured": True,
+                "fingerprint_confirmed": False,
+                "agent_context_populated": False,
+                "test_regime_detected": False,
+                "hooks_decided": False,
+            },
+        )
+        install = {"remove_paths": []}
+        report: list[str] = []
+        inf.write_project_context(tmp_path, install, report)
+        assert json.loads(cache_path.read_text())["fitting"]["model_matrix_configured"] is True
+
+    def test_all_five_true_yields_fitted_status(self, tmp_path):
+        cache_path = self._seed_cache(
+            tmp_path,
+            {
+                "status": "fitting",
+                "model_matrix_configured": True,
+                "fingerprint_confirmed": False,
+                "agent_context_populated": False,
+                "test_regime_detected": False,
+                "hooks_decided": False,
+            },
+            languages=[{"name": "python", "evidence": "pyproject.toml"}],
+        )
+        ac_dir = tmp_path / "docs" / "agent-context"
+        ac_dir.mkdir(parents=True)
+        (ac_dir / "stack.yaml").write_text(
+            "mode: index\n\nlanguages:\n  python:\n    name: Python\n    source: pyproject.toml\n"
+        )
+        (ac_dir / "testing.yaml").write_text("suites: []\n")
+        (tmp_path / ".pre-commit-config.yaml").write_text(
+            "repos:\n  - repo: local\n    hooks:\n      - id: agent_factory_hook-mdformat\n"
+        )
+        install = {"remove_paths": []}
+        report: list[str] = []
+        inf.write_project_context(tmp_path, install, report)
+        assert json.loads(cache_path.read_text())["fitting"]["status"] == "fitted"
+
+    def test_non_fitting_cached_fields_preserved(self, tmp_path):
+        cache_path = self._seed_cache(
+            tmp_path,
+            {
+                "status": "unfitted",
+                "model_matrix_configured": False,
+                "fingerprint_confirmed": False,
+                "agent_context_populated": False,
+                "test_regime_detected": False,
+                "hooks_decided": False,
+            },
+            docs_structure=[{"name": "README.md", "evidence": "README.md"}],
+        )
+        install = {"remove_paths": []}
+        report: list[str] = []
+        inf.write_project_context(tmp_path, install, report)
+        data = json.loads(cache_path.read_text())
+        assert data["docs_structure"] == [{"name": "README.md", "evidence": "README.md"}]
+
+    def test_greenfield_cache_left_untouched(self, tmp_path):
+        greenfield_fitting = {
+            "status": "greenfield",
+            "model_matrix_configured": False,
+            "fingerprint_confirmed": True,
+            "agent_context_populated": True,
+            "test_regime_detected": True,
+            "hooks_decided": True,
+        }
+        cache_path = self._seed_cache(tmp_path, greenfield_fitting)
+        before = cache_path.read_text()
+        install = {"remove_paths": []}
+        report: list[str] = []
+        inf.write_project_context(tmp_path, install, report)
+        assert cache_path.read_text() == before
+
+    def test_cache_without_fitting_key_left_untouched(self, tmp_path):
+        (tmp_path / "config").mkdir()
+        cache_path = tmp_path / "config" / "project-context.json"
+        cache_path.write_text(json.dumps({"custom": True}))
+        install = {"remove_paths": []}
+        report: list[str] = []
+        inf.write_project_context(tmp_path, install, report)
+        assert json.loads(cache_path.read_text()) == {"custom": True}
 
 
 class TestExtractDepName:
