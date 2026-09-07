@@ -20,8 +20,8 @@ agents:
     tier: standard
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
-    tokens: 2572
-    total_tokens: 15055
+    tokens: 2717
+    total_tokens: 15209
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
@@ -420,7 +420,7 @@ skills:
     category: onboarding
     description: Give first-time Agent Factory users a short, interactive orientation when they choose option A or ask to be shown around
     path: skills/newcomer-tour/SKILL.md
-    tokens: 670
+    tokens: 679
   - name: refutation-design
     category: research
     description: Define refuting evidence, conditions for refutation, and severe tests to expose them.

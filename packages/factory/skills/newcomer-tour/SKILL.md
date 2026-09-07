@@ -71,7 +71,7 @@ Orient newcomers warmly and briefly.
 - Do not praise every acknowledgement.
 - Do not assume agent context or a charter exists.
 - Do not reference `docs/arc42/beginner-intro.md`.
-- Do not spawn agents or launch a playbook.
+- Do not launch a playbook directly -- offer it and let the session menu handle the transition.
 
 ## References
 
