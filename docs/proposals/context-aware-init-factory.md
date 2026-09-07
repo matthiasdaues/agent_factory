@@ -1,10 +1,10 @@
 ---
 schema_version: 2
 title: Context-Aware Init-Factory
-status: open
+status: implemented
 owner: md@matthiasdaues.de
 created: 2026-09-04
-updated: 2026-09-06
+updated: 2026-09-07
 supersedes:
 
 impact:
