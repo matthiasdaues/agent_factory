@@ -66,6 +66,7 @@ models/
 /.codex/hooks.json
 /.codex/hooks/block-dangerous-git.sh
 /.codex/hooks/capture-codex-usage.sh
+/.codex/hooks/check-factory-freshness.sh
 /.codex/hooks/step-guard.sh
 /.codex/playbooks
 /.codex/rulebooks

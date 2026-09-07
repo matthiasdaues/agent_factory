@@ -167,6 +167,15 @@ CODEX_GUARDRAIL_HOOK_COMMAND = (
 CODEX_CAPTURE_HOOK_COMMAND = (
     '"$(git rev-parse --show-toplevel)/.codex/hooks/capture-codex-usage.sh"'
 )
+
+# PreToolUse hook that detects a stale factory/ and auto-repairs it.
+# Monorepo-only (exits 0 immediately when packages/factory/ is absent).
+CLAUDE_FRESHNESS_HOOK_COMMAND = (
+    '"$CLAUDE_PROJECT_DIR"/.claude/hooks/check-factory-freshness.sh'
+)
+CODEX_FRESHNESS_HOOK_COMMAND = (
+    '"$(git rev-parse --show-toplevel)/.codex/hooks/check-factory-freshness.sh"'
+)
 CODEX_STEP_GUARD_HOOK_COMMANDS = {
     "Read": 'GUARD_TYPE=read "$(git rev-parse --show-toplevel)"/.codex/hooks/step-guard.sh',
     "Edit": 'GUARD_TYPE=write "$(git rev-parse --show-toplevel)"/.codex/hooks/step-guard.sh',
@@ -223,6 +232,23 @@ def _read_factory_version(target: Path) -> str:
         return path.read_text(encoding="utf-8").strip()
     except OSError:
         return "unknown"
+
+
+def _factory_tree_hash(source: str | None) -> str | None:
+    """Return the git tree hash of packages/factory/ in the source repo, or
+    None when it cannot be computed (not a monorepo, not a git repo, etc.)."""
+    if not source:
+        return None
+    pkg = Path(source) / "packages" / "factory"
+    if not pkg.is_dir():
+        return None
+    try:
+        return subprocess.run(
+            ["git", "-C", source, "rev-parse", "HEAD:packages/factory"],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip() or None
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
 
 
 CLI_LABELS = {
@@ -656,7 +682,8 @@ def preflight_codex_adapter(target: Path, install: dict) -> None:
             _preflight_codex_link(target / ".agents/skills" / source.name, source)
     # Standard factory symlinks (playbooks, rulebooks, scripts, INDEX.yaml)
     # are validated and created by symlink_factory_content.
-    for name in ("block-dangerous-git.sh", "capture-codex-usage.sh", "step-guard.sh"):
+    for name in ("block-dangerous-git.sh", "capture-codex-usage.sh", "step-guard.sh",
+                  "check-factory-freshness.sh"):
         _preflight_codex_link(
             target / ".codex/hooks" / name,
             target / "factory/config/hooks" / name,
@@ -980,6 +1007,23 @@ def install_step_guard(target: Path, install: dict, report: list[str],
         _install_pi_step_guard(target, install, report)
     if _wants(clis, "codex"):
         _install_codex_step_guard(target, install, report)
+
+
+def install_freshness_check(target: Path, install: dict, report: list[str],
+                            clis: list[str] | None = None) -> None:
+    """Install the factory-freshness PreToolUse hook for the selected CLIs.
+
+    The hook detects when packages/factory/ changed but the installed factory/
+    was not updated, and auto-runs update-factory. Monorepo-only — the hook
+    script exits 0 immediately in consumer projects."""
+    if _wants(clis, "claude"):
+        _install_claude_freshness_check(target, install, report)
+    if _wants(clis, "copilot"):
+        _install_copilot_freshness_check(target, install, report)
+    if _wants(clis, "pi"):
+        _install_pi_freshness_check(target, install, report)
+    if _wants(clis, "codex"):
+        _install_codex_freshness_check(target, install, report)
 
 
 def install_usage_capture(target: Path, install: dict, report: list[str],
@@ -1387,6 +1431,173 @@ def install_pi_invocation_layer(target: Path, install: dict, report: list[str]) 
         link = extensions_dir / name
         dest = target / "factory" / "config" / "extensions" / name
         ensure_symlink(link, dest, report, install=install)
+
+
+def _install_claude_freshness_check(
+    target: Path, install: dict, report: list[str]
+) -> None:
+    hooks_dir = target / ".claude" / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+
+    link = hooks_dir / "check-factory-freshness.sh"
+    dest = target / "factory" / "config" / "hooks" / "check-factory-freshness.sh"
+    ensure_symlink(link, dest, report, install=install)
+
+    _ensure_claude_freshness_settings(target, install, report)
+
+
+def _install_copilot_freshness_check(
+    target: Path, install: dict, report: list[str]
+) -> None:
+    hooks_dir = target / ".github" / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+    install["github_ignored_entries"].add(".github/hooks")
+
+    for name in ("check-factory-freshness.sh", "check-factory-freshness.json"):
+        ensure_symlink(
+            hooks_dir / name,
+            target / "factory" / "config" / "hooks" / name,
+            report,
+            install=install,
+        )
+
+
+def _install_pi_freshness_check(
+    target: Path, install: dict, report: list[str]
+) -> None:
+    extensions_dir = _ensure_pi_extensions_dir(target, install, report)
+
+    link = extensions_dir / "check-factory-freshness.ts"
+    dest = target / "factory" / "config" / "extensions" / "check-factory-freshness.ts"
+    ensure_symlink(link, dest, report, install=install)
+
+
+def _install_codex_freshness_check(
+    target: Path, install: dict, report: list[str]
+) -> None:
+    hooks_dir = _ensure_codex_hooks_dir(target, install, report)
+    link = hooks_dir / "check-factory-freshness.sh"
+    ensure_symlink(
+        link,
+        target / "factory/config/hooks/check-factory-freshness.sh",
+        report,
+        install=install,
+    )
+    install["codex_ignored_entries"].add(_relpath(link, install))
+
+    path, config, hooks, existed = _load_codex_hooks(target, install)
+    entries = hooks.setdefault("PreToolUse", [])
+    if not isinstance(entries, list):
+        raise Collision(f"{path}: 'hooks.PreToolUse' exists but isn't a list")
+    already_wired = any(
+        isinstance(hook, dict)
+        and hook.get("command") == CODEX_FRESHNESS_HOOK_COMMAND
+        for entry in entries
+        for hook in (entry.get("hooks", []) if isinstance(entry, dict) else [])
+    )
+    if already_wired:
+        log(report, ".codex/hooks.json: freshness check already wired")
+        return
+    entries.append(
+        {
+            "matcher": "Bash",
+            "hooks": [{"type": "command", "command": CODEX_FRESHNESS_HOOK_COMMAND}],
+        }
+    )
+    _record_codex_handler(
+        install,
+        {
+            "event": "PreToolUse",
+            "matcher": "Bash",
+            "command": CODEX_FRESHNESS_HOOK_COMMAND,
+        },
+    )
+    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    action = "created" if not existed else "added"
+    log(report, f".codex/hooks.json: {action} freshness check hook")
+
+
+def _ensure_claude_freshness_settings(
+    target: Path, install: dict, report: list[str]
+) -> None:
+    """Wire the freshness-check PreToolUse entry into .claude/settings.json."""
+    path = target / ".claude" / "settings.json"
+
+    if not path.exists():
+        settings = {
+            "hooks": {
+                "PreToolUse": [
+                    {
+                        "matcher": "Bash",
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": CLAUDE_FRESHNESS_HOOK_COMMAND,
+                            }
+                        ],
+                    }
+                ]
+            }
+        }
+        path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+        install["claude_settings_existed"] = False
+        install["remove_paths"].append(".claude/settings.json")
+        log(report, ".claude/settings.json: created with freshness check hook")
+        return
+
+    install.setdefault("claude_settings_existed", True)
+
+    try:
+        settings = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise Collision(
+            f"{path} exists but isn't valid JSON ({e}) — wire the freshness "
+            "check hook in by hand: a PreToolUse/Bash hook running "
+            f"{CLAUDE_FRESHNESS_HOOK_COMMAND}"
+        )
+
+    if not isinstance(settings, dict):
+        raise Collision(
+            f"{path} exists but its top-level JSON isn't an object — wire the "
+            f"freshness check hook in by hand"
+        )
+
+    hooks = settings.setdefault("hooks", {})
+    if not isinstance(hooks, dict):
+        raise Collision(
+            f"{path}: 'hooks' key exists but isn't an object — wire it in by hand"
+        )
+
+    pre_tool_use = hooks.setdefault("PreToolUse", [])
+    if not isinstance(pre_tool_use, list):
+        raise Collision(
+            f"{path}: 'hooks.PreToolUse' exists but isn't a list — wire the "
+            "freshness check hook in by hand"
+        )
+
+    for entry in pre_tool_use:
+        entry_hooks = entry.get("hooks", []) if isinstance(entry, dict) else []
+        for hook in entry_hooks:
+            if (
+                isinstance(hook, dict)
+                and hook.get("command") == CLAUDE_FRESHNESS_HOOK_COMMAND
+            ):
+                log(
+                    report,
+                    ".claude/settings.json: freshness check hook already wired in",
+                )
+                return
+
+    pre_tool_use.append(
+        {
+            "matcher": "Bash",
+            "hooks": [
+                {"type": "command", "command": CLAUDE_FRESHNESS_HOOK_COMMAND}
+            ],
+        }
+    )
+    path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+    log(report, ".claude/settings.json: added freshness check hook")
 
 
 def _ensure_claude_guardrail_settings(
@@ -2679,6 +2890,7 @@ def write_manifest(target: Path, install: dict, report: list[str]) -> None:
         "remove_paths": _dedup(install["remove_paths"]),
         "merged_dirs": sorted(set(install.get("merged_dirs", []))),
         "factory_source": install.get("factory_source"),
+        "factory_tree_hash": _factory_tree_hash(install.get("factory_source")),
     }
     manifest_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     log(report, f"{MANIFEST_PATH}: wrote removal manifest")
@@ -3039,6 +3251,10 @@ def do_add(target: Path, source_factory: Path, add_args: list[str] | None) -> in
         _out.quiet = False
         if usage_runtime_ready:
             log(report, "usage capture: hooks installed")
+
+        _out.quiet = True
+        install_freshness_check(target, install, report, chosen)
+        _out.quiet = False
 
         for dd in dot_dirs:
             _link_orientation(target, dd, factory, install, report)
@@ -3477,6 +3693,10 @@ def main(argv: list[str] | None = None) -> int:
 
         if _wants(clis, "pi"):
             install_pi_invocation_layer(target, install, report)
+
+        _out.quiet = True
+        install_freshness_check(target, install, report, clis)
+        _out.quiet = False
 
     except Collision as e:
         _out.quiet = False
