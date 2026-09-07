@@ -113,13 +113,17 @@ agents handle most work; strong agents handle architecture and review.
 Each CLI needs its own model IDs because they route through different
 providers.
 
-Walk through each CLI's three tiers. For each, ask the user to confirm,
-change, or remove the entry. If the user doesn't know which models to
-pick, suggest running `factory/scripts/openrouter-discover --suggest` (for
-Pi/OpenRouter) or checking their provider's model list.
+Ask "Which CLI(s) do you use?" before walking any tiers. Then walk only
+the three tiers of the selected CLI(s) — for each, ask the user to
+confirm, change, or remove the entry. If the user doesn't know which
+models to pick, suggest running `factory/scripts/openrouter-discover --suggest` (for Pi/OpenRouter) or checking their provider's model list.
+Leave unselected CLIs untouched — their existing defaults or
+`CONFIGURE-ME` placeholders stay as-is, configurable later via
+`update-context` or a direct edit to `config/model.conf`.
 
 When done, write the confirmed entries back to `config/model.conf` and set
-`fitting.model_matrix_configured` to `true`.
+`fitting.model_matrix_configured` to `true` — this fires once the
+selected CLI(s)' tiers are configured, not once every CLI is.
 
 ### 1. Confirm the fingerprint
 
@@ -134,9 +138,16 @@ in `project-context.json`, then set `fitting.fingerprint_confirmed` to
 
 ### 2. Populate agent context
 
-Invoke the `capture-context` skill. It creates `docs/agent-context/` with
-YAML routing files that connect agents to project knowledge. When the skill
-completes, set `fitting.agent_context_populated` to `true`.
+Invoke the `capture-context` skill with `--minimal`: `--init --scan --minimal` for brownfield, `--init --minimal` for greenfield. This asks 6
+questions instead of 19 — the fastest path to enough context for agents to
+route work. When the skill completes, set
+`fitting.agent_context_populated` to `true`.
+
+Then offer the full pass explicitly: "I have enough to work with. Want to
+fill in the rest now, or come back to it later?" If the user accepts,
+invoke `capture-context --init` (or `--init --scan`) without `--minimal`
+— it detects the fields left `deferred: "full context pass pending"` and
+presents only those for completion.
 
 ### 2b. Detect test regime
 
