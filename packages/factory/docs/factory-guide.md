@@ -6,7 +6,7 @@ What's inside `factory/`, and how its pieces fit together. New here? The [Gettin
 
 ### Who this is for
 
-You have an idea for something to build. You have an AI coding assistant — a tool like Claude Code or GitHub Copilot CLI that reads and writes files and runs commands in a terminal. What you do not yet have is a *way of working* with it that produces code you would trust in production.
+You have an idea for something to build. You have an AI coding assistant — a tool like Claude Code or GitHub Copilot CLI that reads and writes files and runs commands in a terminal. What you might not yet have is a *way of working* with it that produces code you would trust in production.
 
 That is the whole problem Agent Factory solves. You do not need to be a professional software engineer to follow along. You do need to be willing to read what the assistant proposes and say yes or no to each step.
 

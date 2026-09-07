@@ -1,0 +1,28 @@
+# Layer 2 index file: how to build, test, and deploy the project.
+# mode: index — fields are projections of existing documentation.
+
+mode: index
+
+repository_layout:
+  name: "Monorepo — packages/factory, packages/orchestrator, factory/, docs/, tests/, config/"
+  source: README.md
+
+getting_started:
+  name: "README link trail from top-level README.md"
+  source: README.md
+
+running:
+  name: "Scripts via factory/scripts/<name>; tests via uv run pytest"
+  source: pyproject.toml
+
+testing:
+  name: "pytest"
+  source: docs/charter/testing.yaml
+
+linting:
+  name: "ruff (pyproject.toml), mdformat, factory lint scripts"
+  source: pyproject.toml
+
+branching:
+  name: "Factory branching policy"
+  source: factory/rulebooks/conventions/branching-policy.md
