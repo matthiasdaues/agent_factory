@@ -2,7 +2,7 @@
 
 Agent Factory adds structure to AI-assisted software development. It gives your AI coding CLI a set of specialist agents, engineering playbooks, and automated checks — so you get a repeatable process instead of ad-hoc prompting.
 
-Agents handle requirements, architecture, planning, implementation, and QA in separate sessions. Authors and reviewers never share a session, so no agent approves its own work. Deterministic scripts check formatting, schemas, traceability, and architecture consistency before anything reaches human review. You approve the decisions that shape the product.
+Agents handle requirements, architecture, planning, implementation, and QA in separate sessions. Once a text or piece of code has been created, it is reviewed. Authors and reviewers never share a session, so no agent approves its own work. Deterministic scripts check formatting, schemas, traceability, and architecture consistency before anything reaches human review. You approve the decisions that shape the product.
 
 ```
 Creation is agentic. Validation is deterministic. Decisions remain human.

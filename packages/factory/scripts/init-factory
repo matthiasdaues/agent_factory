@@ -210,9 +210,19 @@ RULEBOOK_LINK_TARGETS = {
 }
 
 MANIFEST_PATH = ".agent-factory/factory-install.json"
+FACTORY_VERSION_FILE = Path("factory/VERSION")
 USAGE_RUNTIME = Path(".agent-factory/usage-runtime")
 USAGE_REQUIREMENTS = Path("factory/config/usage-runtime-requirements.txt")
 PROJECT_IDENTITY = Path("config/project.json")
+
+
+def _read_factory_version(target: Path) -> str:
+    """Read the factory package version from factory/VERSION."""
+    path = target / FACTORY_VERSION_FILE
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return "unknown"
 
 
 CLI_LABELS = {
@@ -2051,6 +2061,7 @@ def _scan_project_context(target: Path) -> dict:
         "docs_structure": docs_structure,
         "fitting": {
             "status": "unfitted",
+            "model_matrix_configured": False,
             "fingerprint_confirmed": False,
             "agent_context_populated": False,
             "hooks_decided": False,
@@ -2090,13 +2101,91 @@ def write_project_context(
     log(report, "config/project-context.json: written")
 
 
+MODEL_MATRIX_HEADER = """\
+# Model Config — Agent Session Orchestrator
+#
+# Each factory agent declares a tier: economy, standard, or strong.
+# When the factory dispatches an agent, it looks up <cli>.<tier> here
+# to decide which model runs the job.
+#
+#   economy  — routine tasks, fast and cheap (linting, formatting, small edits)
+#   standard — most work (feature implementation, documentation, research)
+#   strong   — architecture, review, complex reasoning
+#
+# How to configure
+# ────────────────
+# Replace every CONFIGURE-ME with a model ID your account can access.
+# Use the model ID your provider expects:
+#
+#   Claude Code  → Anthropic model IDs     (claude-haiku-4-5, claude-sonnet-4-6, claude-opus-4-8)
+#   Copilot CLI  → GitHub model names      (gpt-4o-mini, gpt-4o, claude-opus-4-6)
+#   Pi           → OpenRouter prefixed IDs (openrouter/anthropic/claude-sonnet-4.6)
+#   Codex        → OpenAI model IDs        (gpt-4o-mini, gpt-4o, o3)
+#
+# For Pi on OpenRouter, run `factory/scripts/openrouter-discover --suggest`
+# to get tier picks from the live catalog.
+#
+# Validate after editing:
+#   factory/scripts/matrix-lint --matrix config/model.conf
+#
+# Precedence: --model flag > model.conf > CLI default.
+# If on_missing is "halt", a missing tier stops dispatch with an error.
+# Set it to "auto" to let the CLI fall back to its own default model.
+
+[facts]
+"""
+
+MODEL_MATRIX_STANZAS: dict[str, str] = {
+    "claude": """\
+# Claude Code
+claude.economy  = CONFIGURE-ME
+claude.standard = CONFIGURE-ME
+claude.strong   = CONFIGURE-ME
+""",
+    "copilot": """\
+# GitHub Copilot CLI
+copilot.economy  = CONFIGURE-ME
+copilot.standard = CONFIGURE-ME
+copilot.strong   = CONFIGURE-ME
+""",
+    "pi": """\
+# Pi via OpenRouter — validate/refresh with
+# `factory/scripts/openrouter-discover --check` (drift) / `--suggest` (picks).
+pi.economy  = CONFIGURE-ME
+pi.standard = CONFIGURE-ME
+pi.strong   = CONFIGURE-ME
+""",
+    "codex": """\
+# OpenAI Codex CLI
+codex.economy  = CONFIGURE-ME
+codex.standard = CONFIGURE-ME
+codex.strong   = CONFIGURE-ME
+""",
+}
+
+MODEL_MATRIX_FOOTER = """\
+# Fallback when a tier has no model for the active CLI
+on_missing = halt
+"""
+
+
+def _generate_model_matrix(clis: list[str] | None) -> str:
+    """Build a model.conf with only the installed CLIs, placeholder IDs."""
+    active = KNOWN_CLIS if clis is None else clis
+    body = MODEL_MATRIX_HEADER
+    for cli in active:
+        stanza = MODEL_MATRIX_STANZAS.get(cli)
+        if stanza:
+            body += stanza + "\n"
+    body += MODEL_MATRIX_FOOTER
+    return body
+
+
 def copy_model_matrix(target: Path, install: dict, report: list[str]) -> None:
     config_dir = target / "config"
     dest = config_dir / "model.conf"
 
     if dest.exists():
-        # If a prior run created it, the loaded manifest already carries the
-        # ignore + removal records; if it's the project's own, we leave it out.
         log(
             report,
             "config/model.conf: already present, left untouched (meant to diverge per project)",
@@ -2107,10 +2196,11 @@ def copy_model_matrix(target: Path, install: dict, report: list[str]) -> None:
         config_dir.mkdir(parents=True)
         install["remove_paths"].append("config")
 
-    shutil.copyfile(target / "factory" / "config" / "model.conf", dest)
+    clis = install.get("cli")
+    dest.write_text(_generate_model_matrix(clis), encoding="utf-8")
     install["remove_paths"].append("config/model.conf")
     install["ignore_model_conf"] = True
-    log(report, "config/model.conf: copied in as a starter")
+    log(report, "config/model.conf: generated for installed CLIs (configure model IDs during fitting)")
 
 
 def ensure_project_identity(
@@ -2538,6 +2628,7 @@ def write_manifest(target: Path, install: dict, report: list[str]) -> None:
     )
     payload = {
         "version": 1,
+        "factory_version": _read_factory_version(target),
         "cli": install.get("cli"),
         "git_initialized_by_us": install.get("git_initialized_by_us", False),
         "gitignore_existed": install.get("gitignore_existed", True),

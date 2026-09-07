@@ -28,12 +28,13 @@ models/
 # >>> agent_factory related >>>
 # Added by init-factory; remove with factory/scripts/remove-factory.
 /factory/
-/.claude/
-/.pi/
 /.agent-factory/
 /.current-work/
 /session-scratchpad.md
+/.claude/
+/.pi/
 /config/project.json
+/config/project-context.json
 /AGENTS.md
 /.github/INDEX.yaml
 /.github/agents

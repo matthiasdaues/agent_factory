@@ -775,3 +775,82 @@ but does not advance any proposal layer directly.
 | 6   | Factory README "How it works"     | Closed |
 | 7   | Agent context in factory README   | Closed |
 | 8   | Agent context creation timing     | Closed |
+
+## Orientation architecture (2026-09-07)
+
+How init-factory handles instruction files and how the session bootstrap
+works. This section exists because the non-interference guarantee is the
+thing that matters most to a developer who already has a working
+`.claude/CLAUDE.md` or `.github/copilot-instructions.md`.
+
+### The promise
+
+**init-factory never overwrites an existing instruction file.** The
+project's orientation file — whatever is already there — stays exactly as
+it was. The factory adds its content beside the project's own, never on
+top of it.
+
+### What init-factory does, by case
+
+| What's at the orientation path             | What init does                                                                                                   |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Nothing                                    | Creates a symlink to `factory/config/AGENTS.md`. The factory owns the file.                                      |
+| A symlink pointing at our `AGENTS.md`      | Skips — already wired from a prior run.                                                                          |
+| A symlink pointing somewhere else          | Leaves it untouched. Logs advice: add an include of `factory/rulebooks/rules.md` to your own file.               |
+| A regular file (the project's own content) | Prepends a marker-fenced block containing the factory orientation. The project's content stays below, unchanged. |
+
+For Claude Code, the prepended block is a single `@include` directive
+(`@../factory/config/AGENTS.md`), not the full orientation text. For
+Pi, Codex, and Copilot — which lack native includes — the full AGENTS.md
+content is inlined between the markers.
+
+The markers (`<!-- >>> agent_factory orientation >>>` /
+`<!-- <<< agent_factory orientation <<< -->`) make the block visible and
+machine-removable. `remove-factory` strips the block and restores the
+original file.
+
+### One-hop bootstrap
+
+The orientation file — whatever lands at `.claude/CLAUDE.md`,
+`.github/copilot-instructions.md`, or `AGENTS.md` — is self-contained
+for the model's first turn. It carries:
+
+1. A directive to read `factory/rulebooks/rules.md` (binding session rules).
+2. A directive to read the local `INDEX.yaml` (skill/agent/playbook registry).
+3. The fitting-state check (read `config/project-context.json`, fork on
+   `fitting.status`).
+4. The session menu (A–D options) with all handlers.
+
+No chaining to a second file is required for turn 1. A model that reads
+only the orientation file still does the right thing — checks fitting
+state, presents the menu, acts on the user's choice.
+
+### VIRGIL as optional enrichment
+
+The `virgil` agent definition (`factory/agents/virgil.md`) carries richer
+guidance: the three-step fitting procedure, skill routing table,
+behavioural anchors (Virgil / Vimes / Jeeves), and boundary rules. The
+orientation file's "Deeper guidance" section points models there, but does
+not require it.
+
+Strong models that chain to VIRGIL get a richer session personality and
+more detailed fitting steps. Weaker models that stop at the orientation
+file still present the right menu, check fitting state correctly, and
+route to the right playbook. The one-hop design ensures that the
+worst-case model behaviour is "correct but plain," not "lost."
+
+### What this means for existing users
+
+If you already have a `.claude/CLAUDE.md` with your own instructions:
+
+- init-factory prepends a small include directive at the top.
+- Your instructions remain below, unchanged, and the model reads them
+  after the factory orientation.
+- `remove-factory` removes the include and restores your file to its
+  original state.
+- The factory orientation never conflicts with your content — it handles
+  the session's opening turn; your instructions govern everything after.
+
+If you don't want the factory orientation at all, the external-symlink
+case applies: init-factory logs advice and moves on. Your file, your
+rules.
