@@ -1,5 +1,68 @@
 # Changelog
 
+## 0.8.0 — 2026-09-08
+
+Progressive fitting and session continuity. Reduces the fitting interview
+from 19 questions to 6 for the minimum-viable pass, surfaces navigation
+aids in the session menu, resolves the VIRGIL/playbook persona conflict,
+and derives fitting state from tracked artifacts so collaborators who
+clone a fitted repo inherit the team's fitting decisions.
+
+### Features
+
+- **Minimal fitting pass.** `capture-context --init --scan --minimal`
+  limits the interview to 6 questions (languages, frontend/backend
+  frameworks, testing, running locally, branching model). Remaining
+  fields are set to `deferred: "full context pass pending"` and
+  completed in an optional full pass. `--init --minimal` (without
+  `--scan`) covers greenfield projects.
+- **Artifact-derived fitting state.** `init-factory` re-derives four of
+  five fitting keys (`fingerprint_confirmed`, `agent_context_populated`,
+  `test_regime_detected`, `hooks_decided`) from tracked artifacts
+  (`docs/agent-context/`, `.pre-commit-config.yaml`,
+  `config/project-context.json`) on every run. A collaborator who clones
+  a fitted repo and runs `init-factory` inherits the team's fitting
+  decisions instead of seeing everything reset to false.
+  `model_matrix_configured` is cache-only — `config/model.conf` is
+  gitignored and user-specific.
+- **Fitting progress display.** When `fitting.status` is `"fitting"`,
+  the AGENTS.md orientation file counts completed vs. remaining steps
+  and offers to resume or skip. A note clarifies that the summary
+  trusts the cached values and suggests `init-factory --update .` after
+  pulls to reconcile.
+- **Session menu descriptions.** Each B-menu playbook entry now shows a
+  one-line description drawn from the playbook's opening paragraph.
+  `explain-concept` is surfaced as a footer hint. The `?` option
+  launches a guided-tour reorientation skill.
+
+### Fixes
+
+- **VIRGIL persona transition.** VIRGIL's boundaries section now
+  includes an exception clause: when a playbook is selected, the model
+  drops the VIRGIL persona and follows the playbook's operational
+  procedure. Resolves the conflict where VIRGIL's "MUST NOT write code"
+  boundary blocked playbook execution.
+- **`_fitting_status` missing-key safety.** Uses `.get(k, False)`
+  instead of direct key access, preventing `KeyError` on hand-edited
+  `project-context.json` with missing fitting keys.
+- **`_reconcile_project_context` conditional write.** Only writes
+  `project-context.json` when derived keys actually changed, avoiding
+  unnecessary file touches.
+- **Minimal interview defer removed.** The 6 minimal fields no longer
+  offer "defer" as an action — all 6 must be answered per the design
+  intent.
+- **Session menu qa-agent format.** Reformatted to the `name: description` style matching all other B-menu entries.
+- **`dispatch_lib` YAML document marker.** `_stdlib_load` now skips
+  `---` lines instead of treating them as key-value pairs.
+
+### Documentation
+
+- **`_parse_simple_yaml_mapping` docstring.** Documents the known
+  limitation that comment stripping via `split('#')` does not respect
+  quoted strings.
+- **virgil.md line-break fix.** Corrected a mid-sentence line break in
+  the minimal fitting step description.
+
 ## 0.7.0 — 2026-09-07
 
 Hardens the update path and closes the documentation gap between script
