@@ -24,6 +24,12 @@ Installations created before checksum recording was introduced have no
 baseline to compare against. In that case the update proceeds as before
 (full replacement) and records checksums for future updates.
 
+Paths a pre-commit hook regenerates after install (see HOOK_REGENERATED_PATHS,
+currently INDEX.yaml) are excluded from checksum comparison entirely: a hook
+doing its job is never a user modification, so it never triggers --force.
+These paths are still overwritten on every update, same as everything else in
+factory/ — they are just never diffed against the baseline.
+
 What is *not* touched: only `factory/` is replaced. The project's own files,
 the `.gitignore`/`.pre-commit-config.yaml` edits, and the `.agent-factory/`
 directory — including the usage-tracking transcripts under
@@ -75,6 +81,15 @@ USER_CHANGES_DIR = ".agent-factory/factory-user-changes"
 CHECKSUM_SKIP_PREFIXES = ("__pycache__/",)
 CHECKSUM_SKIP_SUFFIXES = (".pyc",)
 
+# Paths (relative to factory/) that a pre-commit hook regenerates after
+# install — e.g. index-lint rewriting INDEX.yaml. These are never a user
+# choice, so they are excluded from checksum comparison here: a hook-
+# modified file must never be reported as a "user modification" that
+# requires --force. Kept in sync with the identical constant in
+# init-factory; the full factory/ replace below still overwrites these
+# paths unconditionally, since update-factory never copies file-by-file.
+HOOK_REGENERATED_PATHS = ("INDEX.yaml",)
+
 
 class ManifestUnreadable(Exception):
     """The install manifest exists but cannot be read as valid JSON."""
@@ -105,6 +120,9 @@ def _should_checksum(rel: str) -> bool:
     return (
         not any(rel.startswith(p) or f"/{p}" in rel for p in CHECKSUM_SKIP_PREFIXES)
         and not any(rel.endswith(s) for s in CHECKSUM_SKIP_SUFFIXES)
+        and not any(
+            rel == p or rel.endswith(f"/{p}") for p in HOOK_REGENERATED_PATHS
+        )
     )
 
 

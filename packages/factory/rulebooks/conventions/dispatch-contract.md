@@ -218,6 +218,39 @@ waves:
     branch_head: <40-char SHA>
 ```
 
+## Close
+
+A dispatch that begins without ending is a leak. Every dispatch must conclude as either completed or abandoned, with worktrees removed, branches handled according to their terminal state, and the ledger committed.
+
+### Completed Close
+
+The dispatch completed successfully — all stories in the wave reached terminal states (merged or blocked with a reason recorded). To close a completed dispatch:
+
+1. Verify every story in the dispatch has a terminal status in the ledger — `done` (merged), `blocked`, or `failed`.
+2. Run `git worktree prune` to remove stale worktree references.
+3. For each worktree owned by the dispatch:
+   - If the story's branch was merged to the target: `git worktree remove` and `git branch -d` the story branch (safe delete — the commit already exists on the target branch).
+   - If the story's branch is blocked: record the block reason in the ledger and leave the branch and worktree for manual resolution — the developer who owns the block decides whether to resume or abandon it.
+4. Commit the final ledger state.
+
+The key distinction: **merged branches are safe to delete** (the work is on the target branch), **blocked branches are left in place** (the developer may resume), and the ledger preserves the reason for future reference.
+
+### Abandoned Close
+
+The dispatch was abandoned before completion — the work is not being merged. To close an abandoned dispatch:
+
+1. Record the abandonment reason in the ledger: add an entry under `abandonment:` with the reason (e.g., "deprioritized", "replaced by alternative approach", "blocked by external dependency"). If no ledger exists, create one with all stories set to `abandoned` and the reason.
+2. For each worktree owned by the dispatch: `git worktree remove --force` and `git branch -D` (force-delete branches, because the work is abandoned, not preserved for manual resolution).
+3. Commit the ledger.
+
+## QA-in-Worktree Divergence
+
+QA that runs inside a story worktree validates against `packages/factory/` (source), because the worktree shares the repository's source tree. Pre-commit hooks in the main checkout, however, load scripts and tests from `factory/` (the installed copy). These are two different directory trees with independent content: `packages/factory/` is always current with the branch, while `factory/` reflects whichever version was last synced by `update-factory`.
+
+When a dispatch touches files under `packages/factory/`, QA can pass in the worktree while the post-merge test suite fails in the main checkout — the installed copy is stale.
+
+**Mitigation.** Before the final `dispatch merge-story` of any wave that modified `packages/factory/` files, the dispatcher (or stakeholder) must run `factory/scripts/update-factory` on the main checkout to sync the installed copy from source. This is a manual step; no automated hook exists yet.
+
 ## Enforcement
 
 Human/agent-authored discipline, not a git hook or lint gate — a sub-agent's addressing choice and a dispatcher's scope-splitting decision both happen inside the dispatching agent's own prompt-composition step, before any tool call a hook could intercept. Mechanized implementation dispatch adds a stricter runtime rule: the ledger under `.current-work/` is script-owned, and the dispatcher must advance story state through `dispatch init`, `dispatch prepare-wave` / `prepare-story`, `dispatch mark-dispatching`, `dispatch mark-dispatched`, `dispatch verify-story`, `dispatch merge-story`, and `dispatch close-wave` instead of handwritten bookkeeping. See [implementation-agent.md § Workflow](../../agents/implementation-agent.md#workflow) for the current concrete application.

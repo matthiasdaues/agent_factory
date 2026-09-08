@@ -39,6 +39,10 @@ Standard types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 - `fix:` → PATCH
 - `BREAKING CHANGE` footer → MAJOR
 
+### Batch Fix
+
+When multiple failure modes surface in the same file or script, read and understand the file as a whole before committing a fix. Prefer one commit that addresses all known failure modes over a series of incremental patches. Incremental symptom-chasing produces commits that are individually correct but collectively hard to review, bisect, and reason about.
+
 ## Examples
 
 **Correct:**
