@@ -13,14 +13,10 @@ skills:
   - create-backlog-story-slices
   - create-backlog-stories
 inputs:
-  - docs/spec/prd.md
+  - docs/agent-context.md
   - docs/spec/*.feature
   - docs/spec/scope-map.md
-  - docs/spec/supplementary_specs/*.md
-  - docs/agent-context.md
   - docs/testing.yaml
-  - docs/*.md
-  - docs/adr/*.md
 outputs:
   - backlog/ST-*.md (User Stories, grouped by epic)
 triggers:
@@ -37,10 +33,11 @@ version: 0.4.0
 
 **Principles:**
 
-1. **YAGNI** — stories trace to spec only. No "nice to have" or "future" items.
-2. **Demo First** — every story delivers a capability a person can demonstrate.
-3. **Forward from Status Quo** — each story steps forward from the deliverables of its dependencies.
-4. **Criteria Are Invariants** — acceptance criteria are falsifiable statements, not implementation instructions.
+1. **Code Is Ground Truth** — planning starts from the codebase as it stands. Follow the technical concerns in `docs/agent-context.md` to locate source directories, tests, and infrastructure. The spec describes the target; the code describes the departure point. Every story is a delta from existing code to a specified capability.
+2. **YAGNI** — stories trace to spec only. No "nice to have" or "future" items.
+3. **Demo First** — every story delivers a capability a person can demonstrate.
+4. **Forward from Status Quo** — each story steps forward from the codebase (and the deliverables of its dependencies). Status quo means what the code does today, not what the spec envisions.
+5. **Criteria Are Invariants** — acceptance criteria are falsifiable statements, not implementation instructions.
 
 ## Role
 
@@ -48,9 +45,11 @@ Break specification and architecture into **tracer bullet** **vertical slices**.
 
 ## Workflow
 
-### Pre-flight — Testing regime check
+### Pre-flight — Concern registry and testing regime
 
-Before slicing stories, verify that `testing.yaml` exists (at `docs/testing.yaml`) and contains at least one suite. If missing or empty, invoke `detect-test-regime` to populate it, then continue. The planning agent needs suite information to map acceptance criteria to existing tests and to pick the right suite for new ones.
+Read `docs/agent-context.md` in full. As a pre-backlog agent, the planning agent reads the entire concern registry by judgment — cross-cutting, technical, and domain concerns are all relevant to decomposition. Follow the `Read:` paths in each concern section to discover project-native knowledge (supplementary specs, ADRs, handbooks, architecture views). Factory-canonical artifacts (`scope-map.md`, `.feature` files, `testing.yaml`) are read by path; everything else is discovered through concerns.
+
+Verify that `testing.yaml` exists (at `docs/testing.yaml`) and contains at least one suite. If missing or empty, invoke `detect-test-regime` to populate it, then continue. The planning agent needs suite information to map acceptance criteria to existing tests and to pick the right suite for new ones.
 
 Read the document at `testing_strategy:` in `testing.yaml` for test budgets, cluster assignments, and how to populate each story's `tests:` field.
 
@@ -64,7 +63,7 @@ The backlog is built in four phase-gated skills. Each skill ends when its output
 
 **Invoke skill:** `create-backlog-epics`
 
-Survey the codebase, read specs, propose EPIC decomposition, present the EPIC-level slice table with Junior Clarity and Senior Acceptance gates.
+Survey the codebase as ground truth, read specs as target, propose EPIC decomposition as deltas from existing code to specified capabilities. Present the EPIC-level slice table with Junior Clarity and Senior Acceptance gates.
 
 **Gate:** user approves or adjusts the slicing approach before proceeding.
 

@@ -19,13 +19,15 @@ Write for an international Team whose members have English as a common, but not 
 
 For each EPIC, create `backlog/ST-NNNN.md` stories meeting **INVEST** — particularly: Independent (dependencies explicit in `deps`), Small (one implementation session), Testable (acceptance criteria as falsifiable invariants).
 
-Apply the [story composition rules](../create-backlog/SKILL.md#story-composition-rules): write the Demo section first (Rule 1), define scope as a step forward from the status quo of depended-on stories (Rule 2), write acceptance criteria as invariants (Rule 3). Every story is a vertical slice that crosses all system boundaries its capability requires. A story that touches only one boundary (only schema, only service, only UI) and delivers nothing a person can demonstrate is not a story — fold it into the first story that needs it as a line item.
+Apply the [story composition rules](../create-backlog/SKILL.md#story-composition-rules): write the Demo section first (Rule 1), define scope as a step forward from the existing codebase and the deliverables of depended-on stories (Rule 2), write acceptance criteria as invariants (Rule 3). Every story is a vertical slice that crosses all system boundaries its capability requires. A story that touches only one boundary (only schema, only service, only UI) and delivers nothing a person can demonstrate is not a story — fold it into the first story that needs it as a line item.
+
+Each story's "Status Quo" section must name concrete files and modules that already exist in the codebase — not what the spec describes or what an earlier design envisioned. If the code has drifted from the spec, the story plans from the code.
 
 Each story records in `traces`: the scope-map Rule(s) it implements, the arc42 component(s) it touches, and any constraining ADR(s).
 
 Judge each story's `tier` (`economy | standard | strong`) — the model strength its work needs, same vocabulary as agent frontmatter's `tier`.
 
-When `docs/agent-context.md` exists, read the concerns relevant to the story's scope and extract concrete implementation names (test framework, deployment target, API framework) for use in acceptance criteria instead of placeholders.
+Read `docs/agent-context.md` and follow the concerns relevant to each story's scope — domain concerns for supplementary specs and entity models, technical concerns for conventions and architecture views. Extract concrete implementation names (test framework, deployment target, API framework) from the concern `Read:` paths for use in acceptance criteria instead of placeholders.
 
 For each story, cross-reference against the testing regime:
 

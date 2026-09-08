@@ -7,9 +7,13 @@ disable-model-invocation: false
 
 # Create Backlog
 
-Break the specification and architecture into a prioritised backlog of EPICs and User Stories, written as local markdown files under `backlog/`. The artifact chain is: scope map → `.feature` files → **`backlog/epics.md`** → individual `backlog/ST-NNNN.md` stories. The planning agent creates `epics.md` and the stories; the scope map and `.feature` files are inputs from the specification phase.
+Break the specification and architecture into a prioritised backlog of EPICs and User Stories, written as local markdown files under `backlog/`. The artifact chain is: **existing codebase** (ground truth, located via technical concerns in `docs/agent-context.md`) + scope map + `.feature` files (target) → **`backlog/epics.md`** → individual `backlog/ST-NNNN.md` stories. The planning agent surveys the code first, reads the spec second, and derives stories as deltas from what exists to what the spec requires.
 
-Every story is a **tracer bullet** — a **vertical slice** that is independently implementable, traceable to its Use Case, and respects architectural boundaries.
+Every story is a **tracer bullet** — a **vertical slice** that is independently implementable, traceable to its spec rule, and respects architectural boundaries.
+
+### Information discovery
+
+Factory-canonical artifacts (`scope-map.md`, `.feature` files, `testing.yaml`) are read by path. Everything else — source directories, supplementary specs, ADRs, handbooks, architecture views, conventions — is discovered through the concern sections in `docs/agent-context.md`. Each concern section carries `Read:` paths — follow them instead of hardcoding project-specific file paths. As a pre-backlog activity, the planning agent reads the full concern registry by judgment, not narrowed by story concerns.
 
 Stories are project artifacts, not entries in an external tracker: one file per story, `backlog/ST-NNNN.md`, with strict frontmatter validated by `factory/scripts/backlog-lint`.
 
@@ -60,11 +64,11 @@ Every story delivers a capability a person can demonstrate. Infrastructure — m
 
 ### Rule 2: Forward from Status Quo
 
-Start every story by stating what exists now — including deliverables of all stories it depends on. End with what a person can do afterward that they cannot do today. The gap is the story's scope.
+Start every story by stating what exists now **in the codebase** — files, modules, tests, schemas that are already there — plus the deliverables of all stories it depends on. End with what a person can do afterward that they cannot do today. The gap between the two is the story's scope.
 
-Chain stories so each one's deliverables become status quo for every story that depends on it. The dependency graph is a chain of accumulating status quos.
+Chain stories so each one's deliverables become status quo for every story that depends on it. The dependency graph is a chain of accumulating status quos, rooted in today's code.
 
-Spec rules are traces — evidence of coverage, not the decomposition axis. A story exists because it delivers a capability, not because a rule needs coverage.
+Spec rules are traces — evidence of coverage, not the decomposition axis. A story exists because it delivers a capability, not because a rule needs coverage. The code shape determines how the work decomposes; the spec determines what work is needed.
 
 **MUST NOT** decompose by layer. One story for types, one for schema, one for service, one for API, one for UI is horizontal decomposition — it produces stories that individually deliver nothing showable and violates the vertical-slice gate. Each story **MUST** cross all system boundaries its capability requires. Infrastructure (identity types, schema scaffolding, test markers, pre-commit fixes) enters as a line item inside the story that first uses it, never as a standalone story — unless the story was already created by the `capture-charter` completeness sweep as part of Epic 0. The planning agent never creates Epic 0 stories; it only acknowledges ones the charter sweep produced.
 
