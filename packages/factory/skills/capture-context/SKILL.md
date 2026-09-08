@@ -1,226 +1,212 @@
 ---
 name: capture-context
 description: >-
-  Initialize docs/agent-context/ — the YAML routing interface between agents
-  and project knowledge. capture-context --init scaffolds stack.yaml,
-  workflow.yaml, and governance.yaml from templates, then runs a stakeholder
-  interview that records the answers as inline values.
-  capture-context --init --scan discovers existing documentation in a
-  brownfield project, runs a concern-based interview, populates index files
-  with name and source pointers, and generates reading-guides.yaml.
+  Initialize docs/agent-context.md — the concern-based routing interface
+  between agents and project knowledge. --init scans the repo, seeds
+  cross-cutting concerns, proposes technical and domain concerns, and
+  writes the file. --init --scan adds brownfield documentation discovery.
 category: requirements
-version: 2.0.0
+version: 3.0.0
 disable-model-invocation: false
 ---
 
 # Capture Context
 
-Lifecycle skill for `docs/agent-context/` — the YAML interface between
-agents and a project's own knowledge. See
+Lifecycle skill for `docs/agent-context.md` — the concern-based routing
+interface between agents and a project's own knowledge. See
 [Agent Context Composition](../../rulebooks/conventions/agent-context-composition.md)
 for the binding structural rules this skill follows, and
-[yaml-charter-lifecycle.md](../../../docs/proposals/yaml-charter-lifecycle.md),
-[ADR-0013](../../../docs/adr/0013-yaml-agent-context-replaces-markdown-charter.md),
-and [ADR-0014](../../../docs/adr/0014-two-layer-routing-with-two-mode-lifecycle.md)
+[factory-concern-oriented-agent-context.md](../../../docs/proposals/factory-concern-oriented-agent-context.md)
 for the design rationale.
 
 **Runs in the orchestrating session, never as a spawned subagent.** The
-stakeholder interview requires the stakeholder to be present to answer.
+concern confirmation requires the stakeholder to be present to answer.
 
-## Agent-context structure
+## Concern model
 
-Three Layer 2 index files, one template each at
-`factory/rulebooks/templates/context-stack.yaml`, `context-workflow.yaml`,
-`context-governance.yaml` — see
-[Agent Context Composition § The four files](../../rulebooks/conventions/agent-context-composition.md#the-four-files)
-for what each carries. A fourth file, `reading-guides.yaml`, is the Layer 1
-routing table; it is not created during greenfield init because a fresh
-project has no populated sections yet to route to.
+Agent context is organized into three concern categories. Each concern
+carries a description and `Read:` paths pointing to the knowledge an agent
+should consult. See
+[Agent Context Composition § The concern model](../../rulebooks/conventions/agent-context-composition.md#the-concern-model)
+for the category definitions.
+
+The output file is `docs/agent-context.md`. No YAML files are created
+(`stack.yaml`, `workflow.yaml`, `governance.yaml`, `reading-guides.yaml`
+belong to the retired YAML model).
 
 ## Invocation
 
-| Invocation                                | When                                                                          |
-| ----------------------------------------- | ----------------------------------------------------------------------------- |
-| `capture-context --init`                  | Right after vision capture, before requirements                               |
-| `capture-context --init --scan`           | Existing project with documentation to discover                               |
-| `capture-context --init --minimal`        | Fast-path greenfield fitting — 6 questions, rest deferred                     |
-| `capture-context --init --scan --minimal` | Fast-path brownfield fitting — full scan, 6-question interview, rest deferred |
+| Invocation                      | When                                            |
+| ------------------------------- | ----------------------------------------------- |
+| `capture-context --init`        | Right after vision capture, before requirements |
+| `capture-context --init --scan` | Existing project with documentation to discover |
 
 ## `--init` (greenfield)
 
-### Step 1 — Create the skeleton
+### Step 0 — Guard
 
-For each of `stack.yaml`, `workflow.yaml`, `governance.yaml`: if
-`docs/agent-context/<file>` already exists, skip it and leave it untouched
-— this skip-if-exists guard protects any values a prior run already
-recorded. Otherwise, copy the matching template
-(`factory/rulebooks/templates/context-<file>`) to
-`docs/agent-context/<file>` unchanged.
+If `docs/agent-context.md` already exists, stop and tell the user:
+"docs/agent-context.md already exists — skipping init to protect existing
+content. Use `update-context` or edit the file directly." Do not overwrite.
 
-Never create `reading-guides.yaml` in this invocation. It routes to
-populated index sections, and a fresh greenfield project has none yet —
-`update-context` proposes creating it once the first `source:` pointer
-exists.
+### Step 1 — Repository scan
 
-### Step 2 — Stakeholder interview
+Scan the project for languages, frameworks, test runners, and
+documentation structure. Look for these common markers:
 
-Ask the stakeholder about the project's technology and process choices and
-record every answer. When the stakeholder provides both a value and a
-source document, write `name:` and `source:` together. When only a value is
-available, write it as inline text under `name:` (or directly for simple
-scalar fields).
+| Signal                                                   | Indicates             |
+| -------------------------------------------------------- | --------------------- |
+| `pyproject.toml`, `package.json`, `Cargo.toml`, `go.mod` | Languages, frameworks |
+| `pytest.ini`, `jest.config.*`, `.nycrc`                  | Testing setup         |
+| `Dockerfile`, `docker-compose.yml`, `k8s/`               | Infrastructure        |
+| `.eslintrc*`, `ruff.toml`, `.flake8`                     | Linting setup         |
+| `.github/workflows/`, `.gitlab-ci.yml`, `Jenkinsfile`    | CI/CD configuration   |
 
-| Ask                                                    | Field                                                      |
-| ------------------------------------------------------ | ---------------------------------------------------------- |
-| What language(s) and runtime version(s)?               | `stack.yaml#languages`                                     |
-| What backend, frontend, and testing frameworks?        | `stack.yaml#frameworks.backend` / `.frontend` / `.testing` |
-| What data stores?                                      | `stack.yaml#data_stores`                                   |
-| What infrastructure (hosting, containers, cloud)?      | `stack.yaml#infrastructure`                                |
-| Any existing systems this integrates with?             | `stack.yaml#existing_systems`                              |
-| Licensing model and constraints?                       | `stack.yaml#licensing.project` / `.constraints`            |
-| Anything explicitly out of scope?                      | `stack.yaml#exclusions`                                    |
-| Repository layout convention?                          | `workflow.yaml#repository_layout`                          |
-| How does a new contributor get started?                | `workflow.yaml#getting_started`                            |
-| How is the project run locally?                        | `workflow.yaml#running`                                    |
-| Testing approach?                                      | `workflow.yaml#testing`                                    |
-| Linting and formatting tools?                          | `workflow.yaml#linting`                                    |
-| CI/CD pipeline?                                        | `workflow.yaml#ci_cd`                                      |
-| Branching model?                                       | `workflow.yaml#branching`                                  |
-| Commit conventions?                                    | `governance.yaml#commits`                                  |
-| Review process?                                        | `governance.yaml#review`                                   |
-| Testing discipline (coverage expectations, TDD, etc.)? | `governance.yaml#testing_discipline`                       |
-| Architecture governance (ADRs, review gates)?          | `governance.yaml#architecture_governance`                  |
-| Scope boundaries and change process?                   | `governance.yaml#scope`                                    |
+Report what was found to the user before proceeding.
 
-Mark a question the stakeholder cannot yet answer as
-`deferred: "<reason>"` — do not leave it as `null` (null is always an
-error) and do not invent an answer to fill the gap. A later
-`capture-context` or `update-context` pass fills it in. Remove keys that
-the stakeholder confirms do not apply to this project.
+### Step 2 — Seed cross-cutting concerns
 
-### Step 3 — Validate
+Prepare the six generic cross-cutting concern sections. These are
+factory-shipped defaults — every project gets them:
 
-Run `factory/scripts/context-lint` — confirms all three files exist, parse,
-and carry no null leaves. Fix any `CX-NULL`, `CX-KEYS`, or `CX-PARSE`
-finding before proceeding.
+| Concern            | Description                                                                  | Default Read path(s)                                                             |
+| ------------------ | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Branching          | Branching policy and worktree discipline.                                    | `factory/rulebooks/conventions/branching-policy.md`                              |
+| Committing         | Commit message format and hook discipline.                                   | `factory/rulebooks/conventions/commit-conventions.md`, `.pre-commit-config.yaml` |
+| Testing discipline | Risk-based testing, test admission, layer ownership, risk classes.           | `docs/handbook/testing/conventions.md`, `docs/handbook/testing/strategy.md`      |
+| Review             | Peer review rules, architecture review triggers, creation/review separation. | `factory/rulebooks/conventions/review-policy.md`                                 |
+| Scope discipline   | Build accepted scope only, YAGNI, deferred-feature boundaries.               | `factory/rulebooks/conventions/scope-policy.md`                                  |
+| Security           | Security-focused review triggers, secret handling, authorization boundaries. | `factory/rulebooks/conventions/security-policy.md`                               |
 
-### Step 4 — Commit
+For each default `Read:` path, check whether the file exists in the
+project. If it does not, keep the path as a placeholder — the concern
+section is still valid and the path can be updated later. Present the
+cross-cutting concerns to the user for confirmation (usually accepted
+as-is).
+
+### Step 3 — Propose technical concerns
+
+From the scan results, propose project-specific technical concerns. Map
+detected signals to concern names:
+
+- Backend framework detected (FastAPI, Django, Express, etc.) → propose
+  a `backend` concern.
+- Frontend framework detected (Vue, React, Angular, etc.) → propose a
+  `frontend` concern.
+- Database or ORM detected (SQLAlchemy, Prisma, TypeORM, etc.) → propose
+  a `data-storage` concern.
+- Infrastructure signals (Docker, k8s, Terraform) → propose an
+  `infrastructure` concern.
+
+Present the proposed technical concerns to the user: "I found \[framework
+list\] — proposing technical concerns: [concern list]. Confirm or adjust?"
+
+The user may:
+
+- **Confirm** the proposed concerns.
+- **Rename** a concern (e.g., "api" instead of "backend").
+- **Add** a concern the scan missed.
+- **Remove** a concern that does not apply.
+
+For each confirmed technical concern, construct a description line and
+resolve `Read:` paths from the scan results. When no project-specific
+documentation exists yet for a concern, use a placeholder path that
+follows the project's documentation convention (e.g.,
+`docs/handbook/<concern>/conventions.md`).
+
+### Step 4 — Propose domain concerns
+
+Check whether a scope map exists (`docs/spec/scope-map.md` or equivalent).
+
+**If a scope map exists:** extract the areas from the scope map and propose
+one domain concern per area. Present to the user for confirmation.
+Resolve `Read:` paths from any matching specification files
+(`docs/spec/<area>.feature`, `docs/spec/supplementary_specs/<area>-*.md`).
+
+**If no scope map exists:** leave the domain section empty with this note:
+
+```markdown
+## Domain concerns
+
+<!-- Domain concerns are derived from scope-map areas. The planning-agent
+     populates this section during backlog creation once a scope map
+     exists. -->
+```
+
+### Step 5 — Write `docs/agent-context.md`
+
+Assemble the confirmed concerns into `docs/agent-context.md` with this
+structure:
+
+```markdown
+# Agent Context
+
+## Always (cross-cutting)
+
+### Branching
+Branching policy and worktree discipline.
+Read: factory/rulebooks/conventions/branching-policy.md
+
+### Committing
+Commit message format and hook discipline.
+Read: factory/rulebooks/conventions/commit-conventions.md, .pre-commit-config.yaml
+
+### Testing discipline
+Risk-based testing, test admission, layer ownership, risk classes.
+Read: docs/handbook/testing/conventions.md, docs/handbook/testing/strategy.md
+
+### Review
+Peer review rules, architecture review triggers, creation/review separation.
+Read: factory/rulebooks/conventions/review-policy.md
+
+### Scope discipline
+Build accepted scope only, YAGNI, deferred-feature boundaries.
+Read: factory/rulebooks/conventions/scope-policy.md
+
+### Security
+Security-focused review triggers, secret handling, authorization boundaries.
+Read: factory/rulebooks/conventions/security-policy.md
+
+## Technical concerns
+
+### <confirmed-concern>
+<description>
+Read: <resolved-paths>
+
+## Domain concerns
+
+### <scope-map-area>
+<description>
+Read: <resolved-paths>
+```
+
+Each concern section MUST have:
+
+- A `###` heading with the concern name.
+- A one-line description immediately below the heading.
+- At least one `Read:` line with file path(s).
+
+Do NOT create any YAML files. Do NOT create a `docs/agent-context/`
+directory.
+
+### Step 6 — Validate
+
+Run `factory/scripts/concern-lint` — confirms the output file has the
+required category headings, each concern section has a description and
+`Read:` paths, and no legacy YAML residue exists. Fix any `CTX-SECTIONS`
+or `CTX-PATHS` finding before proceeding.
+
+### Step 7 — Commit
 
 ```
 docs: initialize agent context (--init)
 ```
 
-**Completion**: `stack.yaml`, `workflow.yaml`, and `governance.yaml` exist
-under `docs/agent-context/`; `reading-guides.yaml` was not created; any
-file that already existed was left untouched; stakeholder answers are
-recorded; `context-lint` reports zero errors.
-
-## `--init --minimal` (fast-path, greenfield)
-
-Runs the greenfield skeleton step, then interviews on 6 fields instead of
-19 — enough for agents to route work, in a fraction of the stakeholder
-time.
-
-### Step 1 — Create the skeleton
-
-Same as `--init` Step 1.
-
-### Step 2 — Pre-fill deferred fields
-
-Before the interview, write every field **not** in the 6-field set below
-as `deferred: "full context pass pending"` across `stack.yaml`,
-`workflow.yaml`, and `governance.yaml`. This satisfies context-lint's
-null-leaf check ahead of the interview — the interview only ever narrows
-which fields already carry `deferred`, it never leaves a field `null`.
-
-### Step 3 — Minimal interview
-
-Ask only these six questions and record answers as inline values:
-
-| Ask                                      | Field                            |
-| ---------------------------------------- | -------------------------------- |
-| What language(s) and runtime version(s)? | `stack.yaml#languages`           |
-| What backend framework?                  | `stack.yaml#frameworks.backend`  |
-| What frontend framework (if any)?        | `stack.yaml#frameworks.frontend` |
-| How is the project run locally?          | `workflow.yaml#running`          |
-| Testing approach and test runner?        | `workflow.yaml#testing`          |
-| Branching model?                         | `workflow.yaml#branching`        |
-
-This set is fixed by design, not configurable per project.
-
-### Step 4 — Validate
-
-Run `factory/scripts/context-lint`, same as `--init` Step 3.
-
-### Step 5 — Commit
-
-```
-docs: initialize agent context (--init --minimal)
-```
-
-**Completion**: `stack.yaml`, `workflow.yaml`, and `governance.yaml` exist
-under `docs/agent-context/`; the 6 minimal fields carry stakeholder
-answers; every other field is `deferred: "full context pass pending"`;
-`context-lint` reports zero errors.
-
-## `--init --scan --minimal` (fast-path, brownfield)
-
-Runs the same discovery scan as `--init --scan`, but narrows the
-interview to the 6 minimal fields.
-
-### Steps 1-3 — Legacy detection, skeleton, discovery scan
-
-Identical to `--init --scan` Steps 1-3. The scan is never reduced — only
-the interview that follows it is.
-
-### Step 4 — Pre-fill deferred fields
-
-Before the interview, write every field not in the 6-field set as
-`deferred: "full context pass pending"` — **including fields the scan
-found signals for**. That scan evidence is not discarded; it is held,
-unpresented, for the full pass to surface later.
-
-### Step 5 — Minimal interview
-
-Present only the 6 minimal fields (same table as `--init --minimal`
-Step 3) for confirmation or override:
-
-- For the fields the scan can auto-detect among the six — languages,
-  `frameworks.backend`, `frameworks.frontend`, testing — propose the scan
-  result as the answer, following the same confirm/override/remove rules
-  as `--init --scan` Step 4.
-- For the two the scan cannot detect — running locally, branching model —
-  ask directly.
-
-All 6 minimal fields must be answered — defer is not available in the
-minimal interview.
-
-Non-minimal fields the scan found signals for are **held, not
-presented** — they stay `deferred: "full context pass pending"` from
-Step 4 until a full pass runs.
-
-### Step 6 — Reading-guide assembly
-
-Generate `docs/agent-context/reading-guides.yaml` from the source
-pointers the minimal interview confirmed. Prune concerns whose referenced
-fields are all still `deferred` — the same pruning rule as `--init --scan`
-Step 5.
-
-### Step 7 — Validate
-
-Same as `--init --scan` Step 6.
-
-### Step 8 — Commit
-
-```
-docs: initialize agent context (--init --scan --minimal)
-```
-
-**Completion**: the full discovery scan ran; the 6 minimal fields carry
-confirmed values (from scan or stakeholder); every other field — scanned
-or not — is `deferred: "full context pass pending"`; `reading-guides.yaml`
-contains only concerns with at least one non-deferred field;
-`context-lint` reports zero errors.
+**Completion**: `docs/agent-context.md` exists with three category
+headings (Always, Technical, Domain); six cross-cutting concerns are
+seeded; technical concerns are populated from the scan; domain concerns
+are populated from the scope map or left empty with a note;
+`concern-lint` reports zero errors; no YAML files were created.
 
 ## `--init --scan` (brownfield onboarding)
 
@@ -338,27 +324,12 @@ docs: initialize agent context (--init --scan)
 are populated from the discovery scan and concern interview;
 `context-lint` reports zero errors.
 
-## Full pass after a minimal pass
-
-When `--init` or `--init --scan` runs later **without** `--minimal`
-against an already-initialized `docs/agent-context/`, detect fields still
-marked `deferred: "full context pass pending"` and present only those for
-completion — do not restart the full 19-question interview from scratch.
-
-- **Brownfield**: any scan results that were held (not presented) during
-  an earlier minimal pass are proposed alongside the deferred fields,
-  following the same confirm/override/defer/remove rules as `--init --scan` Step 4.
-- Fields that already carry a value are shown for confirmation, not
-  re-asked.
-- This detection applies regardless of whether the prior pass used
-  `--minimal` — any deferred field is a candidate for completion.
-
 ## Validation reference
 
-| Script                         | Checks                                                                                 |
-| ------------------------------ | -------------------------------------------------------------------------------------- |
-| `factory/scripts/context-lint` | files exist, YAML parses, null leaves are errors, deferred conflicts, source existence |
+| Script                         | Checks                                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------------------------ |
+| `factory/scripts/concern-lint` | section structure (CTX-SECTIONS), path resolution (CTX-PATHS), legacy residue (CTX-LEGACY) |
 
-`validate` runs `context-lint` automatically once `docs/agent-context/`
+`validate` runs `concern-lint` automatically once `docs/agent-context.md`
 exists — invoking it here is a courtesy check during the interactive
 session, not a replacement for that gate.
