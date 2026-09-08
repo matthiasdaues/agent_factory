@@ -26,7 +26,7 @@ inputs:
   - docs/agent-context/stack.yaml (falls back to docs/charter/tech-stack.md)
   - docs/agent-context/workflow.yaml (falls back to docs/charter/development.md)
   - docs/agent-context/governance.yaml (falls back to docs/charter/house-rules.md)
-  - docs/agent-context/testing.yaml (falls back to docs/charter/testing.yaml)
+  - docs/testing.yaml
   - factory/rulebooks/templates/charter-tech-stack.md
   - factory/rulebooks/templates/charter-development.md
   - factory/rulebooks/templates/charter-house-rules.md
@@ -36,7 +36,7 @@ outputs:
   - docs/agent-context/stack.yaml (falls back to docs/charter/tech-stack.md)
   - docs/agent-context/workflow.yaml (falls back to docs/charter/development.md)
   - docs/agent-context/governance.yaml (falls back to docs/charter/house-rules.md)
-  - docs/agent-context/testing.yaml (falls back to docs/charter/testing.yaml)
+  - docs/testing.yaml
   - backlog/ST-*.md
 triggers:
   - "show me around"
@@ -152,8 +152,7 @@ presents only those for completion.
 ### 2b. Detect test regime
 
 Invoke the `detect-test-regime` skill. It scans the project for test
-suites and records them in `docs/agent-context/testing.yaml` (or
-`docs/charter/testing.yaml` for legacy projects). The deterministic scan
+suites and records them in `docs/testing.yaml`. The deterministic scan
 in `init-factory` may have already seeded this file — if so, present what
 it found and ask the user to confirm or correct it. If not, the skill
 runs its full discovery and disambiguation.

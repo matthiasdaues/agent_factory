@@ -153,19 +153,19 @@ class TestScanTestEntrypoints:
 
 
 class TestWriteTestingYaml:
-    def test_writes_agent_context(self, tmp_path):
+    def test_writes_to_docs(self, tmp_path):
         inf._write_testing_yaml(tmp_path, "pytest")
-        path = tmp_path / "docs" / "agent-context" / "testing.yaml"
+        path = tmp_path / "docs" / "testing.yaml"
         assert path.exists()
         content = path.read_text()
         assert 'test_command: "pytest"' in content
 
-    def test_writes_to_charter_when_charter_exists(self, tmp_path):
-        charter = tmp_path / "docs" / "charter"
-        charter.mkdir(parents=True)
-        (charter / "testing.yaml").write_text("test_command: old\n")
+    def test_overwrites_existing(self, tmp_path):
+        docs = tmp_path / "docs"
+        docs.mkdir(parents=True)
+        (docs / "testing.yaml").write_text("test_command: old\n")
         inf._write_testing_yaml(tmp_path, "pytest")
-        content = (charter / "testing.yaml").read_text()
+        content = (docs / "testing.yaml").read_text()
         assert 'test_command: "pytest"' in content
 
 
@@ -174,23 +174,23 @@ class TestDetectTestRegime:
         (tmp_path / "Makefile").write_text("test:\n\tpytest\n")
         report: list[str] = []
         inf.detect_test_regime(tmp_path, report)
-        path = tmp_path / "docs" / "agent-context" / "testing.yaml"
+        path = tmp_path / "docs" / "testing.yaml"
         assert path.exists()
         assert "make test" in path.read_text()
 
     def test_existing_testing_yaml_skipped(self, tmp_path):
-        charter = tmp_path / "docs" / "charter"
-        charter.mkdir(parents=True)
-        (charter / "testing.yaml").write_text("test_command: custom\n")
+        docs = tmp_path / "docs"
+        docs.mkdir(parents=True)
+        (docs / "testing.yaml").write_text("test_command: custom\n")
         (tmp_path / "Makefile").write_text("test:\n\tpytest\n")
         report: list[str] = []
         inf.detect_test_regime(tmp_path, report)
-        assert "custom" in (charter / "testing.yaml").read_text()
+        assert "custom" in (docs / "testing.yaml").read_text()
 
     def test_no_entrypoints_reports_gap(self, tmp_path):
         report: list[str] = []
         inf.detect_test_regime(tmp_path, report)
-        assert not (tmp_path / "docs" / "charter" / "testing.yaml").exists()
+        assert not (tmp_path / "docs" / "testing.yaml").exists()
         assert any("gap" in r for r in report)
 
 

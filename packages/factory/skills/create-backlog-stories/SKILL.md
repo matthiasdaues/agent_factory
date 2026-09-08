@@ -3,7 +3,7 @@ name: create-backlog-stories
 description: "Read confirmed slice tables, write backlog/ST-NNNN.md story files with MoSCoW priorities, dependencies, and quality gates. Phase 4 of 4 in the create-backlog sequence."
 category: planning
 inputs:
-  - docs/agent-context/testing.yaml (falls back to docs/charter/testing.yaml)
+  - docs/testing.yaml
 disable-model-invocation: false
 ---
 
@@ -27,7 +27,7 @@ When agent-context index files exist, read `docs/agent-context/reading-guides.ya
 
 For each story, cross-reference against the testing regime:
 
-1. Read `testing.yaml` (at `docs/agent-context/testing.yaml`, falling back to `docs/charter/testing.yaml` for legacy projects) and its `suites` list.
+1. Read `testing.yaml` (at `docs/testing.yaml`) and its `suites` list.
 2. For each suite, scan the suite's `root` directory for files matching its `pattern`.
 3. Compare discovered test files against the story's acceptance criteria — by filename, test function names, and docstrings where available.
 4. When pre-existing tests match, record their file paths in the story's `tests:` field.

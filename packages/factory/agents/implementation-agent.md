@@ -125,7 +125,7 @@ After the developer-agent commits and the dispatcher verifies the commit SHA (St
 
 #### Quality-gates resolution
 
-Gates come from two inputs: the `gates` section in `testing.yaml` (at `docs/agent-context/testing.yaml`, falling back to `docs/charter/testing.yaml` for legacy projects), and the story-level `quality-gates` override field.
+Gates come from two inputs: the `gates` section in `testing.yaml` (at `docs/testing.yaml`), and the story-level `quality-gates` override field.
 
 **Gate discovery from `testing.yaml`:** Read the `gates` section. Include each gate where `enabled` is `true`; skip where `false`. Pass gate-specific parameters (e.g. `threshold` for `crap_score`) to the script at invocation time.
 
