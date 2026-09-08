@@ -26,7 +26,7 @@ triggers:
   - "create stories"
 handoff-to:
   - implementation-agent
-version: 0.4.0
+version: 0.5.0
 ---
 
 # Planning Agent
