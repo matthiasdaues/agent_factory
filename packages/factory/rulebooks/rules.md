@@ -116,6 +116,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST NOT** launch a new agent for the same role while a prior instance is still running — the prior instance cannot be cancelled and will consume tokens against stale state.
 - **MUST** verify every story in a wave has reached a terminal state (merged or explicitly blocked/failed in the dispatch ledger) before launching the next wave.
 - **MUST** commit or explicitly record each story's outcome (merged SHA or blocked reason) before the wave is considered closed.
+- **MUST** close every dispatch as completed or abandoned — a dispatch that begins without ending is a leak.
 - **MUST** maintain a dispatch ledger (`.current-work/dispatch-ledger.yaml`) tracking each story's branch, worktree, declared base, gate results, commit SHA, merge SHA, and status.
 - **MUST** update the story file's `status` field in the same commit that delivers the story's implementation.
 
