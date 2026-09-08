@@ -167,6 +167,47 @@ class TestCtxLegacy:
 
 
 # ---------------------------------------------------------------------------
+# CTX-REFS: concern names in story frontmatter vs agent-context.md headings
+# ---------------------------------------------------------------------------
+
+
+class TestCtxRefs:
+    """CTX-REFS fires when a concern name in a story's concerns: frontmatter
+    does not match a ### heading under Technical or Domain concerns."""
+
+    def test_matching_concerns_pass(self, tmp_path: Path) -> None:
+        """Concerns that match headings in agent-context.md produce no CTX-REFS."""
+        root = _copy_fixture("ctx_refs_valid", tmp_path / "project")
+        findings, summary, rc = _run(root)
+        refs_findings = _findings_with_code(findings, "CTX-REFS")
+        assert refs_findings == []
+
+    def test_unmatched_concerns_fire(self, tmp_path: Path) -> None:
+        """Concern names not in agent-context.md trigger CTX-REFS findings."""
+        root = _copy_fixture("ctx_refs_unmatched", tmp_path / "project")
+        findings, summary, rc = _run(root)
+        refs_findings = _findings_with_code(findings, "CTX-REFS")
+        assert len(refs_findings) >= 2
+        messages = " ".join(f["message"] for f in refs_findings)
+        assert "invoicing" in messages
+        assert "frontend" in messages
+
+    def test_no_concerns_field_passes(self, tmp_path: Path) -> None:
+        """Stories without a concerns field produce no CTX-REFS findings."""
+        root = _copy_fixture("ctx_refs_no_concerns", tmp_path / "project")
+        findings, summary, rc = _run(root)
+        refs_findings = _findings_with_code(findings, "CTX-REFS")
+        assert refs_findings == []
+
+    def test_no_backlog_dir_passes(self, tmp_path: Path) -> None:
+        """When no backlog/ exists, CTX-REFS produces no findings."""
+        root = _copy_fixture("valid", tmp_path / "project")
+        findings, summary, rc = _run(root)
+        refs_findings = _findings_with_code(findings, "CTX-REFS")
+        assert refs_findings == []
+
+
+# ---------------------------------------------------------------------------
 # Exit code semantics
 # ---------------------------------------------------------------------------
 
