@@ -1,10 +1,10 @@
 ---
 schema_version: 2
 title: Concern-Oriented Agent Context
-status: accepted
+status: implemented
 owner: Matthias Daues
 created: 2026-09-08
-updated: 2026-09-09
+updated: 2026-09-08
 supersedes: docs/proposals/yaml-charter-lifecycle.md
 
 impact:
