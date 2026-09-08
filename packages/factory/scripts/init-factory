@@ -255,12 +255,23 @@ CHECKSUMS_PATH = ".agent-factory/factory-checksums.json"
 CHECKSUM_SKIP_PREFIXES = ("__pycache__/",)
 CHECKSUM_SKIP_SUFFIXES = (".pyc",)
 
+# Paths (relative to factory/) that a pre-commit hook regenerates after
+# install — e.g. index-lint rewriting INDEX.yaml. These are never a user
+# choice, so they are excluded from checksum computation on both sides:
+# a hook-modified file must never be reported as a "user modification"
+# that requires `update-factory --force`. Kept in sync with the identical
+# constant in update-factory.
+HOOK_REGENERATED_PATHS = ("INDEX.yaml",)
+
 
 def _should_checksum(rel: str) -> bool:
     """Return True when a factory-relative path should be checksummed."""
     return (
         not any(rel.startswith(p) or f"/{p}" in rel for p in CHECKSUM_SKIP_PREFIXES)
         and not any(rel.endswith(s) for s in CHECKSUM_SKIP_SUFFIXES)
+        and not any(
+            rel == p or rel.endswith(f"/{p}") for p in HOOK_REGENERATED_PATHS
+        )
     )
 
 
