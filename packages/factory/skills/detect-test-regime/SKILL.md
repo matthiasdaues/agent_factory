@@ -3,9 +3,8 @@ name: detect-test-regime
 title: Detect Test Regime
 description: >-
   Scan project for test suites and record each one in
-  testing.yaml (at docs/agent-context/testing.yaml, falling back to
-  docs/charter/testing.yaml). Code is the source of truth; the record
-  is derived.
+  testing.yaml (at docs/testing.yaml). Code is the source of truth;
+  the record is derived.
 inputs:
   - Makefile
   - GNUmakefile
@@ -28,7 +27,7 @@ inputs:
   - tests/
   - test/
 outputs:
-  - docs/agent-context/testing.yaml (falls back to docs/charter/testing.yaml)
+  - docs/testing.yaml
 category: utility
 version: 0.2.0
 ---
@@ -36,8 +35,7 @@ version: 0.2.0
 # Detect Test Regime
 
 Scan the project for every test suite it contains, then write or update
-`testing.yaml` (at `docs/agent-context/testing.yaml`, falling back to
-`docs/charter/testing.yaml` for legacy projects) with per-suite records.
+`testing.yaml` (at `docs/testing.yaml`) with per-suite records.
 Code is the source of truth — the record is derived, not the other way
 around. Never
 invent a command the project cannot actually run.
@@ -46,8 +44,8 @@ invent a command the project cannot actually run.
 
 - During `init-factory`, to seed the testing charter from an existing
   codebase.
-- During brownfield onboarding, when `capture-context` needs to know
-  how a project runs its tests before scaffolding gates around it.
+- During brownfield onboarding, when `capture-context` needs to know how
+  a project runs its tests before scaffolding gates around it.
 - Whenever `testing.yaml` is missing, empty, or suspected
   stale against the current repository.
 - When the planning agent detects a missing or empty testing.yaml before
@@ -56,7 +54,7 @@ invent a command the project cannot actually run.
 ## Output schema
 
 ```yaml
-testing_strategy: docs/charter/testing-strategy.md
+testing_strategy: docs/testing-strategy.md
 
 test_all: "make test && make frontend_test"   # composite command, all suites
 
@@ -253,7 +251,7 @@ markers, fixture rules, AI-generated test rules. The suites tell them
 
 ### 7. Record
 
-Write or update `testing.yaml` (at `docs/agent-context/testing.yaml` if that directory exists, otherwise `docs/charter/testing.yaml`):
+Write or update `testing.yaml` (at `docs/testing.yaml`):
 
 - `testing_strategy` — path to the testing strategy document (step 6).
 - `test_all` — the composite command (step 5).

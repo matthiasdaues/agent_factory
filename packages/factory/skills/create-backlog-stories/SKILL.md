@@ -3,7 +3,7 @@ name: create-backlog-stories
 description: "Read confirmed slice tables, write backlog/ST-NNNN.md story files with MoSCoW priorities, dependencies, and quality gates. Phase 4 of 4 in the create-backlog sequence."
 category: planning
 inputs:
-  - docs/agent-context/testing.yaml (falls back to docs/charter/testing.yaml)
+  - docs/testing.yaml
 disable-model-invocation: false
 ---
 
@@ -11,23 +11,27 @@ disable-model-invocation: false
 
 Write story files from confirmed slice tables, validate, and present the final backlog. This is phase 4 of the [create-backlog sequence](../create-backlog/SKILL.md#operational-sequence). Story format, composition rules, and the done check live in the [parent skill](../create-backlog/SKILL.md).
 
+Write for an international Team whose members have English as a common, but not as a native language.
+
 **Prerequisite:** story-level slice tables have been confirmed by the user (output of [`create-backlog-story-slices`](../create-backlog-story-slices/SKILL.md)).
 
 ## Step 2 — Break EPICs into User Stories
 
 For each EPIC, create `backlog/ST-NNNN.md` stories meeting **INVEST** — particularly: Independent (dependencies explicit in `deps`), Small (one implementation session), Testable (acceptance criteria as falsifiable invariants).
 
-Apply the [story composition rules](../create-backlog/SKILL.md#story-composition-rules): write the Demo section first (Rule 1), define scope as a step forward from the status quo of depended-on stories (Rule 2), write acceptance criteria as invariants (Rule 3). Every story is a vertical slice that crosses all system boundaries its capability requires. A story that touches only one boundary (only schema, only service, only UI) and delivers nothing a person can demonstrate is not a story — fold it into the first story that needs it as a line item.
+Apply the [story composition rules](../create-backlog/SKILL.md#story-composition-rules): write the Demo section first (Rule 1), define scope as a step forward from the existing codebase and the deliverables of depended-on stories (Rule 2), write acceptance criteria as invariants (Rule 3). Every story is a vertical slice that crosses all system boundaries its capability requires. A story that touches only one boundary (only schema, only service, only UI) and delivers nothing a person can demonstrate is not a story — fold it into the first story that needs it as a line item.
+
+Each story's "Status Quo" section must name concrete files and modules that already exist in the codebase — not what the spec describes or what an earlier design envisioned. If the code has drifted from the spec, the story plans from the code.
 
 Each story records in `traces`: the scope-map Rule(s) it implements, the arc42 component(s) it touches, and any constraining ADR(s).
 
 Judge each story's `tier` (`economy | standard | strong`) — the model strength its work needs, same vocabulary as agent frontmatter's `tier`.
 
-When agent-context index files exist, read `docs/agent-context/reading-guides.yaml` to discover relevant sections, follow the key-path references, and extract concrete implementation names (test framework, deployment target, API framework) for use in acceptance criteria instead of placeholders (falls back to `docs/charter/*.md` for legacy projects).
+Read `docs/agent-context.md` and follow the concerns relevant to each story's scope — domain concerns for supplementary specs and entity models, technical concerns for conventions and architecture views. Extract concrete implementation names (test framework, deployment target, API framework) from the concern `Read:` paths for use in acceptance criteria instead of placeholders.
 
 For each story, cross-reference against the testing regime:
 
-1. Read `testing.yaml` (at `docs/agent-context/testing.yaml`, falling back to `docs/charter/testing.yaml` for legacy projects) and its `suites` list.
+1. Read `testing.yaml` (at `docs/testing.yaml`) and its `suites` list.
 2. For each suite, scan the suite's `root` directory for files matching its `pattern`.
 3. Compare discovered test files against the story's acceptance criteria — by filename, test function names, and docstrings where available.
 4. When pre-existing tests match, record their file paths in the story's `tests:` field.

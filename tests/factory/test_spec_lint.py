@@ -31,18 +31,16 @@ class TestFencedBlocks:
 
 class TestCheckRequiredArtifacts:
     def test_all_present(self, tmp_path):
-        (tmp_path / "prd.md").touch()
         (tmp_path / "scope-map.md").touch()
         supp = tmp_path / "supplementary_specs"
         supp.mkdir()
         (supp / "entity-model.md").touch()
-        (supp / "validation-rules.md").touch()
         findings = sl.check_required_artifacts(tmp_path)
         assert findings == []
 
-    def test_missing_prd(self, tmp_path):
+    def test_missing_scope_map(self, tmp_path):
         findings = sl.check_required_artifacts(tmp_path)
-        assert any(f.code == "STRUCT005" and "prd.md" in f.artifact for f in findings)
+        assert any(f.code == "STRUCT005" and "scope-map.md" in f.artifact for f in findings)
 
 
 class TestCheckUseCases:
@@ -245,12 +243,10 @@ class TestMainRoundTrip:
     def _make_complete_spec(self, spec: Path):
         """Build a minimal valid spec directory."""
         spec.mkdir(parents=True, exist_ok=True)
-        (spec / "prd.md").write_text("# PRD\nProduct requirements.")
         (spec / "scope-map.md").write_text("# Scope Map\n")
         supp = spec / "supplementary_specs"
         supp.mkdir()
         (supp / "entity-model.md").write_text("# Entity Model\n")
-        (supp / "validation-rules.md").write_text("# Validation Rules\n")
 
     def test_valid_spec_exits_zero(self, tmp_path):
         spec = tmp_path / "docs" / "spec"
@@ -281,10 +277,8 @@ class TestMainRoundTrip:
     def test_scope_map_required(self, tmp_path):
         spec = tmp_path / "docs" / "spec"
         spec.mkdir(parents=True)
-        (spec / "prd.md").write_text("# PRD\n")
         supp = spec / "supplementary_specs"
         supp.mkdir()
         (supp / "entity-model.md").write_text("# Entity Model\n")
-        (supp / "validation-rules.md").write_text("# Validation Rules\n")
         rc = sl.main(["--spec-dir", str(spec), "--context", str(tmp_path / "C.md")])
         assert rc > 0

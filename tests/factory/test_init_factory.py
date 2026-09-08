@@ -153,19 +153,19 @@ class TestScanTestEntrypoints:
 
 
 class TestWriteTestingYaml:
-    def test_writes_agent_context(self, tmp_path):
+    def test_writes_to_docs(self, tmp_path):
         inf._write_testing_yaml(tmp_path, "pytest")
-        path = tmp_path / "docs" / "agent-context" / "testing.yaml"
+        path = tmp_path / "docs" / "testing.yaml"
         assert path.exists()
         content = path.read_text()
         assert 'test_command: "pytest"' in content
 
-    def test_writes_to_charter_when_charter_exists(self, tmp_path):
-        charter = tmp_path / "docs" / "charter"
-        charter.mkdir(parents=True)
-        (charter / "testing.yaml").write_text("test_command: old\n")
+    def test_overwrites_existing(self, tmp_path):
+        docs = tmp_path / "docs"
+        docs.mkdir(parents=True)
+        (docs / "testing.yaml").write_text("test_command: old\n")
         inf._write_testing_yaml(tmp_path, "pytest")
-        content = (charter / "testing.yaml").read_text()
+        content = (docs / "testing.yaml").read_text()
         assert 'test_command: "pytest"' in content
 
 
@@ -174,23 +174,23 @@ class TestDetectTestRegime:
         (tmp_path / "Makefile").write_text("test:\n\tpytest\n")
         report: list[str] = []
         inf.detect_test_regime(tmp_path, report)
-        path = tmp_path / "docs" / "agent-context" / "testing.yaml"
+        path = tmp_path / "docs" / "testing.yaml"
         assert path.exists()
         assert "make test" in path.read_text()
 
     def test_existing_testing_yaml_skipped(self, tmp_path):
-        charter = tmp_path / "docs" / "charter"
-        charter.mkdir(parents=True)
-        (charter / "testing.yaml").write_text("test_command: custom\n")
+        docs = tmp_path / "docs"
+        docs.mkdir(parents=True)
+        (docs / "testing.yaml").write_text("test_command: custom\n")
         (tmp_path / "Makefile").write_text("test:\n\tpytest\n")
         report: list[str] = []
         inf.detect_test_regime(tmp_path, report)
-        assert "custom" in (charter / "testing.yaml").read_text()
+        assert "custom" in (docs / "testing.yaml").read_text()
 
     def test_no_entrypoints_reports_gap(self, tmp_path):
         report: list[str] = []
         inf.detect_test_regime(tmp_path, report)
-        assert not (tmp_path / "docs" / "charter" / "testing.yaml").exists()
+        assert not (tmp_path / "docs" / "testing.yaml").exists()
         assert any("gap" in r for r in report)
 
 
@@ -916,10 +916,10 @@ class TestScanProjectContext:
         """ST-0210 scenario 3: some but not all artifacts present -> mixed
         keys, status fitting."""
         (tmp_path / "pyproject.toml").write_text("[project]\nname = 'demo'\n")
-        ac_dir = tmp_path / "docs" / "agent-context"
-        ac_dir.mkdir(parents=True)
-        (ac_dir / "stack.yaml").write_text(
-            "mode: index\n\nlanguages:\n  python:\n    name: Python\n    source: pyproject.toml\n"
+        docs = tmp_path / "docs"
+        docs.mkdir(parents=True)
+        (docs / "agent-context.md").write_text(
+            "# Agent Context\n\n## Stack\n\nLanguages: Python\n"
         )
         ctx = inf._scan_project_context(tmp_path)
         fitting = ctx["fitting"]
@@ -933,12 +933,12 @@ class TestScanProjectContext:
         """model_matrix_configured has no artifact to derive from -- a fresh
         scan always reports it false, regardless of what else is present."""
         (tmp_path / "pyproject.toml").write_text("[project]\nname = 'demo'\n")
-        ac_dir = tmp_path / "docs" / "agent-context"
-        ac_dir.mkdir(parents=True)
-        (ac_dir / "stack.yaml").write_text(
-            "mode: index\n\nlanguages:\n  python:\n    name: Python\n    source: pyproject.toml\n"
+        docs = tmp_path / "docs"
+        docs.mkdir(parents=True)
+        (docs / "agent-context.md").write_text(
+            "# Agent Context\n\n## Stack\n\nLanguages: Python\n"
         )
-        (ac_dir / "testing.yaml").write_text("suites: []\n")
+        (docs / "testing.yaml").write_text("suites: []\n")
         (tmp_path / ".pre-commit-config.yaml").write_text(
             "repos:\n  - repo: local\n    hooks:\n      - id: agent_factory_hook-mdformat\n"
         )
@@ -978,11 +978,11 @@ class TestDeriveFittingKeys:
         derived = inf._derive_fitting_keys(tmp_path)
         assert derived["fingerprint_confirmed"] is False
 
-    def test_agent_context_populated_true_with_real_leaf(self, tmp_path):
-        ac_dir = tmp_path / "docs" / "agent-context"
-        ac_dir.mkdir(parents=True)
-        (ac_dir / "stack.yaml").write_text(
-            "mode: index\n\nlanguages:\n  python:\n    name: Python\n    source: pyproject.toml\n"
+    def test_agent_context_populated_true_with_concern_model(self, tmp_path):
+        docs = tmp_path / "docs"
+        docs.mkdir(parents=True)
+        (docs / "agent-context.md").write_text(
+            "# Agent Context\n\n## Stack\n\nLanguages: Python\n"
         )
         derived = inf._derive_fitting_keys(tmp_path)
         assert derived["agent_context_populated"] is True
@@ -991,53 +991,19 @@ class TestDeriveFittingKeys:
         derived = inf._derive_fitting_keys(tmp_path)
         assert derived["agent_context_populated"] is False
 
-    def test_agent_context_not_populated_when_only_deferred(self, tmp_path):
-        ac_dir = tmp_path / "docs" / "agent-context"
-        ac_dir.mkdir(parents=True)
-        (ac_dir / "stack.yaml").write_text(
-            'mode: index\n\nlanguages:\n  deferred: "pending interview"\n'
-        )
+    def test_agent_context_not_populated_when_only_heading(self, tmp_path):
+        docs = tmp_path / "docs"
+        docs.mkdir(parents=True)
+        (docs / "agent-context.md").write_text("# Agent Context\n")
         derived = inf._derive_fitting_keys(tmp_path)
         assert derived["agent_context_populated"] is False
 
-    def test_agent_context_not_populated_when_only_mode_key(self, tmp_path):
-        ac_dir = tmp_path / "docs" / "agent-context"
-        ac_dir.mkdir(parents=True)
-        (ac_dir / "stack.yaml").write_text("mode: index\n")
-        derived = inf._derive_fitting_keys(tmp_path)
-        assert derived["agent_context_populated"] is False
-
-    def test_test_regime_detected_via_agent_context_testing_yaml(self, tmp_path):
-        ac_dir = tmp_path / "docs" / "agent-context"
-        ac_dir.mkdir(parents=True)
-        (ac_dir / "testing.yaml").write_text("suites: []\n")
+    def test_test_regime_detected_via_docs_testing_yaml(self, tmp_path):
+        docs = tmp_path / "docs"
+        docs.mkdir(parents=True)
+        (docs / "testing.yaml").write_text("suites: []\n")
         derived = inf._derive_fitting_keys(tmp_path)
         assert derived["test_regime_detected"] is True
-
-    def test_test_regime_detected_via_charter_testing_yaml(self, tmp_path):
-        charter_dir = tmp_path / "docs" / "charter"
-        charter_dir.mkdir(parents=True)
-        (charter_dir / "testing.yaml").write_text("suites: []\n")
-        derived = inf._derive_fitting_keys(tmp_path)
-        assert derived["test_regime_detected"] is True
-
-    def test_test_regime_detected_via_workflow_testing_field(self, tmp_path):
-        ac_dir = tmp_path / "docs" / "agent-context"
-        ac_dir.mkdir(parents=True)
-        (ac_dir / "workflow.yaml").write_text(
-            "mode: index\n\ntesting:\n  name: pytest\n  source: pyproject.toml\n"
-        )
-        derived = inf._derive_fitting_keys(tmp_path)
-        assert derived["test_regime_detected"] is True
-
-    def test_test_regime_not_detected_when_workflow_testing_deferred(self, tmp_path):
-        ac_dir = tmp_path / "docs" / "agent-context"
-        ac_dir.mkdir(parents=True)
-        (ac_dir / "workflow.yaml").write_text(
-            'mode: index\n\ntesting:\n  deferred: "not yet decided"\n'
-        )
-        derived = inf._derive_fitting_keys(tmp_path)
-        assert derived["test_regime_detected"] is False
 
     def test_test_regime_not_detected_when_nothing_present(self, tmp_path):
         derived = inf._derive_fitting_keys(tmp_path)
@@ -1273,10 +1239,10 @@ class TestReconcileProjectContext:
                 "hooks_decided": False,
             },
         )
-        ac_dir = tmp_path / "docs" / "agent-context"
-        ac_dir.mkdir(parents=True)
-        (ac_dir / "stack.yaml").write_text(
-            "mode: index\n\nlanguages:\n  python:\n    name: Python\n    source: pyproject.toml\n"
+        docs = tmp_path / "docs"
+        docs.mkdir(parents=True)
+        (docs / "agent-context.md").write_text(
+            "# Agent Context\n\n## Stack\n\nLanguages: Python\n"
         )
         install = {"remove_paths": []}
         report: list[str] = []
@@ -1298,12 +1264,12 @@ class TestReconcileProjectContext:
             },
             languages=[{"name": "python", "evidence": "pyproject.toml"}],
         )
-        ac_dir = tmp_path / "docs" / "agent-context"
-        ac_dir.mkdir(parents=True)
-        (ac_dir / "stack.yaml").write_text(
-            "mode: index\n\nlanguages:\n  python:\n    name: Python\n    source: pyproject.toml\n"
+        docs = tmp_path / "docs"
+        docs.mkdir(parents=True)
+        (docs / "agent-context.md").write_text(
+            "# Agent Context\n\n## Stack\n\nLanguages: Python\n"
         )
-        (ac_dir / "testing.yaml").write_text("suites: []\n")
+        (docs / "testing.yaml").write_text("suites: []\n")
         (tmp_path / ".pre-commit-config.yaml").write_text(
             "repos:\n  - repo: local\n    hooks:\n      - id: agent_factory_hook-mdformat\n"
         )
@@ -1368,12 +1334,12 @@ class TestReconcileProjectContext:
             },
             languages=[{"name": "python", "evidence": "pyproject.toml"}],
         )
-        ac_dir = tmp_path / "docs" / "agent-context"
-        ac_dir.mkdir(parents=True)
-        (ac_dir / "stack.yaml").write_text(
-            "mode: index\n\nlanguages:\n  python:\n    name: Python\n    source: pyproject.toml\n"
+        docs = tmp_path / "docs"
+        docs.mkdir(parents=True)
+        (docs / "agent-context.md").write_text(
+            "# Agent Context\n\n## Stack\n\nLanguages: Python\n"
         )
-        (ac_dir / "testing.yaml").write_text("suites: []\n")
+        (docs / "testing.yaml").write_text("suites: []\n")
         (tmp_path / ".pre-commit-config.yaml").write_text(
             "repos:\n  - repo: local\n    hooks:\n      - id: agent_factory_hook-mdformat\n"
         )
@@ -1425,6 +1391,84 @@ class TestReconcileProjectContext:
         report: list[str] = []
         inf.write_project_context(tmp_path, install, report)
         assert json.loads(cache_path.read_text()) == {"custom": True}
+
+
+class TestConcernModelMigration:
+    """ST-0224: init-factory uses docs/agent-context.md instead of YAML files,
+    and docs/testing.yaml instead of legacy agent-context or charter paths."""
+
+    def test_agent_context_populated_via_concern_model_file(self, tmp_path):
+        """agent-context.md with concern sections signals populated context."""
+        docs = tmp_path / "docs"
+        docs.mkdir(parents=True)
+        (docs / "agent-context.md").write_text(
+            "# Agent Context\n\n## Stack\n\nLanguages: Python\n"
+        )
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["agent_context_populated"] is True
+
+    def test_agent_context_not_populated_when_only_legacy_yaml(self, tmp_path):
+        """Legacy stack.yaml alone no longer counts as populated context."""
+        ac_dir = tmp_path / "docs" / "agent-context"
+        ac_dir.mkdir(parents=True)
+        (ac_dir / "stack.yaml").write_text(
+            "mode: index\n\nlanguages:\n  python:\n    name: Python\n"
+        )
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["agent_context_populated"] is False
+
+    def test_agent_context_not_populated_when_md_empty(self, tmp_path):
+        """Empty agent-context.md does not count as populated."""
+        docs = tmp_path / "docs"
+        docs.mkdir(parents=True)
+        (docs / "agent-context.md").write_text("")
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["agent_context_populated"] is False
+
+    def test_agent_context_not_populated_when_md_only_heading(self, tmp_path):
+        """A heading-only agent-context.md does not count as populated."""
+        docs = tmp_path / "docs"
+        docs.mkdir(parents=True)
+        (docs / "agent-context.md").write_text("# Agent Context\n")
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["agent_context_populated"] is False
+
+    def test_test_regime_detected_via_docs_testing_yaml(self, tmp_path):
+        """docs/testing.yaml (canonical location per ST-0223) triggers detection."""
+        docs = tmp_path / "docs"
+        docs.mkdir(parents=True)
+        (docs / "testing.yaml").write_text("suites: []\n")
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["test_regime_detected"] is True
+
+    def test_test_regime_not_detected_via_legacy_charter_path(self, tmp_path):
+        """Legacy docs/charter/testing.yaml no longer triggers detection."""
+        charter_dir = tmp_path / "docs" / "charter"
+        charter_dir.mkdir(parents=True)
+        (charter_dir / "testing.yaml").write_text("suites: []\n")
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["test_regime_detected"] is False
+
+    def test_test_regime_not_detected_via_legacy_agent_context_path(self, tmp_path):
+        """Legacy docs/agent-context/testing.yaml no longer triggers detection."""
+        ac_dir = tmp_path / "docs" / "agent-context"
+        ac_dir.mkdir(parents=True)
+        (ac_dir / "testing.yaml").write_text("suites: []\n")
+        derived = inf._derive_fitting_keys(tmp_path)
+        assert derived["test_regime_detected"] is False
+
+    def test_orientation_include_has_agent_context_md(self):
+        """Claude Code orientation include references @docs/agent-context.md."""
+        include = inf.ORIENTATION_INCLUDE[".claude"]
+        assert "@../docs/agent-context.md" in include
+
+    def test_orientation_block_non_claude_references_agent_context(self, tmp_path):
+        """Non-Claude orientation blocks reference docs/agent-context.md."""
+        factory = tmp_path / "factory"
+        (factory / "config").mkdir(parents=True)
+        (factory / "config" / "AGENTS.md").write_text("# Test orientation\n")
+        block = inf._orientation_block(".github", factory)
+        assert "docs/agent-context.md" in block
 
 
 class TestExtractDepName:

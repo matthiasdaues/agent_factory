@@ -1400,6 +1400,16 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
 
         merge_sha = _git("rev-parse", "HEAD")[1]
 
+    # Monorepo sync: if packages/factory/ exists, sync it to the installed
+    # factory/ copy so post-merge tests load the merged code (tests import
+    # from factory/scripts/, not packages/factory/scripts/).
+    pkg_factory = project_root / "packages" / "factory"
+    installed_factory = project_root / "factory"
+    if pkg_factory.is_dir() and installed_factory.is_dir():
+        import shutil
+
+        shutil.copytree(pkg_factory, installed_factory, dirs_exist_ok=True)
+
     test_command = _read_test_command(project_root)
     if test_command:
         test_result = subprocess.run(

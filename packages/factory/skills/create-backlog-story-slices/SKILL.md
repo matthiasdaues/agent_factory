@@ -13,11 +13,11 @@ Sketch story-level slice tables for each confirmed EPIC and present them for use
 
 ## Step 1.5b — Story-level slice table (per EPIC)
 
-Read `docs/CONTEXT.md` if it exists — use the project's domain vocabulary.
+Follow the concern sections in `docs/agent-context.md` to locate domain vocabulary, architecture views, and project conventions relevant to each EPIC. For each EPIC, revisit the codebase inventory from Phase 1 — identify which files, modules, and tests already exist that the EPIC's stories will extend or modify. Each story slice is a step forward from this concrete base, not from an aspirational architecture.
 
-**Glossary source:** read `docs/arc42/12_glossary.md` if it exists, otherwise `docs/CONTEXT.md`. When a capability or boundary name uses domain jargon, parenthesise a plain-English gloss on first use in the table.
+**Glossary source:** follow the domain concerns in `docs/agent-context.md` to locate the project glossary. When a capability or boundary name uses domain jargon, parenthesise a plain-English gloss on first use in the table.
 
-**Boundary vocabulary:** derive boundary names from the project's architecture — components, containers, and deployment nodes in `docs/arc42/architecture.dsl` or the arc42 building-block and deployment views. Use the project's own names, not generic layer labels.
+**Boundary vocabulary:** derive boundary names from the project's architecture. Follow the technical concerns in `docs/agent-context.md` to locate architecture views. Use the project's own component and container names, not generic layer labels.
 
 For each confirmed EPIC, sketch a table of candidate stories. Each row names a user-visible capability, the system boundaries it crosses, and a one-sentence demo.
 

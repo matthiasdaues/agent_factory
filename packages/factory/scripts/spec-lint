@@ -80,10 +80,8 @@ REQUIRED_UC_SECTIONS = [
 ]
 
 REQUIRED_ARTIFACTS = [
-    "prd.md",
     "scope-map.md",
     "supplementary_specs/entity-model.md",
-    "supplementary_specs/validation-rules.md",
 ]
 
 

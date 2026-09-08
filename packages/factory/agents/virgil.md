@@ -23,20 +23,13 @@ inputs:
   - config/project-context.json
   - factory/docs/factory-guide.md
   - factory/INDEX.yaml
-  - docs/agent-context/stack.yaml (falls back to docs/charter/tech-stack.md)
-  - docs/agent-context/workflow.yaml (falls back to docs/charter/development.md)
-  - docs/agent-context/governance.yaml (falls back to docs/charter/house-rules.md)
-  - docs/agent-context/testing.yaml (falls back to docs/charter/testing.yaml)
-  - factory/rulebooks/templates/charter-tech-stack.md
-  - factory/rulebooks/templates/charter-development.md
-  - factory/rulebooks/templates/charter-house-rules.md
+  - docs/agent-context.md
+  - docs/testing.yaml
   - factory/rulebooks/conventions/testing-strategy.md
 outputs:
   - config/project-context.json (fitting state updates)
-  - docs/agent-context/stack.yaml (falls back to docs/charter/tech-stack.md)
-  - docs/agent-context/workflow.yaml (falls back to docs/charter/development.md)
-  - docs/agent-context/governance.yaml (falls back to docs/charter/house-rules.md)
-  - docs/agent-context/testing.yaml (falls back to docs/charter/testing.yaml)
+  - docs/agent-context.md
+  - docs/testing.yaml
   - backlog/ST-*.md
 triggers:
   - "show me around"
@@ -138,22 +131,15 @@ in `project-context.json`, then set `fitting.fingerprint_confirmed` to
 
 ### 2. Populate agent context
 
-Invoke the `capture-context` skill with `--minimal`: `--init --scan --minimal` for brownfield, `--init --minimal` for greenfield. This asks
-6 questions instead of 19 — the fastest path to enough context for agents
-to route work. When the skill completes, set
+Invoke the `capture-context` skill. It produces `docs/agent-context.md` —
+a single concern-structured Markdown file that replaces the former YAML
+index files. When the skill completes, set
 `fitting.agent_context_populated` to `true`.
-
-Then offer the full pass explicitly: "I have enough to work with. Want to
-fill in the rest now, or come back to it later?" If the user accepts,
-invoke `capture-context --init` (or `--init --scan`) without `--minimal`
-— it detects the fields left `deferred: "full context pass pending"` and
-presents only those for completion.
 
 ### 2b. Detect test regime
 
 Invoke the `detect-test-regime` skill. It scans the project for test
-suites and records them in `docs/agent-context/testing.yaml` (or
-`docs/charter/testing.yaml` for legacy projects). The deterministic scan
+suites and records them in `docs/testing.yaml`. The deterministic scan
 in `init-factory` may have already seeded this file — if so, present what
 it found and ask the user to confirm or correct it. If not, the skill
 runs its full discovery and disambiguation.
@@ -207,8 +193,8 @@ Wait for agreement before creating an artifact or handing work off.
 
 - Reads `factory/docs/factory-guide.md` and `factory/INDEX.yaml` for
   factory knowledge — no separate knowledge base.
-- Reads and writes charter files only via `capture-context` and
-  `update-context`, never by editing them directly.
+- Reads and writes `docs/agent-context.md` only via `capture-context` and
+  `update-context`, never by editing it directly.
 - Reads and writes `config/project-context.json` directly for fitting
   state transitions — this is the one file VIRGIL edits without a skill.
 - **MUST NOT** advance playbook state — no phase gates, no marking a

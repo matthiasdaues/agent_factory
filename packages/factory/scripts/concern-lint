@@ -1,0 +1,494 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
+"""concern-lint — deterministic validation gate for the concern-oriented agent context.
+
+What: Validates docs/agent-context.md with CTX-* finding codes:
+      CTX-SECTIONS (required category headings and concern structure),
+      CTX-PATHS (file path resolution for Read: and Boundary: lines),
+      CTX-REFS (concern names in story frontmatter match registry headings),
+      CTX-LEGACY (no legacy YAML or charter residue alongside the
+      concern-format file).
+When: Pre-commit hook when agent-context.md or docs/ files change.
+By:   concern-lint pre-commit hook; developer-agent during Red-Green.
+
+No third-party dependencies (Python 3.10+ stdlib only).
+
+Usage:
+  concern-lint
+  concern-lint --root .
+  concern-lint --format json
+
+Exit code: number of ERROR-severity findings (0 = clean).
+"""
+
+from __future__ import annotations
+
+import argparse
+import glob
+import json
+import re
+import sys
+from dataclasses import asdict, dataclass
+from pathlib import Path
+
+SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
+
+#: The three required category headings in agent-context.md.
+REQUIRED_CATEGORIES = [
+    "Always (cross-cutting)",
+    "Technical concerns",
+    "Domain concerns",
+]
+
+
+@dataclass
+class Finding:
+    """Represents a single validation finding."""
+
+    code: str
+    severity: str
+    artifact: str
+    message: str
+
+    def line(self) -> str:
+        return (
+            f"[{self.severity.upper():7}] {self.code}  {self.artifact}: {self.message}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Parsing: extract structure from agent-context.md
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ConcernSection:
+    """A single concern entry parsed from agent-context.md."""
+
+    name: str
+    category: str
+    description: str | None
+    read_paths: list[str]
+    boundary_paths: list[str]
+
+
+def parse_agent_context(text: str) -> tuple[set[str], list[ConcernSection]]:
+    """Parse agent-context.md and return (found_categories, concerns).
+
+    Categories are ## headings. Concerns are ### headings beneath a category.
+    Each concern may have a description line (first non-empty non-directive
+    line after the heading) and Read:/Boundary: directives.
+    """
+    found_categories: set[str] = set()
+    concerns: list[ConcernSection] = []
+
+    current_category: str | None = None
+    current_concern_name: str | None = None
+    current_description: str | None = None
+    current_reads: list[str] = []
+    current_boundaries: list[str] = []
+
+    def _flush_concern() -> None:
+        nonlocal current_concern_name, current_description
+        nonlocal current_reads, current_boundaries
+        if current_concern_name is not None and current_category is not None:
+            concerns.append(
+                ConcernSection(
+                    name=current_concern_name,
+                    category=current_category,
+                    description=current_description,
+                    read_paths=list(current_reads),
+                    boundary_paths=list(current_boundaries),
+                )
+            )
+        current_concern_name = None
+        current_description = None
+        current_reads = []
+        current_boundaries = []
+
+    for line in text.split("\n"):
+        stripped = line.strip()
+
+        # ## Category heading
+        cat_match = re.match(r"^##\s+(.+)$", stripped)
+        if cat_match and not stripped.startswith("###"):
+            _flush_concern()
+            current_category = cat_match.group(1).strip()
+            found_categories.add(current_category)
+            continue
+
+        # ### Concern heading
+        concern_match = re.match(r"^###\s+(.+)$", stripped)
+        if concern_match:
+            _flush_concern()
+            current_concern_name = concern_match.group(1).strip()
+            continue
+
+        # Skip empty lines and the top-level # heading
+        if not stripped or stripped.startswith("# "):
+            continue
+
+        # Inside a concern section
+        if current_concern_name is not None:
+            # Read: directive — may have comma-separated paths
+            read_match = re.match(r"^Read:\s*(.+)$", stripped)
+            if read_match:
+                paths = [p.strip() for p in read_match.group(1).split(",") if p.strip()]
+                current_reads.extend(paths)
+                continue
+
+            # Boundary: directive — may have comma-separated paths
+            boundary_match = re.match(r"^Boundary:\s*(.+)$", stripped)
+            if boundary_match:
+                paths = [p.strip() for p in boundary_match.group(1).split(",") if p.strip()]
+                current_boundaries.extend(paths)
+                continue
+
+            # First non-directive line is the description
+            if current_description is None:
+                current_description = stripped
+
+    _flush_concern()
+    return found_categories, concerns
+
+
+# ---------------------------------------------------------------------------
+# CTX-SECTIONS: required category headings and concern structure
+# ---------------------------------------------------------------------------
+
+
+def check_sections(
+    found_categories: set[str], concerns: list[ConcernSection]
+) -> list[Finding]:
+    """Validate that all required category headings exist and that each
+    concern section has a description line and at least one Read: path."""
+    findings: list[Finding] = []
+
+    for required in REQUIRED_CATEGORIES:
+        if required not in found_categories:
+            findings.append(
+                Finding(
+                    "CTX-SECTIONS",
+                    "error",
+                    "agent-context.md",
+                    f"required category heading '## {required}' is missing",
+                )
+            )
+
+    for concern in concerns:
+        if not concern.description:
+            findings.append(
+                Finding(
+                    "CTX-SECTIONS",
+                    "error",
+                    "agent-context.md",
+                    f"concern '{concern.name}' has no description line",
+                )
+            )
+        if not concern.read_paths:
+            findings.append(
+                Finding(
+                    "CTX-SECTIONS",
+                    "error",
+                    "agent-context.md",
+                    f"concern '{concern.name}' has no Read: path",
+                )
+            )
+
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# CTX-PATHS: path resolution for Read: and Boundary: lines
+# ---------------------------------------------------------------------------
+
+
+def check_paths(concerns: list[ConcernSection], root: Path) -> list[Finding]:
+    """Validate that every path in a Read: or Boundary: line resolves to an
+    existing file or glob match, relative to root."""
+    findings: list[Finding] = []
+
+    for concern in concerns:
+        for path_str in concern.read_paths:
+            if not _path_resolves(path_str, root):
+                findings.append(
+                    Finding(
+                        "CTX-PATHS",
+                        "error",
+                        "agent-context.md",
+                        f"concern '{concern.name}' Read: path does not resolve: {path_str}",
+                    )
+                )
+        for path_str in concern.boundary_paths:
+            if not _path_resolves(path_str, root):
+                findings.append(
+                    Finding(
+                        "CTX-PATHS",
+                        "error",
+                        "agent-context.md",
+                        f"concern '{concern.name}' Boundary: path does not resolve: {path_str}",
+                    )
+                )
+
+    return findings
+
+
+def _path_resolves(path_str: str, root: Path) -> bool:
+    """Return True when path_str resolves to an existing file or at least
+    one glob match, relative to root.
+
+    Handles backslash-escaped glob characters (e.g. ``\\*`` from mdformat)
+    by stripping the escapes before resolution.
+    """
+    # mdformat escapes * to \* in markdown; undo that for path resolution
+    cleaned = path_str.replace("\\*", "*")
+    full = root / cleaned
+    if full.exists():
+        return True
+    # Try glob expansion
+    matches = glob.glob(str(full))
+    return len(matches) > 0
+
+
+# ---------------------------------------------------------------------------
+# CTX-LEGACY: no legacy residue alongside concern-format agent-context.md
+# ---------------------------------------------------------------------------
+
+
+def check_legacy(root: Path) -> list[Finding]:
+    """Flag legacy YAML agent-context files (other than testing.yaml) or a
+    docs/charter/ directory alongside the concern-format agent-context.md."""
+    findings: list[Finding] = []
+
+    agent_context_dir = root / "docs" / "agent-context"
+    if agent_context_dir.is_dir():
+        for yaml_file in sorted(agent_context_dir.glob("*.yaml")):
+            if yaml_file.name == "testing.yaml":
+                continue
+            findings.append(
+                Finding(
+                    "CTX-LEGACY",
+                    "error",
+                    "agent-context.md",
+                    f"legacy YAML file exists alongside concern-format: {yaml_file.relative_to(root)}",
+                )
+            )
+
+    charter_dir = root / "docs" / "charter"
+    if charter_dir.is_dir():
+        findings.append(
+            Finding(
+                "CTX-LEGACY",
+                "error",
+                "agent-context.md",
+                "docs/charter/ directory exists alongside concern-format agent-context.md",
+            )
+        )
+
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# CTX-REFS: concern names in story frontmatter vs agent-context headings
+# ---------------------------------------------------------------------------
+
+
+def _parse_story_frontmatter(text: str) -> dict[str, str] | None:
+    """Extract frontmatter dict from a story file's ---delimited YAML.
+
+    Minimal parser: handles inline flow sequences and flow mappings for the
+    concerns field.  Returns None when no frontmatter is found.
+    """
+    lines = text.split("\n")
+    if not lines or lines[0].strip() != "---":
+        return None
+    end = None
+    for i, ln in enumerate(lines[1:], start=1):
+        if ln.strip() == "---":
+            end = i
+            break
+    if end is None:
+        return None
+
+    fm: dict[str, object] = {}
+    for ln in lines[1:end]:
+        m = re.match(r"^([A-Za-z_][A-Za-z0-9_-]*)\s*:\s*(.*)?$", ln)
+        if m:
+            key = m.group(1)
+            raw = (m.group(2) or "").strip()
+            if raw.startswith("{") and raw.endswith("}"):
+                fm[key] = _parse_flow_mapping_simple(raw[1:-1])
+            else:
+                fm[key] = raw
+    return fm
+
+
+def _parse_flow_mapping_simple(inner: str) -> dict[str, list[str]]:
+    """Parse a YAML inline flow mapping with list values.
+
+    Handles: ``domain: [billing], technical: [backend]``
+    """
+    result: dict[str, list[str]] = {}
+    if not inner.strip():
+        return result
+
+    depth = 0
+    parts: list[str] = []
+    current: list[str] = []
+    for ch in inner:
+        if ch == "[":
+            depth += 1
+            current.append(ch)
+        elif ch == "]":
+            depth -= 1
+            current.append(ch)
+        elif ch == "," and depth == 0:
+            parts.append("".join(current))
+            current = []
+        else:
+            current.append(ch)
+    if current:
+        parts.append("".join(current))
+
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+        colon_idx = part.find(":")
+        if colon_idx < 0:
+            continue
+        key = part[:colon_idx].strip()
+        val = part[colon_idx + 1:].strip()
+        if val.startswith("[") and val.endswith("]"):
+            items = [t.strip() for t in val[1:-1].split(",") if t.strip()]
+            result[key] = items
+        else:
+            result[key] = [val] if val else []
+    return result
+
+
+def check_refs(concerns: list[ConcernSection], root: Path) -> list[Finding]:
+    """Validate that every concern name in story frontmatter has a matching
+    heading in agent-context.md under Technical or Domain concerns."""
+    findings: list[Finding] = []
+
+    backlog_dir = root / "backlog"
+    if not backlog_dir.is_dir():
+        return findings
+
+    # Collect valid concern names from Technical/Domain headings
+    valid_names: set[str] = set()
+    for concern in concerns:
+        if concern.category in ("Technical concerns", "Domain concerns"):
+            valid_names.add(concern.name)
+
+    # Scan story files
+    for story_file in sorted(backlog_dir.glob("ST-*.md")):
+        try:
+            text = story_file.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        fm = _parse_story_frontmatter(text)
+        if fm is None:
+            continue
+        concern_field = fm.get("concerns")
+        if not isinstance(concern_field, dict):
+            continue
+
+        story_name = story_file.name
+        for category_key in ("domain", "technical"):
+            names = concern_field.get(category_key)
+            if not isinstance(names, list):
+                continue
+            for name in names:
+                if name not in valid_names:
+                    findings.append(
+                        Finding(
+                            "CTX-REFS",
+                            "error",
+                            story_name,
+                            f"concern '{name}' in {category_key} has no matching "
+                            f"heading in agent-context.md",
+                        )
+                    )
+
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# Driver
+# ---------------------------------------------------------------------------
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(
+        description="Deterministic validation gate for the concern-oriented agent context."
+    )
+    p.add_argument(
+        "--root",
+        default=Path("."),
+        type=Path,
+        help="Project root (default: .)",
+    )
+    p.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        dest="fmt",
+        help="Output format (default: text)",
+    )
+
+    args = p.parse_args(argv)
+    root = args.root.resolve()
+
+    agent_context_path = root / "docs" / "agent-context.md"
+
+    if not agent_context_path.is_file():
+        # No concern-format file — nothing to validate.
+        findings: list[Finding] = []
+        counts = {"error": 0, "warning": 0, "info": 0}
+        _output(findings, counts, args.fmt)
+        return 0
+
+    text = agent_context_path.read_text(encoding="utf-8")
+    found_categories, concerns = parse_agent_context(text)
+
+    findings = []
+    findings += check_sections(found_categories, concerns)
+    findings += check_paths(concerns, root)
+    findings += check_legacy(root)
+    findings += check_refs(concerns, root)
+
+    findings.sort(key=lambda f: (-SEVERITY_ORDER[f.severity], f.code, f.artifact))
+    counts = {s: sum(1 for f in findings if f.severity == s) for s in SEVERITY_ORDER}
+
+    _output(findings, counts, args.fmt)
+    return min(counts["error"], 1)
+
+
+def _output(findings: list[Finding], counts: dict[str, int], fmt: str) -> None:
+    """Write findings to stderr in the requested format."""
+    if fmt == "json":
+        sys.stderr.write(
+            json.dumps(
+                {
+                    "findings": [asdict(f) for f in findings],
+                    "summary": counts,
+                },
+                indent=2,
+            )
+        )
+        sys.stderr.write("\n")
+    else:
+        for f in findings:
+            sys.stderr.write(f.line() + "\n")
+        sys.stderr.write(
+            f"\nconcern-lint: {counts['error']} error(s), "
+            f"{counts['warning']} warning(s), {counts['info']} info.\n"
+        )
+
+
+if __name__ == "__main__":
+    sys.exit(main())

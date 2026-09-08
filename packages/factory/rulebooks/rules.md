@@ -29,6 +29,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 → [foundational-principles.md](conventions/foundational-principles.md)
 
 - **MUST** write short, precise prose following plain English by Strunk & White, or "Gutes Deutsch" by Wolf Schneider, depending on language.
+- **MUST** write for an international Team whose members have English as a common, but not as a native language.
 - **MUST** write so that a junior gets it and a senior who hates marketing, hyperbole, adverbs and adjectives respects it.
 - **MUST** keep each skill/agent transmission short and independently verifiable (Eichhorst's Principle).
 - **MUST** separate agentic creation from deterministic validation — agents create artifacts; mechanically triggered gates run scripts that validate against predefined, state-dependent criteria.
@@ -116,7 +117,8 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST NOT** launch a new agent for the same role while a prior instance is still running — the prior instance cannot be cancelled and will consume tokens against stale state.
 - **MUST** verify every story in a wave has reached a terminal state (merged or explicitly blocked/failed in the dispatch ledger) before launching the next wave.
 - **MUST** commit or explicitly record each story's outcome (merged SHA or blocked reason) before the wave is considered closed.
-- **MUST** maintain a dispatch ledger (`.current-work/dispatch-ledger.yaml`) tracking each story's branch, worktree, declared base, gate results, commit SHA, merge SHA, and status.
+- **MUST** close every dispatch as completed or abandoned — a dispatch that begins without ending is a leak.
+- **MUST** maintain a dispatch ledger (`.current-work/<feature-branch>/dispatch-ledger.yaml`) tracking each story's branch, worktree, declared base, gate results, commit SHA, merge SHA, and status.
 - **MUST** update the story file's `status` field in the same commit that delivers the story's implementation.
 
 ## Step boundaries

@@ -149,7 +149,7 @@ The [factory guide](docs/factory-guide.md) covers the full picture:
 | Pre-commit hooks     | `.pre-commit-config.yaml` — `agent_factory_hook-*` block                                                                                                     | Yes      |
 | Gitignore block      | `.gitignore` — `agent_factory related` section                                                                                                               | Yes      |
 | Project config       | `config/project.json` (name + UUID), `config/model.conf`, `config/project-context.json` (scan results)                                                       | No       |
-| Test regime          | `docs/agent-context/testing.yaml` — `test_command` if a single unambiguous entrypoint is detected                                                            | No       |
+| Test regime          | `docs/testing.yaml` — `test_command` if a single unambiguous entrypoint is detected                                                                          | No       |
 | Usage runtime        | `.agent-factory/usage-runtime/` — hash-verified tokenizer venv                                                                                               | No       |
 | Usage lifecycle      | `.agent-factory/usage-control/` — registration fence and capture state                                                                                       | No       |
 | Install manifest     | `.agent-factory/factory-install.json`                                                                                                                        | No       |
@@ -165,7 +165,7 @@ Tests run through gates, not agents:
 2. **Pre-push** — full suite (`git push --no-verify` to bypass)
 3. **Phase advance** — FSM entry conditions check `tests_pass`
 
-Projects declare test commands in `docs/agent-context/testing.yaml`:
+Projects declare test commands in `docs/testing.yaml`:
 
 - `test_command` — full suite (gates, pre-push)
 - `test_staged_command` — staged files (agent TDD loop)

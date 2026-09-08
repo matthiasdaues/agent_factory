@@ -9,9 +9,13 @@ disable-model-invocation: false
 
 Write `backlog/epics.md` from the approved EPIC slicing approach. This is phase 2 of the [create-backlog sequence](../create-backlog/SKILL.md#operational-sequence). Story format, composition rules, and the done check live in the [parent skill](../create-backlog/SKILL.md).
 
+Write for an international Team whose members have English as a common, but not as a native language.
+
 **Prerequisite:** the EPIC-level slice table has been approved by the user (output of [`create-backlog-epics`](../create-backlog-epics/SKILL.md)).
 
 ## Step 1 — Write backlog/epics.md
+
+Follow the concern sections in `docs/agent-context.md` to locate domain vocabulary, supplementary specs, and architecture views relevant to each EPIC. Use concern `Read:` paths — not hardcoded file paths — to discover project-native knowledge.
 
 Document every confirmed EPIC in `backlog/epics.md` with:
 
@@ -21,7 +25,7 @@ Document every confirmed EPIC in `backlog/epics.md` with:
 - Dependencies on other EPICs
 - Boundaries (system boundaries the EPIC crosses)
 - Size / story count estimate
-- Building-block inventory listing each anticipated story with its capacity tier and day-range estimate
+- Building-block inventory listing each anticipated story with its capacity tier and day-range estimate. For each block, note what already exists in the codebase (files, modules, tests) and what the story adds or changes.
 
 **"Why this EPIC exists" section (required):** Before the Actor Goals, write one paragraph (2–4 sentences) that explains why this capability matters — what cannot happen without it, or what risk it removes. A junior reading the EPIC should understand the motivation before encountering the scope list.
 

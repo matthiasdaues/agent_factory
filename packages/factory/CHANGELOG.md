@@ -1,5 +1,77 @@
 # Changelog
 
+## 0.9.0 — 2026-09-09
+
+Concern-oriented agent context and code-first planning. Agents discover
+what to read by concern name, not by file path. Planning starts from the
+codebase as ground truth and derives stories as deltas from existing code
+to specified capabilities.
+
+### Features
+
+- **Concern-oriented agent context.** Replaces the four YAML agent-context
+  files (`stack.yaml`, `workflow.yaml`, `governance.yaml`,
+  `reading-guides.yaml`) with a single CLI-agnostic markdown file:
+  `docs/agent-context.md`. Agents discover project-native knowledge
+  (supplementary specs, ADRs, handbooks, architecture views) through
+  concern sections carrying `Read:` paths. Three concern categories:
+  cross-cutting (always active), technical (per story), domain (per
+  story). Factory-canonical artifacts (`scope-map.md`, `.feature` files,
+  `testing.yaml`) remain as concrete paths.
+- **concern-lint.** New deterministic linter replacing `context-lint`.
+  Four checks: CTX-SECTIONS (category headings and Read paths),
+  CTX-PATHS (file resolution), CTX-REFS (story concern vocabulary
+  matches registry), CTX-LEGACY (flags residual YAML files).
+- **Concern declarations in story frontmatter.** Planning agent writes
+  `concerns: {domain: [...], technical: [...]}` into each story.
+  Developer and implementation agents follow matching sections in
+  `agent-context.md`.
+- **capture-context rewrite.** Greenfield (`--init`) and brownfield
+  (`--init --scan`) modes produce concern sections instead of YAML files.
+  Auto-detects old YAML format and offers interactive migration.
+- **update-context retired.** Skill body replaced with a deprecation
+  notice pointing to direct `agent-context.md` editing.
+- **testing.yaml relocated.** Moved from `docs/agent-context/testing.yaml`
+  to `docs/testing.yaml`. Resolution chain updated in `concern-lint`,
+  `detect-test-regime`, `crap-score`, and all agent definitions.
+- **YAML migration path.** `capture-context` auto-detects old YAML
+  agent-context format and offers interactive migration to the concern
+  model.
+- **Code-first planning.** Planning agent and all five backlog skills
+  reworked. New principle "Code Is Ground Truth" — planning starts from
+  the codebase as it stands, not from an aspirational architecture. EPIC
+  decomposition is the delta between existing code and specified
+  capabilities. Step 0 (codebase survey) elevated to foundation;
+  Step 1 reframed as gap analysis.
+- **Concern-routed inputs.** Planning agent and skills discover project-
+  native knowledge through `docs/agent-context.md` concern sections
+  instead of hardcoded file paths. Technical concerns route to source
+  directories, architecture views, and conventions. Domain concerns route
+  to supplementary specs and domain vocabulary.
+- **Agent definitions updated.** Project-native file lists replaced with
+  concern references across requirements-agent, architecture-agent,
+  architecture-review-agent, qa-agent, spec-review-agent, developer-
+  agent, implementation-agent, virgil, and reconciliation-agent.
+
+### Fixes
+
+- **spec-lint required artifacts.** Removed `prd.md` and
+  `supplementary_specs/validation-rules.md` from `REQUIRED_ARTIFACTS` —
+  neither is produced by the current requirements workflow. Tests updated.
+- **dispatch-ledger path.** Corrected path reference in `rules.md`.
+- **Reconciliation findings.** Resolved 16 RECON findings from the
+  concern-oriented context implementation.
+- **QA findings.** Fixed hook `testing.yaml` resolution and `concern-lint`
+  exit code.
+
+### Documentation
+
+- **Writing rules.** Added "international team English" to writing
+  conventions.
+- **Concern-oriented context proposal.** Full proposal at
+  `docs/proposals/factory-concern-oriented-agent-context.md` with two
+  review rounds and all findings resolved.
+
 ## 0.8.0 — 2026-09-08
 
 Progressive fitting and session continuity. Reduces the fitting interview

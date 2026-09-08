@@ -28,7 +28,9 @@ TOP=$(git rev-parse --show-toplevel 2>/dev/null)
 # the deny patterns below, same as before.
 resolve_testing_yaml() {
   local root="$1"
-  if [ -f "$root/docs/agent-context/testing.yaml" ]; then
+  if [ -f "$root/docs/testing.yaml" ]; then
+    echo "$root/docs/testing.yaml"
+  elif [ -f "$root/docs/agent-context/testing.yaml" ]; then
     echo "$root/docs/agent-context/testing.yaml"
   elif [ -f "$root/docs/charter/testing.yaml" ]; then
     echo "$root/docs/charter/testing.yaml"
@@ -60,6 +62,19 @@ if echo "$COMMAND" | grep -qE '^git[[:space:]]+commit([[:space:]]|$)'; then
     if [ -z "$MARKER_HEAD" ] || ! git merge-base --is-ancestor "$MARKER_HEAD" HEAD 2>/dev/null; then
       deny "git commit in a worktree whose verify-base-ok marker does not match its base (marker head is not an ancestor of HEAD). Re-run factory/scripts/verify-base <target> [--expect-base <SHA>]."
     fi
+    # ST-0214: story branches require a dispatch ledger in the main checkout.
+    BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+    case "$BRANCH" in
+      story/*)
+        COMMON_DIR=$(git rev-parse --git-common-dir 2>/dev/null)
+        if [ -n "$COMMON_DIR" ]; then
+          MAIN_ROOT=$(cd "$COMMON_DIR" && cd .. && pwd)
+          if ! ls "$MAIN_ROOT"/.current-work/*/dispatch-ledger.yaml >/dev/null 2>&1; then
+            deny "git commit on $BRANCH with no dispatch ledger. No .current-work/*/dispatch-ledger.yaml found in the main checkout ($MAIN_ROOT). Run factory/scripts/dispatch init first."
+          fi
+        fi
+        ;;
+    esac
   fi
 fi
 

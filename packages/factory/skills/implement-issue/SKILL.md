@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 Pick a single story from the backlog (`backlog/ST-NNNN.md`) and implement it using **TDD**. Apply **Clean Architecture** and **SOLID** throughout.
 
-Read `docs/CONTEXT.md` if it exists — match test names and interface vocabulary to the project's domain language. Respect ADRs in the area you're touching. Read `docs/agent-context/reading-guides.yaml` to discover which index-file sections are relevant to the story's concern, then follow the key-path references into the index files for project context (falls back to `docs/charter/*.md` for legacy projects).
+Read `docs/CONTEXT.md` if it exists — match test names and interface vocabulary to the project's domain language. Respect ADRs in the area you're touching. Read the story's `concerns` field and follow the matching sections in `docs/agent-context.md` for project context.
 
 ## Step 1 — Analyse
 
@@ -32,7 +32,7 @@ Ask the user: _"Does this analysis look right before I start coding?"_
 
 ## Step 2 — Agree seams
 
-Read `testing.yaml` (at `docs/agent-context/testing.yaml`, falling back to `docs/charter/testing.yaml` for legacy projects) to identify which suite targets the code under test — use its `root`, `pattern`, and `run_all` command. Read the document referenced by `testing_strategy:` for cluster assignment and test budget.
+Read `testing.yaml` (at `docs/testing.yaml`) to identify which suite targets the code under test — use its `root`, `pattern`, and `run_all` command. Read the document referenced by `testing_strategy:` for cluster assignment and test budget.
 
 Identify the **seams** — public boundaries where tests observe behaviour. Prefer existing, highest-level seams; fewer seams overall is better.
 

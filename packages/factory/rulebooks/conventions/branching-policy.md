@@ -105,6 +105,8 @@ Standalone branch creation is mechanically denied by the shared shell and Pi Git
 
 The base-safety checks are mechanically enforced, per [foundational-principles.md § Agentic Creation, Deterministic Validation](foundational-principles.md#agentic-creation-deterministic-validation): `factory/scripts/dispatch` owns the pre-spawn `verify-base` call, and `factory/scripts/premerge-check` owns the pre-merge scope check. Their success markers are written on success, and `factory/config/hooks/block-dangerous-git.sh` denies `git commit` (inside a linked worktree with no `verify-base-ok` marker) and `git merge <branch>` (with no `premerge-check-ok` marker for that branch's current head) — a `PreToolUse` hook, not agent compliance with a prompt instruction.
 
+Worktree cleanup after a merged branch is part of the larger dispatch lifecycle — see [dispatch-contract.md § Close](dispatch-contract.md#close) for the authoritative procedure for removing worktrees and branches at dispatch close time, which distinguishes merged branches (safe delete) from blocked branches (left for manual resolution).
+
 ## Example
 
 **Wrong** (per-EPIC) — from the TUI addendum dispatch (2026-07-08): the composition root (`cli.py`) is touched by stories in the TUI Presentation, Configuration, Adapter Registry & Model Resolution, Skill-Scoped Execution, and Status & Backlog Views epics. Branching by epic would give each of those five branches its own independent edit to `cli.py`, all colliding at once when merged back:

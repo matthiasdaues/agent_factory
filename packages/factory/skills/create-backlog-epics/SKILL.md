@@ -9,27 +9,29 @@ disable-model-invocation: false
 
 Survey the codebase and specification, then present the proposed EPIC decomposition for user approval. This is phase 1 of the [create-backlog sequence](../create-backlog/SKILL.md#operational-sequence). Story format, composition rules, and the done check live in the [parent skill](../create-backlog/SKILL.md).
 
-## Step 0 — Survey the codebase skeleton
+## Step 0 — Survey the codebase (ground truth)
 
-Before decomposing, read the existing codebase. List what exists: tables, routes, models, views, migrations, tests. This is the departure point — every story steps forward from here.
+This step is the foundation — everything that follows is a delta from what it finds.
 
-**Completion**: a concrete inventory of existing artifacts relevant to the spec scope.
+Follow the technical concerns in `docs/agent-context.md` to locate source directories, test roots, and infrastructure paths. Read the existing codebase at those paths. Inventory what exists: tables, routes, models, views, migrations, tests, configuration, scripts. Note which capabilities already work, which are partially built, and which are absent. This inventory is the departure point for every EPIC and every story.
 
-## Step 1 — Propose EPIC groupings
+**Completion**: a concrete inventory of existing artifacts relevant to the spec scope, structured so each item can be referenced as status quo in later stories.
 
-Read `docs/spec/scope-map.md` and the `.feature` files under `docs/spec/`. Read `docs/CONTEXT.md` if it exists — use the project's domain vocabulary. Read `docs/agent-context/reading-guides.yaml` to discover which index-file sections carry project context, then follow the key-path references into the index files (falls back to `docs/charter/*.md` for legacy projects) — the context defines Epic 0 (foundational must-haves).
+## Step 1 — Propose EPIC groupings (delta from code to spec)
 
-Group related User Goals into EPICs — each a coherent slice developable and demonstrable independently.
+Read `docs/spec/scope-map.md` and the `.feature` files under `docs/spec/` (factory-canonical). Read `docs/agent-context.md` and follow all concern sections — domain concerns carry the project vocabulary and supplementary specs; technical concerns carry architecture views and conventions; cross-cutting concerns define Epic 0 (foundational must-haves). Follow each concern's `Read:` paths to discover what the project has documented.
+
+Compare the spec target against the codebase inventory from Step 0. The gap — what the spec requires that the code does not yet do — is the work to decompose. Group related gaps into EPICs, each a coherent slice developable and demonstrable independently. Capabilities that already exist in the code are not stories; they are status quo.
 
 If context files exist and Epic 0 stories are already in the backlog (created by the `capture-context` completeness sweep), identify the final Epic 0 story (the last one chronologically). Feature EPICs depend on Epic 0 completion.
 
 ## Step 1.5a — EPIC-level slice table
 
-**Glossary source:** read `docs/arc42/12_glossary.md` if it exists, otherwise `docs/CONTEXT.md`. When a capability or boundary name uses domain jargon, parenthesise a plain-English gloss on first use in the table (e.g. "DispatchLedger (YAML file tracking story status)").
+**Glossary source:** follow the domain concerns in `docs/agent-context.md` to locate the project glossary (typically the arc42 glossary or CONTEXT.md). When a capability or boundary name uses domain jargon, parenthesise a plain-English gloss on first use in the table (e.g. "DispatchLedger (YAML file tracking story status)").
 
 **Demo vocabulary:** the demo sentence must use only terms already glossed or self-evident. If the demo names a concept the reader hasn't met, gloss it inline or restructure the sentence.
 
-**Boundary vocabulary:** derive boundary names from the project's architecture — components, containers, and deployment nodes in `docs/arc42/architecture.dsl` or the arc42 building-block and deployment views. Use the project's own names (e.g. `IngestPipeline`, `APIGateway`, `EventBus`), not generic layer labels like "backend" or "database."
+**Boundary vocabulary:** derive boundary names from the project's architecture. Follow the technical concerns in `docs/agent-context.md` to locate architecture views (Structurizr DSL, building-block views, deployment views). Use the project's own component and container names (e.g. `IngestPipeline`, `APIGateway`, `EventBus`), not generic layer labels like "backend" or "database."
 
 For each EPIC, write one row. Each row names the user-visible outcome the EPIC delivers, the system boundaries it crosses, and a one-sentence demo.
 
