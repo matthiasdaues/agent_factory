@@ -495,3 +495,262 @@ None at the EPIC level. Story-level dependencies exist within this EPIC (fitting
 | ST-0209 | Add explicit persona transition at the VIRGIL/playbook boundary | economy  | S    | Low complexity (text additions to two files), low uncertainty (behavioral rule, not code)                                                   |
 | ST-0210 | Derive fitting state from tracked artifacts in init-factory     | standard | M    | Medium complexity (Python derivation logic with 5 rules, test coverage for each), medium uncertainty (edge cases around artifact detection) |
 | ST-0211 | Surface fitting progress when fitting is partially complete     | economy  | S    | Low complexity (text additions to two files), low uncertainty; depends on ST-0210 for correct derived state                                 |
+
+______________________________________________________________________
+
+# EPICs -- Concern-Oriented Agent Context
+
+Proposal trace: [factory-concern-oriented-agent-context.md](../docs/proposals/factory-concern-oriented-agent-context.md)
+
+Supersedes EPICs 1-5 (yaml-charter-lifecycle). Those EPICs delivered the YAML-based agent-context model (all stories done). The concern-oriented model replaces that model entirely -- YAML agent-context files and legacy charter files are both retired. No backward compatibility code for either format.
+
+## EPIC 9: Define the concern model and build the validation gate
+
+### Why this EPIC exists
+
+The YAML-based agent-context model (four files, two modes, source pointers) created maintenance overhead that discouraged upkeep. The concern-oriented model replaces it with a single markdown file (`docs/agent-context.md`) where agents discover what to read by concern name. Before any skill can produce or consume that file, two things must exist: the binding rules that define its structure, and the deterministic validation gate that enforces them. Without these, every subsequent EPIC produces output no one can verify.
+
+### Actor Goals
+
+- `agent-context-composition.md` (the rulebook convention) describes the concern model -- three concern categories (cross-cutting, technical, domain), the `agent-context.md` structure, the controlled vocabulary rule, and the advisory nature of concern declarations
+- `concern-lint` (the validation script replacing `context-lint`) validates the concern registry with CTX-\* finding codes: CTX-SECTIONS (category heading structure and concern section completeness), CTX-PATHS (file path resolution for `Read:` and `Boundary:` lines), CTX-LEGACY (flags residual YAML agent-context files or `docs/charter/` directories)
+- `concern-lint` replaces `context-lint` in the validate skill (gate #12) and in `.pre-commit-config.yaml`
+
+### Demo
+
+1. The user creates a `docs/agent-context.md` with "Always (cross-cutting)", "Technical concerns", and "Domain concerns" category headings, each containing concern sections with description lines and `Read:` paths.
+2. The user runs `concern-lint`. It reports zero findings -- the file is structurally valid (CTX-SECTIONS pass) and all paths resolve (CTX-PATHS pass).
+3. The user removes the "Technical concerns" heading and re-runs. `concern-lint` reports a CTX-SECTIONS finding for the missing category.
+4. The user restores the heading but changes a `Read:` path to a nonexistent file. `concern-lint` reports a CTX-PATHS finding.
+5. The user creates a `docs/agent-context/stack.yaml` alongside `docs/agent-context.md`. `concern-lint` reports a CTX-LEGACY finding for the residual YAML file.
+6. The user runs the validate skill. Gate #12 runs `concern-lint` instead of `context-lint`.
+
+### Scope
+
+**In:**
+
+- `agent-context-composition.md` rewrite -- replace the YAML model description (four files, two modes, source pointers, field states, write-path ownership, format exclusivity) with the concern model description (three concern categories and when each is active, `agent-context.md` structure with category headings and concern sections, controlled vocabulary rule and how new concerns enter the registry, advisory nature of concern declarations, `concern-lint` check definitions)
+- `concern-lint` script -- a new Python script replacing `context-lint` that validates `docs/agent-context.md` with three checks: CTX-SECTIONS (every expected category heading exists and each concern section has a description line and at least one `Read:` path), CTX-PATHS (every path in a `Read:` or `Boundary:` line resolves to an existing file or glob match), CTX-LEGACY (no YAML agent-context files other than `testing.yaml` or `docs/charter/` directory remain alongside the concern registry)
+- Validate skill gate update -- gate #12 runs `concern-lint` instead of `context-lint`
+- Pre-commit hook update -- `.pre-commit-config.yaml` hook entry changed from `context-lint` to `concern-lint`
+- Test fixtures -- synthetic `agent-context.md` files and residual YAML/charter fixtures under `tests/fixtures/`
+
+**Out:**
+
+- CTX-REFS check (EPIC 11 -- requires `concerns:` field in story frontmatter, which does not exist until the planning-agent story)
+- capture-context and update-context skill changes (EPIC 10)
+- Agent and skill definition updates (EPICs 11 and 12)
+- Deletion of old YAML files from this project (EPIC 12 -- cleanup after all consumers are updated)
+
+### Dependencies
+
+None. This is the foundational EPIC for the concern-oriented model.
+
+### Boundaries
+
+- Rulebook convention: `factory/rulebooks/conventions/agent-context-composition.md` (model definition)
+- Validator: `concern-lint` script (Python, replacing `context-lint`)
+- Validate skill: `factory/skills/validate/SKILL.md` (gate #12 update)
+- Git/pre-commit: `.pre-commit-config.yaml` (hook entry update)
+
+### Size
+
+1 story.
+
+### Building-Block Inventory
+
+| Story   | Capability                                                                                       | Tier     | Size | Basis                                                                                                                          |
+| ------- | ------------------------------------------------------------------------------------------------ | -------- | ---- | ------------------------------------------------------------------------------------------------------------------------------ |
+| ST-0217 | Rewrite the rulebook for the concern model and build concern-lint with CTX-SECTIONS/PATHS/LEGACY | standard | L    | High effort (rulebook rewrite + Python script with 3 checks + gate integration + hook update + test fixtures), low uncertainty |
+
+## EPIC 10: Create and migrate concern-based context
+
+### Why this EPIC exists
+
+The rulebook and lint from EPIC 9 define and enforce the concern model, but no factory skill can produce a concern-format `agent-context.md` yet. Without an updated `capture-context`, greenfield projects have no way to create the file from a repository scan, and existing YAML-based projects have no migration path. The `update-context` skill, which was the write path for YAML index files, has no target in the new model and must be retired.
+
+### Actor Goals
+
+- User creates a concern-based `agent-context.md` from a greenfield repository scan by running `capture-context --init` -- the skill seeds generic cross-cutting concern sections from factory templates, proposes project-specific technical concerns from the detected stack, and proposes domain concerns from the specification if one exists
+- User creates a concern-based `agent-context.md` from a brownfield repository scan by running `capture-context --init --scan` -- the skill additionally discovers existing documentation (handbooks, ADRs, specs, cookbooks) and proposes `Read:` paths per concern through a concern-based interview
+- User migrates an existing YAML-based agent context to the concern model -- `capture-context` auto-detects the old YAML files, proposes concern sections derived from the YAML content, and on confirmation writes `agent-context.md`, moves `testing.yaml` to `docs/testing.yaml`, and deletes the YAML files
+- User who invokes `update-context` sees a deprecation notice pointing to direct `agent-context.md` editing
+
+### Demo
+
+1. The user runs `capture-context --init` in a new project that has `pyproject.toml` with FastAPI and Vue dependencies.
+2. `agent-context.md` appears at `docs/agent-context.md` with six generic cross-cutting concern sections (Branching, Committing, Testing discipline, Review, Scope discipline, Security), plus proposed technical concerns ("backend", "frontend") derived from the detected stack.
+3. The user runs `concern-lint` and the file passes validation.
+4. The user runs `capture-context --init --scan` in a brownfield project that has `docs/handbook/backend/conventions.md` and `docs/adr/`.
+5. The concern interview proposes `Read:` paths from the discovered documentation. The user confirms.
+6. The user runs `capture-context` (bare, no flags) in a project that has `docs/agent-context/stack.yaml`. The skill detects the YAML format and offers migration.
+7. The user confirms. `agent-context.md` is written with concern sections derived from the YAML content. `testing.yaml` moves to `docs/testing.yaml`. The old YAML files and `docs/agent-context/` directory are deleted.
+8. The user invokes `update-context`. A deprecation notice appears, pointing to direct `agent-context.md` editing. No files are modified.
+
+### Scope
+
+**In:**
+
+- capture-context skill rewrite for concern model -- `capture-context --init` (greenfield): scan repository for languages, frameworks, test runners, and documentation structure; seed generic cross-cutting concerns from factory; propose project-specific technical concerns from detected stack; propose domain concerns from scope-map areas if specification exists; write `docs/agent-context.md` with confirmed concerns, each section carrying a description line and resolved file paths
+- capture-context brownfield mode -- `capture-context --init --scan`: same as greenfield plus documentation discovery (handbooks, ADRs, specs, cookbooks) and concern-based interview ("I found these docs for the backend concern -- anything missing?")
+- YAML migration trigger -- bare `capture-context` invocation (no flags) auto-detects old YAML agent-context files; proposes concern sections derived from YAML content (cross-cutting from governance.yaml, technical from stack.yaml, routing from reading-guides.yaml); on confirmation writes `agent-context.md`, moves `testing.yaml` to `docs/testing.yaml`, deletes YAML files and `docs/agent-context/` directory
+- `--minimal` variants dropped -- the concern model's simpler structure makes the minimal/full distinction unnecessary
+- update-context retirement -- skill body replaced with a deprecation notice pointing to direct `agent-context.md` editing; invoking it produces no error and no side effects
+- YAML template deletion -- `factory/rulebooks/templates/context-*.yaml` deleted (no longer needed; capture-context seeds concerns from factory-internal lists, not template files)
+
+**Out:**
+
+- Planning-agent and developer-agent concern consumption (EPIC 11)
+- Agent and skill definition path updates (EPIC 12)
+- testing.yaml resolution chain updates in other consumers (EPIC 12 -- capture-context handles it during migration, but crap-score, detect-test-regime, and init-factory need separate updates)
+
+### Dependencies
+
+EPIC 9 (concern-lint must exist to validate capture-context output; the rulebook defines what capture-context must produce).
+
+### Boundaries
+
+- Skill definition: `factory/skills/capture-context/SKILL.md` (rewrite from YAML to concern model)
+- Skill definition: `factory/skills/update-context/SKILL.md` (body replaced with deprecation notice)
+- State file: `docs/agent-context.md` (output artifact)
+- YAML templates: `factory/rulebooks/templates/context-*.yaml` (deleted)
+
+### Size
+
+3 stories.
+
+### Building-Block Inventory
+
+| Story   | Capability                                                                         | Tier     | Size | Basis                                                                                                                         |
+| ------- | ---------------------------------------------------------------------------------- | -------- | ---- | ----------------------------------------------------------------------------------------------------------------------------- |
+| ST-0218 | Rewrite capture-context greenfield mode to produce agent-context.md with concerns  | standard | M    | Medium complexity (scan + concern proposal + markdown output), low uncertainty (scan logic reused from existing skill)        |
+| ST-0219 | Rewrite capture-context brownfield mode with documentation discovery and interview | standard | M    | Medium complexity (doc discovery + concern-based interview), low uncertainty (interview pattern reused from existing skill)   |
+| ST-0220 | Auto-detect YAML format and offer interactive migration; retire update-context     | standard | M    | Medium complexity (YAML-to-concern mapping + file relocation + deletion), medium uncertainty (YAML content varies by project) |
+
+## EPIC 11: Route agents by concern during planning and implementation
+
+### Why this EPIC exists
+
+The concern model exists (EPIC 9) and can be produced (EPIC 10), but no agent uses it yet. The core payoff of the concern-oriented model is that a planning-agent declares which concerns a story touches and a developer-agent reads only the matching context sections -- replacing hardcoded file lists with concern-driven routing. Without this EPIC, the concern registry is a document no agent consults.
+
+### Actor Goals
+
+- Planning-agent (the agent that breaks specifications into backlog stories) writes a `concerns:` field into each story's frontmatter, declaring which domain and technical concerns apply, drawn from the controlled vocabulary in `agent-context.md`
+- Planning-agent proposes new concern sections for user confirmation when a story needs a concern not in the registry
+- backlog-lint (the story validation script) validates the `concerns:` field schema and concern-lint validates that declared concern names match headings in `agent-context.md` (CTX-REFS check)
+- Developer-agent (the agent that implements a single story) reads its story's `concerns:` field and follows the matching sections in `agent-context.md` instead of a hardcoded file list
+
+### Demo
+
+1. The planning-agent writes a story with `concerns: {domain: [billing], technical: [backend, data-storage]}` in its frontmatter.
+2. The user runs `backlog-lint`. It accepts the `concerns:` field without error.
+3. The user runs `concern-lint`. The CTX-REFS check confirms that "billing", "backend", and "data-storage" all have matching headings in `agent-context.md`.
+4. The user changes "billing" to "invoicing" (which has no heading). `concern-lint` reports a CTX-REFS finding.
+5. The planning-agent encounters an unregistered concern "payments". It proposes a new concern section (name, description, initial file list) for user confirmation instead of coining the name silently.
+6. A developer-agent is dispatched with the story. It reads the `concerns:` field, follows the "billing", "backend", and "data-storage" sections in `agent-context.md`, and loads only the relevant conventions and specs.
+
+### Scope
+
+**In:**
+
+- Planning-agent update -- write `concerns:` field into story frontmatter from the controlled vocabulary in `agent-context.md`; when a story needs a concern not in the registry, propose the new section (name, description, initial file list) for user confirmation before adding it
+- backlog-lint schema extension -- accept `concerns:` as a valid frontmatter field with structure `{domain: [string], technical: [string]}` (both keys optional)
+- Story template update -- add `concerns:` to the frontmatter schema in `factory/rulebooks/templates/story.md`
+- CTX-REFS check in concern-lint -- validate that every concern name in any story's `concerns:` frontmatter has a matching heading in `agent-context.md`
+- Developer-agent update -- read the story's `concerns:` field; for each declared domain and technical concern, follow the matching section in `agent-context.md` to discover which files to read; replace the current hardcoded project-native file list approach
+
+**Out:**
+
+- Implementation-agent (dispatcher) changes -- concern resolution is implicit via the include chain, no dispatcher logic needed
+- Updates to other agents (virgil, reconciliation-agent, etc.) -- EPIC 12
+
+### Dependencies
+
+EPIC 9 (concern-lint must exist for CTX-REFS; the rulebook defines the concern categories and controlled vocabulary rule).
+
+### Boundaries
+
+- Agent definition: `factory/agents/planning-agent.md` (writes `concerns:` and proposes new concerns)
+- Agent definition: `factory/agents/developer-agent.md` (reads `concerns:` and follows matching sections)
+- Validator: `factory/scripts/backlog-lint` (schema extension for `concerns:` field)
+- Validator: `concern-lint` (CTX-REFS check addition)
+- Template: `factory/rulebooks/templates/story.md` (frontmatter schema update)
+
+### Size
+
+2 stories.
+
+### Building-Block Inventory
+
+| Story   | Capability                                                                           | Tier     | Size | Basis                                                                                                        |
+| ------- | ------------------------------------------------------------------------------------ | -------- | ---- | ------------------------------------------------------------------------------------------------------------ |
+| ST-0221 | Write concerns into story frontmatter and validate concern references                | standard | M    | Medium complexity (planning-agent behavioral change + backlog-lint schema + CTX-REFS check), low uncertainty |
+| ST-0222 | Read story concerns in developer-agent and follow matching agent-context.md sections | economy  | S    | Low complexity (prose update to developer-agent definition + implementation-agent context), low uncertainty  |
+
+## EPIC 12: Propagate concern model and relocate testing.yaml
+
+### Why this EPIC exists
+
+EPICs 9 through 11 deliver the concern model, its production tooling, and its consumption by planning and development agents. But the rest of the factory still references `docs/agent-context/*.yaml` paths, `docs/charter/` fallbacks, and project-native file lists in agent and skill definitions. Until every consumer resolves context through the concern registry and `testing.yaml` sits at its new location (`docs/testing.yaml`), a project using the concern model will break on its first factory workflow outside of planning and development. This EPIC is the wiring pass that makes the concern model usable end-to-end.
+
+### Actor Goals
+
+- `testing.yaml` resolves at `docs/testing.yaml` across all consumers -- `detect-test-regime` (the skill that writes it), `crap-score` (the gate script that reads it), `init-factory` (the setup script that scaffolds it), and every agent definition that references its path
+- `virgil` (the session-guide agent) references `agent-context.md` instead of YAML files during fitting
+- `reconciliation-agent` (the post-implementation documentation reconciler) replaces its YAML-based agent-context health check (Step 6: compare against `context-interview-guide.yaml`) with a concern-registry health check (verify that every concern section has valid `Read:` paths and that the concern vocabulary matches the project's documentation structure)
+- `init-factory` generates the appropriate CLI-specific include directive for `docs/agent-context.md` (Claude Code: `@docs/agent-context.md` in CLAUDE.md; Copilot: reference from `.github/` instructions; Pi: reference from `.pi/` instructions; Codex: reference from `.codex/` instructions)
+- All agent and skill definitions carry no project-native file lists (`docs/handbook/`, `docs/spec/supplementary_specs/`, `docs/adr/` paths in `inputs:` lists) -- they reference concerns or factory-canonical artifacts only
+- Old YAML templates (`factory/rulebooks/templates/context-*.yaml`) are deleted and old YAML files can be deleted without breaking any factory agent, skill, or gate
+
+### Demo
+
+1. The user runs `detect-test-regime`. It writes `testing.yaml` at `docs/testing.yaml`.
+2. The user runs `crap-score`. It resolves `testing.yaml` at `docs/testing.yaml`.
+3. The user runs `init-factory`. It scaffolds `testing.yaml` at `docs/testing.yaml` and generates `@docs/agent-context.md` in the CLI orientation file.
+4. The user runs `grep -rn 'docs/agent-context/\*.yaml\|docs/charter/' factory/agents/ factory/skills/`. Zero matches.
+5. The user runs `grep -rn 'docs/handbook/\|docs/spec/supplementary_specs/' factory/agents/`. Zero matches in `inputs:` lists (factory-canonical paths like `docs/spec/scope-map.md` remain).
+6. The user runs the reconciliation-agent. Its Step 6 validates concern sections in `agent-context.md` instead of comparing against `context-interview-guide.yaml`.
+7. The user deletes `docs/agent-context/stack.yaml`, `workflow.yaml`, `governance.yaml`, `reading-guides.yaml`, and the `docs/agent-context/` directory. No factory workflow breaks.
+
+### Scope
+
+**In:**
+
+- testing.yaml relocation -- move `testing.yaml` from `docs/agent-context/testing.yaml` (or `docs/charter/testing.yaml`) to `docs/testing.yaml`; update the resolution path in `detect-test-regime` skill, `crap-score` script, `init-factory` script, and all agent definitions that reference the old path; no fallback to legacy paths
+- virgil update -- fitting logic references `agent-context.md` instead of YAML files; fitting step 2 invokes the concern-model `capture-context` instead of the YAML-model version
+- reconciliation-agent update -- Step 6 replaced: instead of comparing against `context-interview-guide.yaml` template and YAML index files, validate that every concern section in `agent-context.md` has valid `Read:` paths and that the concern vocabulary matches the project's documentation structure
+- init-factory update -- generate CLI-specific include directive for `docs/agent-context.md` per CLI type (Claude Code, Copilot CLI, Pi, Codex); scaffold `testing.yaml` at `docs/testing.yaml` instead of `docs/agent-context/testing.yaml`
+- Agent and skill definition sweep -- replace project-native file lists (`docs/handbook/`, `docs/spec/supplementary_specs/`, `docs/adr/` in `inputs:` sections) with concern references ("follow the concerns relevant to your work in `agent-context.md`"); factory-canonical artifact paths (`docs/spec/scope-map.md`, `docs/arc42/architecture.dsl`, `backlog/ST-*.md`, etc.) stay as concrete paths
+- YAML template deletion -- `factory/rulebooks/templates/context-*.yaml` (stack, workflow, governance, reading-guides, interview-guide) deleted
+- YAML file cleanup -- old `docs/agent-context/*.yaml` files (stack, workflow, governance, reading-guides) deletable without breaking any factory consumer
+
+**Out:**
+
+- Automated concern derivation from code changes (explicitly deferred per proposal)
+- Concern-level impact analysis (explicitly deferred per proposal)
+- Cross-project concern federation (explicitly deferred per proposal)
+
+### Dependencies
+
+EPIC 9 (concern model must be defined and lint must exist). EPIC 10 (capture-context must produce the concern format; migration must handle testing.yaml relocation during project migration). EPIC 11 (planning-agent and developer-agent concern consumption must exist before the sweep removes their project-native file lists).
+
+### Boundaries
+
+- Skill definition: `factory/skills/detect-test-regime/SKILL.md` (testing.yaml path update)
+- Script: `factory/scripts/crap-score` (testing.yaml resolution update)
+- Script: `factory/scripts/init-factory` (testing.yaml path + CLI include directive generation)
+- Agent definitions: `factory/agents/virgil.md`, `factory/agents/reconciliation-agent.md`, and all other agents (path updates + concern references)
+- Skill definitions: all skills referencing agent-context or charter paths
+- YAML templates: `factory/rulebooks/templates/context-*.yaml` (deletion)
+
+### Size
+
+3 stories.
+
+### Building-Block Inventory
+
+| Story   | Capability                                                                              | Tier     | Size | Basis                                                                                                                               |
+| ------- | --------------------------------------------------------------------------------------- | -------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| ST-0223 | Relocate testing.yaml to docs/testing.yaml and update all resolution chains             | standard | M    | Medium complexity (path updates in ~8 files across skills, scripts, and agent definitions), low uncertainty                         |
+| ST-0224 | Update virgil, reconciliation-agent, and init-factory for the concern model             | standard | M    | Medium complexity (3 behavioral updates: fitting references, health check procedure, include directive generation), low uncertainty |
+| ST-0225 | Replace project-native file lists with concern references and delete old YAML templates | economy  | M    | Low complexity (mechanical find-replace across ~15 agent/skill definitions), high effort (many files), low uncertainty              |

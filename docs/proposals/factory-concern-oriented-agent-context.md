@@ -50,17 +50,17 @@ governance:
 
 estimate:
   as_of: 2026-09-08
-  basis: judgment
-  confidence: low
+  basis: decomposition
+  confidence: medium
   human_review_hours:
-    min: 2.0
-    max: 4.0
+    min: 1.5
+    max: 3.0
   normalized_tokens:
-    min: 15000
-    max: 25000
+    min: 12000
+    max: 20000
   estimated_consumption:
-    min: 225000
-    max: 625000
+    min: 180000
+    max: 500000
     overhead_multiplier: 15
     playbook: feature-addition
 ---
@@ -251,22 +251,22 @@ The staleness lint (see Validation below) is the safety net that catches forgott
 
 The current `context-lint` validates seven properties of the YAML files (CX-FILE, CX-PARSE, CX-KEYS, CX-NULL, CX-SRC-EXIST, CX-SRC-STALE, CX-GUIDE-REF, CX-FORMAT). Most are YAML-structural checks that do not apply to the markdown format. The replacement, `concern-lint`, validates four properties of `agent-context.md`:
 
-| Check                       | ID          | What it validates                                                                                                                              |
-| --------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Section structure           | CL-SECTIONS | Every expected category heading exists (Always, Technical, Domain). Each concern section has a description line and at least one `Read:` path. |
-| Path resolution             | CL-PATHS    | Every path in a `Read:` or `Boundary:` line resolves to an existing file or glob match.                                                        |
-| Concern-reference integrity | CL-REFS     | Every concern name in a story's `concerns:` frontmatter has a matching heading in `agent-context.md`.                                          |
-| Format exclusivity          | CL-FORMAT   | A project does not have both YAML agent-context files and the markdown concern registry. One model or the other, not both.                     |
+| Check                       | ID           | What it validates                                                                                                                                       |
+| --------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Section structure           | CTX-SECTIONS | Every expected category heading exists (Always, Technical, Domain). Each concern section has a description line and at least one `Read:` path.          |
+| Path resolution             | CTX-PATHS    | Every path in a `Read:` or `Boundary:` line resolves to an existing file or glob match.                                                                 |
+| Concern-reference integrity | CTX-REFS     | Every concern name in a story's `concerns:` frontmatter has a matching heading in `agent-context.md`.                                                   |
+| No legacy residue           | CTX-LEGACY   | No YAML agent-context files (`docs/agent-context/*.yaml` other than `testing.yaml`) or `docs/charter/` directory remain alongside the concern registry. |
 
 `concern-lint` runs as part of `validate`, replacing `context-lint` in the gate sequence. It also runs on demand.
 
-**Legacy charter validation.** The current `context-lint` also validates `docs/charter/*.md` projects (CH-\* codes). `concern-lint` does not drop this — it retains the CH-\* checks for projects that still use the charter format. Format detection works the same way: if `docs/charter/` exists, run the CH-\* checks; if `docs/agent-context.md` exists in concern format, run the CL-\* checks; if YAML agent-context files exist, run the CX-\* checks. CL-FORMAT ensures only one model is active per project. The charter path is maintained until a separate proposal retires it.
+**Legacy formats retired.** The charter format (`docs/charter/`) and the YAML agent-context format (`docs/agent-context/*.yaml`) are both obsolete. `concern-lint` does not validate either. The CTX-LEGACY check flags their presence as residue that should be removed or migrated.
 
 ### What stays as YAML
 
 `testing.yaml` remains as machine-consumed configuration: test commands, suite definitions, gate thresholds, marker registrations. Scripts parse it for values. It is not a routing artifact and agents do not read it for context navigation.
 
-`testing.yaml` moves from `docs/agent-context/testing.yaml` to `docs/testing.yaml`. The `docs/agent-context/` directory is deleted entirely — leaving it as a container for a single file would look like an incomplete migration. The resolution chain in `concern-lint`, `detect-test-regime`, and gate scripts (`crap-score`, etc.) updates to look for `docs/testing.yaml` first, falling back to `docs/charter/testing.yaml` for projects that use the charter format.
+`testing.yaml` moves from `docs/agent-context/testing.yaml` to `docs/testing.yaml`. The `docs/agent-context/` directory is deleted entirely — leaving it as a container for a single file would look like an incomplete migration. The resolution chain in `concern-lint`, `detect-test-regime`, and gate scripts (`crap-score`, etc.) updates to resolve `docs/testing.yaml` as the single location. No fallback to legacy paths.
 
 ### What is deleted
 
@@ -339,11 +339,11 @@ Interview flow: instead of confirming YAML field values one at a time, the user 
 - Updated `planning-agent`: writes `concerns` field into story frontmatter from the controlled vocabulary. When a story needs a concern not in the registry, the planning-agent proposes the new section for user confirmation.
 - Updated `developer-agent`: reads story concerns, follows matching sections in `agent-context.md`.
 - Updated `implementation-agent` (dispatcher): no concern resolution logic needed — resolution is implicit via the include chain.
-- Updated `virgil`: fitting logic references `agent-context.md` instead of YAML files with charter fallback.
+- Updated `virgil`: fitting logic references `agent-context.md` instead of YAML files.
 - Updated `reconciliation-agent`: input references updated from YAML to concern sections. The current Step 6 (compare against `context-interview-guide.yaml` template and YAML index files) is replaced by a concern-registry health check: verify that every concern section in `agent-context.md` still has valid `Read:` paths and that the concern vocabulary matches the project's current documentation structure.
 - `concern-lint` replaces `context-lint` in `validate`.
 - Updated `init-factory`: generates CLI-specific include directives for `docs/agent-context.md`.
-- Updated `detect-test-regime` skill and gate scripts (`crap-score`, etc.): resolve `testing.yaml` at `docs/testing.yaml` with charter fallback.
+- Updated `detect-test-regime` skill and gate scripts (`crap-score`, etc.): resolve `testing.yaml` at `docs/testing.yaml`.
 - Updated agent definitions that reference `docs/agent-context/testing.yaml`: path updated to `docs/testing.yaml`.
 - Agent and skill definitions updated: project-native file lists replaced with concern references; factory-canonical artifact paths retained.
 - Migration guide: how to convert an existing YAML-based agent-context to the concern model.
@@ -356,15 +356,15 @@ Interview flow: instead of confirming YAML field values one at a time, the user 
 
 ## Completion Criteria
 
-- `agent-context-composition.md` rulebook describes the concern model with three categories, the `agent-context.md` structure, the controlled vocabulary rule, the advisory nature of concern declarations, and the concern-lint checks.
+- `agent-context-composition.md` rulebook describes the concern model with three categories, the `agent-context.md` structure, the controlled vocabulary rule, the advisory nature of concern declarations, and the `concern-lint` checks (CTX-SECTIONS, CTX-PATHS, CTX-REFS, CTX-LEGACY).
 - `capture-context` produces `agent-context.md` concern sections from a repo scan instead of the four YAML files.
 - `update-context` skill body is a deprecation notice pointing to direct `agent-context.md` editing; invoking it produces no error and no side effects.
 - `planning-agent` writes `concerns:` into story frontmatter.
 - `developer-agent` reads its story's concerns and follows matching `agent-context.md` sections.
 - `virgil` references `agent-context.md` instead of YAML files.
 - `reconciliation-agent` references `agent-context.md` instead of YAML files. Its agent-context health check (formerly Step 6 comparing against `context-interview-guide.yaml`) validates that every concern section has valid `Read:` paths and that the concern vocabulary matches the project's documentation structure.
-- `testing.yaml` lives at `docs/testing.yaml` and continues to work as machine config. The resolution chain in `detect-test-regime`, gate scripts (`crap-score`, etc.), and agent definitions resolves the new path, with a fallback to `docs/charter/testing.yaml` for charter-format projects.
-- `concern-lint` replaces `context-lint` in `validate`. It runs CL-SECTIONS, CL-PATHS, CL-REFS, CL-FORMAT for concern-model projects, retains CH-\* checks for charter-format projects, and retains CX-\* checks for YAML-format projects still in transition. Format detection selects the appropriate check set.
+- `testing.yaml` lives at `docs/testing.yaml` and continues to work as machine config. The resolution chain in `detect-test-regime`, gate scripts (`crap-score`, etc.), and agent definitions resolves the new path.
+- `concern-lint` replaces `context-lint` in `validate`. It runs CTX-SECTIONS, CTX-PATHS, CTX-REFS, CTX-LEGACY. No legacy format validation — charter and YAML agent-context are retired.
 - `init-factory` generates the appropriate include directive per CLI.
 - Agent and skill definitions carry no project-native file lists; they reference concerns or factory-canonical artifacts only.
 - `planning-agent` proposes new concern sections for user confirmation when a story needs a concern not in the registry.
