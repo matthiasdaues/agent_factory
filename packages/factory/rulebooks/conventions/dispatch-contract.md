@@ -233,7 +233,7 @@ The dispatch completed successfully — all stories in the wave reached terminal
    - If the story's branch is blocked: record the block reason in the ledger and leave the branch and worktree for manual resolution — the developer who owns the block decides whether to resume or abandon it.
 4. Commit the final ledger state.
 
-The key distinction: **merged branches are safe to delete** (the work is on main), **blocked branches are left in place** (the developer may resume), and the ledger preserves the reason for future reference.
+The key distinction: **merged branches are safe to delete** (the work is on the target branch), **blocked branches are left in place** (the developer may resume), and the ledger preserves the reason for future reference.
 
 ### Abandoned Close
 
