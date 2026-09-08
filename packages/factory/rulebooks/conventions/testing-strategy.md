@@ -48,7 +48,7 @@ linter coexist here:
 - **Team linters** (ruff, eslint, mypy, formatters, pre-commit hooks the
   team already runs) own code quality. When a project already has linting
   and formatting in place, the factory does not duplicate or override it.
-- **Factory linters** (context-lint, backlog-lint, spec-lint,
+- **Factory linters** (concern-lint, backlog-lint, spec-lint,
   transition-lint, index-lint) validate factory-specific artifact shapes
   that the team's tools do not know about. They are always additive.
 

@@ -43,9 +43,9 @@ Orient newcomers warmly and briefly.
     - `config/model.conf` — the model matrix. Maps agent tiers (economy,
       standard, strong) to AI model ids per CLI. Configured during fitting
       or by editing the file directly.
-    - `docs/agent-context/` — does not exist yet. Created during the first
-      real playbook run when the assistant interviews the user about their
-      stack, workflow, and governance.
+    - `docs/agent-context.md` — does not exist yet. Created during fitting
+      via `capture-context`, which scans the repo and proposes concerns
+      (cross-cutting, technical, domain) for agent routing.
 
     Keep this to one short explanation per artifact. The point is awareness,
     not mastery.

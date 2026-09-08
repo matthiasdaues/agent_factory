@@ -209,7 +209,7 @@ ORIENTATION_END = "<!-- <<< agent_factory orientation <<< -->"
 # to the file's directory); Copilot CLI and Pi have no native include so the
 # full AGENTS.md content is inlined between the markers.
 ORIENTATION_INCLUDE = {
-    ".claude": "@../factory/config/AGENTS.md\n",
+    ".claude": "@../factory/config/AGENTS.md\n@../docs/agent-context.md\n",
 }
 
 RULEBOOK_LINK_TARGETS = {
@@ -991,6 +991,7 @@ def _orientation_block(dot_dir: str, factory: Path) -> str:
         target = RULEBOOK_LINK_TARGETS.get(dot_dir)
         if target is not None:
             body = body.replace("](../rulebooks/rules.md)", f"]({target})")
+        body += "\nRead [`docs/agent-context.md`](docs/agent-context.md) for project context.\n"
     return (
         ORIENTATION_BEGIN
         + "\n"
@@ -2319,26 +2320,17 @@ def _derive_fitting_keys(target: Path) -> dict:
             fingerprint_confirmed = True
 
     agent_context_populated = False
-    stack_path = target / "docs" / "agent-context" / "stack.yaml"
-    if stack_path.exists():
+    context_md_path = target / "docs" / "agent-context.md"
+    if context_md_path.exists():
         try:
-            parsed = _parse_simple_yaml_mapping(stack_path.read_text(encoding="utf-8"))
+            content = context_md_path.read_text(encoding="utf-8").strip()
         except OSError:
-            parsed = {}
-        agent_context_populated = _has_populated_leaf(parsed, exclude_keys=frozenset({"mode"}))
+            content = ""
+        # Populated when the file has content beyond a bare heading line.
+        lines = [l for l in content.splitlines() if l.strip() and not l.startswith("#")]
+        agent_context_populated = len(lines) > 0
 
-    test_regime_detected = (
-        (target / "docs" / "agent-context" / "testing.yaml").exists()
-        or (target / "docs" / "charter" / "testing.yaml").exists()
-    )
-    if not test_regime_detected:
-        workflow_path = target / "docs" / "agent-context" / "workflow.yaml"
-        if workflow_path.exists():
-            try:
-                parsed = _parse_simple_yaml_mapping(workflow_path.read_text(encoding="utf-8"))
-            except OSError:
-                parsed = {}
-            test_regime_detected = _has_populated_leaf(parsed.get("testing"))
+    test_regime_detected = (target / "docs" / "testing.yaml").exists()
 
     hooks_decided = False
     precommit_path = target / ".pre-commit-config.yaml"
@@ -2868,24 +2860,15 @@ def _scan_test_entrypoints(target: Path) -> list[tuple[str, str]]:
 
 
 def _resolve_testing_yaml(target: Path) -> Path:
-    """Return the testing.yaml path via format detection."""
-    ac_path = target / "docs" / "agent-context" / "testing.yaml"
-    if ac_path.is_file():
-        return ac_path
-    charter_path = target / "docs" / "charter" / "testing.yaml"
-    if charter_path.is_file():
-        return charter_path
-    ac_dir = target / "docs" / "agent-context"
-    if ac_dir.is_dir():
-        return ac_path
-    return ac_path
+    """Return the canonical testing.yaml path at docs/testing.yaml."""
+    return target / "docs" / "testing.yaml"
 
 
 def _write_testing_yaml(target: Path, command: str) -> None:
     path = _resolve_testing_yaml(target)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        "# docs/agent-context/testing.yaml — project test command declaration\n"
+        "# docs/testing.yaml — project test command declaration\n"
         "# Detected by Agent Factory's detect-test-regime scan during init-factory.\n"
         "# Code is the source of truth; this file is a derived record — re-run\n"
         "# the detect-test-regime skill by hand once the project's test setup\n"
@@ -2898,8 +2881,8 @@ def _write_testing_yaml(target: Path, command: str) -> None:
 
 def detect_test_regime(target: Path, report: list[str]) -> None:
     """Scan for an existing test regime and record it in
-    testing.yaml (docs/agent-context/ or docs/charter/ via format detection)
-    — the deterministic core of the detect-test-regime skill (step 2: one
+    testing.yaml (docs/testing.yaml) — the deterministic core of the
+    detect-test-regime skill (step 2: one
     entrypoint records, several ask rather than guess, none surfaces the
     gap). Never writes to .pre-commit-config.yaml: test hooks stay
     project-owned (BR-029)."""

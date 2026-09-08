@@ -19,10 +19,8 @@ inputs:
   - docs/spec/*.feature
   - docs/spec/scope-map.md
   - docs/spec/supplementary_specs/*.md
-  - docs/*.md
-  - docs/adr/*.md
-  - docs/agent-context/*.yaml (falls back to docs/charter/*.md for legacy projects)
   - docs/CONTEXT.md
+  - docs/agent-context.md (shared registry; concern resolution implicit in CLI orientation)
   - factory/rulebooks/conventions/branching-policy.md
   - factory/rulebooks/conventions/dispatch-contract.md
   - factory/scripts/crap-score
@@ -94,7 +92,7 @@ For Pi: `review` mode uses `run_agent` (serial), never `dispatch_wave`.
 
 ## Workflow
 
-1. **Load backlog + initialise dispatch run** — Parse all `backlog/ST-*.md`: `id`, `status`, `deps`, `tier`, `outputs`. Build the dependency graph and identify **ready stories** (`status: pending`, all `deps` done). Read the project context from `docs/agent-context/*.yaml` (falls back to `docs/charter/*.md` for legacy projects) for model selection and dispatch strategy. **MUST** call `factory/scripts/dispatch init --base <base-branch> --feature-branch feature/<proposal-title> --stories <comma-separated-story-ids>` as the first action before creating any story branches — the `--feature-branch` flag names the invocation branch per the branching model; without it the script falls back to an `impl/` default that violates the `feature/<proposal-title>` convention. The script creates the invocation branch/worktree, preflights output directories, records branch root, and initialises the ledger under `.current-work/`. The `block-dangerous-git.sh` hook enforces this: commits on `story/*` branches are denied when no dispatch ledger exists in the main checkout. If resuming, recover state from the ledger instead of reconstructing from git history.
+1. **Load backlog + initialise dispatch run** — Parse all `backlog/ST-*.md`: `id`, `status`, `deps`, `tier`, `outputs`. Build the dependency graph and identify **ready stories** (`status: pending`, all `deps` done). Read the project context from `docs/agent-context.md` for model selection and dispatch strategy. Concern resolution for each story is implicit: the CLI's native include chain (`@docs/agent-context.md` in CLAUDE.md) makes the full registry available to dispatched developers, and each developer reads its story's `concerns:` field to follow matching sections. No dispatcher-side concern resolution logic is needed. **MUST** call `factory/scripts/dispatch init --base <base-branch> --feature-branch feature/<proposal-title> --stories <comma-separated-story-ids>` as the first action before creating any story branches — the `--feature-branch` flag names the invocation branch per the branching model; without it the script falls back to an `impl/` default that violates the `feature/<proposal-title>` convention. The script creates the invocation branch/worktree, preflights output directories, records branch root, and initialises the ledger under `.current-work/`. The `block-dangerous-git.sh` hook enforces this: commits on `story/*` branches are denied when no dispatch ledger exists in the main checkout. If resuming, recover state from the ledger instead of reconstructing from git history.
 2. **Plan wave** — Call `factory/scripts/dispatch plan --backlog-dir backlog [--stories <ids>]`. Group ready stories by declared `outputs:` overlap (in addition to dependency-readiness, not instead of it):
    - **Epic 0 scheduling**: Stories with `epic: "Epic 0 — Project Setup"` go to **wave 1** with highest priority. No feature story dispatches until all must-have Epic 0 stories reach terminal state. Feature stories carry `deps:` on the final Epic 0 story, which chains from all others — the dependency graph enforces precedence automatically.
    - **Parallel-safe set**: file-disjoint stories → dispatch in parallel within the wave.
@@ -125,7 +123,7 @@ After the developer-agent commits and the dispatcher verifies the commit SHA (St
 
 #### Quality-gates resolution
 
-Gates come from two inputs: the `gates` section in `testing.yaml` (at `docs/agent-context/testing.yaml`, falling back to `docs/charter/testing.yaml` for legacy projects), and the story-level `quality-gates` override field.
+Gates come from two inputs: the `gates` section in `testing.yaml` (at `docs/testing.yaml`), and the story-level `quality-gates` override field.
 
 **Gate discovery from `testing.yaml`:** Read the `gates` section. Include each gate where `enabled` is `true`; skip where `false`. Pass gate-specific parameters (e.g. `threshold` for `crap_score`) to the script at invocation time.
 
@@ -162,7 +160,7 @@ When any gate fails:
 
 #### Iteration cap and escalation
 
-Maximum fix iterations per tier: **3** (tunable in `docs/agent-context/governance.yaml` or `docs/charter/house-rules.md` via `max_gate_fix_iterations`). Iteration 1 is the original implementation; 2 and 3 are fix attempts.
+Maximum fix iterations per tier: **3**. Iteration 1 is the original implementation; 2 and 3 are fix attempts.
 
 When the cap is hit at the current tier:
 

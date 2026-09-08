@@ -49,8 +49,8 @@ After setup, several things exist that you will encounter later. You do not need
 - **`config/project.json`** — your project's identity card: a stable UUID, the name you gave at install time, and your declared test command. You will never edit this by hand in normal use.
 - **`config/model.conf`** — the model matrix. It controls which AI model handles which kind of work. Economy agents handle routine tasks; strong agents handle architecture and review. If you use multiple AI coding CLIs, each one gets its own mapping here. The fitting walk-through (below) helps you configure it; greenfield projects get sensible defaults.
 - **`config/project-context.json`** — a deterministic scan of your project's languages, frameworks, CI, linters, test runners, and docs structure. Written once at install time; the fitting process uses it to confirm what the scan found. Greenfield projects get an empty scan with `fitting.status: "greenfield"`.
-- **`docs/agent-context/testing.yaml`** — if init-factory detects a single unambiguous test entrypoint (a `Makefile` test target, `pytest.ini`, `package.json` test script, etc.), it records the `test_command` here. When multiple candidates exist, it asks you to choose; when none are found, the file is not created.
-- **`docs/agent-context/`** — does not exist yet (apart from `testing.yaml` above, if created). The rest is created during your first real playbook run, when the assistant interviews you about your project's stack, workflow, and governance. Think of it as a small switchboard that tells agents where your project's knowledge lives, so they look things up instead of guessing.
+- **`docs/testing.yaml`** — if init-factory detects a single unambiguous test entrypoint (a `Makefile` test target, `pytest.ini`, `package.json` test script, etc.), it records the `test_command` here. When multiple candidates exist, it asks you to choose; when none are found, the file is not created.
+- **`docs/agent-context.md`** — does not exist yet. Created during fitting via `capture-context`, which scans the repo and proposes concerns (cross-cutting, technical, domain) for agent routing. Think of it as a small switchboard that tells agents where your project's knowledge lives, so they look things up instead of guessing.
 
 All of these are local configuration, not project source — they are git-ignored and belong to your machine.
 
@@ -636,7 +636,7 @@ Precedence: an explicit `--model` flag overrides `model.conf`, which overrides t
 
 Agent Factory adds pre-commit hooks to `.pre-commit-config.yaml`. This is the one tracked file the install modifies (besides a `.gitignore` block). Every hook id starts with `agent_factory_hook-`, so the block is easy to find, easy to audit, and safe to remove.
 
-The hooks fall into two groups. The formatter — `mdformat` for Markdown — auto-fixes style on commit. Gate scripts — `link-check`, `mermaid-lint`, `spec-lint`, `arch-lint`, `backlog-lint`, `context-lint`, `matrix-lint`, `statemachine-lint`, `index-lint`, `transition-lint` — reject a commit when a deterministic check fails.
+The hooks fall into two groups. The formatter — `mdformat` for Markdown — auto-fixes style on commit. Gate scripts — `link-check`, `mermaid-lint`, `spec-lint`, `arch-lint`, `backlog-lint`, `concern-lint`, `matrix-lint`, `statemachine-lint`, `index-lint`, `transition-lint` — reject a commit when a deterministic check fails.
 
 #### Nothing is installed into your project
 

@@ -173,13 +173,13 @@ See [UC-08](../../~archive/spec/use_cases/UC-08-initialize-agent-factory-into-a-
 
 ## `factory/scripts/backlog-lint`
 
-|               |                                                                                                                                                                        |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage         | `backlog-lint [--backlog-dir DIR] [--format text\|json] [--report-only]`                                                                                               |
-| Reads         | Story files in `backlog/ST-*.md`                                                                                                                                       |
-| Writes        | Nothing; validation is read-only                                                                                                                                       |
-| Exit code     | Count of error-severity findings (`0` = clean), unless `--report-only` (always `0`)                                                                                    |
-| Finding codes | `BL-ID`, `BL-MISSING`, `BL-EXTRA`, `BL-ENUM`, `BL-TYPE`, `BL-DEP`, `BL-FILE`, `BL-EMPTY`, `BL-NAME`, `BL-PARSE`, `BL-DUP-ID`, `BL-CYCLE`, `BL-DUP`, `VR-027`, `VR-028` |
+|               |                                                                                                                                                                                    |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage         | `backlog-lint [--backlog-dir DIR] [--format text\|json] [--report-only]`                                                                                                           |
+| Reads         | Story files in `backlog/ST-*.md`                                                                                                                                                   |
+| Writes        | Nothing; validation is read-only                                                                                                                                                   |
+| Exit code     | Count of error-severity findings (`0` = clean), unless `--report-only` (always `0`)                                                                                                |
+| Finding codes | `BL-ID`, `BL-MISSING`, `BL-EXTRA`, `BL-ENUM`, `BL-TYPE`, `BL-DEP`, `BL-FILE`, `BL-EMPTY`, `BL-NAME`, `BL-PARSE`, `BL-DUP-ID`, `BL-CYCLE`, `BL-DUP`, `BL-NOTES`, `VR-027`, `VR-028` |
 
 ### StoryFrontmatter schema
 
@@ -198,15 +198,18 @@ All stories must have YAML frontmatter with the following fields:
 
 #### Optional fields
 
-| Field          | Type             | Notes                                                                                              |
-| -------------- | ---------------- | -------------------------------------------------------------------------------------------------- |
-| `deps`         | array of strings | Story IDs that must complete first; must match pattern `ST-\d{4,}`                                 |
-| `traces`       | array of strings | Use Case / ADR / component IDs this story implements                                               |
-| `tests`        | array of strings | Pre-existing test file paths covering acceptance criteria; missing files generate warnings only    |
-| `risk_domains` | array of strings | Closed enum: `security`, `privacy`, `data_integrity`, `compatibility`, `reliability`, `operations` |
-| `strategy`     | string           | Closed enum: `direct`, `seams-first`, `deletion`; defaults to `direct` when absent                 |
-| `seam_outputs` | array of strings | Optional seams-first test outputs; validated only when present                                     |
-| `impl_outputs` | array of strings | Optional seams-first implementation outputs; validated only when present                           |
+| Field           | Type             | Notes                                                                                                                         |
+| --------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `deps`          | array of strings | Story IDs that must complete first; must match pattern `ST-\d{4,}`                                                            |
+| `traces`        | array of strings | Use Case / ADR / component IDs this story implements                                                                          |
+| `tests`         | array of strings | Pre-existing test file paths covering acceptance criteria; missing files generate warnings only                               |
+| `risk_domains`  | array of strings | Closed enum: `security`, `privacy`, `data_integrity`, `compatibility`, `reliability`, `operations`                            |
+| `strategy`      | string           | Closed enum: `direct`, `seams-first`, `deletion`; defaults to `direct` when absent                                            |
+| `seam_outputs`  | array of strings | Optional seams-first test outputs; validated only when present                                                                |
+| `impl_outputs`  | array of strings | Optional seams-first implementation outputs; validated only when present                                                      |
+| `concerns`      | mapping          | `{domain: [string], technical: [string]}`; both keys optional. Names must match `###` headings in `docs/agent-context.md`     |
+| `quality-gates` | array of strings | Closed enum: `crap-score`, `mutation-analysis`, `dependency-check`; omitting a default gate requires justification in `notes` |
+| `notes`         | string           | Free-text; required justification when `quality-gates` omits a default gate                                                   |
 
 ### Validation rules
 
@@ -220,6 +223,8 @@ All stories must have YAML frontmatter with the following fields:
 - `seam_outputs` and `impl_outputs` are optional arrays of strings; when both are present, they must not share any path
 - `strategy: seams-first` requires `seam_outputs ∪ impl_outputs == outputs`
 - Machine field names (`tier`, `deps`, `traces`, `outputs`) must not appear as prose headings or bold terms in the story body
+- `concerns` must be a mapping with only `domain` and `technical` keys (both optional); each value must be a list of strings
+- `quality-gates` is a closed enum (`crap-score`, `mutation-analysis`, `dependency-check`); omitting a factory-default gate requires justification in `notes`
 
 ## `factory/scripts/charter-lint`
 
@@ -396,6 +401,23 @@ risk_classes:
 `testing.yaml` resolution is independent: `docs/agent-context/testing.yaml` first, `docs/charter/testing.yaml` as fallback. No `CX-FORMAT` error for the split location.
 
 See [agent-context.feature](../agent-context.feature).
+
+## `factory/scripts/concern-lint`
+
+|               |                                                       |
+| ------------- | ----------------------------------------------------- |
+| Usage         | `concern-lint [--root DIR] [--format text\|json]`     |
+| Reads         | `docs/agent-context.md`, `backlog/ST-*.md`            |
+| Writes        | Nothing; validation is read-only                      |
+| Exit code     | Count of error-severity findings (`0` = clean)        |
+| Finding codes | `CTX-SECTIONS`, `CTX-PATHS`, `CTX-LEGACY`, `CTX-REFS` |
+
+### Checks
+
+- **CTX-SECTIONS** — Required category headings (`## Always (cross-cutting)`, `## Technical concerns`, `## Domain concerns`) exist; each `###` concern section has a description line and at least one `Read:` path.
+- **CTX-PATHS** — Every path in a `Read:` or `Boundary:` line resolves to an existing file or glob match, relative to root.
+- **CTX-LEGACY** — No legacy YAML agent-context files (other than `testing.yaml`) or `docs/charter/` directory exist alongside `docs/agent-context.md`.
+- **CTX-REFS** — Every concern name in any story's `concerns:` frontmatter has a matching `###` heading under "Technical concerns" or "Domain concerns" in `agent-context.md`. Active only when both `docs/agent-context.md` and `backlog/ST-*.md` files exist.
 
 ## Referenced from
 

@@ -17,8 +17,8 @@ inputs:
   - docs/spec/*.feature
   - docs/spec/scope-map.md
   - docs/spec/supplementary_specs/*.md
-  - docs/agent-context/*.yaml (falls back to docs/charter/*.md for legacy projects)
-  - docs/agent-context/testing.yaml (falls back to docs/charter/testing.yaml)
+  - docs/agent-context.md
+  - docs/testing.yaml
   - docs/*.md
   - docs/adr/*.md
 outputs:
@@ -50,7 +50,7 @@ Break specification and architecture into **tracer bullet** **vertical slices**.
 
 ### Pre-flight — Testing regime check
 
-Before slicing stories, verify that `testing.yaml` exists (at `docs/agent-context/testing.yaml`, falling back to `docs/charter/testing.yaml` for legacy projects) and contains at least one suite. If missing or empty, invoke `detect-test-regime` to populate it, then continue. The planning agent needs suite information to map acceptance criteria to existing tests and to pick the right suite for new ones.
+Before slicing stories, verify that `testing.yaml` exists (at `docs/testing.yaml`) and contains at least one suite. If missing or empty, invoke `detect-test-regime` to populate it, then continue. The planning agent needs suite information to map acceptance criteria to existing tests and to pick the right suite for new ones.
 
 Read the document at `testing_strategy:` in `testing.yaml` for test budgets, cluster assignments, and how to populate each story's `tests:` field.
 
@@ -97,6 +97,18 @@ Write `backlog/ST-NNNN.md` files with MoSCoW priorities, dependencies, and `back
 All indexed artifacts (backlog stories, proposals, findings) are committed to `dev`. The `dev` branch is the single canonical index for sequential IDs (ST-NNNN, PROP-NN, etc.). All stories are committed with `status: pending`. Never commit indexed artifacts to a feature branch.
 
 For tier suggestions, cite the authoritative rubric table in [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md#tier-rubric) and do not copy it here.
+
+## Concern Declarations
+
+When writing story frontmatter, include a `concerns:` field that declares which domain and technical concerns the story touches. The field structure is `concerns: {domain: [string], technical: [string]}` with both keys optional.
+
+### Rules
+
+1. **Draw from the controlled vocabulary.** Concern names must match `###` headings under "Technical concerns" or "Domain concerns" in `docs/agent-context.md`. Do not invent ad-hoc names.
+2. **Cross-cutting concerns are never declared.** Concerns listed under "Always (cross-cutting)" are always active and must not appear in a story's `concerns:` field.
+3. **Both keys are optional.** A story may declare only domain concerns, only technical concerns, or both. Omit the key entirely when the category does not apply.
+4. **Omit when no concern applies.** When a story does not touch any registered domain or technical concern, omit the `concerns:` field rather than writing an empty mapping.
+5. **Propose unregistered concerns.** When a story needs a concern that has no heading in `agent-context.md`, do not add the name silently. Instead, propose the new concern section to the user for confirmation. The proposal must include: the concern name, a one-line description, and an initial Read file list. Only add the name to the story after the user confirms.
 
 ## Completion Criteria
 

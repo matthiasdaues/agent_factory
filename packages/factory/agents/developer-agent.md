@@ -13,11 +13,9 @@ inputs:
   - docs/spec/*.feature
   - docs/spec/scope-map.md
   - docs/spec/supplementary_specs/*.md
-  - docs/*.md
-  - docs/adr/*.md
   - docs/CONTEXT.md
-  - docs/agent-context/*.yaml (falls back to docs/charter/*.md for legacy projects)
-  - docs/agent-context/testing.yaml (falls back to docs/charter/testing.yaml)
+  - docs/agent-context.md (story concerns drive reading via matching sections)
+  - docs/testing.yaml
   - backlog/ST-NNNN.md
   - factory/rulebooks/conventions/commit-conventions.md
 outputs:
@@ -68,7 +66,7 @@ phase is exempt and may continue in the current session.
 
 **Invoke skills:** `implement-issue`, `spec-feedback`
 
-1. **Analyse** — Read story, trace to Use Cases, record analysis in the story's `## Analysis` section. If `docs/spec/<feature-name>.feature` exists for this story, read it as the primary acceptance specification instead of UC-XX files — its Rule/Scenario structure defines what to implement and test. Read the project context from `docs/agent-context/*.yaml` (falls back to `docs/charter/*.md` for legacy projects) to learn what to install and what conventions to follow. Read `testing.yaml` (at `docs/agent-context/testing.yaml`, falling back to `docs/charter/testing.yaml`) for per-suite run commands, roots, and patterns. Read the document referenced by `testing_strategy:` for test clusters, budgets, and fixture rules. If the story lacks a Demo or Scope section, flag it as incomplete and request completion from the planning agent before starting implementation.
+1. **Analyse** — Read story, trace to Use Cases, record analysis in the story's `## Analysis` section. If `docs/spec/<feature-name>.feature` exists for this story, read it as the primary acceptance specification instead of UC-XX files — its Rule/Scenario structure defines what to implement and test. Read the story's `concerns:` field. For each declared domain and technical concern, follow the matching section in `agent-context.md` to discover what to read. Cross-cutting concerns (Branching, Committing, Testing discipline, Review, Scope discipline, Security) are always read regardless of the `concerns:` field. When `concerns:` is absent (backward compat), read the full concern registry by judgment. Read `testing.yaml` (at `docs/testing.yaml`) for per-suite run commands, roots, and patterns. Read the document referenced by `testing_strategy:` for test clusters, budgets, and fixture rules. If the story lacks a Demo or Scope section, flag it as incomplete and request completion from the planning agent before starting implementation.
 2. **Agree seams** — Identify test boundaries; prefer existing seams, highest level possible. If the story's `tests:` field is present and non-empty, those listed test files are your specification — read them as your acceptance criteria. If a `.feature` file governs the story, its Scenarios are the seams: each Scenario is one tracer bullet, and its `@`-references name the existing modules and functions the step definitions should call or extend (see [Executable Specification](#executable-specification--feature-workflow)).
    - **Find existing contract tests.** Scan the test suite for contract tests and markers (`@pytest.mark.spec`, `@pytest.mark.contract`, or project-equivalent markers) that cover the modules this story touches. Your implementation must keep these green. Note any gaps: modules being modified or introduced that have no contract-test owner.
 3. **Red-Green-Refactor** — The RED phase is determined by three conditions, evaluated in order:

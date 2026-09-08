@@ -14,8 +14,8 @@ inputs:
   - docs/spec/prd.md
   - docs/spec/*.feature
   - docs/spec/scope-map.md
-  - docs/spec/supplementary_specs/*.md
   - docs/spec/todos.md
+  - docs/agent-context.md
   - factory/rulebooks/conventions/report-format.md
   - factory/rulebooks/conventions/finding-format.md
   - factory/rulebooks/conventions/review-loop-discipline.md

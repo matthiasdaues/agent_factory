@@ -15,11 +15,10 @@ inputs:
   - docs/spec/prd.md
   - docs/spec/*.feature
   - docs/spec/scope-map.md
-  - docs/spec/supplementary_specs/*.md
   - docs/*.md
-  - docs/adr/*.md
   - docs/arc42/architecture.dsl
   - docs/assets/images/*
+  - docs/agent-context.md
   - factory/rulebooks/conventions/report-format.md
   - factory/rulebooks/conventions/finding-format.md
   - factory/rulebooks/conventions/review-loop-discipline.md

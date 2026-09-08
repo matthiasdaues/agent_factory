@@ -28,7 +28,9 @@ TOP=$(git rev-parse --show-toplevel 2>/dev/null)
 # the deny patterns below, same as before.
 resolve_testing_yaml() {
   local root="$1"
-  if [ -f "$root/docs/agent-context/testing.yaml" ]; then
+  if [ -f "$root/docs/testing.yaml" ]; then
+    echo "$root/docs/testing.yaml"
+  elif [ -f "$root/docs/agent-context/testing.yaml" ]; then
     echo "$root/docs/agent-context/testing.yaml"
   elif [ -f "$root/docs/charter/testing.yaml" ]; then
     echo "$root/docs/charter/testing.yaml"
