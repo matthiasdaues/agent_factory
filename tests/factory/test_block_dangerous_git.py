@@ -120,6 +120,38 @@ class TestLedgerGateOnStoryBranch:
         assert "dispatch init" in result.stderr
 
 
+class TestTestingYamlResolution:
+    """resolve_testing_yaml finds docs/testing.yaml at the canonical path."""
+
+    def test_docs_testing_yaml_allows_declared_command(self, tmp_path):
+        """Test command declared in docs/testing.yaml is allowed."""
+        main = tmp_path / "main"
+        _init_repo(main)
+        testing_yaml = main / "docs" / "testing.yaml"
+        testing_yaml.parent.mkdir(parents=True, exist_ok=True)
+        testing_yaml.write_text('test_command: "echo test-ok"\n')
+
+        result = _run_hook("echo test-ok", cwd=main)
+        assert result.returncode == 0
+
+    def test_docs_testing_yaml_takes_precedence(self, tmp_path):
+        """docs/testing.yaml is preferred over docs/agent-context/testing.yaml."""
+        main = tmp_path / "main"
+        _init_repo(main)
+        # Write canonical path with one command
+        canonical = main / "docs" / "testing.yaml"
+        canonical.parent.mkdir(parents=True, exist_ok=True)
+        canonical.write_text('test_command: "echo canonical"\n')
+        # Write legacy path with a different command
+        legacy = main / "docs" / "agent-context" / "testing.yaml"
+        legacy.parent.mkdir(parents=True, exist_ok=True)
+        legacy.write_text('test_command: "echo legacy"\n')
+
+        # Canonical command should be allowed
+        result = _run_hook("echo canonical", cwd=main)
+        assert result.returncode == 0
+
+
 class TestLedgerGateDoesNotAffectMainCheckout:
     """Commits in the main checkout (not a worktree) skip the ledger check."""
 

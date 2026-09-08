@@ -465,7 +465,7 @@ def main(argv: list[str] | None = None) -> int:
     counts = {s: sum(1 for f in findings if f.severity == s) for s in SEVERITY_ORDER}
 
     _output(findings, counts, args.fmt)
-    return counts["error"]
+    return min(counts["error"], 1)
 
 
 def _output(findings: list[Finding], counts: dict[str, int], fmt: str) -> None:

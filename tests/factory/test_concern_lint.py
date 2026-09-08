@@ -224,3 +224,20 @@ class TestExitCode:
         root = _copy_fixture("missing_heading", tmp_path / "project")
         _, _, rc = _run(root)
         assert rc != 0
+
+    def test_exit_code_clamped_to_one(self, tmp_path: Path) -> None:
+        """Multiple errors still exit 1, not the raw error count."""
+        root = _copy_fixture("bad_path", tmp_path / "project")
+        findings, summary, rc = _run(root)
+        # bad_path has 3 nonexistent Read: paths → 3 CTX-PATHS errors
+        assert summary["error"] >= 2
+        assert rc == 1
+
+    def test_no_agent_context_exits_clean(self, tmp_path: Path) -> None:
+        """When docs/agent-context.md does not exist, concern-lint exits 0."""
+        root = tmp_path / "empty_project"
+        root.mkdir()
+        findings, summary, rc = _run(root)
+        assert rc == 0
+        assert summary["error"] == 0
+        assert findings == []
