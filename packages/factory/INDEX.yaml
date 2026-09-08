@@ -20,8 +20,8 @@ agents:
     tier: standard
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
-    tokens: 2707
-    total_tokens: 14599
+    tokens: 2449
+    total_tokens: 14071
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
@@ -74,8 +74,8 @@ agents:
     tier: strong
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
-    tokens: 1002
-    total_tokens: 6454
+    tokens: 1299
+    total_tokens: 6751
   - name: implementation-agent
     title: Implementation Agent (Dispatcher)
     phase: 4
@@ -92,8 +92,8 @@ agents:
     tier: strong
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
-    tokens: 1923
-    total_tokens: 14619
+    tokens: 1920
+    total_tokens: 14616
   - name: qa-agent
     title: QA Agent
     phase: 5
@@ -160,7 +160,7 @@ skills:
     category: requirements
     description: Initialize docs/agent-context.md — the concern-based routing interface between agents and project knowledge. --init scans the repo, seeds cross-cutting concerns, proposes technical and domain concerns, and writes the file. --init --scan adds brownfield documentation discovery.
     path: skills/capture-context/SKILL.md
-    tokens: 3121
+    tokens: 2851
   - name: capture-vision
     category: requirements
     description: Capture a project vision through structured interview.
@@ -470,7 +470,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3030
-    total_tokens: 31513
+    total_tokens: 31510
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -493,7 +493,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 944
-    total_tokens: 36729
+    total_tokens: 36726
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -509,7 +509,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4799
-    total_tokens: 78038
+    total_tokens: 78332
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -527,7 +527,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 3167
-    total_tokens: 77491
+    total_tokens: 77785
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
