@@ -23,7 +23,7 @@ Each story records in `traces`: the scope-map Rule(s) it implements, the arc42 c
 
 Judge each story's `tier` (`economy | standard | strong`) — the model strength its work needs, same vocabulary as agent frontmatter's `tier`.
 
-When agent-context index files exist, read `docs/agent-context/reading-guides.yaml` to discover relevant sections, follow the key-path references, and extract concrete implementation names (test framework, deployment target, API framework) for use in acceptance criteria instead of placeholders (falls back to `docs/charter/*.md` for legacy projects).
+When `docs/agent-context.md` exists, read the concerns relevant to the story's scope and extract concrete implementation names (test framework, deployment target, API framework) for use in acceptance criteria instead of placeholders.
 
 For each story, cross-reference against the testing regime:
 

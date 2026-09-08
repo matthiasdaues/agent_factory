@@ -120,13 +120,14 @@ under `docs/agent-context/` does not trigger the CTX-LEGACY check.
 
 ## Validation: concern-lint
 
-`concern-lint` validates `docs/agent-context.md` with three checks:
+`concern-lint` validates `docs/agent-context.md` with four checks:
 
-| Check             | ID           | What it validates                                                                                                              |
-| ----------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| Section structure | CTX-SECTIONS | Every required category heading exists. Each concern section has a description line and at least one `Read:` path.             |
-| Path resolution   | CTX-PATHS    | Every path in a `Read:` or `Boundary:` line resolves to an existing file or glob match.                                        |
-| No legacy residue | CTX-LEGACY   | No `.yaml` files (other than `testing.yaml`) under `docs/agent-context/`, and no `docs/charter/` directory alongside the file. |
+| Check                       | ID           | What it validates                                                                                                              |
+| --------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| Section structure           | CTX-SECTIONS | Every required category heading exists. Each concern section has a description line and at least one `Read:` path.             |
+| Path resolution             | CTX-PATHS    | Every path in a `Read:` or `Boundary:` line resolves to an existing file or glob match.                                        |
+| Concern-reference integrity | CTX-REFS     | Every concern name in a story's `concerns:` frontmatter has a matching heading in `agent-context.md`.                          |
+| No legacy residue           | CTX-LEGACY   | No `.yaml` files (other than `testing.yaml`) under `docs/agent-context/`, and no `docs/charter/` directory alongside the file. |
 
 `concern-lint` exits 0 when all checks pass and non-zero when any check
 fails. It runs as part of the `validate` skill (gate #12) and as a

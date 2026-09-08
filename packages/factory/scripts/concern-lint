@@ -7,6 +7,7 @@
 What: Validates docs/agent-context.md with CTX-* finding codes:
       CTX-SECTIONS (required category headings and concern structure),
       CTX-PATHS (file path resolution for Read: and Boundary: lines),
+      CTX-REFS (concern names in story frontmatter match registry headings),
       CTX-LEGACY (no legacy YAML or charter residue alongside the
       concern-format file).
 When: Pre-commit hook when agent-context.md or docs/ files change.

@@ -387,9 +387,9 @@ sections; `docs/testing.yaml` exists if a `testing.yaml` was present;
 
 ## Validation reference
 
-| Script                         | Checks                                                                                     |
-| ------------------------------ | ------------------------------------------------------------------------------------------ |
-| `factory/scripts/concern-lint` | section structure (CTX-SECTIONS), path resolution (CTX-PATHS), legacy residue (CTX-LEGACY) |
+| Script                         | Checks                                                                                                                             |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `factory/scripts/concern-lint` | section structure (CTX-SECTIONS), path resolution (CTX-PATHS), concern-reference integrity (CTX-REFS), legacy residue (CTX-LEGACY) |
 
 `validate` runs `concern-lint` automatically once `docs/agent-context.md`
 exists — invoking it here is a courtesy check during the interactive

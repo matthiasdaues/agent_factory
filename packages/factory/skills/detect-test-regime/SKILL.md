@@ -54,7 +54,7 @@ invent a command the project cannot actually run.
 ## Output schema
 
 ```yaml
-testing_strategy: docs/charter/testing-strategy.md
+testing_strategy: docs/testing-strategy.md
 
 test_all: "make test && make frontend_test"   # composite command, all suites
 

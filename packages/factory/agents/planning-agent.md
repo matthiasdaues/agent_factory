@@ -17,7 +17,7 @@ inputs:
   - docs/spec/*.feature
   - docs/spec/scope-map.md
   - docs/spec/supplementary_specs/*.md
-  - docs/agent-context/*.yaml (falls back to docs/charter/*.md for legacy projects)
+  - docs/agent-context.md
   - docs/testing.yaml
   - docs/*.md
   - docs/adr/*.md

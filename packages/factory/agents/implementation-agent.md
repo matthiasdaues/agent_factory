@@ -160,7 +160,7 @@ When any gate fails:
 
 #### Iteration cap and escalation
 
-Maximum fix iterations per tier: **3** (tunable in `docs/agent-context/governance.yaml` or `docs/charter/house-rules.md` via `max_gate_fix_iterations`). Iteration 1 is the original implementation; 2 and 3 are fix attempts.
+Maximum fix iterations per tier: **3**. Iteration 1 is the original implementation; 2 and 3 are fix attempts.
 
 When the cap is hit at the current tier:
 
