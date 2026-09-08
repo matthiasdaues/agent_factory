@@ -229,7 +229,7 @@ The dispatch completed successfully — all stories in the wave reached terminal
 1. Verify every story in the dispatch has a terminal status in the ledger — `done` (merged), `blocked`, or `failed`.
 2. Run `git worktree prune` to remove stale worktree references.
 3. For each worktree owned by the dispatch:
-   - If the story's branch was merged to the target: `git worktree remove` and `git branch -d` the feature branch (safe delete — the commit already exists on main).
+   - If the story's branch was merged to the target: `git worktree remove` and `git branch -d` the story branch (safe delete — the commit already exists on the target branch).
    - If the story's branch is blocked: record the block reason in the ledger and leave the branch and worktree for manual resolution — the developer who owns the block decides whether to resume or abandon it.
 4. Commit the final ledger state.
 
