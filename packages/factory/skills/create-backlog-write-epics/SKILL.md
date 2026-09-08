@@ -9,6 +9,8 @@ disable-model-invocation: false
 
 Write `backlog/epics.md` from the approved EPIC slicing approach. This is phase 2 of the [create-backlog sequence](../create-backlog/SKILL.md#operational-sequence). Story format, composition rules, and the done check live in the [parent skill](../create-backlog/SKILL.md).
 
+Write for an international Team whose members have English as a common, but not as a native language.
+
 **Prerequisite:** the EPIC-level slice table has been approved by the user (output of [`create-backlog-epics`](../create-backlog-epics/SKILL.md)).
 
 ## Step 1 — Write backlog/epics.md

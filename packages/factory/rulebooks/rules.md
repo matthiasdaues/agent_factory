@@ -29,6 +29,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 → [foundational-principles.md](conventions/foundational-principles.md)
 
 - **MUST** write short, precise prose following plain English by Strunk & White, or "Gutes Deutsch" by Wolf Schneider, depending on language.
+- **MUST** write for an international Team whose members have English as a common, but not as a native language.
 - **MUST** write so that a junior gets it and a senior who hates marketing, hyperbole, adverbs and adjectives respects it.
 - **MUST** keep each skill/agent transmission short and independently verifiable (Eichhorst's Principle).
 - **MUST** separate agentic creation from deterministic validation — agents create artifacts; mechanically triggered gates run scripts that validate against predefined, state-dependent criteria.

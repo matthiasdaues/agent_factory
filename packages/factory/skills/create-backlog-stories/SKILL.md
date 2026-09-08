@@ -11,6 +11,8 @@ disable-model-invocation: false
 
 Write story files from confirmed slice tables, validate, and present the final backlog. This is phase 4 of the [create-backlog sequence](../create-backlog/SKILL.md#operational-sequence). Story format, composition rules, and the done check live in the [parent skill](../create-backlog/SKILL.md).
 
+Write for an international Team whose members have English as a common, but not as a native language.
+
 **Prerequisite:** story-level slice tables have been confirmed by the user (output of [`create-backlog-story-slices`](../create-backlog-story-slices/SKILL.md)).
 
 ## Step 2 — Break EPICs into User Stories
