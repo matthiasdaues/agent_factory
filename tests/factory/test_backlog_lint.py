@@ -222,6 +222,94 @@ class TestCheckBacklog:
         assert any(f.code == "BL-DUP-ID" for f in findings)
 
 
+class TestConcernsField:
+    """The concerns field is optional and accepted without BL-EXTRA warning.
+
+    Structure: concerns: {domain: [string], technical: [string]}, both keys
+    optional.
+    """
+
+    def _make_fm(self, **overrides):
+        base = {
+            "id": "ST-0001",
+            "epic": "EPIC-1",
+            "title": "Test story",
+            "tier": "standard",
+            "status": "pending",
+            "outputs": ["test.py"],
+        }
+        base.update(overrides)
+        return base
+
+    def test_concerns_field_accepted(self, tmp_path):
+        """A story with a valid concerns field produces no BL-EXTRA warning."""
+        fm = self._make_fm(concerns={"domain": ["billing"], "technical": ["backend"]})
+        path = tmp_path / "ST-0001.md"
+        path.touch()
+        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        extra = [f for f in findings if f.code == "BL-EXTRA"]
+        assert extra == []
+
+    def test_concerns_field_optional(self, tmp_path):
+        """A story without concerns produces no error."""
+        fm = self._make_fm()
+        path = tmp_path / "ST-0001.md"
+        path.touch()
+        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        errors = [f for f in findings if f.severity == "error"]
+        assert errors == []
+
+    def test_concerns_domain_only(self, tmp_path):
+        """Concerns with only domain key is valid."""
+        fm = self._make_fm(concerns={"domain": ["billing"]})
+        path = tmp_path / "ST-0001.md"
+        path.touch()
+        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        extra = [f for f in findings if f.code == "BL-EXTRA"]
+        assert extra == []
+
+    def test_concerns_technical_only(self, tmp_path):
+        """Concerns with only technical key is valid."""
+        fm = self._make_fm(concerns={"technical": ["backend"]})
+        path = tmp_path / "ST-0001.md"
+        path.touch()
+        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        extra = [f for f in findings if f.code == "BL-EXTRA"]
+        assert extra == []
+
+    def test_concerns_invalid_type_errors(self, tmp_path):
+        """Concerns must be a mapping, not a string."""
+        fm = self._make_fm(concerns="backend")
+        path = tmp_path / "ST-0001.md"
+        path.touch()
+        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        assert any(f.code == "BL-TYPE" and "concerns" in f.message for f in findings)
+
+    def test_concerns_domain_not_list_errors(self, tmp_path):
+        """concerns.domain must be a list of strings."""
+        fm = self._make_fm(concerns={"domain": "billing"})
+        path = tmp_path / "ST-0001.md"
+        path.touch()
+        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        assert any(f.code == "BL-TYPE" and "domain" in f.message for f in findings)
+
+    def test_concerns_technical_not_list_errors(self, tmp_path):
+        """concerns.technical must be a list of strings."""
+        fm = self._make_fm(concerns={"technical": 42})
+        path = tmp_path / "ST-0001.md"
+        path.touch()
+        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        assert any(f.code == "BL-TYPE" and "technical" in f.message for f in findings)
+
+    def test_concerns_unknown_subkey_warns(self, tmp_path):
+        """Keys other than domain/technical in concerns trigger a warning."""
+        fm = self._make_fm(concerns={"domain": ["billing"], "other": ["x"]})
+        path = tmp_path / "ST-0001.md"
+        path.touch()
+        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        assert any(f.code == "BL-TYPE" and "other" in f.message for f in findings)
+
+
 class TestDetectCycles:
     def test_no_cycle(self):
         graph = {"A": ["B"], "B": ["C"], "C": []}

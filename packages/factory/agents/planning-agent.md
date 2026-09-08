@@ -98,6 +98,18 @@ All indexed artifacts (backlog stories, proposals, findings) are committed to `d
 
 For tier suggestions, cite the authoritative rubric table in [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md#tier-rubric) and do not copy it here.
 
+## Concern Declarations
+
+When writing story frontmatter, include a `concerns:` field that declares which domain and technical concerns the story touches. The field structure is `concerns: {domain: [string], technical: [string]}` with both keys optional.
+
+### Rules
+
+1. **Draw from the controlled vocabulary.** Concern names must match `###` headings under "Technical concerns" or "Domain concerns" in `docs/agent-context.md`. Do not invent ad-hoc names.
+2. **Cross-cutting concerns are never declared.** Concerns listed under "Always (cross-cutting)" are always active and must not appear in a story's `concerns:` field.
+3. **Both keys are optional.** A story may declare only domain concerns, only technical concerns, or both. Omit the key entirely when the category does not apply.
+4. **Omit when no concern applies.** When a story does not touch any registered domain or technical concern, omit the `concerns:` field rather than writing an empty mapping.
+5. **Propose unregistered concerns.** When a story needs a concern that has no heading in `agent-context.md`, do not add the name silently. Instead, propose the new concern section to the user for confirmation. The proposal must include: the concern name, a one-line description, and an initial Read file list. Only add the name to the story after the user confirms.
+
 ## Completion Criteria
 
 - Every User Goal covered by exactly one EPIC

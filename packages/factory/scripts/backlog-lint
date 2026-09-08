@@ -54,6 +54,7 @@ FACTORY_DEFAULT_QUALITY_GATES = ("crap-score", "dependency-check")
 RE_STORY_ID = re.compile(r"^ST-\d{4,}$")
 REQUIRED_FIELDS = {"id", "epic", "title", "tier", "status", "outputs"}
 OPTIONAL_FIELDS = {
+    "concerns",
     "deps",
     "traces",
     "tests",
@@ -64,6 +65,7 @@ OPTIONAL_FIELDS = {
     "seam_outputs",
     "impl_outputs",
 }
+VALID_CONCERN_KEYS = {"domain", "technical"}
 ALL_FIELDS = REQUIRED_FIELDS | OPTIONAL_FIELDS
 
 # Machine fields whose names must not appear as standalone terms in the prose body.
@@ -87,7 +89,7 @@ class Finding:
 
 
 def _parse_yaml_value(raw: str) -> Any:
-    """Minimal YAML value parser — handles strings, lists, booleans, null."""
+    """Minimal YAML value parser — handles strings, lists, mappings, booleans, null."""
     val = raw.strip()
     if not val or val in ("~", "null"):
         return None
@@ -101,7 +103,52 @@ def _parse_yaml_value(raw: str) -> Any:
         if not inner.strip():
             return []
         return [_unquote(t.strip()) for t in inner.split(",") if t.strip()]
+    # Inline flow mapping: {key: value, key2: [a, b]}
+    if val.startswith("{") and val.endswith("}"):
+        return _parse_flow_mapping(val[1:-1])
     return _unquote(val)
+
+
+def _parse_flow_mapping(inner: str) -> Dict[str, Any]:
+    """Parse the contents of a YAML inline flow mapping.
+
+    Handles nested flow sequences as values:
+    ``domain: [billing], technical: [backend]``
+    """
+    result: Dict[str, Any] = {}
+    if not inner.strip():
+        return result
+
+    # Split on commas that are not inside brackets
+    depth = 0
+    parts: List[str] = []
+    current: List[str] = []
+    for ch in inner:
+        if ch == "[":
+            depth += 1
+            current.append(ch)
+        elif ch == "]":
+            depth -= 1
+            current.append(ch)
+        elif ch == "," and depth == 0:
+            parts.append("".join(current))
+            current = []
+        else:
+            current.append(ch)
+    if current:
+        parts.append("".join(current))
+
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+        colon_idx = part.find(":")
+        if colon_idx < 0:
+            continue
+        key = part[:colon_idx].strip()
+        val = part[colon_idx + 1 :].strip()
+        result[key] = _parse_yaml_value(val)
+    return result
 
 
 def _unquote(s: str) -> str:
@@ -306,6 +353,41 @@ def check_story(
                 f"strategy '{strategy}' not in {{direct, seams-first, deletion}}",
             )
         )
+
+    # --- concerns: optional mapping with domain/technical string lists ---
+    concerns = fm.get("concerns")
+    if concerns is not None:
+        if not isinstance(concerns, dict):
+            out.append(
+                Finding(
+                    "BL-TYPE", "error", rel, "concerns must be a mapping"
+                )
+            )
+        else:
+            for key in sorted(concerns.keys()):
+                if key not in VALID_CONCERN_KEYS:
+                    out.append(
+                        Finding(
+                            "BL-TYPE",
+                            "error",
+                            rel,
+                            f"concerns contains unknown key '{key}' "
+                            "(expected domain or technical)",
+                        )
+                    )
+                else:
+                    val = concerns[key]
+                    if not isinstance(val, list) or not all(
+                        isinstance(v, str) for v in val
+                    ):
+                        out.append(
+                            Finding(
+                                "BL-TYPE",
+                                "error",
+                                rel,
+                                f"concerns.{key} must be a list of strings",
+                            )
+                        )
 
     # --- quality-gates: type, enum, and default-coverage notes ---
     quality_gates = fm.get("quality-gates")

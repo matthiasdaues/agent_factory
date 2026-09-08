@@ -26,6 +26,11 @@ risk_domains: [security, reliability]   # optional; choose the smallest closed s
 strategy: direct                  # optional; choose seams-first only when acceptance criteria are
                                   # testable assertions and the implementation path is not obvious
                                   # from the tests alone; use direct otherwise
+concerns: {domain: [billing], technical: [backend, data-storage]}
+                                  # optional; declares which domain and technical concerns the
+                                  # story touches. Both keys are optional. Names must match ###
+                                  # headings in docs/agent-context.md. Cross-cutting concerns
+                                  # are never declared (always active).
 quality-gates: [crap-score, mutation-analysis, dependency-check]
                                   # optional; list the semantic gates that apply to this story
                                   # outputs. Default precedence: story field > house-rules.md
@@ -72,6 +77,10 @@ docs/CONTEXT.md; include only terms the reader needs to understand this story.>
 ```
 
 ## Frontmatter Fields
+
+### concerns (optional)
+
+Mapping with optional `domain` and `technical` keys, each a list of strings. Declares which registered concerns from `docs/agent-context.md` the story touches. Names must match `###` headings under "Technical concerns" or "Domain concerns". Cross-cutting concerns are never declared because they are always active. Omit the field when no registered concern applies.
 
 ### tests (optional)
 

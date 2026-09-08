@@ -290,6 +290,133 @@ def check_legacy(root: Path) -> list[Finding]:
 
 
 # ---------------------------------------------------------------------------
+# CTX-REFS: concern names in story frontmatter vs agent-context headings
+# ---------------------------------------------------------------------------
+
+
+def _parse_story_frontmatter(text: str) -> dict[str, str] | None:
+    """Extract frontmatter dict from a story file's ---delimited YAML.
+
+    Minimal parser: handles inline flow sequences and flow mappings for the
+    concerns field.  Returns None when no frontmatter is found.
+    """
+    lines = text.split("\n")
+    if not lines or lines[0].strip() != "---":
+        return None
+    end = None
+    for i, ln in enumerate(lines[1:], start=1):
+        if ln.strip() == "---":
+            end = i
+            break
+    if end is None:
+        return None
+
+    fm: dict[str, object] = {}
+    for ln in lines[1:end]:
+        m = re.match(r"^([A-Za-z_][A-Za-z0-9_-]*)\s*:\s*(.*)?$", ln)
+        if m:
+            key = m.group(1)
+            raw = (m.group(2) or "").strip()
+            if raw.startswith("{") and raw.endswith("}"):
+                fm[key] = _parse_flow_mapping_simple(raw[1:-1])
+            else:
+                fm[key] = raw
+    return fm
+
+
+def _parse_flow_mapping_simple(inner: str) -> dict[str, list[str]]:
+    """Parse a YAML inline flow mapping with list values.
+
+    Handles: ``domain: [billing], technical: [backend]``
+    """
+    result: dict[str, list[str]] = {}
+    if not inner.strip():
+        return result
+
+    depth = 0
+    parts: list[str] = []
+    current: list[str] = []
+    for ch in inner:
+        if ch == "[":
+            depth += 1
+            current.append(ch)
+        elif ch == "]":
+            depth -= 1
+            current.append(ch)
+        elif ch == "," and depth == 0:
+            parts.append("".join(current))
+            current = []
+        else:
+            current.append(ch)
+    if current:
+        parts.append("".join(current))
+
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+        colon_idx = part.find(":")
+        if colon_idx < 0:
+            continue
+        key = part[:colon_idx].strip()
+        val = part[colon_idx + 1:].strip()
+        if val.startswith("[") and val.endswith("]"):
+            items = [t.strip() for t in val[1:-1].split(",") if t.strip()]
+            result[key] = items
+        else:
+            result[key] = [val] if val else []
+    return result
+
+
+def check_refs(concerns: list[ConcernSection], root: Path) -> list[Finding]:
+    """Validate that every concern name in story frontmatter has a matching
+    heading in agent-context.md under Technical or Domain concerns."""
+    findings: list[Finding] = []
+
+    backlog_dir = root / "backlog"
+    if not backlog_dir.is_dir():
+        return findings
+
+    # Collect valid concern names from Technical/Domain headings
+    valid_names: set[str] = set()
+    for concern in concerns:
+        if concern.category in ("Technical concerns", "Domain concerns"):
+            valid_names.add(concern.name)
+
+    # Scan story files
+    for story_file in sorted(backlog_dir.glob("ST-*.md")):
+        try:
+            text = story_file.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        fm = _parse_story_frontmatter(text)
+        if fm is None:
+            continue
+        concern_field = fm.get("concerns")
+        if not isinstance(concern_field, dict):
+            continue
+
+        story_name = story_file.name
+        for category_key in ("domain", "technical"):
+            names = concern_field.get(category_key)
+            if not isinstance(names, list):
+                continue
+            for name in names:
+                if name not in valid_names:
+                    findings.append(
+                        Finding(
+                            "CTX-REFS",
+                            "error",
+                            story_name,
+                            f"concern '{name}' in {category_key} has no matching "
+                            f"heading in agent-context.md",
+                        )
+                    )
+
+    return findings
+
+
+# ---------------------------------------------------------------------------
 # Driver
 # ---------------------------------------------------------------------------
 
@@ -331,6 +458,7 @@ def main(argv: list[str] | None = None) -> int:
     findings += check_sections(found_categories, concerns)
     findings += check_paths(concerns, root)
     findings += check_legacy(root)
+    findings += check_refs(concerns, root)
 
     findings.sort(key=lambda f: (-SEVERITY_ORDER[f.severity], f.code, f.artifact))
     counts = {s: sum(1 for f in findings if f.severity == s) for s in SEVERITY_ORDER}
