@@ -6,7 +6,7 @@ description: >-
   cross-cutting concerns, proposes technical and domain concerns, and
   writes the file. --init --scan adds brownfield documentation discovery.
 category: requirements
-version: 3.0.0
+version: 4.0.0
 disable-model-invocation: false
 ---
 
@@ -210,119 +210,86 @@ are populated from the scope map or left empty with a note;
 
 ## `--init --scan` (brownfield onboarding)
 
-Discovers existing documentation signals in a project, runs a concern-based
-interview, populates index files with name and source pointers, and
-generates `reading-guides.yaml`. Legacy markdown charter projects are
-detected via format detection and offered optional migration.
+Runs the full greenfield `--init` flow (Steps 0–4 above: guard, repository
+scan, cross-cutting seeding, technical proposals, domain proposals) and
+adds one thing: discovery of existing project documentation, folded into
+a concern-based interview that enriches each concern's `Read:` paths
+before the file is written. Migrating an already-populated YAML
+agent-context (`docs/agent-context/*.yaml`) to the concern format is a
+separate, bare `capture-context` invocation — out of scope here.
 
-### Step 1 — Legacy detection
+### Step 1 — Guard, scan, and proposals
 
-Run format detection (the three-step chain from context-lint). If the
-project has `docs/charter/tech-stack.md` (legacy markdown charter) and no
-`docs/agent-context/` directory:
+Run greenfield Steps 0–4 exactly as written: guard against an existing
+`docs/agent-context.md`, scan the repository, seed the six cross-cutting
+concerns, and propose technical and domain concerns from the detected
+stack and scope map. Do not ask for confirmation yet — Step 3 below
+confirms each concern together with its discovered `Read:` paths in one
+pass.
 
-1. Tell the user: "This project uses legacy markdown charter files.
-   Would you like to migrate to YAML agent-context?"
-2. If the user **declines**: stop here — leave the markdown charter
-   unchanged, do not create `docs/agent-context/`, and exit. The project
-   continues using its existing charter files.
-3. If the user **confirms**: proceed to Step 2. The migration happens
-   as a side effect of the brownfield scan populating the new YAML files.
+### Step 2 — Documentation discovery
 
-If `docs/agent-context/` already exists, skip this step.
+Scan the project for existing documentation. Look for these common
+patterns:
 
-### Step 2 — Create the skeleton
+| Pattern                                      | Indicates                                                            | Candidate concern match                                                                                 |
+| -------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `docs/handbook/<name>/**/*.md`               | Handbook conventions for the `<name>` area                           | Technical concern named `<name>` (match by directory name)                                              |
+| `docs/handbook/<name>/cookbook/*.md`         | Cookbook recipes for the `<name>` area                               | Same technical concern as its handbook, appended `Read:` entry                                          |
+| `docs/adr/**/*.md`, `docs/decisions/**/*.md` | Architecture decision records                                        | Any concern named or described by the ADR's title keywords; offer as a candidate, do not force a match  |
+| `docs/spec/supplementary_specs/*.md`         | Entity models, state machines, interface contracts, validation rules | Domain concern matching the scope-map area named in the file, or a technical concern's `Boundary:` line |
+| `docs/spec/*.feature`                        | Executable specification for one area                                | Domain concern matching the feature file's area name                                                    |
 
-Same as greenfield Step 1 — for each of `stack.yaml`, `workflow.yaml`,
-`governance.yaml`: if `docs/agent-context/<file>` already exists, skip it.
-Otherwise, copy the matching template to `docs/agent-context/<file>`.
+Report the full discovery inventory to the user before the interview
+begins.
 
-### Step 3 — Discovery scan
+### Step 3 — Concern-based interview
 
-Scan the project for documentation signals. Look for these common markers:
+Walk concerns in category order: **cross-cutting first, then technical,
+then domain.** Within a category, walk one concern at a time — confirm
+each concern before moving to the next; do not batch-confirm a whole
+category.
 
-| Signal                                                   | Indicates                 | Maps to                                         |
-| -------------------------------------------------------- | ------------------------- | ----------------------------------------------- |
-| `pyproject.toml`, `package.json`, `Cargo.toml`, `go.mod` | Languages, frameworks     | `stack.yaml#languages`, `stack.yaml#frameworks` |
-| `docs/adr/`, `docs/decisions/`                           | Architecture decisions    | `governance.yaml#architecture_governance`       |
-| `.github/workflows/`, `.gitlab-ci.yml`, `Jenkinsfile`    | CI/CD configuration       | `workflow.yaml#ci_cd`                           |
-| `pytest.ini`, `jest.config.*`, `.nycrc`                  | Testing setup             | `workflow.yaml#testing`                         |
-| `Dockerfile`, `docker-compose.yml`, `k8s/`               | Infrastructure            | `stack.yaml#infrastructure`                     |
-| `.eslintrc*`, `ruff.toml`, `.flake8`                     | Linting setup             | `workflow.yaml#linting`                         |
-| `CONTRIBUTING.md`, `docs/development.md`                 | Development practices     | `workflow.yaml#getting_started`                 |
-| `.pre-commit-config.yaml`                                | Commit/review conventions | `governance.yaml#commits`                       |
+For each concern:
 
-Report what was found to the user before proceeding to the interview.
+1. State the concern's name, description, and any factory-default or
+   stack-derived `Read:` paths already proposed for it (from Step 1).
+2. List discovered paths (Step 2) that match this concern.
+3. Ask: "I found [discovered paths] for the `<concern>` concern — add
+   to `Read:`? Anything missing?"
+4. Record the answer. The user may confirm all discovered paths, drop
+   some, add paths the scan missed, or — for technical and domain
+   concerns — rename or remove the concern entirely, same as greenfield
+   Step 3.
+5. Move to the next concern in category order.
 
-### Step 4 — Concern-based interview
+A concern with no discovered paths still gets asked: "Anything missing?"
+before moving on — the interview does not skip concerns just because the
+scan found nothing for them.
 
-For each applicable work-type concern (based on what the scan discovered),
-ask the user where conventions are documented and propose source paths
-from the scan results. The concerns follow the `reading-guides.yaml`
-template structure:
+### Step 4 — Write `docs/agent-context.md`
 
-**Backend** (if backend framework signals found):
+Same as greenfield Step 5, using each concern's confirmed `Read:` list
+(factory defaults plus discovered enrichments from Step 3).
 
-- "The scan found [framework]. Where is the backend documented?"
-- Propose source path based on discovered files.
-- Write `name` and `source` to `stack.yaml#frameworks.backend`.
+### Step 5 — Validate
 
-**Frontend** (if frontend framework signals found):
+Same as greenfield Step 6: run `factory/scripts/concern-lint` and fix any
+`CTX-SECTIONS` or `CTX-PATHS` finding before proceeding.
 
-- Same pattern for `stack.yaml#frameworks.frontend`.
-
-**Testing** (if test config signals found):
-
-- "Where are testing conventions documented?"
-- Write to `workflow.yaml#testing` and `governance.yaml#testing_discipline`.
-
-**Architecture** (if ADR directory found):
-
-- "The scan found ADRs at [path]. Is this the architecture decision record?"
-- Write to `governance.yaml#architecture_governance`.
-
-**CI/CD** (if CI config found):
-
-- Write to `workflow.yaml#ci_cd`.
-
-**Packaging/Infrastructure** (if Docker/k8s signals found):
-
-- Write to `stack.yaml#infrastructure`.
-
-For each field, the user may:
-
-- **Confirm** the proposed source → write `name` and `source` together.
-- **Override** with a different source path → write the override.
-- **Defer** → write `deferred: "<reason>"`.
-- **Remove** → delete the key entirely (not applicable to this project).
-
-Fields with no applicable scan signal are presented at the end as "The scan
-found no signals for [field]. Do you have documentation for this?" — the
-user can provide a source, defer, or remove.
-
-### Step 5 — Reading-guide assembly
-
-After the interview, generate `docs/agent-context/reading-guides.yaml`
-from `factory/rulebooks/templates/context-reading-guides.yaml`. Prune
-concerns that have no populated sections (all their referenced fields are
-still `deferred`). Keep concerns that have at least one populated
-source pointer.
-
-### Step 6 — Validate
-
-Run `factory/scripts/context-lint` — confirm zero errors. Fix any
-`CX-KEYS`, `CX-PARSE`, or `CX-FORMAT` finding before proceeding.
-
-### Step 7 — Commit
+### Step 6 — Commit
 
 ```
 docs: initialize agent context (--init --scan)
 ```
 
-**Completion**: `stack.yaml`, `workflow.yaml`, `governance.yaml`, and
-`reading-guides.yaml` exist under `docs/agent-context/`; source pointers
-are populated from the discovery scan and concern interview;
-`context-lint` reports zero errors.
+**Completion**: `docs/agent-context.md` exists with three category
+headings; cross-cutting concerns are seeded and enriched with any
+matching discovered documentation; technical and domain concerns are
+proposed, confirmed, and enriched with discovered `Read:` paths through
+the concern-based interview walked in category order (cross-cutting,
+technical, domain); `concern-lint` reports zero errors; no YAML files
+were created.
 
 ## Validation reference
 
