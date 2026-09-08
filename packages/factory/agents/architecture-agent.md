@@ -19,8 +19,8 @@ inputs:
   - docs/spec/prd.md
   - docs/spec/*.feature
   - docs/spec/scope-map.md
-  - docs/spec/supplementary_specs/*.md
   - docs/reviews/atam-review.md
+  - docs/agent-context.md
   - factory/rulebooks/conventions/state-machine-notation.md
   - factory/rulebooks/conventions/commit-conventions.md
 outputs:

@@ -16,10 +16,9 @@ inputs:
   - docs/spec/<feature-name>-qa-strategy.md
   - docs/spec/prd.md
   - docs/spec/scope-map.md
-  - docs/spec/supplementary_specs/*.md
   - docs/*.md
-  - docs/adr/*.md
   - docs/arc42/CONTEXT.md
+  - docs/agent-context.md
   - factory/rulebooks/conventions/testing-strategy.md
   - factory/rulebooks/conventions/cross-reference-format.md
   - factory/rulebooks/conventions/report-format.md
