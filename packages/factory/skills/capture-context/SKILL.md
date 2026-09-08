@@ -5,8 +5,10 @@ description: >-
   between agents and project knowledge. --init scans the repo, seeds
   cross-cutting concerns, proposes technical and domain concerns, and
   writes the file. --init --scan adds brownfield documentation discovery.
+  Bare invocation (no flags) detects a legacy YAML agent-context and offers
+  interactive migration to the concern model.
 category: requirements
-version: 4.0.0
+version: 5.0.0
 disable-model-invocation: false
 ---
 
@@ -36,10 +38,11 @@ belong to the retired YAML model).
 
 ## Invocation
 
-| Invocation                      | When                                            |
-| ------------------------------- | ----------------------------------------------- |
-| `capture-context --init`        | Right after vision capture, before requirements |
-| `capture-context --init --scan` | Existing project with documentation to discover |
+| Invocation                      | When                                                         |
+| ------------------------------- | ------------------------------------------------------------ |
+| `capture-context --init`        | Right after vision capture, before requirements              |
+| `capture-context --init --scan` | Existing project with documentation to discover              |
+| `capture-context` (bare)        | Existing project with a legacy YAML agent-context to migrate |
 
 ## `--init` (greenfield)
 
@@ -216,7 +219,8 @@ adds one thing: discovery of existing project documentation, folded into
 a concern-based interview that enriches each concern's `Read:` paths
 before the file is written. Migrating an already-populated YAML
 agent-context (`docs/agent-context/*.yaml`) to the concern format is a
-separate, bare `capture-context` invocation — out of scope here.
+separate, bare `capture-context` invocation — see
+[Bare invocation (YAML migration)](#bare-invocation-yaml-migration) below.
 
 ### Step 1 — Guard, scan, and proposals
 
@@ -290,6 +294,96 @@ proposed, confirmed, and enriched with discovered `Read:` paths through
 the concern-based interview walked in category order (cross-cutting,
 technical, domain); `concern-lint` reports zero errors; no YAML files
 were created.
+
+## Bare invocation (YAML migration)
+
+Migrates an existing YAML agent-context (`docs/agent-context/stack.yaml`,
+`workflow.yaml`, `governance.yaml`, `reading-guides.yaml`) to
+`docs/agent-context.md`. Interactive — the YAML-to-concern mapping requires
+judgment, so nothing is written without the user confirming the proposed
+structure first.
+
+### Step 0 — Guard
+
+If `docs/agent-context.md` already exists, stop and tell the user the
+project is already on the concern model — nothing to migrate.
+
+### Step 1 — Detect
+
+Check for `docs/agent-context/stack.yaml`, `workflow.yaml`,
+`governance.yaml`, or `reading-guides.yaml`. If none exist, tell the user
+there is no legacy YAML agent-context to migrate and suggest
+`capture-context --init` instead. If at least one exists, tell the user:
+"I found YAML agent-context files. Want to migrate to the concern model?"
+and wait for confirmation before reading further.
+
+### Step 2 — Read the YAML files
+
+Read every YAML file found in Step 1, plus `reading-guides.yaml` when
+present (it carries no source pointers of its own but names the concern
+groupings the project already uses).
+
+### Step 3 — Propose concern sections
+
+Map each source file to a concern category:
+
+| Source                | Maps to                                                                                                                                                                                                                                                              |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `governance.yaml`     | Cross-cutting concerns. Match top-level keys to the six factory-default names (Branching, Committing, Testing discipline, Review, Scope discipline, Security) where the meaning overlaps; keys that do not match a default become additional cross-cutting concerns. |
+| `workflow.yaml`       | Folds into the matching cross-cutting concern (e.g. a `testing` key strengthens Testing discipline, a `linting` key strengthens Committing) rather than forming its own concerns.                                                                                    |
+| `stack.yaml`          | Technical concerns — one per top-level key group (e.g. `frameworks.backend`, `data_stores`).                                                                                                                                                                         |
+| `reading-guides.yaml` | Concern names and groupings — a top-level key here (e.g. `backend`, `frontend`, `testing`) informs the technical or cross-cutting concern name it should be filed under, since it already groups related index-file keys together.                                   |
+
+For each field:
+
+- A `{name, source}` mapping → the field's value becomes part of the
+  concern's description; `source:` becomes a `Read:` path.
+- An inline scalar with no `source:` → the value informs the description;
+  use a placeholder `Read:` path following the project's documentation
+  convention, same as greenfield Step 3.
+- A `{deferred: "reason"}` mapping → carry the deferral forward as a note
+  in the concern's description; do not fabricate a `Read:` path for it.
+
+The old YAML model has no domain-concern equivalent — leave the domain
+section empty with the same placeholder note as greenfield Step 4, unless
+a `reading-guides.yaml` concern name clearly matches an existing scope-map
+area.
+
+### Step 4 — Present for review
+
+Show the user the fully assembled `docs/agent-context.md` content — every
+category, concern name, description, and `Read:` path — before writing
+anything. The user may rename, merge, split, or drop any proposed concern,
+same latitude as greenfield Step 3. Do not proceed until the user confirms.
+
+### Step 5 — Write and clean up
+
+On confirmation:
+
+1. Write `docs/agent-context.md` with the confirmed structure.
+2. Move `docs/agent-context/testing.yaml` to `docs/testing.yaml` if it
+   exists (`testing.yaml` is machine-consumed configuration, not part of
+   the concern registry — see
+   [Agent Context Composition § `testing.yaml` carve-out](../../rulebooks/conventions/agent-context-composition.md#testingyaml-carve-out)).
+3. Delete `stack.yaml`, `workflow.yaml`, `governance.yaml`, and
+   `reading-guides.yaml`.
+4. Remove the now-empty `docs/agent-context/` directory.
+
+### Step 6 — Validate
+
+Run `factory/scripts/concern-lint` — confirms `docs/agent-context.md` has
+the required structure and that no legacy YAML residue remains
+(`CTX-LEGACY`). Fix any finding before proceeding.
+
+### Step 7 — Commit
+
+```
+docs: migrate agent context from YAML to concern model
+```
+
+**Completion**: `docs/agent-context.md` exists with the migrated concern
+sections; `docs/testing.yaml` exists if a `testing.yaml` was present;
+`docs/agent-context/` no longer exists; `concern-lint` reports zero errors.
 
 ## Validation reference
 
