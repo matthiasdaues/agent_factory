@@ -1,108 +1,133 @@
 ---
 title: Agent Context Composition
 category: architecture
-enforcement: context-lint (CX-* codes), rules.md
-version: 2.0.0
+enforcement: concern-lint (CTX-* codes), rules.md
+version: 3.0.0
 ---
 
 # Agent Context Composition
 
-`docs/agent-context/` is the factory-facing interface between agents and a
-project's own knowledge. It is a routing table, not a knowledge base: it
-tells an agent where to look, never what it will find there. This document
-states the binding rules that keep that interface honest as a project
-matures.
+`docs/agent-context.md` is the factory-facing interface between agents and a
+project's own knowledge. It routes agents by concern name, not by file path.
+Each concern carries a description and file references that tell an agent
+where to read, never what it will find there. This document states the
+binding rules that keep that interface honest as a project matures.
 
-Design origin: [yaml-charter-lifecycle.md](../../../docs/proposals/yaml-charter-lifecycle.md).
-Structural decision: [ADR-0013](../../../docs/adr/0013-yaml-agent-context-replaces-markdown-charter.md).
-Lifecycle decision: [ADR-0014](../../../docs/adr/0014-two-layer-routing-with-two-mode-lifecycle.md).
+Design origin: [factory-concern-oriented-agent-context.md](../../../docs/proposals/factory-concern-oriented-agent-context.md).
 
-## The four files
+## The concern model
 
-| File                  | Layer | Carries                                                        |
-| --------------------- | ----- | -------------------------------------------------------------- |
-| `reading-guides.yaml` | 1     | Concern-based routing to Layer 2 sections. No `source:`.       |
-| `stack.yaml`          | 2     | What the project is built with.                                |
-| `workflow.yaml`       | 2     | How to build, test, and deploy it.                             |
-| `governance.yaml`     | 2     | What rules apply.                                              |
-| `testing.yaml`        | peer  | Machine-readable test config. Exempt from the lifecycle below. |
+Agent context is organized into three concern categories, distinguished by
+when they are active:
+
+| Category      | When active                       | Examples                                                                       |
+| ------------- | --------------------------------- | ------------------------------------------------------------------------------ |
+| Cross-cutting | Always. Every agent, every story. | Branching, committing, testing discipline, review, scope discipline, security. |
+| Technical     | Per story, set by planning-agent. | Backend, frontend, data-storage; or data-source, processing, visualization.    |
+| Domain        | Per story, set by planning-agent. | Varies by project — derived from scope map areas or specification structure.   |
+
+Cross-cutting concerns are the professional baseline — an agent is always
+aware of them, the way a human colleague always knows the branching policy.
+Technical concerns narrow the stack context per task. Domain concerns focus
+the product knowledge.
+
+## The `agent-context.md` structure
+
+The concern registry lives in `docs/agent-context.md`, organized by
+category. Each concern is a `###` heading beneath its category's `##`
+heading, carrying:
+
+- A one-line description of what knowledge it covers.
+- One or more `Read:` lines listing the current paths where that knowledge lives.
+- Optional `Boundary:` lines naming cross-concern interfaces to respect.
+
+Required `##` category headings:
+
+1. `## Always (cross-cutting)`
+2. `## Technical concerns`
+3. `## Domain concerns`
+
+Example:
+
+```markdown
+# Agent Context
+
+## Always (cross-cutting)
+
+### Branching
+Branching policy and worktree discipline.
+Read: factory/rulebooks/conventions/branching-policy.md
+
+### Testing discipline
+Risk-based testing, test admission, layer ownership.
+Read: docs/handbook/testing/conventions.md, docs/handbook/testing/strategy.md
+
+## Technical concerns
+
+### backend
+Server-side application code: routes, models, services, repositories.
+Read: docs/handbook/backend/conventions.md, docs/handbook/backend/cookbook/*.md
+Boundary: docs/spec/supplementary_specs/interface-contracts.md
+
+## Domain concerns
+
+### payments
+Payment processing domain logic.
+Read: docs/spec/payments.feature, docs/spec/supplementary_specs/payment-rules.md
+```
+
+## Controlled vocabulary
+
+The concern names in `agent-context.md` form a controlled vocabulary. The
+planning-agent writes a `concerns` field into each story's frontmatter,
+picking from this vocabulary:
+
+```yaml
+concerns:
+  domain: [payments]
+  technical: [backend, frontend]
+```
+
+Cross-cutting is absent because it is always active — no declaration needed.
+If a story needs a concern that does not exist in the registry, the
+planning-agent proposes the new concern section for user confirmation rather
+than coining a name silently. This keeps the vocabulary stable and
+intentional.
+
+## Advisory nature
+
+The concerns field is advisory — it tells the agent what is relevant, not
+what is permitted. The agent always has access to the full registry via the
+include chain. Cross-cutting concerns are always visible, and peripheral
+awareness of adjacent technical or domain concerns helps the agent respect
+boundaries it does not own.
 
 ## Derived content
 
-Agent context is always derived content. In steady state it links to
-sources; it is never the primary authority. Early in a greenfield project,
-before source documents exist, fields may hold inline prose values under
-`name:` — but the direction of truth still flows from the project's own
-records (handbook, ADRs, code) toward the index files, never the reverse.
-`update-context` writes only to `docs/agent-context/*.yaml`; it never
-writes upstream to a source document.
-
-## Field states
-
-Each leaf field in a Layer 2 index file is in exactly one of three states:
-
-- **Valued** — the field carries a `name:` (display label) and optionally a
-  `source:` (the authoritative document). Early fields may have only
-  `name:` with no source yet; mature fields carry both. `name:` is the
-  display label an agent reads; `source:` is the authority it follows.
-- **Deferred** — the field carries `deferred: "<reason>"` as the sole key.
-  A deferral is a conscious choice to postpone, not a defect. `deferred`
-  must never coexist with `name` or `source` in the same mapping.
-- **Absent** — the key does not exist. This means the concept does not
-  apply to this project. Key absence is the correct state for inapplicable
-  fields — do not leave them as `null`.
-
-`null` is never a valid field state. A `null` leaf is always a lint error
-(`CX-NULL`). If the decision is pending, use `deferred:`. If the concept
-does not apply, remove the key.
-
-## Write-path ownership
-
-- `capture-context` creates the initial templates and fills first values.
-- `update-context` is the write path for index files after initial setup.
-- `detect-test-regime` is the sole writer of `testing.yaml`. It writes
-  directly because `testing.yaml` does not participate in the index-file
-  lifecycle.
-- The reading guide (`reading-guides.yaml`) is assembled by `capture-context`
-  (brownfield) or proposed by `update-context` (greenfield, on the first
-  `source:` pointer). It is never hand-authored as a substitute for the
-  index files.
-
-## Format exclusivity
-
-A project uses exactly one context format: YAML agent context
-(`docs/agent-context/`) or the legacy markdown charter (`docs/charter/`),
-never both. Format detection walks a fixed resolution chain and treats
-files present in more than one location as an error (`CX-FORMAT`), except
-for `testing.yaml`, which is a lifecycle-exempt peer file explicitly
-permitted to resolve across both locations (see next section).
-
-## Source-pointer direction of truth
-
-Sources are maintained in exactly one place: the three Layer 2 index files.
-`reading-guides.yaml` references index-file sections and peer files
-(`<file>#<dotted.key.path>` or bare `<file>`); it must never carry a
-`source:` pointer of its own. Peer files like `testing.yaml` carry the same
-trust level as index files — they are factory-managed derived content, so
-excluding them from routing would leave agents blind to the richest records. A `source:` pointer prefers the project-local convention document over
-a factory rulebook default when both describe the same decision — the
-project's own record is the closer, more specific authority.
-
-## Source resolution
-
-A `source:` value is tried as a file path first (`CX-SRC-EXIST`). If it
-does not resolve to a file on disk, it is treated as inline prose — a
-verbal reference or a URL. No lint finding fires for a non-path source;
-`CX-SRC-EXIST` is a warning only when the value looks like a path but the
-file is missing.
+Agent context is always derived content. It links to sources maintained
+elsewhere (handbook, ADRs, specifications, code); it is never the primary
+authority. When a file moves, the human edits the path in the concern
+entry. When a new concern emerges, the human or the planning-agent adds a
+section.
 
 ## `testing.yaml` carve-out
 
-`testing.yaml` is a peer file, not an index file. It is always code-derived,
-written directly by `detect-test-regime`, and consumed as structured
-configuration by scripts, hooks, and playbooks. It does not participate in
-the index-file lifecycle and is validated by `context-lint` for `CX-PARSE`
-only — `CX-NULL` and `CX-KEYS` checks do not apply to it. Consumers
-resolve its path by checking `docs/agent-context/testing.yaml` first, then
-`docs/charter/testing.yaml` as a fallback; the split location does not
-trigger `CX-FORMAT`.
+`testing.yaml` is machine-consumed configuration (test commands, suite
+definitions, gate thresholds), not a routing artifact. It remains a YAML
+file and is validated separately by `detect-test-regime` and gate scripts.
+`concern-lint` does not validate `testing.yaml`. A `testing.yaml` file
+under `docs/agent-context/` does not trigger the CTX-LEGACY check.
+
+## Validation: concern-lint
+
+`concern-lint` validates `docs/agent-context.md` with three checks:
+
+| Check             | ID           | What it validates                                                                                                              |
+| ----------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| Section structure | CTX-SECTIONS | Every required category heading exists. Each concern section has a description line and at least one `Read:` path.             |
+| Path resolution   | CTX-PATHS    | Every path in a `Read:` or `Boundary:` line resolves to an existing file or glob match.                                        |
+| No legacy residue | CTX-LEGACY   | No `.yaml` files (other than `testing.yaml`) under `docs/agent-context/`, and no `docs/charter/` directory alongside the file. |
+
+`concern-lint` exits 0 when all checks pass and non-zero when any check
+fails. It runs as part of the `validate` skill (gate #12) and as a
+pre-commit hook.
