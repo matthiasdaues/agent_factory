@@ -2868,24 +2868,15 @@ def _scan_test_entrypoints(target: Path) -> list[tuple[str, str]]:
 
 
 def _resolve_testing_yaml(target: Path) -> Path:
-    """Return the testing.yaml path via format detection."""
-    ac_path = target / "docs" / "agent-context" / "testing.yaml"
-    if ac_path.is_file():
-        return ac_path
-    charter_path = target / "docs" / "charter" / "testing.yaml"
-    if charter_path.is_file():
-        return charter_path
-    ac_dir = target / "docs" / "agent-context"
-    if ac_dir.is_dir():
-        return ac_path
-    return ac_path
+    """Return the canonical testing.yaml path at docs/testing.yaml."""
+    return target / "docs" / "testing.yaml"
 
 
 def _write_testing_yaml(target: Path, command: str) -> None:
     path = _resolve_testing_yaml(target)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        "# docs/agent-context/testing.yaml — project test command declaration\n"
+        "# docs/testing.yaml — project test command declaration\n"
         "# Detected by Agent Factory's detect-test-regime scan during init-factory.\n"
         "# Code is the source of truth; this file is a derived record — re-run\n"
         "# the detect-test-regime skill by hand once the project's test setup\n"
@@ -2898,8 +2889,8 @@ def _write_testing_yaml(target: Path, command: str) -> None:
 
 def detect_test_regime(target: Path, report: list[str]) -> None:
     """Scan for an existing test regime and record it in
-    testing.yaml (docs/agent-context/ or docs/charter/ via format detection)
-    — the deterministic core of the detect-test-regime skill (step 2: one
+    testing.yaml (docs/testing.yaml) — the deterministic core of the
+    detect-test-regime skill (step 2: one
     entrypoint records, several ask rather than guess, none surfaces the
     gap). Never writes to .pre-commit-config.yaml: test hooks stay
     project-owned (BR-029)."""

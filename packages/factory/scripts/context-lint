@@ -21,8 +21,7 @@ via a three-step chain, checked in order relative to --root:
   3. docs/charter/tech-stack.md     -> legacy markdown charter (CH-* codes)
 A project with files at more than one of these three locations gets a
 CX-FORMAT error. testing.yaml is a lifecycle-exempt peer file, resolved
-independently (docs/agent-context/testing.yaml first, falling back to
-docs/charter/testing.yaml) and validated with CX-PARSE only — it never
+independently (docs/testing.yaml) and validated with CX-PARSE only — it never
 participates in CX-FORMAT mixed-location detection and never gets
 CX-SRC-EXIST/CX-NULL checks. See detect_format() and
 resolve_testing_yaml() below; both take a `root` Path so other scripts
@@ -784,8 +783,7 @@ FORMAT_CHAIN: List[Tuple[str, Path]] = [
 #: FORMAT_CHAIN above, and never a source of CX-FORMAT findings: testing.yaml
 #: is a lifecycle-exempt peer file, not part of the format-detection chain.
 TESTING_YAML_CHAIN: List[Path] = [
-    Path("docs/agent-context/testing.yaml"),
-    Path("docs/charter/testing.yaml"),
+    Path("docs/testing.yaml"),
 ]
 
 
@@ -826,9 +824,8 @@ def detect_format(root: Path) -> FormatDetection:
 
 def resolve_testing_yaml(root: Path) -> Optional[Path]:
     """Resolve testing.yaml's path independently of FORMAT_CHAIN: check
-    docs/agent-context/testing.yaml first, falling back to
-    docs/charter/testing.yaml. Returns None when neither exists — testing.yaml
-    is optional, not required by any format."""
+    docs/testing.yaml. Returns None when the file does not exist —
+    testing.yaml is optional, not required by any format."""
     for rel in TESTING_YAML_CHAIN:
         candidate = root / rel
         if candidate.is_file():

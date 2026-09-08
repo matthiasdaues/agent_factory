@@ -18,7 +18,7 @@ inputs:
   - docs/spec/scope-map.md
   - docs/spec/supplementary_specs/*.md
   - docs/agent-context/*.yaml (falls back to docs/charter/*.md for legacy projects)
-  - docs/agent-context/testing.yaml (falls back to docs/charter/testing.yaml)
+  - docs/testing.yaml
   - docs/*.md
   - docs/adr/*.md
 outputs:
@@ -50,7 +50,7 @@ Break specification and architecture into **tracer bullet** **vertical slices**.
 
 ### Pre-flight — Testing regime check
 
-Before slicing stories, verify that `testing.yaml` exists (at `docs/agent-context/testing.yaml`, falling back to `docs/charter/testing.yaml` for legacy projects) and contains at least one suite. If missing or empty, invoke `detect-test-regime` to populate it, then continue. The planning agent needs suite information to map acceptance criteria to existing tests and to pick the right suite for new ones.
+Before slicing stories, verify that `testing.yaml` exists (at `docs/testing.yaml`) and contains at least one suite. If missing or empty, invoke `detect-test-regime` to populate it, then continue. The planning agent needs suite information to map acceptance criteria to existing tests and to pick the right suite for new ones.
 
 Read the document at `testing_strategy:` in `testing.yaml` for test budgets, cluster assignments, and how to populate each story's `tests:` field.
 
