@@ -21,7 +21,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 2707
-    total_tokens: 15213
+    total_tokens: 14599
   - name: proposal-review-agent
     title: Proposal Review Agent
     phase: 1
@@ -158,9 +158,9 @@ agents:
 skills:
   - name: capture-context
     category: requirements
-    description: Initialize docs/agent-context/ — the YAML routing interface between agents and project knowledge. capture-context --init scaffolds stack.yaml, workflow.yaml, and governance.yaml from templates, then runs a stakeholder interview that records the answers as inline values. capture-context --init --scan discovers existing documentation in a brownfield project, runs a concern-based interview, populates index files with name and source pointers, and generates reading-guides.yaml.
+    description: Initialize docs/agent-context.md — the concern-based routing interface between agents and project knowledge. --init scans the repo, seeds cross-cutting concerns, proposes technical and domain concerns, and writes the file. --init --scan adds brownfield documentation discovery.
     path: skills/capture-context/SKILL.md
-    tokens: 3722
+    tokens: 3121
   - name: capture-vision
     category: requirements
     description: Capture a project vision through structured interview.
@@ -405,7 +405,7 @@ skills:
     category: utility
     description: Run every applicable deterministic gate on demand, mid-session — the custom lint scripts plus ruff and mdformat — without needing a git commit.
     path: skills/validate/SKILL.md
-    tokens: 1093
+    tokens: 1080
   - name: adversarial-review
     category: research
     description: Test a claim, its evidence, and refutation attempts against ten review checks, classify defects, and produce a vote tied to exact claim hash.
@@ -592,7 +592,7 @@ rulebooks:
   - name: agent-context-composition
     category: conventions
     path: rulebooks/conventions/agent-context-composition.md
-    tokens: 1278
+    tokens: 1173
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
