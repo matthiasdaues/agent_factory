@@ -532,7 +532,7 @@ def cmd_init(args: argparse.Namespace) -> int:
             code, base_sha, _ = _git("rev-parse", "HEAD")
 
         # Create feature branch + worktree
-        worktree_path = project_root / ".current-work" / "worktrees" / branch_name
+        worktree_path = project_root / ".current-work" / branch_name
         code, _, err = _git(
             "worktree", "add", "-b", branch_name, str(worktree_path), base_sha
         )

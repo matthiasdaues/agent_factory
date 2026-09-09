@@ -22,11 +22,11 @@ Run one git operation per shell invocation, never chained after `cd` or another 
 Every new branch must be created atomically with its linked worktree:
 
 ```bash
-git worktree add -b <branch> .current-work/worktrees/<branch> <base>
+git worktree add -b <branch> .current-work/<feature-branch>/<branch> <base>
 git worktree list --porcelain
 ```
 
-All worktrees live under `.current-work/worktrees/`, named after their branch. The second command verifies the path and branch before work begins. Standalone branch creation through `git branch <name>`, `git switch -c/-C`, or `git checkout -b/-B` is blocked. Do not switch the current checkout as an intermediate step. To resume an existing unattached branch, use `git worktree add .current-work/worktrees/<branch> <branch>`.
+All worktrees live under `.current-work/<feature-branch>/`, named after their branch. The second command verifies the path and branch before work begins. Standalone branch creation through `git branch <name>`, `git switch -c/-C`, or `git checkout -b/-B` is blocked. Do not switch the current checkout as an intermediate step. To resume an existing unattached branch, use `git worktree add .current-work/<feature-branch>/<branch> <branch>`.
 
 ## Merging requires the pre-merge marker
 
@@ -39,14 +39,14 @@ All worktrees live under `.current-work/worktrees/`, named after their branch. T
 
 The guardrail blocks these in every session, including yours:
 
-| Blocked                                             | Use instead                                                            |
-| --------------------------------------------------- | ---------------------------------------------------------------------- |
-| Standalone branch creation                          | `git worktree add -b <branch> .current-work/worktrees/<branch> <base>` |
-| `git checkout .` / `git checkout -- .`              | `git checkout HEAD -- <path>`                                          |
-| `git branch -D` (force delete)                      | `git branch -d` (merged only); ask the user for force deletes          |
-| `git commit --no-verify`, `git ... --no-verify`     | Fix the failing hook; never bypass                                     |
-| `git config core.hooksPath …`                       | Do not repoint hooks                                                   |
-| `git reset --hard`, `git clean`, `git push --force` | Ask the user                                                           |
+| Blocked                                             | Use instead                                                                   |
+| --------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Standalone branch creation                          | `git worktree add -b <branch> .current-work/<feature-branch>/<branch> <base>` |
+| `git checkout .` / `git checkout -- .`              | `git checkout HEAD -- <path>`                                                 |
+| `git branch -D` (force delete)                      | `git branch -d` (merged only); ask the user for force deletes                 |
+| `git commit --no-verify`, `git ... --no-verify`     | Fix the failing hook; never bypass                                            |
+| `git config core.hooksPath …`                       | Do not repoint hooks                                                          |
+| `git reset --hard`, `git clean`, `git push --force` | Ask the user                                                                  |
 
 `rm -rf` is separately gated by the safety classifier — ask before destructive removal.
 

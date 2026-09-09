@@ -35,10 +35,7 @@ WRITE_ALLOWED_PATHS = {
     ".current-work/verify-base-ok",
     ".current-work/premerge-check-ok",
 }
-WRITE_DENIED_PATHS = {
-    ".current-work/dispatch-ledger.yaml",
-    ".current-work/current-step.yml",
-}
+WRITE_DENIED_NAMES = {"dispatch-ledger.yaml", "current-step.yml"}
 READ_COMMANDS = {"cat", "rg", "grep", "head", "tail", "less", "wc"}
 WRITE_COMMANDS = {"tee"}
 MANIFEST_RELATIVE_PATH = Path(".current-work") / "current-step.yml"
@@ -135,7 +132,7 @@ def _read_allowed(path: str, inputs: list[str]) -> bool:
 
 def _write_allowed(path: str, outputs: list[str]) -> bool:
     """Apply the write guard, including the security deny-list."""
-    if path in WRITE_DENIED_PATHS:
+    if path.startswith(".current-work/") and Path(path).name in WRITE_DENIED_NAMES:
         return False
     if path in WRITE_ALLOWED_PATHS:
         return True
