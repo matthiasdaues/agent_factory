@@ -1,8 +1,41 @@
 ---
-# docs/testing.yaml — project test command declaration
-# Detected by Agent Factory's detect-test-regime scan during init-factory.
-# Code is the source of truth; this file is a derived record — re-run
-# the detect-test-regime skill by hand once the project's test setup
-# changes. Schema: factory/rulebooks/templates/charter-testing.yaml
+# Code is the source of truth. Re-run the detect-test-regime skill when the
+# project's test setup changes.
 
-test_command: "pytest"
+testing_strategy: factory/rulebooks/conventions/testing-strategy.md
+
+test_all: "uv run pytest --tb=short --quiet"
+
+# Compatibility commands consumed by the repository's test-command guard.
+test_command: "uv run pytest --tb=short --quiet"
+test_staged_command: "uv run pytest --tb=short --quiet"
+
+suites:
+  - name: default
+    framework: pytest
+    run_all: "uv run pytest --tb=short --quiet"
+    run_file: "uv run pytest --tb=short --quiet {file}"
+    run_match: "uv run pytest --tb=short --quiet -k {pattern}"
+    root: tests
+    pattern: "test_*.py"
+    markers: [spec]
+    prerequisites: null
+
+layers:
+  contract_test:
+    tool: pytest
+    infrastructure: mock
+    entry_point: "uv run pytest --tb=short --quiet tests/"
+  integration_test:
+    tool: pytest
+    infrastructure: real filesystem and subprocess
+    entry_point: "uv run pytest --tb=short --quiet tests/"
+
+# Preserved from the former testing charter; these gates were not part of the
+# regime scan.
+gates:
+  crap_score:
+    enabled: false
+    threshold: 8
+  mutation_testing:
+    enabled: false
