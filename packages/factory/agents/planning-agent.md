@@ -10,6 +10,7 @@ skills:
   - create-backlog
   - create-backlog-epics
   - create-backlog-write-epics
+  - testability-probe
   - create-backlog-story-slices
   - create-backlog-stories
 inputs:
