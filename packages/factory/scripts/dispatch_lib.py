@@ -329,6 +329,9 @@ class WaveCloseout:
 
 class Ledger:
     def __init__(self) -> None:
+        self.invocation_branch: str | None = None
+        self.branch_root: str | None = None
+        self.branch_head: str | None = None
         self.stories: dict[str, StoryEntry] = {}
         self.waves: list[WaveCloseout] = []
 
@@ -409,9 +412,14 @@ class Ledger:
             if entry.base_sha is not None:
                 _validate_sha(entry.base_sha)
         path.parent.mkdir(parents=True, exist_ok=True)
-        data = {
-            "stories": {sid: e.to_dict() for sid, e in self.stories.items()},
-        }
+        data: dict[str, Any] = {}
+        if self.invocation_branch is not None:
+            data["invocation_branch"] = self.invocation_branch
+        if self.branch_root is not None:
+            data["branch_root"] = self.branch_root
+        if self.branch_head is not None:
+            data["branch_head"] = self.branch_head
+        data["stories"] = {sid: e.to_dict() for sid, e in self.stories.items()}
         if self.waves:
             data["waves"] = [wave.to_dict() for wave in self.waves]
         path.write_text(_dump_yaml(data))
@@ -422,6 +430,9 @@ class Ledger:
             raise FileNotFoundError(path)
         raw = _load_yaml(path.read_text())
         ledger = cls()
+        ledger.invocation_branch = raw.get("invocation_branch")
+        ledger.branch_root = raw.get("branch_root")
+        ledger.branch_head = raw.get("branch_head")
         for sid, sdata in raw.get("stories", {}).items():
             ledger.stories[sid] = StoryEntry.from_dict(sdata)
         for wave_data in raw.get("waves", []) or []:

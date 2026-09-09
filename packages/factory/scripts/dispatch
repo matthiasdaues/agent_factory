@@ -61,9 +61,6 @@ from dispatch_lib import (
     write_manifest,
 )
 
-DEFAULT_LEDGER = Path(".current-work/dispatch-ledger.yaml")
-
-
 def _git(*args: str) -> tuple[int, str, str]:
     """Run a git command, returning (exit_code, stdout, stderr)."""
     r = subprocess.run(["git", *args], capture_output=True, text=True, check=False)
@@ -71,21 +68,50 @@ def _git(*args: str) -> tuple[int, str, str]:
 
 
 def _project_root() -> Path:
-    """Resolve the main worktree root, even from a linked worktree.
-
-    Uses ``--git-common-dir`` (the shared ``.git`` directory) so that
-    ``.current-work/``, ``backlog/``, and ``config/`` always resolve to the
-    main checkout — never to a nested path inside a linked worktree.
-    """
-    code, out, _ = _git("rev-parse", "--git-common-dir")
-    if code == 0 and out:
-        git_common = Path(out).resolve()
-        if git_common.name == ".git":
-            return git_common.parent
+    """Resolve the project root from git."""
     code, out, _ = _git("rev-parse", "--show-toplevel")
     if code != 0:
         return Path(".")
     return Path(out)
+
+
+def _main_worktree_root() -> Path:
+    """Resolve the main worktree root, even when called from a linked worktree.
+
+    git-common-dir points to the shared .git directory.  For the main
+    worktree that is ``.git``; for a linked worktree it is
+    ``<main-root>/.git/worktrees/<name>``.  Either way, the main root is
+    the parent of the resolved ``.git`` directory.
+    """
+    code, common_dir, _ = _git("rev-parse", "--path-format=absolute", "--git-common-dir")
+    if code != 0:
+        return _project_root()
+    common = Path(common_dir)
+    # For the main worktree common_dir is "<root>/.git".
+    # For a linked worktree it is "<root>/.git/worktrees/<name>".
+    # Walk up to the parent of ".git" in either case.
+    parts = common.parts
+    try:
+        git_idx = parts.index(".git")
+    except ValueError:
+        return _project_root()
+    return Path(*parts[: git_idx])
+
+
+def _default_ledger() -> str:
+    """Derive the ledger path from the active dispatch under .current-work/.
+
+    Scans the main worktree's .current-work/ for exactly one
+    dispatch-ledger.yaml.  When zero or more than one are found, returns
+    a path that will produce a clear 'ledger not found' error — the
+    caller must pass --ledger explicitly in multi-dispatch scenarios.
+    """
+    cw = _main_worktree_root() / ".current-work"
+    if cw.is_dir():
+        ledgers = list(cw.glob("**/dispatch-ledger.yaml"))
+        if len(ledgers) == 1:
+            return str(ledgers[0])
+    return ".current-work/dispatch-ledger.yaml"
 
 
 def _read_test_command(project_root: Path) -> str | None:
@@ -514,8 +540,16 @@ def cmd_init(args: argparse.Namespace) -> int:
             print(f"error: failed to create worktree: {err}", file=sys.stderr)
             return 1
 
+    # Resolve the branch root SHA for the ledger
+    code, root_sha, _ = _git("rev-parse", f"refs/heads/{branch_name}")
+    if code != 0:
+        root_sha = base_sha
+
     # Initialize ledger
     ledger = Ledger()
+    ledger.invocation_branch = branch_name
+    ledger.branch_root = root_sha
+    ledger.branch_head = root_sha
     for sid in story_ids:
         ledger.stories[sid] = StoryEntry(
             id=sid, tier=_story_declared_tier(project_root, sid)
@@ -659,16 +693,25 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
         )
         return 1
 
-    target_branch = _current_branch_name()
+    target_branch = ledger.invocation_branch
     if not target_branch:
-        print("error: prepare-wave requires a named current branch", file=sys.stderr)
+        target_branch = _current_branch_name()
+    if not target_branch:
+        print(
+            "error: prepare-wave requires invocation_branch in the ledger "
+            "or a named current branch",
+            file=sys.stderr,
+        )
         return 1
 
-    code, base_sha, err = _git("rev-parse", "HEAD")
-    if code != 0:
-        print(f"error: failed to resolve HEAD: {err}", file=sys.stderr)
-        return 1
+    base_sha = ledger.branch_head or ledger.branch_root
+    if not base_sha:
+        code, base_sha, err = _git("rev-parse", "HEAD")
+        if code != 0:
+            print(f"error: failed to resolve base SHA: {err}", file=sys.stderr)
+            return 1
 
+    main_root = _main_worktree_root()
     project_root = _project_root()
     stories_in_wave = sorted(
         (entry for entry in ledger.stories.values() if entry.wave == wave),
@@ -686,10 +729,10 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
 
         branch_name = f"story/{entry.id}"
         worktree_path = (
-            project_root / ".current-work" / "worktrees" / f"story-{entry.id}"
+            main_root / ".current-work" / target_branch / branch_name
         )
 
-        code, _, err = _git("branch", branch_name, "HEAD")
+        code, _, err = _git("branch", branch_name, base_sha)
         if code != 0:
             print(
                 f"error: failed to create branch {branch_name!r} for {entry.id}: {err}",
@@ -789,7 +832,11 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
             return 1
 
         worktree_path = Path(entry.worktree)
-        feature_branch = entry.feature_branch or _current_branch_name()
+        feature_branch = (
+            entry.feature_branch
+            or ledger.invocation_branch
+            or _current_branch_name()
+        )
         if not feature_branch:
             print(
                 f"error: unable to determine feature branch for {entry.id}",
@@ -844,8 +891,14 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
         )
         return 1
 
+    main_root = _main_worktree_root()
+    feature_branch_for_path = (
+        predecessor.feature_branch
+        or ledger.invocation_branch
+        or _current_branch_name()
+    )
     branch_name = f"story/{entry.id}"
-    worktree_path = project_root / ".current-work" / "worktrees" / f"story-{entry.id}"
+    worktree_path = main_root / ".current-work" / feature_branch_for_path / branch_name
 
     code, _, err = _git("branch", branch_name, merge_sha)
     if code != 0:
@@ -881,7 +934,11 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
     entry.worktree = str(worktree_path)
     entry.base_sha = merge_sha
 
-    feature_branch = predecessor.feature_branch or _current_branch_name()
+    feature_branch = (
+        predecessor.feature_branch
+        or ledger.invocation_branch
+        or _current_branch_name()
+    )
     if not feature_branch:
         print(
             f"error: unable to determine feature branch for {entry.id}",
@@ -1344,9 +1401,12 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
         return 1
 
     project_root = _project_root()
-    target_branch = _current_branch_name()
+    target_branch = ledger.invocation_branch or _current_branch_name()
     if not target_branch:
-        print("error: unable to determine current branch", file=sys.stderr)
+        print(
+            "error: unable to determine target branch from ledger or current checkout",
+            file=sys.stderr,
+        )
         return 1
 
     story_path = project_root / "backlog" / f"{entry.id}.md"
@@ -1573,8 +1633,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--ledger",
-        default=str(DEFAULT_LEDGER),
-        help="path to dispatch ledger (default: %(default)s)",
+        default=_default_ledger(),
+        help="path to dispatch ledger (default: derived from current branch)",
     )
     sub = parser.add_subparsers(dest="subcommand", required=True)
 
