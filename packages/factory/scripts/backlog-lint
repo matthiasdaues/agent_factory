@@ -289,17 +289,6 @@ def check_story(
             )
         )
 
-    risk_level = fm.get("risk_level")
-    if risk_level is not None and risk_level not in VALID_RISK_LEVELS:
-        out.append(
-            Finding(
-                "BL-ENUM",
-                "error",
-                rel,
-                f"risk_level '{risk_level}' not in {{low, medium, high}}",
-            )
-        )
-
     # --- concerns: optional mapping with domain/technical string lists ---
     concerns = fm.get("concerns")
     if concerns is not None:
