@@ -284,13 +284,13 @@ def _story_handoff_contract(
         parse_story_frontmatter(story_path.read_text()) if story_path.exists() else {}
     )
     story_title = (story_fm or {}).get("title") or entry.id
-    outputs = list((story_fm or {}).get("outputs") or [])
+    touches = list((story_fm or {}).get("touches") or [])
     strategy = (story_fm or {}).get("strategy")
     if strategy == "seams-first":
         if session == "seam":
-            outputs = list((story_fm or {}).get("seam_outputs") or [])
+            touches = list((story_fm or {}).get("seam_outputs") or [])
         else:
-            outputs = list((story_fm or {}).get("impl_outputs") or [])
+            touches = list((story_fm or {}).get("impl_outputs") or [])
     test_command = _read_test_command(project_root)
     if not test_command:
         return None, "error: config/project.json must contain a 'test_command' key"
@@ -304,9 +304,8 @@ def _story_handoff_contract(
             else story_path,
             worktree_path=worktree_path,
             story_branch=entry.branch or f"story/{entry.id}",
-            outputs=outputs,
+            touches=touches,
             test_command=test_command,
-            strategy=strategy,
         )
     except ValueError as e:
         return None, str(e)
