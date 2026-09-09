@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: Agent-Ready Story Format
-status: accepted
+status: implemented
 owner: md@matthiasdaues.de
 created: 2026-09-09
 updated: 2026-09-09
@@ -102,7 +102,7 @@ test-design-pass: null   # done | skipped-feature-governed (populated by
 ```
 
 The `tests` and `test-design-pass` fields exist in the current template per the
-[test-design layer redistribution](implemented/test-design-layer-redistribution.md).
+[test-design layer redistribution](../implemented/test-design-layer-redistribution.md).
 They are populated at implementation time, not planning time. This proposal adds
 only `risk_level`.
 
@@ -268,7 +268,7 @@ The existing testing.yaml cross-reference (steps 1–6 in current skill) folds
 into the Verification and Inputs sections rather than producing a separate
 Notes for the Implementer subsection.
 
-Per the [test-design layer redistribution](implemented/test-design-layer-redistribution.md),
+Per the [test-design layer redistribution](../implemented/test-design-layer-redistribution.md),
 `create-backlog-stories` carries **ownership assignments** from `epics.md` into
 story files (e.g. "contract DEF-01 owned by this story") — not failure scenarios
 or test file paths. Ownership assignments go into the Inputs section so the
@@ -377,7 +377,7 @@ section." The step 2 (Agree seams) pre-existing test lookup changes from
 
 The `#### Failure scenarios` and `#### Prior Tests` heading cues are **not
 migrated** to the new template. Per the [test-design layer
-redistribution](implemented/test-design-layer-redistribution.md), new stories
+redistribution](../implemented/test-design-layer-redistribution.md), new stories
 no longer carry these sections — detailed test design moved to the
 developer-agent (post-GREEN, code in hand), and ownership assignments replaced
 prior-test path references. The developer-agent's backward-compatibility path
@@ -472,7 +472,7 @@ Disposition: findings
 - **PROP-05:** Removed the answered open question (Suggested Agent Plan disclaimer).
 - **PROP-06:** Raised `estimated_consumption.min` to 120,000 (15 × 8,000).
 - **PROP-07:** Skill step 07 now reads "conditional" and instructs the agent to include the section only when Outputs does not fully capture the behavior.
-- **PROP-08:** Moot. Per the [test-design layer redistribution](implemented/test-design-layer-redistribution.md), new stories no longer carry `#### Failure scenarios` or `#### Prior Tests` sections — detailed test design moved to the developer-agent at implementation time. Sections 10a and 10b removed from the template. Ownership assignments from the testability-probe go into the Inputs section.
+- **PROP-08:** Moot. Per the [test-design layer redistribution](../implemented/test-design-layer-redistribution.md), new stories no longer carry `#### Failure scenarios` or `#### Prior Tests` sections — detailed test design moved to the developer-agent at implementation time. Sections 10a and 10b removed from the template. Ownership assignments from the testability-probe go into the Inputs section.
 
 ### Summary
 
