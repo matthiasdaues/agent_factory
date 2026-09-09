@@ -380,6 +380,7 @@ def main(argv: list[str] | None = None) -> int:
 
     backup: Path | None = None
     if target_factory.is_dir():
+        _unlock_factory(target_factory)
         backup_dir = target / ".agent-factory"
         backup_dir.mkdir(parents=True, exist_ok=True)
         backup = backup_dir / f"factory-backup-{uuid.uuid4()}"

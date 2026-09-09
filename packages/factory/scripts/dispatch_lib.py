@@ -14,7 +14,6 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-_STRONG_RISK_DOMAINS = {"security", "privacy", "data_integrity"}
 TIER_RANK = {"economy": 0, "standard": 1, "strong": 2}
 TIER_ORDER = ("economy", "standard", "strong")
 
@@ -764,11 +763,12 @@ def write_manifest(
     """Write the step manifest activating guards for one story's worktree.
 
     *story_meta* supplies the story's declared ``deps``/``traces`` (folded
-    into the manifest's ``inputs``), ``outputs``, and an optional
-    ``max_input_tokens`` override. When *step_declaration* is provided, the
-    manifest uses that playbook step's ``inputs``, ``outputs``, and
-    ``max_input_tokens`` instead. Raises ManifestExistsError when a manifest is
-    already present at the target path (no-supersede).
+    into the manifest's ``inputs``), ``touches`` (directory-level write
+    zones), and an optional ``max_input_tokens`` override.  When
+    *step_declaration* is provided, the manifest uses that playbook step's
+    ``inputs``, ``outputs``, and ``max_input_tokens`` instead.  Raises
+    ManifestExistsError when a manifest is already present at the target
+    path (no-supersede).
     """
     manifest_path = _manifest_path(worktree_path, feature_branch, story_branch)
     if manifest_path.exists():
@@ -789,19 +789,7 @@ def write_manifest(
                 story_meta.get("traces") or []
             )
 
-        outputs = list(story_meta.get("outputs") or [])
-        if (story_meta.get("strategy") or "direct") == "seams-first":
-            seam_outputs = list(story_meta.get("seam_outputs") or [])
-            impl_outputs = list(story_meta.get("impl_outputs") or [])
-            if session == "seam":
-                outputs = seam_outputs
-            else:
-                outputs = impl_outputs
-                deduped_inputs: list[str] = []
-                for item in [*inputs, *seam_outputs]:
-                    if item not in deduped_inputs:
-                        deduped_inputs.append(item)
-                inputs = deduped_inputs
+        outputs = list(story_meta.get("touches") or [])
         max_input_tokens = (
             story_meta.get("max_input_tokens") or DEFAULT_MAX_INPUT_TOKENS
         )
@@ -915,13 +903,11 @@ def render_handoff_contract(
     acceptance_criteria_path: Path,
     worktree_path: Path,
     story_branch: str,
-    outputs: list[str],
+    touches: list[str],
     test_command: str,
-    strategy: str | None = None,
     max_normalized_tokens: int = DEFAULT_HANDOFF_TOKEN_BUDGET,
 ) -> HandoffContract:
     """Render the seven-part prompt for one prepared story."""
-    del strategy
     lines = [
         "Part 1 — Outcome",
         f"- Story ID: {story_id}",
@@ -934,8 +920,8 @@ def render_handoff_contract(
         "",
         "Part 3 — Allowed writes",
     ]
-    if outputs:
-        lines.extend(f"- {output}" for output in outputs)
+    if touches:
+        lines.extend(f"- {zone}" for zone in touches)
     else:
         lines.append("-")
     lines.extend(
@@ -992,10 +978,8 @@ class StoryMeta:
 
     id: str
     deps: list[str] = field(default_factory=list)
-    outputs: list[str] = field(default_factory=list)
+    touches: list[str] = field(default_factory=list)
     tier: str = "economy"
-    risk_domains: list[str] = field(default_factory=list)
-    tests: list[str] = field(default_factory=list)
     traces: list[str] = field(default_factory=list)
     max_input_tokens: int | None = None
 
@@ -1123,10 +1107,8 @@ def load_stories(backlog_dir: Path) -> list[StoryMeta]:
             StoryMeta(
                 id=fm.get("id", p.stem),
                 deps=fm.get("deps") or [],
-                outputs=fm.get("outputs") or [],
+                touches=fm.get("touches") or [],
                 tier=fm.get("tier", "economy"),
-                risk_domains=fm.get("risk_domains") or [],
-                tests=fm.get("tests") or [],
                 traces=traces,
                 max_input_tokens=max_input_tokens,
             )
@@ -1152,29 +1134,24 @@ def suggest_tier(
     """Suggest a model tier for a story using a first-match-wins rubric.
 
     Rules, evaluated in order (first match wins):
-      1. risk_domains includes security, privacy, or data_integrity -> strong
-      2. outputs match a safety_critical_paths glob -> strong
-      3. outputs span 2+ top-level directories -> standard
-      4. deps has 3+ entries -> standard
-      5. single directory with non-empty tests -> economy
-      6. default -> standard
+      1. touches match a safety_critical_paths glob -> strong
+      2. touches span 2+ top-level directories -> standard
+      3. deps has 3+ entries -> standard
+      4. single directory -> economy
+      5. default -> standard
     """
-    risk_domains = story_frontmatter.get("risk_domains") or []
-    if any(d in _STRONG_RISK_DOMAINS for d in risk_domains):
-        return "strong"
-
-    outputs = story_frontmatter.get("outputs") or []
+    touches = story_frontmatter.get("touches") or []
     safety_critical_paths = project_config.get("safety_critical_paths") or []
     if safety_critical_paths:
-        for output in outputs:
+        for zone in touches:
             for pattern in safety_critical_paths:
-                if fnmatch.fnmatch(output, pattern):
+                if fnmatch.fnmatch(zone, pattern):
                     return "strong"
 
     top_dirs = set()
-    for output in outputs:
-        parts = Path(output).parts
-        top_dirs.add(parts[0] if parts else output)
+    for zone in touches:
+        parts = Path(zone).parts
+        top_dirs.add(parts[0] if parts else zone)
 
     if len(top_dirs) >= 2:
         return "standard"
@@ -1183,30 +1160,26 @@ def suggest_tier(
     if len(deps) >= 3:
         return "standard"
 
-    tests = story_frontmatter.get("tests") or []
-    if len(top_dirs) <= 1 and tests:
+    if len(top_dirs) == 1:
         return "economy"
 
     return "standard"
 
 
-def _expand_outputs(outputs: list[str], project_root: Path) -> set[str]:
-    """Expand output globs against the working tree. Returns relative paths."""
+def _expand_touches(touches: list[str], project_root: Path) -> set[str]:
+    """Expand touch zones to prefix entries for overlap detection.
+
+    Touches are directory-level prefixes (ending in ``/``) or root-level
+    filenames.  Both are stored as ``__prefix__:<path>`` entries so
+    :func:`_files_overlap` can compare them uniformly.
+    """
     expanded: set[str] = set()
-    for pattern in outputs:
-        if not pattern:
+    for zone in touches:
+        if not zone:
             continue
-        matched = list(project_root.glob(pattern))
-        if matched:
-            for m in matched:
-                if m.is_file():
-                    expanded.add(str(m.relative_to(project_root)))
-        else:
-            # Conservative fallback: use directory prefix
-            # Extract the prefix before any wildcard
-            prefix = pattern.split("*")[0].split("?")[0].rstrip("/")
-            if prefix:
-                expanded.add(f"__prefix__:{prefix}")
+        prefix = zone.rstrip("/")
+        if prefix:
+            expanded.add(f"__prefix__:{prefix}")
     return expanded
 
 
@@ -1236,10 +1209,8 @@ def _files_overlap(a: set[str], b: set[str]) -> bool:
 def _story_meta_to_frontmatter(story: StoryMeta) -> dict[str, Any]:
     """Project a StoryMeta back into the frontmatter shape suggest_tier expects."""
     return {
-        "risk_domains": story.risk_domains,
-        "outputs": story.outputs,
+        "touches": story.touches,
         "deps": story.deps,
-        "tests": story.tests,
     }
 
 
@@ -1266,10 +1237,10 @@ def compute_wave_plan(
     by_id = {s.id: s for s in stories}
     planned_ids = set(by_id.keys())
 
-    # Expand outputs for each story
+    # Expand touch zones for each story
     expanded: dict[str, set[str]] = {}
     for s in stories:
-        expanded[s.id] = _expand_outputs(s.outputs, project_root)
+        expanded[s.id] = _expand_touches(s.touches, project_root)
 
     # Assign waves based on dependencies
     wave_of: dict[str, int] = {}

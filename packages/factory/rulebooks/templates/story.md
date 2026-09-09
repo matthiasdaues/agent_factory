@@ -1,6 +1,6 @@
 ---
 title: Backlog Story Template
-version: 1.0.0
+version: 2.0.0
 ---
 
 # Backlog Story Template
@@ -18,26 +18,19 @@ tier: economy                     # economy | standard | strong — the model ti
 status: pending                   # pending | in_progress | review | blocked | done
 deps: [ST-0002]                   # story ids that block this one (optional)
 traces: [scope-map#rule-name, ADR-0003]  # scope-map Rule / ADR / component ids this story implements (optional)
-outputs: [src/orchestrator/entities.py]   # files the story is expected to produce
-tests: [tests/test_entities.py]   # pre-existing test files covering this story (optional)
-risk_domains: [security, reliability]   # optional; choose the smallest closed set that directly
-                                       # affects the story's risk posture: security, privacy,
-                                       # data_integrity, compatibility, reliability, operations
-strategy: direct                  # optional; choose seams-first only when acceptance criteria are
-                                  # testable assertions and the implementation path is not obvious
-                                  # from the tests alone; use direct otherwise
+touches: [src/orchestrator/, tests/unit/orchestrator/]
+                                  # directory prefixes the story is expected to work within;
+                                  # used by the dispatcher for overlap detection and scope enforcement
 concerns: {domain: [billing], technical: [backend, data-storage]}
                                   # optional; declares which domain and technical concerns the
                                   # story touches. Both keys are optional. Names must match ###
                                   # headings in docs/agent-context.md. Cross-cutting concerns
                                   # are never declared (always active).
 quality-gates: [crap-score, mutation-analysis, dependency-check]
-                                  # optional; list the semantic gates that apply to this story
-                                  # outputs. Default precedence: story field > house-rules.md
+                                  # optional; list the semantic gates that apply to this story.
+                                  # Default precedence: story field > house-rules.md
                                   # default_quality_gates > Factory hardcoded default.
-notes: mutation-analysis excluded: no production code changes.
-                                  # optional; required justification when quality-gates omits
-                                  # any default gate
+                                  # If excluding a default gate, justify in Notes for the Implementer.
 ---
 ```
 
@@ -62,7 +55,7 @@ Concrete values, not placeholders. Happy path plus one meaningful edge case.>
 ## Scope
 
 **Status quo:** <what exists now — tables, routes, views — including deliverables of depended-on stories>
-**Adds:** <what this story creates or changes, across all layers>
+**Delivers:** <what capability this story adds, across all layers>
 **Out of scope:** <what explicitly does not change>
 
 ## Terminology
@@ -73,38 +66,29 @@ docs/CONTEXT.md; include only terms the reader needs to understand this story.>
 
 ## Notes for the Implementer
 
-<optional guidance, constraints, or context>
+<optional guidance, constraints, or context. Also the home for:
+- Pre-existing tests: file paths that already cover this story's criteria
+- Suggested approach: direct or seams-first
+- Risk domains: security, privacy, data_integrity, compatibility, reliability, operations
+- Gate exclusion justification: why a default quality gate was omitted>
 ```
 
 ## Frontmatter Fields
+
+### touches (required)
+
+Array of directory prefixes the story is expected to work within. Each entry is a directory path ending in `/` or a root-level filename. The dispatcher uses these for overlap detection (stories with overlapping touches serialize) and scope enforcement (`premerge-check` verifies the developer stayed within declared directories). Example: `[src/orchestrator/, tests/unit/orchestrator/]`.
 
 ### concerns (optional)
 
 Mapping with optional `domain` and `technical` keys, each a list of strings. Declares which registered concerns from `docs/agent-context.md` the story touches. Names must match `###` headings under "Technical concerns" or "Domain concerns". Cross-cutting concerns are never declared because they are always active. Omit the field when no registered concern applies.
 
-### tests (optional)
-
-Array of pre-existing test file paths that cover this story's acceptance criteria.\
-When `tests:` is present and non-empty, the developer-agent reads these tests as the specification and implements code to make them pass (Green phase only, skipping Red). Test files may not exist at planning time (backlog-lint warns but does not error on missing test files).
-
-### risk_domains (optional)
-
-Use `risk_domains` only when the story materially touches one or more closed risk domains. Pick the smallest set that changes implementation or review posture; leave it empty when no listed risk domain applies.
-
-### strategy (optional)
-
-Use `seams-first` when acceptance criteria can be expressed as test assertions and the implementation path is not obvious from those tests alone. Use `direct` when the story is straightforward or the seam is already obvious.
-
 ### quality-gates (optional)
 
-List the semantic gates that apply to the story outputs: `crap-score`, `mutation-analysis`, and `dependency-check`.
+List the semantic gates that apply to the story: `crap-score`, `mutation-analysis`, and `dependency-check`.
 When the field is absent, the dispatcher falls back to `docs/charter/house-rules.md`'s
 `default_quality_gates`, then to the Factory hardcoded default of all three gates.
-If the story excludes any default gate, add a justification line in `notes:`.
-
-### notes (optional)
-
-Use `notes` to record a brief justification when `quality-gates` omits one or more default gates.
+If the story excludes any default gate, justify the exclusion in the body's Notes for the Implementer section.
 
 ## Referenced from
 

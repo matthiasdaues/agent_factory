@@ -34,13 +34,13 @@ For each story, cross-reference against the testing regime:
 1. Read `testing.yaml` (at `docs/testing.yaml`) and its `suites` list.
 2. For each suite, scan the suite's `root` directory for files matching its `pattern`.
 3. Compare discovered test files against the story's acceptance criteria — by filename, test function names, and docstrings where available.
-4. When pre-existing tests match, record their file paths in the story's `tests:` field.
+4. When pre-existing tests match, record their file paths in the story's Notes for the Implementer section under "Pre-existing tests".
 5. When no existing test covers a criterion, record the target suite for new tests in the story's Notes for the Implementer section (e.g. "New tests target the `backend` suite under `packages/server/backend/tests`").
 6. Read the document referenced by `testing_strategy:` in `testing.yaml` to determine cluster assignment and test budget for the story.
 
 **When `backlog/epics.md` contains test-design sections** (produced by the optional test-design skill in phase 2.5), carry them into the story files:
 
-- If the story's epic building-block entry has a `tests:` key, populate the story's `tests:` frontmatter field with that value (overriding any cross-referenced test discovery).
+- If the story's epic building-block entry has a `tests:` key, record those test file paths in the story's Notes for the Implementer section under "Pre-existing tests" (overriding any cross-referenced test discovery).
 - If the entry contains a `#### Failure scenarios` section, write it verbatim into the story body immediately after the Acceptance Criteria section.
 - If the entry contains a `#### Prior Tests` section, write it verbatim into the story body immediately after the Failure scenarios section (or after Acceptance Criteria if no Failure scenarios section exists).
 

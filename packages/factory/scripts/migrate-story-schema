@@ -1,0 +1,313 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
+"""migrate-story-schema — one-shot migration from outputs to touches schema.
+
+What: Transforms backlog/ST-NNNN.md story frontmatter:
+      - outputs → touches (file paths → parent directories)
+      - Moves tests, strategy, risk_domains, notes, seam_outputs,
+        impl_outputs from frontmatter to the body's Notes for the
+        Implementer section.
+When: Once, when adopting the touches-based story schema.
+By:   Manual invocation.
+
+No third-party dependencies (Python 3.10+ stdlib only).
+
+Usage
+  migrate-story-schema --backlog-dir backlog
+  migrate-story-schema --backlog-dir backlog --dry-run
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from pathlib import Path
+from typing import Any
+
+FIELDS_TO_MOVE = {"tests", "strategy", "risk_domains", "notes", "seam_outputs", "impl_outputs"}
+SELF_REF_RE = re.compile(r"^backlog/ST-\d{4,}\.md$")
+
+
+def _unquote(s: str) -> str:
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in ('"', "'"):
+        return s[1:-1]
+    return s
+
+
+def _parse_inline_list(raw: str) -> list[str]:
+    raw = raw.strip()
+    if raw.startswith("[") and raw.endswith("]"):
+        inner = raw[1:-1]
+        if not inner.strip():
+            return []
+        return [_unquote(t.strip()) for t in inner.split(",") if t.strip()]
+    return []
+
+
+def _to_touch(path: str) -> str | None:
+    """Convert a file path to its parent directory with trailing slash."""
+    path = path.strip()
+    if not path:
+        return None
+    if SELF_REF_RE.match(path):
+        return None
+    if "/" not in path:
+        return path
+    parent = path.rsplit("/", 1)[0]
+    return parent + "/"
+
+
+def _format_list_value(values: list[str]) -> str:
+    if not values:
+        return "[]"
+    escaped = []
+    for v in values:
+        if "," in v or ":" in v or '"' in v:
+            escaped.append(f'"{v}"')
+        else:
+            escaped.append(v)
+    return "[" + ", ".join(escaped) + "]"
+
+
+def _parse_frontmatter_lines(lines: list[str]) -> tuple[int, int] | None:
+    """Return (start, end) indices of frontmatter delimiters."""
+    if not lines or lines[0].strip() != "---":
+        return None
+    for i in range(1, len(lines)):
+        if lines[i].strip() == "---":
+            return (0, i)
+    return None
+
+
+
+def migrate_story(path: Path) -> tuple[bool, str, str | None]:
+    """Migrate one story file. Returns (changed, description, new_content_or_None)."""
+    text = path.read_text(encoding="utf-8")
+    lines = text.split("\n")
+
+    bounds = _parse_frontmatter_lines(lines)
+    if bounds is None:
+        return False, "no frontmatter", None
+
+    start, end = bounds
+    fm_lines = lines[start + 1 : end]
+    body_lines = lines[end + 1 :]
+
+    # Parse frontmatter entries preserving order
+    entries: list[tuple[str, str, list[str] | None, int, int]] = []
+    # (key, raw_value, block_items, start_idx, end_idx_exclusive)
+    i = 0
+    while i < len(fm_lines):
+        ln = fm_lines[i]
+        m = re.match(r"^([A-Za-z_][A-Za-z0-9_-]*)\s*:\s*(.*)?$", ln)
+        if m:
+            key = m.group(1)
+            raw_val = (m.group(2) or "").strip()
+            block_items: list[str] | None = None
+            j = i + 1
+            while j < len(fm_lines):
+                item_m = re.match(r"^\s+-\s+(.+)$", fm_lines[j])
+                if item_m:
+                    if block_items is None:
+                        block_items = []
+                    block_items.append(_unquote(item_m.group(1).strip()))
+                    j += 1
+                else:
+                    break
+            entries.append((key, raw_val, block_items, i, j))
+            i = j
+        else:
+            i += 1
+
+    # Extract values
+    outputs_value: list[str] = []
+    moved_values: dict[str, Any] = {}
+    has_outputs = False
+    changes: list[str] = []
+
+    for key, raw_val, block_items, _, _ in entries:
+        if key == "outputs":
+            has_outputs = True
+            if block_items is not None:
+                outputs_value = block_items
+            elif raw_val:
+                outputs_value = _parse_inline_list(raw_val)
+        elif key in FIELDS_TO_MOVE:
+            if block_items is not None:
+                val: Any = block_items
+            elif raw_val:
+                # Could be an inline list
+                if raw_val.startswith("["):
+                    parsed = _parse_inline_list(raw_val)
+                    val = parsed if parsed else None
+                else:
+                    val = _unquote(raw_val)
+            else:
+                val = None
+            if val is not None and val != [] and val != "":
+                moved_values[key] = val
+
+    if not has_outputs and not moved_values:
+        return False, "no outputs or movable fields", None
+
+    # Convert outputs → touches
+    touches: list[str] = []
+    seen: set[str] = set()
+    for out in outputs_value:
+        touch = _to_touch(out)
+        if touch and touch not in seen:
+            touches.append(touch)
+            seen.add(touch)
+
+    # Build new frontmatter
+    new_fm_lines: list[str] = []
+    processed_keys: set[int] = set()
+
+    for key, raw_val, block_items, si, ei in entries:
+        if key == "outputs":
+            new_fm_lines.append(f"touches: {_format_list_value(touches)}")
+            changes.append(f"outputs→touches ({len(outputs_value)}→{len(touches)})")
+        elif key in FIELDS_TO_MOVE:
+            if key in moved_values:
+                changes.append(f"moved {key}")
+            else:
+                changes.append(f"removed empty {key}")
+        else:
+            # Preserve original lines
+            for idx in range(si, ei):
+                new_fm_lines.append(fm_lines[idx])
+
+    # Build body additions
+    notes_additions: list[str] = []
+    if "tests" in moved_values:
+        val = moved_values["tests"]
+        if isinstance(val, list):
+            notes_additions.append(f"**Pre-existing tests:** {_format_list_value(val)}")
+        else:
+            notes_additions.append(f"**Pre-existing tests:** {val}")
+    if "strategy" in moved_values:
+        notes_additions.append(f"**Suggested approach:** {moved_values['strategy']}")
+    if "risk_domains" in moved_values:
+        val = moved_values["risk_domains"]
+        if isinstance(val, list):
+            notes_additions.append(f"**Risk domains:** {', '.join(val)}")
+        else:
+            notes_additions.append(f"**Risk domains:** {val}")
+    if "notes" in moved_values:
+        notes_additions.append(f"**Quality-gate notes:** {moved_values['notes']}")
+    if "seam_outputs" in moved_values:
+        val = moved_values["seam_outputs"]
+        if isinstance(val, list):
+            notes_additions.append(f"**Seam outputs:** {_format_list_value(val)}")
+        else:
+            notes_additions.append(f"**Seam outputs:** {val}")
+    if "impl_outputs" in moved_values:
+        val = moved_values["impl_outputs"]
+        if isinstance(val, list):
+            notes_additions.append(f"**Impl outputs:** {_format_list_value(val)}")
+        else:
+            notes_additions.append(f"**Impl outputs:** {val}")
+
+    new_body_lines = list(body_lines)
+    if notes_additions:
+        notes_idx = None
+        for idx, bl in enumerate(new_body_lines):
+            if re.match(r"^##\s+Notes\s+for\s+the\s+Implementer", bl, re.I):
+                notes_idx = idx
+                break
+
+        if notes_idx is not None:
+            insert_at = notes_idx + 1
+            while insert_at < len(new_body_lines):
+                if re.match(r"^##\s+", new_body_lines[insert_at]):
+                    break
+                insert_at += 1
+            addition_block = [""] + notes_additions + [""]
+            new_body_lines[insert_at:insert_at] = addition_block
+        else:
+            if new_body_lines and new_body_lines[-1].strip():
+                new_body_lines.append("")
+            new_body_lines.append("## Notes for the Implementer")
+            new_body_lines.append("")
+            new_body_lines.extend(notes_additions)
+            new_body_lines.append("")
+
+    result_lines = ["---"] + new_fm_lines + ["---"] + new_body_lines
+    result = "\n".join(result_lines)
+
+    if result == text:
+        return False, "no effective changes", None
+
+    return True, "; ".join(changes), result
+
+
+def collect_story_paths(*dirs: Path) -> list[Path]:
+    """Collect ST-*.md files from all provided directories."""
+    paths: list[Path] = []
+    for d in dirs:
+        if d.is_dir():
+            paths.extend(sorted(d.glob("ST-*.md")))
+    return paths
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(
+        description="Migrate story frontmatter from outputs to touches schema."
+    )
+    p.add_argument("--backlog-dir", default="backlog", type=Path)
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print changes without writing files.",
+    )
+    args = p.parse_args(argv)
+
+    # Collect all story paths
+    extra_dirs = [
+        Path("packages/orchestrator/backlog"),
+    ]
+    # Add concern-lint test fixtures
+    fixtures_base = Path("tests/fixtures/concern-lint")
+    if fixtures_base.is_dir():
+        for child in sorted(fixtures_base.iterdir()):
+            bl = child / "backlog"
+            if bl.is_dir():
+                extra_dirs.append(bl)
+
+    all_paths = collect_story_paths(args.backlog_dir, *extra_dirs)
+
+    if not all_paths:
+        print(f"No story files found in {args.backlog_dir} or extra directories.")
+        return 1
+
+    processed = 0
+    modified = 0
+    skipped = 0
+
+    for story_path in all_paths:
+        processed += 1
+        changed, desc, new_content = migrate_story(story_path)
+        rel = story_path.relative_to(Path.cwd()) if story_path.is_relative_to(Path.cwd()) else story_path
+
+        if changed:
+            modified += 1
+            if args.dry_run:
+                print(f"  WOULD MODIFY  {rel}: {desc}")
+            else:
+                story_path.write_text(new_content, encoding="utf-8")
+                print(f"  MODIFIED  {rel}: {desc}")
+        else:
+            skipped += 1
+            if args.dry_run:
+                print(f"  SKIP  {rel}: {desc}")
+
+    mode = " (dry run)" if args.dry_run else ""
+    print(f"\nmigrate-story-schema{mode}: {processed} processed, {modified} modified, {skipped} skipped.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -17,7 +17,7 @@ def _write_story(backlog: Path, story_id: str, **fm_fields):
         "title": "Test",
         "tier": "standard",
         "status": "pending",
-        "outputs": ["test.py"],
+        "touches": ["src/"],
     }
     defaults.update(fm_fields)
     lines = ["---"]
@@ -49,9 +49,9 @@ class TestParseFrontmatter:
         assert fm is None
 
     def test_block_sequence(self):
-        text = "---\noutputs:\n  - file1.py\n  - file2.py\n---\n"
+        text = "---\ntouches:\n  - src/orchestrator/\n  - tests/\n---\n"
         fm, _ = bl.parse_frontmatter(text)
-        assert fm["outputs"] == ["file1.py", "file2.py"]
+        assert fm["touches"] == ["src/orchestrator/", "tests/"]
 
     def test_inline_flow_sequence(self):
         text = "---\ndeps: [ST-0001, ST-0002]\n---\n"
@@ -82,7 +82,7 @@ class TestCheckStory:
             "title": "Test story",
             "tier": "standard",
             "status": "pending",
-            "outputs": ["test.py"],
+            "touches": ["src/"],
         }
         base.update(overrides)
         return base
@@ -124,19 +124,17 @@ class TestCheckStory:
         findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
         assert any(f.code == "BL-ENUM" and "status" in f.message for f in findings)
 
-    def test_invalid_risk_domain(self, tmp_path):
-        fm = self._make_fm(risk_domains=["security", "nonsense"])
+    def test_removed_fields_are_extra(self, tmp_path):
+        """Fields moved out of frontmatter are now flagged as unknown."""
+        fm = self._make_fm(strategy="direct", risk_domains=["security"], notes="x")
         path = tmp_path / "ST-0001.md"
         path.touch()
         findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
-        assert any(f.code == "BL-ENUM" and "nonsense" in f.message for f in findings)
-
-    def test_invalid_strategy(self, tmp_path):
-        fm = self._make_fm(strategy="unknown")
-        path = tmp_path / "ST-0001.md"
-        path.touch()
-        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
-        assert any(f.code == "BL-ENUM" and "strategy" in f.message for f in findings)
+        extras = [f for f in findings if f.code == "BL-EXTRA"]
+        extra_fields = {f.message.split("'")[1] for f in extras}
+        assert "strategy" in extra_fields
+        assert "risk_domains" in extra_fields
+        assert "notes" in extra_fields
 
     def test_extra_field_warns(self, tmp_path):
         fm = self._make_fm(bogus="value")
@@ -167,25 +165,19 @@ class TestCheckStory:
         findings = bl.check_story(path, fm, body, {"ST-0001"}, tmp_path)
         assert any(f.code == "BL-DUP" for f in findings)
 
-    def test_missing_default_gate_without_justification(self, tmp_path):
-        fm = self._make_fm(**{"quality-gates": ["dependency-check"]})
+    def test_touches_empty_warns(self, tmp_path):
+        fm = self._make_fm(touches=[])
         path = tmp_path / "ST-0001.md"
         path.touch()
         findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
-        assert any(f.code == "BL-NOTES" for f in findings)
+        assert any(f.code == "BL-EMPTY" and "touches" in f.message for f in findings)
 
-    def test_missing_default_gate_with_justification(self, tmp_path):
-        fm = self._make_fm(
-            **{
-                "quality-gates": ["dependency-check"],
-                "notes": "crap-score excluded: prose-only skill",
-            }
-        )
+    def test_touches_not_array_errors(self, tmp_path):
+        fm = self._make_fm(touches="src/")
         path = tmp_path / "ST-0001.md"
         path.touch()
         findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
-        notes_errors = [f for f in findings if f.code == "BL-NOTES"]
-        assert notes_errors == []
+        assert any(f.code == "BL-TYPE" and "touches" in f.message for f in findings)
 
 
 class TestCheckBacklog:
@@ -216,7 +208,7 @@ class TestCheckBacklog:
         _write_story(backlog, "ST-0001")
         (backlog / "ST-0002.md").write_text(
             "---\nid: ST-0001\nepic: E\ntitle: T\ntier: standard\n"
-            "status: pending\noutputs: [x.py]\n---\n"
+            "status: pending\ntouches: [src/]\n---\n"
         )
         findings, _ = bl.check_backlog(backlog)
         assert any(f.code == "BL-DUP-ID" for f in findings)
@@ -236,7 +228,7 @@ class TestConcernsField:
             "title": "Test story",
             "tier": "standard",
             "status": "pending",
-            "outputs": ["test.py"],
+            "touches": ["src/"],
         }
         base.update(overrides)
         return base

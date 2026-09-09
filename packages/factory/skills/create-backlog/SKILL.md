@@ -46,7 +46,7 @@ See [story.md template](../../rulebooks/templates/story.md) for the complete fro
 - `status`: pending | in_progress | review | blocked | done
 - `deps`: Story IDs that block this one (optional)
 - `traces`: Use Case / ADR / component IDs implemented (optional)
-- `outputs`: Files the story produces — **including its test file(s)**, so `premerge-check --scope` covers them without manual widening
+- `touches`: Directory prefixes the story works within — including test directories — for overlap detection and scope enforcement
 
 EPICs are documented in `backlog/epics.md` — each EPIC section carries actor goals, demo, scope, dependencies, boundaries, size, and a building-block inventory with capacity estimates. The `epic:` frontmatter value in each story references its parent EPIC by name. MoSCoW priority lives in the prose body (the frontmatter schema is closed; `backlog-lint` rejects unknown fields).
 

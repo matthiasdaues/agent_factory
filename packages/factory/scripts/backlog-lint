@@ -40,36 +40,20 @@ SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
 
 VALID_TIERS = {"economy", "standard", "strong"}
 VALID_STATUSES = {"pending", "in-progress", "review", "blocked", "done"}
-VALID_RISK_DOMAINS = {
-    "security",
-    "privacy",
-    "data_integrity",
-    "compatibility",
-    "reliability",
-    "operations",
-}
-VALID_STRATEGIES = {"direct", "seams-first", "deletion"}
 VALID_QUALITY_GATES = {"crap-score", "mutation-analysis", "dependency-check"}
-FACTORY_DEFAULT_QUALITY_GATES = ("crap-score", "dependency-check")
 RE_STORY_ID = re.compile(r"^ST-\d{4,}$")
-REQUIRED_FIELDS = {"id", "epic", "title", "tier", "status", "outputs"}
+REQUIRED_FIELDS = {"id", "epic", "title", "tier", "status", "touches"}
 OPTIONAL_FIELDS = {
     "concerns",
     "deps",
     "traces",
-    "tests",
-    "risk_domains",
-    "strategy",
     "quality-gates",
-    "notes",
-    "seam_outputs",
-    "impl_outputs",
 }
 VALID_CONCERN_KEYS = {"domain", "technical"}
 ALL_FIELDS = REQUIRED_FIELDS | OPTIONAL_FIELDS
 
 # Machine fields whose names must not appear as standalone terms in the prose body.
-MACHINE_FIELD_NAMES = {"tier", "deps", "traces", "outputs"}
+MACHINE_FIELD_NAMES = {"tier", "deps", "traces", "touches"}
 
 
 @dataclass
@@ -217,21 +201,6 @@ def _project_root(backlog_dir: Path) -> Path:
     return backlog_dir.resolve().parent
 
 
-def _matching_output_paths(project_root: Path, outputs: List[Any]) -> Set[Path]:
-    """Return files under project_root that match any declared output glob."""
-    matches: Set[Path] = set()
-    for pattern in outputs:
-        if not isinstance(pattern, str) or not pattern.strip():
-            continue
-        try:
-            for path in project_root.glob(pattern):
-                if path.is_file():
-                    matches.add(path)
-        except (NotImplementedError, ValueError):
-            continue
-    return matches
-
-
 def _string_set(values: Any) -> Optional[Set[str]]:
     """Return a set of string values when the input is a string list."""
     if not isinstance(values, list):
@@ -318,42 +287,6 @@ def check_story(
             )
         )
 
-    # --- risk_domains: type and enum ---
-    risk_domains = fm.get("risk_domains")
-    if risk_domains is not None:
-        risk_domain_values = _string_set(risk_domains)
-        if risk_domain_values is None:
-            out.append(
-                Finding("BL-TYPE", "error", rel, "risk_domains must be an array")
-            )
-        else:
-            for value in sorted(risk_domain_values):
-                if value not in VALID_RISK_DOMAINS:
-                    out.append(
-                        Finding(
-                            "BL-ENUM",
-                            "error",
-                            rel,
-                            "risk_domains value "
-                            f"'{value}' not in {{security, privacy, "
-                            "data_integrity, compatibility, reliability, operations}}",
-                        )
-                    )
-
-    # --- strategy: type and enum ---
-    strategy = fm.get("strategy")
-    if strategy is not None and not isinstance(strategy, str):
-        out.append(Finding("BL-TYPE", "error", rel, "strategy must be a string"))
-    elif isinstance(strategy, str) and strategy not in VALID_STRATEGIES:
-        out.append(
-            Finding(
-                "BL-ENUM",
-                "error",
-                rel,
-                f"strategy '{strategy}' not in {{direct, seams-first, deletion}}",
-            )
-        )
-
     # --- concerns: optional mapping with domain/technical string lists ---
     concerns = fm.get("concerns")
     if concerns is not None:
@@ -410,24 +343,6 @@ def check_story(
                         )
                     )
 
-            missing_default_gates = [
-                gate
-                for gate in FACTORY_DEFAULT_QUALITY_GATES
-                if gate not in quality_gate_values
-            ]
-            if missing_default_gates:
-                notes = fm.get("notes")
-                for gate in missing_default_gates:
-                    if not isinstance(notes, str) or gate not in notes:
-                        out.append(
-                            Finding(
-                                "BL-NOTES",
-                                "error",
-                                rel,
-                                f"notes must justify excluding default gate '{gate}'",
-                            )
-                        )
-
     # --- deps: type, pattern, and referential integrity ---
     deps = fm.get("deps")
     if deps is not None:
@@ -459,151 +374,13 @@ def check_story(
     if traces is not None and not isinstance(traces, list):
         out.append(Finding("BL-TYPE", "error", rel, "traces must be an array"))
 
-    # --- outputs: type ---
-    outputs = fm.get("outputs")
-    if outputs is not None and not isinstance(outputs, list):
-        out.append(Finding("BL-TYPE", "error", rel, "outputs must be an array"))
-    elif isinstance(outputs, list):
-        if len(outputs) == 0:
-            out.append(Finding("BL-EMPTY", "warning", rel, "outputs is empty"))
-        matching_outputs = _matching_output_paths(project_root, outputs)
-
-        # For deletion stories with status='done': verify NO files exist
-        if strategy == "deletion" and status == "done" and matching_outputs:
-            matched = ", ".join(
-                sorted(str(p.relative_to(project_root)) for p in matching_outputs)
-            )
-            out.append(
-                Finding(
-                    "VR-027",
-                    "error",
-                    rel,
-                    f"deletion with status 'done' requires no existing files, but found: {matched}",
-                )
-            )
-        # For non-deletion or deletion with status != 'done': apply normal VR-027 logic
-        elif strategy != "deletion":
-            if status == "done" and not matching_outputs:
-                out.append(
-                    Finding(
-                        "VR-027",
-                        "error",
-                        rel,
-                        "status 'done' requires at least one existing file matching outputs",
-                    )
-                )
-            elif status != "done" and matching_outputs:
-                matched = ", ".join(
-                    sorted(str(p.relative_to(project_root)) for p in matching_outputs)
-                )
-                out.append(
-                    Finding(
-                        "VR-028",
-                        "warning",
-                        rel,
-                        f"outputs match existing file(s): {matched}",
-                    )
-                )
-        elif status != "done" and matching_outputs:
-            # Deletion story with status != 'done': also apply normal VR-028 warning
-            matched = ", ".join(
-                sorted(str(p.relative_to(project_root)) for p in matching_outputs)
-            )
-            out.append(
-                Finding(
-                    "VR-028",
-                    "warning",
-                    rel,
-                    f"outputs match existing file(s): {matched}",
-                )
-            )
-
-    # --- seams-first output partitioning ---
-    seam_outputs = fm.get("seam_outputs")
-    impl_outputs = fm.get("impl_outputs")
-    seam_values = _string_set(seam_outputs)
-    impl_values = _string_set(impl_outputs)
-    seam_valid = seam_outputs is None or seam_values is not None
-    impl_valid = impl_outputs is None or impl_values is not None
-
-    if seam_outputs is not None and seam_values is None:
-        out.append(Finding("BL-TYPE", "error", rel, "seam_outputs must be an array"))
-    if impl_outputs is not None and impl_values is None:
-        out.append(Finding("BL-TYPE", "error", rel, "impl_outputs must be an array"))
-
-    if seam_values is not None and impl_values is not None:
-        overlap = sorted(seam_values & impl_values)
-        if overlap:
-            out.append(
-                Finding(
-                    "BL-ENUM",
-                    "error",
-                    rel,
-                    f"seam_outputs and impl_outputs overlap on: {', '.join(overlap)}",
-                )
-            )
-
-    if (
-        isinstance(strategy, str)
-        and strategy == "seams-first"
-        and isinstance(outputs, list)
-        and seam_valid
-        and impl_valid
-    ):
-        declared_outputs = _string_set(outputs)
-        if declared_outputs is None:
-            out.append(Finding("BL-TYPE", "error", rel, "outputs must be an array"))
-        else:
-            partition = (seam_values if seam_outputs is not None else set()) | (
-                impl_values if impl_outputs is not None else set()
-            )
-            if partition != declared_outputs:
-                missing = sorted(declared_outputs - partition)
-                extra = sorted(partition - declared_outputs)
-                details = []
-                if missing:
-                    details.append(
-                        f"missing from seam_outputs+impl_outputs: {', '.join(missing)}"
-                    )
-                if extra:
-                    details.append(f"not declared in outputs: {', '.join(extra)}")
-                out.append(
-                    Finding(
-                        "BL-ENUM",
-                        "error",
-                        rel,
-                        "seams-first outputs must equal seam_outputs ∪ impl_outputs "
-                        + "; ".join(details),
-                    )
-                )
-
-    # --- tests: type and file existence ---
-    tests = fm.get("tests")
-    if tests is not None and not isinstance(tests, list):
-        out.append(Finding("BL-TYPE", "error", rel, "tests must be an array"))
-    elif isinstance(tests, list):
-        if len(tests) > 0:
-            for test_file in tests:
-                if not isinstance(test_file, str):
-                    out.append(
-                        Finding(
-                            "BL-TYPE",
-                            "error",
-                            rel,
-                            f"test file path must be a string, got {type(test_file).__name__}",
-                        )
-                    )
-                    continue
-                test_path = project_root / test_file
-                if not test_path.is_file():
-                    out.append(
-                        Finding(
-                            "BL-FILE",
-                            "warning",
-                            rel,
-                            f"test file '{test_file}' does not exist",
-                        )
-                    )
+    # --- touches: type ---
+    touches = fm.get("touches")
+    if touches is not None and not isinstance(touches, list):
+        out.append(Finding("BL-TYPE", "error", rel, "touches must be an array"))
+    elif isinstance(touches, list):
+        if len(touches) == 0:
+            out.append(Finding("BL-EMPTY", "warning", rel, "touches is empty"))
 
     # --- machine field names must not appear as headings/terms in body ---
     for fld in MACHINE_FIELD_NAMES:

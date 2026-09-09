@@ -566,6 +566,17 @@ def fix_origin_head(target: Path, report: list[str]) -> None:
         log(report, f"origin/HEAD: repair skipped — {exc}")
 
 
+def _lock_installed_factory(source_factory: Path, dest: Path) -> None:
+    """chmod a-w on installed factory/ files when the project owns the source."""
+    if not (dest.parent / "packages" / "factory").is_dir():
+        return
+    import stat
+    for root, _dirs, files in os.walk(dest):
+        for name in files:
+            p = Path(root) / name
+            p.chmod(p.stat().st_mode & ~(stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH))
+
+
 def copy_factory(
     source_factory: Path, target: Path, install: dict, report: list[str]
 ) -> None:
@@ -586,6 +597,7 @@ def copy_factory(
 
     shutil.copytree(source_factory, dest, symlinks=False)
     write_factory_checksums(target, dest)
+    _lock_installed_factory(source_factory, dest)
     log(report, f"factory/: copied in from {source_factory}")
 
 
