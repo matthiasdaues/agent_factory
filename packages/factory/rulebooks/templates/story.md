@@ -185,6 +185,3 @@ A non-`.feature`-governed story with no `test-design-pass` field is a QA finding
 
 - [create-backlog § Step 2](../../skills/create-backlog/SKILL.md#step-2--break-epics-into-user-stories)
 - [backlog-lint script](../../scripts/backlog-lint)
-
-```
-```

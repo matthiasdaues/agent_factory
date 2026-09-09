@@ -103,7 +103,13 @@ If any sentence fails, rewrite it before the story leaves the gate.
 
 ## Plain-language pass
 
-Before moving to step 3, reread the Goal, Domain Rule, and Demo Scenario sections for understandability. Can a developer unfamiliar with the epic understand what the story delivers and why it matters? Does the demo feel concrete and achievable in one session? If not, revise.
+Before presenting the backlog, reread the Goal, Domain Rule, and Demo Scenario sections for understandability. Can a developer unfamiliar with the epic understand what the story delivers and why it matters? Does the demo feel concrete and achievable in one session? If not, revise.
+
+Present the complete backlog to the user. Ask:
+
+- _"Are the MoSCoW priorities correct?"_
+- _"Any missing stories?"_
+- _"Should any dependencies be reordered?"_
 
 ## This skill ends here
 
