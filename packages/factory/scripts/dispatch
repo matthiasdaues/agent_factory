@@ -79,8 +79,18 @@ def _project_root() -> Path:
 
 
 def _read_test_command(project_root: Path) -> str | None:
-    """Read test_command from config/project.json."""
+    """Read test_command from config/project.json.
+
+    Falls back to the main worktree when *project_root* is a linked worktree
+    and the file is gitignored (not present in the worktree checkout).
+    """
     config_path = project_root / "config" / "project.json"
+    if not config_path.exists():
+        # In a linked worktree, gitignored files live only in the main tree.
+        code, common_dir, _ = _git("rev-parse", "--git-common-dir")
+        if code == 0 and common_dir:
+            main_root = Path(common_dir).resolve().parent
+            config_path = main_root / "config" / "project.json"
     if not config_path.exists():
         return None
     try:
@@ -526,6 +536,25 @@ def cmd_plan(args: argparse.Namespace) -> int:
     project_root = backlog_dir.resolve().parent
     plan = compute_wave_plan(stories, project_root, filter_ids)
     print(plan.to_yaml())
+
+    if getattr(args, "apply", False):
+        ledger_path = Path(args.ledger)
+        ledger = _load_ledger(ledger_path)
+        if ledger is None:
+            return 1
+        assigned = 0
+        for wave_entry in plan.waves:
+            wave_num = wave_entry["wave"]
+            for story in wave_entry.get("stories", []):
+                sid = story["id"]
+                if sid in ledger.stories:
+                    ledger.stories[sid].wave = wave_num
+                    assigned += 1
+        save_code = _save_ledger(ledger, ledger_path)
+        if save_code != 0:
+            return save_code
+        print(f"dispatch plan: applied wave assignments to {assigned} stories in ledger")
+
     return 0
 
 
@@ -1552,6 +1581,11 @@ def main(argv: list[str] | None = None) -> int:
     p_plan.add_argument("--backlog-dir", required=True)
     p_plan.add_argument(
         "--stories", default=None, help="comma-separated story IDs to include"
+    )
+    p_plan.add_argument(
+        "--apply",
+        action="store_true",
+        help="persist wave assignments into the dispatch ledger",
     )
 
     sub.add_parser("prepare-wave", help="prepare all stories in a wave").add_argument(

@@ -434,6 +434,12 @@ def main(argv: list[str] | None = None) -> int:
         shutil.rmtree(backup)
         log("removed the update backup")
 
+    # Purge stale bytecode so a prior Python version's .pyc never shadows
+    # the freshly installed source.
+    for pycache in sorted(target_factory.rglob("__pycache__")):
+        shutil.rmtree(pycache)
+    log("purged stale __pycache__ directories")
+
     _stamp_tree_hash(source, target)
     _write_checksums(target, target_factory)
     _lock_factory(target_factory)
