@@ -342,6 +342,61 @@ def read_ownership_assignments(
     return contracts
 
 
+def read_all_epic_owners(
+    epics_text: str, epic_name: str
+) -> dict[str, str]:
+    """Read the ``### Ownership Resolution`` table for the named EPIC and
+    return a dict mapping contract name → owner story ID for every row."""
+    epic_heading_re = re.compile(
+        r"^##\s+" + re.escape(epic_name) + r"\s*$", re.MULTILINE
+    )
+    epic_match = epic_heading_re.search(epics_text)
+    if not epic_match:
+        return {}
+
+    ownership_re = re.compile(r"^###\s+Ownership Resolution\s*$", re.MULTILINE)
+    search_start = epic_match.end()
+    next_epic_re = re.compile(r"^##\s+", re.MULTILINE)
+    next_epic = next_epic_re.search(epics_text, search_start)
+    search_end = next_epic.start() if next_epic else len(epics_text)
+    epic_section = epics_text[search_start:search_end]
+
+    ownership_match = ownership_re.search(epic_section)
+    if not ownership_match:
+        return {}
+
+    table_start = ownership_match.end()
+    table_text = epic_section[table_start:]
+    lines = table_text.strip().splitlines()
+
+    header_idx = None
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("|") and "Contract" in stripped and "Owner" in stripped:
+            header_idx = idx
+            break
+    if header_idx is None:
+        return {}
+
+    cells = [c.strip() for c in lines[header_idx].strip().strip("|").split("|")]
+    try:
+        contract_col = cells.index("Contract")
+        owner_col = cells.index("Owner")
+    except ValueError:
+        return {}
+
+    owners: dict[str, str] = {}
+    max_col = max(contract_col, owner_col)
+    for line in lines[header_idx + 2:]:
+        if not line.strip().startswith("|"):
+            break
+        row_cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(row_cells) <= max_col:
+            continue
+        owners[row_cells[contract_col]] = row_cells[owner_col]
+    return owners
+
+
 # --------------------------------------------------------------------------
 # Scope map parsing
 # --------------------------------------------------------------------------
@@ -701,7 +756,8 @@ def validate_new_model(
     repo_root: Path,
 ) -> list[Finding]:
     """Validate a new-model story: check ``test-design-pass`` value, verify
-    ``tests:`` field presence, and confirm listed test modules exist."""
+    ``tests:`` field presence, confirm listed test modules exist, and for
+    non-owned contracts verify the owning story's test files resolve."""
     findings: list[Finding] = []
 
     tdp_value = read_test_design_pass(story_text)
@@ -716,10 +772,13 @@ def validate_new_model(
     test_modules = read_tests_field(story_text)
 
     owned_contracts: list[str] = []
+    all_owners: dict[str, str] = {}
     epic_name = read_story_epic_field(story_text)
+    epics_text = ""
     if epic_name and epics_path.is_file():
         epics_text = epics_path.read_text(encoding="utf-8")
         owned_contracts = read_ownership_assignments(epics_text, epic_name, story_id)
+        all_owners = read_all_epic_owners(epics_text, epic_name)
 
     if not has_field:
         contract_hint = ""
@@ -745,6 +804,48 @@ def validate_new_model(
                 kind="missing_test_module",
                 message=f"test module '{module_path}' listed in tests: does not exist",
             ))
+
+    # Non-owning contract validation: for contracts in this EPIC owned by
+    # another story, verify the owning story's tests: field resolves.
+    backlog_dir = epics_path.parent if epics_path.is_file() else None
+    non_owned = {
+        contract: owner
+        for contract, owner in all_owners.items()
+        if owner != story_id and story_id not in owner
+    }
+    for contract, owner_id in non_owned.items():
+        if not backlog_dir:
+            continue
+        owner_path = backlog_dir / f"{owner_id}.md"
+        if not owner_path.is_file():
+            findings.append(Finding(
+                kind="missing_owner_story",
+                message=f"contract '{contract}' owned by {owner_id} but "
+                f"story file '{owner_path.name}' not found",
+                trace_id=contract,
+            ))
+            continue
+        owner_text = owner_path.read_text(encoding="utf-8")
+        owner_tdp = read_test_design_pass(owner_text)
+        if owner_tdp is None:
+            continue
+        owner_tests = read_tests_field(owner_text)
+        if not owner_tests:
+            findings.append(Finding(
+                kind="owner_missing_tests",
+                message=f"contract '{contract}' owned by {owner_id} but "
+                f"owner's tests: field is empty or absent",
+                trace_id=contract,
+            ))
+            continue
+        for module_path in owner_tests:
+            if not (repo_root / module_path).is_file():
+                findings.append(Finding(
+                    kind="owner_test_not_found",
+                    message=f"contract '{contract}' owned by {owner_id}: "
+                    f"test module '{module_path}' does not exist",
+                    trace_id=contract,
+                ))
 
     return findings
 
