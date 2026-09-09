@@ -61,8 +61,8 @@ Present `backlog/epics.md` to the user for confirmation.
 
 ## This skill ends here
 
-The EPIC artifact is written. **Do not proceed to story-level slicing.** The user confirms or adjusts `backlog/epics.md`, then invokes the next skill: [`create-backlog-story-slices`](../create-backlog-story-slices/SKILL.md).
+The EPIC artifact is written. **Do not proceed to story-level slicing.** The user confirms or adjusts `backlog/epics.md`, then invokes the next skill in the sequence: the testability probe (phase 2.5).
 
-## Optional: Invoke test-design
+## Next: Invoke testability-probe
 
-Before proceeding to step 3, you may invoke [`test-design`](../test-design/SKILL.md) to enrich the epics with test scenarios from the `.feature` contracts. The test-design skill designs failure scenarios that prescribe the developer-agent's TDD RED phase — without it, each developer-agent invents its own tests, often defaulting to obvious happy-path coverage that proves nothing about the behavioral invariants the specification intended. By contrast, test-design output ensures every test traces to a contract and every contract has one clear owner.
+Before proceeding to story slicing (phase 3), invoke [`testability-probe`](../testability-probe/SKILL.md) to assess each EPIC's testability and resolve contract ownership backlog-wide. The probe writes a testability paragraph and ownership table per EPIC into `backlog/epics.md` — catching untestable scoping before stories are cut and ensuring every traced contract has exactly one test owner. This step is mandatory; skipping it lets planning proceed without the gate that catches scoping defects.
