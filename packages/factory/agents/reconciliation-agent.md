@@ -107,6 +107,11 @@ phase is exempt and may continue in the current session.
    - **PR body**: list every newly discovered Rule so the reviewer sees the scope change. If the merge is script-owned with no PR, record the list in the reconciliation report instead.
 5. **Verify prior findings** (repeat passes) — Per [review-loop-discipline.md](../rulebooks/conventions/review-loop-discipline.md): resolve/annotate each open `RECON` finding, **and** re-reconcile fresh (Steps 2–4) to catch new drift.
 6. **Reconcile agent context** — Run a concern-registry health check against `docs/agent-context.md`. Validate that every concern section has valid `Read:` paths (each path resolves to an existing file or directory in the project). Verify that the concern vocabulary matches the project's documentation structure — section headings should correspond to actual project concerns, not stale or orphaned topics. Report missing paths as warnings and orphaned sections as suggestions for removal or update. The user confirms each suggestion via `update-context` or dismisses it. Dismissed suggestions are not re-surfaced in the same reconciliation pass.
+7. **Audit test traceability** — For each story file in the backlog:
+   - Read the `tests:` field and verify that every listed test file exists on disk. When a listed file is missing (renamed, moved, or deleted), locate the correct path and backfill the `tests:` field. File a `RECON-TEST-PATH` finding noting the correction.
+   - When a story has no `tests:` field but test files matching the story's `touches:` scope exist in the test suite, backfill the `tests:` field with the discovered paths. File a `RECON-TEST-PATH` finding noting the addition.
+   - Read the `### Ownership Resolution` table in `backlog/epics.md` for each EPIC. For each contract with an ownership assignment, verify that the owning story's `tests:` field includes at least one test covering that contract. When ownership exists but no corresponding test coverage is found, file a `RECON-TEST-COVERAGE` finding.
+   - Test references stay in story files (`backlog/ST-NNNN.md`), not in `.feature` files — consistent with [cross-reference-format.md](../rulebooks/conventions/cross-reference-format.md).
 
 **Pause point:** Present the discrepancy table before committing updates. Human decides: update spec or change code?
 
@@ -118,6 +123,8 @@ phase is exempt and may continue in the current session.
 - Scope map reflects the `.feature` file's Rules: discoveries filed, drift filed, migration rows skipped
 - Prior findings resolved or annotated
 - Agent-context concern sections validated: `Read:` paths resolve, vocabulary matches project structure
+- Every story's `tests:` field lists test files that exist on disk (or corrections filed as `RECON-TEST-PATH`)
+- Every contract with an ownership assignment has corresponding test coverage (or gaps filed as `RECON-TEST-COVERAGE`)
 
 ## Handoff
 

@@ -1,6 +1,6 @@
 ---
 title: Backlog Story Template
-version: 2.0.0
+version: 2.1.0
 ---
 
 # Backlog Story Template
@@ -31,6 +31,13 @@ quality-gates: [crap-score, mutation-analysis, dependency-check]
                                   # Default precedence: story field > house-rules.md
                                   # default_quality_gates > Factory hardcoded default.
                                   # If excluding a default gate, justify in Notes for the Implementer.
+tests: [tests/unit/test_widget.py, tests/integration/test_widget_seam.py]
+                                  # optional; written by the developer agent at commit time.
+                                  # Lists the test modules this story owns — authored during
+                                  # TDD pass 1 and test-design pass 2. Not set at planning time.
+test-design-pass: done            # optional; written by the developer agent at commit time.
+                                  # done | skipped-feature-governed
+                                  # Records whether the post-GREEN test-design pass ran.
 ---
 ```
 
@@ -89,6 +96,19 @@ List the semantic gates that apply to the story: `crap-score`, `mutation-analysi
 When the field is absent, the dispatcher falls back to `docs/charter/house-rules.md`'s
 `default_quality_gates`, then to the Factory hardcoded default of all three gates.
 If the story excludes any default gate, justify the exclusion in the body's Notes for the Implementer section.
+
+### tests (optional, written at implementation time)
+
+Array of test module paths this story owns — test files authored during TDD pass 1 (acceptance-criteria tests) and test-design pass 2 (integration and edge-case tests). Written by the developer agent at commit time, not set during planning. Lists only modules this story created or extended, not prior tests inherited from dependency stories. Used by the QA agent for contract-to-test cross-referencing and by the reconciliation agent for traceability audits. Example: `[tests/unit/test_widget.py, tests/integration/test_widget_seam.py]`.
+
+### test-design-pass (optional, written at implementation time)
+
+Records whether the developer agent ran the post-GREEN `test-design` skill (pass 2). Written at commit time. Valid values:
+
+- `done` — the developer agent invoked `test-design` and authored any additional tests it identified (or confirmed no additional tests were needed).
+- `skipped-feature-governed` — the story is `.feature`-governed; pass 2 was correctly skipped because the `.feature` file is the test design.
+
+A non-`.feature`-governed story with no `test-design-pass` field is a QA finding — the developer skipped the step. The `test-design-verify` gate checks this field.
 
 ## Referenced from
 

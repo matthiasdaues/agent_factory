@@ -38,13 +38,19 @@ For each story, cross-reference against the testing regime:
 5. When no existing test covers a criterion, record the target suite for new tests in the story's Notes for the Implementer section (e.g. "New tests target the `backend` suite under `packages/server/backend/tests`").
 6. Read the document referenced by `testing_strategy:` in `testing.yaml` to determine cluster assignment and test budget for the story.
 
-**When `backlog/epics.md` contains test-design sections** (produced by the optional test-design skill in phase 2.5), carry them into the story files:
+**When `backlog/epics.md` contains testability-probe sections** (produced by the mandatory testability-probe skill in phase 2.5), carry ownership assignments into the story files:
+
+- Read the `### Ownership Resolution` table for the story's EPIC. For each contract owned by this story, record the ownership assignment ("contract X owned by this story") in the story's Notes for the Implementer section under "Owned contracts". This tells the developer agent which contracts it is responsible for testing.
+- For contracts in the table owned by a *different* story, do not record anything in this story's file — the developer agent for a dependent story discovers prior tests from the owning story at implementation time through the dependency graph.
+- Do not carry `#### Failure scenarios` or `#### Prior Tests` sections — those are not produced by the testability probe.
+
+**Backward compatibility — when `backlog/epics.md` contains old-model test-design sections** (produced by the former test-design skill), carry them into the story files as before:
 
 - If the story's epic building-block entry has a `tests:` key, record those test file paths in the story's Notes for the Implementer section under "Pre-existing tests" (overriding any cross-referenced test discovery).
 - If the entry contains a `#### Failure scenarios` section, write it verbatim into the story body immediately after the Acceptance Criteria section.
 - If the entry contains a `#### Prior Tests` section, write it verbatim into the story body immediately after the Failure scenarios section (or after Acceptance Criteria if no Failure scenarios section exists).
 
-When `backlog/epics.md` contains no test-design sections (the skill was not run), the cross-referencing behavior above continues unchanged.
+**Detection heuristic:** if the EPIC has an `### Ownership Resolution` table, it is probe output — carry ownership assignments. If it has `#### Failure scenarios` subsections under story entries, it is old-model test-design output — carry those sections. If neither is present, the cross-referencing behavior above continues unchanged.
 
 See the [story template](../../rulebooks/templates/story.md) for the complete frontmatter schema and body structure.
 
