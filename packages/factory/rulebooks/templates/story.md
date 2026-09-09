@@ -27,9 +27,8 @@ concerns: {domain: [billing], technical: [backend, data-storage]}
                                   # story touches. Both keys are optional. Names must match ###
                                   # headings in docs/agent-context.md. Cross-cutting concerns
                                   # are never declared (always active).
-quality-gates: [crap-score, mutation-analysis, dependency-check]
-                                  # optional; list the semantic gates that apply to this story.
-                                  # Default precedence: story field > house-rules.md
+quality-gates: []                  # semantic gates that apply to this story; filled by planner.
+                                  # Precedence: story field > house-rules.md
                                   # default_quality_gates > Factory hardcoded default.
                                   # If excluding a default gate, justify in Constraints.
 tests: [tests/unit/test_widget.py, tests/integration/test_widget_seam.py]
