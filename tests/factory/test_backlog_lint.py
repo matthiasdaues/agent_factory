@@ -179,6 +179,28 @@ class TestCheckStory:
         findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
         assert any(f.code == "BL-TYPE" and "touches" in f.message for f in findings)
 
+    def test_risk_level_valid_values(self, tmp_path):
+        for level in ("low", "medium", "high"):
+            fm = self._make_fm(risk_level=level)
+            path = tmp_path / "ST-0001.md"
+            path.touch()
+            findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+            assert not any(f.code == "BL-ENUM" and "risk_level" in f.message for f in findings)
+
+    def test_risk_level_invalid_value(self, tmp_path):
+        fm = self._make_fm(risk_level="extreme")
+        path = tmp_path / "ST-0001.md"
+        path.touch()
+        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        assert any(f.code == "BL-ENUM" and "risk_level" in f.message for f in findings)
+
+    def test_risk_level_absent_ok(self, tmp_path):
+        fm = self._make_fm()
+        path = tmp_path / "ST-0001.md"
+        path.touch()
+        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        assert not any(f.code == "BL-ENUM" and "risk_level" in f.message for f in findings)
+
 
 class TestCheckBacklog:
     def test_empty_dir_returns_info(self, tmp_path):

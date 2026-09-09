@@ -88,7 +88,7 @@ Every must-not from ADRs, conventions, testing regime, and scope exclusions goes
 
 ## Quality gates
 
-Three quality gates ensure every story is intelligible to agents and humans alike.
+Two quality gates ensure every story is intelligible to agents and humans alike.
 
 ### Agent-Answerability Checks
 
