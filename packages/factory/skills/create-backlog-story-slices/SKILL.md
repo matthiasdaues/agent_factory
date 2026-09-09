@@ -19,10 +19,12 @@ Follow the concern sections in `docs/agent-context.md` to locate domain vocabula
 
 **Boundary vocabulary:** derive boundary names from the project's architecture. Follow the technical concerns in `docs/agent-context.md` to locate architecture views. Use the project's own component and container names, not generic layer labels.
 
-For each confirmed EPIC, sketch a table of candidate stories. Each row names a user-visible capability, the system boundaries it crosses, and a one-sentence demo.
+For each confirmed EPIC, sketch a table of candidate stories. Each row names a user-visible capability, the system boundaries it crosses, what the story delivers, and a one-sentence demo.
 
-| #   | Capability (what a person can do after) | Boundaries crossed | Demo sentence |
-| --- | --------------------------------------- | ------------------ | ------------- |
+| #   | Capability | Goal (one sentence) | Boundaries crossed | Demo sentence |
+| --- | ---------- | ------------------- | ------------------ | ------------- |
+
+**Goal column:** State what each story delivers in plain language — one sentence of concrete behavior. The Goal seeds the story's Goal section in Phase 4 (story file creation).
 
 If a candidate row touches only one boundary and delivers nothing a person can demonstrate, it is not a story — fold it into the first row that needs it as a line item.
 

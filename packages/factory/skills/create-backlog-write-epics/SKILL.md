@@ -25,7 +25,9 @@ Document every confirmed EPIC in `backlog/epics.md` with:
 - Dependencies on other EPICs
 - Boundaries (system boundaries the EPIC crosses)
 - Size / story count estimate
-- Building-block inventory listing each anticipated story with its capacity tier and day-range estimate. For each block, note what already exists in the codebase (files, modules, tests) and what the story adds or changes.
+- Building-block inventory listing each anticipated story with its capacity tier, day-range estimate, and Goal (one sentence of concrete behavior). The Goal seeds the story's Goal section in Phase 4. For each block, note what already exists in the codebase (files, modules, tests) and what the story adds or changes.
+
+**Domain Rules subsection:** Each EPIC gains a Domain Rules subsection listing the invariants that govern the EPIC's stories as a bullet list. These invariants capture the business or technical rules that constrain how stories within the EPIC behave. This subsection seeds each story's Domain Rule section in Phase 4.
 
 **"Why this EPIC exists" section (required):** Before the Actor Goals, write one paragraph (2–4 sentences) that explains why this capability matters — what cannot happen without it, or what risk it removes. A junior reading the EPIC should understand the motivation before encountering the scope list.
 
@@ -52,6 +54,8 @@ Before presenting, review `backlog/epics.md` through two lenses:
 3. Each EPIC has a "Why this EPIC exists" section that explains the motivation in plain language.
 4. Scope In items describe behaviour ("what the system does"), not just name components.
 5. Narrative text avoids dense chains of component names — save DSL identifiers for the Boundaries table.
+6. The building-block inventory includes a Goal column with one sentence of concrete behavior for each anticipated story.
+7. Each EPIC has a Domain Rules subsection that lists the invariants governing its stories.
 
 If any item fails, revise before presenting.
 

@@ -126,9 +126,11 @@ models/
 /.agents/skills/source-research
 /.agents/skills/spec-feedback
 /.agents/skills/test-design
+/.agents/skills/testability-probe
 /.agents/skills/update-charter
 /.agents/skills/update-context
 /.agents/skills/validate
+/.agents/skills/vue-best-practices
 /.agents/skills/write-adr
 /.agents/skills/write-prd
 # <<< agent_factory related <<<
