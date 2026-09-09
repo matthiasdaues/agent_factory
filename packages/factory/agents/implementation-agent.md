@@ -81,10 +81,20 @@ Per [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md), a wav
 
 The dispatcher accepts a `mode` parameter at invocation:
 
-| Mode                   | Trigger                      | Behaviour                                                                                          |
-| ---------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------- |
-| `autonomous` (default) | `implement backlog`          | Parallel waves, subagent commits, auto-merge after scripted gate checks                            |
-| `review`               | `implement backlog --review` | Serial dispatch, subagent does not commit, human reviews each story's diff then commits and merges |
+| Mode         | Trigger                      | Behaviour                                                                                          |
+| ------------ | ---------------------------- | -------------------------------------------------------------------------------------------------- |
+| `autonomous` | `implement backlog`          | Parallel waves, subagent commits, auto-merge after scripted gate checks                            |
+| `review`     | `implement backlog --review` | Serial dispatch, subagent does not commit, human reviews each story's diff then commits and merges |
+
+### Mode resolution
+
+The effective mode is the first match in this precedence chain:
+
+1. **Explicit flag** — `--review` or `--autonomous` on the invocation command.
+2. **Project directive** — read `docs/agent-context.md` § Committing (or the equivalent concern). If the project declares a mode (e.g. "Implementation runs in review mode"), that is the effective mode.
+3. **Factory default** — `autonomous`.
+
+The dispatcher **MUST** resolve the mode before Step 1 of the Workflow and state the effective mode and its source in its first status message.
 
 In `review` mode the dispatcher still plans waves (Step 2) for dependency ordering, but dispatches and resolves one story at a time. The subagent prompt includes `--no-commit`, instructing the developer-agent to stage changes and return without committing. After the subagent returns, the dispatcher presents the diff summary and worktree path to the human. The human reviews the changes, then commits and merges at their discretion. The dispatcher does not perform the human's commit or merge in this mode — it waits for the human to confirm completion before proceeding to the next story. The interaction mechanism is CLI-native — text output and user prompt — and requires no CLI-specific tooling.
 
