@@ -1,0 +1,142 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
+"""migrate-proposal — move a proposal to implemented/ or superseded/.
+
+Updates the frontmatter status field, prepends ../ to every relative
+markdown link (the file moves one directory deeper), and git-mv's the
+file into the target subdirectory.
+
+Usage:
+  migrate-proposal <proposal-file> [--status implemented|superseded]
+
+Default status is 'implemented'.
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+VALID_STATUSES = {"implemented", "superseded"}
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("proposal", help="path to the proposal .md file")
+    parser.add_argument(
+        "--status",
+        default="implemented",
+        choices=sorted(VALID_STATUSES),
+        help="target status (default: implemented)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="show what would change without modifying files",
+    )
+    return parser.parse_args(argv)
+
+
+def update_status(text: str, new_status: str) -> str:
+    return re.sub(
+        r"^(status:\s*)\S+",
+        rf"\g<1>{new_status}",
+        text,
+        count=1,
+        flags=re.MULTILINE,
+    )
+
+
+def deepen_relative_links(text: str) -> str:
+    """Prepend ../ to every relative markdown link target.
+
+    Matches [text](path) where path does not start with http://, https://,
+    mailto:, or #. Handles both inline links and reference-style definitions."""
+
+    def _deepen_inline(m: re.Match[str]) -> str:
+        prefix = m.group(1)
+        path = m.group(2)
+        if re.match(r"(https?://|mailto:|#)", path):
+            return m.group(0)
+        return f"{prefix}../{path}"
+
+    text = re.sub(r"(\[[^\]]*\]\()([^)]+\))", _deepen_inline, text)
+
+    def _deepen_refstyle(m: re.Match[str]) -> str:
+        label = m.group(1)
+        path = m.group(2)
+        if re.match(r"(https?://|mailto:|#)", path):
+            return m.group(0)
+        return f"{label}../{path}"
+
+    text = re.sub(r"^(\[[^\]]+\]:\s+)(\S+)", _deepen_refstyle, text, flags=re.MULTILINE)
+
+    return text
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    proposal_path = Path(args.proposal).resolve()
+
+    if not proposal_path.is_file():
+        print(f"migrate-proposal: file not found: {proposal_path}", file=sys.stderr)
+        return 1
+
+    if not proposal_path.suffix == ".md":
+        print(f"migrate-proposal: expected .md file: {proposal_path}", file=sys.stderr)
+        return 1
+
+    target_dir = proposal_path.parent / args.status
+    if not target_dir.is_dir():
+        print(f"migrate-proposal: target directory not found: {target_dir}", file=sys.stderr)
+        return 1
+
+    dest_path = target_dir / proposal_path.name
+    if dest_path.exists():
+        print(f"migrate-proposal: already exists: {dest_path}", file=sys.stderr)
+        return 1
+
+    text = proposal_path.read_text(encoding="utf-8")
+    new_text = update_status(text, args.status)
+    new_text = deepen_relative_links(new_text)
+
+    if args.dry_run:
+        print(f"Would update status to: {args.status}")
+        print(f"Would move: {proposal_path.name} → {args.status}/{proposal_path.name}")
+        if text != new_text:
+            import difflib
+
+            diff = difflib.unified_diff(
+                text.splitlines(keepends=True),
+                new_text.splitlines(keepends=True),
+                fromfile=str(proposal_path.name),
+                tofile=f"{args.status}/{proposal_path.name}",
+            )
+            sys.stdout.writelines(diff)
+        return 0
+
+    proposal_path.write_text(new_text, encoding="utf-8")
+
+    result = subprocess.run(
+        ["git", "mv", str(proposal_path), str(dest_path)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(f"migrate-proposal: git mv failed: {result.stderr.strip()}", file=sys.stderr)
+        return 1
+
+    print(
+        f"migrate-proposal: {proposal_path.name} → {args.status}/{proposal_path.name}",
+        file=sys.stderr,
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
