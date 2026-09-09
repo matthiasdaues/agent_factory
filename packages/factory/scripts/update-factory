@@ -91,6 +91,33 @@ CHECKSUM_SKIP_SUFFIXES = (".pyc",)
 HOOK_REGENERATED_PATHS = ("INDEX.yaml",)
 
 
+def _unlock_factory(factory_dir: Path) -> None:
+    """chmod u+w on all files so the directory can be moved/deleted."""
+    import stat
+    for root, _dirs, files in os.walk(factory_dir):
+        for name in files:
+            p = Path(root) / name
+            p.chmod(p.stat().st_mode | stat.S_IWUSR)
+
+
+def _is_hook_regenerated(rel: str) -> bool:
+    return any(rel == p or rel.endswith(f"/{p}") for p in HOOK_REGENERATED_PATHS)
+
+
+def _lock_factory(factory_dir: Path) -> None:
+    """chmod a-w on installed factory/ files when packages/factory/ exists."""
+    if not (factory_dir.parent / "packages" / "factory").is_dir():
+        return
+    import stat
+    for root, _dirs, files in os.walk(factory_dir):
+        for name in files:
+            p = Path(root) / name
+            rel = p.relative_to(factory_dir).as_posix()
+            if _is_hook_regenerated(rel):
+                continue
+            p.chmod(p.stat().st_mode & ~(stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH))
+
+
 class ManifestUnreadable(Exception):
     """The install manifest exists but cannot be read as valid JSON."""
 
@@ -409,6 +436,7 @@ def main(argv: list[str] | None = None) -> int:
 
     _stamp_tree_hash(source, target)
     _write_checksums(target, target_factory)
+    _lock_factory(target_factory)
     log("done, factory/ is now current")
     return 0
 
