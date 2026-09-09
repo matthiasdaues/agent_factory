@@ -1,5 +1,117 @@
 # Changelog
 
+## 0.10.0 — 2026-09-09
+
+Agent-ready story format and test-design layer redistribution. Stories
+produced by the planning agent are now directly implementable by a
+developer-agent in a single pass — no post-hoc rewrite step. Test design
+moves from planning time to implementation time, and the developer-agent
+owns test authoring through a two-pass TDD model.
+
+### Features
+
+- **13-section story template.** Replaces the 7-section body (Demo,
+  Acceptance Criteria, Scope, Terminology, Notes for the Implementer)
+  with 13 sections: Goal, Domain Rule, Demo Scenario, Affected Paths,
+  Inputs, Outputs, Required Behavior (conditional), Constraints,
+  Suggested Agent Plan, Acceptance Criteria, Verification, Out of Scope,
+  Agent Stop Conditions. Each section is defined so a developer-agent can
+  implement the story without rereading the planning context.
+- **`risk_level` frontmatter field.** Optional enum (`low | medium | high`) in the story template and backlog-lint. Validated with `BL-ENUM`
+  error code. Three tests added.
+- **`touches` hygiene rule.** Documented in the story template under
+  Affected Paths. Rules: most specific existing directories only, no
+  parent+child overlap, no speculative paths for directories that do not
+  exist yet, every entry must resolve to an existing directory or one
+  created by a story in `deps`.
+- **Composition rules updated.** Rule 1 becomes "Goal First, then Demo"
+  — write the Goal statement before the Demo Scenario. Rule 4 added:
+  "Constraints Are Boundaries" — every must-not from ADRs, conventions,
+  testing regime, and scope exclusions goes in Constraints.
+- **Agent-answerability quality gate.** Eight concrete checks mapping
+  each agent question to the story section that must answer it (Goal,
+  Affected Paths, Domain Rule, Inputs, Acceptance Criteria, Verification,
+  Out of Scope, Agent Stop Conditions).
+- **International readability gate.** Six sentence-level checks: no
+  idioms, no ambiguous pronouns, short sentences, active voice,
+  consistent domain terms, abbreviations spelled out.
+- **Goal column in write-epics.** Building-block inventory includes a
+  Goal column (one sentence of concrete behavior per anticipated story).
+  Domain Rules subsection per EPIC lists invariants that seed each
+  story's Domain Rule section.
+- **Goal column in story-slices.** Slice table expanded from 4 to 5
+  columns with a Goal column between Capability and Boundaries crossed.
+- **11 section-filling instructions.** Phase 4 story-writing skill
+  (`create-backlog-stories`) rewritten with explicit instructions for
+  each new section: Goal derivation, Domain Rule extraction, Demo as
+  numbered steps, Affected Paths from codebase survey, Inputs as reading
+  manifest, Outputs with behavioral detail, Required Behavior
+  (conditional), Constraints from ADRs, Suggested Agent Plan,
+  Verification from `testing.yaml`, Agent Stop Conditions from risk and
+  ambiguity.
+- **Plain-language pass.** Added to `create-backlog-stories` after the
+  quality gate: reread Goal, Domain Rule, and Demo Scenario for
+  understandability before presenting the backlog.
+- **Developer-agent cue migration.** Step 1 completeness check uses Goal
+  instead of Demo/Scope. Step 2 pre-existing test lookup reads from
+  Inputs instead of Notes for the Implementer. Backward compatibility
+  preserved: `#### Failure scenarios` and `#### Prior Tests` paths
+  unchanged.
+- **Testability probe.** New mandatory step 2.5 in the create-backlog
+  sequence, between write-epics and story-slices. Writes a testability
+  paragraph and ownership table per EPIC into `backlog/epics.md`.
+  Replaces the former test-design skill's planning-time output.
+- **Two-pass TDD model.** Developer-agent owns test authoring through
+  two passes: pass 1 writes acceptance-criteria tests (Red-Green), pass 2
+  invokes the `test-design` skill post-GREEN for integration and
+  edge-case tests. `tests:` and `test-design-pass:` frontmatter fields
+  populated by the developer-agent at commit time.
+- **test-design skill rewrite.** Operates at implementation time, not
+  planning time. Reads ownership assignments from the testability probe,
+  classifies owned contracts by risk class, identifies untested
+  integration paths, and authors test files.
+- **test-design-verify gate.** Validates that stories with test-design
+  output have consistent `tests:` and `test-design-pass:` fields.
+  Implicitly enabled when the story contains Failure scenarios or Prior
+  Tests sections.
+- **Vue Best Practices skill.** New skill for Vue.js frontend
+  implementation guidance, loaded by the developer-agent when a story's
+  outputs touch `packages/server` (Vue frontend).
+
+### Fixes
+
+- **Stale Notes for the Implementer references.** Removed from story
+  template, all four create-backlog skills, and developer-agent.
+  Replaced with appropriate new sections (Inputs, Constraints,
+  Verification).
+- **Quality gate count.** Parent skill correctly states "Two quality
+  gates" (Agent-Answerability and International Readability), not three.
+- **Story template stray fences.** Removed trailing empty code fences
+  from the template body.
+- **Dispatch script scope.** Reverted out-of-scope modifications to the
+  dispatch script made during implementation dispatch.
+- **User-prompt questions restored.** MoSCoW priorities, missing stories,
+  and dependency reordering prompts restored in `create-backlog-stories`
+  after accidental removal during skill rewrite.
+- **Hook search string.** Fixed wrong search string in
+  `block-dangerous-git.sh`.
+- **Reconciliation test traceability.** Added `tests:` field audit and
+  contract ownership coverage check to the reconciliation agent.
+- **Testing strategy documentation.** Two-pass test authoring model
+  documented in `testing-strategy.md`.
+
+### Documentation
+
+- **Agent-ready story format proposal.** Full proposal at
+  `docs/proposals/implemented/agent-ready-story-format.md` with two
+  review rounds and all findings resolved.
+- **Test-design layer redistribution proposal.** Full proposal at
+  `docs/proposals/implemented/test-design-layer-redistribution.md`.
+- **migrate-proposal script.** New script to move accepted proposals
+  from `docs/proposals/` to `docs/proposals/implemented/`.
+- **Campaign retrospective.** Filed at
+  `docs/reviews/retro-2026-09-09-agent-ready-story-format.md`.
+
 ## 0.9.0 — 2026-09-09
 
 Concern-oriented agent context and code-first planning. Agents discover
