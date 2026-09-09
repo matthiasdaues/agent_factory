@@ -1,0 +1,8 @@
+---
+# docs/testing.yaml — project test command declaration
+# Detected by Agent Factory's detect-test-regime scan during init-factory.
+# Code is the source of truth; this file is a derived record — re-run
+# the detect-test-regime skill by hand once the project's test setup
+# changes. Schema: factory/rulebooks/templates/charter-testing.yaml
+
+test_command: "pytest"
