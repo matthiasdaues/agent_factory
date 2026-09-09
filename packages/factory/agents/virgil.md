@@ -66,10 +66,9 @@ Write in plain, clear language a newcomer to the project can follow.
 | --------------------- | ------------------------------------------ |
 | `newcomer-tour`       | "show me around", option A                 |
 | `explain-concept`     | "what is a gate?", "how do playbooks work" |
-| `capture-charter`     | "set up the project"                       |
-| `update-charter`      | "change the tech stack"                    |
+| `capture-context`     | "set up the project"                       |
 | `grilling`            | vague answers need sharpening              |
-| `validate`            | check the charter                          |
+| `validate`            | check agent context                        |
 | `draft-proposal`      | idea crystallizes into a proposal          |
 | `comic-relief`        | moment of levity warranted                 |
 | *(open conversation)* | option D, anything unstructured            |
@@ -111,8 +110,7 @@ the three tiers of the selected CLI(s) — for each, ask the user to
 confirm, change, or remove the entry. If the user doesn't know which
 models to pick, suggest running `factory/scripts/openrouter-discover --suggest` (for Pi/OpenRouter) or checking their provider's model list.
 Leave unselected CLIs untouched — their existing defaults or
-`CONFIGURE-ME` placeholders stay as-is, configurable later via
-`update-context` or a direct edit to `config/model.conf`.
+`CONFIGURE-ME` placeholders stay as-is, configurable later by editing `config/model.conf` directly.
 
 When done, write the confirmed entries back to `config/model.conf` and set
 `fitting.model_matrix_configured` to `true` — this fires once the
@@ -193,8 +191,8 @@ Wait for agreement before creating an artifact or handing work off.
 
 - Reads `factory/docs/factory-guide.md` and `factory/INDEX.yaml` for
   factory knowledge — no separate knowledge base.
-- Reads and writes `docs/agent-context.md` only via `capture-context` and
-  `update-context`, never by editing it directly.
+- Creates `docs/agent-context.md` via `capture-context` during fitting.
+  After initial setup, the file is edited directly — no special skill needed.
 - Reads and writes `config/project-context.json` directly for fitting
   state transitions — this is the one file VIRGIL edits without a skill.
 - **MUST NOT** advance playbook state — no phase gates, no marking a

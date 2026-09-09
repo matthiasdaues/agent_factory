@@ -124,7 +124,7 @@ You do not need anything else to start. Run one `poc-spike`, watch the loop, and
 
 After a spike or two, you will want to run a full playbook — `greenfield-development`, `brownfield-onboarding`, or `feature-addition`. Before you do, three things are worth understanding. None of them are complicated, but all three will appear without warning if you skip this section.
 
-**Agent context.** The first real playbook run will ask you to set up `docs/agent-context/` — a handful of YAML files where you declare your project's stack (languages, frameworks, databases), workflow (how to build, test, deploy), and governance (code standards, review rules, security policies). The assistant walks you through it as a structured interview; you confirm, correct, or defer each item. Agents read these files instead of guessing. You fill them in once and update them as decisions change. See [§ Agent Context](#agent-context) below for the full picture.
+**Agent context.** The first real playbook run will ask you to set up `docs/agent-context.md` — a single Markdown file organized by concern (cross-cutting, technical, domain). Each concern carries a description and `Read:` paths pointing agents to the project's own knowledge. The assistant walks you through it as a structured interview; you confirm, correct, or adjust each concern. Agents read this file instead of guessing. You fill it in once and edit it directly as decisions change. See [§ Agent Context](#agent-context) below for the full picture.
 
 **The model matrix.** `config/model.conf` maps agent tiers — economy, standard, strong — to concrete AI models. If you use multiple coding CLIs (Claude Code, Copilot CLI, Pi, Codex), each one needs its own model ids here. The fitting walk-through configures this interactively. If you are building a greenfield project and skipped the fitting, the defaults work — but open `config/model.conf` at least once so you know it exists. See [§ Model matrix and tiers](#model-matrix-and-tiers) below.
 
@@ -160,33 +160,31 @@ Both files are git-ignored. They are local configuration, not project source.
 
 ## Agent Context
 
-`docs/agent-context/` is a routing switchboard that connects agents to a project's own knowledge. It is not a knowledge base — it tells agents where to look, never what they will find there. Think of it as a stable endpoint: the structure changes slowly, but the content beneath it grows with the project. The directory does not exist after `init-factory` — it is created during onboarding, when VIRGIL walks you through the `capture-context` skill as part of a greenfield or brownfield playbook.
+`docs/agent-context.md` is a routing switchboard that connects agents to a project's own knowledge. It is not a knowledge base — it tells agents where to look, never what they will find there. Think of it as a stable endpoint: the structure changes slowly, but the content beneath it grows with the project. The file does not exist after `init-factory` — it is created during onboarding, when VIRGIL walks you through the `capture-context` skill as part of a greenfield or brownfield playbook.
 
 ### How it works
 
-The system has two layers. Layer 2 consists of three index files — `stack.yaml` (what the project is built with), `workflow.yaml` (how to build, test, and deploy it), and `governance.yaml` (what rules apply). Layer 1 is `reading-guides.yaml`, a concern-based routing table that tells agents which index-file sections are relevant to a given topic (backend, testing, architecture, packaging, and so on).
+The file is organized into three concern categories, each as a `##` heading:
 
-### Field states
+| Category      | When active                       | Examples                                                            |
+| ------------- | --------------------------------- | ------------------------------------------------------------------- |
+| Cross-cutting | Always. Every agent, every story. | Branching, committing, testing discipline, review, scope, security. |
+| Technical     | Per story, set by planning-agent. | Backend, frontend, data-storage, infrastructure.                    |
+| Domain        | Per story, set by planning-agent. | Derived from scope-map areas or specification structure.            |
 
-Every field in an index file is in one of three states:
-
-- **Valued** — the field carries a `name:` (a display label) and optionally a `source:` (the authoritative document). Early fields may have only `name:` before source documents exist; mature fields carry both.
-- **Deferred** — the field carries `deferred: "<reason>"`. A conscious choice to postpone, not a defect.
-- **Absent** — the key does not exist, meaning the concept does not apply to this project.
-
-`null` is never valid — it is always a lint error.
+Each concern is a `###` heading beneath its category, carrying a one-line description, one or more `Read:` lines (file paths where the knowledge lives), and optional `Boundary:` lines (cross-concern interfaces to respect). Cross-cutting concerns are the professional baseline — always active. Technical and domain concerns narrow the context per task: the planning-agent writes a `concerns` field into each story's frontmatter, picking from the vocabulary that `agent-context.md` defines.
 
 ### How VIRGIL sets it up
 
-During project setup, VIRGIL walks through a structured interview concern by concern. Each question maps to an index file and a suggested key. You confirm which keys are relevant, provide values (and source pointers when documents already exist), defer what is not yet decided, and skip what does not apply. Only confirmed keys are created — the structure is tailored to your project, not a one-size-fits-all template.
+During project setup, VIRGIL walks through a structured interview concern by concern. Six factory-default cross-cutting concerns are seeded automatically. Technical concerns are proposed from the detected stack (languages, frameworks, infrastructure). Domain concerns are derived from the scope map when one exists. You confirm which concerns are relevant, adjust descriptions, add or remove `Read:` paths, and skip what does not apply. Only confirmed concerns are created — the structure is tailored to your project, not a one-size-fits-all template.
 
 ### What you control
 
-The top-level key schema (stack, workflow, governance) and lint rules belong to the factory. Everything below the top level — second-level keys, their values, and their source pointers — belongs to the project owner. You can add keys, rename them, remove them, and customize the reading guide's concerns. The factory proposes; you decide.
+The three category headings and the lint rules belong to the factory. Everything beneath — concern names, descriptions, `Read:` paths, and `Boundary:` lines — belongs to the project owner. You can add concerns, rename them, remove them, and point them at any file in your project. The factory proposes; you decide.
 
 ### Keeping it current
 
-`update-context` is the skill that writes to index files after initial setup. When you add a key or change a source pointer, it asks which reading-guide concern the key belongs to and updates the routing table immediately. The reconciliation agent compares your index files against the factory's current interview guide during regular passes and surfaces new suggested keys that your project has not been asked about yet — suggestions, not errors.
+Edit `docs/agent-context.md` directly — it is a plain Markdown file with no special tooling required. When a source document moves, update the `Read:` path. When a new concern emerges, add a `###` section under the right category. The reconciliation agent surfaces structural drift during regular passes — suggestions, not errors. `concern-lint` validates the file's structure (required headings, `Read:` path resolution, concern-reference integrity) as a pre-commit hook and as part of `validate`.
 
 ## Agents
 
@@ -196,7 +194,7 @@ Most phases have two agents: an **author** and a **reviewer**. The author produc
 
 In addition to the phase-chain agents, several **Phase 0 utility agents** support the work without belonging to a specific phase:
 
-- **VIRGIL** — introduced in [Your very first session](#your-very-first-session). Helps an idea find its shape, then hands off to the right playbook. Also sets up agent context (`docs/agent-context/`) through the `capture-context` skill — see [Agent Context](#agent-context).
+- **VIRGIL** — introduced in [Your very first session](#your-very-first-session). Helps an idea find its shape, then hands off to the right playbook. Also sets up agent context (`docs/agent-context.md`) through the `capture-context` skill — see [Agent Context](#agent-context).
 - **coaching-agent** — runs retrospectives, extracts action items, and tracks process improvements across sessions.
 - **proposal-review-agent** — reviews a feature proposal for clarity, feasibility, and planning readiness. Consultative on drafts, adversarial on open proposals.
 
@@ -539,6 +537,7 @@ A gate is a deterministic script — no LLM judgement involved — that catches 
 | `factory/scripts/spec-lint`    | Phase 1 → 2 boundary     | Specification coverage: traceability across PRD, actor-goals, `.feature` files, and supplementary specs; ID uniqueness; required sections |
 | `factory/scripts/arch-lint`    | Phase 2 → 3 boundary     | arc42 chapters exist and cross-reference the Structurizr DSL, ADR index consistency, diagram file references                              |
 | `factory/scripts/backlog-lint` | Phase 3 → 4 boundary     | YAML frontmatter schema, dependency graph acyclicity, priority and status values                                                          |
+| `factory/scripts/concern-lint` | `agent-context.md` edit  | Section structure, `Read:`/`Boundary:` path resolution, concern-reference integrity against story frontmatter, no legacy YAML residue     |
 | `factory/scripts/matrix-lint`  | `config/model.conf` edit | Syntax, required fields, valid tier/model mappings                                                                                        |
 
 In manual mode (driving each agent by hand, one session at a time), the reviewer agent for that phase runs its gate as its first step. Run any gate yourself the same way:
