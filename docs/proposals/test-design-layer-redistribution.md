@@ -1,10 +1,10 @@
 ---
 schema_version: 2
 title: Test-Design Layer Redistribution
-status: open
+status: accepted
 owner: Matthias Daues
 created: 2026-09-08
-updated: 2026-09-08
+updated: 2026-09-09
 supersedes:
 
 impact:
@@ -416,12 +416,17 @@ for two fields:
 17. The story template at `factory/rulebooks/templates/story.md` documents the
     `tests:` and `test-design-pass` fields.
 
-## Open Questions
+## Open Questions — Resolved
 
-- How should the testability probe's ownership table interact with story slicing?
-  Ownership is resolved against the building-block inventory in `epics.md`, but
-  stories may be split or merged during phase 3 (story slicing). Does the probe
-  re-run after slicing, or is the EPIC-level ownership stable enough?
-- Should the `testability-probe` skill be part of the `create-backlog` sequence
-  (replacing phase 2.5), or a standalone skill the planning agent invokes at its
-  discretion?
+- **Ownership stability across story slicing.** EPIC-level ownership is stable
+  enough. The probe resolves ownership per contract, and story slicing splits
+  implementation work, not contracts. If a slice splits a contract boundary,
+  that is a scoping defect the probe's testability assessment already flags —
+  the correct response is to fix the scoping, not re-run the probe. The probe
+  does not re-run after slicing.
+- **Probe placement in the backlog sequence.** The `testability-probe` replaces
+  `test-design` at phase 2.5 in the `create-backlog` sequence — it is a
+  mandatory step, not discretionary. Making it optional would let planning
+  agents skip testability assessment, losing the gate that catches untestable
+  epic scoping before stories are written. The planning agent invokes it at
+  the same point in the sequence where `test-design` ran before.
