@@ -4,33 +4,33 @@
 # ///
 """test-design-verify — gate validating test-design completeness.
 
-What: Resolves each story's `traces:` frontmatter through
-      `docs/spec/scope-map.md` to the owning `.feature` file and Rule,
-      collects the Scenarios under that Rule, and verifies each reachable
-      Scenario has a corresponding test assertion — either an entry in the
-      story's `#### Failure scenarios` section (owning stories), a valid waiver,
-      or a resolvable entry in the story's `#### Prior Tests` section
-      (non-owning stories).
-When:  After the test-design skill has written `#### Failure scenarios` /
-       `#### Prior Tests` sections into a story file, and on demand while
-       the implementation-agent dispatcher runs its gate loop.
-By:    implementation-agent dispatcher or a human/operator session.
+Dual-model validation: new-model stories (identified by the presence of
+a ``test-design-pass`` frontmatter field) are validated for ``tests:``
+and ``test-design-pass`` fields; old-model stories (with
+``#### Failure scenarios`` or ``#### Prior Tests`` sections) use the
+original trace-resolution logic.
 
-Resolution chain
-  1. Read the story's `traces:` frontmatter.
+New-model validation (test-design-pass present)
+  1. Validate ``test-design-pass`` has a valid value (``done`` or
+     ``skipped-feature-governed``).
+  2. Validate ``tests:`` is present and lists at least one test module.
+  3. Verify each listed test module exists on disk.
+
+Old-model validation (no test-design-pass, legacy sections present)
+  1. Read the story's ``traces:`` frontmatter.
   2. For each trace ID, look up the corresponding entry in
-     `docs/spec/scope-map.md` to find the `.feature` file and Rule.
-  3. Read the `.feature` file and collect the Scenarios under that Rule.
+     ``docs/spec/scope-map.md`` to find the ``.feature`` file and Rule.
+  3. Read the ``.feature`` file and collect the Scenarios under that Rule.
   4. Verify each reachable Scenario has a corresponding entry in
-     `#### Failure scenarios` (owning stories) or `#### Prior Tests`
+     ``#### Failure scenarios`` (owning stories) or ``#### Prior Tests``
      (non-owning stories), or a valid waiver.
 
 Exit codes
   0 = pass (or no test-design output present — nothing to validate)
-  1 = validation failure (missing assertion, invalid waiver, unresolved
-      Prior Tests entry)
-  2 = configuration error (unresolvable trace ID, missing scope-map entry,
-      missing .feature file)
+  1 = validation failure (missing field, invalid value, missing test
+      file, missing assertion)
+  2 = configuration error (unresolvable trace ID, missing scope-map
+      entry, missing .feature file)
 
 Output
   Writes JSON to .current-work/test-design-verify/<story-id>.json and a
@@ -49,9 +49,12 @@ from pathlib import Path
 DEFAULT_SCOPE_MAP = "docs/spec/scope-map.md"
 DEFAULT_SPEC_DIR = "docs/spec"
 DEFAULT_REPORT_DIR = ".current-work/test-design-verify"
+DEFAULT_EPICS = "backlog/epics.md"
 
 TEST_DESIGN_HEADING = "Failure scenarios"
 PRIOR_TESTS_HEADING = "Prior Tests"
+
+VALID_TEST_DESIGN_PASS_VALUES = {"done", "skipped-feature-governed"}
 
 _RULE_SHORTHAND_RE = re.compile(r"^(?P<feature>[\w.\-]+\.feature)/Rule-(?P<num>\d+)$")
 _RULE_LINE_RE = re.compile(r"^Rule:\s*(.+)$")
@@ -134,6 +137,7 @@ class Report:
     passed: bool
     skipped: bool
     exit_code: int
+    model: str = "unknown"
     resolved: list[dict] = field(default_factory=list)
     findings: list[dict] = field(default_factory=list)
     config_errors: list[str] = field(default_factory=list)
@@ -167,6 +171,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--report-dir",
         default=DEFAULT_REPORT_DIR,
         help=f"directory to write the JSON report (default: {DEFAULT_REPORT_DIR})",
+    )
+    parser.add_argument(
+        "--epics",
+        default=DEFAULT_EPICS,
+        help=f"path to backlog/epics.md (default: {DEFAULT_EPICS})",
     )
     return parser.parse_args(argv)
 
@@ -208,6 +217,13 @@ def read_story_id_field(story_text: str) -> str | None:
     return match.group(1) if match else None
 
 
+def read_story_epic_field(story_text: str) -> str | None:
+    """Parse the `epic:` frontmatter line, if present."""
+    frontmatter = extract_frontmatter(story_text)
+    match = re.search(r'^epic:\s*"?([^"\n]+)"?\s*$', frontmatter, re.MULTILINE)
+    return match.group(1).strip() if match else None
+
+
 def detect_story_id(explicit: str | None, story_text: str, story_path: Path) -> str:
     if explicit:
         return explicit
@@ -227,6 +243,103 @@ def extract_section(story_text: str, heading: str) -> str | None:
     next_heading = _HEADING_RE.search(rest, 1)
     end = start + next_heading.start() if next_heading else len(story_text)
     return story_text[start:end]
+
+
+# --------------------------------------------------------------------------
+# New-model frontmatter fields
+# --------------------------------------------------------------------------
+
+
+def read_test_design_pass(story_text: str) -> str | None:
+    """Parse the ``test-design-pass:`` frontmatter field. Returns the raw
+    value string, or None when the field is absent."""
+    frontmatter = extract_frontmatter(story_text)
+    match = re.search(r"^test-design-pass:\s*(\S+)\s*$", frontmatter, re.MULTILINE)
+    return match.group(1) if match else None
+
+
+def read_tests_field(story_text: str) -> list[str]:
+    """Parse the ``tests:`` frontmatter field (a bracketed YAML list of
+    module paths). Returns an empty list when the field is absent."""
+    frontmatter = extract_frontmatter(story_text)
+    match = re.search(r"^tests:\s*\[(?P<items>.*)\]\s*$", frontmatter, re.MULTILINE)
+    if not match:
+        return []
+    items = match.group("items").strip()
+    if not items:
+        return []
+    return [item.strip().strip("'\"") for item in items.split(",") if item.strip()]
+
+
+def _has_tests_field(story_text: str) -> bool:
+    """True when the frontmatter contains a ``tests:`` key at all (even if
+    empty). Distinguishes 'field absent' from 'field present but empty'."""
+    frontmatter = extract_frontmatter(story_text)
+    return bool(re.search(r"^tests:\s*", frontmatter, re.MULTILINE))
+
+
+# --------------------------------------------------------------------------
+# Ownership resolution from epics.md
+# --------------------------------------------------------------------------
+
+
+def read_ownership_assignments(
+    epics_text: str, epic_name: str, story_id: str
+) -> list[str]:
+    """Read the ``### Ownership Resolution`` table for the named EPIC and
+    return the contract names owned by ``story_id``.
+
+    The table has columns: Contract | Owner | ...
+    Returns an empty list when no table or no assignments are found."""
+    epic_heading_re = re.compile(
+        r"^##\s+" + re.escape(epic_name) + r"\s*$", re.MULTILINE
+    )
+    epic_match = epic_heading_re.search(epics_text)
+    if not epic_match:
+        return []
+
+    ownership_re = re.compile(r"^###\s+Ownership Resolution\s*$", re.MULTILINE)
+    search_start = epic_match.end()
+    next_epic_re = re.compile(r"^##\s+", re.MULTILINE)
+    next_epic = next_epic_re.search(epics_text, search_start)
+    search_end = next_epic.start() if next_epic else len(epics_text)
+    epic_section = epics_text[search_start:search_end]
+
+    ownership_match = ownership_re.search(epic_section)
+    if not ownership_match:
+        return []
+
+    table_start = ownership_match.end()
+    table_text = epic_section[table_start:]
+    lines = table_text.strip().splitlines()
+
+    header_idx = None
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("|") and "Contract" in stripped and "Owner" in stripped:
+            header_idx = idx
+            break
+    if header_idx is None:
+        return []
+
+    cells = [c.strip() for c in lines[header_idx].strip().strip("|").split("|")]
+    try:
+        contract_col = cells.index("Contract")
+        owner_col = cells.index("Owner")
+    except ValueError:
+        return []
+
+    contracts: list[str] = []
+    max_col = max(contract_col, owner_col)
+    for line in lines[header_idx + 2:]:
+        if not line.strip().startswith("|"):
+            break
+        row_cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(row_cells) <= max_col:
+            continue
+        if story_id in row_cells[owner_col]:
+            contracts.append(row_cells[contract_col])
+    return contracts
 
 
 # --------------------------------------------------------------------------
@@ -461,7 +574,7 @@ def find_prior_test_entry(
 
 
 # --------------------------------------------------------------------------
-# Validation
+# Validation — old model (#### Failure scenarios / #### Prior Tests)
 # --------------------------------------------------------------------------
 
 
@@ -549,7 +662,7 @@ def _missing_assertion_findings(
     return findings
 
 
-def validate(
+def validate_old_model(
     resolved_rules: list[ResolvedRule],
     test_design_text: str | None,
     prior_tests_text: str | None,
@@ -577,6 +690,66 @@ def validate(
 
 
 # --------------------------------------------------------------------------
+# Validation — new model (tests: / test-design-pass fields)
+# --------------------------------------------------------------------------
+
+
+def validate_new_model(
+    story_text: str,
+    story_id: str,
+    epics_path: Path,
+    repo_root: Path,
+) -> list[Finding]:
+    """Validate a new-model story: check ``test-design-pass`` value, verify
+    ``tests:`` field presence, and confirm listed test modules exist."""
+    findings: list[Finding] = []
+
+    tdp_value = read_test_design_pass(story_text)
+    if tdp_value not in VALID_TEST_DESIGN_PASS_VALUES:
+        findings.append(Finding(
+            kind="invalid_test_design_pass",
+            message=f"test-design-pass has invalid value '{tdp_value}'; "
+            f"expected one of: {', '.join(sorted(VALID_TEST_DESIGN_PASS_VALUES))}",
+        ))
+
+    has_field = _has_tests_field(story_text)
+    test_modules = read_tests_field(story_text)
+
+    owned_contracts: list[str] = []
+    epic_name = read_story_epic_field(story_text)
+    if epic_name and epics_path.is_file():
+        epics_text = epics_path.read_text(encoding="utf-8")
+        owned_contracts = read_ownership_assignments(epics_text, epic_name, story_id)
+
+    if not has_field:
+        contract_hint = ""
+        if owned_contracts:
+            contract_hint = (
+                f" Owned contracts without test modules: "
+                f"{', '.join(owned_contracts)}"
+            )
+        findings.append(Finding(
+            kind="missing_tests_field",
+            message=f"story {story_id} has test-design-pass but no tests: field.{contract_hint}",
+        ))
+    elif not test_modules and tdp_value != "skipped-feature-governed":
+        findings.append(Finding(
+            kind="empty_tests_field",
+            message=f"story {story_id} has test-design-pass: {tdp_value} but "
+            f"tests: is empty — expected at least one test module.",
+        ))
+
+    for module_path in test_modules:
+        if not (repo_root / module_path).is_file():
+            findings.append(Finding(
+                kind="missing_test_module",
+                message=f"test module '{module_path}' listed in tests: does not exist",
+            ))
+
+    return findings
+
+
+# --------------------------------------------------------------------------
 # Report writing
 # --------------------------------------------------------------------------
 
@@ -594,11 +767,20 @@ def _skip_report(story_path: Path, story_id: str) -> Report:
     )
 
 
-def _needs_validation(test_design_text: str | None, prior_tests_text: str | None) -> bool:
-    """True when the story has test-design output to validate. A story
-    with neither section is backward-compatible legacy input — the gate
-    skips it rather than inventing obligations it never declared."""
-    return test_design_text is not None or prior_tests_text is not None
+def _needs_validation(
+    test_design_pass: str | None,
+    test_design_text: str | None,
+    prior_tests_text: str | None,
+) -> bool:
+    """True when the story has test-design output to validate. A new-model
+    story has ``test-design-pass``; an old-model story has sections. A
+    story with none of these is backward-compatible legacy input — the gate
+    skips it."""
+    return (
+        test_design_pass is not None
+        or test_design_text is not None
+        or prior_tests_text is not None
+    )
 
 
 def _print_findings(findings: list[Finding]) -> None:
@@ -633,7 +815,11 @@ def _resolve_all_traces(
 
 
 def _result_report(
-    story_path: Path, story_id: str, resolved_rules: list[ResolvedRule], findings: list[Finding]
+    story_path: Path,
+    story_id: str,
+    resolved_rules: list[ResolvedRule],
+    findings: list[Finding],
+    model: str = "old",
 ) -> Report:
     passed = not findings
     return Report(
@@ -642,6 +828,7 @@ def _result_report(
         passed=passed,
         skipped=False,
         exit_code=0 if passed else 1,
+        model=model,
         resolved=[
             {
                 "trace_id": r.trace_id,
@@ -655,6 +842,23 @@ def _result_report(
     )
 
 
+def _new_model_report(
+    story_path: Path,
+    story_id: str,
+    findings: list[Finding],
+) -> Report:
+    passed = not findings
+    return Report(
+        story=str(story_path),
+        story_id=story_id,
+        passed=passed,
+        skipped=False,
+        exit_code=0 if passed else 1,
+        model="new",
+        findings=[asdict(f) for f in findings],
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     story_path = Path(args.story).resolve()
@@ -662,6 +866,7 @@ def main(argv: list[str] | None = None) -> int:
     spec_dir = Path(args.spec_dir).resolve()
     repo_root = Path(args.repo_root).resolve()
     report_dir = Path(args.report_dir).resolve()
+    epics_path = Path(args.epics).resolve()
 
     if not story_path.is_file():
         print(f"test-design-verify: story not found: {story_path}", file=sys.stderr)
@@ -670,13 +875,25 @@ def main(argv: list[str] | None = None) -> int:
     story_text = story_path.read_text(encoding="utf-8")
     story_id = detect_story_id(args.story_id, story_text, story_path)
 
+    test_design_pass = read_test_design_pass(story_text)
     test_design_text = extract_section(story_text, TEST_DESIGN_HEADING)
     prior_tests_text = extract_section(story_text, PRIOR_TESTS_HEADING)
 
-    if not _needs_validation(test_design_text, prior_tests_text):
+    if not _needs_validation(test_design_pass, test_design_text, prior_tests_text):
         write_report(report_dir, _skip_report(story_path, story_id))
         return 0
 
+    # --- New-model path: test-design-pass field present ---
+    if test_design_pass is not None:
+        findings = validate_new_model(story_text, story_id, epics_path, repo_root)
+        _print_findings(findings)
+        report = _new_model_report(story_path, story_id, findings)
+        write_report(report_dir, report)
+        status = "pass" if report.passed else "fail"
+        print(f"test-design-verify: {status} (new model) — wrote {report_dir}", file=sys.stderr)
+        return report.exit_code
+
+    # --- Old-model path: #### Failure scenarios / #### Prior Tests ---
     if not scope_map_path.is_file():
         print(f"test-design-verify: scope map not found: {scope_map_path}", file=sys.stderr)
         errors = [f"missing scope map: {scope_map_path}"]
@@ -693,13 +910,13 @@ def main(argv: list[str] | None = None) -> int:
         write_report(report_dir, _config_error_report(story_path, story_id, config_errors))
         return 2
 
-    findings = validate(resolved_rules, test_design_text, prior_tests_text, repo_root)
+    findings = validate_old_model(resolved_rules, test_design_text, prior_tests_text, repo_root)
     _print_findings(findings)
 
-    report = _result_report(story_path, story_id, resolved_rules, findings)
+    report = _result_report(story_path, story_id, resolved_rules, findings, model="old")
     write_report(report_dir, report)
     status = "pass" if report.passed else "fail"
-    print(f"test-design-verify: {status} — wrote {report_dir}", file=sys.stderr)
+    print(f"test-design-verify: {status} (old model) — wrote {report_dir}", file=sys.stderr)
     return report.exit_code
 
 
