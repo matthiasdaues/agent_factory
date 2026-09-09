@@ -41,7 +41,7 @@ SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
 VALID_TIERS = {"economy", "standard", "strong"}
 VALID_STATUSES = {"pending", "in-progress", "review", "blocked", "done"}
 VALID_RISK_LEVELS = {"low", "medium", "high"}
-VALID_QUALITY_GATES = {"crap-score", "mutation-analysis", "dependency-check"}
+VALID_QUALITY_GATES = {"crap-score", "mutation-testing", "dependency-check"}
 RE_STORY_ID = re.compile(r"^ST-\d{4,}$")
 REQUIRED_FIELDS = {"id", "epic", "title", "tier", "status", "touches"}
 OPTIONAL_FIELDS = {
@@ -352,7 +352,7 @@ def check_story(
                             "error",
                             rel,
                             "quality-gates value "
-                            f"'{value}' not in {{crap-score, mutation-analysis, dependency-check}}",
+                            f"'{value}' not in {{crap-score, mutation-testing, dependency-check}}",
                         )
                     )
 

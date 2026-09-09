@@ -49,7 +49,7 @@ For each story, fill the 13-section body using these 11 instructions:
 
 11. **Agent Stop Conditions from risk and ambiguity.** Identify situations where the developer-agent should halt and ask for clarification. List spec ambiguities (missing detail, conflicting rules), conflicting codebase patterns (inconsistent naming, competing architectures), and missing infrastructure (test fixtures not yet wired, deployment targets not yet configured). Scale the list by the story's `risk_level` (higher risk → more stop conditions).
 
-**Fill `quality-gates` frontmatter.** Read the `gates` section of `testing.yaml`. For each gate where `enabled` is `true`, add its key (hyphenated form: `crap_score` → `crap-score`, `mutation_testing` → `mutation-analysis`) to the story's `quality-gates` list. If no gate is enabled, or the story is prose-only (no production code), leave the list empty (`quality-gates: []`). If excluding a gate that is enabled in `testing.yaml`, justify in the story's Constraints section.
+**Fill `quality-gates` frontmatter.** Read the `gates` section of `testing.yaml`. For each gate where `enabled` is `true`, add its key (hyphenated form: `crap_score` → `crap-score`, `mutation_testing` → `mutation-testing`) to the story's `quality-gates` list. If no gate is enabled, or the story is prose-only (no production code), leave the list empty (`quality-gates: []`). If excluding a gate that is enabled in `testing.yaml`, justify in the story's Constraints section.
 
 **Backward compatibility — when `backlog/epics.md` contains old-model test-design sections** (produced by the former test-design skill), carry them into the story files as before:
 

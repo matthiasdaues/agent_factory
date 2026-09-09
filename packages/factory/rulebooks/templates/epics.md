@@ -7,7 +7,7 @@ version: 1.0.0
 
 Skeleton for `backlog/epics.md`. Sits between the specification artifacts (scope map, `.feature` files) and the individual story files (`backlog/ST-NNNN.md`). The planning agent creates this document in Step 1 of the create-backlog skill; individual stories in Step 2 reference their parent EPIC by the `epic:` frontmatter value matching an EPIC title here.
 
-The same composition discipline governs EPICs and stories: Demo First, Forward from Status Quo, Criteria Are Invariants. An EPIC is a larger vertical slice — if you cannot write its demo, the decomposition is wrong.
+The same composition discipline governs EPICs and stories: Goal First, then Demo, Forward from Status Quo, Criteria Are Invariants. An EPIC is a larger vertical slice — if you cannot write its demo, the decomposition is wrong.
 
 ## Structure
 
@@ -77,9 +77,9 @@ The same composition discipline governs EPICs and stories: Demo First, Forward f
 
 The three story composition rules apply to EPICs with the same force:
 
-### Demo First
+### Goal First, then Demo
 
-Write the EPIC's Demo section before decomposing into stories. If you cannot describe what a person demonstrates after the EPIC ships, the EPIC does not deliver a coherent capability — recut it.
+Write the EPIC's Goal section first, then its Demo section, before decomposing into stories. If you cannot describe what a person demonstrates after the EPIC ships, the EPIC does not deliver a coherent capability — recut it.
 
 ### Forward from Status Quo
 

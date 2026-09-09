@@ -36,7 +36,7 @@ version: 0.5.0
 
 1. **Code Is Ground Truth** — planning starts from the codebase as it stands. Follow the technical concerns in `docs/agent-context.md` to locate source directories, tests, and infrastructure. The spec describes the target; the code describes the departure point. Every story is a delta from existing code to a specified capability.
 2. **YAGNI** — stories trace to spec only. No "nice to have" or "future" items.
-3. **Demo First** — every story delivers a capability a person can demonstrate.
+3. **Goal First, then Demo** — every story delivers a capability a person can demonstrate.
 4. **Forward from Status Quo** — each story steps forward from the codebase (and the deliverables of its dependencies). Status quo means what the code does today, not what the spec envisions.
 5. **Criteria Are Invariants** — acceptance criteria are falsifiable statements, not implementation instructions.
 

@@ -1,4 +1,4 @@
-"""Fixture tests for the mutation-analysis quality gate."""
+"""Fixture tests for the mutation-testing quality gate."""
 
 from calc import adjust_balance, invoice_total
 

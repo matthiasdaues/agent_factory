@@ -47,6 +47,7 @@ See [story.md template](../../rulebooks/templates/story.md) for the complete fro
 - `deps`: Story IDs that block this one (optional)
 - `traces`: Use Case / ADR / component IDs implemented (optional)
 - `touches`: Directory prefixes the story works within — including test directories — for overlap detection and scope enforcement
+- `quality-gates`: Semantic gates for this story; filled by the planner from `testing.yaml`'s enabled gates (empty for prose-only stories)
 
 EPICs are documented in `backlog/epics.md` — each EPIC section carries actor goals, demo, scope, dependencies, boundaries, size, and a building-block inventory with capacity estimates. The `epic:` frontmatter value in each story references its parent EPIC by name. MoSCoW priority lives in the prose body (the frontmatter schema is closed; `backlog-lint` rejects unknown fields).
 

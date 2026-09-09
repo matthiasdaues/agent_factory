@@ -160,12 +160,13 @@ Array of directory prefixes the story is expected to work within. Each entry is 
 
 Mapping with optional `domain` and `technical` keys, each a list of strings. Declares which registered concerns from `docs/agent-context.md` the story touches. Names must match `###` headings under "Technical concerns" or "Domain concerns". Cross-cutting concerns are never declared because they are always active. Omit the field when no registered concern applies.
 
-### quality-gates (optional)
+### quality-gates (filled by planner)
 
-List the semantic gates that apply to the story: `crap-score`, `mutation-analysis`, and `dependency-check`.
-When the field is absent, the dispatcher falls back to `docs/charter/house-rules.md`'s
+Semantic gates that apply to this story: `crap-score`, `mutation-testing`, and `dependency-check`.
+The template defaults to `[]`; the planner fills it from the `gates` section of `testing.yaml` (enabled gates only). Prose-only stories keep the empty list.
+When the field is absent from an older story, the dispatcher falls back to `docs/charter/house-rules.md`'s
 `default_quality_gates`, then to the Factory hardcoded default of all three gates.
-If the story excludes any default gate, justify the exclusion in the body's Constraints section.
+If the story excludes a gate that is enabled in `testing.yaml`, justify the exclusion in the body's Constraints section.
 
 ### tests (optional, written at implementation time)
 

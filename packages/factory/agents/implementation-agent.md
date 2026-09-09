@@ -133,17 +133,15 @@ After the developer-agent commits and the dispatcher verifies the commit SHA (St
 
 #### Quality-gates resolution
 
-Gates come from two inputs: the `gates` section in `testing.yaml` (at `docs/testing.yaml`), and the story-level `quality-gates` override field.
-
-**Gate discovery from `testing.yaml`:** Read the `gates` section. Include each gate where `enabled` is `true`; skip where `false`. Pass gate-specific parameters (e.g. `threshold` for `crap_score`) to the script at invocation time.
+The story's `quality-gates` frontmatter field is the primary source. The planner fills it from the `gates` section of `testing.yaml` (at `docs/testing.yaml`) at planning time. Gate-specific parameters (e.g. `threshold` for `crap_score`) are read from `testing.yaml` at execution time.
 
 **Special case — `test_design_verify`:** Implicitly enabled when the story contains a Failure scenarios or Prior Tests section. Skipped when no test-design output exists. No explicit `enabled` flag needed in `testing.yaml`.
 
 **Precedence (highest wins):**
 
-1. **Story-level `quality-gates` field** — if present in the story's frontmatter, use that list. Excluding a default gate requires justification in the story's `notes:` field.
-2. **Project-level `gates` in `testing.yaml`** — if the story field is absent, use the project-level gate configuration.
-3. **Factory hardcoded default** — if neither declares gates, apply both: `crap-score`, `dependency-check` (fail-closed).
+1. **Story-level `quality-gates` field** — use this list. The planner fills it from `testing.yaml`'s enabled gates; prose-only stories get an empty list. Excluding a gate that is enabled in `testing.yaml` requires justification in the story's Constraints section.
+2. **Project-level `gates` in `testing.yaml`** — fallback when the story field is absent (older stories written before the planner filled this field).
+3. **Factory hardcoded default** — if neither declares gates, apply all three: `crap-score`, `mutation-testing`, `dependency-check` (fail-closed).
 
 #### Gate execution
 

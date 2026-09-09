@@ -154,7 +154,7 @@ a layer says *where* the test lives; the risk class says *how much design
 effort* the test gets.
 
 The factory defines three defaults. Projects can override or extend them in
-`docs/charter/testing.yaml` under `risk_classes:`. The precedence chain:
+`docs/testing.yaml` under `risk_classes:`. The precedence chain:
 
 1. **Project overrides in `testing.yaml`** — if `risk_classes:` is present,
    its definitions win for the classes it names.

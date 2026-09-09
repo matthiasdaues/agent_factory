@@ -314,7 +314,7 @@ def test_<descriptive_name>(): ...
 ```
 
 The marker enables traceability from test to contract-owner table and
-supports mutation-analysis classification joining mutants to contracts.
+supports mutation-testing classification joining mutants to contracts.
 
 ## Boundary Cases
 

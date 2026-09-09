@@ -415,7 +415,7 @@ Notable skills by concern:
 | Idea-to-feature | `draft-proposal` (crystallize an idea into a proposal), `capture-vision` (six-facet vision capture), `grilling` / `grill-me` / `grill-with-docs` (pressure-test a design)  |
 | Specification   | `derive-feature` (Gherkin `.feature` files with Rule-per-actor-goal), `qa-strategy-from-spec` (per-feature QA strategy), `scope-map-migration` (track Rules across slices) |
 | Onboarding      | `reverse-map` (build a scope map from code, tests, and other sources), `guided-tour` (mid-session reorientation for newcomers and active playbook runs)                    |
-| Quality gates   | `crap-score` (composite structural risk), `mutation-analysis` (mutation testing), `dependency-check` (dependency vulnerability scan)                                       |
+| Quality gates   | `crap-score` (composite structural risk), `mutation-testing` (mutation testing), `dependency-check` (dependency vulnerability scan)                                        |
 | Implementation  | `run-step` (execute a single step manifest within step isolation)                                                                                                          |
 
 The full list is also in [`factory/INDEX.yaml`](../INDEX.yaml), with token counts per skill.
@@ -437,7 +437,7 @@ Start with these. Small blast radius, few steps, nothing to set up first:
 
 ### Onboarding playbooks
 
-Greenfield and brownfield are **onboarding playbooks** — they bring a project to the point where `feature-addition` can take over. Both converge on the same three anchor files: a scope map, an `architecture.dsl`, and `docs/CONTEXT.md`. The difference is where they start and how far they go.
+Greenfield and brownfield are **onboarding playbooks** — they bring a project to the point where `feature-addition` can take over. Both converge on the same three anchor files: a scope map, an `architecture.dsl`, and `docs/agent-context.md`. The difference is where they start and how far they go.
 
 | Playbook                                                              | Starts from                                             | Terminal condition                                                                              |
 | --------------------------------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
@@ -572,13 +572,13 @@ An artifact must pass stage 1, then stage 2, then stage 3 before the next playbo
 
 Three semantic gates fire between a developer's commit and merge, enforced by the gate-check loop in `feature-addition`:
 
-| Gate              | Script                              | What it checks                                                                                                                                     |
-| ----------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CRAP score        | `factory/scripts/crap-score`        | Composite structural risk (cyclomatic complexity weighted against coverage). The gate threshold is on the composite score, not on coverage itself. |
-| Mutation analysis | `factory/scripts/mutation-analysis` | Mutation testing — verifies that tests detect injected faults, not just that they run.                                                             |
-| Dependency check  | `factory/scripts/dependency-check`  | Dependency vulnerability scan against known advisories.                                                                                            |
+| Gate             | Script                             | What it checks                                                                                                                                     |
+| ---------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CRAP score       | `factory/scripts/crap-score`       | Composite structural risk (cyclomatic complexity weighted against coverage). The gate threshold is on the composite score, not on coverage itself. |
+| Mutation testing | `factory/scripts/mutation-testing` | Mutation testing — verifies that tests detect injected faults, not just that they run.                                                             |
+| Dependency check | `factory/scripts/dependency-check` | Dependency vulnerability scan against known advisories.                                                                                            |
 
-A project can override which gates apply at the story, house-rules, or factory-default level (resolved in that priority order). The gate-check loop allows a maximum of three fix iterations per tier and escalates to tier+1 on failure, with a ceiling of six total developer spawns per story.
+The planning agent fills each story's `quality-gates` field from the `gates` section of `docs/testing.yaml` — only gates marked `enabled: true` are included. A project can further override at the story, house-rules, or factory-default level (resolved in that priority order). The gate-check loop allows a maximum of three fix iterations per tier and escalates to tier+1 on failure, with a ceiling of six total developer spawns per story.
 
 ### Step isolation
 

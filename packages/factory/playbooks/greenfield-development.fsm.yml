@@ -67,8 +67,8 @@ gate_conditions:
   tests_pass:
     type: script_exit_zero
     script: "charter:test_command"
-    charter_file: [docs/agent-context/testing.yaml, docs/charter/testing.yaml]
-    # Resolved via format detection: docs/agent-context/testing.yaml first, docs/charter/testing.yaml fallback (UC-09, ADR-0003)
+    charter_file: [docs/testing.yaml, docs/agent-context/testing.yaml, docs/charter/testing.yaml]
+    # Resolved via format detection: docs/testing.yaml first, legacy paths as fallback (UC-09, ADR-0003)
 
 # State machine
 states:
