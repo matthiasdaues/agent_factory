@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: Test-Design Layer Redistribution
-status: accepted
+status: implemented
 owner: Matthias Daues
 created: 2026-09-08
 updated: 2026-09-09
