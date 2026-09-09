@@ -71,7 +71,17 @@ def _git(*args: str) -> tuple[int, str, str]:
 
 
 def _project_root() -> Path:
-    """Resolve the project root from git."""
+    """Resolve the main worktree root, even from a linked worktree.
+
+    Uses ``--git-common-dir`` (the shared ``.git`` directory) so that
+    ``.current-work/``, ``backlog/``, and ``config/`` always resolve to the
+    main checkout — never to a nested path inside a linked worktree.
+    """
+    code, out, _ = _git("rev-parse", "--git-common-dir")
+    if code == 0 and out:
+        git_common = Path(out).resolve()
+        if git_common.name == ".git":
+            return git_common.parent
     code, out, _ = _git("rev-parse", "--show-toplevel")
     if code != 0:
         return Path(".")
