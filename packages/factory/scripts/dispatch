@@ -478,8 +478,31 @@ def cmd_init(args: argparse.Namespace) -> int:
     if feature_branch:
         code, fb_sha, _ = _git("rev-parse", f"refs/heads/{feature_branch}")
         if code != 0:
-            print(f"error: branch '{feature_branch}' does not exist", file=sys.stderr)
-            return 1
+            # Branch does not exist — create it with a linked worktree from base.
+            main_root = _main_worktree_root()
+            wt_path = (
+                main_root
+                / ".current-work"
+                / feature_branch
+                / "invocation"
+            )
+            code, _, err = _git(
+                "worktree", "add", "-b", feature_branch, str(wt_path), base_sha
+            )
+            if code != 0:
+                print(
+                    f"error: failed to create invocation branch "
+                    f"'{feature_branch}' from '{base}': {err}",
+                    file=sys.stderr,
+                )
+                return 1
+            code, fb_sha, _ = _git("rev-parse", f"refs/heads/{feature_branch}")
+            if code != 0:
+                print(
+                    f"error: branch '{feature_branch}' not found after creation",
+                    file=sys.stderr,
+                )
+                return 1
         code, _, _ = _git("merge-base", "--is-ancestor", base_sha, fb_sha)
         if code != 0:
             print(
@@ -581,23 +604,25 @@ def cmd_plan(args: argparse.Namespace) -> int:
     plan = compute_wave_plan(stories, project_root, filter_ids)
     print(plan.to_yaml())
 
-    if getattr(args, "apply", False):
-        ledger_path = Path(args.ledger)
-        ledger = _load_ledger(ledger_path)
-        if ledger is None:
-            return 1
-        assigned = 0
-        for wave_entry in plan.waves:
-            wave_num = wave_entry["wave"]
-            for story in wave_entry.get("stories", []):
-                sid = story["id"]
-                if sid in ledger.stories:
-                    ledger.stories[sid].wave = wave_num
-                    assigned += 1
-        save_code = _save_ledger(ledger, ledger_path)
-        if save_code != 0:
-            return save_code
-        print(f"dispatch plan: applied wave assignments to {assigned} stories in ledger")
+    if getattr(args, "dry_run", False):
+        return 0
+
+    ledger_path = Path(args.ledger)
+    ledger = _load_ledger(ledger_path)
+    if ledger is None:
+        return 1
+    assigned = 0
+    for wave_entry in plan.waves:
+        wave_num = wave_entry["wave"]
+        for story in wave_entry.get("stories", []):
+            sid = story["id"]
+            if sid in ledger.stories:
+                ledger.stories[sid].wave = wave_num
+                assigned += 1
+    save_code = _save_ledger(ledger, ledger_path)
+    if save_code != 0:
+        return save_code
+    print(f"dispatch plan: applied wave assignments to {assigned} stories in ledger")
 
     return 0
 
@@ -1653,9 +1678,9 @@ def main(argv: list[str] | None = None) -> int:
         "--stories", default=None, help="comma-separated story IDs to include"
     )
     p_plan.add_argument(
-        "--apply",
+        "--dry-run",
         action="store_true",
-        help="persist wave assignments into the dispatch ledger",
+        help="print wave plan without persisting to the dispatch ledger",
     )
 
     sub.add_parser("prepare-wave", help="prepare all stories in a wave").add_argument(
