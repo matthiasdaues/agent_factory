@@ -78,7 +78,10 @@ phase is exempt and may continue in the current session.
 
 0. **Read QA Strategy** — Read `docs/spec/<feature-name>-qa-strategy.md` before any review step. Its Contract Owners, Boundary Cases, and Severity Triage scope all subsequent steps. Fall back to `docs/spec/scope-map.md` and supplementary specs if no strategy document exists.
 1. **Acceptance Test** — Run `docs/spec/<feature-name>.feature` through the project's Gherkin runner (see [testing-strategy.md](../rulebooks/conventions/testing-strategy.md)). File a `BUG` finding for any failing Scenario — trace to file and Scenario name — before continuing. Use `@`-references ([cross-reference-format.md](../rulebooks/conventions/cross-reference-format.md)) to locate implementing code.
-2. **Fagan Inspection** — Invoke `fagan-review`: five focus areas (Correctness, Clean Architecture, SOLID, Maintainability, Consistency), scoped by Contract Owners and `@`-references. Save per [report-format.md](../rulebooks/conventions/report-format.md), file `FAGAN` defects per [finding-format.md](../rulebooks/conventions/finding-format.md).
+2. **Fagan Inspection** — Invoke `fagan-review`: five focus areas (Correctness, Clean Architecture, SOLID, Maintainability, Consistency), scoped by Contract Owners and `@`-references. Save per [report-format.md](../rulebooks/conventions/report-format.md), file `FAGAN` defects per [finding-format.md](../rulebooks/conventions/finding-format.md). Additionally:
+   - **Test-design-pass check:** For each non-`.feature`-governed story, verify the `test-design-pass` field is present in the story file's frontmatter. A missing field means the developer skipped the post-GREEN test-design step — file a `FAGAN` finding.
+   - **Contract-to-test cross-referencing:** Read the story's `tests:` field and cross-reference each listed test module against the story's traced contracts. Every traced contract owned by this story must have a corresponding test, or a justified exclusion (structural contracts are linter-owned). Flag gaps as `FAGAN` findings.
+   - **Testability flag follow-up:** If the testability probe flagged red flags for this story's EPIC in `backlog/epics.md`, check whether the flagged criteria now have test coverage at story level. Unaddressed flags are `FAGAN` findings.
 3. **Security Review** — Invoke `security-review`: OWASP Top 10, realistic vectors only, scoped by Boundary Cases and Severity Triage. File `SEC` findings for Medium+.
 4. **Bug Hunt** — Invoke `bug-hunt` using the `.feature` file (not Use Case files) as the contract source. Each Scenario is a contract; `@`-references locate the code. Hunt → Fix (Red → Green → commit `fix: ... (BUG-NNNN)` → `status: resolved`) → Retest until a full cycle finds zero bugs.
 
@@ -89,6 +92,8 @@ phase is exempt and may continue in the current session.
 - Full hunt cycle with zero new bugs
 - Every Defect states what's wrong and what to do
 - Bug findings trace to the `.feature` file and Scenario name, not a Use Case ID
+- Every non-`.feature`-governed story has a `test-design-pass` field
+- Every traced contract owned by this story has a corresponding test or justified exclusion
 
 ## Handoff
 
