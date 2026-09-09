@@ -29,7 +29,7 @@ The operational procedure is split into four phase-gated skills. Each skill ends
 | 3     | [`create-backlog-story-slices`](../create-backlog-story-slices/SKILL.md) | Sketch story-level slices per EPIC             | Story slice tables for approval      |
 | 4     | [`create-backlog-stories`](../create-backlog-stories/SKILL.md)           | Write stories, prioritise, validate            | `backlog/ST-NNNN.md` files           |
 
-Junior Clarity and Senior Acceptance gates run at the end of every phase, not just the final one.
+Quality gates (Agent-Answerability and International Readability) run at the end of every phase, not just the final one.
 
 Each phase skill references this document for shared definitions below.
 
@@ -54,17 +54,17 @@ EPICs are documented in `backlog/epics.md` — each EPIC section carries actor g
 
 Three rules govern how stories are decomposed and written.
 
-### Rule 1: Demo First
+### Rule 1: Goal First, then Demo
 
-Write the Demo section before anything else. Two to four sentences: what a person can show after the story ships. Concrete values, walkthrough format.
+Write the Goal statement first — one sentence describing what behavior must exist after the story ships. Then write the Demo Scenario section: two to four sentences showing what a person can demonstrate. Concrete values, walkthrough format.
 
-**If you cannot write the demo, the story is not demo-able. Recut it.**
+**If you cannot write the Goal, the story is not deliverable.**
 
 Every story delivers a capability a person can demonstrate. Infrastructure — markers, migrations, types, scaffolding — enters as a line item inside the story that needs it.
 
 ### Rule 2: Forward from Status Quo
 
-Start every story by stating what exists now **in the codebase** — files, modules, tests, schemas that are already there — plus the deliverables of all stories it depends on. End with what a person can do afterward that they cannot do today. The gap between the two is the story's scope.
+Start every story by stating what exists now **in the codebase** — files, modules, tests, schemas that are already there — plus the deliverables of all stories it depends on. This becomes the Inputs section. Identify which files and directories the story changes; this becomes the Affected Paths section. The gap between today's codebase and what the story delivers is the story's scope.
 
 Chain stories so each one's deliverables become status quo for every story that depends on it. The dependency graph is a chain of accumulating status quos, rooted in today's code.
 
@@ -82,6 +82,40 @@ Each acceptance criterion is a falsifiable statement a test can prove or disprov
 
 Trace the scope-map rule parenthetically. Do not specify test paths, framework choices, or implementation approach.
 
+### Rule 4: Constraints Are Boundaries
+
+Every must-not from ADRs, conventions, testing regime, and scope exclusions goes in the Constraints section. A must-not buried in prose is a must-not the agent will miss. Constraints are not "nice to haves" — they are hard boundaries the implementation cannot cross.
+
+## Quality gates
+
+Three quality gates ensure every story is intelligible to agents and humans alike.
+
+### Agent-Answerability Checks
+
+A story fails this gate if any check cannot be answered from the story alone:
+
+| Check                                | Answered by           |
+| ------------------------------------ | --------------------- |
+| What behavior must exist after?      | Goal                  |
+| Which files change?                  | Affected Paths        |
+| Which domain rule owns the behavior? | Domain Rule           |
+| What existing state matters?         | Inputs                |
+| What should tests prove?             | Acceptance Criteria   |
+| What commands verify completion?     | Verification          |
+| What is explicitly out of scope?     | Out of Scope          |
+| When should the agent stop and ask?  | Agent Stop Conditions |
+
+### International Readability
+
+Six concrete sentence-level checks:
+
+- No idioms, slang, or culture-specific metaphors.
+- No ambiguous pronouns across sentence boundaries. Repeat the noun.
+- Short sentences (under 25 words). One idea per sentence.
+- Active voice.
+- Domain terms are used consistently — one term per concept, never alternated with synonyms for variety.
+- Abbreviations are spelled out on first use within the story, even when the spec already defined them.
+
 ## Done Check
 
 - [ ] Every User Goal from the actor-goal list is covered by at least one story
@@ -93,6 +127,7 @@ Trace the scope-map rule parenthetically. Do not specify test paths, framework c
 - [ ] Stories meet INVEST criteria (especially: small and testable)
 - [ ] Dependencies are explicit in `deps` — no hidden ordering assumptions
 - [ ] Stories reference Use Case IDs in `traces` for traceability
+- [ ] Every story has a Goal statement describing required behavior
 - [ ] Every story has a Demo section describing a concrete, showable capability
-- [ ] Every story passes Junior Clarity and Senior Acceptance gates
+- [ ] Every story passes Agent-Answerability and International Readability gates
 - [ ] `factory/scripts/backlog-lint` reports zero errors
