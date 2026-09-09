@@ -19,7 +19,7 @@ Write for an international Team whose members have English as a common, but not 
 
 For each EPIC, create `backlog/ST-NNNN.md` stories meeting **INVEST** — particularly: Independent (dependencies explicit in `deps`), Small (one implementation session), Testable (acceptance criteria as falsifiable invariants).
 
-Apply the [story composition rules](../create-backlog/SKILL.md#story-composition-rules): write the Demo section first (Rule 1), define scope as a step forward from the existing codebase and the deliverables of depended-on stories (Rule 2), write acceptance criteria as invariants (Rule 3). Every story is a vertical slice that crosses all system boundaries its capability requires. A story that touches only one boundary (only schema, only service, only UI) and delivers nothing a person can demonstrate is not a story — fold it into the first story that needs it as a line item.
+Apply the [story composition rules](../create-backlog/SKILL.md#story-composition-rules): write the Goal statement first, then the Demo (Rule 1), build Inputs and Affected Paths forward from Status Quo (Rule 2), write acceptance criteria as invariants (Rule 3), gather constraints as boundaries (Rule 4). Every story is a vertical slice that crosses all system boundaries its capability requires. A story that touches only one boundary (only schema, only service, only UI) and delivers nothing a person can demonstrate is not a story — fold it into the first story that needs it as a line item.
 
 Each story records in `traces`: the scope-map Rule(s) it implements, the arc42 component(s) it touches, and any constraining ADR(s).
 
@@ -77,20 +77,29 @@ Review every story through two lenses:
 
 **Senior Acceptance:** Read the story as a senior grooming the backlog. Would you hand this to your team without a follow-up conversation — is the scope bounded, the demo concrete, every criterion testable, and nothing left to interpret? If not, the story is not ready.
 
-**Agent Answerability (8-question check):** Before passing the story to the developer-agent, verify it answers these 8 questions:
+**Agent-Answerability Checks:** A story fails this gate if any check cannot be answered from the story alone:
 
-1. What is the high-level goal this story achieves?
-2. Which existing files will be modified?
-3. Which new files will be created?
-4. What is the concrete demo (numbered steps with values)?
-5. What must the system do after the story ships (observable behavior per layer)?
-6. What tests already exist and what new tests are needed?
-7. What architectural constraints or patterns must be respected?
-8. Where might the agent encounter ambiguity or missing information?
+| Check                                | Answered by           |
+| ------------------------------------ | --------------------- |
+| What behavior must exist after?      | Goal                  |
+| Which files change?                  | Affected Paths        |
+| Which domain rule owns the behavior? | Domain Rule           |
+| What existing state matters?         | Inputs                |
+| What should tests prove?             | Acceptance Criteria   |
+| What commands verify completion?     | Verification          |
+| What is explicitly out of scope?     | Out of Scope          |
+| When should the agent stop and ask?  | Agent Stop Conditions |
 
-If any question cannot be answered from the story body, the story is incomplete.
+**International Readability:** Six concrete sentence-level checks for Goal, Domain Rule, Demo Scenario, Constraints, and Agent Stop Conditions:
 
-**International Readability:** Read the story as if English is your second language. Are there any ambiguous phrases, jargon without definition, or culturally-specific idioms that would require a native speaker to untangle? Rewrite for clarity.
+- No idioms, slang, or culture-specific metaphors.
+- No ambiguous pronouns across sentence boundaries. Repeat the noun.
+- Short sentences (under 25 words). One idea per sentence.
+- Active voice.
+- Domain terms are used consistently — one term per concept, never alternated with synonyms for variety.
+- Abbreviations are spelled out on first use within the story, even when the spec already defined them.
+
+If any sentence fails, rewrite it before the story leaves the gate.
 
 ## Plain-language pass
 
