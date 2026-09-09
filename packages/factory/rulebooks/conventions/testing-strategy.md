@@ -2,7 +2,7 @@
 title: Contract-Owned Testing Strategy
 category: quality
 enforcement: test authors and reviewers
-version: 2.0.0
+version: 2.1.0
 ---
 
 # Contract-Owned Testing Strategy
@@ -208,6 +208,52 @@ failure. It is working evidence, not committed sabotage.
 When a gate marker, dispatch record, or handoff identifies the revision used
 for this evidence, it MUST use the full 40-character commit SHA. Abbreviated
 SHAs are display-only.
+
+## Two-pass test authoring
+
+Test authoring happens at implementation time, not planning time. The
+developer agent runs two passes for each story:
+
+**Pass 1 — TDD from acceptance criteria (always).** The developer writes
+tests directly from the story's acceptance criteria using Red-Green-Refactor.
+This pass runs for every story regardless of governance model. The tests
+produced here are contract tests and acceptance tests driven by the story's
+own requirements.
+
+**Pass 2 — test-design for integration gaps (conditional).** After GREEN,
+the developer invokes the [`test-design`](../../skills/test-design/SKILL.md)
+skill against the implemented code. The skill reads ownership assignments
+from the [`testability-probe`](../../skills/testability-probe/SKILL.md)
+output in `backlog/epics.md`, classifies owned contracts by risk class,
+identifies integration paths and edge cases the TDD cycle did not cover,
+and authors additional test files. Pass 2 runs only for stories that are
+**not** `.feature`-governed. When a `.feature` file governs the story, the
+`.feature` file is the test design, and pass 2 is skipped.
+
+### The `test-design-pass` field
+
+The developer agent records the outcome in the story's frontmatter at
+commit time:
+
+| Value                      | Meaning                                                                   |
+| -------------------------- | ------------------------------------------------------------------------- |
+| `done`                     | The `test-design` skill ran (regardless of whether it found gaps to fill) |
+| `skipped-feature-governed` | The story is `.feature`-governed; pass 2 was correctly skipped            |
+
+A non-`.feature`-governed story with no `test-design-pass` field is a QA
+finding — the developer skipped the step. The `test-design-verify` gate
+validates this field.
+
+### Planning-time counterpart
+
+The planning-time `testability-probe` skill assesses EPIC testability and
+resolves contract ownership across the backlog without writing failure
+scenarios or test cases. It produces ownership assignments that pass 2
+consumes. This separation keeps planning lightweight and grounded: the probe
+asks "who will test what," not "how will they test it." Detailed test design
+waits until the code exists.
+
+Proposal trace: [test-design-layer-redistribution.md](../../../docs/proposals/test-design-layer-redistribution.md).
 
 ## References
 
