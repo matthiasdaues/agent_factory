@@ -40,6 +40,7 @@ SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
 
 VALID_TIERS = {"economy", "standard", "strong"}
 VALID_STATUSES = {"pending", "in-progress", "review", "blocked", "done"}
+VALID_RISK_LEVELS = {"low", "medium", "high"}
 VALID_QUALITY_GATES = {"crap-score", "mutation-analysis", "dependency-check"}
 RE_STORY_ID = re.compile(r"^ST-\d{4,}$")
 REQUIRED_FIELDS = {"id", "epic", "title", "tier", "status", "touches"}
@@ -48,6 +49,7 @@ OPTIONAL_FIELDS = {
     "deps",
     "traces",
     "quality-gates",
+    "risk_level",
 }
 VALID_CONCERN_KEYS = {"domain", "technical"}
 ALL_FIELDS = REQUIRED_FIELDS | OPTIONAL_FIELDS
@@ -284,6 +286,17 @@ def check_story(
                 "error",
                 rel,
                 f"status '{status}' not in {{{', '.join(sorted(VALID_STATUSES))}}}",
+            )
+        )
+
+    risk_level = fm.get("risk_level")
+    if risk_level is not None and risk_level not in VALID_RISK_LEVELS:
+        out.append(
+            Finding(
+                "BL-ENUM",
+                "error",
+                rel,
+                f"risk_level '{risk_level}' not in {{low, medium, high}}",
             )
         )
 
