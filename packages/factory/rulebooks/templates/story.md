@@ -16,7 +16,6 @@ epic: Domain Entities             # the EPIC this story belongs to (references a
 title: Define domain entity dataclasses
 tier: economy                     # economy | standard | strong — the model tier this story's work needs
 status: pending                   # pending | in_progress | review | blocked | done
-risk_level: low                   # optional; low | medium | high — the risk class of this story
 deps: [ST-0002]                   # story ids that block this one (optional)
 traces: [scope-map#rule-name, ADR-0003]  # scope-map Rule / ADR / component ids this story implements (optional)
 touches: [src/orchestrator/, tests/unit/orchestrator/]
@@ -44,114 +43,44 @@ test-design-pass: done            # optional; written by the developer agent at 
 
 ## Body
 
-````markdown
+```markdown
 # <title>
 
-<one-sentence summary of the story goal in domain language>
+<what the story delivers, in the domain's language>
 
 **Priority:** must-have          # MoSCoW — must-have | should-have | could-have | wont-have
 
-## Goal
+## Demo
 
-One paragraph. What user-visible or API-visible behavior must exist after this story ships. Plain domain language.
-
-## Domain Rule
-
-Bullet list. Mental model: entities, invariants, must-nevers. "Use this wording" guidance for implementing logic.
-
-## Demo Scenario
-
-Numbered step list (not paragraphs). Observable actions with concrete values.
-
-1. Step with concrete values
-2. Step showing outcome or edge case
-3. (continue as needed)
-
-## Affected Paths
-
-Explicit file listing grouped by layer. Existing files that change, new files to create.
-
-- `src/module/file.py` — existing file, change here
-- `src/module/new_file.py` — new file to create
-- `tests/unit/test_module.py` — existing test file
-
-**Hygiene rule for `touches` field:** When populating the story's `touches` frontmatter field, the planning agent derives the list from Affected Paths by taking the directory prefix of each file, de-duplicating parents, and removing any entry that is a prefix of another. Each entry must resolve to an existing directory or one created by a story in `deps`. Never list both a parent and its child — the parent already covers it. A broad prefix like `packages/server/` forces the dispatcher to serialize every story that touches any server file, defeating overlap detection. Collapse sibling directories only when every sibling is touched. Speculative paths for modules that do not exist yet are not permitted — use the existing parent directory instead.
-
-## Inputs
-
-Reading manifest: deps deliverables, spec rules, architecture references, current implementation files. Point the developer-agent to the files and specs they must understand before coding.
-
-## Outputs
-
-Concrete deliverables per layer with behavioral detail in observable terms. List each module/file and what it produces or enforces.
-
-## Required Behavior
-
-(optional — include only if the Outputs section does not fully capture the behavior being implemented)
-
-Primary delivery mechanism described concretely. Describes how the system components interact to satisfy the Goal.
-
-## Constraints
-
-Explicit must-not list from ADRs, conventions, testing regime, scope exclusions.
-
-- No breaking changes to existing API contracts
-- No direct database queries (use repository layer)
-- (continue as needed)
-
-## Suggested Agent Plan
-
-Numbered implementation steps in dependency order, referencing Affected Paths and Outputs. Helps the developer-agent understand optimal execution sequence and dependencies between implementation tasks.
-
-1. Write RED test covering [Affected Path X] behavior
-2. Implement [Affected Path Y]
-3. (continue as needed)
+<2–4 sentences. Walkthrough of what a person can show after the story ships.
+Concrete values, not placeholders. Happy path plus one meaningful edge case.>
 
 ## Acceptance Criteria
 
-Checkbox list of falsifiable invariants (unchanged format, but checkboxes replace dashes).
+- <falsifiable invariant — "X produces Y", "X never Y", or "when X then Y" (RULE-ID)>
 
-- [ ] <falsifiable invariant — "X produces Y", "X never Y", or "when X then Y" (RULE-ID)>
-- [ ] <another criterion>
+## Scope
 
-## Verification
+**Status quo:** <what exists now — tables, routes, views — including deliverables of depended-on stories>
+**Delivers:** <what capability this story adds, across all layers>
+**Out of scope:** <what explicitly does not change>
 
-Exact shell commands grouped by suite from testing.yaml.
+## Terminology
 
-**Unit tests:**
-```bash
-pytest tests/unit/test_module.py -v
-````
+<optional — define project-specific terms used in this story. One term per line,
+"Term: definition" format. Source definitions from docs/arc42/12_glossary.md or
+docs/CONTEXT.md; include only terms the reader needs to understand this story.>
 
-**Integration tests:**
+## Notes for the Implementer
 
-```bash
-pytest tests/integration/test_module_seam.py -v
-```
-
-## Out of Scope
-
-Dash-prefixed list of explicit exclusions.
-
-- No changes to authentication layer
-- No database schema migration
-- (continue as needed)
-
-## Agent Stop Conditions
-
-Dash-prefixed list of halt-and-ask triggers. When any of these conditions arise during implementation, the developer-agent should stop and ask the human.
-
-- If new architecture dependencies are discovered not mentioned in Inputs
-- If the work requires changes to [specific critical system]
-- (continue as needed)
-
+<optional guidance, constraints, or context. Also the home for:
+- Pre-existing tests: file paths that already cover this story's criteria
+- Suggested approach: direct or seams-first
+- Risk domains: security, privacy, data_integrity, compatibility, reliability, operations
+- Gate exclusion justification: why a default quality gate was omitted>
 ```
 
 ## Frontmatter Fields
-
-### risk_level (optional)
-
-One of `low`, `medium`, or `high`. Indicates the risk classification of this story for planning and review purposes. When absent, the story is treated as risk-unclassified. Does not affect implementation gates; used for organizational and historical tracking.
 
 ### touches (required)
 
@@ -185,4 +114,3 @@ A non-`.feature`-governed story with no `test-design-pass` field is a QA finding
 
 - [create-backlog § Step 2](../../skills/create-backlog/SKILL.md#step-2--break-epics-into-user-stories)
 - [backlog-lint script](../../scripts/backlog-lint)
-```
