@@ -31,7 +31,7 @@ quality-gates: [crap-score, mutation-analysis, dependency-check]
                                   # optional; list the semantic gates that apply to this story.
                                   # Default precedence: story field > house-rules.md
                                   # default_quality_gates > Factory hardcoded default.
-                                  # If excluding a default gate, justify in Notes for the Implementer.
+                                  # If excluding a default gate, justify in Constraints.
 tests: [tests/unit/test_widget.py, tests/integration/test_widget_seam.py]
                                   # optional; written by the developer agent at commit time.
                                   # Lists the test modules this story owns — authored during
@@ -121,7 +121,7 @@ Exact shell commands grouped by suite from testing.yaml.
 **Unit tests:**
 ```bash
 pytest tests/unit/test_module.py -v
-````
+```
 
 **Integration tests:**
 
@@ -145,7 +145,7 @@ Dash-prefixed list of halt-and-ask triggers. When any of these conditions arise 
 - If the work requires changes to [specific critical system]
 - (continue as needed)
 
-```
+````
 
 ## Frontmatter Fields
 
@@ -166,7 +166,7 @@ Mapping with optional `domain` and `technical` keys, each a list of strings. Dec
 List the semantic gates that apply to the story: `crap-score`, `mutation-analysis`, and `dependency-check`.
 When the field is absent, the dispatcher falls back to `docs/charter/house-rules.md`'s
 `default_quality_gates`, then to the Factory hardcoded default of all three gates.
-If the story excludes any default gate, justify the exclusion in the body's Notes for the Implementer section.
+If the story excludes any default gate, justify the exclusion in the body's Constraints section.
 
 ### tests (optional, written at implementation time)
 
@@ -185,4 +185,6 @@ A non-`.feature`-governed story with no `test-design-pass` field is a QA finding
 
 - [create-backlog § Step 2](../../skills/create-backlog/SKILL.md#step-2--break-epics-into-user-stories)
 - [backlog-lint script](../../scripts/backlog-lint)
+
+```
 ```
