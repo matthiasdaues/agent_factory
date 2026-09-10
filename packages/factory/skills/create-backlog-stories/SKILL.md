@@ -17,7 +17,7 @@ Write for an international Team whose members have English as a common, but not 
 
 ## Step 2 — Break EPICs into User Stories
 
-For each EPIC, create `backlog/ST-NNNN.md` stories meeting **INVEST** — particularly: Independent (dependencies explicit in `deps`), Small (one implementation session), Testable (acceptance criteria as falsifiable invariants).
+For each EPIC, create `backlog/ST-NNNN.md` stories (or `ST-NNNNA.md`, `ST-NNNNB.md`, … when splitting an existing story) meeting **INVEST** — particularly: Independent (dependencies explicit in `deps`), Small (one implementation session), Testable (acceptance criteria as falsifiable invariants).
 
 Apply the [story composition rules](../create-backlog/SKILL.md#story-composition-rules): write the Goal statement first, then the Demo (Rule 1), build Inputs and Affected Paths forward from Status Quo (Rule 2), write acceptance criteria as invariants (Rule 3), gather constraints as boundaries (Rule 4). Every story is a vertical slice that crosses all system boundaries its capability requires. A story that touches only one boundary (only schema, only service, only UI) and delivers nothing a person can demonstrate is not a story — fold it into the first story that needs it as a line item.
 

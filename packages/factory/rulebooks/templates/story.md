@@ -5,18 +5,18 @@ version: 2.1.0
 
 # Backlog Story Template
 
-Skeleton for a single `backlog/ST-NNNN.md` file. Governed by [create-backlog skill](../../skills/create-backlog/SKILL.md) and validated by `factory/scripts/backlog-lint`.
+Skeleton for a single `backlog/ST-NNNN[A-Z].md` file. Governed by [create-backlog skill](../../skills/create-backlog/SKILL.md) and validated by `factory/scripts/backlog-lint`.
 
 ## Frontmatter
 
 ```yaml
 ---
-id: ST-0001                       # ST-NNNN, zero-padded, unique; matches the filename
+id: ST-0001                       # ST-NNNN (new) or ST-NNNNA (split); zero-padded, unique; matches the filename
 epic: Domain Entities             # the EPIC this story belongs to (references a section in backlog/epics.md)
 title: Define domain entity dataclasses
 tier: economy                     # economy | standard | strong — the model tier this story's work needs
 status: pending                   # pending | in_progress | review | blocked | done
-risk_level: low                   # optional; low | medium | high — the risk class of this story
+risk_level: low                   # optional; must match a key in testing.yaml risk_classes (defaults: low | medium | high)
 deps: [ST-0002]                   # story ids that block this one (optional)
 traces: [scope-map#rule-name, ADR-0003]  # scope-map Rule / ADR / component ids this story implements (optional)
 touches: [src/orchestrator/, tests/unit/orchestrator/]
@@ -150,7 +150,7 @@ Dash-prefixed list of halt-and-ask triggers. When any of these conditions arise 
 
 ### risk_level (optional)
 
-One of `low`, `medium`, or `high`. Indicates the risk classification of this story for planning and review purposes. When absent, the story is treated as risk-unclassified. Does not affect implementation gates; used for organizational and historical tracking.
+Must match a key in `docs/testing.yaml` → `risk_classes`. The detect-test-regime skill populates that section from the project's testing strategy document during fitting; projects that define their own risk classes (e.g. `cluster-a`, `cluster-b`) override the factory defaults. When `risk_classes` is absent from testing.yaml, `backlog-lint` falls back to `low | medium | high`. When the field itself is absent from a story, the story is treated as risk-unclassified. Does not affect implementation gates; used for organizational and historical tracking.
 
 ### touches (required)
 

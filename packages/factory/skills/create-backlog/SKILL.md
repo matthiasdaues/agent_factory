@@ -39,7 +39,7 @@ See [story.md template](../../rulebooks/templates/story.md) for the complete fro
 
 **Key frontmatter fields:**
 
-- `id`: ST-NNNN, zero-padded, unique; matches the filename
+- `id`: `ST-NNNN` for new stories; `ST-NNNNA`, `ST-NNNNB`, … when an existing story is resized and split into multiple replacements. When allocating: scan existing `backlog/ST-*.md` filenames — for a new story, increment the highest numeric ID; for a split, increment the highest letter suffix on that numeric ID. Unique; matches the filename
 - `epic`: The EPIC this story belongs to (references a section in `backlog/epics.md`)
 - `title`: What the story delivers — active verb phrase ("Activate a Domain...", "Reject raw secrets..."), never a noun phrase
 - `tier`: economy | standard | strong (model tier needed)

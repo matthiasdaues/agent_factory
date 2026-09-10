@@ -81,6 +81,16 @@ layers:
     tool: "pytest"
     infrastructure: "mock"
     entry_point: "uv run pytest tests/"
+
+risk_classes:
+  critical:
+    format: forbidden
+    budget: unbounded
+  standard:
+    format: scenario
+    budget: equivalence
+  structural:
+    format: linter
 ```
 
 Per-suite fields:
@@ -249,7 +259,28 @@ tells planner and developer agents *how* to test — clusters, budgets,
 markers, fixture rules, AI-generated test rules. The suites tell them
 *where* and *what*.
 
-### 7. Record
+### 7. Extract risk classes
+
+Read the testing strategy document resolved in step 6. Find its
+"## Risk classes" section and extract the class names from the table's
+first column (strip backticks). Normalize underscores to hyphens
+(`cluster_a` → `cluster-a`). Record each class with its `format` and
+`budget` columns as a mapping under `risk_classes:` in testing.yaml.
+
+If the strategy document has no risk-class table, use the factory
+defaults:
+
+| Class        | Format      | Budget        |
+| ------------ | ----------- | ------------- |
+| `critical`   | `forbidden` | `unbounded`   |
+| `standard`   | `scenario`  | `equivalence` |
+| `structural` | `linter`    | —             |
+
+`risk_classes` is always populated, never null. The `backlog-lint` script
+reads these keys at scan time to validate `risk_level` values in story
+frontmatter.
+
+### 8. Record
 
 Write or update `testing.yaml` (at `docs/testing.yaml`):
 
@@ -261,6 +292,8 @@ Write or update `testing.yaml` (at `docs/testing.yaml`):
   with `tool`, `infrastructure`, and `entry_point` filled in from what was
   actually observed. Omit unused layers entirely; never set a layer to
   `null` as a placeholder.
+- `risk_classes` — one entry per risk class from the strategy document
+  (step 7), with `format` and `budget` fields.
 
 If `testing.yaml` already exists, treat it as a prior scan
 result, not ground truth — update fields whose evidence has changed, and
