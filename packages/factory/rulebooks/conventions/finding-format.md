@@ -25,6 +25,7 @@ For most reviews the blocking severity is **Critical** or **Major** (see [report
 | ------------------------------ | ------- |
 | Spec review                    | `SPEC`  |
 | ATAM architecture review       | `ATAM`  |
+| Implementation code review     | `IMPL`  |
 | Fagan code inspection          | `FAGAN` |
 | Security review                | `SEC`   |
 | Spec reconciliation            | `RECON` |
@@ -56,6 +57,7 @@ Present the findings to the user before writing any files. The user decides whic
 - [reconciliation-agent.md § Workflow](../../agents/reconciliation-agent.md#workflow)
 - [spec-review-agent.md § Workflow](../../agents/spec-review-agent.md#workflow)
 - [architecture-review-agent.md § Workflow](../../agents/architecture-review-agent.md#workflow)
+- [code-review-agent.md § Workflow](../../agents/code-review-agent.md#workflow)
 - [qa-agent.md § Workflow](../../agents/qa-agent.md#workflow)
 - [security-review § Step 3 — Write the review report](../../skills/security-review/SKILL.md#step-3--write-the-review-report)
 - [reconcile-spec § Step 2 — Update](../../skills/reconcile-spec/SKILL.md#step-2--update)

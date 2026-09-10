@@ -41,7 +41,9 @@ introduced.
 | architecture-review-agent → architecture-agent | Open architecture findings require remedies                                     |
 | architecture-review-agent → planning-agent     | Architecture review is clean, charter completeness sweep and planning gate pass |
 | planning-agent → implementation-agent          | Backlog is approved                                                             |
-| implementation-agent → reconciliation-agent    | Implementation wave completes                                                   |
+| implementation-agent → code-review-agent       | Implementation wave completes                                                   |
+| code-review-agent → implementation-agent       | Code review finds defects                                                       |
+| code-review-agent → reconciliation-agent       | Code review is clean                                                            |
 | reconciliation-agent → implementation-agent    | Reconciliation finds code defects                                               |
 | reconciliation-agent → qa-agent                | Reconciliation is clean                                                         |
 | qa-agent → implementation-agent                | Quality review finds defects                                                    |
@@ -242,7 +244,39 @@ dispatches until every must-have Epic 0 story reaches a terminal state. This
 is enforced by the `deps:` chain the planning agent wrote in Step 3.1, not by
 separate scheduling logic.
 
-### Step 4.2 — Run Reconciliation Agent (Separate Session)
+### Step 4.2 — Run Code Review Agent (Separate Session)
+
+```bash
+orchestrator run-phase code-review
+# OR manual: Start NEW session, activate code-review-agent
+```
+
+**Agent**: `code-review-agent`
+**Expected outputs**: `docs/reviews/code-review-*.md`, `docs/findings/IMPL-*.md`
+
+### Decision Point 4.3
+
+Check: `docs/findings/IMPL-*.md` files with `status: open`
+
+```bash
+grep -l "status: open" docs/findings/IMPL-*.md
+```
+
+**If implementation defects exist** → Go to Step 4.4
+**If no defects** → Go to Step 4.5
+
+### Step 4.4 — Loop: Fix Implementation Defects
+
+```bash
+orchestrator run-phase implementation
+# OR manual: Start NEW session, activate implementation-agent
+```
+
+**Instructions**: Implementation agent reads open `IMPL-*` findings and fixes code
+
+Return to Step 4.2 (run code-review-agent again)
+
+### Step 4.5 — Run Reconciliation Agent (Separate Session)
 
 ```bash
 orchestrator run-phase reconciliation
@@ -252,7 +286,7 @@ orchestrator run-phase reconciliation
 **Agent**: `reconciliation-agent`
 **Expected outputs**: `docs/reviews/reconciliation-*.md`, `docs/findings/RECON-*.md`, updated specs
 
-### Decision Point 4.3
+### Decision Point 4.6
 
 Check: `docs/findings/RECON-*.md` files with `status: open`
 
@@ -260,10 +294,10 @@ Check: `docs/findings/RECON-*.md` files with `status: open`
 grep -l "status: open" docs/findings/RECON-*.md
 ```
 
-**If code defects exist** → Go to Step 4.4
+**If code defects exist** → Go to Step 4.7
 **If no defects** → Go to Phase 5
 
-### Step 4.4 — Loop: Fix Code Defects
+### Step 4.7 — Loop: Fix Reconciliation Defects
 
 ```bash
 orchestrator run-phase implementation
@@ -272,7 +306,7 @@ orchestrator run-phase implementation
 
 **Instructions**: Implementation agent reads open `RECON-*` findings and fixes code
 
-Return to Step 4.2 (run reconciliation-agent again)
+Return to Step 4.5 (run reconciliation-agent again)
 
 ## Phase 5: Quality
 

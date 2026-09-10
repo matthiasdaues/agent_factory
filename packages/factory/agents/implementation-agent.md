@@ -36,7 +36,7 @@ triggers:
   - "start implementation"
   - "dispatch stories"
 handoff-to:
-  - reconciliation-agent
+  - code-review-agent
 version: 0.8.0
 ---
 

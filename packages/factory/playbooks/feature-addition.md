@@ -125,6 +125,24 @@ steps:
       - 'docs/**/*.md'
       - 'backlog/ST-*.md'
     max_input_tokens: 100000
+  - name: code-review
+    inputs:
+      - 'backlog/ST-*.md'
+      - 'docs/spec/**/*.md'
+      - 'docs/spec/**/*.feature'
+      - 'factory/**/*.py'
+      - 'orchestrator/**/*.py'
+      - 'tests/**/*.py'
+      - 'config/**/*.json'
+    outputs:
+      - 'docs/reviews/code-review-*.md'
+      - 'docs/findings/IMPL-*.md'
+    max_input_tokens: 100000
+  - name: decision-point-4-3
+    inputs:
+      - 'docs/findings/IMPL-*.md'
+    outputs: []
+    max_input_tokens: 20000
   - name: reconcile
     inputs:
       - 'backlog/ST-*.md'
@@ -142,7 +160,7 @@ steps:
       - 'docs/**/*.md'
       - 'backlog/ST-*.md'
     max_input_tokens: 100000
-  - name: decision-point-4-3
+  - name: decision-point-4-5
     inputs:
       - 'docs/findings/RECON-*.md'
     outputs: []
@@ -224,7 +242,9 @@ introduced.
 | architecture-review-agent → architecture-agent | Open architecture findings require remedies           |
 | architecture-review-agent → planning-agent     | Architecture review is clean                          |
 | planning-agent → implementation-agent          | Backlog is approved                                   |
-| implementation-agent → reconciliation-agent    | Implementation wave completes                         |
+| implementation-agent → code-review-agent       | Implementation wave completes                         |
+| code-review-agent → implementation-agent       | Code review finds defects                             |
+| code-review-agent → reconciliation-agent       | Code review is clean                                  |
 | reconciliation-agent → implementation-agent    | Reconciliation finds code defects                     |
 | reconciliation-agent → qa-agent                | Reconciliation is clean                               |
 | qa-agent → implementation-agent                | Quality review finds defects                          |
@@ -517,7 +537,28 @@ orchestrator run-phase implementation
 
 **Agent**: `implementation-agent`
 
-### Step 4.2 — Reconcile
+### Step 4.2 — Code Review (Separate Session)
+
+```bash
+orchestrator run-phase code-review
+# OR manual: Start NEW session, activate code-review-agent
+```
+
+**Agent**: `code-review-agent`
+**Expected outputs**: `docs/reviews/code-review-*.md`, `docs/findings/IMPL-*.md`
+
+### Decision Point 4.3
+
+Check for implementation defects:
+
+```bash
+grep -l "status: open" docs/findings/IMPL-*.md
+```
+
+**If defects** → Loop to Step 4.1
+**If clean** → Go to Step 4.4
+
+### Step 4.4 — Reconcile
 
 ```bash
 orchestrator run-phase reconciliation
@@ -525,9 +566,9 @@ orchestrator run-phase reconciliation
 
 **Agent**: `reconciliation-agent`
 
-### Decision Point 4.3
+### Decision Point 4.5
 
-Check for code defects:
+Check for reconciliation defects:
 
 ```bash
 grep -l "status: open" docs/findings/RECON-*.md
