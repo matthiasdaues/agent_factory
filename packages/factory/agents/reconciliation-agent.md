@@ -11,15 +11,14 @@ description: >-
 skills:
   - reconcile-spec
   - model-structurizr-slice
-  - update-context
+  - capture-context
   - handoff
 inputs:
-  - docs/arc42/CONTEXT.md
+  - docs/CONTEXT.md
   - docs/spec/prd.md
   - docs/spec/scope-map.md
   - docs/spec/supplementary_specs/*.md
   - docs/spec/*.feature
-  - docs/spec/scope-map.md
   - docs/*.md
   - docs/adr/*.md
   - docs/agent-context.md
@@ -38,7 +37,7 @@ outputs:
   - docs/spec/scope-map.md (updated — discovery and drift reconciliation)
   - docs/*.md (updated)
   - docs/adr/*.md (new ADRs if decisions changed)
-  - docs/arc42/CONTEXT.md (updated if terminology drifted)
+  - docs/CONTEXT.md (updated if terminology drifted)
   - docs/findings/RECON-*.md (code defects, missing @-refs, scope-map discovery/drift found during reconciliation)
 triggers:
   - "reconcile spec"
@@ -92,7 +91,7 @@ phase is exempt and may continue in the current session.
 
 **Timing:** One reconciliation pass per feature branch, at Phase 5, pre-merge to dev. Do not run per story merge — that surfaces partial-Rule noise before the slice's `.feature` file is complete.
 
-1. **Read everything** — `src/`, `tests/` (actual behavior); `docs/spec/supplementary_specs/`, `system-use-cases.md`; `docs/arc42/05_building_block_view.md`, `docs/adr/`; `docs/arc42/CONTEXT.md`; the current slice's `docs/spec/<feature-name>.feature`, when one governs the slice; `docs/spec/scope-map.md`, when it exists.
+1. **Read everything** — `src/`, `tests/` (actual behavior); `docs/spec/scope-map.md`, `docs/spec/*.feature`, `docs/arc42/architecture.dsl` (the canonical triad); `docs/spec/supplementary_specs/`; `docs/arc42/05_building_block_view.md`, `docs/adr/`; `docs/CONTEXT.md`; the current slice's `docs/spec/<feature-name>.feature`, when one governs the slice.
 2. **Reconcile** — Build truth maps from code and spec, diff them, classify discrepancies, update stale docs, file code defects per [finding-format.md](../rulebooks/conventions/finding-format.md). Commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `docs: <description> (RECON-NNNN)`. Report per [report-format.md](../rulebooks/conventions/report-format.md).
 3. **Backfill `@`-references** (when a `.feature` file governs the slice) — Per [cross-reference-format.md § `@`-references in `.feature` files](../rulebooks/conventions/cross-reference-format.md#-references-in-feature-files):
    - For each Scenario without an `@`-ref, inspect the step definitions and code, then add `# @<path>::<Symbol>` (or `.<member>`, or bare `@<path>`).
@@ -106,7 +105,7 @@ phase is exempt and may continue in the current session.
    - Move every `specified` Rule still present to `implemented`. Update links if a `.feature` file moved under `docs/~archive/`.
    - **PR body**: list every newly discovered Rule so the reviewer sees the scope change. If the merge is script-owned with no PR, record the list in the reconciliation report instead.
 5. **Verify prior findings** (repeat passes) — Per [review-loop-discipline.md](../rulebooks/conventions/review-loop-discipline.md): resolve/annotate each open `RECON` finding, **and** re-reconcile fresh (Steps 2–4) to catch new drift.
-6. **Reconcile agent context** — Run a concern-registry health check against `docs/agent-context.md`. Validate that every concern section has valid `Read:` paths (each path resolves to an existing file or directory in the project). Verify that the concern vocabulary matches the project's documentation structure — section headings should correspond to actual project concerns, not stale or orphaned topics. Report missing paths as warnings and orphaned sections as suggestions for removal or update. The user confirms each suggestion via `update-context` or dismisses it. Dismissed suggestions are not re-surfaced in the same reconciliation pass.
+6. **Reconcile agent context** — Run a concern-registry health check against `docs/agent-context.md`. Validate that every concern section has valid `Read:` paths (each path resolves to an existing file or directory in the project). Verify that the concern vocabulary matches the project's documentation structure — section headings should correspond to actual project concerns, not stale or orphaned topics. Report missing paths as warnings and orphaned sections as suggestions for removal or update. The user confirms each suggestion — edits are applied directly to `docs/agent-context.md` (or via `capture-context` for structural changes) — or dismisses it. Dismissed suggestions are not re-surfaced in the same reconciliation pass.
 7. **Audit test traceability** — For each story file in the backlog:
    - Read the `tests:` field and verify that every listed test file exists on disk. When a listed file is missing (renamed, moved, or deleted), locate the correct path and backfill the `tests:` field. File a `RECON-TEST-PATH` finding noting the correction.
    - When a story has no `tests:` field but test files matching the story's `touches:` scope exist in the test suite, backfill the `tests:` field with the discovered paths. File a `RECON-TEST-PATH` finding noting the addition.
