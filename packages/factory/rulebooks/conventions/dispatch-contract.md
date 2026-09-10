@@ -2,7 +2,7 @@
 title: Dispatch Contract
 category: implementation
 enforcement: dispatch-prompt clause (human/agent-authored discipline) — not mechanically gate-checked
-version: 1.3.0
+version: 1.4.0
 ---
 
 # Dispatch Contract
@@ -169,11 +169,13 @@ This ensures the backlog file is always consistent with the repository's actual 
 
 ### Dispatch Ledger
 
-The dispatcher must maintain a machine-readable ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml` tracking every story in the current dispatch. The ledger is **script-owned runtime state**: agents read it to resume and report, but only `factory/scripts/dispatch` subcommands mutate it. The ledger is committed or refreshed after each story reaches a mechanically observable state transition and serves as the authoritative record of what was prepared, dispatched, merged, blocked, and failed.
+The dispatcher must maintain a machine-readable ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml` tracking every story in the current dispatch. The ledger is **script-owned runtime state**: agents read it to resume and report, but only `factory/scripts/dispatch` subcommands mutate it. Autonomous mode refreshes or commits it after each mechanically observable transition. Review mode keeps it ignored and unstaged while `review-dispatch`, `review-accept`, and `review-close` record the serial human-review lifecycle.
 
 Schema:
 
 ```yaml
+mode: autonomous | review
+closed: false | true
 invocation_branch: <branch-name>
 branch_root: <40-char SHA>
 branch_head: <40-char SHA>  # updated after each merge or wave closeout
@@ -190,6 +192,8 @@ stories:
     wave: <wave-number>
     reason: <null or explanation for blocked/failed>
 ```
+
+Review mode uses the same story states with a narrower transition path: `pending` → `prepared` → `dispatching` → `dispatched` → `done`. `review-dispatch` performs the first two transitions around preflight and manifest creation; `mark-dispatched` records the real spawn; `review-accept` verifies the human commit before recording `done`. Blocked and failed remain terminal alternatives. Autonomous preparation and merge commands must reject a ledger whose `mode` is `review`.
 
 The ledger is the dispatcher's working memory across session boundaries — on resume, the dispatcher reads it to determine which stories completed, which failed, what is merely prepared, and what the current base SHA is, rather than reconstructing state from git log heuristics.
 

@@ -65,9 +65,11 @@ git commit -m "feat: <description> (ST-NNNN)"
 
 One commit per vertical slice or per full story. Set the story's `status` to `done` when the story is complete.
 
-If invoked with `--no-commit`: stage all changed files, skip the commit, and return. Do not set `status: done`.
+If invoked with `--no-commit` alone: stage all changed files, skip the commit, and return. Do not set `status: done`.
 
-**Completion**: committed, story id referenced, `status: done`, all tests pass. With `--no-commit`: all changes staged, all tests pass.
+If invoked with `--no-stage --no-commit`: leave all changes unstaged, skip the commit, and return. Do not set `status: done`; the human review-mode checkpoint owns staging, the status update, and the commit.
+
+**Completion**: committed, story id referenced, `status: done`, all tests pass. With `--no-commit`: all changes staged, all tests pass. With `--no-stage --no-commit`: all changes unstaged, all tests pass.
 
 ## Step 5 — Check docs
 

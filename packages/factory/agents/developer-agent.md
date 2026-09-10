@@ -29,7 +29,7 @@ triggers:
   - "implement story"
   - "TDD"
   - "red green"
-version: 0.6.1
+version: 0.7.0
 ---
 
 # Developer Agent
@@ -77,7 +77,7 @@ phase is exempt and may continue in the current session.
    - **Additionally**, if the story's Inputs section lists pre-existing tests, go straight to Green phase only (skip Red; read the tests as the spec and implement code to make them pass). If a `.feature` file governs the story, follow the [Executable Specification](#executable-specification--feature-workflow) workflow for each Scenario within this cycle.
    - **Fill contract-test gaps.** After prescribed or freestyle tests pass, review the gaps found in step 2. For each module this story modifies or introduces that has no contract-test owner, write one contract test that exercises the internal behavior the implementation relies on — parsing, policy decisions, state transitions, or wiring between components. Use the project's existing contract-test style: same markers, same fixture conventions, same assertion granularity. Do not duplicate what a linter already checks or what a prescribed failure scenario already covers. See [testing-strategy.md § Middle](../rulebooks/conventions/testing-strategy.md#middle--contract-tests).
    - **Add a smoke test when a user-facing path exists.** If the story introduces or modifies a user-facing path (CLI command, API endpoint, UI flow), write one smoke test that exercises the golden path end-to-end. One journey that would break visibly if the wiring is wrong. Use the project's existing smoke-test or integration-test style; if none exists, place it under the integration-test layer and follow the project's assertion conventions.
-4. **Commit** — Per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `feat: <description> (ST-NNNN)`, set `status: done`. If invoked with `--no-commit`: stage all changed files (`git add`), skip the commit, and return a summary of staged changes and passing tests. Do not set `status: done` — the human commits after review.
+4. **Commit** — Per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `feat: <description> (ST-NNNN)`, set `status: done`. If invoked with `--no-commit` alone: stage all changed files (`git add`), skip the commit, and return a summary of staged changes and passing tests. If invoked with `--no-stage --no-commit`: do not stage or commit and do not set `status: done`; return a summary of unstaged changes and passing tests for human review.
 5. **Spec feedback** — Check whether the test harness matches what the QA strategy prescribes, then check for spec drift. Update docs if needed; invoke `write-adr` for new decisions.
    - **Harness-mismatch check:** Compare the project's available test infrastructure against the QA strategy's contract-owner table. A mismatch is anything that prevents testing a contract at its prescribed layer: missing fixture patterns, unavailable markers, wrong runner. When you find one, invoke `spec-feedback` against the QA strategy (`docs/spec/qa-strategy.md` or equivalent). Name the contract, its prescribed layer, what is missing, and propose a correction. Update the QA strategy in this story or in a follow-up QA loop — do not defer indefinitely.
 
@@ -98,7 +98,7 @@ When `docs/spec/<feature-name>.feature` exists for this story, it is the accepta
 - All acceptance criteria tests pass, all existing tests still pass
 - When a `.feature` file governs the story, it passes end-to-end through the Gherkin test runner and its step definitions exist under `tests/features/steps/`
 - Story references Use Case IDs, or the governing `.feature` file's Rules when no UC-XX files apply
-- Conventional Commit with story ID, `status: done` (or all changes staged and tests green if `--no-commit`)
+- Conventional Commit with story ID and `status: done`; all changes staged and tests green with `--no-commit`; or all changes unstaged and tests green with `--no-stage --no-commit`
 - Spec matches implementation
 
 ## Note: Epic 0 Stories

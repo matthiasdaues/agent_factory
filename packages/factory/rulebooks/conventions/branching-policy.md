@@ -2,7 +2,7 @@
 title: Branch and Worktree Scoping
 category: implementation
 enforcement: implementation-agent dispatch logic (T-35)
-version: 2.1.0
+version: 2.2.0
 ---
 
 # Branch and Worktree Scoping
@@ -19,7 +19,7 @@ Shared integration files (a composition root, a domain-entities module, a ports 
 
 ### Every Branch Has A Worktree
 
-Creating a branch and creating its linked worktree are one atomic operation. This applies to **every** local branch type: invocation, story, bug, review, reconciliation, fix, experiment, spike, release-preparation, and manually created branches. There are no exceptions for sequential work or branches used by only one agent.
+Creating a branch and creating its linked worktree are one atomic operation, except for the explicit human-review workflow described in [Review-Mode Primary-Checkout Exception](#review-mode-primary-checkout-exception). Otherwise, this applies to **every** local branch type: invocation, story, bug, review, reconciliation, fix, experiment, spike, release-preparation, and manually created branches. Sequential work or a branch used by only one agent does not qualify for an exception.
 
 ```bash
 git worktree add -b <branch> .current-work/<feature-branch>/<branch> <base>
@@ -28,9 +28,15 @@ git worktree list --porcelain
 
 All worktrees live under `.current-work/<feature-branch>/`, named after their branch. This directory is gitignored and holds project-work ephemera. Never place a worktree in the repository root, a sibling directory, or an arbitrary path.
 
-Do not use standalone branch creation (`git branch <name>`, `git switch -c/-C`, or `git checkout -b/-B`) and do not create a branch in the current checkout before adding a worktree later. Existing branches may be attached with `git worktree add .current-work/<feature-branch>/<branch> <branch>` when recovering or resuming work, but new branches must use the atomic `worktree add -b` form. Verify the branch-to-path mapping before doing work there.
+Do not use standalone branch creation (`git branch <name>`, `git switch -c/-C`, or `git checkout -b/-B`) and do not create a branch in the current checkout before adding a worktree later. Existing branches may be attached with `git worktree add .current-work/<feature-branch>/<branch> <branch>` when recovering or resuming work, but new branches must use the atomic `worktree add -b` form. Verify the branch-to-path mapping before doing work there. The sole exception is the script-owned review-mode invocation described in [Review-Mode Primary-Checkout Exception](#review-mode-primary-checkout-exception).
 
 The checkout in which a command starts remains on its existing branch. Work on the new branch happens only in the new worktree. This prevents branch switching from moving or contaminating a shared checkout and makes branch ownership observable from Git state.
+
+### Review-Mode Primary-Checkout Exception
+
+An explicitly requested review-mode implementation may place its single invocation branch in the primary checkout. Only `factory/scripts/dispatch init-review --base dev --feature-branch feature/<name> --stories <ids>` may create that branch. The command requires the primary checkout on a clean `dev`, runs the configured test command before branch mutation, rejects an active autonomous dispatch, records the exact base SHA, and creates an ignored review ledger. Direct standalone branch creation remains forbidden.
+
+Review mode creates no story branches or worktrees. Before each serial story dispatch, `dispatch review-dispatch` requires an empty index and worktree and verifies `HEAD` against the last accepted ledger head. After human review and commit, `dispatch review-accept` verifies ancestry, the story ID in every commit subject, `status: done`, declared output scope, a clean checkout, and passing tests. Autonomous preparation and merge commands reject review ledgers. `dispatch review-close` records terminal closure without merging or switching branches.
 
 ### Indexed Artifacts On Dev
 
@@ -45,7 +51,7 @@ The sequence is:
 
 ### Invocation Branch
 
-The invocation branch is created from `dev` using `feature/<proposal-title>` as the branch name. Every story branch for an invocation is cut from this invocation branch, not from `dev` directly — the invocation branch is what makes the branch-root/branch-head SHA pair (below) well-defined. The invocation branch itself is created with its own linked worktree under the rule above.
+The invocation branch is created from `dev` using `feature/<proposal-title>` as the branch name. In autonomous mode every story branch is cut from this invocation branch, not from `dev` directly — the invocation branch is what makes the branch-root/branch-head SHA pair (below) well-defined. The autonomous invocation branch is created with its own linked worktree under the rule above; review mode uses the narrow primary-checkout exception.
 
 ### Worktree Isolation
 

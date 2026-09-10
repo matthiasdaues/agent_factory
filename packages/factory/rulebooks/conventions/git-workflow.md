@@ -2,7 +2,7 @@
 title: Git Workflow Under the Guardrail and Hooks
 category: implementation
 enforcement: git guardrail (block-dangerous-git) + pre-commit hooks
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Git Workflow Under the Guardrail and Hooks
@@ -28,6 +28,8 @@ git worktree list --porcelain
 
 All worktrees live under `.current-work/<feature-branch>/`, named after their branch. The second command verifies the path and branch before work begins. Standalone branch creation through `git branch <name>`, `git switch -c/-C`, or `git checkout -b/-B` is blocked. Do not switch the current checkout as an intermediate step. To resume an existing unattached branch, use `git worktree add .current-work/<feature-branch>/<branch> <branch>`.
 
+The sole exception is explicit review mode: `factory/scripts/dispatch init-review` may create one `feature/<name>` invocation branch in the clean primary checkout after tests pass. The Git guardrail does not allow the underlying standalone command directly; the validated dispatch script owns the exception. Autonomous invocation and story branches remain worktree-only.
+
 ## Merging requires the pre-merge marker
 
 `git merge <branch>` is blocked unless a passing `.current-work/premerge-check-ok` marker exists for that branch's current head.
@@ -39,14 +41,14 @@ All worktrees live under `.current-work/<feature-branch>/`, named after their br
 
 The guardrail blocks these in every session, including yours:
 
-| Blocked                                             | Use instead                                                                   |
-| --------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Standalone branch creation                          | `git worktree add -b <branch> .current-work/<feature-branch>/<branch> <base>` |
-| `git checkout .` / `git checkout -- .`              | `git checkout HEAD -- <path>`                                                 |
-| `git branch -D` (force delete)                      | `git branch -d` (merged only); ask the user for force deletes                 |
-| `git commit --no-verify`, `git ... --no-verify`     | Fix the failing hook; never bypass                                            |
-| `git config core.hooksPath …`                       | Do not repoint hooks                                                          |
-| `git reset --hard`, `git clean`, `git push --force` | Ask the user                                                                  |
+| Blocked                                             | Use instead                                                                                                                       |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Standalone branch creation                          | `git worktree add -b <branch> .current-work/<feature-branch>/<branch> <base>`, or `dispatch init-review` for explicit review mode |
+| `git checkout .` / `git checkout -- .`              | `git checkout HEAD -- <path>`                                                                                                     |
+| `git branch -D` (force delete)                      | `git branch -d` (merged only); ask the user for force deletes                                                                     |
+| `git commit --no-verify`, `git ... --no-verify`     | Fix the failing hook; never bypass                                                                                                |
+| `git config core.hooksPath …`                       | Do not repoint hooks                                                                                                              |
+| `git reset --hard`, `git clean`, `git push --force` | Ask the user                                                                                                                      |
 
 `rm -rf` is separately gated by the safety classifier — ask before destructive removal.
 

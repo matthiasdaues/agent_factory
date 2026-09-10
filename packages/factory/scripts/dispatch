@@ -13,6 +13,7 @@ By:   Manual invocation or implementation-agent automation.
 Usage
   dispatch status
   dispatch init --base <branch> --stories ST-001,ST-002
+  dispatch init-review --base dev --feature-branch feature/name --stories ST-001
   dispatch plan --backlog-dir backlog
 
 Exit code: 0 on success, 1 on error, 2 on usage error.
@@ -21,16 +22,15 @@ Exit code: 0 on success, 1 on error, 2 on usage error.
 from __future__ import annotations
 
 import argparse
+import json
+import re
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
-
-import json
-import re
-import subprocess
 
 from dispatch_lib import (
     FAILURE_CLASSES,
@@ -60,6 +60,7 @@ from dispatch_lib import (
     write_handoff_contract,
     write_manifest,
 )
+
 
 def _git(*args: str) -> tuple[int, str, str]:
     """Run a git command, returning (exit_code, stdout, stderr)."""
@@ -163,6 +164,18 @@ def _story_output_globs(project_root: Path, story_id: str) -> list[str]:
 
 
 DEFAULT_MAX_FILES = 20
+AUTONOMOUS_ONLY_COMMANDS = {
+    "prepare-wave",
+    "prepare-story",
+    "mark-dispatching",
+    "mark-done",
+    "re-dispatch",
+    "verify-story",
+    "escalate",
+    "merge-story",
+    "close-wave",
+    "suggest-merge-args",
+}
 
 
 def _scaled_max_files(output_count: int) -> int:
@@ -226,7 +239,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     except FileNotFoundError:
         print(f"error: ledger not found: {ledger_path}", file=sys.stderr)
         return 1
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - normalize parser failures for CLI output
         print(f"error: malformed ledger: {e}", file=sys.stderr)
         return 1
     print(ledger.format_status_table())
@@ -307,6 +320,7 @@ def _story_meta_for_manifest(project_root: Path, story_id: str) -> dict:
         "deps": fm.get("deps") or [],
         "traces": traces,
         "outputs": fm.get("outputs") or [],
+        "touches": fm.get("touches") or fm.get("outputs") or [],
         "strategy": fm.get("strategy") or "direct",
         "seam_outputs": fm.get("seam_outputs") or [],
         "impl_outputs": fm.get("impl_outputs") or [],
@@ -447,6 +461,13 @@ def cmd_init(args: argparse.Namespace) -> int:
         return 1
 
     project_root = _project_root()
+    active_review = _active_review_ledger(project_root)
+    if active_review is not None:
+        print(
+            f"error: review dispatch is still active: {active_review}",
+            file=sys.stderr,
+        )
+        return 1
     test_cmd = _read_test_command(project_root)
     if not test_cmd:
         print(
@@ -527,7 +548,7 @@ def cmd_init(args: argparse.Namespace) -> int:
                     f"dispatch init: ledger already exists for '{branch_name}' (no-op)"
                 )
                 return 0
-        except Exception:
+        except Exception:  # noqa: BLE001, S110 - malformed ledger handled below
             pass
         print(
             f"error: dispatch already active for '{branch_name}' at {ledger_path}",
@@ -585,6 +606,464 @@ def cmd_init(args: argparse.Namespace) -> int:
     return 0
 
 
+def _is_primary_checkout() -> bool:
+    """Return whether the command runs in Git's primary checkout."""
+    git_dir_code, git_dir, _ = _git(
+        "rev-parse", "--path-format=absolute", "--git-dir"
+    )
+    common_code, common_dir, _ = _git(
+        "rev-parse", "--path-format=absolute", "--git-common-dir"
+    )
+    return (
+        git_dir_code == 0
+        and common_code == 0
+        and Path(git_dir).resolve() == Path(common_dir).resolve()
+    )
+
+
+def _active_autonomous_ledger(project_root: Path) -> Path | None:
+    """Return the first non-terminal autonomous ledger, if one exists."""
+    current_work = project_root / ".current-work"
+    if not current_work.is_dir():
+        return None
+    for ledger_path in sorted(current_work.glob("**/dispatch-ledger.yaml")):
+        try:
+            ledger = Ledger.load(ledger_path)
+        except (OSError, TypeError, ValueError):
+            return ledger_path
+        if ledger.mode != "review" and any(
+            not ledger.is_terminal(story_id) for story_id in ledger.stories
+        ):
+            return ledger_path
+    return None
+
+
+def _active_review_ledger(project_root: Path) -> Path | None:
+    """Return the first review ledger that has not been explicitly closed."""
+    current_work = project_root / ".current-work"
+    if not current_work.is_dir():
+        return None
+    for ledger_path in sorted(current_work.glob("**/dispatch-ledger.yaml")):
+        try:
+            ledger = Ledger.load(ledger_path)
+        except (OSError, TypeError, ValueError):
+            return ledger_path
+        if ledger.mode == "review" and not ledger.closed:
+            return ledger_path
+    return None
+
+
+def cmd_init_review(args: argparse.Namespace) -> int:
+    """Initialize serial review mode in the primary checkout.
+
+    This is the sole script-owned exception to worktree-only branch creation.
+    Direct standalone branch creation remains forbidden by the Git guardrail.
+    """
+    project_root = _project_root()
+    if not _is_primary_checkout():
+        print("error: init-review must run in the primary checkout", file=sys.stderr)
+        return 1
+
+    if args.base != "dev":
+        print("error: review mode must branch from dev", file=sys.stderr)
+        return 1
+
+    feature_branch = args.feature_branch
+    if not feature_branch.startswith("feature/"):
+        print("error: review branch must match feature/<name>", file=sys.stderr)
+        return 1
+
+    current_branch = _current_branch_name()
+    if current_branch != args.base:
+        print(
+            f"error: init-review must start on base branch '{args.base}' "
+            f"(current: {current_branch or 'detached HEAD'})",
+            file=sys.stderr,
+        )
+        return 1
+
+    active_ledger = _active_autonomous_ledger(project_root)
+    if active_ledger is not None:
+        print(
+            f"error: autonomous dispatch is still active: {active_ledger}",
+            file=sys.stderr,
+        )
+        return 1
+
+    branch_code, _, _ = _git("show-ref", "--verify", f"refs/heads/{feature_branch}")
+    if branch_code == 0:
+        print(f"error: branch already exists: {feature_branch}", file=sys.stderr)
+        return 1
+
+    base_code, base_sha, base_err = _git("rev-parse", f"refs/heads/{args.base}")
+    if base_code != 0:
+        print(
+            f"error: base branch '{args.base}' does not exist: {base_err}",
+            file=sys.stderr,
+        )
+        return 1
+
+    preflight = subprocess.run(
+        [str(SCRIPT_DIR / "review-workspace-check")],
+        cwd=project_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if preflight.stdout:
+        print(preflight.stdout.rstrip())
+    if preflight.stderr:
+        print(preflight.stderr.rstrip(), file=sys.stderr)
+    if preflight.returncode != 0:
+        print("error: review-mode pre-dispatch check failed", file=sys.stderr)
+        return 1
+
+    story_ids = [story.strip() for story in args.stories.split(",") if story.strip()]
+    if not story_ids:
+        print("error: --stories must name at least one story", file=sys.stderr)
+        return 1
+
+    ledger_path = (
+        project_root / ".current-work" / feature_branch / "dispatch-ledger.yaml"
+    )
+    if ledger_path.exists():
+        print(f"error: review dispatch already exists: {ledger_path}", file=sys.stderr)
+        return 1
+
+    switch_code, _, switch_err = _git("switch", "-c", feature_branch, base_sha)
+    if switch_code != 0:
+        print(
+            f"error: failed to create review branch '{feature_branch}': {switch_err}",
+            file=sys.stderr,
+        )
+        return 1
+
+    ledger = Ledger()
+    ledger.mode = "review"
+    ledger.invocation_branch = feature_branch
+    ledger.branch_root = base_sha
+    ledger.branch_head = base_sha
+    for story_id in story_ids:
+        ledger.stories[story_id] = StoryEntry(
+            id=story_id,
+            feature_branch=feature_branch,
+            base_sha=base_sha,
+            tier=_story_declared_tier(project_root, story_id),
+        )
+    try:
+        ledger.save(ledger_path)
+    except (OSError, TypeError, ValueError) as error:
+        _git("switch", args.base)
+        _git("branch", "-d", feature_branch)
+        print(f"error: failed to save review ledger: {error}", file=sys.stderr)
+        return 1
+
+    print(
+        f"dispatch init-review: initialized '{feature_branch}' "
+        f"with {len(story_ids)} stories"
+    )
+    print(f"  ledger: {ledger_path}")
+    return 0
+
+
+def _require_review_ledger(ledger_path: Path) -> Ledger | None:
+    """Load *ledger_path* and require a review-mode dispatch."""
+    ledger = _load_ledger(ledger_path)
+    if ledger is not None and ledger.mode != "review":
+        print(
+            f"error: command requires a review-mode ledger: {ledger_path}",
+            file=sys.stderr,
+        )
+        return None
+    return ledger
+
+
+def _require_clean_checkout() -> bool:
+    """Require an empty index, worktree, and untracked-file set."""
+    status_code, status, status_err = _git(
+        "status", "--porcelain", "--untracked-files=no"
+    )
+    if status_code != 0:
+        print(f"error: unable to inspect checkout: {status_err}", file=sys.stderr)
+        return False
+    untracked_code, untracked, untracked_err = _git(
+        "ls-files", "--others", "--exclude-standard"
+    )
+    if untracked_code != 0:
+        print(
+            f"error: unable to inspect untracked files: {untracked_err}",
+            file=sys.stderr,
+        )
+        return False
+    non_runtime_untracked = [
+        path
+        for path in untracked.splitlines()
+        if path and not path.startswith(".current-work/")
+    ]
+    if status or non_runtime_untracked:
+        print(
+            "error: review dispatch requires a clean worktree and index",
+            file=sys.stderr,
+        )
+        return False
+    return True
+
+
+def _review_checkout_matches(ledger: Ledger) -> bool:
+    """Require the ledger branch and last accepted head in this checkout."""
+    current_branch = _current_branch_name()
+    if current_branch != ledger.invocation_branch:
+        print(
+            f"error: review dispatch belongs to '{ledger.invocation_branch}' "
+            f"(current: {current_branch or 'detached HEAD'})",
+            file=sys.stderr,
+        )
+        return False
+    head_code, head_sha, head_err = _git("rev-parse", "HEAD")
+    if head_code != 0:
+        print(f"error: unable to read HEAD: {head_err}", file=sys.stderr)
+        return False
+    if head_sha != ledger.branch_head:
+        print(
+            "error: review checkout HEAD differs from the last accepted ledger head",
+            file=sys.stderr,
+        )
+        return False
+    return True
+
+
+def cmd_review_dispatch(args: argparse.Namespace) -> int:
+    """Prepare one clean review-mode story for serial sub-agent dispatch."""
+    ledger_path = Path(args.ledger)
+    ledger = _require_review_ledger(ledger_path)
+    if ledger is None:
+        return 1
+    if ledger.closed:
+        print("error: review dispatch is already closed", file=sys.stderr)
+        return 1
+    entry = ledger.stories.get(args.story_id)
+    if entry is None:
+        print(f"error: story not found: {args.story_id}", file=sys.stderr)
+        return 1
+    if entry.status != StoryState.PENDING:
+        print(
+            f"error: story {entry.id} is {entry.status.value}; expected pending",
+            file=sys.stderr,
+        )
+        return 1
+    if not _require_clean_checkout() or not _review_checkout_matches(ledger):
+        return 1
+
+    project_root = _project_root()
+    manifest_branch = f"review/{entry.id}"
+    try:
+        write_manifest(
+            project_root,
+            ledger.invocation_branch or "",
+            manifest_branch,
+            _story_meta_for_manifest(project_root, entry.id),
+        )
+    except ManifestExistsError as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
+
+    entry.branch = ledger.invocation_branch
+    entry.worktree = str(project_root)
+    entry.verify_base = "pass"
+    try:
+        ledger.transition(entry.id, StoryState.PREPARED)
+        ledger.transition(entry.id, StoryState.DISPATCHING)
+    except TransitionError as error:
+        remove_manifest(
+            project_root, ledger.invocation_branch or "", manifest_branch
+        )
+        print(f"error: {error}", file=sys.stderr)
+        return 1
+    if _save_ledger(ledger, ledger_path) != 0:
+        remove_manifest(
+            project_root, ledger.invocation_branch or "", manifest_branch
+        )
+        return 1
+    print(f"dispatch review-dispatch: {entry.id} ready in primary checkout")
+    return 0
+
+
+def _path_in_review_scope(path: str, outputs: list[str], story_id: str) -> bool:
+    """Return whether *path* belongs to the story or its status file."""
+    if path == f"backlog/{story_id}.md":
+        return True
+    return any(
+        path.startswith(pattern) if pattern.endswith("/") else glob_match(pattern, path)
+        for pattern in outputs
+    )
+
+
+def cmd_review_accept(args: argparse.Namespace) -> int:
+    """Verify and accept the human's commit for one review-mode story."""
+    ledger_path = Path(args.ledger)
+    ledger = _require_review_ledger(ledger_path)
+    if ledger is None:
+        return 1
+    entry = ledger.stories.get(args.story_id)
+    if entry is None:
+        print(f"error: story not found: {args.story_id}", file=sys.stderr)
+        return 1
+    if entry.status != StoryState.DISPATCHED:
+        print(
+            f"error: story {entry.id} is {entry.status.value}; expected dispatched",
+            file=sys.stderr,
+        )
+        return 1
+    if _current_branch_name() != ledger.invocation_branch:
+        print(
+            f"error: review dispatch belongs to '{ledger.invocation_branch}'",
+            file=sys.stderr,
+        )
+        return 1
+    if not _require_clean_checkout():
+        return 1
+    if not re.fullmatch(r"[0-9a-f]{40}", args.sha):
+        print("error: --sha must be a full 40-character Git SHA", file=sys.stderr)
+        return 1
+
+    head_code, head_sha, head_err = _git("rev-parse", "HEAD")
+    if head_code != 0 or head_sha != args.sha:
+        detail = head_err or f"HEAD is {head_sha}"
+        print(f"error: accepted SHA is not current HEAD: {detail}", file=sys.stderr)
+        return 1
+    if not ledger.branch_head:
+        print("error: review ledger has no last accepted head", file=sys.stderr)
+        return 1
+    ancestor_code, _, _ = _git(
+        "merge-base", "--is-ancestor", ledger.branch_head, args.sha
+    )
+    if ancestor_code != 0 or ledger.branch_head == args.sha:
+        print(
+            "error: accepted commit must descend from the last accepted head",
+            file=sys.stderr,
+        )
+        return 1
+
+    log_code, subjects, log_err = _git(
+        "log", "--format=%s", f"{ledger.branch_head}..{args.sha}"
+    )
+    if log_code != 0:
+        print(f"error: unable to inspect review commits: {log_err}", file=sys.stderr)
+        return 1
+    commit_subjects = [subject for subject in subjects.splitlines() if subject]
+    if not commit_subjects or any(
+        f"({entry.id})" not in subject for subject in commit_subjects
+    ):
+        print(
+            f"error: every accepted commit must include ({entry.id})",
+            file=sys.stderr,
+        )
+        return 1
+
+    project_root = _project_root()
+    story_path = project_root / "backlog" / f"{entry.id}.md"
+    story_code, story_at_commit, story_err = _git(
+        "show", f"{args.sha}:backlog/{entry.id}.md"
+    )
+    story_frontmatter = (
+        parse_story_frontmatter(story_at_commit) if story_code == 0 else None
+    )
+    if not story_frontmatter or story_frontmatter.get("status") != "done":
+        detail = story_err or "status is not done"
+        print(
+            f"error: {story_path.relative_to(project_root)} must set status: done "
+            f"in the accepted commit ({detail})",
+            file=sys.stderr,
+        )
+        return 1
+
+    changed_code, changed_output, changed_err = _git(
+        "diff", "--name-only", f"{ledger.branch_head}..{args.sha}"
+    )
+    if changed_code != 0:
+        print(f"error: unable to inspect changed files: {changed_err}", file=sys.stderr)
+        return 1
+    changed_paths = [path for path in changed_output.splitlines() if path]
+    outputs = _story_output_globs(project_root, entry.id)
+    out_of_scope = [
+        path
+        for path in changed_paths
+        if not _path_in_review_scope(path, outputs, entry.id)
+    ]
+    if out_of_scope:
+        print(
+            "error: accepted commit contains out-of-scope files: "
+            + ", ".join(out_of_scope),
+            file=sys.stderr,
+        )
+        return 1
+
+    preflight = subprocess.run(
+        [str(SCRIPT_DIR / "review-workspace-check")],
+        cwd=project_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if preflight.stdout:
+        print(preflight.stdout.rstrip())
+    if preflight.stderr:
+        print(preflight.stderr.rstrip(), file=sys.stderr)
+    if preflight.returncode != 0:
+        print("error: accepted review commit failed preflight", file=sys.stderr)
+        return 1
+
+    entry.commit_sha = args.sha
+    ledger.branch_head = args.sha
+    try:
+        ledger.transition(entry.id, StoryState.DONE)
+    except TransitionError as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
+    remove_manifest(
+        project_root,
+        ledger.invocation_branch or "",
+        f"review/{entry.id}",
+    )
+    if _save_ledger(ledger, ledger_path) != 0:
+        return 1
+    print(f"dispatch review-accept: accepted {entry.id} at {args.sha}")
+    return 0
+
+
+def cmd_review_close(args: argparse.Namespace) -> int:
+    """Close a review dispatch after every story reaches a terminal state."""
+    ledger_path = Path(args.ledger)
+    ledger = _require_review_ledger(ledger_path)
+    if ledger is None:
+        return 1
+    if ledger.closed:
+        print("dispatch review-close: already closed")
+        return 0
+    non_terminal = [
+        entry.id
+        for entry in ledger.stories.values()
+        if not ledger.is_terminal(entry.id)
+    ]
+    if non_terminal:
+        print(
+            "error: review dispatch still has non-terminal stories: "
+            + ", ".join(non_terminal),
+            file=sys.stderr,
+        )
+        return 1
+    if not _require_clean_checkout() or not _review_checkout_matches(ledger):
+        return 1
+    ledger.closed = True
+    if _save_ledger(ledger, ledger_path) != 0:
+        return 1
+    print(
+        f"dispatch review-close: closed '{ledger.invocation_branch}' "
+        f"at {ledger.branch_head}"
+    )
+    return 0
+
+
 def cmd_plan(args: argparse.Namespace) -> int:
     backlog_dir = Path(args.backlog_dir)
     if not backlog_dir.is_dir():
@@ -638,16 +1117,28 @@ def _load_ledger(ledger_path: Path) -> Ledger | None:
         return Ledger.load(ledger_path)
     except FileNotFoundError:
         print(f"error: ledger not found: {ledger_path}", file=sys.stderr)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - normalize parser failures for CLI output
         print(f"error: malformed ledger: {e}", file=sys.stderr)
     return None
+
+
+def _load_autonomous_ledger(ledger_path: Path) -> Ledger | None:
+    """Load *ledger_path* and reject review mode for autonomous commands."""
+    ledger = _load_ledger(ledger_path)
+    if ledger is not None and ledger.mode != "autonomous":
+        print(
+            f"error: command requires an autonomous-mode ledger: {ledger_path}",
+            file=sys.stderr,
+        )
+        return None
+    return ledger
 
 
 def _save_ledger(ledger: Ledger, ledger_path: Path) -> int:
     """Persist a ledger, returning a shell-style status code."""
     try:
         ledger.save(ledger_path)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - normalize persistence failures for CLI output
         print(f"error: failed to save ledger: {e}", file=sys.stderr)
         return 1
     return 0
@@ -695,7 +1186,7 @@ def _run_verify_base(
 def cmd_prepare_wave(args: argparse.Namespace) -> int:
     """Prepare every eligible story in one wave."""
     ledger_path = Path(args.ledger)
-    ledger = _load_ledger(ledger_path)
+    ledger = _load_autonomous_ledger(ledger_path)
     if ledger is None:
         return 1
 
@@ -828,7 +1319,7 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
 def cmd_prepare_story(args: argparse.Namespace) -> int:
     """Prepare one serial chain link from its predecessor's merge commit."""
     ledger_path = Path(args.ledger)
-    ledger = _load_ledger(ledger_path)
+    ledger = _load_autonomous_ledger(ledger_path)
     if ledger is None:
         return 1
 
@@ -1404,7 +1895,7 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
     suite runs directly against the existing merge commit.
     """
     ledger_path = Path(args.ledger)
-    ledger = _load_ledger(ledger_path)
+    ledger = _load_autonomous_ledger(ledger_path)
     if ledger is None:
         return 1
 
@@ -1602,7 +2093,7 @@ def cmd_suggest_merge_args(args: argparse.Namespace) -> int:
 
 def cmd_close_wave(args: argparse.Namespace) -> int:
     ledger_path = Path(args.ledger)
-    ledger = _load_ledger(ledger_path)
+    ledger = _load_autonomous_ledger(ledger_path)
     if ledger is None:
         return 1
 
@@ -1616,7 +2107,7 @@ def cmd_close_wave(args: argparse.Namespace) -> int:
 
     wave = args.wave
     try:
-        record, created = ledger.close_wave(wave, branch_head)
+        _record, created = ledger.close_wave(wave, branch_head)
     except TransitionError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
@@ -1672,11 +2163,29 @@ def main(argv: list[str] | None = None) -> int:
     p_init.add_argument("--feature-branch", default=None)
     p_init.add_argument("--yes", action="store_true", help="skip confirmation prompts")
 
+    p_init_review = sub.add_parser(
+        "init-review", help="initialize serial review mode in the primary checkout"
+    )
+    p_init_review.add_argument("--base", required=True)
+    p_init_review.add_argument("--stories", required=True)
+    p_init_review.add_argument("--feature-branch", required=True)
+
     p_plan = sub.add_parser("plan", help="compute wave plan from stories")
     p_plan.add_argument("--backlog-dir", required=True)
     p_plan.add_argument(
         "--stories", default=None, help="comma-separated story IDs to include"
     )
+
+    p_review_dispatch = sub.add_parser(
+        "review-dispatch", help="prepare one clean story for review-mode dispatch"
+    )
+    p_review_dispatch.add_argument("story_id")
+    p_review_accept = sub.add_parser(
+        "review-accept", help="verify and accept a human-reviewed story commit"
+    )
+    p_review_accept.add_argument("story_id")
+    p_review_accept.add_argument("--sha", required=True)
+    sub.add_parser("review-close", help="close a terminal review-mode dispatch")
     p_plan.add_argument(
         "--dry-run",
         action="store_true",
@@ -1751,12 +2260,33 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
 
+    if args.subcommand in AUTONOMOUS_ONLY_COMMANDS:
+        ledger_path = Path(args.ledger)
+        try:
+            command_ledger = Ledger.load(ledger_path)
+        except (OSError, TypeError, ValueError):
+            command_ledger = None
+        if command_ledger is not None and command_ledger.mode == "review":
+            print(
+                f"error: command requires an autonomous-mode ledger: {ledger_path}",
+                file=sys.stderr,
+            )
+            return 1
+
     if args.subcommand == "status":
         return cmd_status(args)
     if args.subcommand == "init":
         return cmd_init(args)
+    if args.subcommand == "init-review":
+        return cmd_init_review(args)
     if args.subcommand == "plan":
         return cmd_plan(args)
+    if args.subcommand == "review-dispatch":
+        return cmd_review_dispatch(args)
+    if args.subcommand == "review-accept":
+        return cmd_review_accept(args)
+    if args.subcommand == "review-close":
+        return cmd_review_close(args)
     if args.subcommand == "prepare-wave":
         return cmd_prepare_wave(args)
     if args.subcommand == "prepare-story":

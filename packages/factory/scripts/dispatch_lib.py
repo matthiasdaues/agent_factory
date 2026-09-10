@@ -329,6 +329,8 @@ class WaveCloseout:
 
 class Ledger:
     def __init__(self) -> None:
+        self.mode: str = "autonomous"
+        self.closed: bool = False
         self.invocation_branch: str | None = None
         self.branch_root: str | None = None
         self.branch_head: str | None = None
@@ -412,7 +414,7 @@ class Ledger:
             if entry.base_sha is not None:
                 _validate_sha(entry.base_sha)
         path.parent.mkdir(parents=True, exist_ok=True)
-        data: dict[str, Any] = {}
+        data: dict[str, Any] = {"mode": self.mode, "closed": self.closed}
         if self.invocation_branch is not None:
             data["invocation_branch"] = self.invocation_branch
         if self.branch_root is not None:
@@ -430,6 +432,8 @@ class Ledger:
             raise FileNotFoundError(path)
         raw = _load_yaml(path.read_text())
         ledger = cls()
+        ledger.mode = raw.get("mode", "autonomous")
+        ledger.closed = bool(raw.get("closed", False))
         ledger.invocation_branch = raw.get("invocation_branch")
         ledger.branch_root = raw.get("branch_root")
         ledger.branch_head = raw.get("branch_head")

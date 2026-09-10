@@ -6,10 +6,10 @@ phase: 4
 phase-name: Implementation
 description: >-
   Dispatch backlog stories to parallel developer-agent subagents, maximising
-  concurrency within dependency AND file-overlap constraints. Each subagent
-  implements one story using TDD on its own feature branch. The dispatcher
-  owns wave scheduling, overlap-aware branch/merge ordering, model selection
-  per story tier, and completion tracking.
+  concurrency within dependency AND file-overlap constraints in autonomous
+  mode, or serial human-reviewed work in the primary checkout in review mode.
+  The dispatcher owns wave scheduling, overlap-aware branch/merge ordering,
+  model selection per story tier, and completion tracking.
 skills:
   - handoff
 inputs:
@@ -37,7 +37,7 @@ triggers:
   - "dispatch stories"
 handoff-to:
   - reconciliation-agent
-version: 0.7.0
+version: 0.8.0
 ---
 
 # Implementation Agent (Dispatcher)
@@ -71,9 +71,9 @@ phase is exempt and may continue in the current session.
 
 ## Branching model
 
-The implementation agent creates the invocation branch from `dev` as `feature/<proposal-title>`, using the atomic worktree form. Planning artifacts (proposal, backlog stories with `status: pending`) are already on `dev` before the implementation agent starts — the planning agent put them there. The implementation agent never commits to `dev` directly.
+The implementation agent creates the invocation branch from `dev` as `feature/<proposal-title>`. Autonomous mode uses the atomic worktree form. Review mode uses the script-owned primary-checkout exception described below. Planning artifacts (proposal, backlog stories with `status: pending`) are already on `dev` before the implementation agent starts — the planning agent put them there. The implementation agent never commits to `dev` directly.
 
-Per [branching-policy.md](../rulebooks/conventions/branching-policy.md), every story gets its own feature branch and dedicated worktree cut from the invocation branch, and merge order is decided by output-file overlap rather than EPIC labels. The dispatcher describes **intent and ordering**, while `factory/scripts/dispatch` owns branch/worktree creation, declared-base recording, pre-spawn base verification, merge-time scope checks, cleanup, and the script-owned ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml`. Record **branch root** from `dispatch init` and **branch head** from `dispatch close-wave`, then hand off with `--base <branch-root> --head <branch-head>`.
+Per [branching-policy.md](../rulebooks/conventions/branching-policy.md), every autonomous story gets its own feature branch and dedicated worktree cut from the invocation branch, and merge order is decided by output-file overlap rather than EPIC labels. The dispatcher describes **intent and ordering**, while `factory/scripts/dispatch` owns branch/worktree creation, declared-base recording, pre-spawn base verification, merge-time scope checks, cleanup, and the script-owned ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml`. Record **branch root** from `dispatch init` or `dispatch init-review` and **branch head** from `dispatch close-wave` or `dispatch review-close`, then hand off with `--base <branch-root> --head <branch-head>`.
 
 Per [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md), a wave large enough to risk a long-running, hard-to-verify dispatch must be split into smaller, independently mergeable dispatches rather than run as one.
 
@@ -81,10 +81,10 @@ Per [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md), a wav
 
 The dispatcher accepts a `mode` parameter at invocation:
 
-| Mode         | Trigger                      | Behaviour                                                                                          |
-| ------------ | ---------------------------- | -------------------------------------------------------------------------------------------------- |
-| `autonomous` | `implement backlog`          | Parallel waves, subagent commits, auto-merge after scripted gate checks                            |
-| `review`     | `implement backlog --review` | Serial dispatch, subagent does not commit, human reviews each story's diff then commits and merges |
+| Mode         | Trigger                                                     | Behaviour                                                                               |
+| ------------ | ----------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `autonomous` | `implement backlog`                                         | Parallel waves, worktrees, subagent commits, auto-merge after scripted gate checks      |
+| `review`     | `implement backlog --review --feature-branch <branch-name>` | Single feature branch in main checkout, serial, no staging or committing, human reviews |
 
 ### Mode resolution
 
@@ -96,36 +96,40 @@ The effective mode is the first match in this precedence chain:
 
 The dispatcher **MUST** resolve the mode before Step 1 of the Workflow and state the effective mode and its source in its first status message.
 
-In `review` mode the dispatcher still plans waves (Step 2) for dependency ordering, but dispatches and resolves one story at a time. The subagent prompt includes `--no-commit`, instructing the developer-agent to stage changes and return without committing. After the subagent returns, the dispatcher presents the diff summary and worktree path to the human. The human reviews the changes, then commits and merges at their discretion. The dispatcher does not perform the human's commit or merge in this mode — it waits for the human to confirm completion before proceeding to the next story. The interaction mechanism is CLI-native — text output and user prompt — and requires no CLI-specific tooling.
+In `review` mode `factory/scripts/dispatch init-review` creates a single feature branch (name given by the user via `--feature-branch`) from `dev` in the main checkout. This command is the sole exception to worktree-only branch creation; direct `git checkout -b`, `git switch -c`, and `git branch` remain blocked. No story branches are created. The ignored dispatch ledger records mode, branch root, last accepted head, story states, and closure. The developer-agent works directly in the main checkout with the full local dev environment — installed dependencies, running services, and working test commands. The dispatcher resolves story ordering (Step 2) but dispatches one story at a time. The developer-agent writes code and runs tests but does not stage or commit. After the subagent returns, the dispatcher presents the result: changed files, test output, and a brief description. The human reviews in their IDE, sets the story to `status: done`, and commits with `(ST-NNNN)` in the subject. `dispatch review-accept` verifies the commit, scope, clean checkout, tests, and ledger transition. The dispatcher waits for acceptance before proceeding to the next story.
 
 For Pi: `review` mode uses `run_agent` (serial), never `dispatch_wave`.
 
 ## Workflow
 
-1. **Load backlog + initialise dispatch run** — Parse all `backlog/ST-*.md`: `id`, `status`, `deps`, `tier`, `touches`. Build the dependency graph and identify **ready stories** (`status: pending`, all `deps` done). Read the project context from `docs/agent-context.md` for model selection and dispatch strategy. Concern resolution for each story is implicit: the CLI's native include chain (`@docs/agent-context.md` in CLAUDE.md) makes the full registry available to dispatched developers, and each developer reads its story's `concerns:` field to follow matching sections. No dispatcher-side concern resolution logic is needed. **MUST** call `factory/scripts/dispatch init --base <base-branch> --feature-branch feature/<proposal-title> --stories <comma-separated-story-ids>` as the first action before creating any story branches — the `--feature-branch` flag names the invocation branch per the branching model; without it the script falls back to an `impl/` default that violates the `feature/<proposal-title>` convention. The script creates the invocation branch/worktree, preflights output directories, records branch root, and initialises the ledger under `.current-work/`. The `block-dangerous-git.sh` hook enforces this: commits on `story/*` branches are denied when no dispatch ledger exists in the main checkout. If resuming, recover state from the ledger instead of reconstructing from git history.
+1. **Load backlog + initialise dispatch run** — Parse all `backlog/ST-*.md`: `id`, `status`, `deps`, `tier`, `touches`. Build the dependency graph and identify **ready stories** (`status: pending`, all `deps` done). Read the project context from `docs/agent-context.md` for model selection and dispatch strategy. Concern resolution for each story is implicit: the CLI's native include chain (`@docs/agent-context.md` in CLAUDE.md) makes the full registry available to dispatched developers, and each developer reads its story's `concerns:` field to follow matching sections. No dispatcher-side concern resolution logic is needed. **Autonomous mode:** call `factory/scripts/dispatch init --base <base-branch> --feature-branch feature/<proposal-title> --stories <comma-separated-story-ids>` as the first action before creating story branches. The script creates the invocation branch/worktree and autonomous ledger. **Review mode:** call `factory/scripts/dispatch init-review --base dev --feature-branch <feature-branch> --stories <comma-separated-story-ids>`. It requires the primary checkout on a clean `dev`, runs the configured tests before mutation, creates the feature branch through its narrow script-owned exception, and writes a review ledger. If either initializer fails, stop and report the failure. If resuming either mode, recover state from the ledger instead of reconstructing from Git history.
 2. **Plan wave** — Call `factory/scripts/dispatch plan --backlog-dir backlog [--stories <ids>]`. Group ready stories by declared `touches:` overlap (in addition to dependency-readiness, not instead of it):
    - **Epic 0 scheduling**: Stories with `epic: "Epic 0 — Project Setup"` go to **wave 1** with highest priority. No feature story dispatches until all must-have Epic 0 stories reach terminal state. Feature stories carry `deps:` on the final Epic 0 story, which chains from all others — the dependency graph enforces precedence automatically.
    - **Parallel-safe set**: file-disjoint stories → dispatch in parallel within the wave.
    - **Serial chain(s)**: stories sharing a touched directory → prepare, dispatch, verify, and merge one at a time, in dependency order.
      Never substitute EPIC for this grouping. Per [dispatch-contract.md § Wave Boundary As Hard Gate](../rulebooks/conventions/dispatch-contract.md#wave-boundary-as-hard-gate), every story in the **prior** wave must reach terminal state before this wave launches. Assign each story a model from its `tier` field, looked up in `model.conf` (`economy | standard | strong`). Developer sub-agents have no tier of their own — the story's `tier` is their sole axis. In `review` mode, wave planning still runs for ordering, but stories dispatch one at a time.
-3. **Prepare and dispatch the wave** — Call `factory/scripts/dispatch prepare-wave <wave-number>` for every parallel-safe story and each serial-chain head. For a later serial-chain link whose predecessor already merged, call `factory/scripts/dispatch prepare-story <story-id>`. Preparation is script-owned: create workspace, record declared base SHA, run `verify-base`, write step manifest. For each prepared story, call `factory/scripts/dispatch mark-dispatching <story-id>` immediately before launch, then spawn the developer-agent with story path, resolved model, worktree context, feature-branch name, and declared base SHA. Once the subagent is running, call `factory/scripts/dispatch mark-dispatched <story-id>`. In `review` mode, dispatch one story at a time with `--no-commit` appended; wait for human confirmation before launching the next.
-4. **Verify, gate-check, merge, checkpoint** — Per [dispatch-contract.md § Hard Checkpoint Per Story](../rulebooks/conventions/dispatch-contract.md#hard-checkpoint-per-story), every story must reach terminal state before the next wave launches. **Review mode**: present the changed-file summary, worktree path, and a brief description. The human reviews, commits, and merges — wait for confirmation before proceeding. **Autonomous mode**, for each completed story:
+3. **Prepare and dispatch the wave** — **Autonomous mode:** call `factory/scripts/dispatch prepare-wave <wave-number>` for every parallel-safe story and each serial-chain head. For a later serial-chain link whose predecessor already merged, call `factory/scripts/dispatch prepare-story <story-id>`. Preparation creates the workspace, records the declared base SHA, runs `verify-base`, and writes the step manifest. Call `mark-dispatching` immediately before launch and `mark-dispatched` once the subagent runs. **Review mode:** call `factory/scripts/dispatch review-dispatch <story-id>`; it requires an empty index and worktree, verifies `HEAD` against the last accepted ledger head, writes the step manifest, and records `dispatching`. Spawn one developer-agent in the main checkout with `--no-stage --no-commit`, then call `mark-dispatched`. Autonomous preparation commands reject review ledgers.
+4. **Verify, gate-check, merge, checkpoint** — Per [dispatch-contract.md § Hard Checkpoint Per Story](../rulebooks/conventions/dispatch-contract.md#hard-checkpoint-per-story), every story must reach terminal state before the next wave launches. **Review mode:** present the changed-file summary and a brief description. The human reviews in their IDE, sets the story to `status: done`, and commits with the story ID in the subject. Call `factory/scripts/dispatch review-accept <story-id> --sha <full-HEAD-SHA>`. The command verifies ancestry, commit subjects, story status, declared output scope, clean checkout, and tests before recording `done`. Wait for acceptance before proceeding. **Autonomous mode**, for each completed story:
    a. **SHA verification**: call `factory/scripts/dispatch verify-story <story-id> --sha <reported-commit-sha>` on every commit SHA the subagent reported.
    b. **Gate-check loop**: run the semantic quality gates on the developer's committed artifacts. See [Gate-Check Loop](#gate-check-loop) below for the full algorithm, quality-gates resolution, iteration cap, escalation, and fix-iteration prompt template.
    c. **Merge**: when all gates pass, call `factory/scripts/dispatch merge-story <story-id>`. The script owns `premerge-check`, the merge, the `status: done` update, post-merge tests, worktree/branch cleanup, and ledger persistence.
    d. **Failed/blocked stories**: record the outcome with the appropriate dispatch subcommand before continuing. A conflict or red suite means the overlap analysis missed a real collision — resolve it. Failed stories stay `pending`; they do not block unrelated stories in the same wave but do block the next wave until recorded.
-5. **Wave closeout** — After every story in the wave is terminal, call `factory/scripts/dispatch close-wave <wave-number>` so the script appends the wave closeout record, next-ready stories, and current branch head SHA to the ledger.
+5. **Closeout** — In autonomous mode, call `factory/scripts/dispatch close-wave <wave-number>` after every story in the wave is terminal. In review mode, continue serially until all stories are terminal, then call `factory/scripts/dispatch review-close`. The review branch remains checked out for the human; the command records closure but does not merge or switch branches.
 6. **Repeat or finish** — Continue from Step 2 with the next ready story until all done (record branch head) or blocked state reported.
 
-**Prompt template for subagents:**
+**Prompt template for subagents (autonomous mode):**
 
 > You are a developer-agent. Your worktree was prepared by `factory/scripts/dispatch`, which already created the story workspace, recorded the declared base SHA, and ran the pre-spawn verify-base check.
 >
 > Implement story `ST-NNNN` on branch `<feature-branch>` following workflow: Analyse → Agree seams → Red-green TDD → Commit → Spec feedback. Story: `backlog/ST-NNNN.md`
 
-**Review-mode variant** — append when `mode` is `review`:
+**Prompt template for subagents (review mode):**
 
-> `--no-commit` — do not commit. After all tests are green: stage all changed files with `git add`, then return your summary (files changed, tests passing, any spec-feedback notes). Do not run `git commit`. Do not set `status: done`.
+> You are a developer-agent. You are working in the main checkout on branch `<feature-branch>`. The full local dev environment is available — installed dependencies, test commands, and running services.
+>
+> Implement story `ST-NNNN` following workflow: Analyse → Agree seams → Red-green TDD. Story: `backlog/ST-NNNN.md`
+>
+> `--no-stage --no-commit` — do not run `git add` or `git commit`. Do not set `status: done`. After all tests are green, return your summary: files changed, tests passing, any spec-feedback notes. The human will review and commit.
 
 ### Gate-Check Loop
 
