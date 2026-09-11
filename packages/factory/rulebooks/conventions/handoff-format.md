@@ -17,6 +17,7 @@ replaying the outgoing session.
 
 The accepted Factory delivery flow contains these boundaries:
 
+- proposal intake → requirements;
 - requirements → review;
 - review → architecture;
 - architecture → review;

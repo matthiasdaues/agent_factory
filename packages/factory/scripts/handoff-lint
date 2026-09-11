@@ -22,6 +22,7 @@ FIELD_PATTERN = re.compile(r"^([^:#]+):\s*(.*)$")
 SECTION_PATTERN = re.compile(r"^##\s+(.+?)\s*$")
 PLACEHOLDERS = {"", "...", "n/a", "tbd", "todo", "unknown", "<none>"}
 VALID_BOUNDARIES = {
+    "proposal intake -> requirements",
     "requirements -> review",
     "review -> architecture",
     "architecture -> review",
