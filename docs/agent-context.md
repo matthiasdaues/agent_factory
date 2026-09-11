@@ -2,6 +2,11 @@
 
 ## Always (cross-cutting)
 
+### Factory source_root and packaging
+
+Agent Factory source lives under `packages/factory/`; `factory/` is an installed copy and MUST NOT be edited.
+Read: README.md, packages/factory/README.md, pyproject.toml
+
 ### Branching
 
 Factory branching policy and worktree discipline.

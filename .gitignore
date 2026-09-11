@@ -49,6 +49,7 @@ models/
 /.codex/agents/architecture-review-agent.toml
 /.codex/agents/claim-reviewer.toml
 /.codex/agents/coaching-agent.toml
+/.codex/agents/code-review-agent.toml
 /.codex/agents/developer-agent.toml
 /.codex/agents/implementation-agent.toml
 /.codex/agents/kit-manager.toml
@@ -107,6 +108,7 @@ models/
 /.agents/skills/maintain-architecture
 /.agents/skills/model-structurizr-slice
 /.agents/skills/mutation-analysis
+/.agents/skills/mutation-testing
 /.agents/skills/newcomer-tour
 /.agents/skills/process-transcript
 /.agents/skills/pugh-matrix
