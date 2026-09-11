@@ -224,3 +224,51 @@ See [agent-context.feature](../agent-context.feature) and [interface-contracts.m
 - `escalate` requires exactly one prior impl attempt with `acceptance_unmet` or `contradictory_evidence`, a passing `verify-base`, no scope violation, a non-strong current tier, and no earlier escalation in the same wave.
 - `close-wave <N>` refuses if any story in wave N is non-terminal.
 - `close-wave <N>` appends at most one closeout record for the wave. Re-running a successful close-wave is a no-op and does not duplicate the record.
+
+## Local usage processing and analysis
+
+These rules support the [local usage feature](../local-usage-processing-and-analysis.feature).
+
+### Input and contract validation
+
+- Snapshot a sorted list of top-level `*.jsonl` files at query start. Do not recurse or admit lifecycle diagnostic files.
+- Validate every selected line. A valid line and a preflight failure are mutually exclusive and collectively exhaustive.
+- Report each failure with source file, one-based line number, field when applicable, and a stable failure code.
+- Validate usage objects against the installed JSON Schema Draft 2020-12 contract and the manifest's accepted version range.
+- Enforce identifiers, timestamps, declared nullability, non-negative counters, nested `transcript_ref` shape, and `normalized_total = normalized_input + normalized_output` outside schema where required.
+- Reject an unknown CLI. The supported CLI set and accounting registry keys must be equal.
+
+### Snapshot and accounting validation
+
+- Preserve source file and line number as evidence identity until canonical-run reduction.
+- Select the latest cumulative snapshot by greatest capture sequence, followed by the documented source-position tie-breaker.
+- Claude Code total: latest root snapshot plus each distinct child run once.
+- Pi total: root record plus each distinct descendant run once.
+- Codex total: latest inclusive root snapshot; descendants provide attribution only.
+- GitHub Copilot CLI total: latest inclusive root snapshot; descendants provide attribution only.
+- Dimensional measures are additive over canonical session rows for time period, project, CLI, provider, model, agent, branch, and exit status.
+- Preserve cache availability and input-only states. Do not replace unavailable values with zero.
+
+### Query and export validation
+
+- Publish exactly six stable views: `raw_usage_snapshots`, `latest_run_snapshots`, `canonical_session_usage`, `usage_by_dimension`, `cache_efficiency`, and `capture_health`.
+- Allow `capture_health` for any preflight outcome. Refuse every other stable view and all stable exports when any preflight failure exists.
+- Treat an empty input directory as valid and return each view's typed empty schema.
+- Ensure table, JSON, DuckDB relation, and PyArrow table outputs preserve view schema, logical rows, and null states.
+- Reject Pandas and Polars conversions in release 1.
+- Write Parquet to a temporary sibling, verify rows and schema, attach query-model and input-set provenance, then atomically replace the destination. Failure leaves an existing destination unchanged.
+- Never schedule or automatically refresh Parquet.
+
+### Privacy, dependency, and lifecycle validation
+
+- Read selected usage records only. Do not follow `transcript_ref`, recurse into transcript storage, or use a remote reader.
+- Keep analytical dependencies isolated from Factory capture. Capture succeeds when analysis is absent or corrupt.
+- Install analysis only on `--with-usage` or `--add usage`; record it under `installed_components`.
+- Update only the named component after compatibility succeeds. Remove only analysis on `--remove usage`. Both preserve `.agent-factory/usage/`.
+- Keep `update-factory` scoped to Factory core. Preserve installed components.
+- Keep `remove-factory` as a complete uninstall, including `.agent-factory/usage/`.
+- Repeating a successful component operation against its resulting state is a clean no-op.
+
+### Explicit deferrals
+
+Release 1 excludes persistent analytical databases, automatic Parquet materialization, notebooks, dashboard products, the community `dash` extension, services, containers, remote resources, centralized collection, access control, price catalogs, transcript-content indexing, automatic evidence retention or deletion, Pandas, and Polars.

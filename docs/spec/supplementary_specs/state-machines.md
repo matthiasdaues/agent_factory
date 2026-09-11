@@ -115,3 +115,123 @@ stateDiagram-v2
 - [UC-03](../../~archive/spec/use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md)
 - [UC-05](../../~archive/spec/use_cases/UC-05-resume-an-interrupted-playbook-run.md)
 - [agent-context.feature](../agent-context.feature)
+
+## Usage Query Lifecycle
+
+### Pseudocode
+
+```text
+State: IDLE
+On StartQuery:
+  ChangeState(INPUT_SNAPSHOTTED)
+
+State: INPUT_SNAPSHOTTED
+On PreflightPass:
+  ChangeState(READY)
+On PreflightFailure:
+  ChangeState(DIAGNOSTIC_ONLY)
+
+State: READY
+On QueryHealth:
+  ChangeState(COMPLETED)
+On QueryStableView:
+  ChangeState(COMPLETED)
+On StartParquetExport:
+  ChangeState(EXPORT_STAGED)
+
+State: DIAGNOSTIC_ONLY
+On QueryHealth:
+  ChangeState(COMPLETED)
+On QueryStableView:
+  ChangeState(REFUSED)
+On StartParquetExport:
+  ChangeState(REFUSED)
+
+State: EXPORT_STAGED
+On RoundTripPass:
+  ChangeState(COMPLETED)
+On ExportInterrupted:
+  ChangeState(FAILED_PRESERVED)
+On RoundTripFailure:
+  ChangeState(FAILED_PRESERVED)
+
+State: COMPLETED
+  # terminal — no outbound transitions
+
+State: REFUSED
+  # terminal — no outbound transitions
+
+State: FAILED_PRESERVED
+  # terminal — no outbound transitions
+```
+
+### Derived Mermaid
+
+```mermaid
+stateDiagram-v2
+    [*] --> IDLE
+    IDLE --> INPUT_SNAPSHOTTED : StartQuery
+    INPUT_SNAPSHOTTED --> READY : PreflightPass
+    INPUT_SNAPSHOTTED --> DIAGNOSTIC_ONLY : PreflightFailure
+    READY --> COMPLETED : QueryHealth
+    READY --> COMPLETED : QueryStableView
+    READY --> EXPORT_STAGED : StartParquetExport
+    DIAGNOSTIC_ONLY --> COMPLETED : QueryHealth
+    DIAGNOSTIC_ONLY --> REFUSED : QueryStableView
+    DIAGNOSTIC_ONLY --> REFUSED : StartParquetExport
+    EXPORT_STAGED --> COMPLETED : RoundTripPass
+    EXPORT_STAGED --> FAILED_PRESERVED : ExportInterrupted
+    EXPORT_STAGED --> FAILED_PRESERVED : RoundTripFailure
+    COMPLETED --> [*]
+    REFUSED --> [*]
+    FAILED_PRESERVED --> [*]
+```
+
+`FAILED_PRESERVED` means a pre-existing Parquet destination remains unchanged.
+
+## Usage-Analysis Component Lifecycle
+
+### Pseudocode
+
+```text
+State: ABSENT
+On InstallUsage:
+  ChangeState(INSTALLED)
+On RemoveUsage:
+  ChangeState(ABSENT)
+
+State: INSTALLED
+On InstallUsage:
+  ChangeState(INSTALLED)
+On UpdateUsage[compatible]:
+  ChangeState(INSTALLED)
+On UpdateUsage[incompatible]:
+  ChangeState(INSTALLED)
+On RemoveUsage:
+  ChangeState(ABSENT)
+On UpdateFactoryCore:
+  ChangeState(INSTALLED)
+On RemoveFactory:
+  ChangeState(FULLY_REMOVED)
+
+State: FULLY_REMOVED
+  # terminal — no outbound transitions
+```
+
+### Derived Mermaid
+
+```mermaid
+stateDiagram-v2
+    [*] --> ABSENT
+    ABSENT --> INSTALLED : InstallUsage
+    ABSENT --> ABSENT : RemoveUsage
+    INSTALLED --> INSTALLED : InstallUsage
+    INSTALLED --> INSTALLED : UpdateUsage (compatible)
+    INSTALLED --> INSTALLED : UpdateUsage (incompatible)
+    INSTALLED --> ABSENT : RemoveUsage
+    INSTALLED --> INSTALLED : UpdateFactoryCore
+    INSTALLED --> FULLY_REMOVED : RemoveFactory
+    FULLY_REMOVED --> [*]
+```
+
+The incompatible-update self-transition represents refusal before replacement. `ABSENT` and `INSTALLED` component transitions preserve raw usage evidence. `FULLY_REMOVED` retains the existing complete-removal semantics and does not preserve it.

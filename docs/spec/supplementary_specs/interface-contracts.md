@@ -426,3 +426,70 @@ See [agent-context.feature](../agent-context.feature).
 - [use_cases/system-use-cases.md](../../~archive/spec/use_cases/system-use-cases.md)
 - [test-design.feature](../test-design.feature)
 - [agent-context.feature](../agent-context.feature)
+
+## Local Usage Processing and Analysis
+
+The [feature specification](../local-usage-processing-and-analysis.feature) adds a local analytical consumer while keeping Factory capture as the producer.
+
+### Usage-record contract
+
+| Property             | Contract                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------ |
+| Canonical source     | `packages/factory/contracts/usage-record/contract.yaml` and `v1.schema.json`               |
+| Owner                | Factory                                                                                    |
+| Schema dialect       | JSON Schema Draft 2020-12                                                                  |
+| Installed projection | `.agent-factory/usage-analysis/contract/`                                                  |
+| Consumer rule        | Usage Analysis reads only the installed projection and declares its accepted version range |
+| Gate                 | `packages/usage/scripts/usage-contract-check`                                              |
+
+The YAML manifest declares owner, current version, compatibility policy, and accepted consumer range. The schema owns field names, types, nullability, and nested structure. The gate additionally owns cross-field invariants and producer/consumer version agreement. A failure identifies source file, line number, field, and stable failure code.
+
+### `usage-query`
+
+| Property                      | Contract                                                                                                                             |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Invocation                    | `uv run --project .agent-factory/usage-analysis usage-query <published-view> [options]`                                              |
+| Default input                 | Top-level `*.jsonl` files beneath `.agent-factory/usage/`, sorted at query start                                                     |
+| Input override                | `--usage-dir <path>`                                                                                                                 |
+| Published views               | `raw_usage_snapshots`, `latest_run_snapshots`, `canonical_session_usage`, `usage_by_dimension`, `cache_efficiency`, `capture_health` |
+| Required presentation outputs | Table and JSON                                                                                                                       |
+| Required programmatic outputs | DuckDB relation and PyArrow table                                                                                                    |
+| Parquet export                | `--format parquet --output <path>`                                                                                                   |
+| Reads                         | Selected top-level JSONL files, installed contract, bundled SQL and accounting registry                                              |
+| Writes                        | Only the explicit output path through a temporary sibling; optional private UI state is outside stable output                        |
+| Network                       | None after dependencies are cached; deterministic gates never require the UI                                                         |
+
+The command registers query-scoped valid and failure relations. `capture_health` remains queryable when failures exist. Every other published view exits non-zero without a partial result until the failure relation is empty. An empty input directory succeeds with typed empty results.
+
+Stable output reads only published views. A diagnostic mode may expose valid and invalid lines, must label the result incomplete, and cannot export a stable result. Parquet replacement occurs only after schema and logical-row round-trip verification; provenance records the query-model version and input-set digest.
+
+### Usage-analysis component lifecycle
+
+| Operation                     | Effect                                                                                                  | Preserved boundary                       |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `init-factory --with-usage`   | Installs `.agent-factory/usage-analysis/` during initial setup and records `installed_components.usage` | Existing raw usage data                  |
+| `init-factory --add usage`    | Adds and records the component after Factory installation                                               | Factory core, CLI wiring, raw usage data |
+| `init-factory --update usage` | Replaces only a compatible installed component and refreshes its install metadata                       | Factory core, CLI wiring, raw usage data |
+| `init-factory --remove usage` | Removes only the component and its manifest entry                                                       | Raw usage data and capture               |
+| `update-factory`              | Updates Factory core and reports component presence                                                     | Installed components                     |
+| `remove-factory`              | Performs the existing complete uninstall, including analysis and raw usage data                         | Nothing beneath `.agent-factory/`        |
+
+All component operations are idempotent. An update whose consumer range excludes the installed contract version aborts before replacement unless explicitly forced. Component operations use a component namespace distinct from CLI names; components have no dot-directory integration, symlinks, guardrails, or capture hooks.
+
+### Contract ownership boundaries
+
+| Contract                                                   | Sole owner                      |
+| ---------------------------------------------------------- | ------------------------------- |
+| Record schema and cross-field validity                     | Usage contract gate             |
+| Supported CLI registry completeness                        | Accounting registry gate        |
+| Snapshot and conservation arithmetic                       | SQL accounting contract tests   |
+| File-order independence                                    | Reproducibility gate            |
+| All-line classification and strict refusal                 | Operational preflight           |
+| Local, transcript-blind dependency boundary                | Boundary integration test       |
+| Published-view table, JSON, relation, and Arrow projection | Query-command integration tests |
+| Atomic attributable export                                 | Parquet round-trip test         |
+| Capture independence                                       | Existing capture contract tests |
+| Component installation, update, removal, and idempotency   | Distribution lifecycle tests    |
+| Factory-to-Usage Analysis dependency direction             | `dependency-check`              |
+
+Non-owning layers may exercise a journey but must not duplicate the owner's assertions.

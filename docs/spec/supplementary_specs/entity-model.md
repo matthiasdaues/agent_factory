@@ -329,3 +329,130 @@ erDiagram
 - [UC-01](../../~archive/spec/use_cases/UC-01-advance-a-playbook-phase.md)
 - [test-design.feature](../test-design.feature)
 - [agent-context.feature](../agent-context.feature)
+
+## Local Usage Analysis Entities
+
+The [local usage feature](../local-usage-processing-and-analysis.feature) retains JSONL as evidence and creates query-scoped analytical entities only.
+
+```mermaid
+erDiagram
+    USAGE_RECORD_CONTRACT ||--o{ USAGE_RECORD : validates
+    INPUT_SET ||--o{ USAGE_RECORD : selects
+    INPUT_SET ||--o{ PREFLIGHT_FAILURE : detects
+    USAGE_RECORD ||--|| RAW_USAGE_SNAPSHOT : types
+    RAW_USAGE_SNAPSHOT }o--|| LOGICAL_RUN : identifies
+    LOGICAL_RUN }o--|| LATEST_RUN_SNAPSHOT : reduces_to
+    LATEST_RUN_SNAPSHOT }o--|| CANONICAL_SESSION_USAGE : conserves_into
+    CANONICAL_SESSION_USAGE ||--o{ DIMENSIONAL_USAGE : aggregates
+    CANONICAL_SESSION_USAGE ||--o{ CACHE_EFFICIENCY_SIGNAL : qualifies
+    INPUT_SET ||--|| CAPTURE_HEALTH : summarizes
+    PUBLISHED_VIEW ||--o{ QUERY_RESULT : produces
+    QUERY_RESULT ||--o| PARQUET_EXPORT : exports
+    INSTALLED_COMPONENT ||--|| INSTALLED_CONTRACT_COPY : contains
+    USAGE_RECORD_CONTRACT ||--|| INSTALLED_CONTRACT_COPY : projects
+
+    USAGE_RECORD_CONTRACT {
+        string owner
+        string current_version
+        string compatibility_policy
+        string accepted_consumer_range
+        string schema_dialect
+    }
+    INPUT_SET {
+        list sorted_top_level_paths
+        string input_set_digest
+        string usage_directory
+        datetime snapshotted_at
+    }
+    USAGE_RECORD {
+        string source_file
+        integer source_line
+        string cli
+        string session_id
+        string run_id
+        string parent_run_id
+        integer capture_sequence
+        integer normalized_input
+        integer normalized_output
+        integer normalized_total
+    }
+    PREFLIGHT_FAILURE {
+        string source_file
+        integer source_line
+        string field
+        string failure_code
+    }
+    RAW_USAGE_SNAPSHOT {
+        string evidence_identity
+        string typed_schema
+    }
+    LOGICAL_RUN {
+        string logical_run_key
+        string session_id
+        string parent_run_id
+    }
+    LATEST_RUN_SNAPSHOT {
+        string logical_run_key
+        integer capture_sequence
+        string source_position_tiebreaker
+    }
+    CANONICAL_SESSION_USAGE {
+        string session_id
+        string accounting_rule
+        integer normalized_total
+    }
+    DIMENSIONAL_USAGE {
+        string dimensions
+        integer additive_total
+    }
+    CACHE_EFFICIENCY_SIGNAL {
+        string provider
+        string availability_state
+        integer cached_tokens
+    }
+    CAPTURE_HEALTH {
+        integer valid_count
+        integer failure_count
+        string failure_code
+        string source_file
+    }
+    PUBLISHED_VIEW {
+        string name
+        string schema
+        string query_model_version
+    }
+    QUERY_RESULT {
+        string format
+        string schema
+        string logical_rows
+    }
+    PARQUET_EXPORT {
+        string destination
+        string query_model_version
+        string input_set_digest
+        string replacement_state
+    }
+    INSTALLED_COMPONENT {
+        string name
+        string source_commit
+        string version
+        datetime installed_at
+    }
+    INSTALLED_CONTRACT_COPY {
+        string version
+        string accepted_range
+    }
+```
+
+### Entity invariants
+
+- `INPUT_SET` is immutable for one query and contains only sorted, top-level `*.jsonl` paths from the selected usage directory.
+- Evidence identity is the pair of source file and line number until reduction to a canonical logical run. A record ID alone is not globally unique.
+- Every selected line produces exactly one `USAGE_RECORD` or `PREFLIGHT_FAILURE` in query scope.
+- `normalized_total` equals `normalized_input + normalized_output`; token counters are non-negative.
+- `LATEST_RUN_SNAPSHOT` selects greatest capture sequence, then the declared source-position tie-breaker.
+- `CANONICAL_SESSION_USAGE` has one accounting result per session. Its rule is selected from the closed four-CLI registry.
+- `CACHE_EFFICIENCY_SIGNAL` distinguishes unavailable, input-only, and measured values; unavailable is not zero.
+- A stable `QUERY_RESULT` other than `capture_health` exists only when the input set has zero failures.
+- `PARQUET_EXPORT` is derived, attributable, atomic, and rebuildable. It is never authoritative state.
+- `INSTALLED_COMPONENT` and `.agent-factory/usage/` have independent lifecycles. Component removal preserves evidence; full Factory removal does not.
