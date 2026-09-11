@@ -197,7 +197,9 @@ class TestCheckStory:
             path = tmp_path / "ST-0001.md"
             path.touch()
             findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
-            assert not any(f.code == "BL-ENUM" and "risk_level" in f.message for f in findings)
+            assert not any(
+                f.code == "BL-ENUM" and "risk_level" in f.message for f in findings
+            )
 
     def test_risk_level_invalid_value(self, tmp_path):
         fm = self._make_fm(risk_level="extreme")
@@ -211,7 +213,9 @@ class TestCheckStory:
         path = tmp_path / "ST-0001.md"
         path.touch()
         findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
-        assert not any(f.code == "BL-ENUM" and "risk_level" in f.message for f in findings)
+        assert not any(
+            f.code == "BL-ENUM" and "risk_level" in f.message for f in findings
+        )
 
 
 class TestCheckBacklog:
