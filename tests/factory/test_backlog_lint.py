@@ -9,6 +9,18 @@ from conftest import load_script
 bl = load_script("backlog-lint")
 
 
+def _check_story(path, frontmatter, body, all_ids, project_root):
+    """Exercise one story with the Factory's fallback risk-level contract."""
+    return bl.check_story(
+        path,
+        frontmatter,
+        body,
+        all_ids,
+        project_root,
+        bl.DEFAULT_RISK_LEVELS,
+    )
+
+
 def _write_story(backlog: Path, story_id: str, **fm_fields):
     """Build a minimal valid story file inside a backlog directory."""
     defaults = {
@@ -91,7 +103,7 @@ class TestCheckStory:
         fm = self._make_fm()
         path = tmp_path / "ST-0001.md"
         path.touch()
-        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
         errors = [f for f in findings if f.severity == "error"]
         assert errors == []
 
@@ -99,14 +111,14 @@ class TestCheckStory:
         fm = self._make_fm(id="ST-9999")
         path = tmp_path / "ST-0001.md"
         path.touch()
-        findings = bl.check_story(path, fm, "", {"ST-0001", "ST-9999"}, tmp_path)
+        findings = _check_story(path, fm, "", {"ST-0001", "ST-9999"}, tmp_path)
         assert any(f.code == "BL-ID" for f in findings)
 
     def test_missing_required_fields(self, tmp_path):
         fm = {"id": "ST-0001"}
         path = tmp_path / "ST-0001.md"
         path.touch()
-        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
         missing = [f for f in findings if f.code == "BL-MISSING"]
         assert len(missing) >= 4
 
@@ -114,14 +126,14 @@ class TestCheckStory:
         fm = self._make_fm(tier="huge")
         path = tmp_path / "ST-0001.md"
         path.touch()
-        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
         assert any(f.code == "BL-ENUM" and "tier" in f.message for f in findings)
 
     def test_invalid_status(self, tmp_path):
         fm = self._make_fm(status="wip")
         path = tmp_path / "ST-0001.md"
         path.touch()
-        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
         assert any(f.code == "BL-ENUM" and "status" in f.message for f in findings)
 
     def test_removed_fields_are_extra(self, tmp_path):
@@ -129,7 +141,7 @@ class TestCheckStory:
         fm = self._make_fm(strategy="direct", risk_domains=["security"], notes="x")
         path = tmp_path / "ST-0001.md"
         path.touch()
-        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
         extras = [f for f in findings if f.code == "BL-EXTRA"]
         extra_fields = {f.message.split("'")[1] for f in extras}
         assert "strategy" in extra_fields
@@ -140,21 +152,21 @@ class TestCheckStory:
         fm = self._make_fm(bogus="value")
         path = tmp_path / "ST-0001.md"
         path.touch()
-        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
         assert any(f.code == "BL-EXTRA" for f in findings)
 
     def test_dep_missing_story_warns(self, tmp_path):
         fm = self._make_fm(deps=["ST-9999"])
         path = tmp_path / "ST-0001.md"
         path.touch()
-        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
         assert any(f.code == "BL-DEP" and f.severity == "warning" for f in findings)
 
     def test_dep_bad_pattern_errors(self, tmp_path):
         fm = self._make_fm(deps=["not-a-story"])
         path = tmp_path / "ST-0001.md"
         path.touch()
-        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
         assert any(f.code == "BL-DEP" and f.severity == "error" for f in findings)
 
     def test_machine_field_in_body_warns(self, tmp_path):
@@ -162,21 +174,21 @@ class TestCheckStory:
         path = tmp_path / "ST-0001.md"
         path.touch()
         body = "## tier\nThe tier is standard."
-        findings = bl.check_story(path, fm, body, {"ST-0001"}, tmp_path)
+        findings = _check_story(path, fm, body, {"ST-0001"}, tmp_path)
         assert any(f.code == "BL-DUP" for f in findings)
 
     def test_touches_empty_warns(self, tmp_path):
         fm = self._make_fm(touches=[])
         path = tmp_path / "ST-0001.md"
         path.touch()
-        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
         assert any(f.code == "BL-EMPTY" and "touches" in f.message for f in findings)
 
     def test_touches_not_array_errors(self, tmp_path):
         fm = self._make_fm(touches="src/")
         path = tmp_path / "ST-0001.md"
         path.touch()
-        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
         assert any(f.code == "BL-TYPE" and "touches" in f.message for f in findings)
 
     def test_risk_level_valid_values(self, tmp_path):
@@ -184,22 +196,26 @@ class TestCheckStory:
             fm = self._make_fm(risk_level=level)
             path = tmp_path / "ST-0001.md"
             path.touch()
-            findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
-            assert not any(f.code == "BL-ENUM" and "risk_level" in f.message for f in findings)
+            findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
+            assert not any(
+                f.code == "BL-ENUM" and "risk_level" in f.message for f in findings
+            )
 
     def test_risk_level_invalid_value(self, tmp_path):
         fm = self._make_fm(risk_level="extreme")
         path = tmp_path / "ST-0001.md"
         path.touch()
-        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
         assert any(f.code == "BL-ENUM" and "risk_level" in f.message for f in findings)
 
     def test_risk_level_absent_ok(self, tmp_path):
         fm = self._make_fm()
         path = tmp_path / "ST-0001.md"
         path.touch()
-        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
-        assert not any(f.code == "BL-ENUM" and "risk_level" in f.message for f in findings)
+        findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        assert not any(
+            f.code == "BL-ENUM" and "risk_level" in f.message for f in findings
+        )
 
 
 class TestCheckBacklog:
@@ -260,7 +276,7 @@ class TestConcernsField:
         fm = self._make_fm(concerns={"domain": ["billing"], "technical": ["backend"]})
         path = tmp_path / "ST-0001.md"
         path.touch()
-        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
         extra = [f for f in findings if f.code == "BL-EXTRA"]
         assert extra == []
 
@@ -269,7 +285,7 @@ class TestConcernsField:
         fm = self._make_fm()
         path = tmp_path / "ST-0001.md"
         path.touch()
-        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
         errors = [f for f in findings if f.severity == "error"]
         assert errors == []
 
@@ -278,7 +294,7 @@ class TestConcernsField:
         fm = self._make_fm(concerns={"domain": ["billing"]})
         path = tmp_path / "ST-0001.md"
         path.touch()
-        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
         extra = [f for f in findings if f.code == "BL-EXTRA"]
         assert extra == []
 
@@ -287,7 +303,7 @@ class TestConcernsField:
         fm = self._make_fm(concerns={"technical": ["backend"]})
         path = tmp_path / "ST-0001.md"
         path.touch()
-        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
         extra = [f for f in findings if f.code == "BL-EXTRA"]
         assert extra == []
 
@@ -296,7 +312,7 @@ class TestConcernsField:
         fm = self._make_fm(concerns="backend")
         path = tmp_path / "ST-0001.md"
         path.touch()
-        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
         assert any(f.code == "BL-TYPE" and "concerns" in f.message for f in findings)
 
     def test_concerns_domain_not_list_errors(self, tmp_path):
@@ -304,7 +320,7 @@ class TestConcernsField:
         fm = self._make_fm(concerns={"domain": "billing"})
         path = tmp_path / "ST-0001.md"
         path.touch()
-        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
         assert any(f.code == "BL-TYPE" and "domain" in f.message for f in findings)
 
     def test_concerns_technical_not_list_errors(self, tmp_path):
@@ -312,7 +328,7 @@ class TestConcernsField:
         fm = self._make_fm(concerns={"technical": 42})
         path = tmp_path / "ST-0001.md"
         path.touch()
-        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
         assert any(f.code == "BL-TYPE" and "technical" in f.message for f in findings)
 
     def test_concerns_unknown_subkey_warns(self, tmp_path):
@@ -320,7 +336,7 @@ class TestConcernsField:
         fm = self._make_fm(concerns={"domain": ["billing"], "other": ["x"]})
         path = tmp_path / "ST-0001.md"
         path.touch()
-        findings = bl.check_story(path, fm, "", {"ST-0001"}, tmp_path)
+        findings = _check_story(path, fm, "", {"ST-0001"}, tmp_path)
         assert any(f.code == "BL-TYPE" and "other" in f.message for f in findings)
 
 
