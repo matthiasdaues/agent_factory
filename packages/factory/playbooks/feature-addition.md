@@ -47,11 +47,13 @@ steps:
     max_input_tokens: 40000
   - name: spec-review
     inputs:
+      - 'docs/CONTEXT.md'
       - 'docs/proposals/**/*.md'
       - 'docs/spec/**/*.md'
       - 'docs/spec/**/*.feature'
     outputs:
       - 'docs/findings/SPEC-*.md'
+      - 'docs/reviews/spec-review-*.md'
     max_input_tokens: 40000
   - name: decision-point-1-3
     inputs:
