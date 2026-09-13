@@ -99,7 +99,7 @@ phase is exempt and may continue in the current session.
    - A Scenario still without an `@`-ref means no implementing code was found — file as a separate `RECON` finding.
 4. **Reconcile the scope map** (pre-merge to dev, when `docs/spec/scope-map.md` exists) — Per [Design 2 — Scope map reconciliation](../../docs/proposals/implemented/agentic-quality-gates-and-specification-consolidation.md#2-specification-as-gherkin-feature-file--derive-feature):
    - Grep every live `.feature` file on the branch for `^  Rule:` lines and diff the resulting Rule set against the scope map's Rule column.
-   - **Skip migration rows**: rows pointing at `UC-XX-*.md` (old-format entries from `scope-map-migration`) are exempt — they have no `.feature` file to compare against.
+   - **Skip migration rows**: rows pointing at `UC-XX-*.md` (old-format entries from the pre-Gherkin scope-map migration) are exempt — they have no `.feature` file to compare against.
    - **Discovery** — a Rule in the `.feature` file but absent from the scope map means a new actor-goal pair was found during implementation. Add it as `implemented` with its `.feature` link, and file a `RECON` finding.
    - **Drift** — a `specified` Rule no longer in the `.feature` file means a scenario was dropped or merged. File a `RECON` finding — do not silently remove the row.
    - Move every `specified` Rule still present to `implemented`. Update links if a `.feature` file moved under `docs/~archive/`.

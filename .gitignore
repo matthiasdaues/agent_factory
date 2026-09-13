@@ -86,6 +86,8 @@ models/
 /.agents/skills/crap-score
 /.agents/skills/create-backlog
 /.agents/skills/create-backlog-epics
+/.agents/skills/create-backlog-make-concrete
+/.agents/skills/create-backlog-slice-story
 /.agents/skills/create-backlog-stories
 /.agents/skills/create-backlog-story-slices
 /.agents/skills/create-backlog-write-epics
