@@ -30,6 +30,10 @@ layers:
     tool: pytest
     infrastructure: real filesystem and subprocess
     entry_point: "uv run pytest --tb=short --quiet tests/"
+  deterministic_linter:
+    tool: custom
+    infrastructure: standalone scripts
+    entry_point: "packages/usage/scripts/usage-contract-check"
 
 # Preserved from the former testing charter; these gates were not part of the
 # regime scan.

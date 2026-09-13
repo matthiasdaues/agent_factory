@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "usage-record/v1",
+  "title": "UsageRecord",
+  "description": "One usage record per agent invocation, as produced by usage-capture.",
+  "type": "object",
+  "required": [
+    "record_id",
+    "project_id",
+    "project_name",
+    "normalized_input",
+    "normalized_output",
+    "normalized_total",
+    "recorded_at",
+    "cli",
+    "session_id",
+    "parent_session_id",
+    "depth",
+    "agent",
+    "model",
+    "provider",
+    "reported_input",
+    "reported_output",
+    "reported_cache_read",
+    "reported_cache_write",
+    "usage_granularity",
+    "usage_capability",
+    "cache_miss_turns",
+    "cache_miss_input_tokens",
+    "late_early_input_ratio",
+    "exit_status",
+    "branch",
+    "commit_id",
+    "transcript_ref"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "record_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "project_name": {
+      "type": "string"
+    },
+    "normalized_input": {
+      "type": "integer"
+    },
+    "normalized_output": {
+      "type": "integer"
+    },
+    "normalized_total": {
+      "type": "integer",
+      "description": "Invariant: normalized_total equals normalized_input plus normalized_output."
+    },
+    "recorded_at": {
+      "type": "string",
+      "description": "ISO 8601 UTC timestamp."
+    },
+    "cli": {
+      "type": "string",
+      "enum": ["claude-code", "pi", "codex", "copilot"]
+    },
+    "session_id": {
+      "type": ["string", "null"]
+    },
+    "parent_session_id": {
+      "type": ["string", "null"]
+    },
+    "depth": {
+      "type": ["integer", "null"]
+    },
+    "agent": {
+      "type": ["string", "null"]
+    },
+    "model": {
+      "type": ["string", "null"]
+    },
+    "provider": {
+      "type": ["string", "null"]
+    },
+    "reported_input": {
+      "type": ["integer", "null"]
+    },
+    "reported_output": {
+      "type": ["integer", "null"]
+    },
+    "reported_cache_read": {
+      "type": ["integer", "null"]
+    },
+    "reported_cache_write": {
+      "type": ["integer", "null"]
+    },
+    "usage_granularity": {
+      "type": ["string", "null"]
+    },
+    "usage_capability": {
+      "type": ["string", "null"]
+    },
+    "cache_miss_turns": {
+      "type": ["integer", "null"]
+    },
+    "cache_miss_input_tokens": {
+      "type": ["integer", "null"]
+    },
+    "late_early_input_ratio": {
+      "type": ["number", "null"]
+    },
+    "exit_status": {
+      "type": ["string", "null"]
+    },
+    "branch": {
+      "type": ["string", "null"]
+    },
+    "commit_id": {
+      "type": ["string", "null"]
+    },
+    "transcript_ref": {
+      "type": ["object", "null"],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "span": {
+          "type": ["string", "null"]
+        }
+      },
+      "required": ["path", "span"],
+      "additionalProperties": false
+    }
+  }
+}
