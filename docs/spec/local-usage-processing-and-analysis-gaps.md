@@ -1,6 +1,6 @@
 # Gaps Report: Local Usage Processing and Analysis
 
-Generated: 2026-09-11
+Generated: 2026-09-13
 
 Source: [accepted proposal](../proposals/usage-processing-and-storage.md)
 
@@ -13,7 +13,7 @@ Source: [accepted proposal](../proposals/usage-processing-and-storage.md)
 | Local operator     | Diagnose all invalid evidence before accounting             | Local operator diagnoses all invalid evidence before accounting                             | specified |
 | Local analyst      | Consume typed table, JSON, relation, and Arrow results      | Local analyst consumes typed table, JSON, relation, and Arrow results                       | specified |
 | Local operator     | Export attributable Parquet without damaging prior output   | Local operator exports attributable Parquet without damaging prior output                   | specified |
-| Local analyst      | Explore published views through DuckDB's bundled UI         | Local analyst explores published views through DuckDB's bundled UI                          | specified |
+| Local analyst      | Receive a verified DuckDB UI exploration path               | Local analyst receives a verified DuckDB UI exploration path                                | specified |
 | Project maintainer | Manage the opt-in component without accidental data loss    | Project maintainer manages the opt-in usage-analysis component without accidental data loss | specified |
 | Factory producer   | Publish a compatible contract without depending on analysis | Factory producer publishes a compatible record contract without depending on analysis       | specified |
 | Quality maintainer | Assign one deterministic owner to each observable contract  | Quality maintainer assigns one deterministic owner to each observable contract              | specified |
@@ -28,7 +28,16 @@ None. Every Rule has a main success, boundary, or failure Scenario.
 
 ## Ambiguous Wording
 
-None detected. Counts, paths, formats, supported CLIs, views, failure behavior, lifecycle effects, and deferrals use explicit terms from the accepted proposal.
+None detected. The specification defines counts, paths, formats, the four per-CLI logical-run keys, source normalization and comparison order, all six query-model-v1 schemas, dimension and time parameters, supported CLIs, failure behavior, dependency locking, UI smoke ownership, lifecycle effects, and deferrals in testable terms from the accepted proposal.
+
+## Review Trace
+
+- [SPEC-0016](../findings/SPEC-0016.md) traces to the logical-run and source-position contracts in the feature, entity model, interface contract, validation rules, and LU-03 owner fixtures.
+- [SPEC-0017](../findings/SPEC-0017.md) traces to the six query-model-v1 schemas and dimension request contract, owned by LU-07 integration tests.
+- [SPEC-0018](../findings/SPEC-0018.md) traces to the UI documentation smoke scenario and the distinct LU-12 deterministic owner.
+- [SPEC-0019](../findings/SPEC-0019.md) traces to direct DuckDB and PyArrow declarations, the shipped lockfile, the offline-cache contract, and the distinct LU-13 deterministic owner.
+
+Finding status remains owned by the independent repeat specification reviewer.
 
 ## Explicit Deferrals
 

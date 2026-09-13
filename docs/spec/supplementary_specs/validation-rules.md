@@ -160,62 +160,24 @@ See [newcomer-onboarding.feature](../newcomer-onboarding.feature).
 - **BR-054**: The `test-design-verify` gate validates the trace-to-scenario resolution chain. Exit codes follow the gate convention: `0` = pass, `1` = validation failure, `2` = configuration error. The gate is conditionally active — it runs when the story has `#### Test Design` or `#### Prior Tests` sections and exits `0` with no findings when neither exists.
 - **BR-055**: The `gates` section in `docs/charter/testing.yaml` configures individual gates (enabled/disabled, thresholds). It does not define execution ordering; [ADR-0012](../../adr/0012-dispatcher-owned-semantic-gate-loop.md) owns the dispatcher's gate sequence. The CRAP-score script reads `gates.crap_score.threshold` from `testing.yaml`, replacing the dead-code `read_threshold_from_house_rules()` function. When the `gates` section is absent, the script falls back to its hardcoded default of 30.
 
-## Agent context validation (`context-lint`, CX-\* codes)
+## Concern registry validation (`concern-lint`, CTX-\* codes)
 
-`context-lint` validates the structural integrity, key presence, reference consistency, and mode compliance of agent-context files. It replaces `charter-lint` for YAML agent-context projects; legacy markdown charter projects continue to use `charter-lint` with CH-\* codes.
+`concern-lint` validates the single concern-oriented routing format. All findings are errors and make the command exit non-zero.
 
-### CX-\* finding codes
+| Code           | Condition                                                                                                                                                  |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CTX-SECTIONS` | A required category is absent, or a concern lacks a description or `Read:` path                                                                            |
+| `CTX-PATHS`    | A repository-relative path or glob on a `Read:` or `Boundary:` line has no match                                                                           |
+| `CTX-REFS`     | A technical or domain name in story `concerns:` has no matching heading in `docs/agent-context.md`                                                         |
+| `CTX-LEGACY`   | `docs/agent-context.md` exists beside legacy YAML agent-context files or `docs/charter/`; `docs/testing.yaml` is the only accepted test-configuration path |
 
-| Code              | Severity                            | Condition                                                                                                                                                                                                                                           |
-| ----------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CX-FILE`         | error                               | A required file is missing. The three index files are always required when `docs/agent-context/` exists. `reading-guides.yaml` is required only when `mode: index` in any index file, or when the file already exists                               |
-| `CX-PARSE`        | error                               | A file does not parse as valid YAML                                                                                                                                                                                                                 |
-| `CX-KEYS`         | error                               | A required top-level key is missing per template schema, or `deferred:` coexists with `name:`/`source:` at the same leaf position                                                                                                                   |
-| `CX-NULL`         | warning / error (`--planning-gate`) | A leaf field has value `null`. Warning in default mode; error in `--planning-gate` mode                                                                                                                                                             |
-| `CX-MODE`         | info                                | Reports the `mode` field value when it is a recognized value (`primary` or `index`). Informational only                                                                                                                                             |
-| `CX-MODE-INVALID` | error                               | The `mode` field contains an unrecognized value (neither `primary` nor `index`). Invalid mode values block because mode governs the entire lifecycle                                                                                                |
-| `CX-SRC`          | warning                             | When `mode: index`, a non-null, non-deferred leaf field has no `source:` pointer                                                                                                                                                                    |
-| `CX-SRC-EXIST`    | warning                             | A `source:` pointer does not resolve to an existing file (path checked relative to repo root)                                                                                                                                                       |
-| `CX-SRC-STALE`    | info                                | A source file's modification time is more recent than the index file's modification time                                                                                                                                                            |
-| `CX-GUIDE-REF`    | warning                             | A reading-guide key-path reference does not resolve to an existing key in the target index file. Checks key existence only — whether the value is null, deferred, or missing a source pointer is owned by CX-NULL, CX-SRC, and CX-MODE respectively |
-| `CX-FORMAT`       | error                               | Files exist in more than one location (e.g. both `docs/agent-context/stack.yaml` and `docs/charter/tech-stack.md`). `testing.yaml` is exempt — its location does not trigger this error                                                             |
+- Category headings are exactly `## Always (cross-cutting)`, `## Technical concerns`, and `## Domain concerns`.
+- Cross-cutting concerns are always active and never repeated in story frontmatter.
+- Technical and domain concern names form a controlled vocabulary. The planning maintainer proposes and obtains confirmation for a new entry before a story uses it.
+- `update-context` is retired and performs no write. The team maintains `docs/agent-context.md` directly.
+- `detect-test-regime` and test gates own the schema and values in `docs/testing.yaml`; concern validation does not parse test configuration.
 
-### Field-level rules
-
-- `mode` must be exactly `primary` or `index`. A recognized value is reported by `CX-MODE` (info). Any other value is reported by `CX-MODE-INVALID` (error).
-- `deferred: "reason"` replaces the entire field value. It is the sole key in a mapping at the leaf position. Any coexisting `name`/`source` key alongside `deferred` is a `CX-KEYS` error.
-- Deferred fields are excluded from the transition condition (PRIMARY → INDEX) and do not produce a `CX-SRC` finding.
-- Null fields are excluded from the transition condition and do not produce a `CX-SRC` finding.
-- In `mode: index`, `update-context` writes both `name` and `source` together. A field with `name` but no `source` is a `CX-SRC` finding.
-
-### testing.yaml carve-out
-
-`testing.yaml` is a peer file outside the two-mode lifecycle. `context-lint` validates it with `CX-PARSE` only. The following checks do not apply to `testing.yaml`:
-
-- `CX-SRC` (no source pointers expected)
-- `CX-MODE` (no mode field)
-- `CX-NULL` (null values are schema-level, not lifecycle-level)
-- `CX-KEYS` (schema is governed by detect-test-regime, not by index-file templates)
-
-### testing.yaml path resolution
-
-`testing.yaml` path resolution is independent of the main format-detection chain:
-
-1. `docs/agent-context/testing.yaml` is checked first.
-2. `docs/charter/testing.yaml` is used as fallback.
-3. No `CX-FORMAT` error is raised for a `testing.yaml` at the old path when index files are at the new path.
-4. When both paths exist, `docs/agent-context/testing.yaml` takes precedence.
-
-### Format detection chain
-
-All factory consumers share the same format-detection chain:
-
-1. `docs/agent-context/stack.yaml` exists → YAML agent-context mode (CX-\* codes).
-2. `docs/charter/tech-stack.yaml` exists → legacy YAML charter mode.
-3. `docs/charter/tech-stack.md` exists → legacy markdown charter mode (CH-\* codes).
-4. Files in more than one location → `CX-FORMAT` error.
-
-See [agent-context.feature](../agent-context.feature) and [interface-contracts.md § context-lint](interface-contracts.md).
+See [agent-context.feature](../agent-context.feature) and [interface-contracts.md § concern-lint](interface-contracts.md#factoryscriptsconcern-lint).
 
 ## Dispatch ledger (`dispatch`)
 
@@ -240,18 +202,24 @@ These rules support the [local usage feature](../local-usage-processing-and-anal
 
 ### Snapshot and accounting validation
 
-- Preserve source file and line number as evidence identity until canonical-run reduction.
-- Select the latest cumulative snapshot by greatest capture sequence, followed by the documented source-position tie-breaker.
+- Normalize source paths relative to the selected usage directory: valid UTF-8, Unicode NFC per segment, `/` separators, no `.` segments, and rejection of absolute paths or `..` traversal.
+- Preserve `(normalized_source_path, source_line)` as evidence identity until canonical-run reduction; line numbers are positive and one-based.
+- For each supported CLI, define logical-run identity as `(cli, session_id, run_id)`. `parent_run_id` defines ancestry. Evidence source, capture sequence, and record content are excluded from logical-run identity.
+- Select the latest cumulative snapshot by maximum `(capture_sequence, normalized_source_path, source_line)`. Compare capture sequence and line numerically and normalized paths by unsigned UTF-8 byte lexicographic order.
 - Claude Code total: latest root snapshot plus each distinct child run once.
 - Pi total: root record plus each distinct descendant run once.
 - Codex total: latest inclusive root snapshot; descendants provide attribution only.
 - GitHub Copilot CLI total: latest inclusive root snapshot; descendants provide attribution only.
-- Dimensional measures are additive over canonical session rows for time period, project, CLI, provider, model, agent, branch, and exit status.
+- Canonical session dimensions and timestamp come from the selected root snapshot. Additive descendant measures do not replace those dimensions.
+- Cache aggregation uses the same contributing logical-run set as the CLI's conservation rule.
+- Dimensional measures are additive over canonical session rows. Accept an ordered, duplicate-free subset of project, CLI, provider, model, agent, branch, and exit status plus time granularity `none`, `hour`, `day`, `week`, or `month`.
+- Default to no dimensions and time granularity `none`, producing one all-input total. Reject duplicate or unknown dimensions. Use UTC calendar truncation and ISO Monday week starts.
 - Preserve cache availability and input-only states. Do not replace unavailable values with zero.
 
 ### Query and export validation
 
 - Publish exactly six stable views: `raw_usage_snapshots`, `latest_run_snapshots`, `canonical_session_usage`, `usage_by_dimension`, `cache_efficiency`, and `capture_health`.
+- Enforce the complete `query-model-v1` schema, key, nullability, and stable result ordering declared in [interface-contracts.md § Query-model-v1 schema contract](interface-contracts.md#query-model-v1-schema-contract) for non-empty and empty results.
 - Allow `capture_health` for any preflight outcome. Refuse every other stable view and all stable exports when any preflight failure exists.
 - Treat an empty input directory as valid and return each view's typed empty schema.
 - Ensure table, JSON, DuckDB relation, and PyArrow table outputs preserve view schema, logical rows, and null states.
@@ -263,6 +231,9 @@ These rules support the [local usage feature](../local-usage-processing-and-anal
 
 - Read selected usage records only. Do not follow `transcript_ref`, recurse into transcript storage, or use a remote reader.
 - Keep analytical dependencies isolated from Factory capture. Capture succeeds when analysis is absent or corrupt.
+- Declare DuckDB and PyArrow as direct usage-analysis dependencies, pin a compatible pair and their transitive closure in the shipped lockfile, and reject an unlocked or incompatible dependency set.
+- Prove offline installation and query execution from a complete locked-artifact cache with network access disabled. Do not add DuckDB or PyArrow to Factory's dependency graph.
+- Verify the documented DuckDB UI launch command and query-model bootstrap without starting the UI or fetching assets; the bootstrap registers exactly the six published views.
 - Install analysis only on `--with-usage` or `--add usage`; record it under `installed_components`.
 - Update only the named component after compatibility succeeds. Remove only analysis on `--remove usage`. Both preserve `.agent-factory/usage/`.
 - Keep `update-factory` scoped to Factory core. Preserve installed components.

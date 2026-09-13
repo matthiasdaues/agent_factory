@@ -4,7 +4,7 @@ title: "Local Usage Processing and Analysis"
 status: accepted
 owner: agent-factory
 created: 2026-07-28
-updated: 2026-09-11
+updated: 2026-09-13
 supersedes:
 
 impact:
@@ -17,6 +17,8 @@ impact:
     - packages/factory/scripts/update-factory
     - packages/factory/scripts/remove-factory
     - packages/factory/contracts/usage-record/  # new: created by this feature
+    - packages/usage/pyproject.toml
+    - packages/usage/uv.lock
     - docs/spec/supplementary_specs/interface-contracts.md
     - docs/arc42/architecture.dsl
     - docs/arc42/CONTEXT-MAP.md
@@ -200,15 +202,32 @@ Accounting is driven by a closed registry keyed by CLI:
 An unknown CLI is a contract error. It must not silently inherit another CLI's
 rule. The registry and its fixture matrix change together.
 
+For all four registry entries, logical-run identity is exactly
+`(cli, session_id, run_id)`. Claude Code and Pi use that key to include each
+additive child or descendant once. Codex and GitHub Copilot CLI use it to keep
+descendant attribution distinct without adding it to the inclusive root.
+`parent_run_id` defines ancestry but is not part of identity. Source position,
+capture sequence, and record content are excluded from logical-run identity.
+
+`usage_by_dimension` accepts an ordered, duplicate-free subset of `project`,
+`cli`, `provider`, `model`, `agent`, `branch`, and `exit_status`, plus a time
+granularity of `none`, `hour`, `day`, `week`, or `month`. For non-empty input,
+the default is no dimensions and `none`, which returns one total over all
+canonical sessions. Empty input returns the declared typed zero-row result.
+Unknown or duplicate dimensions are errors. Time buckets use UTC and ISO Monday
+week starts.
+
 ### Local Python and dataframe interface
 
 DuckDB is the computation engine and SQL is the canonical transformation
 language. The Python entry point supplies validated paths and parameters and
 runs published queries.
 
-**Release-1 required conversions:** DuckDB relations and PyArrow tables. These
-are DuckDB's native output types and add no dependency beyond DuckDB itself
-(which bundles PyArrow support).
+**Release-1 required conversions:** DuckDB relations and `pyarrow.Table`
+instances. The usage-analysis package declares both DuckDB and a compatible
+PyArrow release as direct dependencies and locks their complete transitive
+closure. DuckDB supplies the Arrow conversion API; the separately installed
+PyArrow package supplies the Python table type.
 
 **Explicitly deferred conversions:** Polars DataFrames and Pandas DataFrames.
 Both require additional dependencies (polars, pandas) that are not part of the
@@ -291,8 +310,9 @@ the supported reader range is explicit before the change can merge.
 
 **In the first release:**
 
-- A local `usage/` subproject with isolated dependencies, SQL, Python entry
-  points, tests, fixtures, and concise operating documentation.
+- A local `usage/` subproject with isolated, directly declared DuckDB and
+  PyArrow dependencies, a committed lockfile, SQL, Python entry points, tests,
+  fixtures, and concise operating documentation.
 - A versioned machine-readable contract for the existing Factory usage record,
   expressed as a JSON Schema Draft 2020-12 schema plus an ownership and
   compatibility manifest, owned by Factory and consumed by the analytical
@@ -304,8 +324,9 @@ the supported reader range is explicit before the change can merge.
 - A local query command with table and JSON output plus DuckDB relation and
   PyArrow table conversions.
 - Explicit Parquet export with atomic replacement and provenance checks.
-- A documented DuckDB UI launch path that opens the published views for local,
-  ad hoc exploration without becoming an accounting or persistence layer.
+- A documented DuckDB UI launch path whose executable smoke check resolves the
+  six-view query-model bootstrap without starting or fetching the UI. Actual
+  launch remains optional local exploration, not gate evidence.
 - Updates to [`architecture.dsl`](../arc42/architecture.dsl), derived arc42
   explanations, and [`CONTEXT-MAP.md`](../arc42/CONTEXT-MAP.md) that replace the
   PostgreSQL projector with the local Usage Analysis bounded context and its
@@ -343,7 +364,8 @@ the supported reader range is explicit before the change can merge.
   usage records only.
 - Automatic retention or deletion of raw usage evidence: analysis is read-only.
 - Polars and Pandas DataFrame conversions: they add optional dependencies
-  beyond DuckDB and can be introduced without changing accounting or SQL views.
+  beyond the required DuckDB and PyArrow runtime and can be introduced without
+  changing accounting or SQL views.
 
 ## Design Details
 
@@ -371,14 +393,22 @@ gates.
 
 ### Input identity and ordering
 
-The query start snapshots an explicit, sorted file list. Source filename and
-line number form evidence identity; they remain available in raw diagnostic
-output. Logical snapshot selection uses declared record fields first and a
-documented source-position tie-breaker when those fields are equal.
+The query start snapshots an explicit, sorted file list. A source path is made
+relative to the selected usage directory, converted to `/` separators, stripped
+of `.` segments, rejected if absolute or containing `..`, decoded as valid
+UTF-8, and Unicode-normalized to NFC per segment. The normalized path and
+one-based positive line number form evidence identity and remain available in
+raw diagnostic output.
+
+Logical snapshot selection takes the maximum tuple
+`(capture_sequence, normalized_source_path, source_line)`. Capture sequence and
+line number compare numerically. Normalized paths compare lexicographically by
+unsigned UTF-8 bytes. This means the later line wins within one file when the
+capture sequence is equal.
 
 Record IDs alone are not unique across all retained files. The analytical key
-therefore includes source identity until records have been reduced to a
-canonical logical run.
+therefore includes source identity until records have been reduced to the
+source-independent logical-run key defined in the accounting registry.
 
 ### Failure behavior
 
@@ -405,8 +435,9 @@ UI state files are private, git-ignored, and safe to delete.
 ### Dependency isolation
 
 Analytical dependencies do not enter Factory's capture runtime. The
-`packages/usage/` subproject has its own locked dependency declaration in the
-monorepo. At install time, `init-factory` copies the module into
+`packages/usage/` subproject declares DuckDB and PyArrow directly in its own
+`pyproject.toml` and commits its own `uv.lock`; neither package enters Factory's
+dependency graph. At install time, `init-factory` copies the module into
 `.agent-factory/usage-analysis/` without adding dependencies to Factory's
 own runtime. Removing the installed module (`init-factory --remove usage`)
 leaves capture behavior unchanged.
@@ -506,11 +537,12 @@ bundled `pyproject.toml`). The query command is invoked through `uv run`:
 uv run --project .agent-factory/usage-analysis usage-query <view> [options]
 ```
 
-`uv run --project` resolves and caches the declared dependencies (DuckDB and
-its transitive closure) on first invocation, using the lockfile shipped with
-the module. No pre-installation step, virtualenv creation, or system-wide
-package install is required; `uv` is the only prerequisite, and it is already
-required by Factory.
+`uv run --project` resolves and caches the declared direct dependencies
+(DuckDB and PyArrow) and their transitive closure on first invocation, using
+the lockfile shipped with the module. The lockfile pins a mutually compatible
+pair and is copied with the installed package. No pre-installation step,
+virtualenv creation, or system-wide package install is required; `uv` is the
+only prerequisite, and it is already required by Factory.
 
 **Input selection.** The default input location is `.agent-factory/usage/` —
 the sibling data directory. The query command resolves this relative to the
@@ -519,11 +551,14 @@ project root (the directory containing `.agent-factory/`). An explicit
 list of `*.jsonl` files at the top level of the input directory; subdirectories
 (`transcripts/`, `usage-control/`) are excluded.
 
-**Offline operation.** After the first `uv run` has cached dependencies, the
-query command runs without network access. The SQL views, accounting registry,
-and contract schema are bundled files, not fetched resources. The only
-filesystem access is reading the selected JSONL files and writing to the
-explicit output path (when `--format parquet` or `--output` is given).
+**Offline operation.** The distribution gate verifies an install and query from
+a cache containing every locked DuckDB, PyArrow, and transitive artifact while
+network access is disabled. After the first online `uv run` populates that
+cache, the query command therefore runs without network access. The SQL views,
+accounting registry, and contract schema are bundled files, not fetched
+resources. The only filesystem access is reading the selected JSONL files and
+writing to the explicit output path (when `--format parquet` or `--output` is
+given).
 
 ### Exploration surface
 
@@ -558,15 +593,17 @@ deferred dashboard products on 2026-09-11.
 06. Reordering the same selected files does not change sorted logical output or
     its content digest.
 07. Published views cover raw snapshots, latest runs, canonical sessions,
-    dimensional usage, cache efficiency, and capture health.
+    dimensional usage, cache efficiency, and capture health. Query-model-v1
+    declares every column, DuckDB type, key, null rule, and stable result order.
 08. The query command emits typed table and JSON results from published views.
     DuckDB relation and PyArrow table conversions preserve field types and nulls.
 09. An optional Parquet export round-trips to the same logical rows and schema,
     records query-model and input-set provenance, and never replaces a valid
     destination with a partial file.
-10. The documented DuckDB UI path opens the published views for local
-    exploration, while all automated accounting verification remains executable
-    without installing or starting the UI.
+10. An executable documentation smoke check verifies that the documented
+    DuckDB UI command loads the query-model-v1 bootstrap for exactly the six
+    published views without installing, starting, or fetching the UI. Actual UI
+    launch remains optional operator activity and is not gate evidence.
 11. Capture contract tests pass when all analytical components and derived
     outputs are absent.
 12. `uv run pytest --tb=short --quiet`, as declared in
@@ -598,10 +635,13 @@ deferred dashboard products on 2026-09-11.
 19. `remove-factory` removes `usage-analysis/` as part of its manifest-driven
     full uninstall. Full removal continues to delete the entire
     `.agent-factory/` directory including usage data.
-20. The query command is invocable through `uv run --project .agent-factory/usage-analysis` with no prior installation step beyond
-    `init-factory`. The default input location is `.agent-factory/usage/`;
-    `--usage-dir` overrides it. After the first invocation caches dependencies,
-    the command runs without network access.
+20. The query command is invocable through
+    `uv run --project .agent-factory/usage-analysis` with no prior installation
+    step beyond `init-factory`. The default input location is
+    `.agent-factory/usage/`; `--usage-dir` overrides it. DuckDB and PyArrow are
+    direct dependencies pinned with their transitive closure. A complete
+    locked-artifact cache supports
+    installation and query execution with network access disabled.
 
 ## Guiding Rule
 

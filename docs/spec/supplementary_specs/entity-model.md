@@ -249,79 +249,57 @@ erDiagram
 
 ## Agent Context Entities
 
-The agent context is the factory-facing interface to project knowledge. It replaces the charter as the structured contract between factory agents and the project's self-determined practices. The two-layer architecture (reading guide over index files) and two-mode lifecycle (primary then index) are modeled below.
+The concern registry is the factory-facing routing interface to project knowledge. Machine-consumed test configuration remains a separate artifact.
 
 ```mermaid
 erDiagram
-    READING_GUIDE ||--o{ CONCERN_ENTRY : "routes by concern"
-    CONCERN_ENTRY ||--o{ KEY_PATH_REFERENCE : "lists"
-    KEY_PATH_REFERENCE }o--|| INDEX_FILE : "points into"
-    INDEX_FILE ||--o{ INDEX_FIELD : "declares"
-    INDEX_FILE ||--|| MODE_STATE : "has"
-    INDEX_FIELD ||--o| DEFERRED_MARKER : "may carry"
-    INDEX_FIELD ||--o| SOURCE_POINTER : "may carry"
-    CX_FINDING }o--|| INDEX_FILE : "reported against"
-    CX_FINDING }o--o| READING_GUIDE : "reported against"
-    TESTING_YAML }o--o| CX_FINDING : "CX-PARSE only"
-    FORMAT_DETECTION ||--o| INDEX_FILE : "selects"
+    CONCERN_REGISTRY ||--o{ CONCERN_ENTRY : contains
+    CONCERN_ENTRY ||--|{ ROUTED_PATH : routes
+    STORY }o--o{ CONCERN_ENTRY : references
+    CTX_FINDING }o--|| CONCERN_REGISTRY : validates
+    TESTING_YAML }o--|| TEST_SUITE : configures
 
-    READING_GUIDE {
-        string path "docs/agent-context/reading-guides.yaml"
-        string role "Layer 1 — concern-based routing"
+    CONCERN_REGISTRY {
+        string path "docs/agent-context.md"
+        string format "CLI-agnostic markdown"
     }
     CONCERN_ENTRY {
-        string concern "e.g. backend, frontend, testing"
-        list references "key-path notation strings"
+        string category "cross-cutting | technical | domain"
+        string name "controlled vocabulary"
+        string description
     }
-    KEY_PATH_REFERENCE {
-        string file "e.g. stack.yaml"
-        string key_path "nullable — dotted path e.g. frameworks.backend"
+    ROUTED_PATH {
+        string kind "Read | Boundary"
+        string path "repository-relative file or glob"
     }
-    INDEX_FILE {
-        string name "stack.yaml | workflow.yaml | governance.yaml"
-        string path "docs/agent-context/<name>"
-        string mode "primary | index"
-    }
-    INDEX_FIELD {
-        string key "dotted key path within the index file"
-        string value "nullable — inline value when mode is primary"
-        string name "nullable — lookup name when mode is index"
-        string source "nullable — path to authoritative document"
-    }
-    MODE_STATE {
-        string mode "primary | index"
-    }
-    DEFERRED_MARKER {
-        string reason "human-readable deferral reason"
-    }
-    SOURCE_POINTER {
-        string path "relative path to authoritative project document"
+    STORY {
+        string path "backlog/ST-NNNN.md"
+        list domain_concerns
+        list technical_concerns
     }
     TESTING_YAML {
-        string path "docs/agent-context/testing.yaml or docs/charter/testing.yaml"
-        string role "peer file — machine-readable test config, no lifecycle"
+        string path "docs/testing.yaml"
+        string role "machine-consumed test configuration"
         string writer "detect-test-regime (sole owner)"
     }
-    FORMAT_DETECTION {
-        string result "yaml-agent-context | legacy-yaml-charter | legacy-markdown-charter | CX-FORMAT error"
+    TEST_SUITE {
+        string name
+        string command
     }
-    CX_FINDING {
-        string code "CX-FILE | CX-PARSE | CX-KEYS | CX-NULL | CX-MODE | CX-MODE-INVALID | CX-SRC | CX-SRC-EXIST | CX-SRC-STALE | CX-GUIDE-REF | CX-FORMAT"
-        string severity "error | warning | info"
+    CTX_FINDING {
+        string code "CTX-SECTIONS | CTX-PATHS | CTX-REFS | CTX-LEGACY"
+        string severity "error"
         string message "human-readable finding text"
     }
 ```
 
 ### Notes
 
-- **READING_GUIDE** is Layer 1 of the agent context. It routes by work-type concern (backend, frontend, testing, architecture, packaging, and project-specific additions) to sections in the Layer 2 index files. It carries no `source:` pointers — only key-path references. It does not participate in the two-mode lifecycle. It is absent in greenfield projects until the first `source:` pointer is written.
-- **KEY_PATH_REFERENCE** uses the notation `<file>#<dotted.key.path>` (e.g. `stack.yaml#frameworks.backend`). A bare file reference (`stack.yaml`) means the entire file. `context-lint` validates these references via `CX-GUIDE-REF` by confirming the key path exists in the target file's YAML structure — key existence only, not value content.
-- **INDEX_FILE** is one of the three Layer 2 files (`stack.yaml`, `workflow.yaml`, `governance.yaml`). Each covers a distinct domain of project knowledge. They carry `source:` pointers to authoritative project documents and participate in the two-mode lifecycle.
-- **INDEX_FIELD** has different shapes depending on mode. In `mode: primary`, a field may be a scalar value, `null`, or a `deferred:` mapping. In `mode: index`, a field carries `name:` and `source:` together. The `deferred:` mapping replaces the entire field value — `deferred` is the sole key; any coexisting `name`/`source` key is a `CX-KEYS` error.
-- **MODE_STATE** is one of `primary` (greenfield — index files are the upstream source) or `index` (mature — index files are downstream routing tables). The transition from `primary` to `index` is one-directional and atomic across all three index files. See [state-machines.md](state-machines.md).
-- **TESTING_YAML** is a peer file outside the two-mode lifecycle. It is written by `detect-test-regime`, not by `update-context`. `context-lint` validates it with `CX-PARSE` only — no `CX-SRC`, `CX-MODE`, or `CX-NULL` checks apply. Format detection resolves its path independently: `docs/agent-context/testing.yaml` first, `docs/charter/testing.yaml` as fallback, with no `CX-FORMAT` error for the split location.
-- **FORMAT_DETECTION** is a shared subfunction used by all factory consumers. It walks a three-step chain: `docs/agent-context/stack.yaml` → `docs/charter/tech-stack.yaml` → `docs/charter/tech-stack.md`. Files in more than one location produce a `CX-FORMAT` error. `testing.yaml` is resolved independently and does not trigger mixed-location errors.
-- **CX_FINDING** replaces the charter-lint `CH-*` codes for YAML agent-context validation. Legacy markdown charter projects continue to use the existing `CH-*` codes.
+- **CONCERN_REGISTRY** has exactly three category headings: Always (cross-cutting), Technical concerns, and Domain concerns.
+- **CONCERN_ENTRY** has a description and at least one `Read:` path. `Boundary:` paths are optional. Cross-cutting entries always apply; story frontmatter selects technical and domain entries.
+- **STORY.concerns** is advisory and uses only confirmed registry headings. A missing vocabulary entry is proposed and confirmed before use.
+- **TESTING_YAML** is not routing content. Factory consumers resolve only `docs/testing.yaml`; there is no legacy-path fallback.
+- **CTX_FINDING** is produced by `concern-lint`. Legacy YAML context or `docs/charter/` beside the registry is an error.
 
 ## Referenced from
 
@@ -394,7 +372,8 @@ erDiagram
     LATEST_RUN_SNAPSHOT {
         string logical_run_key
         integer capture_sequence
-        string source_position_tiebreaker
+        string normalized_source_path
+        integer source_line
     }
     CANONICAL_SESSION_USAGE {
         string session_id
@@ -402,7 +381,9 @@ erDiagram
         integer normalized_total
     }
     DIMENSIONAL_USAGE {
+        string time_granularity
         string dimensions
+        datetime period_start
         integer additive_total
     }
     CACHE_EFFICIENCY_SIGNAL {
@@ -447,10 +428,11 @@ erDiagram
 ### Entity invariants
 
 - `INPUT_SET` is immutable for one query and contains only sorted, top-level `*.jsonl` paths from the selected usage directory.
-- Evidence identity is the pair of source file and line number until reduction to a canonical logical run. A record ID alone is not globally unique.
+- Evidence identity is `(normalized_source_path, source_line)`. The path is relative to the selected usage directory, uses `/` separators, has `.` removed, rejects `..`, absolute paths, invalid UTF-8, and Unicode-normalizes each segment to NFC. Line numbers are one-based positive integers.
+- Every CLI uses logical-run key `(cli, session_id, run_id)`. For Claude Code and Pi this distinguishes additive child or descendant runs; for Codex and GitHub Copilot CLI it distinguishes inclusive roots from attribution-only descendants. `parent_run_id` establishes ancestry but is not part of identity. Source path, source line, capture sequence, and record content never enter the logical-run key.
 - Every selected line produces exactly one `USAGE_RECORD` or `PREFLIGHT_FAILURE` in query scope.
 - `normalized_total` equals `normalized_input + normalized_output`; token counters are non-negative.
-- `LATEST_RUN_SNAPSHOT` selects greatest capture sequence, then the declared source-position tie-breaker.
+- `LATEST_RUN_SNAPSHOT` selects the greatest tuple `(capture_sequence, normalized_source_path, source_line)`: capture sequence numerically ascending, normalized path by unsigned UTF-8 byte lexicographic order, and line number numerically ascending. Selection takes the maximum tuple; this makes the later line win within one file and removes source identity after one snapshot remains per logical-run key.
 - `CANONICAL_SESSION_USAGE` has one accounting result per session. Its rule is selected from the closed four-CLI registry.
 - `CACHE_EFFICIENCY_SIGNAL` distinguishes unavailable, input-only, and measured values; unavailable is not zero.
 - A stable `QUERY_RESULT` other than `capture_health` exists only when the input set has zero failures.

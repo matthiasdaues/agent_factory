@@ -357,51 +357,6 @@ risk_classes:
 | `budget`             | string         | yes      | `unbounded` or `equivalence`                   |
 | `requires`           | list of string | no       | Named invariants the contract must demonstrate |
 
-## `factory/scripts/context-lint`
-
-|               |                                                                                                                                                                                                        |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Usage         | `context-lint [--context-dir DIR] [--template-dir DIR] [--planning-gate] [--format text\|json] [--report-only]`                                                                                        |
-| Reads         | Agent-context files in `docs/agent-context/{stack,workflow,governance}.yaml` and `reading-guides.yaml`; `testing.yaml` (at either `docs/agent-context/` or `docs/charter/`); template files for schema |
-| Writes        | Nothing; validation is read-only                                                                                                                                                                       |
-| Exit code     | Count of error-severity findings (`0` = clean), unless `--report-only` (always `0`)                                                                                                                    |
-| Finding codes | `CX-FILE`, `CX-PARSE`, `CX-KEYS`, `CX-NULL`, `CX-MODE`, `CX-MODE-INVALID`, `CX-SRC`, `CX-SRC-EXIST`, `CX-SRC-STALE`, `CX-GUIDE-REF`, `CX-FORMAT`                                                       |
-
-### Validation modes
-
-**Default mode:** Validates structural integrity, key presence, and reference consistency:
-
-- Required index files exist under `docs/agent-context/` (`reading-guides.yaml` required only when `mode: index` in any index file, or when the file already exists)
-- Each file parses as valid YAML (`CX-PARSE`)
-- Required top-level keys present per template schema (`CX-KEYS`)
-- `deferred:` is the sole key at its leaf position — coexistence with `name`/`source` is `CX-KEYS`
-- `mode` field is `primary` or `index` (`CX-MODE`, info); any other value is `CX-MODE-INVALID` (error)
-- `null` values reported as warnings (`CX-NULL`)
-- When `mode: index`, every non-null, non-deferred leaf has `source:` (`CX-SRC`)
-- Each `source:` pointer resolves to an existing file (`CX-SRC-EXIST`)
-- Source file modified more recently than index file (`CX-SRC-STALE`, info)
-- Each reading-guide key-path reference resolves to an existing index-file key (`CX-GUIDE-REF`) — key existence only, not value content
-- Mixed YAML/markdown or mixed charter/agent-context locations (`CX-FORMAT`)
-- `testing.yaml`: `CX-PARSE` only — no `CX-SRC`, `CX-MODE`, or `CX-NULL` checks
-
-**Planning gate mode** (`--planning-gate`): Stricter pre-planning validation:
-
-- All default checks pass
-- `CX-NULL` severity elevated from warning to error
-
-### Format detection
-
-`context-lint` uses the shared format-detection chain to determine which validation mode applies:
-
-1. `docs/agent-context/stack.yaml` exists → YAML agent-context mode (CX-\* codes)
-2. `docs/charter/tech-stack.yaml` exists → legacy YAML charter mode (delegates to charter-lint logic)
-3. `docs/charter/tech-stack.md` exists → legacy markdown charter mode (delegates to charter-lint logic with CH-\* codes)
-4. Files in more than one location → `CX-FORMAT` error
-
-`testing.yaml` resolution is independent: `docs/agent-context/testing.yaml` first, `docs/charter/testing.yaml` as fallback. No `CX-FORMAT` error for the split location.
-
-See [agent-context.feature](../agent-context.feature).
-
 ## `factory/scripts/concern-lint`
 
 |               |                                                       |
@@ -455,9 +410,151 @@ The YAML manifest declares owner, current version, compatibility policy, and acc
 | Required presentation outputs | Table and JSON                                                                                                                       |
 | Required programmatic outputs | DuckDB relation and PyArrow table                                                                                                    |
 | Parquet export                | `--format parquet --output <path>`                                                                                                   |
+| Dimension selection           | `--dimensions <comma-list>` and `--time-granularity none\|hour\|day\|week\|month`                                                    |
+| Direct runtime dependencies   | Compatible DuckDB and PyArrow versions, both declared in `pyproject.toml` and pinned by the installed `uv.lock`                      |
 | Reads                         | Selected top-level JSONL files, installed contract, bundled SQL and accounting registry                                              |
 | Writes                        | Only the explicit output path through a temporary sibling; optional private UI state is outside stable output                        |
 | Network                       | None after dependencies are cached; deterministic gates never require the UI                                                         |
+
+#### Query-model-v1 schema contract
+
+Every published result carries schema version `query-model-v1`. `NOT NULL` below is mandatory; all other columns are nullable. A key is unique within one snapshotted input set. Stable command, JSON, Arrow, and Parquet results apply the declared `ORDER BY`; callers must not rely on physical DuckDB storage order.
+
+##### `raw_usage_snapshots`
+
+| Column                   | DuckDB type                | Constraint                         |
+| ------------------------ | -------------------------- | ---------------------------------- |
+| `query_model_version`    | `VARCHAR`                  | `NOT NULL`, value `query-model-v1` |
+| `normalized_source_path` | `VARCHAR`                  | `NOT NULL`, key part               |
+| `source_line`            | `UBIGINT`                  | `NOT NULL`, key part, one-based    |
+| `captured_at`            | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`                         |
+| `capture_sequence`       | `UBIGINT`                  | `NOT NULL`                         |
+| `cli`                    | `VARCHAR`                  | `NOT NULL`                         |
+| `session_id`             | `VARCHAR`                  | `NOT NULL`                         |
+| `run_id`                 | `VARCHAR`                  | `NOT NULL`                         |
+| `parent_run_id`          | `VARCHAR`                  | nullable                           |
+| `project`                | `VARCHAR`                  | `NOT NULL`                         |
+| `provider`               | `VARCHAR`                  | nullable                           |
+| `model`                  | `VARCHAR`                  | nullable                           |
+| `agent`                  | `VARCHAR`                  | nullable                           |
+| `branch`                 | `VARCHAR`                  | nullable                           |
+| `exit_status`            | `VARCHAR`                  | nullable                           |
+| `normalized_input`       | `UBIGINT`                  | `NOT NULL`                         |
+| `normalized_output`      | `UBIGINT`                  | `NOT NULL`                         |
+| `normalized_total`       | `UBIGINT`                  | `NOT NULL`                         |
+| `provider_input`         | `UBIGINT`                  | nullable                           |
+| `provider_output`        | `UBIGINT`                  | nullable                           |
+| `cache_read`             | `UBIGINT`                  | nullable                           |
+| `cache_write`            | `UBIGINT`                  | nullable                           |
+| `transcript_ref`         | `JSON`                     | nullable, never dereferenced       |
+
+Key: `(normalized_source_path, source_line)`. Order: that key ascending.
+
+##### `latest_run_snapshots`
+
+| Column                   | DuckDB type                | Constraint                         |
+| ------------------------ | -------------------------- | ---------------------------------- |
+| `query_model_version`    | `VARCHAR`                  | `NOT NULL`, value `query-model-v1` |
+| `cli`                    | `VARCHAR`                  | `NOT NULL`, key part               |
+| `session_id`             | `VARCHAR`                  | `NOT NULL`, key part               |
+| `run_id`                 | `VARCHAR`                  | `NOT NULL`, key part               |
+| `parent_run_id`          | `VARCHAR`                  | nullable                           |
+| `captured_at`            | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`                         |
+| `capture_sequence`       | `UBIGINT`                  | `NOT NULL`                         |
+| `normalized_source_path` | `VARCHAR`                  | `NOT NULL`, selected evidence      |
+| `source_line`            | `UBIGINT`                  | `NOT NULL`, selected evidence      |
+| `project`                | `VARCHAR`                  | `NOT NULL`                         |
+| `provider`               | `VARCHAR`                  | nullable                           |
+| `model`                  | `VARCHAR`                  | nullable                           |
+| `agent`                  | `VARCHAR`                  | nullable                           |
+| `branch`                 | `VARCHAR`                  | nullable                           |
+| `exit_status`            | `VARCHAR`                  | nullable                           |
+| `normalized_input`       | `UBIGINT`                  | `NOT NULL`                         |
+| `normalized_output`      | `UBIGINT`                  | `NOT NULL`                         |
+| `normalized_total`       | `UBIGINT`                  | `NOT NULL`                         |
+
+Key and order: `(cli, session_id, run_id)` ascending.
+
+##### `canonical_session_usage`
+
+| Column                | DuckDB type                | Constraint                         |
+| --------------------- | -------------------------- | ---------------------------------- |
+| `query_model_version` | `VARCHAR`                  | `NOT NULL`, value `query-model-v1` |
+| `cli`                 | `VARCHAR`                  | `NOT NULL`, key part               |
+| `session_id`          | `VARCHAR`                  | `NOT NULL`, key part               |
+| `captured_at`         | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`                         |
+| `project`             | `VARCHAR`                  | `NOT NULL`                         |
+| `provider`            | `VARCHAR`                  | nullable                           |
+| `model`               | `VARCHAR`                  | nullable                           |
+| `agent`               | `VARCHAR`                  | nullable                           |
+| `branch`              | `VARCHAR`                  | nullable                           |
+| `exit_status`         | `VARCHAR`                  | nullable                           |
+| `accounting_rule`     | `VARCHAR`                  | `NOT NULL`                         |
+| `normalized_input`    | `UBIGINT`                  | `NOT NULL`                         |
+| `normalized_output`   | `UBIGINT`                  | `NOT NULL`                         |
+| `normalized_total`    | `UBIGINT`                  | `NOT NULL`                         |
+
+Key and order: `(cli, session_id)` ascending.
+
+##### `usage_by_dimension`
+
+| Column                | DuckDB type                | Constraint                                     |
+| --------------------- | -------------------------- | ---------------------------------------------- |
+| `query_model_version` | `VARCHAR`                  | `NOT NULL`, value `query-model-v1`             |
+| `time_granularity`    | `VARCHAR`                  | `NOT NULL`, `none\|hour\|day\|week\|month`     |
+| `period_start`        | `TIMESTAMP WITH TIME ZONE` | nullable; null only when granularity is `none` |
+| `project`             | `VARCHAR`                  | nullable; non-null only when selected          |
+| `cli`                 | `VARCHAR`                  | nullable; non-null only when selected          |
+| `provider`            | `VARCHAR`                  | nullable; selected null values remain null     |
+| `model`               | `VARCHAR`                  | nullable; selected null values remain null     |
+| `agent`               | `VARCHAR`                  | nullable; selected null values remain null     |
+| `branch`              | `VARCHAR`                  | nullable; selected null values remain null     |
+| `exit_status`         | `VARCHAR`                  | nullable; selected null values remain null     |
+| `normalized_input`    | `HUGEINT`                  | `NOT NULL`                                     |
+| `normalized_output`   | `HUGEINT`                  | `NOT NULL`                                     |
+| `normalized_total`    | `HUGEINT`                  | `NOT NULL`                                     |
+| `session_count`       | `UBIGINT`                  | `NOT NULL`                                     |
+
+The key and order are `period_start` when present, followed by selected dimension columns in the caller's declared order; all are ascending with nulls last. With no selected dimensions and granularity `none`, exactly one row represents all canonical sessions when input is non-empty. Empty input returns zero rows with this declared schema.
+
+##### `cache_efficiency`
+
+| Column                | DuckDB type | Constraint                                                |
+| --------------------- | ----------- | --------------------------------------------------------- |
+| `query_model_version` | `VARCHAR`   | `NOT NULL`, value `query-model-v1`                        |
+| `provider`            | `VARCHAR`   | nullable, key part                                        |
+| `availability_state`  | `VARCHAR`   | `NOT NULL`, key part, `unavailable\|input_only\|measured` |
+| `provider_input`      | `HUGEINT`   | nullable                                                  |
+| `cache_read`          | `HUGEINT`   | nullable                                                  |
+| `cache_write`         | `HUGEINT`   | nullable                                                  |
+| `cache_ratio`         | `DOUBLE`    | nullable                                                  |
+| `session_count`       | `UBIGINT`   | `NOT NULL`                                                |
+
+Key and order: `(provider, availability_state)` ascending with null providers last. `cache_ratio` is null unless the state is `measured` and the denominator is non-zero.
+
+##### `capture_health`
+
+| Column                   | DuckDB type | Constraint                         |
+| ------------------------ | ----------- | ---------------------------------- |
+| `query_model_version`    | `VARCHAR`   | `NOT NULL`, value `query-model-v1` |
+| `normalized_source_path` | `VARCHAR`   | `NOT NULL`, key part               |
+| `failure_code`           | `VARCHAR`   | nullable, key part                 |
+| `valid_count`            | `UBIGINT`   | `NOT NULL`                         |
+| `failure_count`          | `UBIGINT`   | `NOT NULL`                         |
+
+Key and order: `(normalized_source_path, failure_code)` ascending with nulls last. A null failure code is the valid-record count for that source and has `failure_count = 0`; a non-null code has `valid_count = 0`. Empty input returns zero rows with the declared schema.
+
+#### Dimension request contract
+
+The command accepts `--dimensions <name>[,<name>...]` and `--time-granularity none|hour|day|week|month`. The Python entry point accepts `dimensions: Sequence[str] = ()` and `time_granularity: Literal[...] = "none"`. Supported dimension names are `project`, `cli`, `provider`, `model`, `agent`, `branch`, and `exit_status`. The declared list order determines key and output ordering, but not totals. For non-empty input, omitted options mean an empty dimension list and `none`, producing one all-input total. Empty input returns zero rows with the declared schema. Duplicate or unknown names are errors. Selecting a time dimension is expressed only through a non-`none` granularity; `period_start` is UTC and uses DuckDB calendar truncation, with ISO Monday starts for weeks.
+
+#### Logical-run and source-position contract
+
+For each registry key `claude`, `pi`, `codex`, and `copilot`, logical-run identity is `(cli, session_id, run_id)`. Claude and Pi descendants contribute once per distinct key. Codex and Copilot descendants remain attribution-only. `parent_run_id` defines ancestry and is not an identity field. Evidence source, capture sequence, and record content are excluded after reduction.
+
+Canonical session dimensions and `captured_at` come from the selected root snapshot. Additive Claude and Pi descendants contribute measures but do not replace root dimensions. Cache aggregation uses exactly the logical runs whose measures contribute under the selected CLI conservation rule.
+
+A source path is made relative to the selected usage directory, converted to `/` separators, stripped of `.` segments, rejected if absolute or containing `..`, decoded as valid UTF-8, and normalized segment-by-segment to Unicode NFC. Source position is `(normalized_source_path, source_line)`, comparing paths lexicographically by unsigned UTF-8 bytes and lines as one-based unsigned integers. The latest snapshot is the maximum `(capture_sequence, normalized_source_path, source_line)` tuple, with numeric ordering for the first and last items.
 
 The command registers query-scoped valid and failure relations. `capture_health` remains queryable when failures exist. Every other published view exits non-zero without a partial result until the failure relation is empty. An empty input directory succeeds with typed empty results.
 
@@ -491,5 +588,7 @@ All component operations are idempotent. An update whose consumer range excludes
 | Capture independence                                       | Existing capture contract tests |
 | Component installation, update, removal, and idempotency   | Distribution lifecycle tests    |
 | Factory-to-Usage Analysis dependency direction             | `dependency-check`              |
+| Locked DuckDB and PyArrow runtime isolation                | Distribution dependency gate    |
+| DuckDB UI launch documentation and six-view bootstrap      | UI documentation smoke test     |
 
 Non-owning layers may exercise a journey but must not duplicate the owner's assertions.
