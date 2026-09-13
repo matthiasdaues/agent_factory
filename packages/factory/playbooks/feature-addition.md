@@ -38,10 +38,12 @@ steps:
     max_input_tokens: 20000
   - name: update-specification
     inputs:
+      - 'docs/findings/SPEC-*.md'
       - 'docs/proposals/**/*.md'
       - 'docs/spec/**/*.md'
       - 'docs/spec/**/*.feature'
     outputs:
+      - 'docs/proposals/**/*.md'
       - 'docs/spec/**/*.md'
       - 'docs/spec/**/*.feature'
     max_input_tokens: 40000

@@ -28,3 +28,11 @@ def test_spec_review_can_read_project_terminology() -> None:
 
 def test_spec_review_can_persist_its_mandatory_report() -> None:
     assert "docs/reviews/spec-review-*.md" in _step("spec-review")["outputs"]
+
+
+def test_requirements_remediation_can_read_spec_findings() -> None:
+    assert "docs/findings/SPEC-*.md" in _step("update-specification")["inputs"]
+
+
+def test_requirements_remediation_can_correct_the_accepted_proposal() -> None:
+    assert "docs/proposals/**/*.md" in _step("update-specification")["outputs"]
