@@ -32,11 +32,6 @@ Prior skill trace: [test-design-skill.md](../../../docs/proposals/test-design-sk
 
 Follow the [testing.yaml prerequisite guard](../../rulebooks/conventions/testing-yaml-prerequisite.md). On any failure, author no test files.
 
-Author no test files.
-
-Only when `testing_strategy:` and `suites:` are both present does the
-procedure below run.
-
 ## Inputs
 
 - `backlog/ST-NNNN.md` — the story being implemented, with `traces:`

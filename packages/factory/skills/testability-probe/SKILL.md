@@ -37,11 +37,6 @@ Proposal trace: [test-design-layer-redistribution.md](../../../docs/proposals/te
 
 Follow the [testing.yaml prerequisite guard](../../rulebooks/conventions/testing-yaml-prerequisite.md). On any failure, write no output to `backlog/epics.md`.
 
-Write no output to `backlog/epics.md`.
-
-Only when `testing_strategy:` and `suites:` are both present does the
-procedure below run.
-
 ## Inputs
 
 - `backlog/epics.md` — confirmed epic slicing with EPIC-level Actor Goals and
