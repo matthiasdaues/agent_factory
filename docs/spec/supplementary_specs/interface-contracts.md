@@ -92,12 +92,12 @@ See [UC-06](../../~archive/spec/use_cases/UC-06-regenerate-the-catalog.md).
 
 ## `factory/config/hooks/block-dangerous-git.sh`
 
-|            |                                                                                                                                                                                                   |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Invocation | Native `PreToolUse` hook for Claude Code, GitHub Copilot CLI, and Codex; command JSON on stdin                                                                                                    |
-| Reads      | `.tool_input.command`, `.toolArgs.command`, or `.tool_input.cmd`, according to the calling runtime; `docs/charter/testing.yaml` (charter-declared test commands for the agent allowlist — BR-024) |
-| Writes     | Deny reason to stderr; `{"permissionDecision":"deny","permissionDecisionReason":"..."}` to stdout on deny                                                                                         |
-| Exit code  | `0` allow; `2` deny (shared by the three native-hook CLIs)                                                                                                                                        |
+|            |                                                                                                                                                                                           |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Invocation | Native `PreToolUse` hook for Claude Code, GitHub Copilot CLI, and Codex; command JSON on stdin                                                                                            |
+| Reads      | `.tool_input.command`, `.toolArgs.command`, or `.tool_input.cmd`, according to the calling runtime; `docs/testing.yaml` (charter-declared test commands for the agent allowlist — BR-024) |
+| Writes     | Deny reason to stderr; `{"permissionDecision":"deny","permissionDecisionReason":"..."}` to stdout on deny                                                                                 |
+| Exit code  | `0` allow; `2` deny (shared by the three native-hook CLIs)                                                                                                                                |
 
 See [UC-07](../../~archive/spec/use_cases/UC-07-block-a-dangerous-git-command.md).
 
@@ -111,7 +111,7 @@ See [UC-07](../../~archive/spec/use_cases/UC-07-block-a-dangerous-git-command.md
 | Streaming  | Asynchronously spools complete stdout to protected capture staging, incrementally parses arbitrarily chunked JSONL with bounded non-result state, and emits bounded progress updates                                                                                                                        |
 | Returns    | A BR-040 bounded result envelope plus `{ usage, exitCode }` parsed from the child's final assistant `message_end`; an error result on unknown agent, unresolved model, exceeded depth, spawn failure, non-zero/no-result exit, or cancellation                                                              |
 | Capture    | Hands the complete raw staging file to detached best-effort usage capture; capture failure leaves the agent result unchanged, and cancellation terminates the process group through bounded `SIGTERM` → `SIGKILL` escalation, bounds pipe drain, cleans staging, and returns a distinct no-retry diagnostic |
-| Guardrail  | The child loads `.pi/extensions/`, so the git-safety guardrail binds it too; the charter-declared test commands from `docs/charter/testing.yaml` are allowlisted with exact matching                                                                                                                        |
+| Guardrail  | The child loads `.pi/extensions/`, so the git-safety guardrail binds it too; the charter-declared test commands from `docs/testing.yaml` are allowlisted with exact matching                                                                                                                                |
 
 See [UC-10](../../~archive/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md).
 
@@ -306,7 +306,7 @@ The gate parses these lines and verifies the named test module exists. A waiver 
 
 The gate is skipped when the story has no `#### Test Design` section and no `#### Prior Tests` section — it exits 0 and produces no findings. This preserves backward compatibility with stories that predate the test-design skill.
 
-## `docs/charter/testing.yaml` — `gates` section schema
+## `docs/testing.yaml` — `gates` section schema
 
 The `gates` section centralizes gate configuration that the dispatcher reads at runtime. It does not define gate execution ordering; [ADR-0012](../../adr/0012-dispatcher-owned-semantic-gate-loop.md) owns the dispatcher's gate sequence.
 
@@ -329,7 +329,7 @@ gates:
 | `gates.mutation_testing.enabled` | bool  | yes      | Whether the dispatcher runs mutation testing; `false` until infrastructure ready |
 | `gates.test_design_verify`       | —     | no       | Conditional; active when test-design output exists in the story                  |
 
-## `docs/charter/testing.yaml` — `risk_classes` section schema
+## `docs/testing.yaml` — `risk_classes` section schema
 
 Optional per-project overrides of Factory convention risk-class defaults. Precedence: `testing.yaml` inline > project-linked strategy document > Factory convention defaults.
 
@@ -395,6 +395,7 @@ The [feature specification](../local-usage-processing-and-analysis.feature) adds
 | Schema dialect       | JSON Schema Draft 2020-12                                                                  |
 | Installed projection | `.agent-factory/usage-analysis/contract/`                                                  |
 | Consumer rule        | Usage Analysis reads only the installed projection and declares its accepted version range |
+| CLI enum             | Exactly `claude-code`, `copilot`, `codex`, and `pi`                                        |
 | Gate                 | `packages/usage/scripts/usage-contract-check`                                              |
 
 The YAML manifest declares owner, current version, compatibility policy, and accepted consumer range. The schema owns field names, types, nullability, and nested structure. The gate additionally owns cross-field invariants and producer/consumer version agreement. A failure identifies source file, line number, field, and stable failure code.
@@ -550,7 +551,11 @@ The command accepts `--dimensions <name>[,<name>...]` and `--time-granularity no
 
 #### Logical-run and source-position contract
 
-For each registry key `claude`, `pi`, `codex`, and `copilot`, logical-run identity is `(cli, session_id, run_id)`. Claude and Pi descendants contribute once per distinct key. Codex and Copilot descendants remain attribution-only. `parent_run_id` defines ancestry and is not an identity field. Evidence source, capture sequence, and record content are excluded after reduction.
+The registry keys are exactly the producer values `claude-code`, `pi`, `codex`, and `copilot`. Logical-run identity is `(cli, session_id, run_id)`. Claude Code and Pi descendants contribute once per distinct key. Codex and Copilot descendants remain attribution-only. `parent_run_id` defines ancestry and is not an identity field. Evidence source, capture sequence, and record content are excluded after reduction.
+
+Each `(cli, session_id)` partition must form one rooted directed tree. The root is the only logical run whose `parent_run_id` is null. Every non-root `parent_run_id` must resolve to a distinct logical run in the same CLI and session partition. The graph must be acyclic, and every run must be reachable from the unique root. A direct child names the root's `run_id`; descendants are the transitive closure of valid parent links.
+
+Strict preflight reports ancestry failures before accounting. Root count other than one is `USAGE_ANCESTRY_ROOT_COUNT`. A parent ID absent from every selected run is `USAGE_ANCESTRY_PARENT_MISSING`. A parent ID found only under another CLI or session is `USAGE_ANCESTRY_PARENT_BOUNDARY`. A self-link is `USAGE_ANCESTRY_SELF_PARENT`. A directed cycle is `USAGE_ANCESTRY_CYCLE`. All detectable failures enter the query-scoped failure relation; any such failure blocks every stable view except `capture_health`.
 
 Canonical session dimensions and `captured_at` come from the selected root snapshot. Additive Claude and Pi descendants contribute measures but do not replace root dimensions. Cache aggregation uses exactly the logical runs whose measures contribute under the selected CLI conservation rule.
 

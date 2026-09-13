@@ -96,15 +96,15 @@ This resolution order is why `halt_conditions` must name the **author** state be
 
 ## Project-owned test gates (`testing.yaml`, BR-023, BR-024, BR-025, BR-026, BR-027, BR-028, BR-029)
 
-- **BR-023**: Factory does not detect or construct test commands. The project declares its test commands in `docs/charter/testing.yaml`. Factory reads that declaration; it does not guess, detect, or override. The `detect-test-regime` skill scans for existing test entrypoints during onboarding and populates the charter; it is not a runtime detection mechanism.
-- **BR-024**: Bare test commands (`pytest`, `npm test`, `go test`, `cargo test`, and common variants) are blocked for agent execution via `block-dangerous-git.sh` deny patterns. The agent allowlist is populated from `docs/charter/testing.yaml`: all declared command fields (`test_command`, `test_staged_command`, `test_changed_command`) are allowlisted with exact-string matching. No prefix matching. A command that differs from the declared string by even one character is denied.
-- **BR-025**: The `test_changed_command` field in `docs/charter/testing.yaml` is optional. When present, it is the command the project uses for fast feedback on changed files. Factory does not engineer mode flags or substitute its own mode logic; the project owns its mode story.
-- **BR-026**: The `test_command` field in `docs/charter/testing.yaml` is required. It is the full test suite command used by FSM `script_exit_zero` gate conditions. Factory calls it as-is from the repository root and reads only its exit code.
+- **BR-023**: Factory does not detect or construct test commands. The project declares its test commands in `docs/testing.yaml`. Factory reads that declaration; it does not guess, detect, or override. The `detect-test-regime` skill scans for existing test entrypoints during onboarding and populates the charter; it is not a runtime detection mechanism.
+- **BR-024**: Bare test commands (`pytest`, `npm test`, `go test`, `cargo test`, and common variants) are blocked for agent execution via `block-dangerous-git.sh` deny patterns. The agent allowlist is populated from `docs/testing.yaml`: all declared command fields (`test_command`, `test_staged_command`, `test_changed_command`) are allowlisted with exact-string matching. No prefix matching. A command that differs from the declared string by even one character is denied.
+- **BR-025**: The `test_changed_command` field in `docs/testing.yaml` is optional. When present, it is the command the project uses for fast feedback on changed files. Factory does not engineer mode flags or substitute its own mode logic; the project owns its mode story.
+- **BR-026**: The `test_command` field in `docs/testing.yaml` is required. It is the full test suite command used by FSM `script_exit_zero` gate conditions. Factory calls it as-is from the repository root and reads only its exit code.
 - **BR-027**: Factory does not parse structured test output. The gate contract is exit-code-only: zero means pass, nonzero means fail. Structured test counts, JSON summaries, and reporting are the project's concern.
-- **BR-028**: The `test_staged_command` field in `docs/charter/testing.yaml` is optional. When present, it is the command agents may use for TDD iteration on staged files. It is allowlisted in `block-dangerous-git.sh` with exact matching.
+- **BR-028**: The `test_staged_command` field in `docs/testing.yaml` is optional. When present, it is the command agents may use for TDD iteration on staged files. It is allowlisted in `block-dangerous-git.sh` with exact matching.
 - **BR-029**: Factory does not inject test hooks into `.pre-commit-config.yaml`. Test hooks are project-owned infrastructure. The project decides when and how tests trigger on commit, push, or other events. The `agent_factory_hook-run-tests-full` entry that previously existed in Factory's pre-commit config is removed.
 
-The `script_exit_zero` condition evaluator resolves `test_command` from `docs/charter/testing.yaml` via the `charter:test_command` notation and reads its exit code; the pass/fail decision is exit-code-only (BR-027).
+The `script_exit_zero` condition evaluator resolves `test_command` from `docs/testing.yaml` via the `charter:test_command` notation and reads its exit code; the pass/fail decision is exit-code-only (BR-027).
 
 ## Anchor-file prerequisite (feature-addition)
 
@@ -154,11 +154,11 @@ See [newcomer-onboarding.feature](../newcomer-onboarding.feature).
 
 ## Test-design validation (BR-051, BR-052, BR-053, BR-054, BR-055)
 
-- **BR-051**: The test-design skill requires `detect-test-regime` as a prerequisite. If `docs/charter/testing.yaml` lacks a `testing_strategy:` link or a `suites:` section, the skill fails with a diagnostic message and produces no output. This is a hard prerequisite, not a fallback path.
+- **BR-051**: The test-design skill requires `detect-test-regime` as a prerequisite. If `docs/testing.yaml` lacks a `testing_strategy:` link or a `suites:` section, the skill fails with a diagnostic message and produces no output. This is a hard prerequisite, not a fallback path.
 - **BR-052**: Test ownership is resolved in a single backlog-wide pass through `backlog/epics.md`. Each contract has exactly one owning story determined by dependency order: the story that introduces the contract's infrastructure or first exercises it (earliest in dependency-sorted order among stories that trace the contract). No contract is tested twice at the same layer.
 - **BR-053**: Risk-class classification follows a three-level precedence chain: `testing.yaml` `risk_classes:` overrides > project-linked strategy document > Factory convention defaults. The Factory convention defines three risk classes: `critical` (format: `forbidden`, budget: `unbounded`), `standard` (format: `scenario`, budget: `equivalence`), `structural` (format: `linter`). Projects may add custom risk classes; custom classes must define at least `format` and `budget`.
 - **BR-054**: The `test-design-verify` gate validates the trace-to-scenario resolution chain. Exit codes follow the gate convention: `0` = pass, `1` = validation failure, `2` = configuration error. The gate is conditionally active — it runs when the story has `#### Test Design` or `#### Prior Tests` sections and exits `0` with no findings when neither exists.
-- **BR-055**: The `gates` section in `docs/charter/testing.yaml` configures individual gates (enabled/disabled, thresholds). It does not define execution ordering; [ADR-0012](../../adr/0012-dispatcher-owned-semantic-gate-loop.md) owns the dispatcher's gate sequence. The CRAP-score script reads `gates.crap_score.threshold` from `testing.yaml`, replacing the dead-code `read_threshold_from_house_rules()` function. When the `gates` section is absent, the script falls back to its hardcoded default of 30.
+- **BR-055**: The `gates` section in `docs/testing.yaml` configures individual gates (enabled/disabled, thresholds). It does not define execution ordering; [ADR-0012](../../adr/0012-dispatcher-owned-semantic-gate-loop.md) owns the dispatcher's gate sequence. The CRAP-score script reads `gates.crap_score.threshold` from `testing.yaml`, replacing the dead-code `read_threshold_from_house_rules()` function. When the `gates` section is absent, the script falls back to its hardcoded default of 30.
 
 ## Concern registry validation (`concern-lint`, CTX-\* codes)
 
@@ -198,13 +198,15 @@ These rules support the [local usage feature](../local-usage-processing-and-anal
 - Report each failure with source file, one-based line number, field when applicable, and a stable failure code.
 - Validate usage objects against the installed JSON Schema Draft 2020-12 contract and the manifest's accepted version range.
 - Enforce identifiers, timestamps, declared nullability, non-negative counters, nested `transcript_ref` shape, and `normalized_total = normalized_input + normalized_output` outside schema where required.
-- Reject an unknown CLI. The supported CLI set and accounting registry keys must be equal.
+- Reject an unknown CLI. The supported CLI set and accounting registry keys must be exactly `claude-code`, `pi`, `codex`, and `copilot`.
+- Partition logical runs by `(cli, session_id)` and require exactly one null-parent root, same-partition parent resolution for every non-root, no self-links, no cycles, and reachability of every run from the root.
+- Report malformed ancestry with `USAGE_ANCESTRY_ROOT_COUNT`, `USAGE_ANCESTRY_PARENT_MISSING`, `USAGE_ANCESTRY_PARENT_BOUNDARY`, `USAGE_ANCESTRY_SELF_PARENT`, or `USAGE_ANCESTRY_CYCLE`. Any ancestry failure blocks canonical accounting.
 
 ### Snapshot and accounting validation
 
 - Normalize source paths relative to the selected usage directory: valid UTF-8, Unicode NFC per segment, `/` separators, no `.` segments, and rejection of absolute paths or `..` traversal.
 - Preserve `(normalized_source_path, source_line)` as evidence identity until canonical-run reduction; line numbers are positive and one-based.
-- For each supported CLI, define logical-run identity as `(cli, session_id, run_id)`. `parent_run_id` defines ancestry. Evidence source, capture sequence, and record content are excluded from logical-run identity.
+- For each supported CLI, define logical-run identity as `(cli, session_id, run_id)`. `parent_run_id` defines the validated rooted-tree ancestry but does not enter identity. Direct children name the unique root's run ID; descendants are the transitive closure of valid parent links. Evidence source, capture sequence, and record content are excluded from logical-run identity.
 - Select the latest cumulative snapshot by maximum `(capture_sequence, normalized_source_path, source_line)`. Compare capture sequence and line numerically and normalized paths by unsigned UTF-8 byte lexicographic order.
 - Claude Code total: latest root snapshot plus each distinct child run once.
 - Pi total: root record plus each distinct descendant run once.

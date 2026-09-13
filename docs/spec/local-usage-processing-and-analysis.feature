@@ -42,11 +42,19 @@ Rule: Local operator obtains conservative canonical usage without duplication
 
 ```
 Scenario: Logical-run identity is CLI-specific and source-independent
-  Given valid records name Claude Code, Pi, Codex, or GitHub Copilot CLI
+  Given valid records use the exact CLI values "claude-code", "pi", "codex", or "copilot"
   When records are reduced to logical runs
   Then each CLI uses the tuple of CLI, session ID, and run ID as its logical-run key
   And parent run ID establishes ancestry without changing identity
   And source path, line, capture sequence, and record content do not enter that key
+
+Scenario: Valid session ancestry determines one root and all descendants
+  Given one CLI and session partition contains exactly one run with no parent run ID
+  And every other run names an existing distinct parent in that same partition
+  And the parent graph is acyclic and every run is reachable from the root
+  When canonical accounting resolves the session hierarchy
+  Then the parent transitive closure determines every descendant of the unique root
+  And a direct child names the root run ID as its parent run ID
 
 Scenario: Latest run snapshot uses deterministic evidence identity
   Given a logical run has cumulative snapshots with source file and line identity
@@ -105,6 +113,20 @@ Scenario: Preflight classifies every selected line
   When strict preflight runs
   Then every line appears in exactly one query-scoped valid or failure relation
   And each failure reports source file, line number, field, and stable failure code
+
+Scenario Outline: Preflight rejects malformed run ancestry
+  Given otherwise valid records contain <ancestry defect>
+  When strict preflight validates the CLI and session partition
+  Then the failure relation contains the stable code <failure code>
+  And canonical accounting does not run
+
+  Examples:
+    | ancestry defect                                     | failure code                      |
+    | no root or more than one root                       | USAGE_ANCESTRY_ROOT_COUNT         |
+    | a parent run ID absent from every selected run      | USAGE_ANCESTRY_PARENT_MISSING     |
+    | a parent found only under another CLI or session    | USAGE_ANCESTRY_PARENT_BOUNDARY    |
+    | a run whose parent run ID equals its own run ID     | USAGE_ANCESTRY_SELF_PARENT        |
+    | two or more runs forming a directed parent cycle    | USAGE_ANCESTRY_CYCLE              |
 
 Scenario: Health remains available for an invalid selected set
   Given strict preflight records at least one failure

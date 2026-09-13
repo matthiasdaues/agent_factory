@@ -28,14 +28,16 @@ None. Every Rule has a main success, boundary, or failure Scenario.
 
 ## Ambiguous Wording
 
-None detected. The specification defines counts, paths, formats, the four per-CLI logical-run keys, source normalization and comparison order, all six query-model-v1 schemas, dimension and time parameters, supported CLIs, failure behavior, dependency locking, UI smoke ownership, lifecycle effects, and deferrals in testable terms from the accepted proposal.
+None detected. The specification defines counts, paths, formats, the four exact producer CLI values and logical-run keys, rooted-tree ancestry invariants and failure codes, source normalization and comparison order, all six query-model-v1 schemas, dimension and time parameters, failure behavior, dependency locking, UI smoke ownership, lifecycle effects, and deferrals in testable terms from the accepted proposal.
 
 ## Review Trace
 
+- [SPEC-0015](../findings/SPEC-0015.md) traces to the single `docs/testing.yaml` path across the concern, PRD, test-design, test-gate, scope-map, entity, interface, and validation contracts.
 - [SPEC-0016](../findings/SPEC-0016.md) traces to the logical-run and source-position contracts in the feature, entity model, interface contract, validation rules, and LU-03 owner fixtures.
 - [SPEC-0017](../findings/SPEC-0017.md) traces to the six query-model-v1 schemas and dimension request contract, owned by LU-07 integration tests.
 - [SPEC-0018](../findings/SPEC-0018.md) traces to the UI documentation smoke scenario and the distinct LU-12 deterministic owner.
 - [SPEC-0019](../findings/SPEC-0019.md) traces to direct DuckDB and PyArrow declarations, the shipped lockfile, the offline-cache contract, and the distinct LU-13 deterministic owner.
+- [SPEC-0020](../findings/SPEC-0020.md) traces to the rooted-tree ancestry contract, five stable preflight codes, and the LU-05 deterministic owner.
 
 Finding status remains owned by the independent repeat specification reviewer.
 

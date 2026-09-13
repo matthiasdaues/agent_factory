@@ -16,7 +16,7 @@ Deferred decisions and named gaps found while reverse-engineering this specifica
 
 ## T-03: `script_exit_zero` condition type ~~is stubbed~~ — partially resolved
 
-`factory/scripts/phase`'s `evaluate_condition` now executes the named script and checks its exit code (lines 259-288). The basic subprocess-run behavior is implemented. However, the `charter:test_command` notation introduced by the test-gate-presence feature (FSM YAML `script: "charter:test_command"` with `charter_file: docs/charter/testing.yaml`) is not yet resolved at runtime — see [RECON-0020](../../docs/findings/RECON-0020.md).
+`factory/scripts/phase`'s `evaluate_condition` now executes the named script and checks its exit code (lines 259-288). The basic subprocess-run behavior is implemented. However, the `charter:test_command` notation introduced by the test-gate-presence feature (FSM YAML `script: "charter:test_command"` with `charter_file: docs/testing.yaml`) is not yet resolved at runtime — see [RECON-0020](../../docs/findings/RECON-0020.md).
 
 - [x] Implement the real subprocess run + exit-code check.
 - [ ] Implement charter resolution for the `charter:<field>` notation ([RECON-0020](../../docs/findings/RECON-0020.md)).
@@ -37,7 +37,7 @@ Deferred decisions and named gaps found while reverse-engineering this specifica
 
 - status: superseded
 
-Superseded by the Test Gate Presence over Test Execution feature ([proposal](../proposals/test-gate-presence-over-test-execution.md)). Factory no longer detects or constructs test commands; `factory/scripts/run-tests` is deleted. Framework selection is entirely the project's responsibility, declared in `docs/charter/testing.yaml`. Multi-framework orchestration, if needed, is the project's own test entrypoint's concern.
+Superseded by the Test Gate Presence over Test Execution feature ([proposal](../proposals/test-gate-presence-over-test-execution.md)). Factory no longer detects or constructs test commands; `factory/scripts/run-tests` is deleted. Framework selection is entirely the project's responsibility, declared in `docs/testing.yaml`. Multi-framework orchestration, if needed, is the project's own test entrypoint's concern.
 
 ## T-07: `verify-base` and `premerge-check` were prompt-required, not hook-enforced
 

@@ -16,7 +16,7 @@ Feature: Test Design Skill
       Given backlog/epics.md exists with confirmed epic slicing
       And docs/spec/*.feature files declare behavioral contracts
       And docs/spec/scope-map.md maps contracts to architecture owners
-      And docs/charter/testing.yaml contains testing_strategy and suites
+      And docs/testing.yaml contains testing_strategy and suites
       When the Planning Agent invokes the test-design skill
       Then the skill reads all trace IDs from each epic's building-block inventory
       And reads the corresponding .feature rules and scenarios
@@ -52,19 +52,19 @@ Feature: Test Design Skill
     # @factory/skills/detect-test-regime/SKILL.md
 
     Scenario: Prerequisite met when testing_strategy is present
-      Given docs/charter/testing.yaml contains a testing_strategy link
-      And docs/charter/testing.yaml contains a suites section
+      Given docs/testing.yaml contains a testing_strategy link
+      And docs/testing.yaml contains a suites section
       When the test-design skill checks prerequisites
       Then the skill proceeds with its procedure
 
     Scenario: Prerequisite fails when testing_strategy is absent
-      Given docs/charter/testing.yaml exists but lacks a testing_strategy link
+      Given docs/testing.yaml exists but lacks a testing_strategy link
       When the test-design skill checks prerequisites
       Then the skill fails with a message telling the user to run detect-test-regime first
       And no test-design output is written
 
     Scenario: Prerequisite fails when testing.yaml is missing
-      Given docs/charter/testing.yaml does not exist
+      Given docs/testing.yaml does not exist
       When the test-design skill checks prerequisites
       Then the skill fails with a message that the charter testing declaration is absent
       And no test-design output is written
@@ -97,13 +97,13 @@ Feature: Test Design Skill
     # @factory/rulebooks/conventions/testing-strategy.md
 
     Scenario: Risk class resolved from testing.yaml overrides
-      Given docs/charter/testing.yaml contains a risk_classes section
+      Given docs/testing.yaml contains a risk_classes section
       And the risk_classes section defines a classification for the contract
       When the test-design skill classifies the contract
       Then the testing.yaml classification takes precedence over convention defaults
 
     Scenario: Risk class resolved from convention defaults
-      Given docs/charter/testing.yaml has no risk_classes section
+      Given docs/testing.yaml has no risk_classes section
       When the test-design skill classifies the contract
       Then the Factory convention defaults from testing-strategy.md apply
       And critical is assigned to contracts with atomicity, concurrency, or security invariants
@@ -111,7 +111,7 @@ Feature: Test Design Skill
       And structural is assigned to declarative structure and schema conformance
 
     Scenario: Custom project risk class applied
-      Given docs/charter/testing.yaml defines a custom risk class named financial
+      Given docs/testing.yaml defines a custom risk class named financial
       And a contract is tagged with the financial risk class
       When the test-design skill classifies the contract
       Then the custom risk class's format and budget rules govern the test design
@@ -238,17 +238,17 @@ Feature: Test Design Skill
 
   Rule: User configures risk classes per project in testing.yaml
     # actor: User
-    # @docs/charter/testing.yaml
+    # @docs/testing.yaml
     # @factory/rulebooks/templates/charter-testing.yaml
 
     Scenario: Project overrides default risk class settings
-      Given docs/charter/testing.yaml contains a risk_classes section
+      Given docs/testing.yaml contains a risk_classes section
       And the section redefines standard with a stricter budget
       When the test-design skill reads risk-class definitions
       Then the project override takes precedence over Factory convention defaults
 
     Scenario: Project adds a custom risk class
-      Given docs/charter/testing.yaml defines a new risk class named financial
+      Given docs/testing.yaml defines a new risk class named financial
       And the financial class specifies format as forbidden and budget as unbounded
       And the financial class has a requires list including double_entry_invariant
       When the test-design skill classifies a contract tagged as financial
@@ -261,16 +261,16 @@ Feature: Test Design Skill
 
   Rule: User configures gate thresholds in testing.yaml
     # actor: User
-    # @docs/charter/testing.yaml
+    # @docs/testing.yaml
     # @factory/rulebooks/templates/charter-testing.yaml
 
     Scenario: Gates section declares crap_score configuration
-      Given docs/charter/testing.yaml contains a gates section
+      Given docs/testing.yaml contains a gates section
       Then the gates.crap_score entry has an enabled flag set to true
       And the gates.crap_score entry has a threshold value
 
     Scenario: Gates section declares mutation_testing configuration
-      Given docs/charter/testing.yaml contains a gates section
+      Given docs/testing.yaml contains a gates section
       Then the gates.mutation_testing entry has an enabled flag set to false
       And mutation testing is disabled by default until project infrastructure is ready
 
@@ -285,13 +285,13 @@ Feature: Test Design Skill
     # @docs/adr/0012-dispatcher-owned-semantic-gate-loop.md
 
     Scenario: Dispatcher reads per-gate enabled flag from testing.yaml
-      Given docs/charter/testing.yaml contains a gates section
+      Given docs/testing.yaml contains a gates section
       When the dispatcher evaluates quality gates after a developer commit
       Then it reads each gate's enabled flag from gates
       And it skips gates where enabled is false
 
     Scenario: Dispatcher reads CRAP threshold from testing.yaml
-      Given docs/charter/testing.yaml declares gates.crap_score.threshold as 8
+      Given docs/testing.yaml declares gates.crap_score.threshold as 8
       When the dispatcher runs the crap-score gate
       Then it passes the threshold from testing.yaml to the crap-score script
       And the script uses that threshold instead of its hardcoded default
@@ -365,13 +365,13 @@ Feature: Test Design Skill
     # @factory/skills/crap-score/SKILL.md
 
     Scenario: CRAP script reads threshold from testing.yaml
-      Given docs/charter/testing.yaml declares gates.crap_score.threshold as 8
+      Given docs/testing.yaml declares gates.crap_score.threshold as 8
       When the crap-score script resolves its threshold
       Then it reads the value from testing.yaml's gates.crap_score.threshold
       And uses 8 as the threshold instead of the hardcoded default of 30
 
     Scenario: CRAP script falls back to hardcoded default
-      Given docs/charter/testing.yaml has no gates section
+      Given docs/testing.yaml has no gates section
       When the crap-score script resolves its threshold
       Then it uses the hardcoded default of 30
 
