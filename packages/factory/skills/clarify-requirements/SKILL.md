@@ -16,13 +16,13 @@ For a feature-addition, the target is its proposal in
 
 ## Select the branch
 
-| Context                                        | Branch              | Action                                                       |
-| ---------------------------------------------- | ------------------- | ------------------------------------------------------------ |
-| Small scope or quick pass                      | **Socratic**        | Run inline (below)                                           |
-| Greenfield — no existing docs                  | **Grill**           | Delegate to [`grill-me`](../grill-me/SKILL.md)               |
-| Brownfield — existing `docs/CONTEXT.md` / ADRs | **Grill with Docs** | Delegate to [`grill-with-docs`](../grill-with-docs/SKILL.md) |
+| Context                                        | Branch              | Action                                                                |
+| ---------------------------------------------- | ------------------- | --------------------------------------------------------------------- |
+| Small scope or quick pass                      | **Socratic**        | Run inline (below)                                                    |
+| Greenfield — no existing `docs/CONTEXT.md`     | **Grill**           | Delegate to [`grilling`](../grilling/SKILL.md)                        |
+| Brownfield — existing `docs/CONTEXT.md` / ADRs | **Grill with Docs** | Delegate to [`grilling`](../grilling/SKILL.md) (domain-modeling mode) |
 
-If unsure: no `docs/CONTEXT.md` / `docs/adr/` → `grill-me`; present → `grill-with-docs`. Announce the branch before starting.
+If unsure: no `docs/CONTEXT.md` / `docs/adr/` → grill; present → grill with docs (domain-modeling mode). Announce the branch before starting.
 
 ## Branch: Socratic (inline)
 

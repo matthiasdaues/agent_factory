@@ -32,7 +32,6 @@ outputs:
 triggers:
   - "review the code"
   - "QA"
-  - "code review"
   - "security review"
   - "find bugs"
   - "run quality checks"

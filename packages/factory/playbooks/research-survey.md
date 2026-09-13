@@ -93,7 +93,7 @@ policy, then semantic review. Failure blocks progression to Step 4.
 
 ### Step 4 — Synthesise the Findings
 
-**Agent**: `research-synthesizer`\
+**Agent**: `research-report-writer` (survey mode)\
 **Skill**: `research-synthesis`\
 **Input**: validated plan and recorded `sources/*.md`\
 **Output**: `survey-report.md`

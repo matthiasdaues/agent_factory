@@ -28,7 +28,6 @@ triggers:
   - "freeze the claim register"
 handoff-to:
   - researcher
-  - research-synthesizer
   - claim-reviewer
   - research-report-writer
 version: 0.2.1
@@ -106,8 +105,7 @@ These boundaries come from [role-separation.md](../rulebooks/conventions/researc
 - **MUST NOT** write claims, source records, or any substantive research content.
 - **MUST NOT** review claims or record findings against a conjecture.
 - **MUST NOT** cast a vote — it applies the threshold to votes cast by others.
-- **MUST NOT** add findings to a report — the Synthesizer and Report Writer own
-  that.
+- **MUST NOT** add findings to a report — the Report Writer owns that.
 
 ## Completion Criteria
 
