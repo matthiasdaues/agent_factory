@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: Skill & Agent Efficiency Remediation
-status: open
+status: implemented
 owner: Matthias Daues
 created: 2026-09-12
 updated: 2026-09-13
