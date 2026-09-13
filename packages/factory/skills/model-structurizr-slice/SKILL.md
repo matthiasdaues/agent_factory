@@ -8,6 +8,8 @@ category: architecture
 
 Project a delivery slice from the canonical model. Do not create a second model.
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 ## Read first
 
 Read:

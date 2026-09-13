@@ -9,6 +9,8 @@ disable-model-invocation: false
 
 Run a structured retrospective at the end of a work session or phase. Mine the conversation history for concrete examples — do not invent or generalize. Every item must cite a specific event from the session.
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 ## Step 1 — Gather evidence
 
 Scan the session history for concrete items per category:

@@ -21,6 +21,8 @@ for the binding structural rules this skill follows, and
 [factory-concern-oriented-agent-context.md](../../../docs/proposals/factory-concern-oriented-agent-context.md)
 for the design rationale.
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 **Runs in the orchestrating session, never as a spawned subagent.** The
 concern confirmation requires the stakeholder to be present to answer.
 

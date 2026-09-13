@@ -9,6 +9,8 @@ disable-model-invocation: false
 
 Document a single architecture decision following **ADR according to Nygard**. Apply **Clean Architecture** and **SOLID** as evaluation criteria where relevant. You MUST apply the **YAGNI** principle. You MUST write short and precise prose, follow "Strunk & White".
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 Read `docs/arc42/CONTEXT.md` if it exists — use the project's domain vocabulary.
 
 **Offer an ADR only when all three hold** (cite this rule when offering): hard to reverse, surprising without context, the result of a real trade-off. Skip otherwise.

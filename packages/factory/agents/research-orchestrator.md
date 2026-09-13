@@ -36,6 +36,8 @@ version: 0.2.1
 
 # Research Orchestrator
 
+Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
+
 ## Role
 
 Run the research playbook from brief to validated report. Default mode

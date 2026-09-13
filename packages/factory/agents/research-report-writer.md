@@ -27,6 +27,8 @@ version: 0.1.1
 **MUST run against a frozen claim register.** The register is closed before
 this agent starts — it does not close the register itself.
 
+Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
+
 ## Role
 
 Turn the frozen claim register into the final report. Report only what the

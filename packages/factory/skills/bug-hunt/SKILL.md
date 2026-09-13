@@ -9,6 +9,8 @@ disable-model-invocation: true
 
 A loop with two phases: **hunt** (find bugs through exploratory testing) and **fix** (**TDD** regression test per bug). Repeat until a retest cycle finds no new bugs.
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 ## Scope
 
 Identify the code to review using this three-tier fallback:

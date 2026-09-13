@@ -22,7 +22,7 @@ things down.
 **Runs in the orchestrating session, never as a spawned subagent.** The
 stakeholder must be present to confirm what gets written.
 
-Write for a colleague who is not yet deeply involved in the project. Write for a colleague in an international Team whose members have English as a common, but not as a native language.
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
 
 ## Procedure
 
@@ -70,40 +70,7 @@ manual.
 
 ## Quality gate
 
-Review the proposal through both lenses whenever its readiness is assessed.
-
-**Junior clarity.** Read the proposal as a teammate encountering it cold.
-
-1. **Ready for open review:** Can you understand the capability being changed,
-   where to begin investigating, the intended behavior, and every unresolved
-   question without consulting the author?
-2. **Ready for stakeholder acceptance:** Can you begin specification and
-   planning immediately, knowing what evidence to inspect first, what
-   observable behavior requires testing, and what "done" means?
-
-**Senior acceptance.** Read the proposal as a senior responsible for the next
-step.
-
-1. **Ready for open review:** Is the proposal bounded and concrete enough for
-   independent review? Unknowns may remain, but each must be explicit and
-   reviewable.
-2. **Ready for stakeholder acceptance:** Would you authorize the team to
-   proceed without another design conversation? Scope must be bounded, the
-   demonstration concrete, every Completion Criterion testable, dependencies
-   and risks visible, and every material question resolved as a criterion,
-   assumption, or explicit deferral.
-
-As long as either lens fails:
-
-- The draft is not ready for open review.
-- The open proposal is not ready for stakeholder acceptance.
-
-A junior pass with a senior failure means the proposal is understandable but
-insufficiently decided. A senior pass with a junior failure means it is bounded
-but not navigable.
-
-This gate assesses readiness only. The proposal lifecycle determines who may
-change its status.
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md) whenever the proposal's readiness is assessed. This gate assesses readiness only. The proposal lifecycle determines who may change its status.
 
 ## Completion
 

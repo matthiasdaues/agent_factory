@@ -8,6 +8,8 @@ category: requirements
 
 Build `docs/spec/scope-map.md` from whatever sources exist — code, tests, docs, wiki pages, API specs, or stakeholder knowledge.
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 ## How the user experiences it
 
 Open with plain language:

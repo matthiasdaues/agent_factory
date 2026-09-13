@@ -112,14 +112,7 @@ replace architectural jargon when plain language is clearer.
 
 ### 4. Quality gate
 
-Run the Agent-Answerability Checks from
-[create-backlog](../create-backlog/SKILL.md#agent-answerability-checks). Every
-check must be answerable from the story alone.
-
-Run the International Readability checks on Goal, Domain Rule,
-Required API Behavior, Constraints, and Agent Stop Conditions.
-
-A story that fails either gate is revised before it leaves this skill.
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md). A story that fails any gate is revised before it leaves this skill.
 
 ### 5. Format
 

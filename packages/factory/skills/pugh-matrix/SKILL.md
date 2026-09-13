@@ -9,6 +9,8 @@ disable-model-invocation: false
 
 Weighted-alternatives evaluation. Standalone technique, not tied to any one artifact — called by whatever agent or skill needs a formal comparison (typically before `write-adr`, but not exclusively).
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 ## Step 1 — Build the matrix
 
 ```markdown

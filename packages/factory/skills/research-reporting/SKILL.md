@@ -8,6 +8,8 @@ category: research
 
 Compose the final research report from a frozen claim register. The playbook controls when the register is frozen and when the report is written; this skill covers how to write it.
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 The report must:
 
 - Use only surviving claims as its factual basis.

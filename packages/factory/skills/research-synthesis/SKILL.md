@@ -9,6 +9,8 @@ disable-model-invocation: false
 
 Turn recorded source records into a source-grounded survey report. The survey playbook controls when synthesis occurs and how the result is released; this skill covers how to write the report.
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 ## Input
 
 Use only source records produced for the validated survey plan. Read each

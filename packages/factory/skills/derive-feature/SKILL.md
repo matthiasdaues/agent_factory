@@ -12,6 +12,8 @@ Cockburn reasoning sequence as an **internal working discipline** — not
 document production. Outputs a single-file specification that coders and QA
 agents can read in one pass.
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 The Cockburn chain (actors, goals, scenarios) is the reasoning engine.
 
 ## Inputs

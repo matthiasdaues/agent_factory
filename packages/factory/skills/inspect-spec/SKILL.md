@@ -9,6 +9,8 @@ disable-model-invocation: false
 
 Review the Phase-1 specification for defects **before** architecture consumes it. Two passes, strict division of labour:
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 - **Pass 1 — `spec-lint` (deterministic).** Catches provable defects — broken cross-references, missing Cockburn sections, undefined `BR-###`, unreachable states. Zero false-positive by design.
 - **Pass 2 — semantic inspection (this LLM).** Only what a parser *cannot* decide: contradictions, ambiguity, testability, hidden assumptions, terminology drift.
 

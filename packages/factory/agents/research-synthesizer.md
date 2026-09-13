@@ -21,6 +21,8 @@ version: 0.1.1
 
 # Research Synthesizer
 
+Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
+
 ## Role
 
 Turn recorded survey sources into a cited report. Report only what the sources

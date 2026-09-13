@@ -45,7 +45,7 @@ estimate:
 ## Summary
 
 Remove inefficiencies and detractors from the 84-item skill and agent
-collection, recovering approximately 8,500 tokens (22% of the total load)
+collection, recovering approximately 7,000 tokens (18% of the total load)
 while preserving the genuine domain methodology that makes the collection
 valuable. The work is organized as six streams executed in a defined order:
 structural optimization first (convention extraction, reference extraction,
@@ -196,15 +196,43 @@ that produces written output references it with a single line:
 
 Replace "writing quality gates" with a working link once the referenced file exists.
 
-**Affected items (broader than original 2b scope):** all agents and skills
-producing prose output — including but not limited to `create-backlog`,
-`create-backlog-stories`, `create-backlog-epics`, `draft-proposal`,
-`write-adr`, `research-report-writer`, `research-synthesizer`,
-`architecture-agent`, `requirements-agent`, `reconciliation-agent`,
-`spec-review-agent`, `proposal-review-agent`, `code-review-agent`.
+**Inclusion rule:** any agent or skill whose primary output includes
+persistent prose artifacts (markdown documents, reports, findings, specs,
+stories, proposals, ADRs, handoffs). Items producing only code, config,
+JSON gate reports, or ephemeral conversational output are excluded.
 
-Inline copies of any of these gates in individual skills are removed and
-replaced with the single reference.
+**Affected agents (16):** `architecture-agent`, `architecture-review-agent`,
+`claim-reviewer`, `coaching-agent`, `code-review-agent`,
+`implementation-agent`, `planning-agent`, `proposal-review-agent`,
+`qa-agent`, `reconciliation-agent`, `requirements-agent`,
+`research-orchestrator`, `research-report-writer`, `research-synthesizer`,
+`researcher`, `spec-review-agent`.
+
+**Affected skills (37):** `adversarial-review`, `atam-review`, `bug-hunt`,
+`capture-context`, `capture-vision`, `claim-formulation`,
+`clarify-requirements`, `create-backlog`, `create-backlog-epics`,
+`create-backlog-make-concrete`, `create-backlog-slice-story`,
+`create-backlog-stories`, `create-backlog-story-slices`,
+`create-backlog-write-epics`, `derive-feature`, `domain-modeling`,
+`draft-proposal`, `fagan-review`, `handoff`, `inspect-spec`,
+`maintain-architecture`, `model-structurizr-slice`, `process-transcript`,
+`pugh-matrix`, `qa-strategy-from-spec`, `reconcile-spec`,
+`research-planning`, `research-reporting`, `research-synthesis`,
+`retrospective`, `reverse-map`, `scaffold-arc42`, `source-research`,
+`spec-feedback`, `testability-probe`, `write-adr`, `write-prd`.
+
+**Excluded (not prose-producing):** `developer-agent`, `virgil`,
+`caveman`, `comic-relief`, `commit`, `crap-score`, `dependency-check`,
+`detect-test-regime`, `explain-concept`, `grilling`, `grill-me`,
+`grill-with-docs`, `guided-tour`, `newcomer-tour`, `implement-issue`,
+`init-factory`, `mutation-testing`, `refutation-design`, `run-step`,
+`scratchpad`, `security-review`, `test-design`, `validate`,
+`vue-best-practices`.
+
+Inline copies of any of these gates in individual items are removed and
+replaced with the single reference. Future items meeting the inclusion
+rule must add the reference at authoring time (enforced by the
+skill-authoring principles in Stream 6).
 
 #### 2c. Prerequisite guards (~100 tokens)
 
@@ -214,7 +242,9 @@ snippet:
 
 > Requires `docs/testing.yaml` with `testing_strategy` and `suites` sections.
 
-**Recovery:** ~1,550 tokens across 2a–2c.
+**Recovery:** ~1,984 tokens across 2a–2c (includes ~434 tokens previously
+double-counted in Stream 3 for `code-review-agent` gate extraction and
+`create-backlog-stories` gate table dedup).
 
 ### Stream 3: Trim Native-Knowledge Overlap
 
@@ -222,19 +252,48 @@ Replace methodology pedagogy with method-name references and keep only
 project-specific conventions. For each item, the "keep" column names the
 genuinely additive content; everything else is trimmed.
 
-| Item                     | Current | Target | Keep                                                                | Trim                                                                                                                                                            |
-| ------------------------ | ------- | ------ | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `implementation-agent`   | ~3,254  | ~800   | Dispatch goals, verification contract                               | Wave planning, branching prose, prompt templates, gate-check loop — move to dispatch scripts                                                                    |
-| `developer-agent`        | ~1,964  | ~600   | Story-file contract, skill routing                                  | TDD conditional branching, Red-Green-Refactor sub-conditions, `.feature` re-explanation                                                                         |
-| `derive-feature`         | ~1,104  | ~600   | Output format, lifecycle rules, @-references, scope-map integration | Cockburn reasoning pedagogy (Steps 3–5) — replace with "apply Cockburn reasoning to derive actor-goal pairs"                                                    |
-| `vue-best-practices`     | ~560    | ~60    | Project-specific deviations only                                    | Generic Vue 3 Composition API knowledge                                                                                                                         |
-| `comic-relief`           | ~324    | ~60    | Tone constraint, target rule (process not person)                   | Humor quadrangle, timing rules, example categories                                                                                                              |
-| `explain-concept`        | ~320    | ~80    | Search-path routing (guide → INDEX → rulebooks)                     | Lucien persona, self-check step, audience rubric                                                                                                                |
-| `security-review`        | ~172    | ~40    | "Minimize false positives" constraint                               | OWASP-10 checklist (model does this natively and more thoroughly)                                                                                               |
-| `code-review-agent`      | ~834    | ~500   | Review methodology, skill routing                                   | Inline writing-quality gates — replace with single reference to `conventions/writing-quality-gates.md` (Stream 2b)                                              |
-| `create-backlog-stories` | ~496    | ~350   | 12 instructions, parent references                                  | Backward-compatibility heuristic for old-model test-design sections (~80 tokens, remove after migration), duplicate gate tables (~100 tokens, reference parent) |
+**Principle references for sub-frontier models (decided 2026-09-13):**
+Where a trim replaces pedagogy with a method-name reference (e.g. "apply
+Cockburn reasoning"), extract the removed explanation into a lean principle
+file under `packages/factory/rulebooks/principles/` (~50–100 tokens each).
+The trimmed skill includes a flipped-default conditional:
 
-**Recovery:** ~4,834 tokens.
+> Apply Cockburn reasoning to derive actor-goal pairs. Read
+> `rulebooks/principles/cockburn-reasoning.md` before proceeding. Skip
+> only if you can state the core principle without reading.
+
+Frontier models skip the file (they already know the principle). Weaker
+models default to reading — the safe direction. No model-matrix lookup,
+no router changes, no duplicate skill variants. Fails safe: the only
+failure mode is a weak model reading a file it could have skipped.
+
+Candidate principle files:
+
+| File                        | Extracted from       |
+| --------------------------- | -------------------- |
+| `cockburn-reasoning.md`     | `derive-feature`     |
+| `tdd-red-green-refactor.md` | `developer-agent`    |
+| `vue3-composition-api.md`   | `vue-best-practices` |
+| `owasp-top-10.md`           | `security-review`    |
+
+| Item                         | Current | Target | Keep                                                                                                                                                      | Trim                                                                                                                                                                                                                                                                                                                  |
+| ---------------------------- | ------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `implementation-agent`       | ~3,254  | ~2,400 | Full dispatch protocol: mode resolution (without hardcoded default), workflow steps, prompt templates, gate-check loop, escalation — all project-specific | Lifecycle boilerplate (→ Stream 2a convention), branching prose (restates linked policy docs), hardcoded `autonomous` default (mode default belongs in project config, not agent). Remaining kept content edited for conciseness: tighter prose, remove explanatory asides, compress to command + constraint per step |
+| `developer-agent`            | ~1,964  | ~600   | Story-file contract, skill routing                                                                                                                        | TDD conditional branching, Red-Green-Refactor sub-conditions, `.feature` re-explanation                                                                                                                                                                                                                               |
+| `derive-feature`             | ~1,104  | ~600   | Output format, lifecycle rules, @-references, scope-map integration                                                                                       | Cockburn reasoning pedagogy (Steps 3–5) — replace with "apply Cockburn reasoning to derive actor-goal pairs"                                                                                                                                                                                                          |
+| `vue-best-practices`         | ~560    | ~60    | Project-specific deviations only                                                                                                                          | Generic Vue 3 Composition API knowledge                                                                                                                                                                                                                                                                               |
+| `comic-relief`               | ~324    | ~60    | Tone constraint, target rule (process not person)                                                                                                         | Humor quadrangle, timing rules, example categories                                                                                                                                                                                                                                                                    |
+| `explain-concept`            | ~320    | ~80    | Search-path routing (guide → INDEX → rulebooks)                                                                                                           | Lucien persona, self-check step, audience rubric                                                                                                                                                                                                                                                                      |
+| `security-review`            | ~172    | ~40    | "Minimize false positives" constraint                                                                                                                     | OWASP-10 checklist (model does this natively and more thoroughly)                                                                                                                                                                                                                                                     |
+| **Recovery:** ~2,800 tokens. |         |        |                                                                                                                                                           |                                                                                                                                                                                                                                                                                                                       |
+
+**Moved to other streams (no longer counted here):**
+
+- `code-review-agent` (834→500): entire recovery is writing-quality gate
+  extraction → Stream 2b.
+- `create-backlog-stories` (496→350): gate table dedup → Stream 2b (~100
+  tokens); backward-compatibility heuristic removal → deferred. No
+  native-knowledge content to trim in Stream 3.
 
 ### Stream 4: Consolidate Overlapping Items
 
@@ -262,12 +321,15 @@ invoke `fagan-review`. Sharpen boundary:
 - `code-review-agent`: pre-merge diff review only.
 - `qa-agent`: post-merge full-codebase review, security, bug hunt.
 
-Remove "code review" from `qa-agent` triggers. Run 5 representative diffs
-through the custom `code-review-agent` and Claude Code's built-in
-`/code-review`. If quality matches, retire the custom agent and redirect to
-the built-in.
+Remove "code review" from `qa-agent` triggers.
 
-**Recovery:** ~90 tokens from deleted redirects, plus reduced confusion cost
+**Decision (2026-09-13):** Retiring `code-review-agent` in favor of Claude
+Code's built-in `/code-review` is **architecturally invalid**. The factory
+is a multi-CLI system (Claude Code, Copilot, Pi, Codex). The built-in
+`/code-review` is Claude Code only — retiring the custom agent would break
+every other CLI. The comparison test is therefore not applicable.
+
+**Recovery:** reduced confusion cost from clearer trigger boundaries
 (unquantifiable but real).
 
 ### Stream 5: Extract Reference Material
@@ -338,8 +400,6 @@ lines that fail the principle).
 
 **Explicitly deferred (do NOT plan stories for these):**
 
-- Retiring `code-review-agent` in favor of built-in `/code-review`. Requires
-  the 5-diff comparison test first; outcome uncertain.
 - Rewriting `implementation-agent` dispatch protocol as executable scripts.
   Stream 3 trims the agent definition; moving the protocol to scripts is a
   separate architectural change.
@@ -356,13 +416,18 @@ lines that fail the principle).
   (2026-09-13):** Promoted to standalone convention file
   (`conventions/writing-quality-gates.md`) with universal scope across all
   written output. See Stream 2b.
-- Is the `code-review-agent` vs. built-in `/code-review` comparison test worth
-  doing now, or should it wait until after the remediation stabilizes?
+- ~~Is the `code-review-agent` vs. built-in `/code-review` comparison test
+  worth doing now, or should it wait?~~ **Resolved (2026-09-13):** Not
+  applicable. The factory is multi-CLI; retiring the custom agent in favor
+  of a Claude Code-only built-in would break Copilot, Pi, and Codex. See
+  Stream 4c.
 - Should the `touches` hygiene rule live in the parent `create-backlog` skill
   or in a standalone conventions document? It applies to story authoring
   broadly, not just backlog creation.
 
 ### Model-capability dependence
+
+**Decision (2026-09-13):** Flipped-default principle references.
 
 The guiding rule — "a skill earns its tokens when it makes the model do
 something it would not do unprompted" — is a function of the consumer model,
@@ -372,62 +437,37 @@ not a constant. The proposal's trims are calibrated for frontier models
 
 - **Stream 3 trims are capability-dependent.** "Apply Cockburn reasoning" is
   a sufficient instruction for a frontier model that knows Cockburn from
-  training. A 13B local model may not know Cockburn at all, making the
-  one-liner a no-op. The same applies to TDD mechanics
-  (`developer-agent`), Vue best practices, and OWASP coverage
-  (`security-review`). The ~4,834 token recovery is the largest stream
-  and the most sensitive to consumer capability.
+  training. A 13B local model may not know Cockburn at all.
 
 - **Cross-file references require self-directed loading.** Streams 2 and 5
-  replace inline instructions with file references. This assumes the
-  consumer will recognize the need, load the file, and integrate it.
-  Frontier models do this reliably. Smaller models may skip the reference
-  and produce output from (incomplete) memory, with no error signal.
+  replace inline instructions with file references. Smaller models may
+  skip the reference and produce output from (incomplete) memory.
 
 - **Mode-switching in merged agents.** Stream 4b merges two research output
-  agents into one with a mode parameter. Frontier models handle multi-mode
-  definitions well. Smaller models may conflate the modes or default to
-  one, degrading output on the other.
+  agents into one with a mode parameter. Smaller models may conflate modes.
 
-The factory already maintains a model matrix. This remediation does not
-reference it. Three strategies to address the gap, in increasing order of
-effort:
+**Mitigation:** Stream 3 extracts removed pedagogy into lean principle
+files under `rulebooks/principles/` (~50–100 tokens each). Each trimmed
+skill includes a flipped-default conditional reference: "Read X before
+proceeding. Skip only if you can state the core principle without reading."
+Frontier models skip; weaker models default to reading. No model-matrix
+infrastructure, no duplicate variants, no router logic. See Stream 3
+for the candidate principle files.
 
-1. **Acknowledge and accept.** State explicitly that this remediation targets
-   frontier-model consumers. Sub-frontier models accept degraded performance
-   on trimmed items. Simplest, honest, appropriate if Haiku and local models
-   are not a current use case.
-
-2. **Tiered loading.** Keep verbose versions as a `tier: full` variant
-   alongside the trimmed default. The skill router checks the model tier
-   from the model matrix and loads the full version for sub-frontier
-   consumers. Moderate effort; one additional story. Aligns with the
-   existing model matrix infrastructure and prevents a class of regressions
-   without slowing frontier performance.
-
-3. **Cross-tier contract testing.** Run representative tasks on both the
-   frontier model and the lowest supported tier after each trim. A trim
-   passes only if the output contract holds on both. Most rigorous, most
-   expensive. Consider applying it selectively to the five
-   highest-recovery items (`implementation-agent`, `developer-agent`,
-   `derive-feature`, `vue-best-practices`, `security-review`) rather
-   than across all nine Stream 3 targets.
-
-**Decision needed:** which strategy to adopt before stories are written.
-The choice shapes Stream 3 story scope (trim-only vs. trim-plus-variant),
-Stream 2 and 5 implementation (inline-to-reference vs.
-inline-to-reference-with-fallback), and the contract testing scope
-(single-tier vs. cross-tier).
+The cross-file reference risk (Streams 2 and 5) is accepted. File
+references are standard agent behavior for the factory's supported CLIs;
+models that cannot follow a file reference are below the factory's minimum
+capability floor.
 
 ## Completion Criteria
 
 - [x] Three dead skills removed; no dangling references in INDEX.yaml or agent files
 - [ ] Agent lifecycle boilerplate extracted; 10 agents reference the convention file
 - [ ] Writing quality gates extracted to standalone convention file; all prose-producing skills and agents reference it; no inline copies remain
-- [ ] Nine items trimmed per Stream 3 table; each meets its stated output contract (file format, required sections, routing, forbidden patterns); semantic quality monitored in use with revert commitment
+- [ ] Seven items trimmed per Stream 3 table; each meets its stated output contract (file format, required sections, routing, forbidden patterns); semantic quality monitored in use with revert commitment
 - [ ] Grilling consolidated to one skill; `grill-me` and `grill-with-docs` deleted
 - [ ] Research output agents merged or share a base definition
-- [ ] Code review boundary clarified; `qa-agent` no longer triggers on "code review"
+- [ ] Code review boundary clarified; `qa-agent` no longer triggers on "code review"; `code-review-agent` retained as multi-CLI asset
 - [ ] Five reference extractions completed; runtime skill bodies reduced
 - [ ] Skill-authoring principles document written and referenced from factory guide
 - [ ] Total token load reduced by ≥7,000 tokens from pre-remediation baseline
@@ -472,3 +512,58 @@ The proposal identifies a genuine and well-motivated problem — roughly a fifth
 First, the primary verification method ("ablation testing") is invoked throughout but never defined. Without a measurable pass/fail criterion, the eight completion criteria that depend on it are aspirational rather than testable. Second, three scope contradictions — Stream 3's implementation-agent trim versus the deferred script rewrite, Stream 4c's retirement clause versus the deferred list, and the unresolved model-capability strategy — create ambiguities that a planner cannot resolve. Third, Stream 2b's unbounded "all prose-producing" scope and the double-counting between Streams 2b and 3 mean the token recovery numbers are soft.
 
 Recommended path: resolve the five major findings (PROP-03 through PROP-07), define ablation testing operationally (PROP-01), and fix the Stream 1 completion claim (PROP-02) before returning for a repeat review.
+
+## Repeat Review — 2026-09-13
+
+Reviewer: proposal-review-agent
+Reviewed commit: 034b845e326da3c0075134d0b84ad9f92b95712b
+Disposition: findings
+
+### Prior Finding Resolutions
+
+| ID      | Prior Severity | Status             | Resolution                                                                                                                                                                                                                                                           |
+| ------- | -------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-01 | blocking       | resolved           | "Ablation testing" replaced with contract checks and revert commitment. Verification is now operationally defined: each item must meet its stated output contract; semantic quality is monitored in normal use with a revert commitment; 30-day window is concrete.  |
+| PROP-02 | blocking       | resolved           | No dangling INDEX.yaml or agent-file references to `derive-spec`, `scope-map-migration`, or `update-context` remain at the reviewed commit. `reconciliation-agent` reference also cleaned.                                                                           |
+| PROP-03 | major          | resolved           | Target revised from ~800 to ~2,400. Dispatch protocol recognized as project-specific. Kept content identified; lifecycle boilerplate attributed to Stream 2a. Hardcoded `autonomous` default removed. Deferred script rewrite cleanly excluded.                      |
+| PROP-04 | major          | resolved           | Stream 4c reduced to boundary clarification only. Retirement declared architecturally invalid (multi-CLI factory). Open Question 2 resolved. All three previously contradictory locations now agree.                                                                 |
+| PROP-05 | major          | resolved           | Flipped-default principle references with candidate principle files. No model-matrix infrastructure, no duplicate variants, no router logic. Fails safe.                                                                                                             |
+| PROP-06 | major          | partially resolved | Closed list of 14 agents + 34 skills replaces "including but not limited to." Mechanical inclusion rule defined. However, the enumeration is incomplete — see PROP-18.                                                                                               |
+| PROP-07 | major          | partially resolved | `code-review-agent` and `create-backlog-stories` moved from Stream 3 to Stream 2b. Double-counting eliminated. However, the Summary's ~8,500 total no longer matches the revised stream totals — see PROP-17.                                                        |
+| PROP-08 | minor          | open (carried)     | Overhead multiplier still 10x. Template guidance for feature-addition with review loops is 15–25x. Verification method is now lighter (no ablation testing), but 10x remains below guidance for a cross-component change touching 30+ files.                         |
+| PROP-09 | minor          | open (carried)     | Tier 4 audit items (`implement-issue`, `research-reporting`, `process-transcript`, `run-step`, `reverse-map`) still neither included in scope nor explicitly deferred. The scope boundary is not a clean partition of the audit's findings.                          |
+| PROP-10 | minor          | open (carried)     | Research agent merge value unchanged. `research-report-writer` (2,852 bytes) and `research-synthesizer` (2,054 bytes) serve different research modes with different schemas and forbidden actions. A mode-switched merge may be larger than the two separate agents. |
+| PROP-11 | minor          | open (carried)     | `qa-strategy-from-spec` native-knowledge overlap (identified in audit, ~344 tokens) still not addressed. Stream 5 handles reference extraction but omits the native-knowledge trim.                                                                                  |
+| PROP-12 | minor          | resolved           | Open Question 2 resolved; Stream 4c reduced to boundary clarification. The contradiction between the open question and the stream design is eliminated as a side effect of the PROP-04 fix.                                                                          |
+| PROP-13 | note           | open (carried)     | Token estimation methodology unchanged. Byte-count spot checks show systematic undercount: `implementation-agent` is 18,873 bytes (~4,718 tokens at 4 chars/token) vs. proposal's ~3,254; `derive-feature` is 10,241 bytes (~2,560 tokens) vs. ~1,104.               |
+| PROP-14 | note           | open (carried)     | Completion criterion still uses "merged or share a base definition" — accepts either outcome without committing to one, leaving the planner to decide which to implement.                                                                                            |
+| PROP-15 | note           | resolved           | Criterion now says "structurally valid output" instead of "equivalent output." Operationally testable via output format validation.                                                                                                                                  |
+
+### New Findings
+
+| ID      | Severity | Check | Status | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------- | -------- | ----- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-16 | minor    | 01    | open   | **Completion criterion count mismatch.** Line 465 says "Nine items trimmed per Stream 3 table" but the Stream 3 table now contains seven items after `code-review-agent` and `create-backlog-stories` were moved to Stream 2b. The criterion must say "Seven."                                                                                                                                                                                                                                                        |
+| PROP-17 | minor    | 03    | open   | **Summary token total exceeds stream totals.** The Summary claims "approximately 8,500 tokens (22%)" but stream recovery figures add to ~7,068 (Stream 1: 904 + Stream 2: 1,984 + Stream 3: 2,800 + Stream 5: 1,380). Stream 4a deletions (grill-me ~118 tokens + grill-with-docs ~168 tokens) narrow the gap to ~1,146 but do not close it. The binding completion criterion (≥7,000) is reachable from the stream totals; the Summary overstates.                                                                   |
+| PROP-18 | major    | 01    | open   | **Stream 2b closed list incomplete.** Five items are missing from both the included and excluded enumerations: agents — `requirements-agent`, `spec-review-agent`; skills — `clarify-requirements`, `create-backlog-make-concrete`, `create-backlog-slice-story`. All five produce persistent prose artifacts and meet the stated mechanical inclusion rule. The 14+34 count does not partition the full 18-agent, 59-skill inventory. A planner writing Stream 2b stories from this list would miss five work items. |
+
+### Eight-Check Results
+
+| Check | Name                             | Result   | Notes                                                                                                                                                                                                              |
+| ----- | -------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 01    | Completion criteria testable     | findings | PROP-16: count says nine, table has seven. PROP-18: closed list is incomplete — the "all prose-producing" criterion cannot be verified against the proposal's own enumeration.                                     |
+| 02    | Scope boundary sharp             | finding  | PROP-09 (carried): five Tier 4 audit items are neither in scope nor deferred. The scope section does not partition the audit's full findings.                                                                      |
+| 03    | Design decomposable              | finding  | PROP-17: Summary's ~8,500 cannot be derived from the stream totals. The binding criterion (≥7,000) is consistent. Stream 3 per-item deltas span multiple streams but "Trim" column partitions the work adequately. |
+| 04    | Impact classification consistent | pass     | `scope: cross_component` fits. `architecture_change: false` is defensible — Stream 4b merges agents but preserves their interfaces; the change is organizational, not architectural.                               |
+| 05    | Boundary references exist        | pass     | All four paths resolve at the reviewed commit: `packages/factory/agents/`, `packages/factory/skills/`, `packages/factory/rulebooks/templates/story.md`, `packages/factory/rulebooks/conventions/`.                 |
+| 06    | Open questions genuine           | pass     | One remaining open question ("touches hygiene rule" location) is a genuine design decision. Two resolved questions are clearly marked. Model-capability section resolved with decision.                            |
+| 07    | Motivation justifies timing      | pass     | The audit provides concrete evidence: ~20% of context budget on waste across three named categories. Motivation distinguishes this from backlog.                                                                   |
+| 08    | Estimate plausible               | finding  | PROP-08 (carried): 10x multiplier below 15–25x template guidance. PROP-13 (carried): per-item token estimates systematically undercount by 2–4x vs. byte-derived estimates.                                        |
+
+### Summary
+
+The edits since the first review resolved both blocking findings and five of seven major findings. The verification method is now operationally defined, the three scope contradictions are eliminated, and the model-capability strategy is decided. The proposal is substantially improved.
+
+Three categories of remaining issues prevent a clean disposition. First, the Stream 2b closed list — the fix for PROP-06 — is itself incomplete: five items that meet the stated inclusion rule are missing from both the included and excluded enumerations (PROP-18, major). A planner cannot write complete Stream 2b stories from the current list. Second, two quantitative inconsistencies: the Summary's ~8,500 token claim exceeds what the stream totals support (~7,068, PROP-17), and the completion criterion references nine Stream 3 items where the table now has seven (PROP-16). Third, four minor and two note findings carried from the first review remain open — none blocking individually, but the Tier 4 scope gap (PROP-09) and the multiplier (PROP-08) affect planning accuracy.
+
+Recommended path: complete the Stream 2b enumeration (add the five missing items or explicitly exclude them with rationale), correct the "nine" to "seven" in the completion criterion, and reconcile the Summary token figure with the stream totals. The four carried minor findings and two notes are addressable during planning and do not require another review pass.

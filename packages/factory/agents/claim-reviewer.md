@@ -25,6 +25,8 @@ version: 0.1.1
 
 # Claim Reviewer
 
+Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
+
 ## Role
 
 Attempt to refute a claim. Judge it, do not improve it: a Claim Reviewer that fixes the wording it is reviewing has stopped reviewing and started co-authoring.

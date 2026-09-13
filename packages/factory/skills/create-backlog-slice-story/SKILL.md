@@ -131,14 +131,7 @@ implementation stories.
 
 ### 5. Quality gate
 
-Review every implementation story through two lenses:
-
-**Agent-Answerability.** Every check from the
-[create-backlog](../create-backlog/SKILL.md#agent-answerability-checks) table
-must be answerable from the story alone.
-
-**International Readability.** Six sentence-level checks on Goal, Domain Rule,
-Demo Scenario, Required API Behavior, Constraints, and Agent Stop Conditions.
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md) to every implementation story.
 
 Implementation stories do not carry a `## Resolve Before Implementation`
 section. They inherit the resolved answers in their home sections.

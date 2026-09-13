@@ -44,17 +44,7 @@ For each EPIC, write one row. Each row names the user-visible outcome the EPIC d
 
 ## Quality gate
 
-Before presenting, review the slice table through two lenses:
-
-**Junior Clarity checklist:**
-
-1. Every domain term, protocol concept, and component name is glossed on first use in the table (parenthetical plain-English explanation).
-2. Demo sentences use only glossed or self-evident terms.
-3. Narrative text avoids dense chains of component names — save DSL identifiers for the Boundaries column.
-
-If any item fails, revise before presenting.
-
-**Senior Acceptance:** Would a senior hand this decomposition to the team without a follow-up conversation? Is each EPIC bounded, demo-able, and free of ambiguity? If not, recut. Additionally: can each demo sentence be read as a concrete acceptance criterion without referencing internal implementation details that only exist in the architecture DSL?
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md) to the slice table before presenting. Revise any row that fails.
 
 Present the table to the user for confirmation.
 

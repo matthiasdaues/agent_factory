@@ -9,6 +9,8 @@ disable-model-invocation: false
 
 Turn a validated research brief into the structured plan appropriate to its mode. The playbook controls when planning occurs and how the plan is used; this skill covers what the plan contains and how to write it.
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 Read the brief's `mode` before choosing the output contract. An omitted mode
 means `survey`.
 

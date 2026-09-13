@@ -22,6 +22,8 @@ skill — the probe catches scoping defects and resolves *who* owns each
 contract's tests, while `test-design` (invoked by the developer agent with code
 in hand) designs and writes the tests themselves.
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 This is mandatory step 2.5 in the
 [create-backlog sequence](../create-backlog/SKILL.md#operational-sequence): it
 runs after [`create-backlog-write-epics`](../create-backlog-write-epics/SKILL.md)
@@ -33,30 +35,9 @@ Proposal trace: [test-design-layer-redistribution.md](../../../docs/proposals/te
 
 ## Prerequisite guard
 
-Before doing anything else, check `testing.yaml (at docs/testing.yaml)`:
+Follow the [testing.yaml prerequisite guard](../../rulebooks/conventions/testing-yaml-prerequisite.md). On any failure, write no output to `backlog/epics.md`.
 
-1. **File does not exist.** Fail immediately:
-
-   > `testability-probe` requires `testing.yaml (at docs/testing.yaml)`. Run
-   > `detect-test-regime` first to record the project's test suites and testing
-   > strategy link.
-
-   Write no output to `backlog/epics.md`.
-
-2. **File exists but has no `testing_strategy:` key.** Fail immediately:
-
-   > `testing.yaml (at docs/testing.yaml)` has no `testing_strategy:` link. Run
-   > `detect-test-regime` to populate it before running `testability-probe`.
-
-   Write no output to `backlog/epics.md`.
-
-3. **File exists but has no `suites:` section.** Fail immediately:
-
-   > `testing.yaml (at docs/testing.yaml)` has no `suites:` section. Run
-   > `detect-test-regime` to record the project's test suites before running
-   > `testability-probe`.
-
-   Write no output to `backlog/epics.md`.
+Write no output to `backlog/epics.md`.
 
 Only when `testing_strategy:` and `suites:` are both present does the
 procedure below run.

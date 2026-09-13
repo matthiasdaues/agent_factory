@@ -13,6 +13,8 @@ repository's actual test infrastructure. The output tells the `qa-agent` how
 to specialise the generic testing strategy for one feature's contracts,
 boundaries, and risk profile.
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 This skill is **not** a rewrite of
 `factory/rulebooks/conventions/testing-strategy.md`. That rulebook stays
 generic policy and provides shared vocabulary and the overlap-deletion

@@ -11,7 +11,7 @@ disable-model-invocation: false
 
 Write story files from confirmed slice tables, validate, and present the final backlog. This is phase 4 of the [create-backlog sequence](../create-backlog/SKILL.md#operational-sequence). Story format, composition rules, and the done check live in the [parent skill](../create-backlog/SKILL.md).
 
-Write for an international Team whose members have English as a common, but not as a native language.
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
 
 **Prerequisite:** story-level slice tables have been confirmed by the user (output of [`create-backlog-story-slices`](../create-backlog-story-slices/SKILL.md)).
 
@@ -79,35 +79,7 @@ List blocking stories in `deps` (by `ST-NNNN` id). Run `factory/scripts/backlog-
 
 ## Quality gate
 
-Review every story through two lenses:
-
-**Junior Clarity:** Read the story as a junior developer. Can you start working right now — do you know which file to open first, what the first test asserts, and what "done" looks like? If not, the story is underspecified.
-
-**Senior Acceptance:** Read the story as a senior grooming the backlog. Would you hand this to your team without a follow-up conversation — is the scope bounded, the demo concrete, every criterion testable, and nothing left to interpret? If not, the story is not ready.
-
-**Agent-Answerability Checks:** A story fails this gate if any check cannot be answered from the story alone:
-
-| Check                                | Answered by           |
-| ------------------------------------ | --------------------- |
-| What behavior must exist after?      | Goal                  |
-| Which files change?                  | Affected Paths        |
-| Which domain rule owns the behavior? | Domain Rule           |
-| What existing state matters?         | Inputs                |
-| What should tests prove?             | Acceptance Criteria   |
-| What commands verify completion?     | Verification          |
-| What is explicitly out of scope?     | Out of Scope          |
-| When should the agent stop and ask?  | Agent Stop Conditions |
-
-**International Readability:** Six concrete sentence-level checks for Goal, Domain Rule, Demo Scenario, Constraints, and Agent Stop Conditions:
-
-- No idioms, slang, or culture-specific metaphors.
-- No ambiguous pronouns across sentence boundaries. Repeat the noun.
-- Short sentences (under 25 words). One idea per sentence.
-- Active voice.
-- Domain terms are used consistently — one term per concept, never alternated with synonyms for variety.
-- Abbreviations are spelled out on first use within the story, even when the spec already defined them.
-
-If any sentence fails, rewrite it before the story leaves the gate.
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md) to every story. If any sentence fails, rewrite it before the story leaves the gate.
 
 ## Plain-language pass
 

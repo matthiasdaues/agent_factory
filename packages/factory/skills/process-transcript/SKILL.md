@@ -16,6 +16,8 @@ Turn a meeting transcript into two markdown files: one preserving the
 discussion as citable evidence, the other measuring it against the
 project's documented state.
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 The key words "MUST", "MUST NOT", "SHALL", "SHALL NOT", "SHOULD",
 "SHOULD NOT", "MAY", and "OPTIONAL" in this document are to be interpreted
 as described in RFC 2119.
