@@ -1,5 +1,132 @@
 # Changelog
 
+## Unreleased
+
+Playbook hardening, backlog concreteness, and five manifest defect
+resolutions. The code-review agent and review-mode dispatch add a human
+inspection loop to the implementation phase. Backlog creation gains two
+new skills that force stories to be short and concrete before they enter
+the backlog. Five bug reports exposed manifest gaps that blocked
+deterministic phase handoffs; all five are resolved with regression tests.
+
+### Features
+
+- **Code review agent.** New `code-review-agent` (phase 4, tier strong)
+  runs a bounded Fagan inspection on the implementation diff before the
+  reconciliation run. Scoped to changed files only — no security review,
+  no bug hunt. Files findings as `IMPL-*`. Every finding must pass three
+  quality gates before filing: international-English clarity,
+  junior-developer fix direction, and senior-engineer brevity. Both
+  `feature-addition` and `greenfield-development` playbooks updated with
+  Step 4.2 (code review) and Decision Point 4.3 (IMPL-\* check) between
+  implementation and reconciliation. FSM gains `PHASE_4_CODE_REVIEW` and
+  `PHASE_4_IMPL_FIX` states. Implementation agent now hands off to
+  code-review-agent instead of reconciliation-agent.
+- **Ledger-backed implementation review mode.** Adds a serial workflow
+  on one `feature/<name>` branch in the primary checkout so a human can
+  inspect, stage, and commit each story with the full local development
+  environment. New `dispatch init-review`, `review-dispatch`,
+  `review-accept`, and `review-close` commands enforce clean boundaries,
+  exact commit ancestry, story IDs, atomic `status: done`, declared
+  output scope, passing tests, and terminal closure. Direct standalone
+  branch creation remains blocked, and autonomous dispatch commands
+  reject review-mode ledgers.
+- **Split story IDs.** Story template and `backlog-lint` now accept
+  split-story IDs (`ST-NNNNA`, `ST-NNNNB`) for stories decomposed after
+  initial numbering.
+- **Risk-class extraction in detect-test-regime.** The
+  `detect-test-regime` skill now extracts `risk_classes` from the
+  project's testing configuration, enabling risk-aware test design during
+  implementation.
+- **Concreteness and slicing skills.** Two new backlog skills added to
+  the create-backlog sequence: `create-backlog-make-concrete` forces
+  every story through a concreteness checklist before acceptance, and
+  `create-backlog-slice-story` decomposes stories that exceed a single
+  implementation pass into independently deliverable slices. The grilling
+  skill gains additional concreteness probes.
+- **Short, actionable stories.** `create-backlog-stories` and the parent
+  `create-backlog` skill updated to enforce shorter story bodies with
+  concrete behavioral language. Story template gains tighter section
+  guidance.
+- **Draft-proposal skill enhancement.** `draft-proposal` skill extended
+  with improved structuring, estimation scaffolding, and agent-context
+  routing for cross-cutting concerns.
+- **Review-workspace-check script.** New `review-workspace-check` script
+  validates workspace state before review-mode operations begin.
+- **`review-workspace-check` tests.** Regression tests for the new
+  workspace-check script.
+- **Reconciliation agent update.** Reconciliation agent definition
+  streamlined for clearer handoff from code-review-agent.
+
+### Fixes
+
+- **Proposal-to-requirements handoff boundary (BUG-0024).** The
+  `handoff-lint` boundary registry did not contain `proposal intake -> requirements`, blocking the feature workflow from entering
+  Requirements after proposal acceptance. Added the boundary to
+  `handoff-format.md` and `handoff-lint`. Regression tests added for
+  both valid and invalid boundaries.
+- **Backlog-lint test contract (BUG-0025).** The `valid_risk_levels`
+  argument added in 0.10.0 broke 23 existing `test_backlog_lint.py`
+  tests that used the old `check_story` signature. All direct unit-test
+  callers updated to pass the default risk-level set.
+- **Story quality-gate enum (BUG-0026).** `ST-0217` and `ST-0221`
+  declared `mutation-analysis` instead of the canonical
+  `mutation-testing`. Both corrected to pass `BL-ENUM` validation.
+- **Specification-review manifest (BUG-0027).** The `feature-addition`
+  spec-review step did not admit `docs/CONTEXT.md` as input or
+  `docs/reviews/spec-review-*.md` as output, blocking the
+  `inspect-spec` workflow from reading terminology context and writing
+  its review report. Both paths added. Manifest-contract test added.
+- **Requirements remediation manifest (BUG-0028).** The
+  `feature-addition` update-specification step did not admit
+  `docs/findings/SPEC-*.md` as input or `docs/proposals/**/*.md` as
+  output, preventing a Requirements Agent from reading specification
+  defects or correcting an accepted proposal after a failed review. Both
+  paths added. Manifest-contract test extended.
+
+### Documentation
+
+- **Deterministic Factory Engine proposal.** Draft proposal at
+  `docs/proposals/deterministic-factory-engine.md` for extracting
+  flow-control logic into a first-class engine package. Consultative
+  review completed with four grilling findings (PROP-0021 through
+  PROP-0024).
+- **Local Usage Processing and Analysis proposal accepted.**
+  `docs/proposals/usage-processing-and-storage.md` expanded from draft
+  to accepted status with full design, entity model, query interface,
+  and dependency contracts. Specification review filed five findings
+  (SPEC-0015 through SPEC-0019).
+- **UX review.** New-user journey UX review at
+  `docs/reviews/ux-review-2026-09-09-new-user-journey.md` evaluating
+  the distance between installation and first proof of value.
+- **Proposal review.** Consultative review of the Deterministic Factory
+  Engine proposal at
+  `docs/reviews/proposal-review-2026-09-11-deterministic-factory-engine.md`.
+- **Five bug reports filed and resolved.** BUG-0024 (proposal handoff
+  boundary), BUG-0025 (backlog-lint test contract), BUG-0026 (story
+  quality-gate enum), BUG-0027 (spec-review manifest), BUG-0028
+  (requirements remediation manifest).
+- **Five specification findings filed.** SPEC-0015 (superseded
+  agent-context feature), SPEC-0016 (canonical run selection identity),
+  SPEC-0017 (query schema contract), SPEC-0018 (DuckDB UI contract
+  owner), SPEC-0019 (PyArrow dependency conflict).
+- **Factory guide expanded.** Review-mode dispatch documented in the
+  factory guide.
+
+### Tests
+
+- **Dispatch review-mode tests.** 365-line test suite for the
+  review-mode dispatch workflow (`test_dispatch_review_mode.py`).
+- **Feature-addition contract tests.** New
+  `test_feature_addition_contract.py` validates that playbook step
+  manifests admit all required input and output paths.
+- **Handoff-lint tests.** New `test_handoff_lint.py` with boundary
+  regression coverage.
+- **Review-workspace-check tests.** New
+  `test_review_workspace_check.py`.
+- **Backlog-lint risk-level alignment.** Existing tests updated for the
+  `valid_risk_levels` contract.
+
 ## 0.10.0 — 2026-09-09
 
 Agent-ready story format and test-design layer redistribution. Stories
