@@ -1,7 +1,9 @@
 # Writing Quality Gates
 
 Four gates apply to every persistent prose artifact the factory produces.
-Run them at the end of every authoring phase, not just the final one.
+Every word serves the reader. A word that serves the author instead —
+shows knowledge, sounds impressive, elaborates for comfort — does not
+belong in the artifact.
 
 ## Junior Clarity / Senior Acceptance
 
@@ -59,11 +61,15 @@ If any sentence fails, rewrite it before the artifact leaves the gate.
 
 ## No Pretense
 
-Read every sentence as if someone else wrote it. If the author sounds
-impressed with themselves, rewrite.
+The reader has a task. Every sentence exists to advance that task.
+A sentence that serves the author instead does not belong.
 
-1. A Goal states what exists after. Method belongs in Scope, not in
-   the Goal.
+1. A Goal answers "what can the reader do or see after?" It does
+   not answer "how does the system work?" No imperative verbs, no
+   behavioral descriptions. "A versioned contract exists", not
+   "Define the contract." "Four views expose totals", not "the
+   registry maps CLIs and the view applies rules." Method — including
+   present-tense method — belongs in Scope, not in the Goal.
 2. Constraints go in the Constraints section, not presented as
    accomplishments.
 3. Use plain verbs for ordinary operations. Say "define", not "spell
@@ -73,10 +79,13 @@ impressed with themselves, rewrite.
    during a query is "fixed", not "locked for the rest of the query".
 5. Do not use "actually", "even", or "just" unless the word does real
    disambiguation work.
-6. Do not add a parenthetical gloss for a term the reader already
-   knows or that was already glossed earlier in the artifact.
+6. A gloss helps a reader who does not know the term. The reader of
+   a downstream artifact has read every upstream artifact — terms
+   defined there are known. If the reader already knows the term, or
+   it was glossed earlier in this artifact, the gloss serves the
+   author.
 7. Do not use jargon that sounds technical but adds nothing ("smoke
    test" instead of "check", "standalone" instead of nothing).
 
-If a sentence sounds self-important when read aloud, rewrite it before
-the artifact leaves the gate.
+Test: does this sentence advance the reader's task, or the author's
+reputation? If the second, cut it.
