@@ -12,9 +12,7 @@ Cockburn reasoning sequence as an **internal working discipline** — not
 document production. Outputs a single-file specification that coders and QA
 agents can read in one pass.
 
-Supersedes `derive-spec` as the primary specification step for features.
-The Cockburn chain (actors, goals, scenarios) remains the reasoning engine;
-the intermediate documents (actor-goal list, UC-XX files) are not produced.
+The Cockburn chain (actors, goals, scenarios) is the reasoning engine.
 
 ## Inputs
 

@@ -81,7 +81,7 @@ orchestrator run-phase requirements
 
 As requirements decisions settle a charter entry — a data store, a
 licensing constraint, an integration requirement — the requirements agent
-invokes `update-context` to record it in `docs/agent-context/stack.yaml` (falls back to `docs/charter/tech-stack.md`)
+records it in `docs/agent-context/stack.yaml` (falls back to `docs/charter/tech-stack.md`)
 incrementally, rather than waiting for the completeness sweep.
 
 ### Step 1.2 — Run Spec Review Agent (Separate Session)

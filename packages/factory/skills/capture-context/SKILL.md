@@ -50,7 +50,7 @@ belong to the retired YAML model).
 
 If `docs/agent-context.md` already exists, stop and tell the user:
 "docs/agent-context.md already exists — skipping init to protect existing
-content. Use `update-context` or edit the file directly." Do not overwrite.
+content. Edit the file directly." Do not overwrite.
 
 ### Step 1 — Repository scan
 

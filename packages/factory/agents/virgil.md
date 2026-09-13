@@ -14,7 +14,6 @@ skills:
   - newcomer-tour
   - explain-concept
   - capture-context
-  - update-context
   - grilling
   - validate
   - draft-proposal

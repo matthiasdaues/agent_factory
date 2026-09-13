@@ -6,7 +6,7 @@ category: requirements
 
 # Reverse-Map
 
-Build `docs/spec/scope-map.md` from whatever sources exist — code, tests, docs, wiki pages, API specs, or stakeholder knowledge. The skill replaces the need for `derive-spec` artifacts before the first scope map.
+Build `docs/spec/scope-map.md` from whatever sources exist — code, tests, docs, wiki pages, API specs, or stakeholder knowledge.
 
 ## How the user experiences it
 

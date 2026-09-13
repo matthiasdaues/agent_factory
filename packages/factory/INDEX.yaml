@@ -185,11 +185,6 @@ skills:
     description: Derive a Gherkin .feature file from a proposal using Cockburn reasoning as internal process. Outputs a Rule-per-actor-goal .feature file with @-references to existing code and a gaps report.
     path: skills/derive-feature/SKILL.md
     tokens: 2344
-  - name: derive-spec
-    category: requirements
-    description: Derive the full specification chain from a PRD — actor-goal list, persona use cases, system use cases, supplementary specs.
-    path: skills/derive-spec/SKILL.md
-    tokens: 1148
   - name: draft-proposal
     category: requirements
     description: Crystallize an explored idea into a decision-complete feature proposal. Called by VIRGIL (or directly) once the shape of a feature is clear. Runs in the current session with the stakeholder present.
@@ -220,11 +215,6 @@ skills:
     description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation. Writes docs/spec/scope-map.md and seeds docs/CONTEXT.md.
     path: skills/reverse-map/SKILL.md
     tokens: 1243
-  - name: scope-map-migration
-    category: requirements
-    description: Backfill docs/spec/scope-map.md from existing derive-spec artifacts before the first derive-feature run.
-    path: skills/scope-map-migration/SKILL.md
-    tokens: 787
   - name: write-prd
     category: requirements
     description: Synthesise a Product Requirements Document from clarified requirements.
@@ -415,11 +405,6 @@ skills:
     description: Append a quick note to session-scratchpad.md, sectioned by date. Use when the user says "note this down:", "make a note of this:", or invokes "/scratchpad" or "/scratch".
     path: skills/scratchpad/SKILL.md
     tokens: 354
-  - name: update-context
-    category: utility
-    description: Deprecated. docs/agent-context.md (the concern-based routing interface) is edited directly — there is no field-write skill for it. Retained only so an invocation surfaces a deprecation notice instead of an error.
-    path: skills/update-context/SKILL.md
-    tokens: 206
   - name: validate
     category: utility
     description: Run every applicable deterministic gate on demand, mid-session — the custom lint scripts plus ruff and mdformat — without needing a git commit.
