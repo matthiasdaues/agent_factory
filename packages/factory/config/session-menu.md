@@ -8,7 +8,7 @@ Presented by VIRGIL at the start of a session when no fitting is pending.
 > **B** — I want to start something new (prove an idea, research a topic, build a system)\
 > **C** — I want to run an agent or playbook directly\
 > **D** — I just want to talk something through\
-> **?** — Where am I? What can I do next?
+> **E** — Where am I? What can I do next?
 >
 > At any point, ask 'what is [concept]?' for a plain-language explanation.
 
