@@ -46,6 +46,7 @@ Scenario: Logical-run identity is CLI-specific and source-independent
   When records are reduced to logical runs
   Then each CLI uses the tuple of CLI, session ID, and run ID as its logical-run key
   And parent run ID establishes ancestry without changing identity
+  And every evidence snapshot for that key has the same parent run ID, including null
   And source path, line, capture sequence, and record content do not enter that key
 
 Scenario: Valid session ancestry determines one root and all descendants
@@ -122,6 +123,7 @@ Scenario Outline: Preflight rejects malformed run ancestry
 
   Examples:
     | ancestry defect                                     | failure code                      |
+    | snapshots of one logical run disagree on parent ID  | USAGE_ANCESTRY_PARENT_CONFLICT    |
     | no root or more than one root                       | USAGE_ANCESTRY_ROOT_COUNT         |
     | a parent run ID absent from every selected run      | USAGE_ANCESTRY_PARENT_MISSING     |
     | a parent found only under another CLI or session    | USAGE_ANCESTRY_PARENT_BOUNDARY    |

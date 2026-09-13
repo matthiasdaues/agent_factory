@@ -199,6 +199,7 @@ These rules support the [local usage feature](../local-usage-processing-and-anal
 - Validate usage objects against the installed JSON Schema Draft 2020-12 contract and the manifest's accepted version range.
 - Enforce identifiers, timestamps, declared nullability, non-negative counters, nested `transcript_ref` shape, and `normalized_total = normalized_input + normalized_output` outside schema where required.
 - Reject an unknown CLI. The supported CLI set and accounting registry keys must be exactly `claude-code`, `pi`, `codex`, and `copilot`.
+- Before selecting a latest snapshot, group evidence by `(cli, session_id, run_id)` and require one distinct `parent_run_id`, treating null as a value. If evidence disagrees, classify every snapshot for that key as `USAGE_ANCESTRY_PARENT_CONFLICT`; do not select one snapshot to establish or override the parent.
 - Partition logical runs by `(cli, session_id)` and require exactly one null-parent root, same-partition parent resolution for every non-root, no self-links, no cycles, and reachability of every run from the root.
 - Report malformed ancestry with `USAGE_ANCESTRY_ROOT_COUNT`, `USAGE_ANCESTRY_PARENT_MISSING`, `USAGE_ANCESTRY_PARENT_BOUNDARY`, `USAGE_ANCESTRY_SELF_PARENT`, or `USAGE_ANCESTRY_CYCLE`. Any ancestry failure blocks canonical accounting.
 
@@ -206,7 +207,7 @@ These rules support the [local usage feature](../local-usage-processing-and-anal
 
 - Normalize source paths relative to the selected usage directory: valid UTF-8, Unicode NFC per segment, `/` separators, no `.` segments, and rejection of absolute paths or `..` traversal.
 - Preserve `(normalized_source_path, source_line)` as evidence identity until canonical-run reduction; line numbers are positive and one-based.
-- For each supported CLI, define logical-run identity as `(cli, session_id, run_id)`. `parent_run_id` defines the validated rooted-tree ancestry but does not enter identity. Direct children name the unique root's run ID; descendants are the transitive closure of valid parent links. Evidence source, capture sequence, and record content are excluded from logical-run identity.
+- For each supported CLI, define logical-run identity as `(cli, session_id, run_id)`. The invariant `parent_run_id` defines the validated rooted-tree ancestry but does not enter identity. Direct children name the unique root's run ID; descendants are the transitive closure of valid parent links. Evidence source, capture sequence, and record content are excluded from logical-run identity.
 - Select the latest cumulative snapshot by maximum `(capture_sequence, normalized_source_path, source_line)`. Compare capture sequence and line numerically and normalized paths by unsigned UTF-8 byte lexicographic order.
 - Claude Code total: latest root snapshot plus each distinct child run once.
 - Pi total: root record plus each distinct descendant run once.

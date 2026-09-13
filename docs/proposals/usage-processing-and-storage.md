@@ -208,6 +208,11 @@ additive child or descendant once. Codex and GitHub Copilot CLI use it to keep
 descendant attribution distinct without adding it to the inclusive root.
 `parent_run_id` defines ancestry but is not part of identity. Source position,
 capture sequence, and record content are excluded from logical-run identity.
+Before latest-snapshot selection, every evidence snapshot for one logical-run
+key must carry the same `parent_run_id`, with null treated as a value. Any
+disagreement fails strict preflight with
+`USAGE_ANCESTRY_PARENT_CONFLICT`; no snapshot is allowed to establish or
+override the logical run's parent.
 Within each `(cli, session_id)` partition, exactly one root has a null
 `parent_run_id`. Every other run names an existing run in the same partition,
 and the resulting directed graph is acyclic and fully reachable from that root.

@@ -226,40 +226,6 @@ All stories must have YAML frontmatter with the following fields:
 - `concerns` must be a mapping with only `domain` and `technical` keys (both optional); each value must be a list of strings
 - `quality-gates` is a closed enum (`crap-score`, `mutation-analysis`, `dependency-check`); omitting a factory-default gate requires justification in `notes`
 
-## `factory/scripts/charter-lint`
-
-|               |                                                                                                                                       |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage         | `charter-lint [--charter-dir DIR] [--template-dir DIR] [--planning-gate] [--format text\|json] [--report-only]`                       |
-| Reads         | Charter files in `docs/charter/{tech-stack,development,house-rules}.md`; template files in `factory/rulebooks/templates/charter-*.md` |
-| Writes        | Nothing; validation is read-only                                                                                                      |
-| Exit code     | Count of error-severity findings (`0` = clean), unless `--report-only` (always `0`)                                                   |
-| Finding codes | `CH-DIR`, `CH-FILE`, `CH-FM`, `CH-SECT`, `CH-EMPTY`, `CH-TBD`                                                                         |
-
-### Charter validation modes
-
-**Default mode:** Validates structural integrity and template compliance:
-
-- All three charter files exist under `docs/charter/`
-- Required sections present per template (derived from `## headings` in template files)
-- No section is empty (content beyond HTML comment prompt required)
-- YAML frontmatter parses cleanly
-
-**Planning gate mode** (`--planning-gate`): Stricter pre-planning validation:
-
-- All default checks pass
-- `tech-stack.md` contains no "To be decided" entries
-- `development.md` contains no "To be decided" entries
-- `house-rules.md` may contain "To be decided" entries (not validated)
-
-### Validation rules
-
-- `charter-lint` reports one `Finding` per detected error or anomaly
-- Errors block (exit code > 0); warnings and info do not
-- Templates are read to discover required sections dynamically (no hardcoded section names)
-- Section content is extracted between `## Section` markers; empty or comment-only sections fail validation
-- "To be decided" entries are detected case-insensitively and block planning gate unless in house-rules.md
-
 ## `factory/scripts/module-graph-check`
 
 |           |                                                                                                                                                                                     |
@@ -552,6 +518,8 @@ The command accepts `--dimensions <name>[,<name>...]` and `--time-granularity no
 #### Logical-run and source-position contract
 
 The registry keys are exactly the producer values `claude-code`, `pi`, `codex`, and `copilot`. Logical-run identity is `(cli, session_id, run_id)`. Claude Code and Pi descendants contribute once per distinct key. Codex and Copilot descendants remain attribution-only. `parent_run_id` defines ancestry and is not an identity field. Evidence source, capture sequence, and record content are excluded after reduction.
+
+Before latest-snapshot selection, strict preflight groups all evidence snapshots by logical-run key and requires exactly one distinct `parent_run_id`, with null treated as a value. If snapshots disagree, every evidence snapshot for that key is classified as `USAGE_ANCESTRY_PARENT_CONFLICT`; no snapshot establishes or overrides the parent. The conflict enters the query-scoped failure relation and blocks canonical accounting.
 
 Each `(cli, session_id)` partition must form one rooted directed tree. The root is the only logical run whose `parent_run_id` is null. Every non-root `parent_run_id` must resolve to a distinct logical run in the same CLI and session partition. The graph must be acyclic, and every run must be reachable from the unique root. A direct child names the root's `run_id`; descendants are the transitive closure of valid parent links.
 
