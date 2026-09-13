@@ -1,6 +1,6 @@
 # EPICs — Test-Design Layer Redistribution
 
-Proposal trace: [test-design-layer-redistribution.md](../docs/proposals/test-design-layer-redistribution.md)
+Proposal trace: [test-design-layer-redistribution.md](../docs/proposals/implemented/test-design-layer-redistribution.md)
 
 ## EPIC A: Testability Probe and Planning Integration
 
