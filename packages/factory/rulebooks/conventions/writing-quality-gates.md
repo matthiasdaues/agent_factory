@@ -64,11 +64,12 @@ If any sentence fails, rewrite it before the artifact leaves the gate.
 The reader has a task. Every sentence exists to advance that task.
 A sentence that serves the author instead does not belong.
 
-1. A Goal answers "what can the reader do or see after?" It does
-   not answer "how does the system work?" No imperative verbs, no
-   behavioral descriptions. "A versioned contract exists", not
-   "Define the contract." "Four views expose totals", not "the
-   registry maps CLIs and the view applies rules." Method — including
+1. A Goal describes what the reader can do or see after. It does
+   not describe what happens inside. Every verb in a Goal must name
+   something observable from outside: "the gate exits non-zero",
+   "four views expose totals", "the operator runs a command and sees
+   a result." Internal mechanism is not observable: "validates JSONL",
+   "maps CLIs to rules", "applies the formula." Method — including
    present-tense method — belongs in Scope, not in the Goal.
 2. Constraints go in the Constraints section, not presented as
    accomplishments.
