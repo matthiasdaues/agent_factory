@@ -53,33 +53,36 @@ stateDiagram-v2
 - **`HumanResolves`** is a helper action standing for whatever out-of-band fix lets the actor safely re-run `run-step` — filing a missing finding, fixing a broken gate script, or manually deciding to proceed. It has no corresponding script; the next `run-step` invocation simply re-evaluates from disk (see [UC-05 § Main Success Scenario](../../~archive/spec/use_cases/UC-05-resume-an-interrupted-playbook-run.md#main-success-scenario)).
 - **DONE** is terminal here only in the sense that this generic diagram stops modeling further transitions; a concrete playbook's own final state (e.g. `greenfield-development.fsm.yml`'s `DONE`) may itself require all of its own `entry_conditions` to hold, per that FSM's `final: true` state.
 
-## Agent Context Mode Lifecycle
+## Concern Registry Lifecycle
 
-The lifecycle of the `mode` field across the three index files (`stack.yaml`, `workflow.yaml`, `governance.yaml`). Written per [state-machine-notation.md § Canonical Format](../../../factory/rulebooks/conventions/state-machine-notation.md#canonical-format): pseudocode is authoritative, Mermaid is derived.
+The lifecycle of the single `docs/agent-context.md` concern registry. Written per [state-machine-notation.md § Canonical Format](../../../factory/rulebooks/conventions/state-machine-notation.md#canonical-format): pseudocode is authoritative, Mermaid is derived.
 
 ### Pseudocode
 
 ```text
 State: NO_CONTEXT
-On CaptureContextInit:
-  ChangeState(PRIMARY)
-On CaptureContextInitScan[partial_coverage]:
-  ChangeState(PRIMARY)
-On CaptureContextInitScan[full_coverage, user_confirms]:
-  ChangeState(INDEX)
+On CaptureContextInit[user_confirms]:
+  ChangeState(CONCERN_REGISTRY)
+On CaptureContextInitScan[user_confirms]:
+  ChangeState(CONCERN_REGISTRY)
+On DetectLegacyYaml:
+  ChangeState(MIGRATION_PROPOSED)
 
-State: PRIMARY
-On UpdateContextWriteValue:
-  ChangeState(PRIMARY)
-On UpdateContextWriteSourcePointer[condition_not_met]:
-  ChangeState(PRIMARY)
-On UpdateContextWriteSourcePointer[condition_met, user_confirms]:
-  ChangeState(INDEX)
-On CaptureContextInitScan[full_coverage, user_confirms]:
-  ChangeState(INDEX)
+State: MIGRATION_PROPOSED
+On UserConfirmsMigration:
+  ChangeState(CONCERN_REGISTRY)
+On UserDeclinesMigration:
+  ChangeState(LEGACY_UNCHANGED)
 
-State: INDEX
-  # terminal — no reverse transition
+State: CONCERN_REGISTRY
+On DirectRegistryEdit:
+  ChangeState(CONCERN_REGISTRY)
+On ConfirmNewConcern:
+  ChangeState(CONCERN_REGISTRY)
+
+State: LEGACY_UNCHANGED
+On DetectLegacyYaml:
+  ChangeState(MIGRATION_PROPOSED)
 ```
 
 ### Derived Mermaid
@@ -87,26 +90,23 @@ State: INDEX
 ```mermaid
 stateDiagram-v2
     [*] --> NO_CONTEXT
-    NO_CONTEXT --> PRIMARY : CaptureContextInit
-    NO_CONTEXT --> PRIMARY : CaptureContextInitScan (partial)
-    NO_CONTEXT --> INDEX : CaptureContextInitScan (full + confirm)
-    PRIMARY --> PRIMARY : UpdateContextWriteValue
-    PRIMARY --> PRIMARY : UpdateContextWriteSourcePointer (condition not met)
-    PRIMARY --> INDEX : UpdateContextWriteSourcePointer (condition met + confirm)
-    PRIMARY --> INDEX : CaptureContextInitScan (full + confirm)
-    INDEX --> [*]
+    NO_CONTEXT --> CONCERN_REGISTRY : CaptureContextInit (confirm)
+    NO_CONTEXT --> CONCERN_REGISTRY : CaptureContextInitScan (confirm)
+    NO_CONTEXT --> MIGRATION_PROPOSED : DetectLegacyYaml
+    MIGRATION_PROPOSED --> CONCERN_REGISTRY : UserConfirmsMigration
+    MIGRATION_PROPOSED --> LEGACY_UNCHANGED : UserDeclinesMigration
+    CONCERN_REGISTRY --> CONCERN_REGISTRY : DirectRegistryEdit
+    CONCERN_REGISTRY --> CONCERN_REGISTRY : ConfirmNewConcern
+    LEGACY_UNCHANGED --> MIGRATION_PROPOSED : DetectLegacyYaml
 ```
 
 ### Notes
 
-- **NO_CONTEXT** means no `docs/agent-context/` directory exists and no legacy charter is present. `capture-context --init` bootstraps to PRIMARY; `capture-context --init --scan` may go directly to INDEX if the brownfield scan achieves full source coverage and you confirm.
-- **PRIMARY** is the greenfield mode: index files are the upstream source of project decisions. Values are written directly. No `source:` pointers are required. The reading guide may or may not exist.
-- **INDEX** is the mature mode: index files are downstream routing tables. Every non-null, non-deferred leaf field has a `source:` pointer. Hand-editing is forbidden; only `update-context` may write. The reading guide must exist.
-- **Transition condition** (PRIMARY → INDEX): every non-null, non-deferred leaf field across all three index files has a `source:` pointer. `context-lint` verifies this via `CX-SRC`. Null fields and `deferred:` mappings are excluded from the condition.
-- **Transition atomicity**: all three index files advance together in a single commit. Per-file partial transitions are not supported.
-- **No reverse transition**: once in INDEX mode, files do not return to PRIMARY. The transition is one-directional.
-- **User confirmation**: the transition is never automatic. `update-context` prompts you; you confirm or decline. Declining leaves all three files in PRIMARY.
-- **Legacy charter** projects (markdown or YAML under `docs/charter/`) are not modeled by this state machine. They continue to use `charter-lint` with CH-\* codes until migration.
+- **NO_CONTEXT** means the concern registry is absent. Initialization proposes concern batches and writes only after user confirmation.
+- **MIGRATION_PROPOSED** preserves all legacy files until the user confirms the proposed mapping.
+- **CONCERN_REGISTRY** is the current model. The team edits it directly, and new controlled-vocabulary entries require confirmation.
+- **LEGACY_UNCHANGED** records a declined migration. A later bare `capture-context` invocation may propose migration again.
+- Confirmed migration moves test configuration to `docs/testing.yaml` and removes legacy routing formats. `concern-lint` validates the resulting single-format state.
 
 ## Referenced from
 
@@ -115,3 +115,123 @@ stateDiagram-v2
 - [UC-03](../../~archive/spec/use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md)
 - [UC-05](../../~archive/spec/use_cases/UC-05-resume-an-interrupted-playbook-run.md)
 - [agent-context.feature](../agent-context.feature)
+
+## Usage Query Lifecycle
+
+### Pseudocode
+
+```text
+State: IDLE
+On StartQuery:
+  ChangeState(INPUT_SNAPSHOTTED)
+
+State: INPUT_SNAPSHOTTED
+On PreflightPass:
+  ChangeState(READY)
+On PreflightFailure:
+  ChangeState(DIAGNOSTIC_ONLY)
+
+State: READY
+On QueryHealth:
+  ChangeState(COMPLETED)
+On QueryStableView:
+  ChangeState(COMPLETED)
+On StartParquetExport:
+  ChangeState(EXPORT_STAGED)
+
+State: DIAGNOSTIC_ONLY
+On QueryHealth:
+  ChangeState(COMPLETED)
+On QueryStableView:
+  ChangeState(REFUSED)
+On StartParquetExport:
+  ChangeState(REFUSED)
+
+State: EXPORT_STAGED
+On RoundTripPass:
+  ChangeState(COMPLETED)
+On ExportInterrupted:
+  ChangeState(FAILED_PRESERVED)
+On RoundTripFailure:
+  ChangeState(FAILED_PRESERVED)
+
+State: COMPLETED
+  # terminal — no outbound transitions
+
+State: REFUSED
+  # terminal — no outbound transitions
+
+State: FAILED_PRESERVED
+  # terminal — no outbound transitions
+```
+
+### Derived Mermaid
+
+```mermaid
+stateDiagram-v2
+    [*] --> IDLE
+    IDLE --> INPUT_SNAPSHOTTED : StartQuery
+    INPUT_SNAPSHOTTED --> READY : PreflightPass
+    INPUT_SNAPSHOTTED --> DIAGNOSTIC_ONLY : PreflightFailure
+    READY --> COMPLETED : QueryHealth
+    READY --> COMPLETED : QueryStableView
+    READY --> EXPORT_STAGED : StartParquetExport
+    DIAGNOSTIC_ONLY --> COMPLETED : QueryHealth
+    DIAGNOSTIC_ONLY --> REFUSED : QueryStableView
+    DIAGNOSTIC_ONLY --> REFUSED : StartParquetExport
+    EXPORT_STAGED --> COMPLETED : RoundTripPass
+    EXPORT_STAGED --> FAILED_PRESERVED : ExportInterrupted
+    EXPORT_STAGED --> FAILED_PRESERVED : RoundTripFailure
+    COMPLETED --> [*]
+    REFUSED --> [*]
+    FAILED_PRESERVED --> [*]
+```
+
+`FAILED_PRESERVED` means a pre-existing Parquet destination remains unchanged.
+
+## Usage-Analysis Component Lifecycle
+
+### Pseudocode
+
+```text
+State: ABSENT
+On InstallUsage:
+  ChangeState(INSTALLED)
+On RemoveUsage:
+  ChangeState(ABSENT)
+
+State: INSTALLED
+On InstallUsage:
+  ChangeState(INSTALLED)
+On UpdateUsage[compatible]:
+  ChangeState(INSTALLED)
+On UpdateUsage[incompatible]:
+  ChangeState(INSTALLED)
+On RemoveUsage:
+  ChangeState(ABSENT)
+On UpdateFactoryCore:
+  ChangeState(INSTALLED)
+On RemoveFactory:
+  ChangeState(FULLY_REMOVED)
+
+State: FULLY_REMOVED
+  # terminal — no outbound transitions
+```
+
+### Derived Mermaid
+
+```mermaid
+stateDiagram-v2
+    [*] --> ABSENT
+    ABSENT --> INSTALLED : InstallUsage
+    ABSENT --> ABSENT : RemoveUsage
+    INSTALLED --> INSTALLED : InstallUsage
+    INSTALLED --> INSTALLED : UpdateUsage (compatible)
+    INSTALLED --> INSTALLED : UpdateUsage (incompatible)
+    INSTALLED --> ABSENT : RemoveUsage
+    INSTALLED --> INSTALLED : UpdateFactoryCore
+    INSTALLED --> FULLY_REMOVED : RemoveFactory
+    FULLY_REMOVED --> [*]
+```
+
+The incompatible-update self-transition represents refusal before replacement. `ABSENT` and `INSTALLED` component transitions preserve raw usage evidence. `FULLY_REMOVED` retains the existing complete-removal semantics and does not preserve it.

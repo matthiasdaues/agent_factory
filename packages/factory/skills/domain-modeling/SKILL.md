@@ -9,6 +9,8 @@ source: https://github.com/mattpocock/skills/
 
 Actively build and sharpen the project's domain model as you design — challenging terms, inventing edge-case scenarios, and writing the glossary and decisions down the moment they crystallise. Merely *reading* `docs/CONTEXT.md` for vocabulary is not this skill; that's a one-line habit any skill can do. This skill is for *changing* the model, not just consuming it.
 
+Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
+
 ## Domain awareness
 
 During codebase exploration, also look for existing documentation. See [context-format.md](../../rulebooks/conventions/context-format.md) for the single-context vs multi-context file layout. Create `docs/CONTEXT.md` and `docs/adr/` lazily — only when the first term or ADR is actually needed.

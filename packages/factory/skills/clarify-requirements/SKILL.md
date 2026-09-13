@@ -9,18 +9,19 @@ disable-model-invocation: true
 
 Resolve ambiguity through an adversarial interview. This skill is a **branch selector** — pick the style, then run it.
 
+Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
 For a feature-addition, the target is its proposal in
 `docs/proposals/`. All branches amend that proposal in place.
 
 ## Select the branch
 
-| Context                                        | Branch              | Action                                                       |
-| ---------------------------------------------- | ------------------- | ------------------------------------------------------------ |
-| Small scope or quick pass                      | **Socratic**        | Run inline (below)                                           |
-| Greenfield — no existing docs                  | **Grill**           | Delegate to [`grill-me`](../grill-me/SKILL.md)               |
-| Brownfield — existing `docs/CONTEXT.md` / ADRs | **Grill with Docs** | Delegate to [`grill-with-docs`](../grill-with-docs/SKILL.md) |
+| Context                                        | Branch              | Action                                                                |
+| ---------------------------------------------- | ------------------- | --------------------------------------------------------------------- |
+| Small scope or quick pass                      | **Socratic**        | Run inline (below)                                                    |
+| Greenfield — no existing `docs/CONTEXT.md`     | **Grill**           | Delegate to [`grilling`](../grilling/SKILL.md)                        |
+| Brownfield — existing `docs/CONTEXT.md` / ADRs | **Grill with Docs** | Delegate to [`grilling`](../grilling/SKILL.md) (domain-modeling mode) |
 
-If unsure: no `docs/CONTEXT.md` / `docs/adr/` → `grill-me`; present → `grill-with-docs`. Announce the branch before starting.
+If unsure: no `docs/CONTEXT.md` / `docs/adr/` → grill; present → grill with docs (domain-modeling mode). Announce the branch before starting.
 
 ## Branch: Socratic (inline)
 

@@ -49,6 +49,7 @@ models/
 /.codex/agents/architecture-review-agent.toml
 /.codex/agents/claim-reviewer.toml
 /.codex/agents/coaching-agent.toml
+/.codex/agents/code-review-agent.toml
 /.codex/agents/developer-agent.toml
 /.codex/agents/implementation-agent.toml
 /.codex/agents/kit-manager.toml
@@ -85,6 +86,8 @@ models/
 /.agents/skills/crap-score
 /.agents/skills/create-backlog
 /.agents/skills/create-backlog-epics
+/.agents/skills/create-backlog-make-concrete
+/.agents/skills/create-backlog-slice-story
 /.agents/skills/create-backlog-stories
 /.agents/skills/create-backlog-story-slices
 /.agents/skills/create-backlog-write-epics
@@ -107,6 +110,7 @@ models/
 /.agents/skills/maintain-architecture
 /.agents/skills/model-structurizr-slice
 /.agents/skills/mutation-analysis
+/.agents/skills/mutation-testing
 /.agents/skills/newcomer-tour
 /.agents/skills/process-transcript
 /.agents/skills/pugh-matrix
@@ -126,9 +130,11 @@ models/
 /.agents/skills/source-research
 /.agents/skills/spec-feedback
 /.agents/skills/test-design
+/.agents/skills/testability-probe
 /.agents/skills/update-charter
 /.agents/skills/update-context
 /.agents/skills/validate
+/.agents/skills/vue-best-practices
 /.agents/skills/write-adr
 /.agents/skills/write-prd
 # <<< agent_factory related <<<

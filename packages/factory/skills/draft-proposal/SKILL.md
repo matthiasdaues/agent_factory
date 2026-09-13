@@ -5,7 +5,7 @@ description: >-
   Called by VIRGIL (or directly) once the shape of a feature is clear.
   Runs in the current session with the stakeholder present.
 category: requirements
-version: 0.2.0
+version: 0.3.0
 disable-model-invocation: false
 ---
 
@@ -22,8 +22,7 @@ things down.
 **Runs in the orchestrating session, never as a spawned subagent.** The
 stakeholder must be present to confirm what gets written.
 
-Write for a colleague who is not yet deeply involved in the project. Use
-plain, clear, accessible language, even when making a sharp observation.
+Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
 
 ## Procedure
 
@@ -68,6 +67,10 @@ committing.
 
 No dedicated lint script exists for proposals yet. The gate in Step 5 is
 manual.
+
+## Quality gate
+
+Compose every section with the writing quality gates active during readiness assessment. This gate assesses readiness only. The proposal lifecycle determines who may change its status.
 
 ## Completion
 

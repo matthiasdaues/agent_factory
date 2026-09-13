@@ -92,12 +92,12 @@ See [UC-06](../../~archive/spec/use_cases/UC-06-regenerate-the-catalog.md).
 
 ## `factory/config/hooks/block-dangerous-git.sh`
 
-|            |                                                                                                                                                                                                   |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Invocation | Native `PreToolUse` hook for Claude Code, GitHub Copilot CLI, and Codex; command JSON on stdin                                                                                                    |
-| Reads      | `.tool_input.command`, `.toolArgs.command`, or `.tool_input.cmd`, according to the calling runtime; `docs/charter/testing.yaml` (charter-declared test commands for the agent allowlist — BR-024) |
-| Writes     | Deny reason to stderr; `{"permissionDecision":"deny","permissionDecisionReason":"..."}` to stdout on deny                                                                                         |
-| Exit code  | `0` allow; `2` deny (shared by the three native-hook CLIs)                                                                                                                                        |
+|            |                                                                                                                                                                                           |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Invocation | Native `PreToolUse` hook for Claude Code, GitHub Copilot CLI, and Codex; command JSON on stdin                                                                                            |
+| Reads      | `.tool_input.command`, `.toolArgs.command`, or `.tool_input.cmd`, according to the calling runtime; `docs/testing.yaml` (charter-declared test commands for the agent allowlist — BR-024) |
+| Writes     | Deny reason to stderr; `{"permissionDecision":"deny","permissionDecisionReason":"..."}` to stdout on deny                                                                                 |
+| Exit code  | `0` allow; `2` deny (shared by the three native-hook CLIs)                                                                                                                                |
 
 See [UC-07](../../~archive/spec/use_cases/UC-07-block-a-dangerous-git-command.md).
 
@@ -111,7 +111,7 @@ See [UC-07](../../~archive/spec/use_cases/UC-07-block-a-dangerous-git-command.md
 | Streaming  | Asynchronously spools complete stdout to protected capture staging, incrementally parses arbitrarily chunked JSONL with bounded non-result state, and emits bounded progress updates                                                                                                                        |
 | Returns    | A BR-040 bounded result envelope plus `{ usage, exitCode }` parsed from the child's final assistant `message_end`; an error result on unknown agent, unresolved model, exceeded depth, spawn failure, non-zero/no-result exit, or cancellation                                                              |
 | Capture    | Hands the complete raw staging file to detached best-effort usage capture; capture failure leaves the agent result unchanged, and cancellation terminates the process group through bounded `SIGTERM` → `SIGKILL` escalation, bounds pipe drain, cleans staging, and returns a distinct no-retry diagnostic |
-| Guardrail  | The child loads `.pi/extensions/`, so the git-safety guardrail binds it too; the charter-declared test commands from `docs/charter/testing.yaml` are allowlisted with exact matching                                                                                                                        |
+| Guardrail  | The child loads `.pi/extensions/`, so the git-safety guardrail binds it too; the charter-declared test commands from `docs/testing.yaml` are allowlisted with exact matching                                                                                                                                |
 
 See [UC-10](../../~archive/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md).
 
@@ -226,40 +226,6 @@ All stories must have YAML frontmatter with the following fields:
 - `concerns` must be a mapping with only `domain` and `technical` keys (both optional); each value must be a list of strings
 - `quality-gates` is a closed enum (`crap-score`, `mutation-analysis`, `dependency-check`); omitting a factory-default gate requires justification in `notes`
 
-## `factory/scripts/charter-lint`
-
-|               |                                                                                                                                       |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage         | `charter-lint [--charter-dir DIR] [--template-dir DIR] [--planning-gate] [--format text\|json] [--report-only]`                       |
-| Reads         | Charter files in `docs/charter/{tech-stack,development,house-rules}.md`; template files in `factory/rulebooks/templates/charter-*.md` |
-| Writes        | Nothing; validation is read-only                                                                                                      |
-| Exit code     | Count of error-severity findings (`0` = clean), unless `--report-only` (always `0`)                                                   |
-| Finding codes | `CH-DIR`, `CH-FILE`, `CH-FM`, `CH-SECT`, `CH-EMPTY`, `CH-TBD`                                                                         |
-
-### Charter validation modes
-
-**Default mode:** Validates structural integrity and template compliance:
-
-- All three charter files exist under `docs/charter/`
-- Required sections present per template (derived from `## headings` in template files)
-- No section is empty (content beyond HTML comment prompt required)
-- YAML frontmatter parses cleanly
-
-**Planning gate mode** (`--planning-gate`): Stricter pre-planning validation:
-
-- All default checks pass
-- `tech-stack.md` contains no "To be decided" entries
-- `development.md` contains no "To be decided" entries
-- `house-rules.md` may contain "To be decided" entries (not validated)
-
-### Validation rules
-
-- `charter-lint` reports one `Finding` per detected error or anomaly
-- Errors block (exit code > 0); warnings and info do not
-- Templates are read to discover required sections dynamically (no hardcoded section names)
-- Section content is extracted between `## Section` markers; empty or comment-only sections fail validation
-- "To be decided" entries are detected case-insensitively and block planning gate unless in house-rules.md
-
 ## `factory/scripts/module-graph-check`
 
 |           |                                                                                                                                                                                     |
@@ -306,7 +272,7 @@ The gate parses these lines and verifies the named test module exists. A waiver 
 
 The gate is skipped when the story has no `#### Test Design` section and no `#### Prior Tests` section — it exits 0 and produces no findings. This preserves backward compatibility with stories that predate the test-design skill.
 
-## `docs/charter/testing.yaml` — `gates` section schema
+## `docs/testing.yaml` — `gates` section schema
 
 The `gates` section centralizes gate configuration that the dispatcher reads at runtime. It does not define gate execution ordering; [ADR-0012](../../adr/0012-dispatcher-owned-semantic-gate-loop.md) owns the dispatcher's gate sequence.
 
@@ -329,7 +295,7 @@ gates:
 | `gates.mutation_testing.enabled` | bool  | yes      | Whether the dispatcher runs mutation testing; `false` until infrastructure ready |
 | `gates.test_design_verify`       | —     | no       | Conditional; active when test-design output exists in the story                  |
 
-## `docs/charter/testing.yaml` — `risk_classes` section schema
+## `docs/testing.yaml` — `risk_classes` section schema
 
 Optional per-project overrides of Factory convention risk-class defaults. Precedence: `testing.yaml` inline > project-linked strategy document > Factory convention defaults.
 
@@ -357,51 +323,6 @@ risk_classes:
 | `budget`             | string         | yes      | `unbounded` or `equivalence`                   |
 | `requires`           | list of string | no       | Named invariants the contract must demonstrate |
 
-## `factory/scripts/context-lint`
-
-|               |                                                                                                                                                                                                        |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Usage         | `context-lint [--context-dir DIR] [--template-dir DIR] [--planning-gate] [--format text\|json] [--report-only]`                                                                                        |
-| Reads         | Agent-context files in `docs/agent-context/{stack,workflow,governance}.yaml` and `reading-guides.yaml`; `testing.yaml` (at either `docs/agent-context/` or `docs/charter/`); template files for schema |
-| Writes        | Nothing; validation is read-only                                                                                                                                                                       |
-| Exit code     | Count of error-severity findings (`0` = clean), unless `--report-only` (always `0`)                                                                                                                    |
-| Finding codes | `CX-FILE`, `CX-PARSE`, `CX-KEYS`, `CX-NULL`, `CX-MODE`, `CX-MODE-INVALID`, `CX-SRC`, `CX-SRC-EXIST`, `CX-SRC-STALE`, `CX-GUIDE-REF`, `CX-FORMAT`                                                       |
-
-### Validation modes
-
-**Default mode:** Validates structural integrity, key presence, and reference consistency:
-
-- Required index files exist under `docs/agent-context/` (`reading-guides.yaml` required only when `mode: index` in any index file, or when the file already exists)
-- Each file parses as valid YAML (`CX-PARSE`)
-- Required top-level keys present per template schema (`CX-KEYS`)
-- `deferred:` is the sole key at its leaf position — coexistence with `name`/`source` is `CX-KEYS`
-- `mode` field is `primary` or `index` (`CX-MODE`, info); any other value is `CX-MODE-INVALID` (error)
-- `null` values reported as warnings (`CX-NULL`)
-- When `mode: index`, every non-null, non-deferred leaf has `source:` (`CX-SRC`)
-- Each `source:` pointer resolves to an existing file (`CX-SRC-EXIST`)
-- Source file modified more recently than index file (`CX-SRC-STALE`, info)
-- Each reading-guide key-path reference resolves to an existing index-file key (`CX-GUIDE-REF`) — key existence only, not value content
-- Mixed YAML/markdown or mixed charter/agent-context locations (`CX-FORMAT`)
-- `testing.yaml`: `CX-PARSE` only — no `CX-SRC`, `CX-MODE`, or `CX-NULL` checks
-
-**Planning gate mode** (`--planning-gate`): Stricter pre-planning validation:
-
-- All default checks pass
-- `CX-NULL` severity elevated from warning to error
-
-### Format detection
-
-`context-lint` uses the shared format-detection chain to determine which validation mode applies:
-
-1. `docs/agent-context/stack.yaml` exists → YAML agent-context mode (CX-\* codes)
-2. `docs/charter/tech-stack.yaml` exists → legacy YAML charter mode (delegates to charter-lint logic)
-3. `docs/charter/tech-stack.md` exists → legacy markdown charter mode (delegates to charter-lint logic with CH-\* codes)
-4. Files in more than one location → `CX-FORMAT` error
-
-`testing.yaml` resolution is independent: `docs/agent-context/testing.yaml` first, `docs/charter/testing.yaml` as fallback. No `CX-FORMAT` error for the split location.
-
-See [agent-context.feature](../agent-context.feature).
-
 ## `factory/scripts/concern-lint`
 
 |               |                                                       |
@@ -426,3 +347,221 @@ See [agent-context.feature](../agent-context.feature).
 - [use_cases/system-use-cases.md](../../~archive/spec/use_cases/system-use-cases.md)
 - [test-design.feature](../test-design.feature)
 - [agent-context.feature](../agent-context.feature)
+
+## Local Usage Processing and Analysis
+
+The [feature specification](../local-usage-processing-and-analysis.feature) adds a local analytical consumer while keeping Factory capture as the producer.
+
+### Usage-record contract
+
+| Property             | Contract                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------ |
+| Canonical source     | `packages/factory/contracts/usage-record/contract.yaml` and `v1.schema.json`               |
+| Owner                | Factory                                                                                    |
+| Schema dialect       | JSON Schema Draft 2020-12                                                                  |
+| Installed projection | `.agent-factory/usage-analysis/contract/`                                                  |
+| Consumer rule        | Usage Analysis reads only the installed projection and declares its accepted version range |
+| CLI enum             | Exactly `claude-code`, `copilot`, `codex`, and `pi`                                        |
+| Gate                 | `packages/usage/scripts/usage-contract-check`                                              |
+
+The YAML manifest declares owner, current version, compatibility policy, and accepted consumer range. The schema owns field names, types, nullability, and nested structure. The gate additionally owns cross-field invariants and producer/consumer version agreement. A failure identifies source file, line number, field, and stable failure code.
+
+### `usage-query`
+
+| Property                      | Contract                                                                                                                             |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Invocation                    | `uv run --project .agent-factory/usage-analysis usage-query <published-view> [options]`                                              |
+| Default input                 | Top-level `*.jsonl` files beneath `.agent-factory/usage/`, sorted at query start                                                     |
+| Input override                | `--usage-dir <path>`                                                                                                                 |
+| Published views               | `raw_usage_snapshots`, `latest_run_snapshots`, `canonical_session_usage`, `usage_by_dimension`, `cache_efficiency`, `capture_health` |
+| Required presentation outputs | Table and JSON                                                                                                                       |
+| Required programmatic outputs | DuckDB relation and PyArrow table                                                                                                    |
+| Parquet export                | `--format parquet --output <path>`                                                                                                   |
+| Dimension selection           | `--dimensions <comma-list>` and `--time-granularity none\|hour\|day\|week\|month`                                                    |
+| Direct runtime dependencies   | Compatible DuckDB and PyArrow versions, both declared in `pyproject.toml` and pinned by the installed `uv.lock`                      |
+| Reads                         | Selected top-level JSONL files, installed contract, bundled SQL and accounting registry                                              |
+| Writes                        | Only the explicit output path through a temporary sibling; optional private UI state is outside stable output                        |
+| Network                       | None after dependencies are cached; deterministic gates never require the UI                                                         |
+
+#### Query-model-v1 schema contract
+
+Every published result carries schema version `query-model-v1`. `NOT NULL` below is mandatory; all other columns are nullable. A key is unique within one snapshotted input set. Stable command, JSON, Arrow, and Parquet results apply the declared `ORDER BY`; callers must not rely on physical DuckDB storage order.
+
+##### `raw_usage_snapshots`
+
+| Column                   | DuckDB type                | Constraint                         |
+| ------------------------ | -------------------------- | ---------------------------------- |
+| `query_model_version`    | `VARCHAR`                  | `NOT NULL`, value `query-model-v1` |
+| `normalized_source_path` | `VARCHAR`                  | `NOT NULL`, key part               |
+| `source_line`            | `UBIGINT`                  | `NOT NULL`, key part, one-based    |
+| `captured_at`            | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`                         |
+| `capture_sequence`       | `UBIGINT`                  | `NOT NULL`                         |
+| `cli`                    | `VARCHAR`                  | `NOT NULL`                         |
+| `session_id`             | `VARCHAR`                  | `NOT NULL`                         |
+| `run_id`                 | `VARCHAR`                  | `NOT NULL`                         |
+| `parent_run_id`          | `VARCHAR`                  | nullable                           |
+| `project`                | `VARCHAR`                  | `NOT NULL`                         |
+| `provider`               | `VARCHAR`                  | nullable                           |
+| `model`                  | `VARCHAR`                  | nullable                           |
+| `agent`                  | `VARCHAR`                  | nullable                           |
+| `branch`                 | `VARCHAR`                  | nullable                           |
+| `exit_status`            | `VARCHAR`                  | nullable                           |
+| `normalized_input`       | `UBIGINT`                  | `NOT NULL`                         |
+| `normalized_output`      | `UBIGINT`                  | `NOT NULL`                         |
+| `normalized_total`       | `UBIGINT`                  | `NOT NULL`                         |
+| `provider_input`         | `UBIGINT`                  | nullable                           |
+| `provider_output`        | `UBIGINT`                  | nullable                           |
+| `cache_read`             | `UBIGINT`                  | nullable                           |
+| `cache_write`            | `UBIGINT`                  | nullable                           |
+| `transcript_ref`         | `JSON`                     | nullable, never dereferenced       |
+
+Key: `(normalized_source_path, source_line)`. Order: that key ascending.
+
+##### `latest_run_snapshots`
+
+| Column                   | DuckDB type                | Constraint                         |
+| ------------------------ | -------------------------- | ---------------------------------- |
+| `query_model_version`    | `VARCHAR`                  | `NOT NULL`, value `query-model-v1` |
+| `cli`                    | `VARCHAR`                  | `NOT NULL`, key part               |
+| `session_id`             | `VARCHAR`                  | `NOT NULL`, key part               |
+| `run_id`                 | `VARCHAR`                  | `NOT NULL`, key part               |
+| `parent_run_id`          | `VARCHAR`                  | nullable                           |
+| `captured_at`            | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`                         |
+| `capture_sequence`       | `UBIGINT`                  | `NOT NULL`                         |
+| `normalized_source_path` | `VARCHAR`                  | `NOT NULL`, selected evidence      |
+| `source_line`            | `UBIGINT`                  | `NOT NULL`, selected evidence      |
+| `project`                | `VARCHAR`                  | `NOT NULL`                         |
+| `provider`               | `VARCHAR`                  | nullable                           |
+| `model`                  | `VARCHAR`                  | nullable                           |
+| `agent`                  | `VARCHAR`                  | nullable                           |
+| `branch`                 | `VARCHAR`                  | nullable                           |
+| `exit_status`            | `VARCHAR`                  | nullable                           |
+| `normalized_input`       | `UBIGINT`                  | `NOT NULL`                         |
+| `normalized_output`      | `UBIGINT`                  | `NOT NULL`                         |
+| `normalized_total`       | `UBIGINT`                  | `NOT NULL`                         |
+
+Key and order: `(cli, session_id, run_id)` ascending.
+
+##### `canonical_session_usage`
+
+| Column                | DuckDB type                | Constraint                         |
+| --------------------- | -------------------------- | ---------------------------------- |
+| `query_model_version` | `VARCHAR`                  | `NOT NULL`, value `query-model-v1` |
+| `cli`                 | `VARCHAR`                  | `NOT NULL`, key part               |
+| `session_id`          | `VARCHAR`                  | `NOT NULL`, key part               |
+| `captured_at`         | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`                         |
+| `project`             | `VARCHAR`                  | `NOT NULL`                         |
+| `provider`            | `VARCHAR`                  | nullable                           |
+| `model`               | `VARCHAR`                  | nullable                           |
+| `agent`               | `VARCHAR`                  | nullable                           |
+| `branch`              | `VARCHAR`                  | nullable                           |
+| `exit_status`         | `VARCHAR`                  | nullable                           |
+| `accounting_rule`     | `VARCHAR`                  | `NOT NULL`                         |
+| `normalized_input`    | `UBIGINT`                  | `NOT NULL`                         |
+| `normalized_output`   | `UBIGINT`                  | `NOT NULL`                         |
+| `normalized_total`    | `UBIGINT`                  | `NOT NULL`                         |
+
+Key and order: `(cli, session_id)` ascending.
+
+##### `usage_by_dimension`
+
+| Column                | DuckDB type                | Constraint                                     |
+| --------------------- | -------------------------- | ---------------------------------------------- |
+| `query_model_version` | `VARCHAR`                  | `NOT NULL`, value `query-model-v1`             |
+| `time_granularity`    | `VARCHAR`                  | `NOT NULL`, `none\|hour\|day\|week\|month`     |
+| `period_start`        | `TIMESTAMP WITH TIME ZONE` | nullable; null only when granularity is `none` |
+| `project`             | `VARCHAR`                  | nullable; non-null only when selected          |
+| `cli`                 | `VARCHAR`                  | nullable; non-null only when selected          |
+| `provider`            | `VARCHAR`                  | nullable; selected null values remain null     |
+| `model`               | `VARCHAR`                  | nullable; selected null values remain null     |
+| `agent`               | `VARCHAR`                  | nullable; selected null values remain null     |
+| `branch`              | `VARCHAR`                  | nullable; selected null values remain null     |
+| `exit_status`         | `VARCHAR`                  | nullable; selected null values remain null     |
+| `normalized_input`    | `HUGEINT`                  | `NOT NULL`                                     |
+| `normalized_output`   | `HUGEINT`                  | `NOT NULL`                                     |
+| `normalized_total`    | `HUGEINT`                  | `NOT NULL`                                     |
+| `session_count`       | `UBIGINT`                  | `NOT NULL`                                     |
+
+The key and order are `period_start` when present, followed by selected dimension columns in the caller's declared order; all are ascending with nulls last. With no selected dimensions and granularity `none`, exactly one row represents all canonical sessions when input is non-empty. Empty input returns zero rows with this declared schema.
+
+##### `cache_efficiency`
+
+| Column                | DuckDB type | Constraint                                                |
+| --------------------- | ----------- | --------------------------------------------------------- |
+| `query_model_version` | `VARCHAR`   | `NOT NULL`, value `query-model-v1`                        |
+| `provider`            | `VARCHAR`   | nullable, key part                                        |
+| `availability_state`  | `VARCHAR`   | `NOT NULL`, key part, `unavailable\|input_only\|measured` |
+| `provider_input`      | `HUGEINT`   | nullable                                                  |
+| `cache_read`          | `HUGEINT`   | nullable                                                  |
+| `cache_write`         | `HUGEINT`   | nullable                                                  |
+| `cache_ratio`         | `DOUBLE`    | nullable                                                  |
+| `session_count`       | `UBIGINT`   | `NOT NULL`                                                |
+
+Key and order: `(provider, availability_state)` ascending with null providers last. `cache_ratio` is null unless the state is `measured` and the denominator is non-zero.
+
+##### `capture_health`
+
+| Column                   | DuckDB type | Constraint                         |
+| ------------------------ | ----------- | ---------------------------------- |
+| `query_model_version`    | `VARCHAR`   | `NOT NULL`, value `query-model-v1` |
+| `normalized_source_path` | `VARCHAR`   | `NOT NULL`, key part               |
+| `failure_code`           | `VARCHAR`   | nullable, key part                 |
+| `valid_count`            | `UBIGINT`   | `NOT NULL`                         |
+| `failure_count`          | `UBIGINT`   | `NOT NULL`                         |
+
+Key and order: `(normalized_source_path, failure_code)` ascending with nulls last. A null failure code is the valid-record count for that source and has `failure_count = 0`; a non-null code has `valid_count = 0`. Empty input returns zero rows with the declared schema.
+
+#### Dimension request contract
+
+The command accepts `--dimensions <name>[,<name>...]` and `--time-granularity none|hour|day|week|month`. The Python entry point accepts `dimensions: Sequence[str] = ()` and `time_granularity: Literal[...] = "none"`. Supported dimension names are `project`, `cli`, `provider`, `model`, `agent`, `branch`, and `exit_status`. The declared list order determines key and output ordering, but not totals. For non-empty input, omitted options mean an empty dimension list and `none`, producing one all-input total. Empty input returns zero rows with the declared schema. Duplicate or unknown names are errors. Selecting a time dimension is expressed only through a non-`none` granularity; `period_start` is UTC and uses DuckDB calendar truncation, with ISO Monday starts for weeks.
+
+#### Logical-run and source-position contract
+
+The registry keys are exactly the producer values `claude-code`, `pi`, `codex`, and `copilot`. Logical-run identity is `(cli, session_id, run_id)`. Claude Code and Pi descendants contribute once per distinct key. Codex and Copilot descendants remain attribution-only. `parent_run_id` defines ancestry and is not an identity field. Evidence source, capture sequence, and record content are excluded after reduction.
+
+Before latest-snapshot selection, strict preflight groups all evidence snapshots by logical-run key and requires exactly one distinct `parent_run_id`, with null treated as a value. If snapshots disagree, every evidence snapshot for that key is classified as `USAGE_ANCESTRY_PARENT_CONFLICT`; no snapshot establishes or overrides the parent. The conflict enters the query-scoped failure relation and blocks canonical accounting.
+
+Each `(cli, session_id)` partition must form one rooted directed tree. The root is the only logical run whose `parent_run_id` is null. Every non-root `parent_run_id` must resolve to a distinct logical run in the same CLI and session partition. The graph must be acyclic, and every run must be reachable from the unique root. A direct child names the root's `run_id`; descendants are the transitive closure of valid parent links.
+
+Strict preflight reports ancestry failures before accounting. Root count other than one is `USAGE_ANCESTRY_ROOT_COUNT`. A parent ID absent from every selected run is `USAGE_ANCESTRY_PARENT_MISSING`. A parent ID found only under another CLI or session is `USAGE_ANCESTRY_PARENT_BOUNDARY`. A self-link is `USAGE_ANCESTRY_SELF_PARENT`. A directed cycle is `USAGE_ANCESTRY_CYCLE`. All detectable failures enter the query-scoped failure relation; any such failure blocks every stable view except `capture_health`.
+
+Canonical session dimensions and `captured_at` come from the selected root snapshot. Additive Claude and Pi descendants contribute measures but do not replace root dimensions. Cache aggregation uses exactly the logical runs whose measures contribute under the selected CLI conservation rule.
+
+A source path is made relative to the selected usage directory, converted to `/` separators, stripped of `.` segments, rejected if absolute or containing `..`, decoded as valid UTF-8, and normalized segment-by-segment to Unicode NFC. Source position is `(normalized_source_path, source_line)`, comparing paths lexicographically by unsigned UTF-8 bytes and lines as one-based unsigned integers. The latest snapshot is the maximum `(capture_sequence, normalized_source_path, source_line)` tuple, with numeric ordering for the first and last items.
+
+The command registers query-scoped valid and failure relations. `capture_health` remains queryable when failures exist. Every other published view exits non-zero without a partial result until the failure relation is empty. An empty input directory succeeds with typed empty results.
+
+Stable output reads only published views. A diagnostic mode may expose valid and invalid lines, must label the result incomplete, and cannot export a stable result. Parquet replacement occurs only after schema and logical-row round-trip verification; provenance records the query-model version and input-set digest.
+
+### Usage-analysis component lifecycle
+
+| Operation                     | Effect                                                                                                  | Preserved boundary                       |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `init-factory --with-usage`   | Installs `.agent-factory/usage-analysis/` during initial setup and records `installed_components.usage` | Existing raw usage data                  |
+| `init-factory --add usage`    | Adds and records the component after Factory installation                                               | Factory core, CLI wiring, raw usage data |
+| `init-factory --update usage` | Replaces only a compatible installed component and refreshes its install metadata                       | Factory core, CLI wiring, raw usage data |
+| `init-factory --remove usage` | Removes only the component and its manifest entry                                                       | Raw usage data and capture               |
+| `update-factory`              | Updates Factory core and reports component presence                                                     | Installed components                     |
+| `remove-factory`              | Performs the existing complete uninstall, including analysis and raw usage data                         | Nothing beneath `.agent-factory/`        |
+
+All component operations are idempotent. An update whose consumer range excludes the installed contract version aborts before replacement unless explicitly forced. Component operations use a component namespace distinct from CLI names; components have no dot-directory integration, symlinks, guardrails, or capture hooks.
+
+### Contract ownership boundaries
+
+| Contract                                                   | Sole owner                      |
+| ---------------------------------------------------------- | ------------------------------- |
+| Record schema and cross-field validity                     | Usage contract gate             |
+| Supported CLI registry completeness                        | Accounting registry gate        |
+| Snapshot and conservation arithmetic                       | SQL accounting contract tests   |
+| File-order independence                                    | Reproducibility gate            |
+| All-line classification and strict refusal                 | Operational preflight           |
+| Local, transcript-blind dependency boundary                | Boundary integration test       |
+| Published-view table, JSON, relation, and Arrow projection | Query-command integration tests |
+| Atomic attributable export                                 | Parquet round-trip test         |
+| Capture independence                                       | Existing capture contract tests |
+| Component installation, update, removal, and idempotency   | Distribution lifecycle tests    |
+| Factory-to-Usage Analysis dependency direction             | `dependency-check`              |
+| Locked DuckDB and PyArrow runtime isolation                | Distribution dependency gate    |
+| DuckDB UI launch documentation and six-view bootstrap      | UI documentation smoke test     |
+
+Non-owning layers may exercise a journey but must not duplicate the owner's assertions.

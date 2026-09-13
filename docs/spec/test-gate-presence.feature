@@ -1,29 +1,29 @@
 Feature: Test Gate Presence over Test Execution
 
   Factory ensures test gates exist; the project decides what runs inside them.
-  Testing is project-owned infrastructure declared in docs/charter/testing.yaml.
+  Testing is project-owned infrastructure declared in docs/testing.yaml.
   Factory's guardrails and FSM gates read that declaration. Factory never owns
   test execution, framework detection, or structured test output.
 
   Rule: User declares project test commands via charter
     # actor: User
-    # @docs/charter/testing.yaml (new artifact)
+    # @docs/testing.yaml (new artifact)
 
     Scenario: Project declares test commands in testing.yaml
       Given a project at the repository root
-      When the user creates docs/charter/testing.yaml with test_command
+      When the user creates docs/testing.yaml with test_command
       Then Factory's FSM gates can resolve the test command
       And block-dangerous-git.sh can read the agent allowlist
 
     Scenario: Project declares optional mode commands
-      Given docs/charter/testing.yaml exists with test_command
+      Given docs/testing.yaml exists with test_command
       When the user adds test_staged_command and test_changed_command
       Then all three commands are available to FSM gates and guardrails
       And each command is a project-defined shell command, not a framework name
 
     Scenario: Factory's own repository uses the same mechanism
       Given the Factory repository
-      When docs/charter/testing.yaml is created for Factory
+      When docs/testing.yaml is created for Factory
       Then it declares test_command as the Factory test suite command
       And Factory's gates resolve test_command the same way any consumer project would
 
@@ -34,7 +34,7 @@ Feature: Test Gate Presence over Test Execution
 
     Scenario: Phase advance resolves test command from charter
       Given a playbook FSM declares a script_exit_zero entry condition
-      And docs/charter/testing.yaml declares test_command
+      And docs/testing.yaml declares test_command
       When phase advance evaluates the gate
       Then it resolves test_command from the charter
       And executes it from the repository root
@@ -42,26 +42,26 @@ Feature: Test Gate Presence over Test Execution
 
     Scenario: Phase advance blocks when charter is absent
       Given a playbook FSM declares a script_exit_zero entry condition
-      And docs/charter/testing.yaml does not exist
+      And docs/testing.yaml does not exist
       When phase advance evaluates the gate
       Then it reports the missing charter
       And blocks advancement
 
     Scenario: Phase advance blocks when test_command is missing
-      Given docs/charter/testing.yaml exists but lacks test_command
+      Given docs/testing.yaml exists but lacks test_command
       When phase advance evaluates the gate
       Then it reports the missing test_command field
       And blocks advancement
 
     Scenario: Gate passes on exit code zero
-      Given docs/charter/testing.yaml declares test_command
+      Given docs/testing.yaml declares test_command
       And the declared command exits 0
       When phase advance evaluates the gate
       Then the gate passes
       And phase advance proceeds
 
     Scenario: Gate blocks on nonzero exit code
-      Given docs/charter/testing.yaml declares test_command
+      Given docs/testing.yaml declares test_command
       And the declared command exits 1
       When phase advance evaluates the gate
       Then the gate reports test_command as unmet
@@ -72,7 +72,7 @@ Feature: Test Gate Presence over Test Execution
     # @factory/config/hooks/block-dangerous-git.sh
 
     Scenario: Agent runs a charter-declared test command
-      Given docs/charter/testing.yaml declares test_staged_command
+      Given docs/testing.yaml declares test_staged_command
       When an agent runs the exact declared command string
       Then block-dangerous-git.sh allows the command
       # @factory/config/hooks/block-dangerous-git.sh
@@ -85,18 +85,18 @@ Feature: Test Gate Presence over Test Execution
       And the agent sees a message directing it to the charter-declared command
 
     Scenario: Allowlist uses exact string matching
-      Given docs/charter/testing.yaml declares test_command as "make test"
+      Given docs/testing.yaml declares test_command as "make test"
       When an agent runs "make test --verbose"
       Then block-dangerous-git.sh denies the command
       Because it does not exactly match the declared command string
 
     Scenario: All three charter fields are allowlisted when present
-      Given docs/charter/testing.yaml declares test_command, test_staged_command, and test_changed_command
+      Given docs/testing.yaml declares test_command, test_staged_command, and test_changed_command
       When an agent runs any one of the three exact command strings
       Then block-dangerous-git.sh allows the command
 
     Scenario: No charter means no agent test commands allowed
-      Given docs/charter/testing.yaml does not exist
+      Given docs/testing.yaml does not exist
       When an agent attempts any test command
       Then block-dangerous-git.sh denies it
       And bare test command deny patterns still apply
@@ -140,7 +140,7 @@ Feature: Test Gate Presence over Test Execution
       Given a project with a Makefile containing a test target
       And no other conventional test entrypoints
       When the detect-test-regime skill runs during onboarding
-      Then it records the entrypoint in docs/charter/testing.yaml
+      Then it records the entrypoint in docs/testing.yaml
 
     Scenario: Multiple test entrypoints detected
       Given a project with both a Makefile test target and a package.json test script
@@ -192,9 +192,9 @@ Feature: Test Gate Presence over Test Execution
     # @factory/scripts/remove-factory
 
     Scenario: Remove-factory preserves testing.yaml
-      Given a project with docs/charter/testing.yaml
+      Given a project with docs/testing.yaml
       When remove-factory runs
-      Then docs/charter/testing.yaml remains
+      Then docs/testing.yaml remains
       And the project can run tests freely without Factory's guardrail mediation
 
     Scenario: Remove-factory removes guardrail but not test commands
@@ -226,16 +226,16 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: Charter declares layer bindings for QA strategy grounding
     # actor: User
-    # @docs/charter/testing.yaml
+    # @docs/testing.yaml
 
     Scenario: Project declares layer bindings in testing.yaml
-      Given docs/charter/testing.yaml exists with test_command
+      Given docs/testing.yaml exists with test_command
       When the user adds a layers section mapping Factory layer names to tooling
       Then each layer declares tool, infrastructure, entry_point, and optional anti_patterns
       And unused layers are omitted, not set to null
 
     Scenario: Layer declares fidelity for environment reality
-      Given docs/charter/testing.yaml declares an integration_test layer
+      Given docs/testing.yaml declares an integration_test layer
       When the user adds a fidelity map to the layer
       Then each entry names a dependency and whether it is real or substituted
       And qa-strategy-from-spec checks fidelity against contract requirements
@@ -244,13 +244,13 @@ Feature: Test Gate Presence over Test Execution
       Given a project with existing test infrastructure
       When the kit-manager runs charter completeness sweep
       Then it scans conftest.py, test directories, Makefile targets, and runner configs
-      And records layer bindings in docs/charter/testing.yaml
+      And records layer bindings in docs/testing.yaml
       And a human reviewer confirms the bindings match the repository
 
     Scenario: Detect-test-regime populates both commands and layer bindings
       Given a project with a single test entrypoint and identifiable test layers
       When the detect-test-regime skill runs during onboarding
-      Then it records the entrypoint as test_command in docs/charter/testing.yaml
+      Then it records the entrypoint as test_command in docs/testing.yaml
       And it records identified layer bindings in the layers section
 
   Rule: QA strategy grounds contract-owner assignments in charter
@@ -258,26 +258,26 @@ Feature: Test Gate Presence over Test Execution
     # @factory/skills/qa-strategy-from-spec/SKILL.md
 
     Scenario: QA strategy reads charter layer bindings
-      Given docs/charter/testing.yaml declares a layers section
+      Given docs/testing.yaml declares a layers section
       When qa-strategy-from-spec derives a per-feature QA strategy
       Then it maps feature contracts to charter-declared layers
       And it does not use the Factory convention's generic layers when bindings exist
 
     Scenario: QA strategy emits gap for undeclared layer
-      Given docs/charter/testing.yaml declares three of five layers
+      Given docs/testing.yaml declares three of five layers
       And a feature contract requires a layer not declared in the charter
       When qa-strategy-from-spec assigns test owners
       Then it emits a gap finding naming the missing layer
       And does not silently assume the layer exists
 
     Scenario: QA strategy falls back when layer bindings are absent
-      Given docs/charter/testing.yaml exists but has no layers section
+      Given docs/testing.yaml exists but has no layers section
       When qa-strategy-from-spec derives a per-feature QA strategy
       Then it falls back to the Factory convention's generic five layers
       And emits a gap finding noting the absent layer bindings
 
     Scenario: QA strategy verifies charter matches repository
-      Given docs/charter/testing.yaml declares layer bindings
+      Given docs/testing.yaml declares layer bindings
       When qa-strategy-from-spec scans the repository's test infrastructure
       And a declared entry_point or infrastructure does not match what exists
       Then it records a mismatch as a gap finding
@@ -297,7 +297,7 @@ Feature: Test Gate Presence over Test Execution
       And the test ID is a stable identifier tied to the scope ID
 
     Scenario: QA strategy checks fidelity before assigning contract ownership
-      Given docs/charter/testing.yaml declares a layer with fidelity declarations
+      Given docs/testing.yaml declares a layer with fidelity declarations
       And a contract requires real transactions
       When qa-strategy-from-spec assigns the contract to a layer
       Then it verifies the layer's fidelity covers the contract's requirements

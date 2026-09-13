@@ -49,7 +49,7 @@ For prerequisites (Git, Python 3.10+, uv, an AI coding CLI) and the full invento
 
 **Usage capture** records token consumption per session — input, output, and model — across all supported CLIs. Records are append-only JSONL, keyed by project id, stored locally under `.agent-factory/usage/`. You never configure it; the installer wires it up. See the [factory guide](packages/factory/docs/factory-guide.md#runtime-usage-capture) for details.
 
-**Git infrastructure** — branching, worktrees, and commit discipline — is built in, not left to the agent's judgement. Implementation work runs on isolated feature branches in disposable git worktrees. A safety guardrail blocks dangerous git commands (`push --force`, `reset --hard`, `--no-verify`) before they execute. Pre-commit hooks enforce formatting and gate checks on every commit. See the [factory guide](packages/factory/docs/factory-guide.md#cli-safety-guardrails) for the full list.
+**Git infrastructure** — branching, worktrees, and commit discipline — is built in, not left to the agent's judgement. Autonomous implementation runs on isolated branches in disposable git worktrees. Explicit review mode uses one script-created feature branch in the primary checkout so the human can inspect and commit each serial story with the full local development environment. A safety guardrail blocks dangerous Git commands (`push --force`, `reset --hard`, `--no-verify`) before they execute. Pre-commit hooks enforce formatting and gate checks on every commit. See the [factory guide](packages/factory/docs/factory-guide.md#cli-safety-guardrails) for the full list.
 
 ## Contributing
 

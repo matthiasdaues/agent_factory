@@ -74,7 +74,7 @@ The installer creates two local config files (git-ignored) and one directory is 
 
 - **`config/project.json`** — project identity: a stable UUID, the human-readable name you gave at install time, your declared test command, and `safety_critical_paths` (file globs that route work to the strongest AI model tier). Every usage record carries the project id.
 - **`config/model.conf`** — maps agent tiers (`economy`, `standard`, `strong`) to concrete AI model ids, per CLI. If a dispatch requests a tier with no mapping, `on_missing = halt` stops it — no silent fallback. Claude Code resolves models natively and has no entries here. See the [factory guide § Model matrix and tiers](docs/factory-guide.md#model-matrix-and-tiers).
-- **`docs/agent-context/`** — a YAML routing switchboard that tells agents where your project's knowledge lives. Created during your first real playbook run (greenfield or brownfield), when VIRGIL walks you through the `capture-context` interview. See the [factory guide § Agent Context](docs/factory-guide.md#agent-context).
+- **`docs/agent-context.md`** — a concern-structured Markdown file that tells agents where your project's knowledge lives, organized by cross-cutting, technical, and domain concerns. Created during your first real playbook run (greenfield or brownfield), when VIRGIL walks you through the `capture-context` interview. See the [factory guide § Agent Context](docs/factory-guide.md#agent-context).
 
 All three are local configuration, not project source. Edit them directly any time.
 
@@ -95,12 +95,12 @@ For other situations — new project, existing codebase, bug, feature, research 
 
 ## How it works
 
-Your AI assistant reads an orientation file that loads the factory's agents, skills, and rules. **VIRGIL** — the default session persona — greets you, helps you choose a playbook, and guides you through setup. On your first real project session, VIRGIL walks you through the `capture-context` skill, which creates `docs/agent-context/` — a YAML routing switchboard that tells agents where your project's knowledge lives without duplicating it.
+Your AI assistant reads an orientation file that loads the factory's agents, skills, and rules. **VIRGIL** — the default session persona — greets you, helps you choose a playbook, and guides you through setup. On your first real project session, VIRGIL walks you through the `capture-context` skill, which creates `docs/agent-context.md` — a concern-structured routing file that tells agents where your project's knowledge lives without duplicating it.
 
 The [factory guide](docs/factory-guide.md) covers the full picture:
 
 - [Factory directory layout](docs/factory-guide.md#factory-directory-layout) — what each subdirectory of `factory/` contains
-- [Agent context](docs/factory-guide.md#agent-context) — how the YAML routing switchboard connects agents to project knowledge, and when it gets created
+- [Agent context](docs/factory-guide.md#agent-context) — how the concern-based routing file connects agents to project knowledge, and when it gets created
 - [Model matrix and tiers](docs/factory-guide.md#model-matrix-and-tiers) — how `config/model.conf` maps economy/standard/strong tiers to concrete AI models per CLI
 - What agents, skills, playbooks, and rulebooks are
 - How the check scripts and phase gates work

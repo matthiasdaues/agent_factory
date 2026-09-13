@@ -22,6 +22,7 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0012 | [Dispatcher-owned semantic gate loop](../adr/0012-dispatcher-owned-semantic-gate-loop.md)                                                                     | proposed               | pugh-matrix |
 | 0013 | [YAML agent context replaces markdown charter](../adr/0013-yaml-agent-context-replaces-markdown-charter.md)                                                   | proposed               | pugh-matrix |
 | 0014 | [Two-layer routing with two-mode lifecycle](../adr/0014-two-layer-routing-with-two-mode-lifecycle.md)                                                         | proposed               | none        |
+| 0015 | [Query authoritative JSONL with ephemeral DuckDB views](../adr/0015-query-authoritative-jsonl-with-ephemeral-duckdb-views.md)                                 | accepted               | pugh-matrix |
 
 ## Key Decisions
 
@@ -143,6 +144,21 @@ place. A two-mode lifecycle lets greenfield projects write values directly
 has genuine alternatives: two layers resolve a concrete drift failure from the
 single-layer predecessor, and two modes follow from the greenfield-to-mature
 constraint.
+
+### Local Usage Analysis
+
+**ADR-0015** keeps Factory's append-only JSONL records authoritative and places
+an opt-in, read-only analytical consumer behind the published usage-record
+contract. Each query creates ephemeral DuckDB relations and exactly six
+versioned views; no projector or persistent analytical database owns state.
+The query command, PyArrow conversion, explicit Parquet export, and optional
+bundled UI all consume those views without reimplementing accounting.
+
+The accepted Pugh Matrix compared the prior PostgreSQL projector, a persistent
+DuckDB file, SQLite, and ephemeral DuckDB views over JSONL. The selected design
+best meets reproducibility, capture independence, local operation, strict
+accounting, and Clean Architecture dependency direction without introducing a
+freshness or synchronization lifecycle.
 
 ## Superseded Decisions
 

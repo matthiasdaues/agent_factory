@@ -24,7 +24,7 @@ ______________________________________________________________________
 - **G6** — Keep the machine-readable catalog of every agent, skill, and playbook (`factory/INDEX.yaml`) generated from source frontmatter, never hand-edited (`index-lint`).
 - **G7** — Block a fixed list of destructive or gate-bypassing git commands before they run across all supported CLIs (`block-dangerous-git.sh` for native-hook runtimes; the equivalent Pi extension).
 - **G8** — Wire all of the above into a new or existing project, idempotently, without disturbing what is already there (`init-factory`).
-- **G9** — Ensure project-owned test gates exist: every project declares its test commands in `docs/charter/testing.yaml`; Factory's guardrails and FSM gates read that declaration; Factory never owns test execution.
+- **G9** — Ensure project-owned test gates exist: every project declares its test commands in `docs/testing.yaml`; Factory's guardrails and FSM gates read that declaration; Factory never owns test execution.
 - **G10** — Keep multi-phase workflow input cost bounded by ending the session at every phase transition and restarting from a complete, validated handoff and canonical tracked artifacts.
 - **G11** — Prevent avoidable child-dispatch spend by maintaining auditable evidence that each delivered dispatch safeguard has a contract, implementation point, and automated coverage, without reimplementing proven baseline behavior.
 
@@ -96,12 +96,12 @@ ______________________________________________________________________
 
 ### FR-I — Project-Owned Test Gates (testing declaration)
 
-- **FR-I1** — Every project (including Factory) declares its test commands in `docs/charter/testing.yaml`: `test_command` (required, full suite), `test_staged_command` (optional, agent TDD iteration), `test_changed_command` (optional, fast feedback on changed files).
-- **FR-I2** — FSM gate conditions of type `script_exit_zero` resolve `test_command` from `docs/charter/testing.yaml`. If the charter is absent or `test_command` is missing, the gate reports the gap and blocks advancement.
+- **FR-I1** — Every project (including Factory) declares its test commands in `docs/testing.yaml`: `test_command` (required, full suite), `test_staged_command` (optional, agent TDD iteration), `test_changed_command` (optional, fast feedback on changed files).
+- **FR-I2** — FSM gate conditions of type `script_exit_zero` resolve `test_command` from `docs/testing.yaml`. If the charter is absent or `test_command` is missing, the gate reports the gap and blocks advancement.
 - **FR-I3** — The gate contract is exit-code-only: zero means pass, nonzero means fail. Factory does not parse structured test output; test counts and reporting are the project's concern.
-- **FR-I4** — `block-dangerous-git.sh` reads `docs/charter/testing.yaml` and allowlists all declared command fields (`test_command`, `test_staged_command`, `test_changed_command`) with exact-string matching. Bare test commands remain blocked for agents.
+- **FR-I4** — `block-dangerous-git.sh` reads `docs/testing.yaml` and allowlists all declared command fields (`test_command`, `test_staged_command`, `test_changed_command`) with exact-string matching. Bare test commands remain blocked for agents.
 - **FR-I5** — Factory does not inject test hooks into `.pre-commit-config.yaml`. Test hooks are project-owned infrastructure: the project decides when and how tests trigger on commit, push, or other events.
-- **FR-I6** — During onboarding, the `detect-test-regime` skill scans for existing test entrypoints and records the result in `docs/charter/testing.yaml`. When multiple entrypoints are detected, Factory asks for disambiguation instead of guessing.
+- **FR-I6** — During onboarding, the `detect-test-regime` skill scans for existing test entrypoints and records the result in `docs/testing.yaml`. When multiple entrypoints are detected, Factory asks for disambiguation instead of guessing.
 
 ### FR-J — Pi agent invocation (`run_agent`, `dispatch_wave`)
 

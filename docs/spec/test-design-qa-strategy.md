@@ -5,7 +5,7 @@ Generated from:
 - Feature spec: `docs/spec/test-design.feature`
 - Entity model: `docs/spec/supplementary_specs/entity-model.md`
 - Interface contracts: `docs/spec/supplementary_specs/interface-contracts.md`
-- Charter layer bindings: `docs/charter/testing.yaml`
+- Charter layer bindings: `docs/testing.yaml`
 - Repo test infrastructure: `conftest.py`, `tests/`, `pyproject.toml`
 
 ## Feature

@@ -69,7 +69,7 @@ if echo "$COMMAND" | grep -qE '^git[[:space:]]+commit([[:space:]]|$)'; then
         COMMON_DIR=$(git rev-parse --git-common-dir 2>/dev/null)
         if [ -n "$COMMON_DIR" ]; then
           MAIN_ROOT=$(cd "$COMMON_DIR" && cd .. && pwd)
-          if ! ls "$MAIN_ROOT"/.current-work/*/dispatch-ledger.yaml >/dev/null 2>&1; then
+          if ! find "$MAIN_ROOT/.current-work" -name dispatch-ledger.yaml -print -quit 2>/dev/null | grep -q .; then
             deny "git commit on $BRANCH with no dispatch ledger. No .current-work/*/dispatch-ledger.yaml found in the main checkout ($MAIN_ROOT). Run factory/scripts/dispatch init first."
           fi
         fi

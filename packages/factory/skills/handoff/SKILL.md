@@ -11,6 +11,7 @@ phase boundary. Work that remains in the same phase is exempt. This skill ends
 the outgoing phase; it never performs in-place transcript compaction and never
 starts the incoming phase.
 
+Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
 Read [handoff-format.md](../../rulebooks/conventions/handoff-format.md) before
 writing the handoff.
 

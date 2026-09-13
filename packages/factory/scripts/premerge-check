@@ -275,7 +275,7 @@ def get_quality_gates(story_id: str) -> list[str]:
                 pass
 
     # Factory hardcoded default: all three gates
-    return ["crap-score", "mutation-analysis", "dependency-check"]
+    return ["crap-score", "mutation-testing", "dependency-check"]
 
 
 def check_semantic_gates(story_id: str) -> tuple[bool, list[str]]:

@@ -1,4 +1,4 @@
-"""Tiny mutation-analysis fixture with one survivor and one kill."""
+"""Tiny mutation-testing fixture with one survivor and one kill."""
 
 
 def adjust_balance(balance, delta):

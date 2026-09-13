@@ -13,6 +13,9 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
         # Git as supporting actor
         git = softwareSystem "Git / pre-commit" "Version control and hook execution" "External"
 
+        # Local output selected explicitly by the operator
+        parquetFile = softwareSystem "Parquet Export" "Optional, attributable, atomically replaced local export; never authoritative state" "External"
+
         # Factory Flow Control system
         factoryFlowControl = softwareSystem "Factory Flow Control" "State machine, dispatch, and validation for Agent Factory" {
             
@@ -43,10 +46,55 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
                 dispatchWave = component "dispatch-wave (Pi extension)" "Pi model-callable tool: runs a parallel wave of factory agents, each in its own git worktree, integrating premerge-check before merging (ports implementation-agent)" "TypeScript/Pi"
                 openrouterDiscover = component "openrouter-discover" "Operator aid: queries OpenRouter catalog to curate/validate pi.* tier rows in model.conf (offline of the runtime path)" "Python"
             }
+
+            # Capture and distribution remain independent from analysis
+            usageCaptureContainer = container "Usage Capture" "Normalizes CLI-native transcripts and appends versioned usage records without waiting for analysis" "Python/Shell/TypeScript" {
+                usageCapture = component "usage-capture" "Normalizes one CLI transcript and appends a canonical usage record" "Python"
+            }
+
+            distribution = container "Distribution" "Installs, updates, removes, and reports opt-in Factory components" "Bash/Python" {
+                initFactory = component "init-factory" "Installs, updates, or removes the usage component and maintains the install manifest" "Python"
+                updateFactory = component "update-factory" "Updates Factory core and reports installed components without changing them" "Python"
+                removeFactory = component "remove-factory" "Performs complete Factory removal, including analysis and raw usage data" "Python"
+            }
             
             # Configuration and state storage
             stateFiles = container "State Files" "Local git-ignored marker and FSM definitions" "YAML files" "Storage"
             catalog = container "Catalog" "Generated INDEX.yaml of agents/skills/playbooks" "YAML file" "Storage"
+            usageRecordContract = container "Usage Record Contract" "Factory-owned JSON Schema Draft 2020-12 and compatibility manifest" "JSON Schema/YAML" "Storage"
+            rawUsageSpool = container "Raw Usage Spool" "Authoritative append-only top-level JSONL records under .agent-factory/usage/" "JSONL files" "Storage"
+            installManifest = container "Install Manifest" "Records installed CLI integrations and opt-in components" "JSON file" "Storage"
+        }
+
+        # Separate bounded context: local analytical consumer
+        usageAnalysis = softwareSystem "Usage Analysis" "Opt-in, local, read-only JSONL-to-DuckDB analysis with reproducible published views" {
+            usageAnalysisRuntime = container "Usage Analysis Runtime" "Runs usage-query from the installed, locked Python project and owns the query model" "Python/DuckDB/PyArrow" {
+                inputSnapshot = component "Input Snapshot" "Selects and normalizes a sorted, top-level JSONL input set at query start" "Python"
+                contractCheck = component "Contract Check" "Validates the installed record contract, every selected line, and producer-consumer compatibility" "Python/JSON Schema"
+                operationalPreflight = component "Operational Preflight" "Classifies every line, validates ancestry, and registers valid and failure relations" "Python/DuckDB"
+                accountingRegistry = component "Accounting Registry" "Maps exactly four producer CLI values to their conservation rule" "Python/SQL"
+                queryModel = component "Query Model v1" "Publishes six versioned DuckDB views over query-scoped relations" "DuckDB SQL"
+                resultAdapters = component "Result Adapters" "Projects a published view as table, JSON, DuckDB relation, or PyArrow table" "Python"
+                parquetExporter = component "Parquet Exporter" "Stages, verifies, attributes, and atomically replaces an explicit export" "Python/DuckDB"
+            }
+
+            duckdbUi = container "DuckDB UI" "Optional ephemeral localhost exploration of the same six published views; never gate evidence" "DuckDB bundled UI"
+            installedAnalysis = container "Installed Analysis Module" "Versioned SQL, accounting rules, contract copy, lockfile, and executable package under .agent-factory/usage-analysis/" "Files" "Storage"
+        }
+
+        deploymentEnvironment "Release 1" {
+            deploymentNode "Operator Workstation" "Single local machine; no container, database server, or remote service" "Linux/macOS" {
+                deploymentNode "Factory Project" "Project checkout with a local .agent-factory directory" "Filesystem/processes" {
+                    containerInstance usageCaptureContainer
+                    containerInstance distribution
+                    containerInstance usageRecordContract
+                    containerInstance rawUsageSpool
+                    containerInstance installManifest
+                    containerInstance usageAnalysisRuntime
+                    containerInstance duckdbUi
+                    containerInstance installedAnalysis
+                }
+            }
         }
 
         # Relationships - Human Operator
@@ -54,6 +102,11 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
         humanOperator -> phaseAdvance "Invokes via CLI"
         humanOperator -> phaseRetry "Invokes via CLI"
         humanOperator -> trigger "Invokes via CLI"
+        humanOperator -> usageAnalysisRuntime "Runs usage-query locally"
+        humanOperator -> inputSnapshot "Starts a stable local query"
+        humanOperator -> parquetExporter "Requests an explicit Parquet export"
+        humanOperator -> duckdbUi "Optionally explores published views"
+        humanOperator -> initFactory "Installs, updates, or removes the usage component"
         
         # Relationships - Orchestrator
         orchestrator -> phaseAdvance "Invokes programmatically"
@@ -90,6 +143,32 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
         dispatchWave -> catalog "Resolves each item's agent by name; tier via model.conf"
         dispatchWave -> cliAgent "Spawns parallel pi sessions, one per worktree"
 
+        # Relationships - Usage capture and Factory-owned contract
+        cliAgent -> usageCapture "Supplies CLI-native transcript and invocation context"
+        usageCapture -> usageRecordContract "Produces records governed by"
+        usageCapture -> rawUsageSpool "Appends canonical records"
+
+        # Relationships - Usage component distribution
+        initFactory -> usageRecordContract "Copies the compatible contract into the component"
+        initFactory -> installedAnalysis "Installs, updates, or removes without touching raw data"
+        initFactory -> installManifest "Records installed_components.usage"
+        updateFactory -> installManifest "Reports component presence without changing it"
+        removeFactory -> installedAnalysis "Removes during complete uninstall"
+        removeFactory -> rawUsageSpool "Deletes during complete uninstall"
+
+        # Relationships - Local usage analysis
+        usageAnalysisRuntime -> installedAnalysis "Loads locked code, SQL, accounting rules, and contract copy"
+        inputSnapshot -> rawUsageSpool "Snapshots sorted top-level JSONL paths read-only"
+        inputSnapshot -> contractCheck "Supplies normalized evidence positions and records"
+        contractCheck -> operationalPreflight "Supplies valid rows and structured failures"
+        operationalPreflight -> accountingRegistry "Supplies valid rooted run graphs"
+        accountingRegistry -> queryModel "Applies CLI-specific conservation rules"
+        operationalPreflight -> queryModel "Registers query-scoped valid and failure relations"
+        queryModel -> resultAdapters "Supplies selected published view"
+        queryModel -> parquetExporter "Supplies selected published view"
+        parquetExporter -> parquetFile "Atomically replaces after round-trip verification"
+        duckdbUi -> queryModel "Explores the same published views locally"
+
         # Relationships - Semantic Quality Gates (dispatcher-invoked, on-demand)
         cliAgent -> crapScore "Implementation-agent dispatcher runs after developer commit"
         cliAgent -> dependencyCheck "Implementation-agent dispatcher runs after developer commit"
@@ -124,6 +203,16 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
             autoLayout tb
         }
 
+        component usageAnalysisRuntime "UsageAnalysisComponents" "Local query pipeline from immutable evidence to versioned results" {
+            include *
+            include humanOperator
+            include rawUsageSpool
+            include installedAnalysis
+            include parquetFile
+            include duckdbUi
+            autoLayout lr
+        }
+
         dynamic validator "TestGatePresence" "Charter-declared test gate presence and agent allowlist" {
             humanOperator -> phaseAdvance "1. Invokes phase advance"
             phaseAdvance -> stateFiles "2. Reads FSM; resolves charter:test_command from testing.yaml"
@@ -137,6 +226,28 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
             crapScore -> stateFiles "2. Writes CRAP report (pass/fail per function)"
             cliAgent -> dependencyCheck "3. Dispatcher runs dependency-check against architecture.dsl"
             dependencyCheck -> stateFiles "4. Writes dependency report (pass/fail per rule)"
+        }
+
+        dynamic usageAnalysisRuntime "UsageQuery" "Strict local usage query and optional result projection" {
+            humanOperator -> inputSnapshot "1. Invokes usage-query for a published view"
+            inputSnapshot -> rawUsageSpool "2. Snapshots sorted top-level JSONL evidence"
+            inputSnapshot -> contractCheck "3. Supplies normalized evidence and records"
+            contractCheck -> operationalPreflight "4. Registers valid rows and structured failures"
+            operationalPreflight -> accountingRegistry "5. Supplies a valid rooted run graph"
+            accountingRegistry -> queryModel "6. Applies the registered conservation rule"
+            operationalPreflight -> queryModel "7. Registers valid and failure relations"
+            queryModel -> resultAdapters "8. Projects the selected published view"
+        }
+
+        dynamic usageAnalysisRuntime "UsageParquetExport" "Verified explicit Parquet replacement" {
+            humanOperator -> parquetExporter "1. Requests a published view as Parquet"
+            queryModel -> parquetExporter "2. Supplies the selected stable view"
+            parquetExporter -> parquetFile "3. Replaces the destination after verification"
+        }
+
+        deployment * "Release 1" "Deployment" "Local, process-bound release-1 deployment" {
+            include *
+            autoLayout lr
         }
 
         theme default

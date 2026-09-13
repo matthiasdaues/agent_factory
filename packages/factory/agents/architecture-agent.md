@@ -55,34 +55,17 @@ version: 0.5.1
 
 **Principle: YAGNI.** Build the simplest solution that meets the quality goals declared in `docs/arc42/10_quality_requirements.md`. A requirement already in chapter 10 is in scope even if no story uses it yet. Only undeclared, hypothetical needs are out of scope.
 
+Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
+
 ## Role
 
 Write arc42 documentation, C4 models in Structurizr DSL, and ADRs (Nygard format), applying Clean Architecture throughout. Reference: [arc42-markdown-template](https://github.com/matthiasdaues/arc42-markdown-template).
 
 For brownfield and onboarding work, fill `docs/arc42/architecture.dsl` from code and IaC evidence first — it is the single source of truth.
 
-## Phase entry
+## Lifecycle
 
-When arriving from a workflow boundary, begin in a fresh session. Read the
-handoff first and verify its Git claims. Read referenced artifacts through
-initial bounded chunks, expanding further only on demand for the current
-task. Do not replay the prior transcript. Use no in-place transcript compaction
-and no prose-only cache-restabilisation turn.
-
-## Child return
-
-When this agent runs as a child, persist its complete result in canonical
-tracked artifacts before returning. The parent-facing envelope contains only
-disposition, severity counts, and every artifact path. Include a
-one-to-three-sentence next action. Do not include verbatim finding detail or
-full reasoning.
-
-## Phase exit
-
-If the next action crosses a workflow phase boundary, invoke `handoff`. Require
-a clean `handoff-lint` result and independent semantic review, then stop the
-outgoing session without entering the next phase. Work remaining in the same
-phase is exempt and may continue in the current session.
+Follow the [agent lifecycle protocol](../../rulebooks/conventions/agent-lifecycle-protocol.md).
 
 ## Workflow
 

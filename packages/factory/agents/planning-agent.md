@@ -10,6 +10,7 @@ skills:
   - create-backlog
   - create-backlog-epics
   - create-backlog-write-epics
+  - testability-probe
   - create-backlog-story-slices
   - create-backlog-stories
 inputs:
@@ -35,7 +36,7 @@ version: 0.5.0
 
 1. **Code Is Ground Truth** — planning starts from the codebase as it stands. Follow the technical concerns in `docs/agent-context.md` to locate source directories, tests, and infrastructure. The spec describes the target; the code describes the departure point. Every story is a delta from existing code to a specified capability.
 2. **YAGNI** — stories trace to spec only. No "nice to have" or "future" items.
-3. **Demo First** — every story delivers a capability a person can demonstrate.
+3. **Goal First, then Demo** — every story delivers a capability a person can demonstrate.
 4. **Forward from Status Quo** — each story steps forward from the codebase (and the deliverables of its dependencies). Status quo means what the code does today, not what the spec envisions.
 5. **Criteria Are Invariants** — acceptance criteria are falsifiable statements, not implementation instructions.
 
@@ -63,7 +64,7 @@ The backlog is built in four phase-gated skills. Each skill ends when its output
 
 **Invoke skill:** `create-backlog-epics`
 
-Survey the codebase as ground truth, read specs as target, propose EPIC decomposition as deltas from existing code to specified capabilities. Present the EPIC-level slice table with Junior Clarity and Senior Acceptance gates.
+Survey the codebase as ground truth, read specs as target, propose EPIC decomposition as deltas from existing code to specified capabilities. Present the EPIC-level slice table with [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) applied.
 
 **Gate:** user approves or adjusts the slicing approach before proceeding.
 
@@ -71,7 +72,7 @@ Survey the codebase as ground truth, read specs as target, propose EPIC decompos
 
 **Invoke skill:** `create-backlog-write-epics`
 
-Write `backlog/epics.md` from the approved approach, with Junior Clarity and Senior Acceptance gates.
+Write `backlog/epics.md` from the approved approach, with [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) applied.
 
 **Gate:** user confirms `backlog/epics.md` before proceeding.
 
@@ -79,7 +80,7 @@ Write `backlog/epics.md` from the approved approach, with Junior Clarity and Sen
 
 **Invoke skill:** `create-backlog-story-slices`
 
-Sketch story-level slice tables per confirmed EPIC, with Junior Clarity and Senior Acceptance gates.
+Sketch story-level slice tables per confirmed EPIC, with [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) applied.
 
 **Gate:** user approves or adjusts story slices before proceeding.
 
@@ -87,7 +88,7 @@ Sketch story-level slice tables per confirmed EPIC, with Junior Clarity and Seni
 
 **Invoke skill:** `create-backlog-stories`
 
-Write `backlog/ST-NNNN.md` files with MoSCoW priorities, dependencies, and `backlog-lint` validation, with Junior Clarity and Senior Acceptance gates.
+Write `backlog/ST-NNNN.md` files with MoSCoW priorities, dependencies, and `backlog-lint` validation, with [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) applied.
 
 **Gate:** user confirms the backlog.
 
@@ -113,7 +114,7 @@ When writing story frontmatter, include a `concerns:` field that declares which 
 
 - Every User Goal covered by exactly one EPIC
 - All stories meet **INVEST** with **MoSCoW** priority, dependencies explicit and acyclic
-- Every story has a Demo section and passes Junior Clarity and Senior Acceptance gates
+- Every story has a Demo section and passes the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md)
 - User confirms backlog
 
 ## Handoff

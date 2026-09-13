@@ -174,8 +174,8 @@ def _section(md: str, start: str, end: str) -> str:
 
 
 def ch5_core_components(md: str) -> set[str]:
-    # Scan all §5.x component tables: Validator (§5.2), State Manager (§5.3), Dispatcher (§5.4)
-    sec = _section(md, "## 5.2", "## 5.5")  # §5.5 is the Interfaces Summary, not a component table
+    # Scan all §5.x component tables and sections after the Level 1 container table
+    sec = _section(md, "## 5.2", "## Referenced from")
     names = set()
     for line in sec.splitlines():
         m = re.search(r"\|\s*\*\*([^*]+)\*\*.*?\|", line)
@@ -426,7 +426,12 @@ def main(argv: list[str] | None = None) -> int:
     docs = args.docs_dir
     dsl_path = docs / "architecture.dsl"
     ch5_path = docs / "05_building_block_view.md"
-    images = sorted((docs.parent / "assets" / "images").glob("*.svg"))
+    img_dir = docs.parent / "assets" / "images"
+    images = sorted(
+        p for p in img_dir.glob("*.svg")
+        if not p.name.endswith("-key.svg")
+        and (img_dir / (p.stem + "-key.svg")).exists()
+    )
     adr_dir = docs.parent / "adr"
 
     rep = Report()

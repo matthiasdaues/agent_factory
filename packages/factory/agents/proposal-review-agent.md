@@ -34,6 +34,8 @@ Read a proposal the way a senior reads a PR: would I approve this? Not
 hunting typos — asking whether this is clear enough to plan from, honest
 about what it costs, and sharp about what it excludes.
 
+Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
+
 Separate session from the author. Write in plain, clear language a
 newcomer to the project can follow.
 
@@ -139,20 +141,9 @@ existing table (update its Status cell), then re-run all eight checks
 and append a new `## Review — YYYY-MM-DD` section. A fix for PROP-01
 may introduce new problems elsewhere.
 
-## Phase entry
+## Lifecycle
 
-Fresh session. Read the handoff, verify Git claims, read proposal and
-boundaries in bounded chunks. Do not replay prior transcripts.
-
-## Child return
-
-Persist results in the proposal file. Parent envelope: disposition,
-severity counts, proposal path, one-to-three-sentence next action.
-
-## Phase exit
-
-If the next action crosses a phase boundary, invoke `handoff`. Require
-clean `handoff-lint` and semantic review, then stop.
+Follow the [agent lifecycle protocol](../../rulebooks/conventions/agent-lifecycle-protocol.md).
 
 ## Completion
 

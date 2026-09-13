@@ -9,8 +9,7 @@ disable-model-invocation: false
 
 Write `backlog/epics.md` from the approved EPIC slicing approach. This is phase 2 of the [create-backlog sequence](../create-backlog/SKILL.md#operational-sequence). Story format, composition rules, and the done check live in the [parent skill](../create-backlog/SKILL.md).
 
-Write for an international Team whose members have English as a common, but not as a native language.
-
+Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
 **Prerequisite:** the EPIC-level slice table has been approved by the user (output of [`create-backlog-epics`](../create-backlog-epics/SKILL.md)).
 
 ## Step 1 — Write backlog/epics.md
@@ -25,7 +24,9 @@ Document every confirmed EPIC in `backlog/epics.md` with:
 - Dependencies on other EPICs
 - Boundaries (system boundaries the EPIC crosses)
 - Size / story count estimate
-- Building-block inventory listing each anticipated story with its capacity tier and day-range estimate. For each block, note what already exists in the codebase (files, modules, tests) and what the story adds or changes.
+- Building-block inventory listing each anticipated story with its capacity tier, day-range estimate, and Goal (one sentence of concrete behavior). The Goal seeds the story's Goal section in Phase 4. For each block, note what already exists in the codebase (files, modules, tests) and what the story adds or changes.
+
+**Domain Rules subsection:** Each EPIC gains a Domain Rules subsection listing the invariants that govern the EPIC's stories as a bullet list. These invariants capture the business or technical rules that constrain how stories within the EPIC behave. This subsection seeds each story's Domain Rule section in Phase 4.
 
 **"Why this EPIC exists" section (required):** Before the Actor Goals, write one paragraph (2–4 sentences) that explains why this capability matters — what cannot happen without it, or what risk it removes. A junior reading the EPIC should understand the motivation before encountering the scope list.
 
@@ -43,26 +44,14 @@ Format via `factory/scripts/mdformat --number backlog/epics.md` per [markdown-fo
 
 ## Quality gate
 
-Before presenting, review `backlog/epics.md` through two lenses:
-
-**Junior Clarity checklist:**
-
-1. Every domain term, protocol concept, and component name is glossed on first use within the EPIC (parenthetical plain-English explanation).
-2. The demo is a numbered step list, not a wall paragraph.
-3. Each EPIC has a "Why this EPIC exists" section that explains the motivation in plain language.
-4. Scope In items describe behaviour ("what the system does"), not just name components.
-5. Narrative text avoids dense chains of component names — save DSL identifiers for the Boundaries table.
-
-If any item fails, revise before presenting.
-
-**Senior Acceptance:** Would a senior hand this EPIC breakdown to the team without a follow-up conversation? Is the scope bounded, the demo concrete, and the dependency chain clear? If not, revise. Additionally: the demo steps, when read as a manual test, exercise the EPIC's core scenario end-to-end without referencing internal implementation details that only exist in the architecture DSL.
+Compose every section of the epics file with the writing quality gates active. Every sentence passes all four gates while you write it, not after. Revise any section that fails before presenting.
 
 Present `backlog/epics.md` to the user for confirmation.
 
 ## This skill ends here
 
-The EPIC artifact is written. **Do not proceed to story-level slicing.** The user confirms or adjusts `backlog/epics.md`, then invokes the next skill: [`create-backlog-story-slices`](../create-backlog-story-slices/SKILL.md).
+The EPIC artifact is written. **Do not proceed to story-level slicing.** The user confirms or adjusts `backlog/epics.md`, then invokes the next skill in the sequence: the testability probe (phase 2.5).
 
-## Optional: Invoke test-design
+## Next: Invoke testability-probe
 
-Before proceeding to step 3, you may invoke [`test-design`](../test-design/SKILL.md) to enrich the epics with test scenarios from the `.feature` contracts. The test-design skill designs failure scenarios that prescribe the developer-agent's TDD RED phase — without it, each developer-agent invents its own tests, often defaulting to obvious happy-path coverage that proves nothing about the behavioral invariants the specification intended. By contrast, test-design output ensures every test traces to a contract and every contract has one clear owner.
+Before proceeding to story slicing (phase 3), invoke [`testability-probe`](../testability-probe/SKILL.md) to assess each EPIC's testability and resolve contract ownership backlog-wide. The probe writes a testability paragraph and ownership table per EPIC into `backlog/epics.md` — catching untestable scoping before stories are cut and ensuring every traced contract has exactly one test owner. This step is mandatory; skipping it lets planning proceed without the gate that catches scoping defects.

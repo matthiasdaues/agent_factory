@@ -21,6 +21,7 @@ for the binding structural rules this skill follows, and
 [factory-concern-oriented-agent-context.md](../../../docs/proposals/factory-concern-oriented-agent-context.md)
 for the design rationale.
 
+Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
 **Runs in the orchestrating session, never as a spawned subagent.** The
 concern confirmation requires the stakeholder to be present to answer.
 
@@ -50,7 +51,7 @@ belong to the retired YAML model).
 
 If `docs/agent-context.md` already exists, stop and tell the user:
 "docs/agent-context.md already exists — skipping init to protect existing
-content. Use `update-context` or edit the file directly." Do not overwrite.
+content. Edit the file directly." Do not overwrite.
 
 ### Step 1 — Repository scan
 

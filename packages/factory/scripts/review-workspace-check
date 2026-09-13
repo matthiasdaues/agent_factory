@@ -1,0 +1,151 @@
+#!/usr/bin/env python3
+"""review-workspace-check — verify review mode's local dev environment.
+
+What: Checks that the working tree is clean and the declared test command
+      passes. Mechanical gate — no LLM judgment.
+When: Called before review-mode branch creation and when accepting each
+      human-reviewed commit.
+By:   implementation-agent review-mode workflow, Step 1.
+
+Checks
+  1. Clean working tree: `git status --porcelain` must be empty. Uncommitted
+     changes from a prior run risk contaminating the first story's work.
+  2. Tests pass: read `test_all` (or compatibility `test_command`) from
+     `docs/testing.yaml` and execute it.
+     Exit 0 means the dev environment is responsive — dependencies installed,
+     build working, runtime available. A non-zero exit means the environment
+     is broken; the user must fix it before dispatch can proceed.
+
+Usage
+  review-workspace-check
+
+Exit codes
+  0: PASS — environment ready for dispatch
+  1: BLOCK — at least one check failed; do not dispatch
+  2: usage or invocation error (not a git repo, testing.yaml missing, etc.)
+"""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+
+try:
+    import yaml
+except ImportError:
+    yaml = None  # type: ignore[assignment]
+
+
+def run_git(args: list[str]) -> tuple[int, str, str]:
+    result = subprocess.run(["git", *args], capture_output=True, text=True, check=False)
+    return result.returncode, result.stdout.strip(), result.stderr.strip()
+
+
+def find_testing_yaml() -> Path | None:
+    code, top, _ = run_git(["rev-parse", "--show-toplevel"])
+    if code != 0:
+        return None
+    for candidate in [
+        Path(top) / "docs" / "testing.yaml",
+        Path(top) / "docs" / "agent-context" / "testing.yaml",
+        Path(top) / "docs" / "charter" / "testing.yaml",
+    ]:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def read_test_command(path: Path) -> str | None:
+    try:
+        content = path.read_text()
+        if yaml:
+            data = yaml.safe_load(content)
+            if not isinstance(data, dict):
+                return None
+            return data.get("test_all") or data.get("test_command")
+        values: dict[str, str] = {}
+        for line in content.splitlines():
+            key, separator, value = line.partition(":")
+            if separator and key in {"test_all", "test_command"}:
+                values[key] = value.strip().strip('"').strip("'")
+        for key in ("test_all", "test_command"):
+            if values.get(key):
+                return values[key]
+        return None
+    except (OSError, ValueError):
+        return None
+
+
+def check_clean_worktree() -> tuple[bool, str]:
+    code, out, err = run_git(["status", "--porcelain"])
+    if code != 0:
+        return False, f"ERROR: git status failed: {err}"
+    if out:
+        file_count = len(out.splitlines())
+        return False, (
+            f"BLOCK clean-worktree: {file_count} uncommitted change(s). "
+            f"Commit or stash before dispatch."
+        )
+    return True, "PASS clean-worktree: working tree is clean"
+
+
+def check_tests_pass(test_command: str) -> tuple[bool, str]:
+    print(f"  running: {test_command}")
+    result = subprocess.run(
+        test_command, shell=True, capture_output=True, text=True, check=False
+    )
+    if result.returncode != 0:
+        stderr_tail = result.stderr.strip().splitlines()[-5:] if result.stderr else []
+        stdout_tail = result.stdout.strip().splitlines()[-5:] if result.stdout else []
+        tail = "\n".join(stderr_tail or stdout_tail)
+        return False, (
+            f"BLOCK tests-pass: test command exited {result.returncode}\n{tail}"
+        )
+    return True, "PASS tests-pass: test command exited 0"
+
+
+def main() -> int:
+    code, _, err = run_git(["rev-parse", "--is-inside-work-tree"])
+    if code != 0:
+        print(f"review-workspace-check: not a git repository: {err}", file=sys.stderr)
+        return 2
+
+    testing_yaml = find_testing_yaml()
+    if testing_yaml is None:
+        print(
+            "review-workspace-check: testing.yaml not found "
+            "(checked docs/testing.yaml, docs/agent-context/testing.yaml, "
+            "docs/charter/testing.yaml)",
+            file=sys.stderr,
+        )
+        return 2
+
+    test_command = read_test_command(testing_yaml)
+    if not test_command:
+        print(
+            f"review-workspace-check: no test_all or test_command in {testing_yaml}",
+            file=sys.stderr,
+        )
+        return 2
+
+    findings: list[bool] = []
+
+    ok, line = check_clean_worktree()
+    print(line)
+    findings.append(ok)
+
+    ok, line = check_tests_pass(test_command)
+    print(line)
+    findings.append(ok)
+
+    if all(findings):
+        print("review-workspace-check: PASS — workspace ready")
+        return 0
+
+    print("review-workspace-check: BLOCK — fix the failing check(s)")
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

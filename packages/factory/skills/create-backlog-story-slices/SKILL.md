@@ -19,10 +19,12 @@ Follow the concern sections in `docs/agent-context.md` to locate domain vocabula
 
 **Boundary vocabulary:** derive boundary names from the project's architecture. Follow the technical concerns in `docs/agent-context.md` to locate architecture views. Use the project's own component and container names, not generic layer labels.
 
-For each confirmed EPIC, sketch a table of candidate stories. Each row names a user-visible capability, the system boundaries it crosses, and a one-sentence demo.
+For each confirmed EPIC, sketch a table of candidate stories. Each row names a user-visible capability, the system boundaries it crosses, what the story delivers, and a one-sentence demo.
 
-| #   | Capability (what a person can do after) | Boundaries crossed | Demo sentence |
-| --- | --------------------------------------- | ------------------ | ------------- |
+| #   | Capability | Goal (one sentence) | Boundaries crossed | Demo sentence |
+| --- | ---------- | ------------------- | ------------------ | ------------- |
+
+**Goal column:** State what each story delivers in plain language — one sentence of concrete behavior. The Goal seeds the story's Goal section in Phase 4 (story file creation).
 
 If a candidate row touches only one boundary and delivers nothing a person can demonstrate, it is not a story — fold it into the first row that needs it as a line item.
 
@@ -32,11 +34,7 @@ If a candidate row touches only one boundary and delivers nothing a person can d
 
 ## Quality gate
 
-Before presenting, review every slice table through two lenses:
-
-**Junior Clarity:** Can a junior developer read each row and understand what capability it delivers, which parts of the system it touches, and what the first test would assert? If not, the slice is underspecified.
-
-**Senior Acceptance:** Would a senior hand these slices to the team without a follow-up conversation? Is each slice bounded, independently demo-able, and free of hidden dependencies? If not, recut.
+Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. Compose every slice-table row with all four gates active — no row reaches terminal output or a file until it passes. Revise any row that fails before presenting.
 
 Present the tables to the user for confirmation.
 

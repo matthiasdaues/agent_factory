@@ -181,13 +181,40 @@ The agent context (`docs/agent-context/`) is the factory-facing interface to all
 
 **Two-layer routing** separates "what should I read for this kind of work?" (Layer 1: `reading-guides.yaml`) from "what was decided about this topic, and where is it documented?" (Layer 2: `stack.yaml`, `workflow.yaml`, `governance.yaml`). Sources are maintained in exactly one place (the index files). See [ADR-0014](../adr/0014-two-layer-routing-with-two-mode-lifecycle.md).
 
-**Two-mode lifecycle** lets the context start as a notepad (`mode: primary`, greenfield) and mature into a pure link index (`mode: index`, after handbook and conventions exist). The transition is one-directional and atomic across all three index files. See [state-machines.md § Agent Context Mode Lifecycle](../spec/supplementary_specs/state-machines.md#agent-context-mode-lifecycle).
+**Two-mode lifecycle** lets the context start as a notepad (`mode: primary`, greenfield) and mature into a pure link index (`mode: index`, after handbook and conventions exist). The transition is one-directional and atomic across all three index files. See [state-machines.md § Concern Registry Lifecycle](../spec/supplementary_specs/state-machines.md#concern-registry-lifecycle).
 
 **Format detection** ensures backward compatibility. Factory consumers walk a three-step chain to determine whether the project uses YAML agent-context, legacy YAML charter, or legacy markdown charter. `testing.yaml` path resolution is independent. See [ADR-0013](../adr/0013-yaml-agent-context-replaces-markdown-charter.md).
 
 **Validation** is deterministic. `context-lint` enforces structure, key presence, mode compliance, source-pointer integrity, and reading-guide reference resolution via `CX-*` finding codes. It runs both as a pre-commit hook and on demand. See [05_building_block_view.md § 5.2.5](05_building_block_view.md#525-agent-context-validation-context-lint).
 
 **Guiding rule**: The agent context is a routing table, not a knowledge base -- it tells agents where to look, never what they will find.
+
+## 8.12 Local Usage Evidence and Derived Results
+
+Factory and Usage Analysis meet at one published contract. Factory owns the
+usage-record schema and append-only JSONL spool. Usage Analysis owns validation,
+accounting, published views, and presentation. The dependency points from
+analysis to the contract; capture never calls analysis.
+
+Raw JSONL is authoritative and immutable to analysis. Every query snapshots a
+sorted top-level file set, normalizes source identity, and classifies every
+selected line before accounting. The valid and failure relations, embedded
+DuckDB state, UI state, and Parquet files are derived and safe to delete.
+
+Privacy follows the same boundary. Analysis may expose `transcript_ref` as an
+opaque audit value but must not follow, open, copy, index, or tokenize the
+referenced transcript. Production analysis has no remote reader or network
+client. The optional bundled UI may fetch assets only when the operator starts
+it and is not part of deterministic analysis.
+
+Stable output comes only from the six `query-model-v1` views. Snapshot selection
+and four-CLI conservation remain inside the accounting registry and SQL model;
+table, JSON, relation, Arrow, Parquet, and UI adapters must not reimplement
+them. Strict preflight leaves `capture_health` available for diagnosis but
+blocks every other stable view when any selected line or ancestry is invalid.
+
+See [ADR-0015](../adr/0015-query-authoritative-jsonl-with-ephemeral-duckdb-views.md)
+and [validation rules § Local usage processing and analysis](../spec/supplementary_specs/validation-rules.md#local-usage-processing-and-analysis).
 
 ## Referenced from
 
@@ -199,3 +226,5 @@ The agent context (`docs/agent-context/`) is the factory-facing interface to all
 - [06_runtime_view.md § 6.3](06_runtime_view.md#63-semantic-gate-loop)
 - [06_runtime_view.md § 6.4](06_runtime_view.md#64-agent-context-mode-transition)
 - [09_architecture_decisions.md](09_architecture_decisions.md)
+- [05_building_block_view.md § 5.7](05_building_block_view.md#57-level-2-component-view--usage-analysis-runtime)
+- [07_deployment_view.md](07_deployment_view.md)

@@ -39,32 +39,15 @@ version: 0.3.1
 
 **MUST run in a separate session** from Architecture Agent.
 
+Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
+
 ## Role
 
 Evaluate an architecture you did not create. Find sensitivity points, trade-offs, and risks using ATAM. Flag YAGNI violations: unnecessary complexity, meaningless abstractions.
 
-## Phase entry
+## Lifecycle
 
-When arriving from a workflow boundary, begin in a fresh session. Read the
-handoff first and verify its Git claims. Read referenced artifacts through
-initial bounded chunks, expanding further only on demand for the current
-task. Do not replay the prior transcript. Use no in-place transcript compaction
-and no prose-only cache-restabilisation turn.
-
-## Child return
-
-When this agent runs as a child, persist its complete result in canonical
-tracked artifacts before returning. The parent-facing envelope contains only
-disposition, severity counts, and every artifact path. Include a
-one-to-three-sentence next action. Do not include verbatim finding detail or
-full reasoning.
-
-## Phase exit
-
-If the next action crosses a workflow phase boundary, invoke `handoff`. Require
-a clean `handoff-lint` result and independent semantic review, then stop the
-outgoing session without entering the next phase. Work remaining in the same
-phase is exempt and may continue in the current session.
+Follow the [agent lifecycle protocol](../../rulebooks/conventions/agent-lifecycle-protocol.md).
 
 ## Workflow
 

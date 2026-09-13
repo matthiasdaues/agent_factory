@@ -31,6 +31,10 @@ gate_conditions:
     type: no_open_findings
     pattern: ATAM-*.md
 
+  no_open_impl_findings:
+    type: no_open_findings
+    pattern: IMPL-*.md
+
   no_open_recon_findings:
     type: no_open_findings
     pattern: RECON-*.md
@@ -67,8 +71,8 @@ gate_conditions:
   tests_pass:
     type: script_exit_zero
     script: "charter:test_command"
-    charter_file: [docs/agent-context/testing.yaml, docs/charter/testing.yaml]
-    # Resolved via format detection: docs/agent-context/testing.yaml first, docs/charter/testing.yaml fallback (UC-09, ADR-0003)
+    charter_file: [docs/testing.yaml, docs/agent-context/testing.yaml, docs/charter/testing.yaml]
+    # Resolved via format detection: docs/testing.yaml first, legacy paths as fallback (UC-09, ADR-0003)
 
 # State machine
 states:
@@ -238,15 +242,57 @@ states:
       ImplementationComplete:
         exit_conditions:
           - code_exists
-          - tests_pass  # UC-09: Tests must pass before advancing to QA
+          - tests_pass  # UC-09: Tests must pass before advancing to code review
         transitions:
-          - to: PHASE_4_GATE
+          - to: PHASE_4_CODE_REVIEW
 
-  PHASE_4_GATE:
+  PHASE_4_CODE_REVIEW:
+    description: Bounded code review on implementation diff
+    entry_conditions:
+      - code_exists
+      - tests_pass
+
+    agent: code-review-agent
+    session: stateless
+
+    outputs:
+      - docs/reviews/code-review-*.md
+      - docs/findings/IMPL-*.md
+
+    on:
+      CodeReviewComplete:
+        exit_conditions:
+          - no_open_impl_findings
+        transitions:
+          - if: no_open_impl_findings
+            to: PHASE_4_RECONCILIATION
+          - else:
+            to: PHASE_4_IMPL_FIX
+
+  PHASE_4_IMPL_FIX:
+    description: Fix code review findings
+    entry_conditions:
+      - code_exists
+
+    agent: implementation-agent
+    session: stateful
+
+    outputs:
+      - src/**/*
+      - tests/**/*
+      - git commits
+
+    on:
+      FixesComplete:
+        transitions:
+          - to: PHASE_4_CODE_REVIEW  # Re-run code review
+
+  PHASE_4_RECONCILIATION:
     description: Reconcile code with spec
     entry_conditions:
       - code_exists
       - spec_exists
+      - no_open_impl_findings
 
     agent: reconciliation-agent
     session: stateless
@@ -264,7 +310,25 @@ states:
           - if: no_open_recon_findings
             to: PHASE_5_QUALITY
           - else:
-            to: PHASE_4_IMPLEMENTATION
+            to: PHASE_4_RECON_FIX
+
+  PHASE_4_RECON_FIX:
+    description: Fix reconciliation findings
+    entry_conditions:
+      - code_exists
+
+    agent: implementation-agent
+    session: stateful
+
+    outputs:
+      - src/**/*
+      - tests/**/*
+      - git commits
+
+    on:
+      FixesComplete:
+        transitions:
+          - to: PHASE_4_RECONCILIATION  # Re-run reconciliation
 
   # Phase 5: Quality Assurance
   PHASE_5_QUALITY:
@@ -321,6 +385,7 @@ states:
       - code_exists
       - no_open_spec_findings
       - no_open_atam_findings
+      - no_open_impl_findings
       - no_open_recon_findings
       - no_open_qa_findings
 

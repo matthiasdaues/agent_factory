@@ -16,6 +16,7 @@ Turn a meeting transcript into two markdown files: one preserving the
 discussion as citable evidence, the other measuring it against the
 project's documented state.
 
+Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
 The key words "MUST", "MUST NOT", "SHALL", "SHALL NOT", "SHOULD",
 "SHOULD NOT", "MAY", and "OPTIONAL" in this document are to be interpreted
 as described in RFC 2119.

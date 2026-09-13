@@ -308,7 +308,7 @@ The playbook ends when the following terminal artifacts exist:
 
 **Terminal Artifacts:**
 
-- [ ] `docs/spec/scope-map.md` exists with Rules backfilled from the existing codebase (all marked `implemented`); the scope-map migration skill handles the backfill if `derive-spec` artifacts exist from prior specification work; otherwise the scope map is populated directly from code inspection
+- [ ] `docs/spec/scope-map.md` exists with Rules backfilled from the existing codebase (all marked `implemented`); `reverse-map` handles the backfill from code, tests, and other sources
 - [ ] `docs/arc42/architecture.dsl` models the as-built module structure (C4 components and dependencies reverse-engineered from code)
 - [ ] Arc42 prose chapters (01–12) pass architecture review with no blocking findings
 
