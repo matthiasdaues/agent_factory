@@ -1,0 +1,15 @@
+#!/usr/bin/env python3
+"""usage-contract-check — validate JSONL records against the usage-record contract.
+
+Exit 0: all records valid.
+Exit 1: at least one record failed validation.
+Exit 2: operational error (bad arguments, unreadable input, unusable contract).
+"""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+
+from usage.contract_check import run
+
+sys.exit(run(sys.argv[1:]))
