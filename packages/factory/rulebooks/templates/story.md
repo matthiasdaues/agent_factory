@@ -15,7 +15,7 @@ id: ST-0001                       # ST-NNNN (new) or ST-NNNNA (split); zero-padd
 epic: Domain Entities             # the EPIC this story belongs to (references a section in backlog/epics.md)
 title: Define domain entity dataclasses
 tier: economy                     # economy | standard | strong — the model tier this story's work needs
-status: pending                   # pending | in_progress | review | blocked | done
+status: pending                   # pending | in-progress | review | blocked | done
 risk_level: low                   # optional; must match a key in testing.yaml risk_classes (defaults: low | medium | high)
 deps: [ST-0002]                   # story ids that block this one (optional)
 traces: [scope-map#rule-name, ADR-0003]  # scope-map Rule / ADR / component ids this story implements (optional)
@@ -143,6 +143,23 @@ Dash-prefixed list of halt-and-ask triggers. When any of these conditions arise 
 - If new architecture dependencies are discovered not mentioned in Inputs
 - If the work requires changes to [specific critical system]
 - (continue as needed)
+
+## Resolve Before Implementation
+
+Numbered list of contract-level decisions the planning agent could not resolve.
+Each item names the specific field, operation, or behavior. Resolved during the
+grilling session; answers recorded as blockquotes beneath each question. "None —
+contracts are fully specified" when nothing is open.
+
+1. <contract question>
+2. <contract question>
+
+And add one row to the Hygiene/template commentary:
+
+The `## Resolve Before Implementation` section is present in every story, even
+when empty ("None"). Original stories carry this section through grilling and
+operationalisation. Implementation stories sliced from the original do not
+inherit it — they inherit the resolved answers in their home sections.
 
 ````
 

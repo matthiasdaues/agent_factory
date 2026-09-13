@@ -39,3 +39,25 @@ When the target is a feature proposal:
 
 Never set a proposal to `accepted` or `implemented`; those are stakeholder and
 delivery gates outside the interview.
+
+## Story target
+
+When the target is a backlog story (`backlog/ST-NNNN.md`):
+
+1. Read the story, referenced ADRs, scope-map rules, and feature scenarios.
+
+2. The `## Resolve Before Implementation` section is the grilling agenda.
+   Facts are looked up; design decisions go to the user with a recommendation.
+
+3. Resolved answers are recorded as blockquotes beneath each question:
+
+4. How is odate_boundary_time transported over the API?
+   ▎ Stored as SQL TIME; transported as ISO "HH:MM:SS". Decided 2026-09-11.
+
+5. The listed questions are a starting point. New gaps found during the
+   grilling are added and resolved the same way.
+
+6. Done when every question is resolved or explicitly deferred with rationale.
+   The story is ready for `make-concrete`.
+
+A story without the section, or with "None," gets a general design review.

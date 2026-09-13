@@ -39,7 +39,7 @@ SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
 # --- Schema constants ---------------------------------------------------------
 
 VALID_TIERS = {"economy", "standard", "strong"}
-VALID_STATUSES = {"pending", "in-progress", "review", "blocked", "done"}
+VALID_STATUSES = {"pending", "in-progress", "review", "blocked", "done", "closed"}
 DEFAULT_RISK_LEVELS = {"low", "medium", "high"}
 VALID_QUALITY_GATES = {"crap-score", "mutation-testing", "dependency-check"}
 RE_STORY_ID = re.compile(r"^ST-\d{4,}[A-Z]?$")

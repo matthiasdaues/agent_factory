@@ -28,6 +28,9 @@ The operational procedure is split into four phase-gated skills. Each skill ends
 | 2.5   | [`testability-probe`](../testability-probe/SKILL.md)                     | Assess testability, resolve contract ownership | Probe sections in `backlog/epics.md` |
 | 3     | [`create-backlog-story-slices`](../create-backlog-story-slices/SKILL.md) | Sketch story-level slices per EPIC             | Story slice tables for approval      |
 | 4     | [`create-backlog-stories`](../create-backlog-stories/SKILL.md)           | Write stories, prioritise, validate            | `backlog/ST-NNNN.md` files           |
+| 5     | [`grilling`](../grilling/SKILL.md) (story target)                        | Grill each story against its open questions    | Resolved blockquotes in story        |
+| 6     | [`make-concrete`](../create-backlog-make-concrete/SKILL.md)              | Work resolved answers into home sections       | Operationalised story                |
+| 7     | [`slice story`](../create-backlog-slice-story)                           | Cut implementation stories, close original     | `backlog/ST-NNNNA.md` files          |
 
 Quality gates (Agent-Answerability and International Readability) run at the end of every phase, not just the final one.
 
@@ -95,16 +98,17 @@ Two quality gates ensure every story is intelligible to agents and humans alike.
 
 A story fails this gate if any check cannot be answered from the story alone:
 
-| Check                                | Answered by           |
-| ------------------------------------ | --------------------- |
-| What behavior must exist after?      | Goal                  |
-| Which files change?                  | Affected Paths        |
-| Which domain rule owns the behavior? | Domain Rule           |
-| What existing state matters?         | Inputs                |
-| What should tests prove?             | Acceptance Criteria   |
-| What commands verify completion?     | Verification          |
-| What is explicitly out of scope?     | Out of Scope          |
-| When should the agent stop and ask?  | Agent Stop Conditions |
+| Check                                | Answered by                   |
+| ------------------------------------ | ----------------------------- |
+| What behavior must exist after?      | Goal                          |
+| Which files change?                  | Affected Paths                |
+| Which domain rule owns the behavior? | Domain Rule                   |
+| What existing state matters?         | Inputs                        |
+| What should tests prove?             | Acceptance Criteria           |
+| What commands verify completion?     | Verification                  |
+| What is explicitly out of scope?     | Out of Scope                  |
+| When should the agent stop and ask?  | Agent Stop Conditions         |
+| What contract decisions remain open? | Resolve Before Implementation |
 
 ### International Readability
 
@@ -120,15 +124,29 @@ Six concrete sentence-level checks:
 ## Done Check
 
 - [ ] Every User Goal from the actor-goal list is covered by at least one story
+
 - [ ] EPIC slicing approach confirmed by user (Phase 1)
+
 - [ ] `backlog/epics.md` confirmed by user (Phase 2)
+
 - [ ] Story-level slice tables confirmed by user (Phase 3)
+
 - [ ] Every EPIC and story crosses at least two system boundaries
+
 - [ ] No horizontal (single-boundary) stories exist outside Epic 0
+
 - [ ] Stories meet INVEST criteria (especially: small and testable)
+
 - [ ] Dependencies are explicit in `deps` — no hidden ordering assumptions
+
 - [ ] Stories reference Use Case IDs in `traces` for traceability
+
 - [ ] Every story has a Goal statement describing required behavior
+
 - [ ] Every story has a Demo section describing a concrete, showable capability
+
 - [ ] Every story passes Agent-Answerability and International Readability gates
+
 - [ ] `factory/scripts/backlog-lint` reports zero errors
+
+- [ ] Every story has a "Resolve Before Implementation" section (even if "None")
