@@ -319,7 +319,7 @@ erDiagram
     INPUT_SET ||--o{ PREFLIGHT_FAILURE : detects
     USAGE_RECORD ||--|| RAW_USAGE_SNAPSHOT : types
     RAW_USAGE_SNAPSHOT }o--|| LOGICAL_RUN : identifies
-    LOGICAL_RUN }o--|| LATEST_RUN_SNAPSHOT : reduces_to
+    LOGICAL_RUN ||--|| LATEST_RUN_SNAPSHOT : reduces_to
     LATEST_RUN_SNAPSHOT }o--|| CANONICAL_SESSION_USAGE : conserves_into
     CANONICAL_SESSION_USAGE ||--o{ DIMENSIONAL_USAGE : aggregates
     CANONICAL_SESSION_USAGE ||--o{ CACHE_EFFICIENCY_SIGNAL : qualifies
