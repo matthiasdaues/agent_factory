@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: Cycle-Based Orchestration
-status: draft
+status: open
 owner: Matthias Daues
 created: 2026-09-13
 updated: 2026-09-13
@@ -472,3 +472,26 @@ code or canonical-model artifacts.
   responsibilities move into REALIZE's internal sequence.
 - A single-batch delivery (IDEA through REALIZE to DONE) completes
   successfully under the cycle model.
+
+## Review — 2026-09-13
+
+Reviewer: proposal-review-agent
+Reviewed commit: 29a1cf2d7404d172b4a3a7bb3e04f72ed2e858c2
+Disposition: findings
+
+### Findings
+
+| ID      | Severity | Check | Status | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------- | -------- | ----- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-01 | major    | 01    | open   | Completion criterion 10 ("Existing agents, skills, and deterministic gates preserve their responsibilities and outputs") is not testable. It is an open-ended backward compatibility guarantee with no enumerable set of behaviors to verify. A planning agent cannot write a story for it because it cannot determine when the story is done.                                                                                                                                           |
+| PROP-02 | major    | 01    | open   | Completion criteria 1, 2, and 6 use undefined verification terms. "Machine-readable format" (criterion 1) does not name the format. "Enforced" (criterion 2) does not name the enforcement mechanism. "Runs at every cycle transition" (criterion 6) does not specify how coverage is confirmed.                                                                                                                                                                                         |
+| PROP-03 | major    | 02    | open   | "Define per-artifact mechanical readiness criteria" is simultaneously in scope and listed as Open Question 1. A scope item that is also an open question cannot be mechanically decided in or out. Resolve the question or move the item to deferred.                                                                                                                                                                                                                                    |
+| PROP-04 | major    | 02    | open   | The deferral of "modifying the deterministic factory engine's flow-control model" conflicts with the in-scope item "Migrate `run-step` from playbook-step execution to cycle-step execution." `run-step` currently depends on `playbook-state.yml`, FSM states, and `factory/scripts/phase` — all engine flow-control artifacts. Migrating `run-step` without modifying the engine's flow-control model is not obviously possible. State which engine artifacts change and which do not. |
+| PROP-05 | minor    | 02    | open   | The boundary between the in-scope "delegation-grant interaction model" and the deferred "automated delegation without human presence" is unclear. The in-scope Design section says "the system chains autonomous cycles," which reads as the deferred automation. Clarify where definition ends and automation begins.                                                                                                                                                                   |
+| PROP-06 | major    | 05    | open   | Boundary reference `packages/factory/engine/flow_control` does not exist at the reviewed commit. The entire `packages/factory/engine/` directory is absent from the dev tree. The proposal claims to affect something that cannot be inspected. Remove the reference or point to the actual path.                                                                                                                                                                                        |
+| PROP-07 | minor    | 08    | open   | Estimate field `basis: analogous` does not match the template schema value `analogous_change`, and no analogous prior change is identified. If no comparable change exists, the basis should be `judgment`, not `analogous`.                                                                                                                                                                                                                                                             |
+| PROP-08 | minor    | 07    | open   | The motivation identifies structural limitations but does not state "why now." What has changed that makes this the time to restructure orchestration rather than continue with the working playbook model?                                                                                                                                                                                                                                                                              |
+
+### Summary
+
+Checks 04 (impact classification), 06 (open questions genuine), and 03 (design decomposable) pass. The design is detailed enough to plan from. Five major findings block planning readiness: two completion criteria are untestable (PROP-01, PROP-02), two scope boundary conflicts prevent mechanical in/out decisions (PROP-03, PROP-04), and one boundary reference points to a path that does not exist (PROP-06). Address the five major findings before the proposal can move to planning.
