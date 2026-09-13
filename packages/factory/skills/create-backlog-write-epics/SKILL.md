@@ -9,8 +9,7 @@ disable-model-invocation: false
 
 Write `backlog/epics.md` from the approved EPIC slicing approach. This is phase 2 of the [create-backlog sequence](../create-backlog/SKILL.md#operational-sequence). Story format, composition rules, and the done check live in the [parent skill](../create-backlog/SKILL.md).
 
-Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
-
+Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
 **Prerequisite:** the EPIC-level slice table has been approved by the user (output of [`create-backlog-epics`](../create-backlog-epics/SKILL.md)).
 
 ## Step 1 — Write backlog/epics.md
@@ -45,7 +44,7 @@ Format via `factory/scripts/mdformat --number backlog/epics.md` per [markdown-fo
 
 ## Quality gate
 
-Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md) to `backlog/epics.md` before presenting. Revise any section that fails.
+Compose every section of the epics file with the writing quality gates active. Every sentence passes all four gates while you write it, not after. Revise any section that fails before presenting.
 
 Present `backlog/epics.md` to the user for confirmation.
 

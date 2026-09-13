@@ -9,8 +9,7 @@ disable-model-invocation: true
 
 A structured code review following the **Fagan Inspection** method. The review checks correctness against the specification, architectural compliance, and maintainability. Every finding is categorised and actionable.
 
-Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
-
+Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
 Read `docs/CONTEXT.md` if it exists — flag terminology drift between code and domain vocabulary.
 
 ## Step 1 — Identify the review scope

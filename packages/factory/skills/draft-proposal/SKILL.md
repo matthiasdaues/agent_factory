@@ -22,7 +22,7 @@ things down.
 **Runs in the orchestrating session, never as a spawned subagent.** The
 stakeholder must be present to confirm what gets written.
 
-Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
 
 ## Procedure
 
@@ -70,7 +70,7 @@ manual.
 
 ## Quality gate
 
-Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md) whenever the proposal's readiness is assessed. This gate assesses readiness only. The proposal lifecycle determines who may change its status.
+Compose every section with the writing quality gates active during readiness assessment. This gate assesses readiness only. The proposal lifecycle determines who may change its status.
 
 ## Completion
 

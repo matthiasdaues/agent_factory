@@ -44,7 +44,7 @@ For each EPIC, write one row. Each row names the user-visible outcome the EPIC d
 
 ## Quality gate
 
-Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md) to the slice table before presenting. Revise any row that fails.
+Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. Compose every slice-table row with all four gates active — no row reaches terminal output or a file until it passes. Revise any row that fails before presenting.
 
 Present the table to the user for confirmation.
 

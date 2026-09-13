@@ -131,7 +131,7 @@ implementation stories.
 
 ### 5. Quality gate
 
-Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md) to every implementation story.
+Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. Compose every implementation story with all four gates active — no sentence reaches terminal output or a file until it passes.
 
 Implementation stories do not carry a `## Resolve Before Implementation`
 section. They inherit the resolved answers in their home sections.

@@ -34,7 +34,7 @@ If a candidate row touches only one boundary and delivers nothing a person can d
 
 ## Quality gate
 
-Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md) to every slice table before presenting. Revise any row that fails.
+Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. Compose every slice-table row with all four gates active — no row reaches terminal output or a file until it passes. Revise any row that fails before presenting.
 
 Present the tables to the user for confirmation.
 

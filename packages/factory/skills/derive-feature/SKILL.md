@@ -12,8 +12,7 @@ Cockburn reasoning sequence as an **internal working discipline** — not
 document production. Outputs a single-file specification that coders and QA
 agents can read in one pass.
 
-Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
-
+Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
 Apply Cockburn reasoning to derive actor-goal pairs. Read
 `rulebooks/principles/cockburn-reasoning.md` before proceeding. Skip only
 if you can state the actor-goal-scenario sequence without reading.

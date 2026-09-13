@@ -112,7 +112,7 @@ replace architectural jargon when plain language is clearer.
 
 ### 4. Quality gate
 
-Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md). A story that fails any gate is revised before it leaves this skill.
+Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. Compose every story section with all four gates active — no sentence reaches terminal output or a file until it passes.
 
 ### 5. Format
 

@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 Interview the user to capture their project idea with enough structure for meaningful clarification to follow.
 
-Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
 
 ## Step 1 — Elicit the six facets
 

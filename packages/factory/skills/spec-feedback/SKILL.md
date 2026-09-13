@@ -8,7 +8,7 @@ category: implementation
 
 After implementing one or more issues, check whether the specification or architecture documentation has drifted from reality. The spec is not throwaway — it remains the authoritative description of system behaviour.
 
-Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
 
 ## Step 1 — Detect drift
 

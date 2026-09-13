@@ -8,7 +8,7 @@ category: requirements
 
 Build `docs/spec/scope-map.md` from whatever sources exist — code, tests, docs, wiki pages, API specs, or stakeholder knowledge.
 
-Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
 
 ## How the user experiences it
 

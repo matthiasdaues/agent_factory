@@ -11,8 +11,7 @@ disable-model-invocation: false
 
 Write story files from confirmed slice tables, validate, and present the final backlog. This is phase 4 of the [create-backlog sequence](../create-backlog/SKILL.md#operational-sequence). Story format, composition rules, and the done check live in the [parent skill](../create-backlog/SKILL.md).
 
-Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
-
+Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
 **Prerequisite:** story-level slice tables have been confirmed by the user (output of [`create-backlog-story-slices`](../create-backlog-story-slices/SKILL.md)).
 
 ## Step 2 — Break EPICs into User Stories
@@ -79,7 +78,7 @@ List blocking stories in `deps` (by `ST-NNNN` id). Run `factory/scripts/backlog-
 
 ## Quality gate
 
-Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md) to every story. If any sentence fails, rewrite it before the story leaves the gate.
+Compose every story with the writing quality gates active. Every sentence passes all four gates while you write it, not after.
 
 ## Plain-language pass
 
