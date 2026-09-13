@@ -213,6 +213,17 @@ Every building block's entry point, invoked how, and by whom:
 | dependency-check             | Implementation-agent dispatcher                           | `factory/scripts/dependency-check [--story-id <id>]`                | 0 (pass), 1 (violations)                      |
 | context-lint                 | Pre-commit hook, validate skill                           | `factory/scripts/context-lint [--planning-gate]`                    | 0 (pass), 1+ (CX-\* findings)                 |
 | module-graph-check           | Orchestrating session                                     | `factory/scripts/module-graph-check <proposal-path>`                | 0 (no change), 1 (change detected)            |
+| init-factory                 | Human, orchestrator                                       | `factory/scripts/init-factory [--update] <path>`                    | 0 (installed/updated), 1+ (error)             |
+| update-factory               | Human, orchestrator                                       | `factory/scripts/update-factory`                                    | 0 (updated), 1+ (error)                       |
+| remove-factory               | Human, orchestrator                                       | `factory/scripts/remove-factory`                                    | 0 (removed), 1+ (error)                       |
+| usage-query                  | Human (operator)                                          | `uv run --project .agent-factory/usage-analysis usage-query <view>` | 0 (result), 1+ (preflight/error)              |
+| Input Snapshot               | usage-query (internal)                                    | Python module                                                       | (internal)                                    |
+| Contract Check               | usage-query (internal)                                    | Python module                                                       | (internal)                                    |
+| Operational Preflight        | usage-query (internal)                                    | Python module                                                       | (internal)                                    |
+| Accounting Registry          | usage-query (internal)                                    | Python module                                                       | (internal)                                    |
+| Query Model v1               | usage-query (internal)                                    | DuckDB SQL views                                                    | (internal)                                    |
+| Result Adapters              | usage-query (internal)                                    | Python module                                                       | (internal)                                    |
+| Parquet Exporter             | usage-query (internal)                                    | Python module                                                       | (internal)                                    |
 
 ## 5.6 Level 2: Component View — Usage Capture
 
@@ -232,14 +243,6 @@ Copilot `agentStop`/`subagentStop`, Codex `Stop`/`SubagentStop`, and Pi
 `session_shutdown` plus inline child capture. The orchestrator never writes a
 second record. See
 [ADR-0007](../adr/0007-normalize-runtime-usage-through-cli-adapters.md).
-
-## 5.8 Level 2: Component View — Distribution
-
-| Component          | Responsibility                                                                    |
-| ------------------ | --------------------------------------------------------------------------------- |
-| **init-factory**   | Install, update, or remove the usage component and maintain the install manifest. |
-| **update-factory** | Update Factory core and report installed components without changing them.        |
-| **remove-factory** | Perform complete Factory removal, including analysis and raw usage data.          |
 
 ## 5.7 Level 2: Component View — Usage Analysis Runtime
 
@@ -263,8 +266,17 @@ finds a failure, `capture_health` remains available while the other five stable
 views refuse partial results. Raw JSONL remains authoritative; DuckDB state,
 Parquet files, and UI state are disposable.
 
+## 5.8 Level 2: Component View — Distribution
+
+| Component          | Responsibility                                                                    |
+| ------------------ | --------------------------------------------------------------------------------- |
+| **init-factory**   | Install, update, or remove the usage component and maintain the install manifest. |
+| **update-factory** | Update Factory core and report installed components without changing them.        |
+| **remove-factory** | Perform complete Factory removal, including analysis and raw usage data.          |
+
 ## Referenced from
 
 - [06_runtime_view.md § 6.2](06_runtime_view.md#62-test-gate-presence)
+- [07_deployment_view.md](07_deployment_view.md)
 - [09_architecture_decisions.md](09_architecture_decisions.md)
 - [ADR-0015 — Query authoritative JSONL with ephemeral DuckDB views](../adr/0015-query-authoritative-jsonl-with-ephemeral-duckdb-views.md)
