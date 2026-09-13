@@ -9,6 +9,8 @@ disable-model-invocation: false
 
 Turn evidence from a research assignment into one precise, testable claim that can be refuted. The output is a conjecture artifact recording the claim's scope, assumptions, supporting and contrary evidence, and a content hash for change tracking. The playbook controls when formulation occurs; this skill covers how to write one claim.
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 ## Inputs
 
 - Research question

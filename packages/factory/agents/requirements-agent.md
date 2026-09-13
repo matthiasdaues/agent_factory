@@ -13,7 +13,6 @@ skills:
   - grill-with-docs
   - write-prd
   - derive-feature
-  - scope-map-migration
   - qa-strategy-from-spec
   - update-charter
   - handoff
@@ -50,34 +49,17 @@ version: 0.5.2
 
 **Principle: YAGNI.** Derive only what traces to PRD goals. Nothing speculative.
 
+Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
+
 ## Role
 
 Turn a rough project idea into a complete, cross-referenced specification: scope map, Gherkin feature file, QA strategy, and supplementary models.
 
 The Cockburn reasoning chain (actors, goals, scenarios) drives the process. The output is a `.feature` file with Rule-per-actor-goal structure and a scope map.
 
-## Phase entry
+## Lifecycle
 
-When arriving from a workflow boundary, begin in a fresh session. Read the
-handoff first and verify its Git claims. Read referenced artifacts through
-initial bounded chunks, expanding further only on demand for the current
-task. Do not replay the prior transcript. Use no in-place transcript compaction
-and no prose-only cache-restabilisation turn.
-
-## Child return
-
-When this agent runs as a child, persist its complete result in canonical
-tracked artifacts before returning. The parent-facing envelope contains only
-disposition, severity counts, and every artifact path. Include a
-one-to-three-sentence next action. Do not include verbatim finding detail or
-full reasoning.
-
-## Phase exit
-
-If the next action crosses a workflow phase boundary, invoke `handoff`. Require
-a clean `handoff-lint` result and independent semantic review, then stop the
-outgoing session without entering the next phase. Work remaining in the same
-phase is exempt and may continue in the current session.
+Follow the [agent lifecycle protocol](../../rulebooks/conventions/agent-lifecycle-protocol.md).
 
 ## Workflow
 
@@ -85,7 +67,7 @@ phase is exempt and may continue in the current session.
 2. **Clarify Requirements** — Invoke `clarify-requirements` to select and run the branch (Socratic / `grill-me` / `grill-with-docs`).
 3. **Write PRD** — Invoke `write-prd`: synthesize into `docs/spec/prd.md`.
 4. **Derive Feature Spec**
-   a. **Check scope-map status** — If `docs/spec/scope-map.md` does not exist but old UC-XX files do, invoke `scope-map-migration` first to create the scope map from existing UC documents. If the scope map already exists, leave it — new Rules are added in step 4c.
+   a. **Check scope-map status** — If `docs/spec/scope-map.md` does not exist, invoke `reverse-map` to build the scope map from code, tests, and other sources. If the scope map already exists, leave it — new Rules are added in step 4c.
    b. **Derive feature file** — Invoke `derive-feature` with the proposal path (e.g. `derive-feature docs/proposals/<name>.md`). The skill reads `impact.boundaries`, scans `src/` for existing code, applies Cockburn reasoning, and writes `docs/spec/<feature-name>.feature` and `docs/spec/<feature-name>-gaps.md`.
    c. **Update scope map** — `derive-feature` adds new Rules with status `specified` and a link to the `.feature` file (see [derive-feature/SKILL.md § Scope Map Integration](../skills/derive-feature/SKILL.md#scope-map-integration)). Status transitions only go forward — `implemented` never moves back to `specified` or `deferred`.
    d. **Produce supplementary specs** — Write `entity-model.md`, `interface-contracts.md`, `state-machines.md`, and `validation-rules.md` under `docs/spec/supplementary_specs/`. These carry structural facts the `.feature` file does not: entity lifecycles, validation rules, boundary schemas, and domain relationships.

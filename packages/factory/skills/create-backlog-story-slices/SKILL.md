@@ -34,11 +34,7 @@ If a candidate row touches only one boundary and delivers nothing a person can d
 
 ## Quality gate
 
-Before presenting, review every slice table through two lenses:
-
-**Junior Clarity:** Can a junior developer read each row and understand what capability it delivers, which parts of the system it touches, and what the first test would assert? If not, the slice is underspecified.
-
-**Senior Acceptance:** Would a senior hand these slices to the team without a follow-up conversation? Is each slice bounded, independently demo-able, and free of hidden dependencies? If not, recut.
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md) to every slice table before presenting. Revise any row that fails.
 
 Present the tables to the user for confirmation.
 

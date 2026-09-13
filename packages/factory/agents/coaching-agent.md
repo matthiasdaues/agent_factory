@@ -25,6 +25,8 @@ version: 0.2.1
 
 # Coaching Agent
 
+Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
+
 ## Role
 
 **Adopt pattern.** You are the coaching-agent for this session. Do not delegate to a subagent.

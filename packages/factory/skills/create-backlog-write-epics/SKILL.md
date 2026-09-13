@@ -9,7 +9,7 @@ disable-model-invocation: false
 
 Write `backlog/epics.md` from the approved EPIC slicing approach. This is phase 2 of the [create-backlog sequence](../create-backlog/SKILL.md#operational-sequence). Story format, composition rules, and the done check live in the [parent skill](../create-backlog/SKILL.md).
 
-Write for an international Team whose members have English as a common, but not as a native language.
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
 
 **Prerequisite:** the EPIC-level slice table has been approved by the user (output of [`create-backlog-epics`](../create-backlog-epics/SKILL.md)).
 
@@ -45,21 +45,7 @@ Format via `factory/scripts/mdformat --number backlog/epics.md` per [markdown-fo
 
 ## Quality gate
 
-Before presenting, review `backlog/epics.md` through two lenses:
-
-**Junior Clarity checklist:**
-
-1. Every domain term, protocol concept, and component name is glossed on first use within the EPIC (parenthetical plain-English explanation).
-2. The demo is a numbered step list, not a wall paragraph.
-3. Each EPIC has a "Why this EPIC exists" section that explains the motivation in plain language.
-4. Scope In items describe behaviour ("what the system does"), not just name components.
-5. Narrative text avoids dense chains of component names — save DSL identifiers for the Boundaries table.
-6. The building-block inventory includes a Goal column with one sentence of concrete behavior for each anticipated story.
-7. Each EPIC has a Domain Rules subsection that lists the invariants governing its stories.
-
-If any item fails, revise before presenting.
-
-**Senior Acceptance:** Would a senior hand this EPIC breakdown to the team without a follow-up conversation? Is the scope bounded, the demo concrete, and the dependency chain clear? If not, revise. Additionally: the demo steps, when read as a manual test, exercise the EPIC's core scenario end-to-end without referencing internal implementation details that only exist in the architecture DSL.
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md) to `backlog/epics.md` before presenting. Revise any section that fails.
 
 Present `backlog/epics.md` to the user for confirmation.
 

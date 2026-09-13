@@ -135,19 +135,10 @@ agents:
     phase: 6
     phase_name: Research
     tier: standard
-    description: Writes the final report from the frozen claim register. Arranges surviving claims, summarizes them, and preserves refutations and limitations — without conducting new research or overstating what survived.
+    description: Writes a research report from completed research artifacts — falsification mode (from frozen claim register) or survey mode (from recorded source records). Never conducts new research or overstates what the evidence supports.
     path: agents/research-report-writer.md
-    tokens: 629
-    total_tokens: 1355
-  - name: research-synthesizer
-    title: Research Synthesizer
-    phase: 6
-    phase_name: Research
-    tier: standard
-    description: Turns recorded survey source records into a cited synthesis while retaining uncertainties, evidence gaps, and limitations.
-    path: agents/research-synthesizer.md
-    tokens: 438
-    total_tokens: 438
+    tokens: 829
+    total_tokens: 1555
   - name: researcher
     title: Researcher
     phase: 6
@@ -177,7 +168,7 @@ skills:
     tokens: 287
   - name: clarify-requirements
     category: requirements
-    description: Selects and runs the right requirements-clarification interview — Socratic (inline), grill-me (greenfield), or grill-with-docs (brownfield).
+    description: Selects and runs the right requirements-clarification interview — Socratic (inline), grilling (greenfield), or grilling with domain-modeling mode (brownfield).
     path: skills/clarify-requirements/SKILL.md
     tokens: 426
   - name: derive-feature
@@ -185,26 +176,11 @@ skills:
     description: Derive a Gherkin .feature file from a proposal using Cockburn reasoning as internal process. Outputs a Rule-per-actor-goal .feature file with @-references to existing code and a gaps report.
     path: skills/derive-feature/SKILL.md
     tokens: 2344
-  - name: derive-spec
-    category: requirements
-    description: Derive the full specification chain from a PRD — actor-goal list, persona use cases, system use cases, supplementary specs.
-    path: skills/derive-spec/SKILL.md
-    tokens: 1148
   - name: draft-proposal
     category: requirements
     description: Crystallize an explored idea into a decision-complete feature proposal. Called by VIRGIL (or directly) once the shape of a feature is clear. Runs in the current session with the stakeholder present.
     path: skills/draft-proposal/SKILL.md
     tokens: 1014
-  - name: grill-me
-    category: requirements
-    description: Interview the user relentlessly about a plan or design until reaching shared understanding, resolving each branch of the decision tree. Use when user wants to stress-test a plan, get grilled on their design, or mentions "grill me".
-    path: skills/grill-me/SKILL.md
-    tokens: 100
-  - name: grill-with-docs
-    category: requirements
-    description: Grilling session that challenges your plan against the existing domain model, sharpens terminology, and updates documentation (docs/CONTEXT.md, ADRs) inline as decisions crystallise. Use when user wants to stress-test a plan against their project's language and documented decisions.
-    path: skills/grill-with-docs/SKILL.md
-    tokens: 142
   - name: inspect-spec
     category: requirements
     description: Two-pass specification review — deterministic spec-lint then LLM semantic inspection. Files findings as local markdown files.
@@ -220,11 +196,6 @@ skills:
     description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation. Writes docs/spec/scope-map.md and seeds docs/CONTEXT.md.
     path: skills/reverse-map/SKILL.md
     tokens: 1243
-  - name: scope-map-migration
-    category: requirements
-    description: Backfill docs/spec/scope-map.md from existing derive-spec artifacts before the first derive-feature run.
-    path: skills/scope-map-migration/SKILL.md
-    tokens: 787
   - name: write-prd
     category: requirements
     description: Synthesise a Product Requirements Document from clarified requirements.
@@ -415,11 +386,6 @@ skills:
     description: Append a quick note to session-scratchpad.md, sectioned by date. Use when the user says "note this down:", "make a note of this:", or invokes "/scratchpad" or "/scratch".
     path: skills/scratchpad/SKILL.md
     tokens: 354
-  - name: update-context
-    category: utility
-    description: Deprecated. docs/agent-context.md (the concern-based routing interface) is edited directly — there is no field-write skill for it. Retained only so an invocation surfaces a deprecation notice instead of an error.
-    path: skills/update-context/SKILL.md
-    tokens: 206
   - name: validate
     category: utility
     description: Run every applicable deterministic gate on demand, mid-session — the custom lint scripts plus ruff and mdformat — without needing a git commit.
@@ -574,7 +540,7 @@ playbooks:
       - research-orchestrator
       - researcher
       - researcher
-      - research-synthesizer
+      - research-report-writer
       - research-orchestrator
     tokens: 1018
     total_tokens: 10928

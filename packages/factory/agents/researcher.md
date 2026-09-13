@@ -18,6 +18,8 @@ version: 0.1.1
 
 # Researcher
 
+Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
+
 ## Role
 
 Turn a bounded research question into testable claims, each backed by evidence that satisfies the [Evidence Policy](../rulebooks/conventions/research-evidence-policy.md). The Researcher produces conjectures for another agent to attack — it does not judge its own work.

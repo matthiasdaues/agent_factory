@@ -9,6 +9,8 @@ disable-model-invocation: true
 
 Create architecture documentation from the specification using the **arc42** template and **Structurizr DSL** for **C4** models. Apply **Clean Architecture** for layer and component boundaries.
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 Read `docs/arc42/CONTEXT.md` if it exists — use the project's domain vocabulary throughout.
 
 ## Step 1 — Create the arc42 file structure

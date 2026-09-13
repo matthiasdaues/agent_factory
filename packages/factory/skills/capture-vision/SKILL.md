@@ -9,6 +9,8 @@ disable-model-invocation: true
 
 Interview the user to capture their project idea with enough structure for meaningful clarification to follow.
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 ## Step 1 — Elicit the six facets
 
 Ask about each. Accept partial answers — gaps feed `clarify-requirements`.

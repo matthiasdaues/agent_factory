@@ -410,13 +410,13 @@ A skill is a how-to — a reusable procedure an agent (or you, directly) invokes
 
 Notable skills by concern:
 
-| Concern         | Skills                                                                                                                                                                     |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Idea-to-feature | `draft-proposal` (crystallize an idea into a proposal), `capture-vision` (six-facet vision capture), `grilling` / `grill-me` / `grill-with-docs` (pressure-test a design)  |
-| Specification   | `derive-feature` (Gherkin `.feature` files with Rule-per-actor-goal), `qa-strategy-from-spec` (per-feature QA strategy), `scope-map-migration` (track Rules across slices) |
-| Onboarding      | `reverse-map` (build a scope map from code, tests, and other sources), `guided-tour` (mid-session reorientation for newcomers and active playbook runs)                    |
-| Quality gates   | `crap-score` (composite structural risk), `mutation-testing` (mutation testing), `dependency-check` (dependency vulnerability scan)                                        |
-| Implementation  | `run-step` (execute a single step manifest within step isolation)                                                                                                          |
+| Concern         | Skills                                                                                                                                                                       |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Idea-to-feature | `draft-proposal` (crystallize an idea into a proposal), `capture-vision` (six-facet vision capture), `grilling` / `grill-me` / `grill-with-docs` (pressure-test a design)    |
+| Specification   | `derive-feature` (Gherkin `.feature` files with Rule-per-actor-goal), `qa-strategy-from-spec` (per-feature QA strategy), `reverse-map` (build scope map from code and tests) |
+| Onboarding      | `reverse-map` (build a scope map from code, tests, and other sources), `guided-tour` (mid-session reorientation for newcomers and active playbook runs)                      |
+| Quality gates   | `crap-score` (composite structural risk), `mutation-testing` (mutation testing), `dependency-check` (dependency vulnerability scan)                                          |
+| Implementation  | `run-step` (execute a single step manifest within step isolation)                                                                                                            |
 
 The full list is also in [`factory/INDEX.yaml`](../INDEX.yaml), with token counts per skill.
 

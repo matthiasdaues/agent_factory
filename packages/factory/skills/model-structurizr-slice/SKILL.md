@@ -8,6 +8,8 @@ category: architecture
 
 Project a delivery slice from the canonical model. Do not create a second model.
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 ## Read first
 
 Read:
@@ -64,43 +66,20 @@ Use independent tag dimensions:
 - Sequence: `Increment 1`, `Increment 2`
 - Runtime: `Runtime:control-plane`, `Runtime:worker`
 
-```dsl
-component "Attempt Builder" "..." "Application service" {
-    tags "MVP,Increment 1,Runtime:worker"
-}
-```
-
-Keep canonical identifiers, names, owners, and relationships.
+Keep canonical identifiers, names, owners, and relationships. See
+[structurizr-behavior-checklist.md](../../rulebooks/references/structurizr-behavior-checklist.md)
+for DSL examples.
 
 ## 3. Group components
 
-Group a slice only within its owning container:
-
-```dsl
-group "Increment 1 — worker" {
-    queueClaimer = component "Queue Claimer" "..." "Application service" "MVP,Increment 1,Runtime:worker"
-    attemptBuilder = component "Attempt Builder" "..." "Application service" "MVP,Increment 1,Runtime:worker"
-}
-```
-
-Repeat the label in other containers when useful. Define the real runtime mapping
-with deployment nodes.
+Group a slice only within its owning container. Repeat the label in other
+containers when useful. Define the real runtime mapping with deployment nodes.
 
 ## 4. Model deployment
 
-Create one deployment environment for the slice:
-
-```dsl
-increment1 = deploymentEnvironment "Increment 1" {
-    deploymentNode "worker" "Background execution loop." "Process" {
-        containerInstance planning
-        containerInstance dispatch
-    }
-}
-```
-
-Place each container on its runtime node. Describe shared code in prose. Do not
-duplicate instances to show shared code.
+Create one deployment environment for the slice. Place each container on its
+runtime node. Describe shared code in prose. Do not duplicate instances to show
+shared code.
 
 State any gap from the target deployment, especially lost failure isolation.
 
@@ -117,30 +96,7 @@ each batch.
 Create one dynamic view per behavior or failure case. Keep component detail
 inside the scoped container. Use a neighboring container at scope boundaries.
 
-Check each flow for:
-
-01. Trigger and preconditions.
-02. Authoritative read.
-03. Transaction and committed state.
-04. Outbound handoff.
-05. Receiver persistence and required flush or fsync.
-06. Acknowledgement after persistence.
-07. Sender persistence and outbox completion.
-08. Deduplication identity.
-09. Retry after each lossy boundary.
-10. Terminal evidence persistence before acknowledgement.
-11. Timeout, reconnect, and reconciliation.
-
-For durable command delivery, show:
-
-- Stable `command_id`.
-- Agent persistence and fsync before `COMMAND_ACK`.
-- Duplicate handling.
-- Acknowledgement ingestion.
-- Redelivery after a lost acknowledgement.
-- Return persistence before `RETURN_ACK`.
-
-Broker publish success is not Agent acceptance.
+Check each flow against the [behavior checklist](../../rulebooks/references/structurizr-behavior-checklist.md) (11 points plus durable command delivery checks).
 
 Decompose a critical container when its internal durability boundary matters.
 Otherwise, label the view as container-level.
@@ -150,22 +106,10 @@ Otherwise, label the view as container-level.
 Create filtered views for static slices. If the full base view must remain in the
 diagram list, add a filtered copy that includes `Element,Relationship`.
 
-Order styles from general to specific:
-
-```dsl
-styles {
-    element "MVP" {
-        background #2e7d32
-        color #ffffff
-    }
-    element "Runtime:worker" {
-        stroke #ef6c00
-        strokeWidth 4
-    }
-}
-```
-
-Use separate visual properties for separate tag dimensions. Inspect the legend.
+Order styles from general to specific. Use separate visual properties for
+separate tag dimensions. Inspect the legend. See
+[structurizr-behavior-checklist.md](../../rulebooks/references/structurizr-behavior-checklist.md)
+for style examples.
 
 ## 8. Update docs
 

@@ -92,34 +92,7 @@ Every must-not from ADRs, conventions, testing regime, and scope exclusions goes
 
 ## Quality gates
 
-Two quality gates ensure every story is intelligible to agents and humans alike.
-
-### Agent-Answerability Checks
-
-A story fails this gate if any check cannot be answered from the story alone:
-
-| Check                                | Answered by                   |
-| ------------------------------------ | ----------------------------- |
-| What behavior must exist after?      | Goal                          |
-| Which files change?                  | Affected Paths                |
-| Which domain rule owns the behavior? | Domain Rule                   |
-| What existing state matters?         | Inputs                        |
-| What should tests prove?             | Acceptance Criteria           |
-| What commands verify completion?     | Verification                  |
-| What is explicitly out of scope?     | Out of Scope                  |
-| When should the agent stop and ask?  | Agent Stop Conditions         |
-| What contract decisions remain open? | Resolve Before Implementation |
-
-### International Readability
-
-Six concrete sentence-level checks:
-
-- No idioms, slang, or culture-specific metaphors.
-- No ambiguous pronouns across sentence boundaries. Repeat the noun.
-- Short sentences (under 25 words). One idea per sentence.
-- Active voice.
-- Domain terms are used consistently — one term per concept, never alternated with synonyms for variety.
-- Abbreviations are spelled out on first use within the story, even when the spec already defined them.
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md) to every story at the end of every phase.
 
 ## Done Check
 

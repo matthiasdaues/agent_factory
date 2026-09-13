@@ -8,6 +8,8 @@ category: research
 
 Review one claim against ten structured checks, classify defects, and cast a vote tied to the claim's content hash. The vote determines whether the claim survives into the final report. The playbook controls when reviews occur and how many reviewers assess each claim; this skill covers what one reviewer does.
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 ## Input Artifacts
 
 - **Conjecture** — the claim to be reviewed, including its scope, assumptions, and evidence.

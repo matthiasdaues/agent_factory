@@ -30,33 +30,7 @@ Prior skill trace: [test-design-skill.md](../../../docs/proposals/test-design-sk
 
 ## Prerequisite guard
 
-Before doing anything else, check `testing.yaml (at docs/testing.yaml)`:
-
-1. **File does not exist.** Fail immediately:
-
-   > `test-design` requires `testing.yaml (at docs/testing.yaml)`. Run
-   > `detect-test-regime` first to record the project's test suites and
-   > testing strategy link.
-
-   Author no test files.
-
-2. **File exists but has no `testing_strategy:` key.** Fail immediately:
-
-   > `testing.yaml (at docs/testing.yaml)` has no `testing_strategy:` link.
-   > Run `detect-test-regime` to populate it before running `test-design`.
-
-   Author no test files.
-
-3. **File exists but has no `suites:` section.** Fail immediately:
-
-   > `testing.yaml (at docs/testing.yaml)` has no `suites:` section. Run
-   > `detect-test-regime` to record the project's test suites before running
-   > `test-design`.
-
-   Author no test files.
-
-Only when `testing_strategy:` and `suites:` are both present does the
-procedure below run.
+Follow the [testing.yaml prerequisite guard](../../rulebooks/conventions/testing-yaml-prerequisite.md). On any failure, author no test files.
 
 ## Inputs
 

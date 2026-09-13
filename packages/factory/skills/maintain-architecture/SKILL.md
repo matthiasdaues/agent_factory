@@ -9,6 +9,8 @@ disable-model-invocation: true
 
 Update architecture documentation with `architecture.dsl` as the **single source of truth** for all structural and runtime views. Prose chapters narrate and extend the model; they never contradict it.
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 Read `docs/arc42/CONTEXT.md` if it exists — use the project's domain vocabulary throughout.
 
 ## Principle: DSL first, prose second

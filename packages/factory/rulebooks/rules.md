@@ -70,8 +70,8 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST** set `mode: primary` when the index files are the primary source of decisions.
 - **MUST** set `mode: index` when the index files are projections of existing documentation.
 - **MUST** include a `source:` pointer on every non-null, non-deferred leaf field when `mode: index`.
-- **MUST NOT** hand-edit an index file that carries `mode: index` (use `update-context`).
-- **MUST NOT** write upstream — `update-context` writes only to `docs/agent-context/*.yaml`, never to source documents.
+- **MUST NOT** hand-edit an index file that carries `mode: index` (edit `docs/agent-context.md` directly).
+- **MUST NOT** write upstream — edits to `docs/agent-context/*.yaml` never propagate to source documents.
 - **MUST NOT** place `source:` pointers in `reading-guides.yaml`.
 - **MUST NOT** mix YAML agent-context and markdown charter formats in one project.
 - **MUST** point `source:` at the project-local convention when it exists, not at the factory rulebook default it overrides.

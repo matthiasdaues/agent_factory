@@ -50,41 +50,11 @@ not the full QA phase.
 
 ## Review gates
 
-Every finding must pass three gates before it is filed.
+Every finding must pass the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md) before it is filed.
 
-1. **International team** — Write for readers whose common language is English
-   but whose native language is not. No idioms, no cultural shorthand, no
-   ambiguous pronouns. Say what you mean in simple, direct sentences.
+## Lifecycle
 
-2. **Junior clarity** — Explain why you would not accept the PR so that a
-   junior developer understands what is wrong and knows what and how to fix.
-
-3. **Senior respect** — Write so that a senior engineer who dislikes
-   marketing, hyperbole, adverbs, and adjectives approves of the finding. No
-   inflation, no hedging, no filler. State the defect and the fix.
-
-## Phase entry
-
-When arriving from a workflow boundary, begin in a fresh session. Read the
-handoff first and verify its Git claims. Read referenced artifacts through
-initial bounded chunks, expanding further only on demand for the current
-task. Do not replay the prior transcript. Use no in-place transcript compaction
-and no prose-only cache-restabilisation turn.
-
-## Child return
-
-When this agent runs as a child, persist its complete result in canonical
-tracked artifacts before returning. The parent-facing envelope contains only
-disposition, severity counts, and every artifact path. Include a
-one-to-three-sentence next action. Do not include verbatim finding detail or
-full reasoning.
-
-## Phase exit
-
-If the next action crosses a workflow phase boundary, invoke `handoff`. Require
-a clean `handoff-lint` result and independent semantic review, then stop the
-outgoing session without entering the next phase. Work remaining in the same
-phase is exempt and may continue in the current session.
+Follow the [agent lifecycle protocol](../../rulebooks/conventions/agent-lifecycle-protocol.md).
 
 ## Workflow
 

@@ -56,34 +56,17 @@ version: 0.5.1
 
 **MUST run in a separate session** from Implementation and QA agents.
 
+Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
+
 If this agent spawns sub-agents, follow [dispatch-contract.md § Sub-Agent Addressing](../rulebooks/conventions/dispatch-contract.md#sub-agent-addressing) — give each a resolvable instance ID, never the agent-type name, and never block indefinitely on a reply.
 
 ## Role
 
 Ask the inverse of spec-review: **"Does the spec still match the code?"** Make the specification truthful again.
 
-## Phase entry
+## Lifecycle
 
-When arriving from a workflow boundary, begin in a fresh session. Read the
-handoff first and verify its Git claims. Read referenced artifacts through
-initial bounded chunks, expanding further only on demand for the current
-task. Do not replay the prior transcript. Use no in-place transcript compaction
-and no prose-only cache-restabilisation turn.
-
-## Child return
-
-When this agent runs as a child, persist its complete result in canonical
-tracked artifacts before returning. The parent-facing envelope contains only
-disposition, severity counts, and every artifact path. Include a
-one-to-three-sentence next action. Do not include verbatim finding detail or
-full reasoning.
-
-## Phase exit
-
-If the next action crosses a workflow phase boundary, invoke `handoff`. Require
-a clean `handoff-lint` result and independent semantic review, then stop the
-outgoing session without entering the next phase. Work remaining in the same
-phase is exempt and may continue in the current session.
+Follow the [agent lifecycle protocol](../../rulebooks/conventions/agent-lifecycle-protocol.md).
 
 ## Workflow
 
@@ -99,7 +82,7 @@ phase is exempt and may continue in the current session.
    - A Scenario still without an `@`-ref means no implementing code was found — file as a separate `RECON` finding.
 4. **Reconcile the scope map** (pre-merge to dev, when `docs/spec/scope-map.md` exists) — Per [Design 2 — Scope map reconciliation](../../docs/proposals/implemented/agentic-quality-gates-and-specification-consolidation.md#2-specification-as-gherkin-feature-file--derive-feature):
    - Grep every live `.feature` file on the branch for `^  Rule:` lines and diff the resulting Rule set against the scope map's Rule column.
-   - **Skip migration rows**: rows pointing at `UC-XX-*.md` (old-format entries from `scope-map-migration`) are exempt — they have no `.feature` file to compare against.
+   - **Skip migration rows**: rows pointing at `UC-XX-*.md` (old-format entries from the pre-Gherkin scope-map migration) are exempt — they have no `.feature` file to compare against.
    - **Discovery** — a Rule in the `.feature` file but absent from the scope map means a new actor-goal pair was found during implementation. Add it as `implemented` with its `.feature` link, and file a `RECON` finding.
    - **Drift** — a `specified` Rule no longer in the `.feature` file means a scenario was dropped or merged. File a `RECON` finding — do not silently remove the row.
    - Move every `specified` Rule still present to `implemented`. Update links if a `.feature` file moved under `docs/~archive/`.

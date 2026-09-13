@@ -9,6 +9,8 @@ disable-model-invocation: false
 
 Find and document sources for one bounded research assignment. The playbook controls when source research occurs and how sources are used; this skill covers how to find, assess, and record evidence.
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 Each source record must document:
 
 | Field                       | Purpose                                                  |

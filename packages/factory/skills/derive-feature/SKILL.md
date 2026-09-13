@@ -12,9 +12,11 @@ Cockburn reasoning sequence as an **internal working discipline** — not
 document production. Outputs a single-file specification that coders and QA
 agents can read in one pass.
 
-Supersedes `derive-spec` as the primary specification step for features.
-The Cockburn chain (actors, goals, scenarios) remains the reasoning engine;
-the intermediate documents (actor-goal list, UC-XX files) are not produced.
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
+Apply Cockburn reasoning to derive actor-goal pairs. Read
+`rulebooks/principles/cockburn-reasoning.md` before proceeding. Skip only
+if you can state the actor-goal-scenario sequence without reading.
 
 ## Inputs
 
@@ -61,64 +63,22 @@ can point at it. Scenarios without an @-reference are new behavior.
 If `src/` does not exist, scan the project root for source files by
 extension (`.py`, `.ts`, `.js`, `.go`, `.java`, etc.).
 
-## Step 3 — Derive Actor-Goal Pairs (Internal)
+## Step 3 — Derive Actor-Goal Pairs, Rules, and Scenarios (Internal)
 
-Use the Cockburn reasoning sequence as a working discipline held in context:
+Apply the Cockburn reasoning sequence to derive the actor-goal matrix.
+Hold the matrix in working context — it appears in the gaps report as
+completeness evidence, not as a separate artifact.
 
-1. **Identify actors** — enumerate who interacts with the feature (users,
-   systems, external services). Apply the goal-level test: does the actor
-   go home happy if this goal is achieved? If yes, it's a **User Goal**.
-   If not, it's a **Subfunction** — include only when reused across
-   multiple use cases.
-2. **Identify goals per actor** — what does each actor want to accomplish?
-3. **Build the actor-goal matrix** — one row per actor-goal pair.
+For each actor-goal pair, create one Rule. Rule name states the goal:
+`Rule: <actor wants X>`. Add `# actor: <who>` and an `@`-reference to
+existing code from the symbol index when the Rule extends it.
 
-Hold the matrix in working context. Do not commit it as a separate
-artifact — it appears in the gaps report as completeness evidence.
+For each Rule, derive Given/When/Then scenarios: main success path first,
+then extensions, then failure modes. Add `# @<path>::<Symbol>` to
+scenarios that exercise existing functions. Scenarios without an
+`@`-reference are new behavior.
 
-## Step 4 — Derive Rules from Actor-Goal Pairs
-
-For each actor-goal pair in the matrix:
-
-1. **Create one Rule** in the `.feature` file.
-2. **Rule name** states the goal: `Rule: <actor wants X>`.
-3. **Actor comment** identifies who: `# actor: <who>`.
-4. **@-reference** if the Rule extends existing code: add a `@`-reference
-   to the implementing module or class from the symbol index.
-
-```
-Rule: User authenticates via SSO
-  # actor: End user
-  # @src/auth/sso.py::SSOHandler
-```
-
-## Step 5 — Enumerate Scenarios Under Each Rule
-
-For each Rule, decompose the goal into Given/When/Then scenarios:
-
-1. **Cockburn workflow-to-edge-case progression:**
-   - Main success path first (happy day)
-   - Extensions and variations
-   - Failure modes and error handling
-2. **@-reference each Scenario** that exercises existing functions:
-   append `# @<path>::<Symbol>` as a Gherkin comment.
-3. **Scenarios for new behavior** carry **no @-reference** — absence
-   means "to be implemented."
-
-```
-Scenario: Valid SSO token presented
-  # @src/auth/sso.py::SSOHandler.authenticate
-  Given the user holds a valid SSO token
-  When the user authenticates
-  Then the session is established
-
-Scenario: Expired SSO token presented
-  # @src/auth/sso.py::SSOHandler.authenticate
-  When the user authenticates with an expired token
-  Then authentication is rejected
-```
-
-## Step 6 — Cross-Check Completeness
+## Step 4 — Cross-Check Completeness
 
 Verify completeness against the actor-goal matrix:
 
@@ -127,9 +87,9 @@ Verify completeness against the actor-goal matrix:
 | Every actor-goal pair has at least one Rule | Actor-goal pair without Rule |
 | Every Rule has at least one Scenario        | Rule without Scenario        |
 
-Record failures in the gaps report (Step 8).
+Record failures in the gaps report (Step 6).
 
-## Step 7 — Detect Ambiguous Wording
+## Step 5 — Detect Ambiguous Wording
 
 While deriving Rules and Scenarios, flag any Given/When/Then step that
 uses ambiguous language:
@@ -140,7 +100,7 @@ uses ambiguous language:
 
 Flag in the gaps report. Do not silently fix — the author decides.
 
-## Step 8 — Write Outputs
+## Step 6 — Write Outputs
 
 ### Output 1: Feature File
 

@@ -1,43 +1,37 @@
 ---
 name: security-review
-description: Security-focused code review based on the OWASP Top 10.
+description: Security-focused code review against OWASP Top 10 with minimised false positives.
 category: quality
 disable-model-invocation: true
 ---
 
 # Security Review
 
-Review code changes for security vulnerabilities based on the **OWASP Top 10**.
+Review code changes for security vulnerabilities against the OWASP Top 10.
+Read `rulebooks/principles/owasp-top-10.md` before proceeding. Skip only
+if you can state all ten categories without reading.
 
-## Step 1 — Identify the review scope
+Minimise false positives. Report only findings with a plausible attack
+vector in this codebase.
 
-Identify the code to review using this three-tier fallback:
+## Scope
 
-1. **Explicit commits (highest priority)**: if base and head commit SHAs are provided, use `git diff <base>..<head>` to scope the review.
-2. **Pull request**: if a PR number is provided, use `gh pr diff <PR>` to scope the review.
-3. **Main branch (fallback only)**: if neither explicit commits nor a PR number is given, fall back to `git diff $(git merge-base HEAD main)..HEAD`.
+Identify the review scope using this fallback chain:
 
-Read the architecture documentation (`docs/03_system_scope_and_context.md`, `docs/07_deployment_view.md`) to understand trust boundaries and data flows.
+1. Explicit base and head SHAs → `git diff <base>..<head>`.
+2. PR number → `gh pr diff <PR>`.
+3. Fallback → `git diff $(git merge-base HEAD main)..HEAD`.
 
-**Completion**: scope identified via the appropriate method, trust boundaries understood.
+Read architecture documentation (`docs/03_system_scope_and_context.md`,
+`docs/07_deployment_view.md`) to understand trust boundaries.
 
-## Step 2 — Evaluate against OWASP Top 10
+## Report
 
-Check every changed file against all ten current OWASP Top 10 categories (A01–A10).
+Save as `docs/reviews/security-review-YYYY-MM-DD.md` per
+[report-format.md](../../rulebooks/conventions/report-format.md). File
+findings per
+[finding-format.md](../../rulebooks/conventions/finding-format.md) with
+tag `SEC` for findings rated Medium or higher.
 
-For each finding:
-
-- Identify the OWASP category
-- Describe the attack vector — how would an attacker exploit this?
-- Assess severity: Critical / High / Medium / Low
-- Provide a concrete remediation — what code change fixes this?
-
-Minimise false positives — do not flag a theoretical risk without a plausible attack vector in this codebase.
-
-**Completion**: every changed file evaluated against all 10 categories, only high-confidence findings reported.
-
-## Step 3 — Write the review report
-
-Save as `docs/reviews/security-review-YYYY-MM-DD.md` per [report-format.md](../../rulebooks/conventions/report-format.md). File findings per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `SEC` for findings rated Medium or higher.
-
-Format both the report and any finding files via `scripts/mdformat --number` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
+Format via `scripts/mdformat --number` per
+[markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).

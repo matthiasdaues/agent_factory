@@ -9,6 +9,8 @@ disable-model-invocation: true
 
 After a full implementation phase, compare **implemented code** against **specification and architecture documentation** and bring them into alignment: code right and spec stale → fix the spec; spec right and code diverged → flag a defect.
 
+Apply the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md).
+
 Differs from `spec-feedback` in scope: that skill runs per-issue; this one runs once per implementation phase, against the entire codebase and spec surface.
 
 ## Step 1 — Build truth maps and diff
