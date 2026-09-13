@@ -2,6 +2,77 @@
 
 ## Unreleased
 
+## 0.12.0 — 2026-09-14
+
+Local usage processing and analysis: full specification-to-backlog pass.
+Cycle-based orchestration proposal. A fourth writing quality gate ("No
+Pretense") and a stronger skill preamble across all 37 prose-producing
+skills. arch-lint fixes for extended building-block views and diagram
+key-file filtering.
+
+### Features
+
+- **No Pretense writing gate.** Fourth gate added to
+  `writing-quality-gates.md`. Every verb in a Goal must name something
+  observable from outside; internal mechanism belongs in Scope. Constraints
+  go in the Constraints section, not presented as accomplishments. Plain
+  verbs for ordinary operations. No dramatizing simple operations. Eight
+  concrete checks.
+- **Skill preamble hardened.** All 37 prose-producing skills updated from
+  "Apply the writing quality gates" to "Read writing-quality-gates.md now
+  and hold every rule as a writing constraint. No prose reaches terminal
+  output or a file until it passes all four gates."
+
+### Fixes
+
+- **arch-lint component scan range.** `ch5_core_components` now scans all
+  §5.x sections up to "Referenced from" instead of stopping at §5.5,
+  so components defined in §5.5 and later are included in the consistency
+  check.
+- **arch-lint SVG key-file filtering.** Image enumeration now excludes
+  `*-key.svg` legend files and only considers SVGs that have a
+  corresponding key file, preventing false positives from standalone
+  legend images.
+- **Stale cross-reference in SPEC-0015.** Removed a dead link to a
+  superseded agent-context feature.
+
+### Documentation
+
+- **Local Usage Processing and Analysis — specification complete.** Full
+  requirements pass: consolidated Gherkin feature file (14 rules, 48
+  scenarios), supplementary specs (entity model, interface contracts,
+  state machines, validation rules), QA strategy, and gaps report. Four
+  specification review rounds with eight findings (SPEC-0015 through
+  SPEC-0022) filed and resolved.
+- **Local Usage Processing and Analysis — architecture complete.**
+  arc42 chapters 5 (building block view with §5.5 interfaces), 6
+  (runtime view), 7 (deployment view), 8 (crosscutting concepts), and
+  9 (architecture decisions) extended. ADR-0015 accepted: query
+  authoritative JSONL with ephemeral DuckDB views. Structurizr DSL
+  workspace extended with usage-analysis containers, components, and
+  four new views. Six new SVG diagram exports.
+- **Local Usage Processing and Analysis — backlog complete.** Twelve
+  stories (ST-0240 through ST-0251) across three EPICs with testability
+  probes, MoSCoW priorities, and dependency ordering. ST-0240 and
+  ST-0241 grilled and made concrete.
+- **Cycle-based orchestration proposal.** New proposal at
+  `docs/proposals/cycle-based-orchestration.md` (status: open). First
+  adversarial review pass completed.
+- **Four specification reviews filed.** Reviews at
+  `docs/reviews/spec-review-2026-09-13*.md` covering four rounds of the
+  local usage processing and analysis specification.
+- **Three specification findings filed and resolved.** SPEC-0020 (run
+  ancestry does not determine roots and descendants), SPEC-0021 (logical
+  run to latest snapshot cardinality), SPEC-0022 (parent-conflict
+  preflight fixture coverage).
+- **Scope map updated.** `docs/spec/scope-map.md` revised with local
+  usage processing and analysis scope entries.
+- **Epics file renamed.** `backlog/epics.md` renamed to
+  `backlog/epics-test-design-redistribution.md` for feature specificity;
+  new `backlog/epics-local-usage-analysis.md` added.
+
+## 0.11.0 — 2026-09-12
+
 Playbook hardening, backlog concreteness, and five manifest defect
 resolutions. The code-review agent and review-mode dispatch add a human
 inspection loop to the implementation phase. Backlog creation gains two
