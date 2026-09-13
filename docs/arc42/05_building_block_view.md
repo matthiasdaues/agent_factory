@@ -4,16 +4,25 @@
 
 ## 5.1 Level 1: Container View
 
-Factory Flow Control consists of three primary containers:
+Factory Flow Control produces usage evidence and distributes the opt-in Usage
+Analysis system. The two systems share only the Factory-owned record contract
+and local JSONL spool.
 
-| Container         | Responsibility                                                                                                         | Technology                |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| **State Manager** | Reads/writes playbook state marker, resolves FSM transitions, drives phases                                            | Bash, Python              |
-| **Validator**     | Enforces gates, permissions, project-declared test gate presence, agent-context structure, and semantic quality checks | Bash, Python              |
-| **Dispatcher**    | Resolves agents/models from catalog, spawns CLI sessions with scoped permits                                           | Bash, Python              |
-| **Usage Capture** | Normalizes CLI transcripts and appends canonical runtime usage records                                                 | Python, shell, TypeScript |
-| State Files       | Local git-ignored marker (`.current-work/playbook-state.yml`) and FSM defs                                             | YAML (storage)            |
-| Catalog           | Generated `factory/INDEX.yaml` from agent/skill/playbook/rulebook frontmatter, with token counts                       | YAML (storage)            |
+| Container                  | Responsibility                                                                                                         | Technology                |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| **State Manager**          | Reads/writes playbook state marker, resolves FSM transitions, drives phases                                            | Bash, Python              |
+| **Validator**              | Enforces gates, permissions, project-declared test gate presence, agent-context structure, and semantic quality checks | Bash, Python              |
+| **Dispatcher**             | Resolves agents/models from catalog, spawns CLI sessions with scoped permits                                           | Bash, Python              |
+| **Usage Capture**          | Normalizes CLI transcripts and appends canonical runtime usage records                                                 | Python, shell, TypeScript |
+| **Distribution**           | Installs, updates, removes, and reports opt-in components without coupling them to Factory core                        | Bash, Python              |
+| State Files                | Local git-ignored marker (`.current-work/playbook-state.yml`) and FSM defs                                             | YAML (storage)            |
+| Catalog                    | Generated `factory/INDEX.yaml` from agent/skill/playbook/rulebook frontmatter, with token counts                       | YAML (storage)            |
+| Usage Record Contract      | Factory-owned record schema and producer-consumer compatibility policy                                                 | JSON Schema, YAML         |
+| Raw Usage Spool            | Authoritative append-only records under `.agent-factory/usage/`                                                        | JSONL (storage)           |
+| Install Manifest           | Records installed CLI integrations and opt-in components                                                               | JSON (storage)            |
+| **Usage Analysis Runtime** | Reads a snapshotted input set and publishes versioned local DuckDB views                                               | Python, DuckDB, PyArrow   |
+| DuckDB UI                  | Optional ephemeral localhost exploration of the published views                                                        | DuckDB bundled UI         |
+| Installed Analysis Module  | Locked executable package, SQL, registry, and contract copy under `.agent-factory/usage-analysis/`                     | Files (storage)           |
 
 ![Containers](../assets/images/Containers.svg)
 
@@ -205,7 +214,11 @@ Every building block's entry point, invoked how, and by whom:
 | context-lint                 | Pre-commit hook, validate skill                           | `factory/scripts/context-lint [--planning-gate]`                    | 0 (pass), 1+ (CX-\* findings)                 |
 | module-graph-check           | Orchestrating session                                     | `factory/scripts/module-graph-check <proposal-path>`                | 0 (no change), 1 (change detected)            |
 
-## 5.6 Level 2: Runtime Usage Capture
+## 5.6 Level 2: Component View — Usage Capture
+
+| Component         | Responsibility                                                                            |
+| ----------------- | ----------------------------------------------------------------------------------------- |
+| **usage-capture** | Normalize one CLI-native transcript and append a canonical usage record to the raw spool. |
 
 `usage-capture` is a CLI-agnostic pipeline with two adapter seams. A
 CLI-specific normalizer maps Claude Code, Copilot, Codex, or Pi events into
@@ -220,7 +233,38 @@ Copilot `agentStop`/`subagentStop`, Codex `Stop`/`SubagentStop`, and Pi
 second record. See
 [ADR-0007](../adr/0007-normalize-runtime-usage-through-cli-adapters.md).
 
+## 5.8 Level 2: Component View — Distribution
+
+| Component          | Responsibility                                                                    |
+| ------------------ | --------------------------------------------------------------------------------- |
+| **init-factory**   | Install, update, or remove the usage component and maintain the install manifest. |
+| **update-factory** | Update Factory core and report installed components without changing them.        |
+| **remove-factory** | Perform complete Factory removal, including analysis and raw usage data.          |
+
+## 5.7 Level 2: Component View — Usage Analysis Runtime
+
+Usage Analysis is a separate bounded context and depends on Factory's published
+usage-record contract. Factory capture has no dependency on analysis.
+
+![Usage Analysis components](../assets/images/UsageAnalysisComponents.svg)
+
+| Component                 | Responsibility                                                                                                                                    |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Input Snapshot**        | Select and normalize a sorted list of top-level JSONL files once at query start.                                                                  |
+| **Contract Check**        | Validate the installed contract, every selected line, cross-field invariants, and version compatibility.                                          |
+| **Operational Preflight** | Classify every line, validate the rooted run graph, and register query-scoped valid and failure relations.                                        |
+| **Accounting Registry**   | Map exactly `claude-code`, `copilot`, `codex`, and `pi` to their conservation rule.                                                               |
+| **Query Model v1**        | Publish `raw_usage_snapshots`, `latest_run_snapshots`, `canonical_session_usage`, `usage_by_dimension`, `cache_efficiency`, and `capture_health`. |
+| **Result Adapters**       | Project one published view as a table, JSON, DuckDB relation, or PyArrow table without reimplementing accounting.                                 |
+| **Parquet Exporter**      | Stage, verify, attribute, and atomically replace an explicit Parquet export.                                                                      |
+
+The valid and failure relations live only for the query process. When preflight
+finds a failure, `capture_health` remains available while the other five stable
+views refuse partial results. Raw JSONL remains authoritative; DuckDB state,
+Parquet files, and UI state are disposable.
+
 ## Referenced from
 
 - [06_runtime_view.md § 6.2](06_runtime_view.md#62-test-gate-presence)
 - [09_architecture_decisions.md](09_architecture_decisions.md)
+- [ADR-0015 — Query authoritative JSONL with ephemeral DuckDB views](../adr/0015-query-authoritative-jsonl-with-ephemeral-duckdb-views.md)

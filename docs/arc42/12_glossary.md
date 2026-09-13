@@ -46,6 +46,22 @@ Domain vocabulary for Factory Flow Control. Terms in **bold** are the canonical 
 | **Scope Map**                   | The persistent artifact at `docs/spec/scope-map.md` tracking all Rules across all slices with status (`deferred`, `specified`, `implemented`), slice assignment, and feature-file link. Survives across feature branches; the `.feature` file is transient.                                                                                                |
 | **Semantic Quality Gate**       | A deterministic gate that checks code meaning (complexity, dependency direction) rather than syntax or formatting. Owned by the implementation-agent dispatcher, not hook-triggered. The two Factory gates are `crap-score` and `dependency-check`.                                                                                                        |
 
+## Usage Analysis Vocabulary
+
+| Term                      | Definition                                                                                                                             |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **Usage Analysis**        | Opt-in local bounded context that validates Factory usage records and derives reproducible DuckDB results without owning raw evidence. |
+| **Raw Usage Spool**       | Factory-owned append-only top-level JSONL files beneath `.agent-factory/usage/`; the authoritative analytical evidence.                |
+| **Input Set**             | Sorted, normalized list of top-level JSONL paths snapshotted once at query start.                                                      |
+| **Evidence Identity**     | Normalized source path plus one-based line number for one selected JSONL object.                                                       |
+| **Logical Run**           | Source-independent run keyed exactly by `(cli, session_id, run_id)` after contract validation.                                         |
+| **Operational Preflight** | Strict all-line classification and ancestry validation performed before stable accounting.                                             |
+| **Accounting Registry**   | Closed mapping from `claude-code`, `copilot`, `codex`, and `pi` to their conservation rules.                                           |
+| **Query Model v1**        | Versioned set of exactly six published DuckDB views that owns stable analytical schemas, ordering, and transformations.                |
+| **Published View**        | Stable DuckDB relation exposed to table, JSON, relation, Arrow, Parquet, and UI consumers.                                             |
+| **Capture Health**        | Published diagnostic view that remains available when selected evidence is invalid; other stable views refuse partial results.         |
+| **Parquet Export**        | Explicit, attributable, verified, atomically replaced derivative of one published view; never authoritative state.                     |
+
 ## Research Vocabulary
 
 Terms for the falsification-driven research feature (phase-6 agents and the `research-topic` playbook). Distinct from the Factory Flow Control harness above; used consistently across the research skills, agents, policies, templates, and schemas.

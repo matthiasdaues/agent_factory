@@ -10,6 +10,7 @@ This documentation derives from the specification in [`spec/`](spec/prd.md). The
 | --- | ------------------------------------------------------------ |
 | 5   | [Building Block View](arc42/05_building_block_view.md)       |
 | 6   | [Runtime View](arc42/06_runtime_view.md)                     |
+| 7   | [Deployment View](arc42/07_deployment_view.md)               |
 | 8   | [Cross-cutting Concepts](arc42/08_crosscutting_concepts.md)  |
 | 9   | [Architecture Decisions](arc42/09_architecture_decisions.md) |
 | 12  | [Glossary](arc42/12_glossary.md)                             |

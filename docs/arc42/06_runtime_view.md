@@ -4,7 +4,9 @@
 
 ## 6.1 Overview
 
-This chapter describes key interaction sequences, focusing on **test gate presence** — the pattern where Factory ensures test gates exist while the project owns what runs inside them — and the **semantic gate loop** that the dispatcher runs after each developer-agent commit. Other runtime scenarios (phase advance, agent dispatch, retry loops) are documented here as needed for context but are not exhaustive; see use cases in [`spec/use_cases/`](../~archive/spec/use_cases/) for full flows.
+This chapter describes key interaction sequences for Factory gates and local
+usage analysis. Dynamic views in [`architecture.dsl`](architecture.dsl) own
+the canonical step order.
 
 ## 6.2 Test Gate Presence
 
@@ -173,7 +175,7 @@ sequenceDiagram
 
 ## 6.4 Agent Context Mode Transition
 
-The agent-context index files have a two-mode lifecycle: `mode: primary` (greenfield, values written directly) and `mode: index` (mature, every non-null, non-deferred leaf has a `source:` pointer). The transition is one-directional and atomic. See [ADR-0014](../adr/0014-two-layer-routing-with-two-mode-lifecycle.md) and [state-machines.md § Agent Context Mode Lifecycle](../spec/supplementary_specs/state-machines.md#agent-context-mode-lifecycle).
+The agent-context index files have a two-mode lifecycle: `mode: primary` (greenfield, values written directly) and `mode: index` (mature, every non-null, non-deferred leaf has a `source:` pointer). The transition is one-directional and atomic. See [ADR-0014](../adr/0014-two-layer-routing-with-two-mode-lifecycle.md) and [state-machines.md § Concern Registry Lifecycle](../spec/supplementary_specs/state-machines.md#concern-registry-lifecycle).
 
 ### 6.4.1 Sequence: Mode Transition via update-context
 
@@ -227,7 +229,59 @@ sequenceDiagram
 - `testing.yaml` is exempt from mode checks -- it receives `CX-PARSE` validation only.
 - Format detection routes to either `CX-*` codes (YAML agent-context) or `CH-*` codes (legacy markdown charter), never both.
 
-## 6.5 Other Runtime Scenarios (Summary)
+## 6.5 Local Usage Query
+
+Derived from dynamic view `UsageQuery` in
+[`architecture.dsl`](architecture.dsl).
+
+```mermaid
+sequenceDiagram
+    participant humanOperator as Human Operator
+    participant inputSnapshot as Input Snapshot
+    participant rawUsageSpool as Raw Usage Spool
+    participant contractCheck as Contract Check
+    participant operationalPreflight as Operational Preflight
+    participant accountingRegistry as Accounting Registry
+    participant queryModel as Query Model v1
+    participant resultAdapters as Result Adapters
+
+    humanOperator->>inputSnapshot: 1. Invokes usage-query for a published view
+    inputSnapshot->>rawUsageSpool: 2. Snapshots sorted top-level JSONL evidence
+    inputSnapshot->>contractCheck: 3. Supplies normalized evidence and records
+    contractCheck->>operationalPreflight: 4. Registers valid rows and structured failures
+    operationalPreflight->>accountingRegistry: 5. Supplies a valid rooted run graph
+    accountingRegistry->>queryModel: 6. Applies the registered conservation rule
+    operationalPreflight->>queryModel: 7. Registers valid and failure relations
+    queryModel->>resultAdapters: 8. Projects the selected published view
+```
+
+The query snapshots its input once. Every selected line becomes either a valid
+row or a structured failure. `capture_health` remains queryable when failures
+exist; all other stable views refuse partial output. Empty input is valid and
+returns each view's declared typed empty result.
+
+## 6.6 Explicit Parquet Export
+
+Derived from dynamic view `UsageParquetExport` in
+[`architecture.dsl`](architecture.dsl).
+
+```mermaid
+sequenceDiagram
+    participant humanOperator as Human Operator
+    participant queryModel as Query Model v1
+    participant parquetExporter as Parquet Exporter
+    participant parquetFile as Parquet Export
+
+    humanOperator->>parquetExporter: 1. Requests a published view as Parquet
+    queryModel->>parquetExporter: 2. Supplies the selected stable view
+    parquetExporter->>parquetFile: 3. Replaces the destination after verification
+```
+
+The exporter writes a temporary sibling, verifies logical rows and schema, and
+records query-model and input-set provenance before replacement. Any failure
+leaves an existing destination unchanged. No scheduled refresh exists.
+
+## 6.7 Other Runtime Scenarios (Summary)
 
 Full sequences for these flows are in their respective use cases:
 
