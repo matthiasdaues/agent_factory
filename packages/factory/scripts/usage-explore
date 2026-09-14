@@ -25,10 +25,20 @@ def _find_usage_package() -> Path | None:
     return None
 
 
+def _find_evidence_dir() -> str | None:
+    """Return the evidence spool directory if it exists."""
+    cwd = Path(os.getcwd()).resolve()
+    for parent in [cwd, *cwd.parents]:
+        candidate = parent / ".agent-factory" / "usage"
+        if candidate.is_dir():
+            return str(candidate)
+    return None
+
+
 def main() -> None:
     if len(sys.argv) < 2:
         print(
-            "usage: usage-explore <path.duckdb> [port]",
+            "usage: usage-explore <path.duckdb> [port] [--no-watch]",
             file=sys.stderr,
         )
         sys.exit(2)
@@ -41,11 +51,22 @@ def main() -> None:
             file=sys.stderr,
         )
         sys.exit(2)
-    db_path = Path(sys.argv[1]).resolve()
-    rest = sys.argv[2:]
+
+    no_watch = "--no-watch" in sys.argv
+    argv = [a for a in sys.argv[1:] if a != "--no-watch"]
+
+    db_path = Path(argv[0]).resolve()
+    rest = argv[1:]
+
+    watch_args: list[str] = []
+    if not no_watch:
+        evidence = _find_evidence_dir()
+        if evidence:
+            watch_args = ["--watch", evidence]
+
     os.execvp("uv", [
         "uv", "run", "--directory", str(pkg),
-        "python", "-m", "usage.explorer", str(db_path), *rest
+        "python", "-m", "usage.explorer", str(db_path), *rest, *watch_args
     ])
 
 

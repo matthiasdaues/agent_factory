@@ -9,7 +9,10 @@ Usage::
 from __future__ import annotations
 
 import json
+import os
 import sys
+import tempfile
+import threading
 import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -120,6 +123,7 @@ textarea#sql:focus{border-color:var(--accent)}
 <div class="topbar">
   <h1>Usage Explorer</h1>
   <span class="db-name" id="db-name"></span>
+  <span class="db-name" id="watch-indicator" style="color:var(--muted)"></span>
 </div>
 
 <div class="sidebar">
@@ -264,6 +268,7 @@ async function loadSchema() {
   const data = await resp.json();
   document.getElementById("db-name").textContent = data.db_name;
   const list = document.getElementById("schema-list");
+  list.innerHTML = "";
   data.tables.forEach(t => {
     const item = document.createElement("div");
     item.className = "tbl-item";
@@ -284,6 +289,28 @@ async function loadSchema() {
 loadSchema();
 // Auto-run initial query
 setTimeout(runQuery, 300);
+
+// ── Live watch ──
+let _knownVersion = 0;
+async function pollVersion() {
+  try {
+    const resp = await fetch("/api/version");
+    const data = await resp.json();
+    const ind = document.getElementById("watch-indicator");
+    if (data.version === 0) { ind.textContent = ""; return; }
+    if (_knownVersion === 0) { _knownVersion = data.version; ind.textContent = "watching"; ind.style.color = "var(--ok)"; return; }
+    if (data.version !== _knownVersion) {
+      _knownVersion = data.version;
+      ind.textContent = "refreshed (v" + data.version + ")";
+      ind.style.color = "var(--warn)";
+      await loadSchema();
+      await runQuery();
+      setTimeout(() => { ind.textContent = "watching"; ind.style.color = "var(--ok)"; }, 3000);
+    }
+  } catch(e) {}
+}
+setInterval(pollVersion, 5000);
+setTimeout(pollVersion, 500);
 </script>
 </body>
 </html>"""
@@ -302,7 +329,97 @@ class _ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
 
 
-def _make_handler(db_path, db_name):
+class _EvidenceWatcher:
+    """Polls the evidence spool and rebuilds the .duckdb file on change."""
+
+    def __init__(self, usage_dir: Path, db_path: Path, interval: float = 5.0):
+        self.usage_dir = usage_dir
+        self.db_path = db_path
+        self.interval = interval
+        self.version = 1
+        self._fingerprint = self._snapshot()
+        self._lock = threading.Lock()
+        self._thread = threading.Thread(target=self._loop, daemon=True)
+        self._thread.start()
+
+    def _snapshot(self) -> tuple:
+        try:
+            entries = []
+            for f in sorted(self.usage_dir.iterdir()):
+                if f.suffix == ".jsonl":
+                    st = f.stat()
+                    entries.append((f.name, st.st_size, st.st_mtime_ns))
+            return tuple(entries)
+        except OSError:
+            return ()
+
+    def _loop(self) -> None:
+        while True:
+            time.sleep(self.interval)
+            current = self._snapshot()
+            if current != self._fingerprint:
+                self._fingerprint = current
+                self._rebuild()
+
+    def _rebuild(self) -> None:
+        from usage import input_snapshot, preflight, accounting
+
+        paths, _digest = input_snapshot.snapshot(self.usage_dir)
+        if not paths:
+            return
+
+        result = preflight.run_preflight(paths)
+        try:
+            accounting.select_latest_snapshots(result.conn)
+            accounting.build_session_roots(result.conn)
+            accounting.build_canonical_contributions(result.conn)
+            accounting.compute_canonical(result.conn)
+
+            tmp_fd, tmp_path = tempfile.mkstemp(
+                suffix=".duckdb", dir=str(self.db_path.parent),
+            )
+            os.close(tmp_fd)
+            Path(tmp_path).unlink()
+
+            self._persist(result.conn, tmp_path)
+            os.replace(tmp_path, str(self.db_path))
+
+            with self._lock:
+                self.version += 1
+            print(
+                f"[watch] rebuilt ({self.version}) from "
+                f"{len(paths)} file(s)",
+                file=sys.stderr,
+            )
+        except Exception as exc:
+            print(f"[watch] rebuild failed: {exc}", file=sys.stderr)
+            tmp = Path(tmp_path) if "tmp_path" in dir() else None
+            if tmp and tmp.exists():
+                tmp.unlink()
+        finally:
+            result.conn.close()
+
+    @staticmethod
+    def _persist(conn, path_str: str) -> None:
+        dest = Path(path_str)
+        conn.execute(f"ATTACH '{dest}' AS export_db")
+        objects = conn.execute(
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_schema = 'main' "
+            "AND table_name NOT LIKE '\\_%' ESCAPE '\\'"
+        ).fetchall()
+        _exclude = {"latest_run_snapshots": "(_snapshot_rank)"}
+        for (name,) in objects:
+            exc = _exclude.get(name)
+            exc_clause = f" EXCLUDE {exc}" if exc else ""
+            conn.execute(
+                f'CREATE TABLE export_db."{name}" AS '
+                f'SELECT *{exc_clause} FROM main."{name}"'
+            )
+        conn.execute("DETACH export_db")
+
+
+def _make_handler(db_path, db_name, watcher=None):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, fmt, *a):
             pass
@@ -313,6 +430,10 @@ def _make_handler(db_path, db_name):
         def do_GET(self):
             if self.path == "/":
                 _send(self, 200, "text/html; charset=utf-8", _HTML.encode())
+            elif self.path == "/api/version":
+                v = watcher.version if watcher else 0
+                payload = json.dumps({"version": v}).encode()
+                _send(self, 200, "application/json", payload)
             elif self.path == "/schema":
                 conn = self._conn()
                 try:
@@ -391,20 +512,42 @@ def _make_handler(db_path, db_name):
 
 
 def main() -> None:
-    if len(sys.argv) < 2:
-        print("usage: python -m usage.explorer <path.duckdb> [port]", file=sys.stderr)
-        sys.exit(2)
+    import argparse
 
-    db_path = Path(sys.argv[1])
+    parser = argparse.ArgumentParser(
+        prog="usage-explore",
+        description="Web-based SQL explorer for persistent usage DuckDB files.",
+    )
+    parser.add_argument("db", help="Path to the .duckdb file")
+    parser.add_argument("port", nargs="?", type=int, default=8642)
+    parser.add_argument(
+        "--watch",
+        metavar="DIR",
+        default=None,
+        help="Evidence spool directory to watch for live refresh",
+    )
+    args = parser.parse_args()
+
+    db_path = Path(args.db)
     if not db_path.exists():
         print(f"file not found: {db_path}", file=sys.stderr)
         sys.exit(2)
 
-    port = int(sys.argv[2]) if len(sys.argv) > 2 else 8642
+    port = args.port
+
+    watcher = None
+    if args.watch:
+        watch_dir = Path(args.watch)
+        if watch_dir.is_dir():
+            watcher = _EvidenceWatcher(watch_dir, db_path)
+            print(f"Watching: {watch_dir}", file=sys.stderr)
+        else:
+            print(f"watch directory not found: {watch_dir}", file=sys.stderr)
+            sys.exit(2)
 
     db_name = db_path.name
 
-    handler_cls = _make_handler(db_path, db_name)
+    handler_cls = _make_handler(db_path, db_name, watcher=watcher)
     server = _ThreadingHTTPServer(("127.0.0.1", port), handler_cls)
 
     url = f"http://localhost:{port}"
