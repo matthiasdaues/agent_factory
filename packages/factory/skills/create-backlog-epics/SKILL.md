@@ -40,7 +40,13 @@ For each EPIC, write one row. Each row names the user-visible outcome the EPIC d
 
 **Title convention:** The EPIC outcome column and every story title use an active verb phrase — what a person or system *does*, not what a thing *is*. "Activate a Domain with an immutable timezone", not "Domain activation with immutable timezone." This applies to the `title:` frontmatter, the `# ` heading, and the EPIC outcome column.
 
-**Gate:** every EPIC row must cross at least two system boundaries and have a concrete, showable demo. An EPIC that groups work by layer rather than by capability must be recut.
+**Gate — each rule is a hard pass/fail:**
+
+1. Every EPIC row crosses at least two system boundaries and has a concrete, showable demo.
+2. Boundaries must span distinct architectural layers or distinct actor touchpoints — two components within the same processing stage do not count as two boundaries.
+3. An EPIC whose demo requires a subsequent EPIC to produce a usable result is a layer, not a capability — recut it. Test: "Can the actor use this EPIC's output without the next EPIC?" If the answer is no, the EPIC is incomplete.
+4. An EPIC that groups work by layer rather than by capability must be recut.
+5. If the proposed EPICs form a fully serial dependency chain (each depends on the previous, no parallelism), flag this as likely horizontal slicing. Revisit whether thin vertical slices — each touching multiple layers but delivering one end-to-end capability — are possible before presenting.
 
 ## Quality gate
 
