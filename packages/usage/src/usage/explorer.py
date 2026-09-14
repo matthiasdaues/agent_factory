@@ -298,6 +298,7 @@ def _send(handler, code, content_type, body):
 
 
 class _ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+    allow_reuse_address = True
     daemon_threads = True
 
 
