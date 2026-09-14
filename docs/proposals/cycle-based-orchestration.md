@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: Cycle-Based Orchestration
-status: open
+status: accepted
 owner: Matthias Daues
 created: 2026-09-13
 updated: 2026-09-14
@@ -392,10 +392,12 @@ active-cycle file exists. A state file contains only these fields:
 
 ```yaml
 schema_version: 1
+revision: 1
 workstream_id: cycle-based-orchestration
 topic: Replace playbook orchestration with adaptive cycles
 origin_ref: docs/proposals/cycle-based-orchestration.md
 cycle: IDEA
+attempt: 1
 work:
   - docs/proposals/cycle-based-orchestration.md
 delegation:
@@ -405,9 +407,11 @@ delegation:
     - REALIZE
 ```
 
-`origin_ref` and `delegation` may be null. The `work` list contains references
-to existing proposals, epic sections, or story files. The state file never
-copies requirements or assessment results. Assessments use the current commit.
+`revision` and `attempt` are positive integers. A new workstream starts at
+`revision: 1` and `attempt: 1`. `origin_ref` and `delegation` may be null. The
+`work` list contains references to existing proposals, epic sections, or story
+files. The state file never copies requirements or assessment results.
+Assessments use the current commit.
 
 The first release does not support project overrides of the factory graph.
 Projects may add validators and artifact declarations after an extension
@@ -423,7 +427,8 @@ A repository may contain several workstream state files. Several sessions may
 use one workstream, and one session may switch workstreams. A session binding
 under `.current-work/session-bindings/<cli>/<session-id>.yaml` identifies the
 active workstream. Path components use the existing usage-capture filesystem-key
-encoding. The binding is session-local navigation state, not delivery evidence.
+encoding. The binding records the last observed workstream revision and SHA-256
+digest. The binding is session-local navigation state, not delivery evidence.
 
 The factory suggests a new workstream before starting substantial work on an
 independent objective. Explicit topic changes, a new deliverable, or a different
@@ -459,6 +464,53 @@ Usage analysis adds workstream, cycle, and workstream-by-cycle dimensions. This
 supports comparisons between direct realization and delivery through ROADMAP or
 REFINE. Analysis reads immutable usage records and never depends on retained
 `.current-work` files.
+
+### Same-workstream concurrency
+
+If two sessions change one workstream concurrently, one change succeeds and the
+other pauses. A stale session never overwrites newer workstream state. Sessions
+that change different workstreams do not block each other.
+
+Every workstream mutation uses its session binding's observed revision and
+SHA-256 digest as the expected state. The digest covers the exact state-file
+bytes. It detects direct edits that do not increment `revision`.
+
+The adapter acquires an exclusive operating-system lock at
+`.current-work/cycles/.locks/<workstream-id>.lock`. The lock covers only the
+read, comparison, validation, and replacement. It contains no workflow data.
+The operating system releases the lock when the process exits.
+
+While holding the lock, the adapter reads and validates the current state. A
+revision or digest mismatch returns this result without writing:
+
+```yaml
+status: conflict
+reason: stale_workstream_state
+workstream_id: cycle-based-orchestration
+expected_revision: 7
+current_revision: 8
+next_action: refresh_and_confirm
+```
+
+A valid mutation increments `revision` once. The adapter writes a temporary
+sibling file, flushes it, and atomically replaces the state file. The adapter
+then updates the successful session binding with the new revision and digest.
+An interruption between these writes leaves a stale binding. The next mutation
+detects that stale binding.
+
+A command waits at most five seconds for the workstream lock. It returns
+`workstream_busy` without writing when the wait expires. A stale-state conflict
+also leaves the rejected session binding unchanged. Workstream-menu selection
+or an explicit refresh updates the observation. Refresh never repeats the
+rejected mutation.
+
+The engine does not merge state changes or retry a rejected mutation. A human
+sees the current state and confirms a new command. Delegated execution pauses
+and returns control to the human. Read-only assessment needs no lock because
+atomic replacement exposes either the previous complete file or the next one.
+
+This mechanism is the first-release implementation. A later implementation may
+replace the locking primitive if it keeps the observable concurrency rules.
 
 ### Session menu
 
@@ -682,6 +734,50 @@ failure always stops the run.
 Delegated execution may continue without the human present. The grant supplies
 the authority; human presence does not define the boundary.
 
+### Retry limits
+
+Retry limits stop unattended loops. They do not prevent a human from
+continuing. Each cycle in `engine/models/delivery.yaml` declares a positive
+`delegated_attempt_limit`:
+
+```yaml
+cycles:
+  REALIZE:
+    delegated_attempt_limit: 5
+```
+
+Entering a cycle starts at `attempt: 1`. `cycle retry` requests another attempt
+at the current cycle and work selection. An allowed retry increments `attempt`
+before the adapter reruns the cycle.
+
+Selecting a different cycle resets `attempt` to `1`. Changing the `work` list
+also resets it to `1`, including when the cycle stays the same. Changing
+sessions, resuming a workstream, reassessing artifacts, or editing files does
+not reset it.
+
+The adapter identifies a retry request as human-authored or delegated. A
+delegated retry below the limit returns `allowed`. At the limit, it returns this
+immutable result and leaves the state unchanged:
+
+```yaml
+status: paused
+reason: delegated_attempt_limit_reached
+cycle: REALIZE
+attempt: 5
+limit: 5
+next_action: request_human_direction
+```
+
+A human-authored retry at or above the limit returns `allowed_with_warning` and
+increments `attempt`. It requires no override flag or justification. Malformed
+retry state returns `invalid_state` without writing. Once the adapter accepts a
+retry, the attempt is consumed. Every later outcome retains the increment,
+including failure to start or complete the assigned execution. The adapter
+never rolls an accepted attempt back.
+
+The cycle-state file retains only the current attempt. Usage and execution
+records provide history when available.
+
 ### Transition recommender
 
 At every cycle exit, the system:
@@ -750,6 +846,8 @@ registry of route fixtures.
 | Artifact validators | Each validator has focused valid, invalid, and stale-evidence tests                                                                   |
 | Human selection     | Tests cover a supported route, a route with failed evidence, and a cycle absent from the recommendation table                         |
 | Reconciliation      | Tests cover code changed, canonical artifact changed, and neither changed                                                             |
+| Retry evaluator     | Tests cover delegated and human retries below, at, and above the limit; reset rules; invalid state; and technical failure             |
+| State concurrency   | Tests race same-workstream and different-workstream mutations, direct edits, lock timeout, interruption, and delegated conflict       |
 | Installed shape     | The installed factory loads the same schema-valid model as the tracked product source                                                 |
 
 The generic route invariant reads route declarations directly from
@@ -770,10 +868,13 @@ route-coverage manifest exists.
   changes code or a canonical artifact.
 - Define the transition recommender's interface and recommendation format.
 - Define human selection and delegation grants without an override workflow.
+- Define delegated retry limits, current-attempt persistence, reset rules, and
+  human retry behavior.
 - Apply the explicit compatibility and replacement tables. Do not retain
   unlisted orchestration behavior through a general compatibility promise.
 - Support concurrent workstreams, session-to-workstream binding, and confirmed
   mid-session workstream changes.
+- Prevent stale or concurrent sessions from overwriting newer workstream state.
 - Add optional workstream and cycle context to usage capture and dimensional
   usage analysis.
 - Implement the complete artifact readiness table in this proposal through
@@ -895,6 +996,16 @@ None.
   scripts, configuration, agent definitions, skills, or orchestrator code.
 - Two workstream state files can hold different cycles and work references in
   one repository. Selecting either file does not modify the other.
+- Two sessions that mutate the same observed workstream state cannot both
+  succeed. One increments the revision; the other returns
+  `stale_workstream_state` without writing or merging.
+- A direct state-file edit causes a digest conflict for sessions that observed
+  the previous content. A five-second lock timeout returns `workstream_busy`
+  without writing.
+- Interrupted replacement leaves one complete workstream state. Interrupted
+  session-binding update leaves a stale binding that the next mutation detects.
+- Different-workstream mutations proceed under separate locks. A conflict in a
+  delegated run pauses and returns control to the human.
 - No repository-global active-cycle file exists. Each session resolves its
   active workstream from its own binding.
 - A confirmed topic change captures a supported usage boundary, updates the
@@ -907,6 +1018,15 @@ None.
 - `factory/scripts/cycle select` changes the selected workstream's cycle and
   work references. `factory/scripts/cycle retry` retries that workstream's
   current cycle.
+- Every cycle declares `delegated_attempt_limit`. Entering another cycle or
+  changing selected work resets `attempt` to `1`; other activity does not.
+- A delegated retry below the limit increments `attempt`. A delegated retry at
+  the limit pauses without changing state and returns
+  `delegated_attempt_limit_reached` with the cycle, attempt, limit, and next
+  action.
+- A human retry at or above the delegated limit proceeds with a warning and no
+  override ceremony. Invalid state does not increment the attempt. Any failure
+  after a retry is accepted retains the incremented attempt.
 - `factory/scripts/phase` no longer implements transitions. Its one-release
   diagnostic stub exits 2 and names the corresponding `cycle` command.
 - `transition-lint` rejects invalid cycle models and malformed state files.
@@ -1001,3 +1121,153 @@ finding status.
 | PROP-07 | Remediated; pending repeat review | The estimate uses the template-defined `judgment` basis with low confidence and unknown ranges. No completed analogous change supports `analogous_change`; planning may replace the basis with `decomposition` after producing independently estimated stories.                                                                                    |
 | PROP-08 | Remediated; pending repeat review | [Motivation](#motivation) identifies the 2026-09-09 user-experience review, the unimplemented linear-engine extraction, and concurrent workstream attribution as the events that make the cycle-native decision timely.                                                                                                                            |
 | PROP-10 | Remediated; pending repeat review | Resolved by the PROP-03 recommendation-model remediation. [Artifact state detection](#artifact-state-detection) requires artifact assessments at every exit. Reconciliation runs only after code or canonical-artifact changes. [Completion Criteria](#completion-criteria) requires other transitions to report reconciliation as not applicable. |
+
+## Review — 2026-09-14
+
+Reviewer: proposal-review-agent
+Reviewed commit: 38d23d2e3560504e152d033a09c9cccd82877f60
+Disposition: findings
+
+### Findings
+
+| ID      | Severity | Check | Status   | Finding                                                                                                                                                                                                                                                      |
+| ------- | -------- | ----- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| PROP-01 | major    | 01    | resolved | The compatibility tables enumerate kept and replaced contracts. Completion criteria require baseline comparison and characterization tests.                                                                                                                  |
+| PROP-02 | major    | 01    | resolved | The design names the YAML model, versioned schemas, validator result fields, route invariant, and focused tests.                                                                                                                                             |
+| PROP-03 | major    | 02    | resolved | The readiness table defines the complete first-release artifact inventory and evidence. No readiness decision remains open.                                                                                                                                  |
+| PROP-04 | major    | 02    | resolved | The design now creates a cycle-native engine and replaces the playbook state, FSM authority, and affected commands in one cutover.                                                                                                                           |
+| PROP-05 | minor    | 02    | resolved | The two human-authored grant forms define unattended execution. Self-directed grant creation or expansion is deferred.                                                                                                                                       |
+| PROP-06 | major    | 05    | resolved | Every current boundary resolves at the reviewed commit. The nonexistent `packages/factory/engine/flow_control` boundary was removed.                                                                                                                         |
+| PROP-07 | minor    | 08    | resolved | The estimate now uses the valid `judgment` basis and records unknown ranges at low confidence.                                                                                                                                                               |
+| PROP-08 | minor    | 07    | resolved | Motivation ties timing to the user-experience review, the unimplemented linear extraction, and concurrent attribution needs.                                                                                                                                 |
+| PROP-09 | major    | 02    | resolved | Brownfield bootstrap and delivery-linked research are in scope. Internal research-route replacement is explicitly deferred.                                                                                                                                  |
+| PROP-10 | major    | 01    | resolved | Artifact assessment runs at every exit. Reconciliation runs after relevant changes, and other transitions report it as not applicable.                                                                                                                       |
+| PROP-11 | major    | 03    | open     | Retry limits are not decomposable. The state schema excludes retry history, yet the engine owns retry-limit decisions. Define the cap source, persisted counter, reset rules, and refusal result.                                                            |
+| PROP-12 | major    | 03    | open     | Shared-workstream updates are not decomposable. Several sessions may use one workstream, but concurrent state-write behavior is undefined. Define atomicity, stale-write detection, and conflict handling, then add a same-workstream concurrency criterion. |
+
+### Checks
+
+| Check | Result | Evaluation                                                                                                                  |
+| ----- | ------ | --------------------------------------------------------------------------------------------------------------------------- |
+| 01    | PASS   | Completion criteria identify observable formats, cases, compatibility surfaces, command behavior, and end-to-end outcomes.  |
+| 02    | PASS   | First-release and deferred lists separate routing, compatibility, brownfield, research, entity-model, and multi-batch work. |
+| 03    | FAIL   | Planning must invent retry-limit persistence and concurrent update behavior for sessions that share one workstream.         |
+| 04    | PASS   | Cross-component scope, architecture change, external contract change, assurance, and risk domains match the design.         |
+| 05    | PASS   | Every declared boundary exists at `38d23d2e3560504e152d033a09c9cccd82877f60`.                                               |
+| 06    | PASS   | The proposal records no open questions. The two remaining gaps are missing contracts, not genuine unresolved alternatives.  |
+| 07    | PASS   | The timing follows documented user-experience findings and precedes investment in the superseded linear engine.             |
+| 08    | PASS   | `judgment`, low confidence, and unknown ranges honestly reflect the undecomposed cross-component scope.                     |
+
+### Summary
+
+All ten prior findings are resolved, and seven checks pass. Two major design
+gaps still require Planning to invent runtime state rules. Define retry-limit
+state and same-workstream concurrency behavior before planning.
+
+## Author Remediation Notes — 2026-09-14, repeat review
+
+These notes record author changes after the latest independent review. They do
+not change the historical reviewer verdict. Another independent repeat review
+determines the finding status.
+
+| Finding | Author disposition                | Basis                                                                                                                                                                                                                                                                                                   |
+| ------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-11 | Remediated; pending repeat review | [Retry limits](#retry-limits) defines the model-owned delegated cap, persisted current attempt, reset rules, and engine results. [Completion Criteria](#completion-criteria) covers delegated and human retries, invalid state, technical failure, and state mutation behavior.                         |
+| PROP-12 | Remediated; pending repeat review | [Same-workstream concurrency](#same-workstream-concurrency) defines atomic replacement, per-workstream locking, revision and digest checks, conflicts, timeouts, interruption behavior, and separate-workstream independence. [Completion Criteria](#completion-criteria) makes those cases observable. |
+
+## Review — 2026-09-14
+
+Reviewer: proposal-review-agent
+Reviewed commit: 38d23d2e3560504e152d033a09c9cccd82877f60
+Disposition: findings
+
+This targeted repeat review covers the working-tree remediation for PROP-11 and
+PROP-12. It also checks directly affected contracts and regressions in resolved
+PROP-01 through PROP-10.
+
+### Findings
+
+| ID      | Severity | Check | Status               | Finding                                                                                                                                                          |
+| ------- | -------- | ----- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-01 | major    | 01    | resolved (unchanged) | The retry and concurrency remediation does not weaken the compatibility baseline or its completion checks.                                                       |
+| PROP-02 | major    | 01    | resolved (unchanged) | The added verification rows remain concrete and do not weaken the model or validator contracts.                                                                  |
+| PROP-03 | major    | 02    | resolved (unchanged) | The added retry and concurrency scope matches the new design contracts.                                                                                          |
+| PROP-04 | major    | 02    | resolved (unchanged) | Adapter-owned state mutation remains consistent with the cycle-native engine boundary.                                                                           |
+| PROP-05 | minor    | 02    | resolved (unchanged) | Delegated retries remain bounded by human-authored grants and the delegated attempt limit.                                                                       |
+| PROP-06 | major    | 05    | resolved (unchanged) | Every declared impact boundary exists in the reviewed working tree.                                                                                              |
+| PROP-07 | minor    | 08    | resolved (unchanged) | The remediation does not change the estimate.                                                                                                                    |
+| PROP-08 | minor    | 07    | resolved (unchanged) | The remediation does not change the timing argument.                                                                                                             |
+| PROP-09 | major    | 02    | resolved (unchanged) | The remediation does not change brownfield or research routing scope.                                                                                            |
+| PROP-10 | major    | 01    | resolved (unchanged) | Retry and concurrency verification does not change the reconciliation trigger contract.                                                                          |
+| PROP-11 | major    | 03    | open                 | Retry failure semantics conflict. The adapter increments `attempt` before execution, but technical execution failure must not increment it. Define one behavior. |
+| PROP-12 | major    | 03    | resolved             | The design defines locking, expected revision and digest checks, atomic replacement, conflicts, timeouts, and interruption behavior.                             |
+
+### Checks
+
+| Check | Result | Evaluation                                                                                                                                     |
+| ----- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 01    | FAIL   | Completion says technical failure does not increment `attempt`. The retry sequence increments it before the execution that can fail.           |
+| 02    | PASS   | Retry limits and concurrency are in scope. Self-directed delegation and alternate future locking implementations remain deferred.              |
+| 03    | FAIL   | PROP-12 is decomposable. PROP-11 still requires Planning to choose rollback or consumed-attempt semantics after a technical failure.           |
+| 04    | PASS   | The cross-component, architecture, and external-contract classifications still match the affected contracts.                                   |
+| 05    | PASS   | Every declared impact boundary exists in the reviewed working tree.                                                                            |
+| 06    | PASS   | The remediation creates no open question. The PROP-11 conflict is a missing decision, not a genuine alternative recorded for later resolution. |
+| 07    | PASS   | The remediation does not weaken the previously accepted timing case.                                                                           |
+| 08    | PASS   | The unchanged low-confidence judgment estimate remains honest for this cross-component proposal.                                               |
+
+### Summary
+
+PROP-12 is resolved, and the remediation creates no regression in PROP-01
+through PROP-10. PROP-11 remains open because retry state mutation conflicts
+with the technical-failure completion criterion. One major finding remains
+before this proposal is ready for planning.
+
+## Author Remediation Notes — 2026-09-14, targeted repeat review
+
+These notes record author changes after the targeted independent review. They
+do not change the historical reviewer verdict. Another independent repeat
+review determines the finding status.
+
+| Finding | Author disposition                | Basis                                                                                                                                                                                                                                                |
+| ------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-11 | Remediated; pending repeat review | [Retry limits](#retry-limits) now states that every accepted retry consumes an attempt. Invalid state prevents acceptance and leaves the counter unchanged. Failure to start or complete execution after acceptance retains the incremented attempt. |
+
+## Review — 2026-09-14
+
+Reviewer: proposal-review-agent
+Reviewed commit: 38d23d2e3560504e152d033a09c9cccd82877f60
+Disposition: clean
+
+### Findings
+
+| ID      | Severity | Check | Status   | Finding                                                                                                                                                                                                                                                                          |
+| ------- | -------- | ----- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-01 | major    | 01    | resolved | The compatibility tables enumerate kept and replaced contracts. Completion criteria require baseline comparison and characterization tests. No regression from the PROP-11 remediation.                                                                                          |
+| PROP-02 | major    | 01    | resolved | The YAML model, versioned schemas, validator result fields, route invariant, and focused tests remain concrete. No regression.                                                                                                                                                   |
+| PROP-03 | major    | 02    | resolved | The readiness table defines the complete first-release artifact inventory and evidence. No regression.                                                                                                                                                                           |
+| PROP-04 | major    | 02    | resolved | The cycle-native engine replaces playbook state, FSM authority, and affected commands in one cutover. No regression.                                                                                                                                                             |
+| PROP-05 | minor    | 02    | resolved | Explicit-route and destination grants define unattended execution. Self-directed grant creation is deferred. No regression.                                                                                                                                                      |
+| PROP-06 | major    | 05    | resolved | Every declared boundary resolves at the reviewed commit. No regression.                                                                                                                                                                                                          |
+| PROP-07 | minor    | 08    | resolved | The estimate uses the valid `judgment` basis with low confidence and unknown ranges. No regression.                                                                                                                                                                              |
+| PROP-08 | minor    | 07    | resolved | Motivation ties timing to the user-experience review, the unimplemented linear extraction, and concurrent attribution needs. No regression.                                                                                                                                      |
+| PROP-09 | major    | 02    | resolved | Brownfield bootstrap and delivery-linked research are in scope. Internal research-route replacement is deferred. No regression.                                                                                                                                                  |
+| PROP-10 | major    | 01    | resolved | Artifact assessment runs at every exit. Reconciliation runs after relevant changes. Other transitions report it as not applicable. No regression.                                                                                                                                |
+| PROP-11 | major    | 03    | resolved | The retry section defines consumed-attempt semantics: once the adapter accepts a retry, the attempt increment is permanent. Invalid state prevents acceptance. Failure after acceptance retains the increment. The completion criteria match this behavior. No conflict remains. |
+| PROP-12 | major    | 03    | resolved | Locking, revision-and-digest checks, atomic replacement, conflicts, timeouts, and interruption behavior are defined. No regression.                                                                                                                                              |
+
+### Checks
+
+| Check | Result | Evaluation                                                                                                                                                                          |
+| ----- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 01    | PASS   | Every completion criterion identifies an observable format, behavior, or test case. The retry criteria now consistently define consumed-attempt semantics.                          |
+| 02    | PASS   | The in-scope and deferred lists partition the space. No item appears in both. Each boundary is sharp enough to classify an arbitrary story.                                         |
+| 03    | PASS   | Planning can write INVEST stories from the design without re-deriving it. The retry limits, concurrency, and all other sections define their contracts, state, and results.         |
+| 04    | PASS   | Cross-component scope, architecture change, and external contract change match the engine, command, and usage-record changes described.                                             |
+| 05    | PASS   | All 22 declared boundary paths resolve at the reviewed commit.                                                                                                                      |
+| 06    | PASS   | No open questions remain. The prior gaps were missing contracts resolved through design decisions, not unresolved alternatives.                                                     |
+| 07    | PASS   | The motivation identifies the 2026-09-09 user-experience review, the opportunity before linear-engine investment, and concurrent workstream attribution as specific timing drivers. |
+| 08    | PASS   | The `judgment` basis, low confidence, and unknown ranges honestly reflect the undecomposed cross-component scope.                                                                   |
+
+### Summary
+
+All twelve prior findings are resolved. All eight checks pass. The proposal is ready for planning. No open findings remain.
