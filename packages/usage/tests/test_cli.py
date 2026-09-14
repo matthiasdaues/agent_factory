@@ -49,10 +49,12 @@ class TestCaptureHealth:
         result = _run_cli("capture_health", "--usage-dir", str(snapshot_dir))
         assert result.returncode == 0
 
-    def test_returns_typed_empty_result(self, snapshot_dir: Path) -> None:
+    def test_returns_typed_result_with_preflight(self, snapshot_dir: Path) -> None:
         result = _run_cli("capture_health", "--usage-dir", str(snapshot_dir))
         data = json.loads(result.stdout)
-        assert data == {"view": "capture_health", "rows": []}
+        assert data["view"] == "capture_health"
+        assert data["rows"] == []
+        assert "preflight" in data
 
     def test_empty_dir_returns_typed_empty_result(self, empty_dir: Path) -> None:
         result = _run_cli("capture_health", "--usage-dir", str(empty_dir))

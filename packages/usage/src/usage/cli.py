@@ -10,7 +10,7 @@ import json
 import sys
 from pathlib import Path
 
-from usage import contract_check, input_snapshot
+from usage import contract_check, input_snapshot, preflight
 
 AVAILABLE_VIEWS = ("capture_health",)
 
@@ -18,12 +18,21 @@ AVAILABLE_VIEWS = ("capture_health",)
 def _capture_health(
     paths: list[Path],
     digest: str,
+    preflight_result: preflight.PreflightResult | None = None,
 ) -> dict:
-    """Return a minimal typed empty result for capture_health.
+    """Return a minimal typed result for capture_health.
 
-    The real column contract is delivered in ST-0244.
+    The real column contract is delivered in ST-0244.  For now include
+    preflight summary when available.
     """
-    return {"view": "capture_health", "rows": []}
+    result: dict = {"view": "capture_health", "rows": []}
+    if preflight_result is not None:
+        result["preflight"] = {
+            "valid_count": preflight_result.valid_count,
+            "failure_count": preflight_result.failure_count,
+            "has_failures": preflight_result.has_failures,
+        }
+    return result
 
 
 def main() -> None:
@@ -71,9 +80,22 @@ def main() -> None:
         if rc != 0:
             sys.exit(rc)
 
+    # Run operational preflight on selected files.
+    preflight_result = None
+    if paths:
+        preflight_result = preflight.run_preflight(paths)
+        if preflight_result.has_failures and args.view != "capture_health":
+            print(
+                f"preflight: {preflight_result.failure_count} failure(s) "
+                f"in {preflight_result.failure_count + preflight_result.valid_count} "
+                f"record(s)",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
     # Route to view.
     if args.view == "capture_health":
-        result = _capture_health(paths, digest)
+        result = _capture_health(paths, digest, preflight_result)
 
     print(json.dumps(result))
     sys.exit(0)
