@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "usage"
 version = "0.0.0"
 requires-python = ">=3.10"
-dependencies = ["duckdb"]
+dependencies = ["duckdb>=1.3.0"]
 
 [project.optional-dependencies]
 arrow = ["pyarrow>=15.0.0,<20"]
