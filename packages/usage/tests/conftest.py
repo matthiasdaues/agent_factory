@@ -9,6 +9,7 @@ import pytest
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 SNAPSHOT_DIR = FIXTURES_DIR / "snapshot"
 ANCESTRY_DIR = FIXTURES_DIR / "ancestry"
+MULTI_CLI_DIR = FIXTURES_DIR / "multi-cli"
 
 
 @pytest.fixture()
@@ -21,6 +22,12 @@ def snapshot_dir() -> Path:
 def ancestry_dir() -> Path:
     """Path to the ancestry fixture directory with per-failure-code JSONL files."""
     return ANCESTRY_DIR
+
+
+@pytest.fixture()
+def multi_cli_dir() -> Path:
+    """Path to the multi-cli fixture directory with per-CLI JSONL files."""
+    return MULTI_CLI_DIR
 
 
 @pytest.fixture()

@@ -12,8 +12,9 @@ from pathlib import Path
 
 from usage import contract_check, input_snapshot, preflight
 from usage.views.capture_health import capture_health
+from usage.views.canonical_session_usage import canonical_session_usage
 
-AVAILABLE_VIEWS = ("capture_health",)
+AVAILABLE_VIEWS = ("capture_health", "canonical_session_usage")
 
 
 def main() -> None:
@@ -91,6 +92,15 @@ def main() -> None:
     # Route to view.
     if args.view == "capture_health":
         result = capture_health(preflight_result, diagnostic=args.diagnostic)
+    elif args.view == "canonical_session_usage":
+        result = canonical_session_usage(preflight_result)
+        if "error" in result:
+            values = ", ".join(result["values"])
+            print(
+                f"unsupported CLI: {values}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
     print(json.dumps(result))
     sys.exit(0)
