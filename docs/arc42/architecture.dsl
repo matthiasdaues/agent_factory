@@ -42,7 +42,7 @@ workspace "Agent Factory" "Cycle-based delivery orchestration, dispatch, validat
             validator = container "Validator" "Enforces gates, permissions, cycle-model integrity, project-declared test gate presence, agent-context structure, and semantic quality checks" "Bash/Python" {
                 transitionLint = component "transition-lint" "Validates the cycle model and workstream state files; reports failed recommendation evidence as warnings that exit zero" "Python 3.10+"
                 blockDangerousGit = component "block-dangerous-git.sh" "PreToolUse hook blocking destructive commands and allowlisting project-declared test commands via format-detected testing.yaml" "Bash"
-                contextLint = component "context-lint" "Validates agent-context YAML structure, key presence, mode compliance, source-pointer integrity, and reading-guide references (CX-* codes); falls back to charter-lint CH-* codes for legacy markdown projects" "Python"
+                concernLint = component "concern-lint" "Validates concern-oriented agent context: category headings, Read/Boundary path resolution, story concern vocabulary, and absence of legacy YAML files (CTX-* codes)" "Python"
                 schemaValidate = component "schema-validate" "Deterministic JSON-Schema validator for research artifacts: stage 1 of the schema->policy->semantic validation order" "Python"
                 policyValidate = component "policy-validate" "Deterministic research-policy validator: stage 2; --pipeline runs schema then policy in order, stopping at the first failure" "Python"
                 crapScore = component "crap-score" "CRAP scoring gate: cyclomatic complexity weighted against test coverage, diff-scoped per story" "Bash/Python"
@@ -152,7 +152,7 @@ workspace "Agent Factory" "Cycle-based delivery orchestration, dispatch, validat
         # ================================================================
         git -> transitionLint "Fires pre-commit"
         git -> blockDangerousGit "Fires PreToolUse before command execution"
-        git -> contextLint "Fires pre-commit"
+        git -> concernLint "Fires pre-commit"
 
         # ================================================================
         # Relationships — State Adapter to Cycle Engine
@@ -183,7 +183,7 @@ workspace "Agent Factory" "Cycle-based delivery orchestration, dispatch, validat
         transitionLint -> deliveryModel "Validates cycle model"
         transitionLint -> cycleStateFiles "Validates workstream state files"
         blockDangerousGit -> cliAgent "Blocks destructive commands before execution"
-        cliAgent -> contextLint "Validate skill or pre-commit hook invokes context-lint on agent-context files"
+        cliAgent -> concernLint "Validate skill or pre-commit hook invokes concern-lint on agent-context files"
         cliAgent -> schemaValidate "Research skills/agents validate an artifact against its schema (stage 1)"
         cliAgent -> policyValidate "Research skills/agents validate artifacts against enforceable policy (stage 2)"
         policyValidate -> schemaValidate "Chains stage 1 in --pipeline mode"

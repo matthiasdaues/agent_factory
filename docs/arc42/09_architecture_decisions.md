@@ -24,8 +24,8 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0014 | [Two-layer routing with two-mode lifecycle](../adr/0014-two-layer-routing-with-two-mode-lifecycle.md)                                                         | proposed               | none        |
 | 0015 | [Query authoritative JSONL with ephemeral DuckDB views](../adr/0015-query-authoritative-jsonl-with-ephemeral-duckdb-views.md)                                 | accepted               | pugh-matrix |
 | 0016 | [Concern-oriented agent context replaces YAML index](../adr/0016-concern-oriented-agent-context-replaces-yaml-index.md)                                       | accepted               | none        |
-| 0017 | [Cycle-based orchestration supersedes linear playbook FSM](../adr/0017-cycle-based-orchestration-supersedes-linear-playbook-fsm.md)                           | proposed               | pugh-matrix |
-| 0018 | [CONCEPT internal sequence is agent-owned](../adr/0018-concept-internal-sequence-is-agent-owned.md)                                                           | proposed               | none        |
+| 0017 | [Cycle-based orchestration supersedes linear playbook FSM](../adr/0017-cycle-based-orchestration-supersedes-linear-playbook-fsm.md)                           | accepted               | pugh-matrix |
+| 0018 | [CONCEPT internal sequence is agent-owned](../adr/0018-concept-internal-sequence-is-agent-owned.md)                                                           | accepted               | none        |
 
 ## Key Decisions
 

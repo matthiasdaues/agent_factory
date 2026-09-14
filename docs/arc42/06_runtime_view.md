@@ -225,61 +225,37 @@ sequenceDiagram
 - Tests module-graph topology only: new modules, changed public interfaces, inverted dependency directions. A new entity in an existing module does not trigger the architecture cycle.
 - The orchestrating session owns the check. It is not a hook or a dispatcher gate.
 
-## 6.5 Agent Context Mode Transition
+## 6.5 Agent Context Validation
 
-The agent-context index files have a two-mode lifecycle: `mode: primary` (greenfield, values written directly) and `mode: index` (mature, every non-null, non-deferred leaf has a `source:` pointer). The transition is one-directional and atomic. See [ADR-0014](../adr/0014-two-layer-routing-with-two-mode-lifecycle.md) and [state-machines.md section Concern Registry Lifecycle](../spec/supplementary_specs/state-machines.md#concern-registry-lifecycle).
+The concern-oriented agent context (`docs/agent-context.md`) is a single markdown file that replaced the four-file YAML model in 0.9.0. The team maintains the file directly; `update-context` is retired. See [section 8.11](08_crosscutting_concepts.md#811-agent-context-as-cross-cutting-concern).
 
-### 6.5.1 Sequence: Mode Transition via update-context
-
-```mermaid
-sequenceDiagram
-    participant H as User
-    participant UC as update-context skill
-    participant IF as Index Files (stack/workflow/governance)
-    participant CL as context-lint
-
-    H->>UC: Write source pointer for last uncovered field
-    UC->>IF: Write name + source to index file
-    UC->>IF: Check transition condition across all three files
-    IF-->>UC: Every non-null, non-deferred leaf has source pointer
-    UC->>H: "All fields have sources. Switch to index mode?"
-    alt User confirms
-        UC->>IF: Set mode: index in all three files (single commit)
-        UC->>IF: Strip inline values to names only, preserve source pointers
-        UC->>CL: Validate updated files
-        CL-->>UC: CX-MODE: index (info), no CX-SRC findings
-    else User declines
-        UC-->>H: Files remain in mode: primary
-    end
-```
-
-### 6.5.2 Sequence: context-lint Validates Mode Compliance
+### 6.5.1 Sequence: concern-lint Validates Agent Context
 
 ```mermaid
 sequenceDiagram
     participant G as Git / pre-commit
-    participant CL as context-lint
-    participant IF as Index Files
-    participant RG as reading-guides.yaml
+    participant CL as concern-lint
+    participant AC as docs/agent-context.md
+    participant ST as backlog/ST-*.md
 
     G->>CL: Pre-commit fires
-    CL->>CL: Format detection (agent-context vs. legacy charter)
-    CL->>IF: Parse YAML, check required keys (CX-PARSE, CX-KEYS)
-    CL->>IF: Check mode field (CX-MODE / CX-MODE-INVALID)
-    alt mode: index
-        CL->>IF: Check every non-null, non-deferred leaf has source (CX-SRC)
-        CL->>IF: Check each source pointer resolves to existing file (CX-SRC-EXIST)
-        CL->>RG: Check reading-guide exists (CX-FILE)
+    CL->>AC: Parse markdown, check category headings (CTX-SECTIONS)
+    CL->>AC: Verify each concern has description and Read path (CTX-SECTIONS)
+    CL->>AC: Resolve every Read/Boundary path against repo (CTX-PATHS)
+    CL->>CL: Check for legacy YAML files or docs/charter/ (CTX-LEGACY)
+    opt Story files exist
+        CL->>ST: Read concerns from story frontmatter
+        CL->>AC: Match each concern name to a heading (CTX-REFS)
     end
-    CL->>RG: Validate key-path references resolve to index-file keys (CX-GUIDE-REF)
     CL-->>G: Exit code = count of error-severity findings
 ```
 
 **Key Points:**
 
-- The transition condition is mechanically testable: `context-lint` reports `CX-SRC` findings for fields missing source pointers when mode is index.
-- `testing.yaml` is exempt from mode checks -- it receives `CX-PARSE` validation only.
-- Format detection routes to either `CX-*` codes (YAML agent-context) or `CH-*` codes (legacy markdown charter), never both.
+- All `CTX-*` findings are errors. A single finding fails the gate.
+- The three required categories are `## Always (cross-cutting)`, `## Technical concerns`, and `## Domain concerns`.
+- `docs/testing.yaml` is the only accepted test-configuration path and is not validated by `concern-lint`.
+- `CTX-LEGACY` rejects mixed formats: the concern-oriented file must not coexist with YAML agent-context files or a `docs/charter/` directory.
 
 ## 6.6 Local Usage Query
 

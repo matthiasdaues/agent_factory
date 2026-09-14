@@ -42,9 +42,9 @@ The **Validator** container enforces deterministic gates. Two are hook-triggered
 
 One is a structural validator for project knowledge files, running both as a pre-commit hook and on demand:
 
-| Component        | Trigger Point              | What it validates                                                                                                                                                                                | Exit codes              |
-| ---------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------- |
-| **context-lint** | Pre-commit hook, on-demand | Agent-context YAML structure, key presence, mode compliance, source-pointer integrity, `CX-GUIDE-REF` key-path references; falls back to `charter-lint` CH-\* codes for legacy markdown projects | 0 (pass), 1+ (findings) |
+| Component        | Trigger Point              | What it validates                                                                                                                                              | Exit codes              |
+| ---------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| **concern-lint** | Pre-commit hook, on-demand | Concern-oriented agent context: category headings, `Read:`/`Boundary:` path resolution, story concern vocabulary, absence of legacy YAML files (`CTX-*` codes) | 0 (pass), 1+ (findings) |
 
 Two more -- `schema-validate` and `policy-validate` -- are on-demand validators invoked by the research skills and agents (and from the CLI) rather than by a hook. They are described in [section 5.2.2](#522-research-artifact-validators-schema-validate-policy-validate).
 
@@ -149,31 +149,26 @@ A deterministic script that replaces manual architecture-change declarations wit
 - [ADR-0012 -- Dispatcher-owned semantic gate loop](../adr/0012-dispatcher-owned-semantic-gate-loop.md)
 - [Proposal: Agentic Quality Gates and Requirements Consolidation](../proposals/implemented/agentic-quality-gates-and-specification-consolidation.md)
 
-### 5.2.5 Agent context validation (context-lint)
+### 5.2.5 Agent context validation (concern-lint)
 
-`context-lint` validates the structural integrity, key presence, mode compliance, and reference consistency of agent-context YAML files. It replaces `charter-lint` for YAML agent-context projects; legacy markdown charter projects continue to use `charter-lint` with CH-\* codes. See [ADR-0013](../adr/0013-yaml-agent-context-replaces-markdown-charter.md) and [ADR-0014](../adr/0014-two-layer-routing-with-two-mode-lifecycle.md).
+`concern-lint` validates the concern-oriented agent context (`docs/agent-context.md`). It replaced the four-file YAML `context-lint` (`CX-*` codes) in 0.9.0. All findings are errors.
 
-| Code              | Severity                            | Check                                                                           |
-| ----------------- | ----------------------------------- | ------------------------------------------------------------------------------- |
-| `CX-FILE`         | error                               | Required file exists (reading-guides.yaml required only when mode is index)     |
-| `CX-PARSE`        | error                               | Each file parses as valid YAML                                                  |
-| `CX-KEYS`         | error                               | Required top-level keys present; `deferred:` sole key at leaf                   |
-| `CX-NULL`         | warning / error (`--planning-gate`) | Null leaf values                                                                |
-| `CX-MODE`         | info                                | Reports recognized mode value (primary or index)                                |
-| `CX-MODE-INVALID` | error                               | Unrecognized mode value                                                         |
-| `CX-SRC`          | warning                             | Missing source pointer when mode is index                                       |
-| `CX-SRC-EXIST`    | warning                             | Source pointer does not resolve to an existing file                             |
-| `CX-SRC-STALE`    | info                                | Source file modified more recently than index file                              |
-| `CX-GUIDE-REF`    | warning                             | Reading-guide key-path reference does not resolve to an existing index-file key |
-| `CX-FORMAT`       | error                               | Files exist in more than one location (testing.yaml exempt)                     |
+| Code           | Condition                                                                                                                                                  |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CTX-SECTIONS` | A required category heading is absent, or a concern section lacks a description or `Read:` path                                                            |
+| `CTX-PATHS`    | A repository-relative path or glob on a `Read:` or `Boundary:` line has no match                                                                           |
+| `CTX-REFS`     | A technical or domain concern name in a story's `concerns:` frontmatter has no matching heading in `docs/agent-context.md`                                 |
+| `CTX-LEGACY`   | `docs/agent-context.md` exists beside legacy YAML agent-context files or `docs/charter/`; `docs/testing.yaml` is the only accepted test-configuration path |
 
-**Concern routing** is shared across all factory consumers: agents discover project knowledge through concern sections in `docs/agent-context.md`, each carrying `Read:` paths to the relevant documents. `testing.yaml` path resolution is independent (`docs/testing.yaml`).
+The three required category headings are `## Always (cross-cutting)`, `## Technical concerns`, and `## Domain concerns`. Cross-cutting concerns are always active; technical and domain concern names form a controlled vocabulary confirmed by the planning maintainer.
+
+**Concern routing** is shared across all factory consumers: agents discover project knowledge through concern sections in `docs/agent-context.md`, each carrying `Read:` paths to the relevant documents. `testing.yaml` path resolution is independent (`docs/testing.yaml`). See [section 8.11](08_crosscutting_concepts.md#811-agent-context-as-cross-cutting-concern).
 
 **Referenced Specifications:**
 
-- [agent-context.feature](../spec/agent-context.feature) -- Rules 6-7 (context-lint, legacy compatibility)
-- [interface-contracts.md section context-lint](../spec/supplementary_specs/interface-contracts.md)
-- [validation-rules.md section Agent context validation](../spec/supplementary_specs/validation-rules.md)
+- [agent-context.feature](../spec/agent-context.feature)
+- [interface-contracts.md section concern-lint](../spec/supplementary_specs/interface-contracts.md#factoryscriptsconcern-lint)
+- [validation-rules.md section Concern registry validation](../spec/supplementary_specs/validation-rules.md#concern-registry-validation-concern-lint-ctx--codes)
 
 ## 5.3 Level 2: Component View -- Cycle Engine
 
@@ -240,7 +235,7 @@ Every building block's entry point, invoked how, and by whom:
 | policy-validate              | Research skills/agents, CLI            | `factory/scripts/policy-validate [--pipeline] <artifact-or-dir>...` | 0 (pass), 1 (fail), 2 (operational)                |
 | crap-score                   | Implementation-agent dispatcher        | `factory/scripts/crap-score [--story-id <id>]`                      | 0 (pass), 1 (fail)                                 |
 | dependency-check             | Implementation-agent dispatcher        | `factory/scripts/dependency-check [--story-id <id>]`                | 0 (pass), 1 (violations)                           |
-| context-lint                 | Pre-commit hook, validate skill        | `factory/scripts/context-lint [--planning-gate]`                    | 0 (pass), 1+ (CX-\* findings)                      |
+| concern-lint                 | Pre-commit hook, validate skill        | `factory/scripts/concern-lint [--root DIR] [--format text\|json]`   | 0 (pass), 1+ (CTX-\* findings)                     |
 | module-graph-check           | Orchestrating session                  | `factory/scripts/module-graph-check <proposal-path>`                | 0 (no change), 1 (change detected)                 |
 | init-factory                 | Human, orchestrator                    | `factory/scripts/init-factory [--update] <path>`                    | 0 (installed/updated), 1+ (error)                  |
 | update-factory               | Human, orchestrator                    | `factory/scripts/update-factory`                                    | 0 (updated), 1+ (error)                            |
@@ -311,7 +306,7 @@ Parquet files, and UI state are disposable.
 
 ## Referenced from
 
-- [06_runtime_view.md section 6.2](06_runtime_view.md#63-test-gate-presence)
+- [06_runtime_view.md section 6.3](06_runtime_view.md#63-test-gate-presence)
 - [07_deployment_view.md](07_deployment_view.md)
 - [09_architecture_decisions.md](09_architecture_decisions.md)
 - [ADR-0015 -- Query authoritative JSONL with ephemeral DuckDB views](../adr/0015-query-authoritative-jsonl-with-ephemeral-duckdb-views.md)
