@@ -25,6 +25,10 @@ fi
 
 if [[ "$1" == "--update" ]]; then
   shift
+  # --update usage → component update via init-factory
+  if [[ "${1:-}" == "usage" ]]; then
+    exec "$INIT_SCRIPT" --update "$@"
+  fi
   TARGET="${1:-.}"
   shift 2>/dev/null || true
   exec "$UPDATE_SCRIPT" --target "$TARGET" --source "$SCRIPT_DIR" "$@"

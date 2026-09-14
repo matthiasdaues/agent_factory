@@ -2,6 +2,87 @@
 
 ## Unreleased
 
+Local usage processing and analysis: full implementation of all twelve
+stories (ST-0240 through ST-0251), delivering the `packages/usage`
+Python package from contract to interactive explorer. Agent and skill
+inventory consolidated after audit. Usage package hardened with
+post-implementation fixes, a live-watch explorer mode, and a CRAP score
+reduction pass.
+
+### Features
+
+- **Local usage processing and analysis — implementation complete.** All
+  twelve stories implemented end to end:
+  - **Usage-record contract and package scaffold (ST-0240).** Canonical
+    usage-record schema definition and `packages/usage` package
+    structure.
+  - **Usage-contract-check gate (ST-0241).** Schema and cross-field
+    validation gate ensuring usage-record contract compliance.
+  - **Input snapshot and usage-query CLI (ST-0242).** CLI entry point
+    for querying usage data with input snapshot capture.
+  - **Operational preflight (ST-0243).** Six ancestry failure codes for
+    validating run lineage before query execution.
+  - **capture_health view (ST-0244).** Diagnostic view with
+    stable-view refusal detecting capture health issues across sessions.
+  - **Four-CLI conservation rules (ST-0245).** Consistent usage
+    accounting across all four CLI entry points with
+    canonical_session_usage view.
+  - **Six-view query surface (ST-0246).** Four remaining views
+    completing the full six-view query surface.
+  - **Result format adapters (ST-0247).** Table, JSON, relation, and
+    Arrow output formats.
+  - **Atomic Parquet export (ST-0248).** Provenance-tracked Parquet
+    export with a dependency gate.
+  - **Component lifecycle in init-factory (ST-0249).** Registers
+    usage-analysis as a factory component with install and update
+    lifecycle hooks.
+  - **Dependency boundary rules (ST-0250).** Capture-independence test
+    enforcing that the usage package does not depend on capture
+    internals.
+  - **DuckDB UI exploration (ST-0251).** Interactive DuckDB explorer
+    with persist mode, HTTP server, and smoke gate.
+- **Usage explorer live-watch mode.** `usage-explore` gains a
+  file-watching mode that auto-refreshes the DuckDB view when JSONL
+  source files change.
+- **Convenience wrappers.** `usage-query` and `usage-explore` scripts at
+  the project root for direct invocation without navigating to the
+  package directory.
+- **Agent and skill inventory cleanup.** Shared conventions extracted
+  into reusable reference files. Overlapping agents and skills
+  consolidated. Native-knowledge overlap trimmed with flipped-default
+  principle references. Skill authoring guideline codified. Deprecated
+  skills removed with updated references.
+- **EPIC slicing gate strengthened.** Grilling and concreteness pass now
+  enforced more strictly before stories enter the backlog.
+
+### Fixes
+
+- **ROOT_COUNT per connected component.** Conservation check now
+  validates ROOT_COUNT within each connected component rather than
+  globally per CLI.
+- **source_root detection.** Walks up to the monorepo root instead of
+  stopping at the nearest package.
+- **File path resolution.** Resolves paths to absolute before uv changes
+  the working directory.
+- **Explorer HTTP server.** Sets `allow_reuse_address` to prevent
+  "address already in use" errors on restart.
+- **Usage package installation.** Installs the full runnable package
+  with ergonomic wrapper scripts.
+- **Scope check fallback.** Falls back to `touches` when story
+  `outputs` frontmatter is absent.
+
+### Refactoring
+
+- **Usage submodule rename.** `canonical_` prefix removed from module
+  names. CRAP scores reduced across usage submodules. Unit test coverage
+  added.
+
+### Documentation
+
+- Specification reconciled after ST-0241 implementation.
+- QA strategy updated: LU-03-CT-01 state moved to available.
+- ST-0243, ST-0244, ST-0245 marked done.
+
 ## 0.12.0 — 2026-09-14
 
 Local usage processing and analysis: full specification-to-backlog pass.

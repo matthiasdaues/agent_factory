@@ -3579,7 +3579,48 @@ def do_update_component(
 
     for line in report:
         print(f"  {line}")
+
+    _rebuild_usage_duckdb(target, dest)
+
     return 0
+
+
+def _rebuild_usage_duckdb(target: Path, component_dir: Path) -> None:
+    """Rebuild any existing .duckdb files so view names match updated code."""
+    usage_dir = target / ".agent-factory" / "usage"
+    if not usage_dir.is_dir():
+        return
+
+    db_paths = [
+        target / ".agent-factory" / "usage.duckdb",
+        target / "usage.duckdb",
+    ]
+    existing = [p for p in db_paths if p.exists()]
+    if not existing:
+        return
+
+    for db_path in existing:
+        print(f"  rebuilding {db_path.relative_to(target)} ...", end=" ")
+        try:
+            result = subprocess.run(
+                [
+                    "uv", "run", "--directory", str(component_dir),
+                    "usage-query", "session_usage",
+                    "--usage-dir", str(usage_dir),
+                    "--persist", str(db_path),
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            print("ok")
+        except subprocess.CalledProcessError as exc:
+            print("failed")
+            if exc.stderr:
+                for line in exc.stderr.strip().splitlines():
+                    print(f"    {line}")
+        except FileNotFoundError:
+            print("skipped (uv not found)")
 
 
 def do_remove_component(target: Path, component: str) -> int:
