@@ -198,31 +198,72 @@ def _find_cycle_members(
     return in_cycle
 
 
+def _find_connected_components(
+    session_parent: dict[SessionKey, str | None],
+) -> list[set[SessionKey]]:
+    """Return connected components in the session parent graph per CLI.
+
+    Two sessions belong to the same component when one names the other
+    as parent (directly or transitively) under the same CLI.
+    """
+    children: dict[SessionKey, list[SessionKey]] = defaultdict(list)
+    all_keys: set[SessionKey] = set(session_parent.keys())
+
+    for (cli, sid), parent in session_parent.items():
+        if parent is not None:
+            parent_key: SessionKey = (cli, parent)
+            if parent_key in all_keys:
+                children[parent_key].append((cli, sid))
+                children[(cli, sid)]  # ensure child exists as key
+            # parent not in all_keys → PARENT_MISSING already flagged
+
+    visited: set[SessionKey] = set()
+    components: list[set[SessionKey]] = []
+
+    for key in all_keys:
+        if key in visited:
+            continue
+        component: set[SessionKey] = set()
+        stack = [key]
+        while stack:
+            node = stack.pop()
+            if node in visited or node not in all_keys:
+                continue
+            visited.add(node)
+            component.add(node)
+            for child in children.get(node, []):
+                stack.append(child)
+            cli, sid = node
+            parent = session_parent.get(node)
+            if parent is not None:
+                stack.append((cli, parent))
+        components.append(component)
+
+    return components
+
+
 def _check_root_count(
     session_parent: dict[SessionKey, str | None],
     session_failures: dict[SessionKey, str],
 ) -> None:
-    """Flag sessions in CLIs whose root count is not exactly one.
+    """Flag sessions in connected components whose root count is not one.
 
     Root = session with ``parent_session_id is None``.  The count is
-    computed per CLI across all sessions (including those already flagged
-    with higher-priority codes).  Only sessions without a prior failure
-    code receive ``ROOT_COUNT``.
+    checked per connected component (not per CLI), so independent
+    sessions each form a valid single-root component.
     """
-    cli_sessions: dict[str, set[str]] = defaultdict(set)
-    cli_roots: dict[str, int] = defaultdict(int)
+    components = _find_connected_components(session_parent)
 
-    for (cli, sid), parent in session_parent.items():
-        cli_sessions[cli].add(sid)
-        if parent is None:
-            cli_roots[cli] += 1
-
-    for cli, sids in cli_sessions.items():
-        if cli_roots.get(cli, 0) == 1:
+    for component in components:
+        root_count = sum(
+            1 for key in component
+            if session_parent.get(key) is None
+        )
+        if root_count == 1:
             continue
-        for sid in sids:
-            if (cli, sid) not in session_failures:
-                session_failures[(cli, sid)] = ROOT_COUNT
+        for key in component:
+            if key not in session_failures:
+                session_failures[key] = ROOT_COUNT
 
 
 # ---------------------------------------------------------------------------

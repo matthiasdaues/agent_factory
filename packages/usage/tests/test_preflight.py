@@ -185,15 +185,11 @@ class TestRootCount:
         codes = _failure_codes(result, session_id="sess-rz02")
         assert codes == [PARENT_MISSING]
 
-    def test_multi_roots_all_flagged(self, ancestry_dir: Path) -> None:
+    def test_independent_roots_are_valid(self, ancestry_dir: Path) -> None:
+        """Independent root sessions form separate single-root components."""
         result = run_preflight([ancestry_dir / "root_count_multi.jsonl"])
-        codes = _failure_codes(result)
-        assert all(c == ROOT_COUNT for c in codes)
-        assert len(codes) == 3
-
-    def test_multi_roots_no_valid(self, ancestry_dir: Path) -> None:
-        result = run_preflight([ancestry_dir / "root_count_multi.jsonl"])
-        assert result.valid_count == 0
+        assert result.valid_count == 3
+        assert result.failure_count == 0
 
 
 # ---------------------------------------------------------------------------
