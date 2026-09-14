@@ -62,7 +62,12 @@ def main() -> None:
         "--format",
         dest="output_format",
         default="json",
-        help="Output format: json (default), table, relation, arrow.",
+        help="Output format: json (default), table, relation, arrow, parquet.",
+    )
+    parser.add_argument(
+        "-o", "--output",
+        default=None,
+        help="Output file path (required for parquet format).",
     )
 
     args = parser.parse_args()
@@ -70,6 +75,10 @@ def main() -> None:
     fmt_err = adapters.validate_format(args.output_format)
     if fmt_err:
         print(fmt_err, file=sys.stderr)
+        sys.exit(2)
+
+    if args.output_format == "parquet" and not args.output:
+        print("--format parquet requires -o OUTPUT", file=sys.stderr)
         sys.exit(2)
 
     if args.view not in AVAILABLE_VIEWS:
@@ -117,7 +126,17 @@ def main() -> None:
 
     result = _route(args, preflight_result)
 
-    if args.output_format == "json":
+    if args.output_format == "parquet":
+        from usage.parquet_exporter import export_parquet
+        _ensure_view_materialized(args, preflight_result)
+        export_parquet(
+            preflight_result.conn,
+            _duckdb_view_name(args.view),
+            Path(args.output),
+            input_digest=digest,
+        )
+        print(f"exported to {args.output}", file=sys.stderr)
+    elif args.output_format == "json":
         print(adapters.to_json(result))
     elif args.output_format == "table":
         print(adapters.to_table(result))
@@ -172,6 +191,37 @@ def _route(args: argparse.Namespace, preflight_result) -> dict:
         return result
 
     raise AssertionError(f"unhandled view: {args.view}")
+
+
+_VIEW_TO_DUCKDB = {
+    "capture_health": None,
+    "canonical_session_usage": "canonical_session_usage",
+    "raw_usage_snapshots": "preflight_valid",
+    "latest_run_snapshots": "latest_run_snapshots",
+    "usage_by_dimension": "canonical_contributions",
+    "cache_efficiency": "canonical_contributions",
+}
+
+
+def _duckdb_view_name(view: str) -> str:
+    name = _VIEW_TO_DUCKDB.get(view)
+    if name is None:
+        raise ValueError(f"view '{view}' does not support Parquet export")
+    return name
+
+
+def _ensure_view_materialized(args, preflight_result) -> None:
+    """Ensure the DuckDB views are built for the requested view."""
+    from usage import accounting
+    conn = preflight_result.conn
+    if args.view in ("canonical_session_usage", "usage_by_dimension", "cache_efficiency"):
+        accounting.select_latest_snapshots(conn)
+        accounting.build_session_roots(conn)
+        accounting.build_canonical_contributions(conn)
+        if args.view == "canonical_session_usage":
+            accounting.compute_canonical(conn)
+    elif args.view == "latest_run_snapshots":
+        accounting.select_latest_snapshots(conn)
 
 
 def _exit_on_unknown_cli(result: dict) -> None:

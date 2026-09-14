@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     import pyarrow
 
 
-SUPPORTED_FORMATS = frozenset({"table", "json", "relation", "arrow"})
+SUPPORTED_FORMATS = frozenset({"table", "json", "relation", "arrow", "parquet"})
 REJECTED_FORMATS = frozenset({"pandas", "polars"})
 
 
