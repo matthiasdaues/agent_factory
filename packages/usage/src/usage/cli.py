@@ -69,6 +69,12 @@ def main() -> None:
         default=None,
         help="Output file path (required for parquet format).",
     )
+    parser.add_argument(
+        "--persist",
+        metavar="PATH",
+        default=None,
+        help="Materialize pipeline views as tables in a persistent .duckdb file.",
+    )
 
     args = parser.parse_args()
 
@@ -150,6 +156,10 @@ def main() -> None:
                 file=sys.stderr,
             )
             print(adapters.to_json(result))
+
+    if args.persist and preflight_result is not None:
+        _persist(preflight_result.conn, args.persist)
+
     sys.exit(0)
 
 
@@ -229,3 +239,37 @@ def _exit_on_unknown_cli(result: dict) -> None:
         values = ", ".join(result["values"])
         print(f"unsupported CLI: {values}", file=sys.stderr)
         sys.exit(1)
+
+
+_PERSIST_EXCLUDE = {
+    "latest_run_snapshots": "(_snapshot_rank)",
+}
+
+
+def _persist(conn, path_str: str) -> None:
+    """Materialize in-memory views as tables in a persistent DuckDB file."""
+    dest = Path(path_str)
+    if dest.exists():
+        dest.unlink()
+
+    conn.execute(f"ATTACH '{dest}' AS export_db")
+
+    objects = conn.execute(
+        "SELECT table_name FROM information_schema.tables "
+        "WHERE table_schema = 'main' "
+        "AND table_name NOT LIKE '\\_%' ESCAPE '\\'"
+    ).fetchall()
+
+    for (name,) in objects:
+        exclude = _PERSIST_EXCLUDE.get(name)
+        exc = f" EXCLUDE {exclude}" if exclude else ""
+        conn.execute(
+            f'CREATE TABLE export_db."{name}" AS '
+            f"SELECT *{exc} FROM main.\"{name}\""
+        )
+
+    conn.execute("DETACH export_db")
+    print(
+        f"persisted {len(objects)} table(s) to {dest}",
+        file=sys.stderr,
+    )
