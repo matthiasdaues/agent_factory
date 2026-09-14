@@ -6,7 +6,13 @@ build-backend = "hatchling.build"
 name = "usage"
 version = "0.0.0"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = ["duckdb"]
+
+[project.scripts]
+usage-query = "usage.cli:main"
+
+[dependency-groups]
+dev = ["pytest"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/usage"]
