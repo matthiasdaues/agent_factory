@@ -25,6 +25,21 @@ def _find_usage_package() -> Path | None:
     return None
 
 
+def _resolve_paths(argv: list[str]) -> list[str]:
+    """Resolve --persist and -o paths to absolute before uv changes cwd."""
+    out: list[str] = []
+    i = 0
+    while i < len(argv):
+        if argv[i] in ("--persist", "-o", "--output") and i + 1 < len(argv):
+            out.append(argv[i])
+            out.append(str(Path(argv[i + 1]).resolve()))
+            i += 2
+        else:
+            out.append(argv[i])
+            i += 1
+    return out
+
+
 def main() -> None:
     pkg = _find_usage_package()
     if pkg is None:
@@ -34,8 +49,9 @@ def main() -> None:
             file=sys.stderr,
         )
         sys.exit(2)
+    args = _resolve_paths(sys.argv[1:])
     os.execvp("uv", [
-        "uv", "run", "--directory", str(pkg), "usage-query", *sys.argv[1:]
+        "uv", "run", "--directory", str(pkg), "usage-query", *args
     ])
 
 

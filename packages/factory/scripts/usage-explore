@@ -41,9 +41,11 @@ def main() -> None:
             file=sys.stderr,
         )
         sys.exit(2)
+    db_path = Path(sys.argv[1]).resolve()
+    rest = sys.argv[2:]
     os.execvp("uv", [
         "uv", "run", "--directory", str(pkg),
-        "python", "-m", "usage.explorer", *sys.argv[1:]
+        "python", "-m", "usage.explorer", str(db_path), *rest
     ])
 
 
