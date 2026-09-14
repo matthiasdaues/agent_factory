@@ -11,10 +11,21 @@ import sys
 from pathlib import Path
 
 from usage import contract_check, input_snapshot, preflight
-from usage.views.capture_health import capture_health
+from usage.views.cache_efficiency import cache_efficiency
 from usage.views.canonical_session_usage import canonical_session_usage
+from usage.views.capture_health import capture_health
+from usage.views.latest_run_snapshots import latest_run_snapshots
+from usage.views.raw_usage_snapshots import raw_usage_snapshots
+from usage.views.usage_by_dimension import usage_by_dimension
 
-AVAILABLE_VIEWS = ("capture_health", "canonical_session_usage")
+AVAILABLE_VIEWS = (
+    "capture_health",
+    "canonical_session_usage",
+    "raw_usage_snapshots",
+    "latest_run_snapshots",
+    "usage_by_dimension",
+    "cache_efficiency",
+)
 
 
 def main() -> None:
@@ -37,10 +48,20 @@ def main() -> None:
         default=False,
         help="Run in diagnostic mode (only capture_health, informational output).",
     )
+    parser.add_argument(
+        "--dimensions",
+        default=None,
+        help="Comma-separated ordered dimension list for usage_by_dimension.",
+    )
+    parser.add_argument(
+        "--granularity",
+        default="none",
+        choices=("none", "hour", "day", "week", "month"),
+        help="Time granularity for usage_by_dimension (default: none).",
+    )
 
     args = parser.parse_args()
 
-    # Validate view name.
     if args.view not in AVAILABLE_VIEWS:
         available = ", ".join(AVAILABLE_VIEWS)
         print(
@@ -49,7 +70,6 @@ def main() -> None:
         )
         sys.exit(2)
 
-    # Diagnostic mode only supports capture_health.
     if args.diagnostic and args.view != "capture_health":
         print(
             "diagnostic mode only supports capture_health",
@@ -57,7 +77,6 @@ def main() -> None:
         )
         sys.exit(2)
 
-    # Validate directory exists.
     usage_dir = Path(args.usage_dir)
     if not usage_dir.is_dir():
         print(
@@ -66,17 +85,14 @@ def main() -> None:
         )
         sys.exit(2)
 
-    # Take input snapshot.
     paths, digest = input_snapshot.snapshot(usage_dir)
 
-    # Run contract check on each selected file (Python import, not subprocess).
     if paths:
         file_args = [str(p) for p in paths]
         rc = contract_check.main(file_args)
         if rc != 0:
             sys.exit(rc)
 
-    # Run operational preflight on selected files.
     preflight_result = None
     if paths:
         preflight_result = preflight.run_preflight(paths)
@@ -89,18 +105,54 @@ def main() -> None:
             )
             sys.exit(1)
 
-    # Route to view.
-    if args.view == "capture_health":
-        result = capture_health(preflight_result, diagnostic=args.diagnostic)
-    elif args.view == "canonical_session_usage":
-        result = canonical_session_usage(preflight_result)
-        if "error" in result:
-            values = ", ".join(result["values"])
-            print(
-                f"unsupported CLI: {values}",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+    result = _route(args, preflight_result)
 
-    print(json.dumps(result))
+    print(json.dumps(result, default=str))
     sys.exit(0)
+
+
+def _route(args: argparse.Namespace, preflight_result) -> dict:
+    """Dispatch to the requested view and handle error results."""
+    if args.view == "capture_health":
+        return capture_health(preflight_result, diagnostic=args.diagnostic)
+
+    if args.view == "canonical_session_usage":
+        result = canonical_session_usage(preflight_result)
+        _exit_on_unknown_cli(result)
+        return result
+
+    if args.view == "raw_usage_snapshots":
+        return raw_usage_snapshots(preflight_result)
+
+    if args.view == "latest_run_snapshots":
+        result = latest_run_snapshots(preflight_result)
+        _exit_on_unknown_cli(result)
+        return result
+
+    if args.view == "usage_by_dimension":
+        dims = args.dimensions.split(",") if args.dimensions else None
+        result = usage_by_dimension(
+            preflight_result,
+            dimensions=dims,
+            granularity=args.granularity,
+        )
+        if "error" in result:
+            if result["error"] == "validation":
+                print(result["message"], file=sys.stderr)
+                sys.exit(2)
+            _exit_on_unknown_cli(result)
+        return result
+
+    if args.view == "cache_efficiency":
+        result = cache_efficiency(preflight_result)
+        _exit_on_unknown_cli(result)
+        return result
+
+    raise AssertionError(f"unhandled view: {args.view}")
+
+
+def _exit_on_unknown_cli(result: dict) -> None:
+    if "error" in result and result["error"] == "unknown_cli":
+        values = ", ".join(result["values"])
+        print(f"unsupported CLI: {values}", file=sys.stderr)
+        sys.exit(1)

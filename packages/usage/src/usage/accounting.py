@@ -89,50 +89,71 @@ def build_session_roots(conn: duckdb.DuckDBPyConnection) -> None:
 # Canonical session usage view
 # ---------------------------------------------------------------------------
 
-def compute_canonical(conn: duckdb.DuckDBPyConnection) -> None:
-    """Create ``canonical_session_usage`` view applying per-CLI rules.
+_CONTRIBUTION_COLS = (
+    "record_id", "project_id", "project_name",
+    "normalized_input", "normalized_output", "normalized_total",
+    "cli", "session_id", "parent_session_id", "depth",
+    "recorded_at", "agent", "model", "provider",
+    "reported_input", "reported_output",
+    "reported_cache_read", "reported_cache_write",
+    "usage_granularity", "usage_capability",
+    "cache_miss_turns", "cache_miss_input_tokens", "late_early_input_ratio",
+    "exit_status", "branch", "commit_id",
+    "_source_file", "_line_number",
+)
 
-    - claude-code: root + direct children only
-    - pi: root + ALL descendants
-    - codex, copilot: inclusive root only (children excluded)
+_L_COLS = ", ".join(f'l."{c}"' for c in _CONTRIBUTION_COLS)
+
+
+def build_canonical_contributions(conn: duckdb.DuckDBPyConnection) -> None:
+    """Create ``canonical_contributions`` view — one row per contributing run.
+
+    Applies the same conservation filters as ``canonical_session_usage``
+    but without aggregation, preserving all dimension columns for
+    downstream grouping (e.g. ``usage_by_dimension``).
     """
-    conn.execute("""
-        CREATE OR REPLACE VIEW canonical_session_usage AS
+    conn.execute(f"""
+        CREATE OR REPLACE VIEW canonical_contributions AS
 
         -- claude-code: root + direct children
-        SELECT r.root_session_id AS session_id, l.cli,
-               SUM(l.normalized_input) AS normalized_input,
-               SUM(l.normalized_output) AS normalized_output,
-               SUM(l.normalized_total) AS normalized_total
+        SELECT r.root_session_id, {_L_COLS}
         FROM latest_run_snapshots l
         JOIN session_roots r ON l.cli = r.cli AND l.session_id = r.session_id
         WHERE l.cli = 'claude-code'
           AND (l.parent_session_id IS NULL
                OR l.parent_session_id = r.root_session_id)
-        GROUP BY r.root_session_id, l.cli
 
         UNION ALL
 
         -- pi: root + all descendants
-        SELECT r.root_session_id AS session_id, l.cli,
-               SUM(l.normalized_input) AS normalized_input,
-               SUM(l.normalized_output) AS normalized_output,
-               SUM(l.normalized_total) AS normalized_total
+        SELECT r.root_session_id, {_L_COLS}
         FROM latest_run_snapshots l
         JOIN session_roots r ON l.cli = r.cli AND l.session_id = r.session_id
         WHERE l.cli = 'pi'
-        GROUP BY r.root_session_id, l.cli
 
         UNION ALL
 
         -- codex and copilot: inclusive root only
-        SELECT r.root_session_id AS session_id, l.cli,
-               SUM(l.normalized_input) AS normalized_input,
-               SUM(l.normalized_output) AS normalized_output,
-               SUM(l.normalized_total) AS normalized_total
+        SELECT r.root_session_id, {_L_COLS}
         FROM latest_run_snapshots l
         JOIN session_roots r ON l.cli = r.cli AND l.session_id = r.session_id
         WHERE l.cli IN ('codex', 'copilot')
           AND l.parent_session_id IS NULL
-        GROUP BY r.root_session_id, l.cli
+    """)
+
+
+def compute_canonical(conn: duckdb.DuckDBPyConnection) -> None:
+    """Create ``canonical_session_usage`` view applying per-CLI rules.
+
+    Aggregates ``canonical_contributions`` by root session.
+    """
+    build_canonical_contributions(conn)
+    conn.execute("""
+        CREATE OR REPLACE VIEW canonical_session_usage AS
+        SELECT root_session_id AS session_id, cli,
+               SUM(normalized_input) AS normalized_input,
+               SUM(normalized_output) AS normalized_output,
+               SUM(normalized_total) AS normalized_total
+        FROM canonical_contributions
+        GROUP BY root_session_id, cli
     """)

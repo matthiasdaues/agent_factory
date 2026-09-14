@@ -88,6 +88,35 @@ def _parse_lines(paths: list[Path]) -> list[dict[str, Any]]:
     return records
 
 
+_NULLABLE_CASTS: dict[str, str] = {
+    "parent_session_id": "VARCHAR",
+    "reported_cache_read": "BIGINT",
+    "reported_cache_write": "BIGINT",
+    "cache_miss_turns": "BIGINT",
+    "cache_miss_input_tokens": "BIGINT",
+    "late_early_input_ratio": "DOUBLE",
+    "_failure_code": "VARCHAR",
+}
+
+
+def _coerce_nullable_types(conn: duckdb.DuckDBPyConnection) -> None:
+    """Cast columns that ``read_json_auto`` may infer as JSON to their contract types."""
+    cols = conn.execute(
+        "SELECT column_name, data_type FROM information_schema.columns "
+        "WHERE table_name = '_staging'"
+    ).fetchall()
+    alterations = []
+    for name, dtype in cols:
+        target = _NULLABLE_CASTS.get(name)
+        if target and dtype != target:
+            alterations.append(
+                f'ALTER TABLE _staging ALTER COLUMN "{name}" '
+                f"SET DATA TYPE {target}"
+            )
+    for stmt in alterations:
+        conn.execute(stmt)
+
+
 LineKey = tuple[str, int]  # (_source_file, _line_number)
 SessionKey = tuple[str, str]  # (cli, session_id)
 
@@ -362,6 +391,8 @@ def run_preflight(paths: list[Path]) -> PreflightResult:
         )
     finally:
         os.unlink(tmp_path)
+
+    _coerce_nullable_types(conn)
 
     conn.execute(
         "CREATE VIEW preflight_valid AS "
