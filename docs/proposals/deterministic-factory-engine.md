@@ -1,10 +1,10 @@
 ---
 schema_version: 2
 title: Deterministic Factory Engine
-status: draft
+status: superseded
 owner: Matthias Daues
 created: 2026-09-11
-updated: 2026-09-11
+updated: 2026-09-14
 supersedes:
 
 impact:
@@ -49,6 +49,12 @@ estimate:
 ---
 
 # Feature Request: Deterministic Factory Engine
+
+Superseded by the
+[Cycle-Based Orchestration proposal](cycle-based-orchestration.md). Do not plan
+or implement the linear playbook-engine extraction described below. The
+replacement retains the thin-adapter and deterministic-engine constraints but
+defines a cycle-native flow-control model.
 
 ## Summary
 

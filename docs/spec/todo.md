@@ -50,3 +50,17 @@ The spec's `dispatch verify-story` uses `git cat-file -e` and `git branch --cont
 **Action:** specify a spawn-verification precondition for `mark-dispatched` — at minimum, confirm the subagent process ID or tool-call acknowledgment exists before marking.
 
 **Resolution:** addressed by adding the DISPATCHING intermediate state to the story lifecycle. `mark-dispatching` records intent to spawn (PREPARED → DISPATCHING). `mark-dispatched` requires the story to be in DISPATCHING state and the subagent spawn to have returned an acknowledgment (DISPATCHING → DISPATCHED). Spawn failure from DISPATCHING transitions to FAILED via `mark-failed --class environment`.
+
+## T-0006 — Harmonize the canonical ERD location across scenarios
+
+- status: open
+- source: discussion of [PROP-09](../proposals/cycle-based-orchestration.md#review--2026-09-14)
+
+The cycle-based CONCEPT contract names `docs/spec/entity-model.md` as a canonical
+artifact, while the [brownfield onboarding procedure](../../factory/playbooks/brownfield-onboarding.md#step-32--extract-entity-model)
+produces `docs/spec/supplementary_specs/entity-model.md` only during its optional
+second stage. Other delivery scenarios must use the same canonical ERD location.
+
+**Action:** choose one project-wide ERD path, update every scenario, template,
+gate, and cross-reference to use it, and define how existing ERDs at legacy paths
+are discovered or migrated.

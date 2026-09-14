@@ -361,7 +361,7 @@ The [feature specification](../local-usage-processing-and-analysis.feature) adds
 | Schema dialect       | JSON Schema Draft 2020-12                                                                  |
 | Installed projection | `.agent-factory/usage-analysis/contract/`                                                  |
 | Consumer rule        | Usage Analysis reads only the installed projection and declares its accepted version range |
-| CLI enum             | Exactly `claude-code`, `copilot`, `codex`, and `pi`                                        |
+| Known CLI values     | `claude-code`, `copilot`, `codex`, and `pi` (registry, not schema-enforced)                |
 | Gate                 | `packages/usage/scripts/usage-contract-check`                                              |
 
 The YAML manifest declares owner, current version, compatibility policy, and accepted consumer range. The schema owns field names, types, nullability, and nested structure. The gate additionally owns cross-field invariants and producer/consumer version agreement. A failure identifies source file, line number, field, and stable failure code.
