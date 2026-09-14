@@ -224,6 +224,9 @@ USAGE_RUNTIME = Path(".agent-factory/usage-runtime")
 USAGE_REQUIREMENTS = Path("factory/config/usage-runtime-requirements.txt")
 PROJECT_IDENTITY = Path("config/project.json")
 
+KNOWN_COMPONENTS = ("usage",)
+COMPONENT_INSTALL_DIR = ".agent-factory/usage-analysis"
+
 
 def _read_factory_version(target: Path) -> str:
     """Read the factory package version from factory/VERSION."""
@@ -3055,6 +3058,7 @@ def load_prior_manifest(target: Path, install: dict, report: list[str]) -> None:
     install["remove_paths"] = list(prior.get("remove_paths", []))
     install["merged_dirs"] = list(prior.get("merged_dirs", []))
     install["orientation"] = dict(prior.get("orientation", {}))
+    install["installed_components"] = dict(prior.get("installed_components", {}))
     if "cli" in prior:
         install["cli"] = prior["cli"]
     if prior.get("precommit"):
@@ -3157,6 +3161,7 @@ def write_manifest(target: Path, install: dict, report: list[str]) -> None:
         "ignored_paths": install.get("ignored_paths", []),
         "remove_paths": _dedup(install["remove_paths"]),
         "merged_dirs": sorted(set(install.get("merged_dirs", []))),
+        "installed_components": install.get("installed_components", {}),
         "factory_source": install.get("factory_source"),
         "factory_tree_hash": _factory_tree_hash(install.get("factory_source")),
     }
@@ -3410,6 +3415,192 @@ def _strip_claude_hooks(target: Path) -> None:
         if not hooks:
             settings.pop("hooks", None)
         path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+
+
+# --------------------------------------------------------------------------- #
+# Component lifecycle
+# --------------------------------------------------------------------------- #
+
+
+def _usage_package_source(source_root: Path) -> Path | None:
+    pkg = source_root / "packages" / "usage"
+    return pkg if pkg.is_dir() else None
+
+
+def _extract_contract_major(pkg_root: Path) -> str | None:
+    contract = pkg_root / "contracts" / "contract.yaml"
+    if not contract.exists():
+        return None
+    for line in contract.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("schema:"):
+            schema_file = stripped.split(":", 1)[1].strip()
+            m = re.match(r"v(\d+)\.", schema_file)
+            return m.group(1) if m else None
+    return None
+
+
+def _read_component_meta(target: Path) -> dict | None:
+    meta_path = target / COMPONENT_INSTALL_DIR / "component.json"
+    if not meta_path.exists():
+        return None
+    try:
+        return json.loads(meta_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _read_package_version(pkg_root: Path) -> str:
+    pyproject = pkg_root / "pyproject.toml"
+    if pyproject.exists() and tomllib is not None:
+        try:
+            with open(pyproject, "rb") as f:
+                data = tomllib.load(f)
+            return data.get("project", {}).get("version", "0.0.0")
+        except Exception:
+            pass
+    return "0.0.0"
+
+
+def install_usage_component(
+    target: Path, source_root: Path, install: dict, report: list[str],
+) -> None:
+    usage_src = _usage_package_source(source_root)
+    if usage_src is None:
+        raise Collision("packages/usage/ not found — cannot install usage component")
+
+    dest = target / COMPONENT_INSTALL_DIR
+    if dest.is_dir() and (dest / "component.json").exists():
+        log(report, f"{COMPONENT_INSTALL_DIR}: already installed, skipped")
+        return
+
+    dest.mkdir(parents=True, exist_ok=True)
+
+    shutil.copytree(usage_src / "src" / "usage", dest / "usage")
+    contracts_src = usage_src / "contracts"
+    if contracts_src.is_dir():
+        shutil.copytree(contracts_src, dest / "contracts")
+
+    major = _extract_contract_major(usage_src)
+    meta = {
+        "component": "usage",
+        "contract_version": f"v{major}" if major else "unknown",
+        "package_version": _read_package_version(usage_src),
+    }
+    (dest / "component.json").write_text(
+        json.dumps(meta, indent=2) + "\n", encoding="utf-8"
+    )
+
+    install.setdefault("installed_components", {})["usage"] = meta
+    log(report, f"{COMPONENT_INSTALL_DIR}: installed (contract {meta['contract_version']})")
+
+
+def do_update_component(
+    target: Path, source_root: Path, component: str,
+) -> int:
+    if component != "usage":
+        print(f"init-factory --update: unknown component '{component}'", file=sys.stderr)
+        return 1
+
+    dest = target / COMPONENT_INSTALL_DIR
+    if not dest.is_dir():
+        print(
+            f"init-factory --update: {COMPONENT_INSTALL_DIR} not found — "
+            "run --with-usage or --add usage first",
+            file=sys.stderr,
+        )
+        return 1
+
+    usage_src = _usage_package_source(source_root)
+    if usage_src is None:
+        print("init-factory --update: packages/usage/ not found", file=sys.stderr)
+        return 1
+
+    installed_meta = _read_component_meta(target)
+    installed_major = installed_meta.get("contract_version", "unknown") if installed_meta else "unknown"
+
+    source_major_num = _extract_contract_major(usage_src)
+    source_major = f"v{source_major_num}" if source_major_num else "unknown"
+
+    if (
+        installed_major != "unknown"
+        and source_major != "unknown"
+        and installed_major != source_major
+    ):
+        print(
+            f"init-factory --update: incompatible contract version — "
+            f"installed={installed_major}, source={source_major}",
+            file=sys.stderr,
+        )
+        return 1
+
+    report: list[str] = []
+    backup = dest.parent / f"usage-analysis-backup-{uuid.uuid4()}"
+    os.rename(str(dest), str(backup))
+    try:
+        manifest_path = target / MANIFEST_PATH
+        install: dict = {"installed_components": {}}
+        if manifest_path.exists():
+            try:
+                prior = json.loads(manifest_path.read_text(encoding="utf-8"))
+                install["installed_components"] = dict(
+                    prior.get("installed_components", {})
+                )
+            except (json.JSONDecodeError, OSError):
+                pass
+
+        install_usage_component(target, source_root, install, report)
+
+        shutil.rmtree(backup)
+
+        if manifest_path.exists():
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                manifest = {}
+            manifest["installed_components"] = install["installed_components"]
+            manifest_path.write_text(
+                json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+            )
+    except BaseException:
+        if not dest.exists() and backup.exists():
+            os.rename(str(backup), str(dest))
+        raise
+
+    for line in report:
+        print(f"  {line}")
+    return 0
+
+
+def do_remove_component(target: Path, component: str) -> int:
+    if component != "usage":
+        print(f"init-factory --remove: unknown component '{component}'", file=sys.stderr)
+        return 1
+
+    dest = target / COMPONENT_INSTALL_DIR
+    if not dest.is_dir():
+        print(f"init-factory --remove: {COMPONENT_INSTALL_DIR} not found, nothing to remove")
+        return 0
+
+    shutil.rmtree(dest)
+    print(f"  {COMPONENT_INSTALL_DIR}: removed")
+
+    usage_data = target / ".agent-factory" / "usage"
+    if usage_data.is_dir():
+        print("  .agent-factory/usage/: preserved (raw evidence)")
+
+    manifest_path = target / MANIFEST_PATH
+    if manifest_path.exists():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest.get("installed_components", {}).pop("usage", None)
+            manifest_path.write_text(
+                json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+            )
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    return 0
 
 
 def do_add(target: Path, source_factory: Path, add_args: list[str] | None) -> int:
@@ -3818,39 +4009,105 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="which CLI(s) to wire (default: auto-detect or ask interactively)",
     )
+    ap.add_argument(
+        "--with-usage",
+        action="store_true",
+        default=False,
+        help="also install the usage-analysis component",
+    )
+    _cli_and_component = KNOWN_CLIS + list(KNOWN_COMPONENTS)
     action = ap.add_mutually_exclusive_group()
     action.add_argument(
         "--add",
-        choices=KNOWN_CLIS,
+        choices=_cli_and_component,
         nargs="*",
         default=None,
-        help="add CLI wiring to an existing install (interactive menu if no CLIs given)",
+        help="add CLI wiring or a component to an existing install",
     )
     action.add_argument(
         "--remove",
-        choices=KNOWN_CLIS,
+        choices=_cli_and_component,
         nargs="*",
         default=None,
-        help="remove CLI wiring from an existing install (interactive menu if no CLIs given)",
+        help="remove CLI wiring or a component from an existing install",
+    )
+    action.add_argument(
+        "--update",
+        choices=list(KNOWN_COMPONENTS),
+        nargs=1,
+        default=None,
+        help="update an installed component (compatible version only)",
     )
     args = ap.parse_args(argv)
 
     target = args.target.resolve()
+    source_root = (args.source or Path(__file__).resolve().parents[2]).resolve()
+
+    if args.update is not None:
+        return do_update_component(target, source_root, args.update[0])
 
     if args.add is not None:
-        source_root = (args.source or Path(__file__).resolve().parents[2]).resolve()
-        pkg_factory = source_root / "packages" / "factory"
-        source_factory = pkg_factory if pkg_factory.is_dir() else source_root / "factory"
-        if not source_factory.is_dir():
-            print(
-                f"init-factory: no factory/ found at {source_root} — pass --source explicitly",
-                file=sys.stderr,
-            )
-            return 1
-        return do_add(target, source_factory, args.add or None)
+        add_args = args.add or None
+        components = [a for a in (add_args or []) if a in KNOWN_COMPONENTS]
+        cli_args = [a for a in (add_args or []) if a not in KNOWN_COMPONENTS]
+
+        if components:
+            for comp in components:
+                report: list[str] = []
+                install: dict = {"installed_components": {}}
+                manifest_path = target / MANIFEST_PATH
+                if manifest_path.exists():
+                    try:
+                        prior = json.loads(manifest_path.read_text(encoding="utf-8"))
+                        install["installed_components"] = dict(
+                            prior.get("installed_components", {})
+                        )
+                    except (json.JSONDecodeError, OSError):
+                        pass
+                try:
+                    install_usage_component(target, source_root, install, report)
+                except Collision as e:
+                    print(f"  STOPPED — {e}", file=sys.stderr)
+                    return 1
+                if manifest_path.exists():
+                    try:
+                        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                    except (json.JSONDecodeError, OSError):
+                        manifest = {}
+                    manifest["installed_components"] = install["installed_components"]
+                    manifest_path.write_text(
+                        json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+                    )
+                for line in report:
+                    print(f"  {line}")
+
+        if cli_args or (not components and not cli_args):
+            pkg_factory = source_root / "packages" / "factory"
+            source_factory = pkg_factory if pkg_factory.is_dir() else source_root / "factory"
+            if not source_factory.is_dir():
+                print(
+                    f"init-factory: no factory/ found at {source_root} — pass --source explicitly",
+                    file=sys.stderr,
+                )
+                return 1
+            return do_add(target, source_factory, cli_args or None)
+
+        return 0
 
     if args.remove is not None:
-        return do_remove(target, args.remove or None)
+        remove_args = args.remove or None
+        components = [a for a in (remove_args or []) if a in KNOWN_COMPONENTS]
+        cli_args = [a for a in (remove_args or []) if a not in KNOWN_COMPONENTS]
+
+        rc = 0
+        if components:
+            for comp in components:
+                rc = do_remove_component(target, comp) or rc
+
+        if cli_args or (not components and not cli_args):
+            rc = do_remove(target, cli_args or None) or rc
+
+        return rc
 
     source_root = (args.source or Path(__file__).resolve().parents[2]).resolve()
     pkg_factory = source_root / "packages" / "factory"
@@ -3880,6 +4137,7 @@ def main(argv: list[str] | None = None) -> int:
         "codex_hook_handlers": [],
         "codex_hooks_restore_original": True,
         "ignore_root_agents": False,
+        "installed_components": {},
         "factory_source": str(source_root),
     }
 
@@ -3970,6 +4228,15 @@ def main(argv: list[str] | None = None) -> int:
         _out.quiet = False
         print(f"\n  STOPPED — {e}", file=sys.stderr)
         return 1
+
+    # ── Section 3b: Usage-analysis component ───────────────────────────
+    if args.with_usage:
+        section("Usage-analysis component")
+        try:
+            install_usage_component(target, source_root, install, report)
+        except Collision as e:
+            print(f"\n  STOPPED — {e}", file=sys.stderr)
+            return 1
 
     # ── Section 4: Project identity ─────────────────────────────────────
     section("Project identity")
