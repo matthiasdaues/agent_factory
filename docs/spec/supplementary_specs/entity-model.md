@@ -441,3 +441,95 @@ erDiagram
 - A stable `QUERY_RESULT` other than `capture_health` exists only when the input set has zero failures.
 - `PARQUET_EXPORT` is derived, attributable, atomic, and rebuildable. It is never authoritative state.
 - `INSTALLED_COMPONENT` and `.agent-factory/usage/` have independent lifecycles. Component removal preserves evidence; full Factory removal does not.
+
+## Cycle-Based Orchestration Entities
+
+The cycle engine replaces the linear playbook FSM as the software-delivery routing authority. The entities below describe what the engine loads, what it writes, and what sessions use to bind to workstreams. These entities supersede `PLAYBOOK_STATE_MARKER` and `FSM_DEFINITION` for delivery routing. The superseded entities remain documented above for reference.
+
+Proposal trace: [cycle-based-orchestration.md](../../proposals/cycle-based-orchestration.md)
+
+```mermaid
+erDiagram
+    DELIVERY_MODEL ||--o{ CYCLE_DECLARATION : declares
+    DELIVERY_MODEL ||--o{ ROUTE_DECLARATION : declares
+    DELIVERY_MODEL ||--o{ ARTIFACT_DECLARATION : declares
+    DELIVERY_MODEL ||--o{ VALIDATOR_DECLARATION : registers
+    ROUTE_DECLARATION }o--|| CYCLE_DECLARATION : "from"
+    ROUTE_DECLARATION }o--|| CYCLE_DECLARATION : "to"
+    ROUTE_DECLARATION ||--o{ PREDICATE_REFERENCE : "recommend_if"
+    ARTIFACT_DECLARATION }o--|| VALIDATOR_DECLARATION : "validated by"
+    VALIDATOR_DECLARATION ||--o{ VALIDATOR_RESULT : produces
+    WORKSTREAM_STATE }o--|| CYCLE_DECLARATION : "currently at"
+    WORKSTREAM_STATE ||--o| DELEGATION_GRANT : "nullable"
+    SESSION_BINDING }o--|| WORKSTREAM_STATE : observes
+
+    DELIVERY_MODEL {
+        int schema_version "positive integer"
+        map cycles "cycle name to CycleDeclaration"
+        list routes "RouteDeclaration list"
+        map artifacts "artifact type to ArtifactDeclaration"
+        map validators "validator ID to ValidatorDeclaration"
+    }
+    CYCLE_DECLARATION {
+        string name "IDEA | CONCEPT | ROADMAP | REFINE | REALIZE | DONE"
+        int delegated_attempt_limit "positive integer"
+        list eligible_agents "agent names"
+        list eligible_skills "skill names"
+    }
+    ROUTE_DECLARATION {
+        string from "source cycle name"
+        string to "target cycle name"
+        list recommend_if "predicate references"
+    }
+    ARTIFACT_DECLARATION {
+        string type "identifier e.g. proposal, scope_map, entity_model"
+        string required_inventory "what must exist"
+        string validator "validator identifier"
+    }
+    VALIDATOR_DECLARATION {
+        string id "trusted validator identifier"
+    }
+    PREDICATE_REFERENCE {
+        string id "references a validator or composed check"
+    }
+    VALIDATOR_RESULT {
+        string artifact_type "e.g. proposal"
+        string artifact_ref "file path or pattern"
+        string assessed_commit "40-character SHA"
+        list checks "name, passed, detail triples"
+        list warnings "free-text strings"
+    }
+    WORKSTREAM_STATE {
+        int schema_version "always 1"
+        int revision "positive integer, starts at 1"
+        string workstream_id "filesystem-safe slug"
+        string topic "human-readable description"
+        string origin_ref "nullable, path to proposal"
+        string cycle "IDEA | CONCEPT | ROADMAP | REFINE | REALIZE | DONE"
+        int attempt "positive integer, starts at 1"
+        list work "artifact references: proposals, epic sections, story files"
+        object delegation "nullable DelegationGrant"
+    }
+    DELEGATION_GRANT {
+        list route "nullable, ordered cycle names (human-authored sequence)"
+        string through "nullable, single cycle name (automatic until destination)"
+    }
+    SESSION_BINDING {
+        string session_id "CLI session identifier"
+        string workstream_id "bound workstream"
+        int revision "last observed workstream revision"
+        string digest "SHA-256 hex of workstream state file bytes"
+    }
+```
+
+### Notes
+
+- **DELIVERY_MODEL** is loaded from `packages/factory/engine/models/delivery.yaml` (tracked source) or `factory/engine/models/delivery.yaml` (installed copy). The schema at `packages/factory/engine/schemas/cycle-model-v1.schema.json` rejects direction fields, classification fields, and executable commands in validator references.
+- **CYCLE_DECLARATION** names one node in the delivery graph. DONE is the terminal node. Every non-terminal cycle declares a positive `delegated_attempt_limit`.
+- **ROUTE_DECLARATION** is one directed edge. It has no direction or classification field. The source and target define the edge. `recommend_if` lists predicate references whose results determine whether the engine recommends this route. Failed predicates produce warnings but do not remove the route from human selection.
+- **ARTIFACT_DECLARATION** maps an artifact type to its required inventory and validator. The validator field references a `VALIDATOR_DECLARATION` by identifier. It never contains a shell command.
+- **VALIDATOR_RESULT** is immutable once produced. Every result carries the assessed commit SHA, individual check results, and warnings. The engine computes recommendations from these results without writing repository state.
+- **WORKSTREAM_STATE** is persisted at `.current-work/cycles/<workstream-id>.yaml`. `revision` increments on every successful mutation. `attempt` starts at 1 on cycle entry or work-list change and increments on each accepted retry. `delegation` is null when no grant is active. The `work` list contains references to existing proposals, epic sections, or story files; it never copies requirements or assessment results.
+- **DELEGATION_GRANT** is a value object within `WORKSTREAM_STATE`. It contains exactly one of `route` (an ordered list of human-authored cycle selections) or `through` (a single destination cycle). Only a human can create, replace, or revoke a grant.
+- **SESSION_BINDING** is persisted at `.current-work/session-bindings/<cli>/<session-id>.yaml`. Path components use the existing usage-capture filesystem-key encoding. The binding is session-local navigation state, not delivery evidence. A stale binding (digest mismatch) is detected on the next mutation attempt and triggers a refresh.
+- **Concurrency model:** Every workstream mutation acquires an exclusive operating-system lock at `.current-work/cycles/.locks/<workstream-id>.lock`. The lock covers only the read, comparison, validation, and replacement sequence. The adapter reads the current state, compares the session binding's `revision` and `digest` against the file on disk, and either writes a temporary sibling file followed by an atomic replacement, or returns a conflict without writing. Different workstreams use separate locks.

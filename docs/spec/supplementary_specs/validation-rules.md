@@ -246,3 +246,105 @@ These rules support the [local usage feature](../local-usage-processing-and-anal
 ### Explicit deferrals
 
 Release 1 excludes persistent analytical databases, automatic Parquet materialization, notebooks, dashboard products, the community `dash` extension, services, containers, remote resources, centralized collection, access control, price catalogs, transcript-content indexing, automatic evidence retention or deletion, Pandas, and Polars.
+
+## Cycle-Based Orchestration Validation Rules
+
+These rules govern the cycle-based delivery model that supersedes the linear playbook-FSM model for software-delivery routing. The playbook-FSM rules above remain authoritative for existing playbook runs; the rules below apply to workstreams managed through the cycle engine.
+
+Proposal trace: [cycle-based-orchestration.md](../../proposals/cycle-based-orchestration.md).
+Feature trace: [cycle-based-orchestration.feature](../cycle-based-orchestration.feature).
+
+### Cycle model validation (`cycle-model-v1.schema.json`)
+
+Rules for `packages/factory/engine/models/delivery.yaml`:
+
+01. The model must declare exactly the five delivery cycles: IDEA, CONCEPT, ROADMAP, REFINE, and REALIZE.
+02. The model must declare the terminal DONE node.
+03. Every route must have `from`, `to`, and `recommend_if` fields.
+04. No route may have a `direction` or `classification` field.
+05. Every `from` and `to` value must reference a declared cycle or DONE.
+06. Every artifact reference in a `recommend_if` clause must reference a declared artifact type.
+07. Every validator reference must reference a declared validator.
+08. No validator field may contain an executable command — shell commands, pipes, redirects, subshell invocations, and backtick expansions are all rejected.
+09. Every cycle must declare a positive integer `delegated_attempt_limit`.
+10. The model's `schema_version` must be a positive integer.
+
+### Cycle state validation (`cycle-state-v1.schema.json`)
+
+Rules for `.current-work/cycles/<workstream-id>.yaml`:
+
+01. `schema_version` must be `1`.
+02. `revision` must be a positive integer.
+03. `workstream_id` must be a non-empty string matching the filesystem-safe slug pattern `[a-z0-9][a-z0-9_-]*`.
+04. `topic` must be a non-empty string.
+05. `origin_ref` must be null or a valid repository-relative file path.
+06. `cycle` must be one of IDEA, CONCEPT, ROADMAP, REFINE, REALIZE, or DONE.
+07. `attempt` must be a positive integer.
+08. `work` must be a list (may be empty) of artifact reference strings.
+09. `delegation` must be null or a valid DelegationGrant value object.
+10. A DelegationGrant must contain exactly one of `route` (a non-empty list of cycle names) or `through` (a single cycle name).
+11. Every cycle name in a delegation grant must be one of IDEA, CONCEPT, ROADMAP, REFINE, REALIZE, or DONE.
+
+### Session binding validation
+
+Rules for `.current-work/session-bindings/<cli>/<session-id>.yaml`:
+
+1. `session_id` must be a non-empty string.
+2. `workstream_id` must reference an existing workstream state file under `.current-work/cycles/`.
+3. `revision` must be a positive integer.
+4. `digest` must be a 64-character lowercase hexadecimal string (SHA-256).
+
+### Workstream mutation rules
+
+Concurrency and atomicity rules for the state adapter:
+
+1. Every mutation must acquire an exclusive lock at `.current-work/cycles/.locks/<workstream-id>.lock`. The lock covers only the read-compare-validate-replace sequence — no workflow data and no network calls.
+2. Lock wait timeout is five seconds. Exceeding it returns `workstream_busy` without writing.
+3. Before writing, the adapter must compare the state file's current revision and digest against the session binding's observed values.
+4. A revision mismatch returns `stale_workstream_state` without writing. The result includes `expected_revision` and `current_revision`.
+5. A digest mismatch (revision matches but content differs) returns `stale_workstream_state` without writing.
+6. A valid mutation increments `revision` by exactly one.
+7. The adapter writes a temporary sibling file, flushes it to disk, then atomically replaces the state file (POSIX rename).
+8. After successful replacement, the adapter updates the session binding with the new revision and digest.
+9. An interruption between state-file replacement and binding update leaves a stale binding. The next mutation detects the stale binding through the digest mismatch and returns a conflict.
+
+### Retry validation rules
+
+1. Every cycle in `delivery.yaml` must declare a positive `delegated_attempt_limit`.
+2. Entering a new cycle (via `cycle select`) resets `attempt` to 1.
+3. Changing the `work` list resets `attempt` to 1, even when the cycle stays the same.
+4. A delegated retry with `attempt` below the limit: increment `attempt`, return `allowed`.
+5. A delegated retry with `attempt` at or above the limit: do not modify state, return `paused` with reason `delegated_attempt_limit_reached` and `next_action: request_human_direction`.
+6. A human-authored retry with `attempt` at or above the limit: increment `attempt`, return `allowed_with_warning`. No override flag or justification is required.
+7. A retry request with a malformed attempt field (non-positive, missing, or non-integer): return `invalid_state`, do not modify state.
+8. Once a retry is accepted and the attempt is incremented, the increment is permanent regardless of execution outcome.
+
+### Artifact readiness validation
+
+For each artifact type in the readiness table, the following mechanical validation checks apply. Semantic assessment is an additional layer that runs only when the cycle changed code or a canonical artifact.
+
+**Proposal.** File exists at the declared path. Passes the proposal template format check. Required sections (problem, solution, scope, impact, alternatives, compatibility) exist. The `status` field matches the route's expected value.
+
+**Scope map.** File exists at `docs/spec/scope-map.md`. Passes scope-map validation (`spec-lint`). Behavior identifiers are unique. Evidence column references resolve to existing artifacts. Feature column references resolve to existing `.feature` files.
+
+**Entity model.** File exists at `docs/spec/entity-model.yaml`. Passes LinkML metamodel validation. `linkml-lint` reports no errors. Every referenced class and slot resolves. Every JSON-backed slot references a defined inline class. Every persisted JSON value-object class defines a `schema-version` slot. Derived projections (`docs/spec/entity-model.md`, `docs/assets/images/entity-model.svg`) match the assessed source — neither introduces model information absent from the LinkML source.
+
+**Architecture.** File exists at `docs/arc42/architecture.dsl`. Passes Structurizr validation. Passes architecture lint (`arch-lint`). Referenced views resolve.
+
+**Feature specifications.** Every `.feature` file referenced by the scope map exists. Each file parses as valid Gherkin. Required tags exist. Scope-map identifiers in the file resolve to scope-map rows.
+
+**Gaps report.** Required sections (actor-goal matrix, missing rules, ambiguous wording) exist. Every recorded gap has an identifier and a disposition.
+
+**Architecture Decision Record.** Every referenced ADR has valid YAML frontmatter. Each ADR has status, context, and decision sections.
+
+**Concept reviews.** Review records parse. Every major finding has a recorded disposition (accepted, rejected, deferred). Repeat-review status is reported when findings were addressed.
+
+**Epic plan.** File exists at `backlog/epics-<feature-name>.md`. Passes backlog validation (`backlog-lint`). Epic identifiers and dependency references resolve. Each epic records testability and ownership.
+
+**Selected stories.** Explicitly selected `backlog/ST-NNNN.md` files pass backlog validation. Dependencies resolve within the selection. Acceptance checks and contract decisions are present.
+
+**Realization result.** Acceptance checks, required tests, quality checks (`mdformat`, `link-check`, `mermaid-lint`, `spec-lint`, `arch-lint`, `backlog-lint`, `concern-lint`, `matrix-lint`, `statemachine-lint`, `index-lint`), code review, and reconciliation report their current results for the assessed commit.
+
+**Research brief.** Passes brief schema validation (`research-brief.schema.json`). Linked briefs declare `origin_cycle`, `origin_ref`, `return_cycle`, and `decision_needed`. Standalone briefs omit delivery-link fields.
+
+**Research report.** Passes route-specific validation (survey or falsification). References the originating brief. Records evidence disposition for each claim or source.

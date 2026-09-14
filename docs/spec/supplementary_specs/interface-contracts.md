@@ -565,3 +565,85 @@ All component operations are idempotent. An update whose consumer range excludes
 | DuckDB UI launch documentation and six-view bootstrap      | UI documentation smoke test     |
 
 Non-owning layers may exercise a journey but must not duplicate the owner's assertions.
+
+## Cycle-Based Orchestration Commands
+
+These commands supersede the playbook-based command contracts for software-delivery routing. The existing contracts above remain as documentation of the pre-migration behavior. All scripts are stdlib-only Python 3.10+.
+
+Proposal trace: [cycle-based-orchestration.md](../../proposals/cycle-based-orchestration.md)
+
+### `factory/scripts/cycle select`
+
+|           |                                                                                                                                                 |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage     | `cycle select --state STATE TARGET [--work REF ...]`                                                                                            |
+| STATE     | Path to the workstream state file under `.current-work/cycles/`                                                                                 |
+| TARGET    | Cycle name: `IDEA`, `CONCEPT`, `ROADMAP`, `REFINE`, `REALIZE`, or `DONE`                                                                        |
+| --work    | Zero or more artifact references (proposals, epic sections, story files)                                                                        |
+| Reads     | The workstream state file, the session binding, `factory/engine/models/delivery.yaml`                                                           |
+| Writes    | The workstream state file (on success), the session binding                                                                                     |
+| Exit code | `0` on success; `1` on conflict (stale state or lock timeout); `2` on invalid input                                                             |
+| Behavior  | Acquires the workstream lock, validates expected revision and digest, writes the new cycle with attempt 1, increments revision, updates binding |
+
+### `factory/scripts/cycle retry`
+
+|           |                                                                                                                                           |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage     | `cycle retry --state STATE`                                                                                                               |
+| STATE     | Path to the workstream state file under `.current-work/cycles/`                                                                           |
+| Reads     | The workstream state file, the session binding, `factory/engine/models/delivery.yaml` (for `delegated_attempt_limit`)                     |
+| Writes    | The workstream state file (on success), the session binding                                                                               |
+| Exit code | `0` on allowed or allowed_with_warning; `1` on conflict or workstream_busy; `2` on paused (delegated limit reached); `3` on invalid state |
+| stdout    | YAML result with `status`, `reason`, `cycle`, `attempt`, and `limit` fields                                                               |
+| Behavior  | Acquires the workstream lock, checks the delegated retry limit, increments `attempt`, updates the session binding                         |
+
+### `factory/scripts/phase` (diagnostic stub)
+
+|           |                                                                                                         |
+| --------- | ------------------------------------------------------------------------------------------------------- |
+| Usage     | `phase advance [...]` or `phase retry [...]`                                                            |
+| Reads     | Nothing                                                                                                 |
+| Writes    | Nothing                                                                                                 |
+| Exit code | Always `2`                                                                                              |
+| stderr    | Diagnostic message naming the replacement command (`cycle select` for advance, `cycle retry` for retry) |
+
+The diagnostic stub remains for one release after cutover. It does not emulate the old transition behavior.
+
+### `factory/scripts/transition-lint` (migrated)
+
+|               |                                                                                                                                                               |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage         | `transition-lint [--format text\|json] [--report-only]`                                                                                                       |
+| Reads         | `factory/engine/models/delivery.yaml`, workstream state files under `.current-work/cycles/`                                                                   |
+| Writes        | Nothing — read-only                                                                                                                                           |
+| Exit code     | Count of error-severity findings (`0` = clean), unless `--report-only` (always `0`)                                                                           |
+| Finding codes | `TL-CYCLE-MODEL` (error — invalid cycle model), `TL-CYCLE-STATE` (error — invalid state file), `TL-ROUTE-EVIDENCE` (warning — failed recommendation evidence) |
+
+After migration, transition-lint reads the cycle model and workstream state files instead of the playbook FSM and playbook-state marker. The pre-migration finding codes (`TL-NOMARKER`, `TL-MARKER`, `TL-NOFSM`, `TL-STATE`, `TL-ORDER`) are retired.
+
+## Usage Record v1 Schema Additions
+
+Three optional fields are added to the usage-record v1 schema at [v1.schema.json](../../../factory/contracts/usage-record/v1.schema.json):
+
+| Field               | Type               | Description                                                    |
+| ------------------- | ------------------ | -------------------------------------------------------------- |
+| `workstream_id`     | `string` or `null` | Workstream identifier from the session binding                 |
+| `workstream_origin` | `string` or `null` | Path to the workstream's origin artifact                       |
+| `cycle`             | `string` or `null` | Current cycle name: IDEA, CONCEPT, ROADMAP, REFINE, or REALIZE |
+
+All three fields are nullable. Missing cycle context leaves all three null. Capture succeeds without error when no session binding exists.
+
+These additions are compatible with the v1 contract's additive-change policy. No major version bump is needed. The orchestration adapter supplies the fields. Usage capture does not import the cycle engine.
+
+## Research Brief Schema Additions
+
+Four optional fields are added to the research-brief schema at [research-brief.schema.json](../../../factory/rulebooks/schemas/research-brief.schema.json):
+
+| Field             | Type               | Description                                                                             |
+| ----------------- | ------------------ | --------------------------------------------------------------------------------------- |
+| `origin_cycle`    | `string` or `null` | Delivery cycle that initiated the research (IDEA, CONCEPT, ROADMAP, REFINE, or REALIZE) |
+| `origin_ref`      | `string` or `null` | Path to the artifact that needs evidence                                                |
+| `return_cycle`    | `string` or `null` | Delivery cycle that consumes the research result                                        |
+| `decision_needed` | `string` or `null` | The decision the research result must inform                                            |
+
+Standalone research omits these fields. Linked research (opened from a delivery cycle) requires all four. The existing survey and falsification routes remain unchanged.
