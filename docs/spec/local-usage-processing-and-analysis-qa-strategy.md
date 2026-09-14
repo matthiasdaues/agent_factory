@@ -10,7 +10,7 @@ Generated from:
 
 ## Feature
 
-- Proposal trace: [accepted proposal](../proposals/usage-processing-and-storage.md)
+- Proposal trace: [accepted proposal](../proposals/implemented/usage-processing-and-storage.md)
 - Gherkin trace: [local-usage-processing-and-analysis.feature](local-usage-processing-and-analysis.feature)
 - Summary: QA protects local evidence integrity first. It proves strict all-line validation, CLI-specific conservation, deterministic view results, transcript blindness, atomic export, capture independence, and data-safe component lifecycle without duplicating arithmetic across layers.
 - Rules in scope:
