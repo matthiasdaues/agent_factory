@@ -4,54 +4,106 @@
 
 ## 6.1 Overview
 
-This chapter describes key interaction sequences for Factory gates and local
-usage analysis. Dynamic views in [`architecture.dsl`](architecture.dsl) own
-the canonical step order.
+This chapter describes key interaction sequences for Factory gates, cycle
+transitions, and local usage analysis. Dynamic views in
+[`architecture.dsl`](architecture.dsl) own the canonical step order.
 
-## 6.2 Test Gate Presence
+## 6.2 Cycle Transition
 
-Derived from dynamic view `TestGatePresence` in [`architecture.dsl`](architecture.dsl).
+Derived from dynamic view `CycleTransition` in [`architecture.dsl`](architecture.dsl).
 
-Factory ensures test gates exist; the project decides what runs inside them. Testing is project-owned infrastructure declared in `docs/charter/testing.yaml`. Factory's guardrails and FSM gates read that declaration. Factory does not own test execution, framework detection, or structured test output.
+A cycle transition is the primary routing operation. The human operator selects the next cycle for a workstream. The State Adapter acquires the workstream lock, validates the session binding against the current workstream state, calls the Cycle Engine for a transition decision, and writes the new state. The engine never writes state itself.
 
-### 6.2.1 Sequence: Charter Declaration and Phase Advance Gate
+### 6.2.1 Sequence: Human Selects a Cycle
 
 ```mermaid
 sequenceDiagram
-    participant H as User
-    participant PA as phase advance
-    participant FSM as FSM + Marker
-    participant C as docs/charter/testing.yaml
+    participant H as Human Operator
+    participant CS as cycle select
+    participant SB as Session Bindings
+    participant WS as Cycle State Files
+    participant CE as Cycle Engine
 
-    H->>C: Declare test_command in testing.yaml
-    H->>PA: factory/scripts/phase advance
-    PA->>FSM: Read current state, resolve target state entry_conditions
-    FSM-->>PA: Entry condition: script_exit_zero (charter:test_command)
-    PA->>C: Read test_command from testing.yaml
-    C-->>PA: test_command: "uv run pytest --tb=short --quiet"
-    PA->>PA: Execute resolved command from repository root
-    alt Exit 0
-        PA->>FSM: Write marker: state=next, iteration=1
-        PA->>H: Phase advanced
-    else Exit nonzero
-        PA-->>H: Refuse: tests_pass unmet (exit code only)
-    end
+    H->>CS: 1. Invokes cycle select with target cycle and work references
+    CS->>SB: 2. Reads session binding for the active workstream
+    CS->>WS: 3. Acquires workstream lock, reads and validates current state
+    CS->>CE: 4. Requests transition decision with validator results
+    CE-->>CS: Route recommendation (immutable)
+    CS->>WS: 5. Writes new cycle with attempt 1, increments revision
+    CS->>SB: 6. Updates session binding with new revision and digest
+    CS-->>H: Cycle selected, shows recommendation or choice list
 ```
 
 **Key Points**:
 
-- **Charter-driven**: FSM gate resolves `test_command` from `docs/charter/testing.yaml`, not a hardcoded script
-- **Exit-code-only contract**: Factory reads only the exit code; structured test output is the project's concern (BR-027)
-- **Blocks on missing charter**: When `testing.yaml` is absent or `test_command` is missing, the gate blocks with a clear message
-- **Exhaustive reporting**: All unmet conditions listed (not short-circuited)
+- **Lock protocol**: The adapter acquires an OS-level exclusive lock under `.current-work/cycles/.locks/` before reading state. Concurrent sessions on the same workstream detect stale state rather than overwriting silently.
+- **Revision and digest validation**: The adapter compares the session binding's `observed_revision` and SHA-256 digest against the workstream state file. A mismatch means another session modified the state; the command exits 1 (conflict).
+- **Engine is read-only**: The Cycle Engine receives the delivery model, validator results, and current state. It returns an immutable decision object. It does not write state, acquire locks, or produce side effects.
+- **Work references**: The `--work` flag attaches artifact references (proposals, epic sections, story files) to the new cycle entry in the workstream state.
 
-### 6.2.2 Sequence: Agent Uses Charter-Declared Test Command
+### 6.2.2 Sequence: Delegated Cycle Transition (Agent-Driven)
+
+When the operator has issued a delegation grant for a workstream, the `run-step` skill and dispatched agent may advance through cycles without pausing for human approval at each boundary, up to the grant's limits.
+
+```mermaid
+sequenceDiagram
+    participant RS as run-step skill
+    participant CS as cycle select
+    participant CE as Cycle Engine
+    participant WS as Cycle State Files
+
+    RS->>CE: Check delegation grant covers next transition
+    CE-->>RS: Grant covers transition (explicit-route or destination)
+    RS->>CS: Invoke cycle select with target cycle
+    CS->>WS: Lock, validate, write
+    CS-->>RS: Cycle selected
+    RS->>RS: Derive next agent for the new cycle
+    Note over RS: Dispatches via trigger
+```
+
+**Key Points**:
+
+- **Two grant forms**: An explicit-route grant lists an ordered sequence of cycles; a destination grant names only the target cycle and delegates routing until the workstream reaches it.
+- **Pause conditions**: Explicit-route grants pause when the agent recommends a cycle not in the ordered list. Destination grants pause when the engine cannot recommend a single route.
+- **Retry limits**: Each cycle declares a `delegated_attempt_limit`. When the limit is reached, the delegation pauses regardless of grant form, returning control to the human.
+
+## 6.3 Test Gate Presence
+
+Factory ensures test gates exist; the project decides what runs inside them. Testing is project-owned infrastructure declared in `docs/testing.yaml`. Factory's guardrails and cycle gates read that declaration. Factory does not own test execution, framework detection, or structured test output.
+
+### 6.3.1 Sequence: Charter Declaration and Cycle Gate
+
+```mermaid
+sequenceDiagram
+    participant H as User
+    participant CS as cycle select
+    participant CE as Cycle Engine
+    participant C as docs/testing.yaml
+
+    H->>C: Declare test_command in testing.yaml
+    H->>CS: Invokes cycle select with target cycle
+    CS->>CE: Requests transition decision
+    CE->>CE: Readiness Evaluator checks trusted validators
+    CE->>C: Resolves test_command from testing.yaml
+    C-->>CE: test_command: "uv run pytest --tb=short --quiet"
+    CE->>CE: Evaluates artifact evidence (exit code)
+    alt Readiness met
+        CE-->>CS: Route recommended
+        CS->>CS: Write new cycle state
+        CS-->>H: Cycle selected
+    else Readiness unmet
+        CE-->>CS: Warning: evidence insufficient
+        CS-->>H: Recommendation with warnings
+    end
+```
+
+### 6.3.2 Sequence: Agent Uses Charter-Declared Test Command
 
 ```mermaid
 sequenceDiagram
     participant A as CLI-Invoked Agent
     participant BDG as block-dangerous-git.sh
-    participant C as docs/charter/testing.yaml
+    participant C as docs/testing.yaml
 
     A->>BDG: Attempt: uv run pytest --tb=short --quiet
     BDG->>C: Read test_command, test_staged_command, test_changed_command
@@ -61,13 +113,13 @@ sequenceDiagram
     Note over A: Command executes normally
 ```
 
-### 6.2.3 Sequence: Agent Blocked from Bare Test Command
+### 6.3.3 Sequence: Agent Blocked from Bare Test Command
 
 ```mermaid
 sequenceDiagram
     participant A as CLI-Invoked Agent
     participant BDG as block-dangerous-git.sh
-    participant C as docs/charter/testing.yaml
+    participant C as docs/testing.yaml
     participant CLI as Claude Code / Copilot CLI / Codex
 
     A->>CLI: Attempt: pytest .
@@ -88,13 +140,13 @@ sequenceDiagram
 - **No charter means no agent test commands**: When `testing.yaml` does not exist, no agent test commands are allowlisted; bare test commands remain blocked
 - **Deny patterns (BR-024)**: The canonical list is maintained in `factory/config/hooks/block-dangerous-git.sh`; representative entries include `pytest`, package-manager test scripts, `jest`, `vitest`, `go test`, `cargo test`, and Python/uv pytest invocations
 
-## 6.3 Semantic Gate Loop
+## 6.4 Semantic Gate Loop
 
 Derived from dynamic view `SemanticGateLoop` in [`architecture.dsl`](architecture.dsl).
 
 The semantic gate loop runs after each developer-agent commit, before merge. The implementation-agent dispatcher owns execution. The developer agent never runs the gates; it only receives gate reports when a fix iteration is needed. See [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md).
 
-### 6.3.1 Sequence: Gate Pass (All Gates Succeed)
+### 6.4.1 Sequence: Gate Pass (All Gates Succeed)
 
 ```mermaid
 sequenceDiagram
@@ -115,7 +167,7 @@ sequenceDiagram
     IA->>IA: Merge story branch
 ```
 
-### 6.3.2 Sequence: Gate Failure with Fix Iteration
+### 6.4.2 Sequence: Gate Failure with Fix Iteration
 
 ```mermaid
 sequenceDiagram
@@ -146,38 +198,38 @@ sequenceDiagram
 - The two gates run in sequence: CRAP, dependency. All must pass before `premerge-check`. Mutation testing is project-owned infrastructure that Factory encourages via the `mutation-analysis` skill.
 - Gate reports are written to `.current-work/<gate-name>/<story-id>.json` for traceability.
 
-### 6.3.3 Sequence: Module-Graph Check (Phase Routing)
+### 6.4.3 Sequence: Module-Graph Check (Architecture Routing)
 
 ```mermaid
 sequenceDiagram
     participant S as Orchestrating Session
     participant MG as module-graph-check
     participant DSL as architecture.dsl
-    participant P1 as Phase 1 Outputs
+    participant CO as Concept Outputs
 
-    S->>MG: Run at end of Phase 1
+    S->>MG: Run at architecture boundary
     MG->>DSL: Read current module map
-    MG->>P1: Read interface-contracts.md, entity-model.md
+    MG->>CO: Read interface-contracts.md, entity-model.md
     MG->>MG: Compare feature outputs against module map
     alt No module-graph change
-        MG-->>S: Exit 0 — skip Phase 2, go to Phase 3
+        MG-->>S: Exit 0 — skip architecture cycle
     else Module boundary changed
-        MG-->>S: Exit 1 — enter Phase 2 (Architecture)
+        MG-->>S: Exit 1 — enter architecture cycle
         MG->>MG: Update proposal frontmatter: architecture_change: true
     end
 ```
 
 **Key Points:**
 
-- Runs once per feature, at the Phase 1 / Phase 3 boundary. Not per story, not per commit.
-- Tests module-graph topology only: new modules, changed public interfaces, inverted dependency directions. A new entity in an existing module does not trigger Phase 2.
-- The orchestrating session (hosting the `feature-addition` playbook) owns the check. It is not a hook or a dispatcher gate.
+- Runs once per feature, at the architecture boundary. Not per story, not per commit.
+- Tests module-graph topology only: new modules, changed public interfaces, inverted dependency directions. A new entity in an existing module does not trigger the architecture cycle.
+- The orchestrating session owns the check. It is not a hook or a dispatcher gate.
 
-## 6.4 Agent Context Mode Transition
+## 6.5 Agent Context Mode Transition
 
-The agent-context index files have a two-mode lifecycle: `mode: primary` (greenfield, values written directly) and `mode: index` (mature, every non-null, non-deferred leaf has a `source:` pointer). The transition is one-directional and atomic. See [ADR-0014](../adr/0014-two-layer-routing-with-two-mode-lifecycle.md) and [state-machines.md § Concern Registry Lifecycle](../spec/supplementary_specs/state-machines.md#concern-registry-lifecycle).
+The agent-context index files have a two-mode lifecycle: `mode: primary` (greenfield, values written directly) and `mode: index` (mature, every non-null, non-deferred leaf has a `source:` pointer). The transition is one-directional and atomic. See [ADR-0014](../adr/0014-two-layer-routing-with-two-mode-lifecycle.md) and [state-machines.md section Concern Registry Lifecycle](../spec/supplementary_specs/state-machines.md#concern-registry-lifecycle).
 
-### 6.4.1 Sequence: Mode Transition via update-context
+### 6.5.1 Sequence: Mode Transition via update-context
 
 ```mermaid
 sequenceDiagram
@@ -201,7 +253,7 @@ sequenceDiagram
     end
 ```
 
-### 6.4.2 Sequence: context-lint Validates Mode Compliance
+### 6.5.2 Sequence: context-lint Validates Mode Compliance
 
 ```mermaid
 sequenceDiagram
@@ -229,7 +281,7 @@ sequenceDiagram
 - `testing.yaml` is exempt from mode checks -- it receives `CX-PARSE` validation only.
 - Format detection routes to either `CX-*` codes (YAML agent-context) or `CH-*` codes (legacy markdown charter), never both.
 
-## 6.5 Local Usage Query
+## 6.6 Local Usage Query
 
 Derived from dynamic view `UsageQuery` in
 [`architecture.dsl`](architecture.dsl).
@@ -260,7 +312,7 @@ row or a structured failure. `capture_health` remains queryable when failures
 exist; all other stable views refuse partial output. Empty input is valid and
 returns each view's declared typed empty result.
 
-## 6.6 Explicit Parquet Export
+## 6.7 Explicit Parquet Export
 
 Derived from dynamic view `UsageParquetExport` in
 [`architecture.dsl`](architecture.dsl).
@@ -281,19 +333,19 @@ The exporter writes a temporary sibling, verifies logical rows and schema, and
 records query-model and input-set provenance before replacement. Any failure
 leaves an existing destination unchanged. No scheduled refresh exists.
 
-## 6.7 Other Runtime Scenarios (Summary)
+## 6.8 Other Runtime Scenarios (Summary)
 
 Full sequences for these flows are in their respective use cases:
 
-- **Phase advance with multiple entry conditions** → [UC-01](../~archive/spec/use_cases/UC-01-advance-a-playbook-phase.md)
-- **Retry loop with iteration cap** → [UC-03](../~archive/spec/use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md)
-- **Agent dispatch (interactive vs. background)** → [UC-04](../~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md)
-- **Resume after interruption** → [UC-05](../~archive/spec/use_cases/UC-05-resume-an-interrupted-playbook-run.md)
-- **Transition-lint blocking out-of-phase commit** → [UC-02](../~archive/spec/use_cases/UC-02-block-an-out-of-phase-commit.md)
+- **Phase advance with multiple entry conditions** (legacy) -- [UC-01](../~archive/spec/use_cases/UC-01-advance-a-playbook-phase.md)
+- **Retry loop with iteration cap** (legacy) -- [UC-03](../~archive/spec/use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md)
+- **Agent dispatch (interactive vs. background)** -- [UC-04](../~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md)
+- **Resume after interruption** -- [UC-05](../~archive/spec/use_cases/UC-05-resume-an-interrupted-playbook-run.md)
+- **Transition-lint blocking out-of-phase commit** (legacy) -- [UC-02](../~archive/spec/use_cases/UC-02-block-an-out-of-phase-commit.md)
 
 ## Referenced from
 
-- [05_building_block_view.md § 5.2.1](05_building_block_view.md#521-project-owned-test-gates-via-charter-declaration)
-- [05_building_block_view.md § 5.2.3](05_building_block_view.md#523-semantic-quality-gates-crap-score-mutation-analysis-dependency-check)
-- [08_crosscutting_concepts.md § 8.1](08_crosscutting_concepts.md#81-agentic-creation-deterministic-validation)
+- [05_building_block_view.md section 5.2.1](05_building_block_view.md#521-project-owned-test-gates-via-charter-declaration)
+- [05_building_block_view.md section 5.2.3](05_building_block_view.md#523-semantic-quality-gates-crap-score-mutation-analysis-dependency-check)
+- [08_crosscutting_concepts.md section 8.1](08_crosscutting_concepts.md#81-agentic-creation-deterministic-validation)
 - [09_architecture_decisions.md](09_architecture_decisions.md)

@@ -23,6 +23,9 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0013 | [YAML agent context replaces markdown charter](../adr/0013-yaml-agent-context-replaces-markdown-charter.md)                                                   | proposed               | pugh-matrix |
 | 0014 | [Two-layer routing with two-mode lifecycle](../adr/0014-two-layer-routing-with-two-mode-lifecycle.md)                                                         | proposed               | none        |
 | 0015 | [Query authoritative JSONL with ephemeral DuckDB views](../adr/0015-query-authoritative-jsonl-with-ephemeral-duckdb-views.md)                                 | accepted               | pugh-matrix |
+| 0016 | [Concern-oriented agent context replaces YAML index](../adr/0016-concern-oriented-agent-context-replaces-yaml-index.md)                                       | accepted               | none        |
+| 0017 | [Cycle-based orchestration supersedes linear playbook FSM](../adr/0017-cycle-based-orchestration-supersedes-linear-playbook-fsm.md)                           | proposed               | pugh-matrix |
+| 0018 | [CONCEPT internal sequence is agent-owned](../adr/0018-concept-internal-sequence-is-agent-owned.md)                                                           | proposed               | none        |
 
 ## Key Decisions
 
@@ -151,9 +154,27 @@ best meets reproducibility, capture independence, local operation, strict
 accounting, and Clean Architecture dependency direction without introducing a
 freshness or synchronization lifecycle.
 
+### Cycle-Based Orchestration
+
+**ADR-0017** replaces the linear playbook FSM with a cycle-based directed
+graph. Five delivery cycles (IDEA, CONCEPT, ROADMAP, REFINE, REALIZE) plus
+DONE form the graph. A declarative YAML delivery model declares cycles, routes,
+artifact declarations, trusted validators, and per-cycle delegated attempt
+limits. A pure Cycle Engine container returns immutable decisions; a State
+Adapter container owns state writes. The Pugh Matrix compared the existing
+linear FSM (baseline), the cycle-based graph, and an enhanced FSM with
+conditional branching. The cycle-based graph dominated on six of eight
+criteria, losing only on backward compatibility.
+
+**ADR-0018** establishes that the engine sees CONCEPT as one cycle; agents
+manage their internal ordering. This keeps the delivery model simple (five
+cycles, no substates) and allows agent definitions to evolve their internal
+methodology independently of the engine.
+
 ## Superseded Decisions
 
-None yet.
+ADR-0013 and ADR-0014 are superseded by ADR-0016 (concern-oriented agent
+context).
 
 ## Referenced from
 
