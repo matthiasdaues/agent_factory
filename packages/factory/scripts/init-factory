@@ -3988,6 +3988,15 @@ def do_remove(target: Path, remove_args: list[str] | None) -> int:
     return 0
 
 
+def _detect_source_root() -> Path:
+    """Walk up from this script to find the monorepo root (contains packages/factory/)."""
+    here = Path(__file__).resolve()
+    for parent in [here.parent, *here.parents]:
+        if (parent / "packages" / "factory").is_dir():
+            return parent
+    return here.parents[2]
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument(
@@ -4051,7 +4060,7 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     target = args.target.resolve()
-    source_root = (args.source or Path(__file__).resolve().parents[2]).resolve()
+    source_root = (args.source or _detect_source_root()).resolve()
 
     if args.update is not None:
         return do_update_component(target, source_root, args.update[0])
@@ -4119,7 +4128,7 @@ def main(argv: list[str] | None = None) -> int:
 
         return rc
 
-    source_root = (args.source or Path(__file__).resolve().parents[2]).resolve()
+    source_root = (args.source or _detect_source_root()).resolve()
     pkg_factory = source_root / "packages" / "factory"
     source_factory = pkg_factory if pkg_factory.is_dir() else source_root / "factory"
 
