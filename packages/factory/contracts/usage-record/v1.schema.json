@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UsageRecord",
+  "description": "One usage record per agent invocation. Factory-owned contract.",
+  "type": "object",
+  "required": [
+    "record_id",
+    "project_id",
+    "project_name",
+    "normalized_input",
+    "normalized_output",
+    "normalized_total",
+    "cli",
+    "session_id",
+    "parent_session_id",
+    "depth",
+    "recorded_at",
+    "agent",
+    "model",
+    "provider",
+    "reported_input",
+    "reported_output",
+    "reported_cache_read",
+    "reported_cache_write",
+    "usage_granularity",
+    "usage_capability",
+    "cache_miss_turns",
+    "cache_miss_input_tokens",
+    "late_early_input_ratio",
+    "exit_status",
+    "branch",
+    "commit_id",
+    "transcript_ref"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "record_id": {
+      "type": "string",
+      "description": "Unique identifier for this usage record."
+    },
+    "project_id": {
+      "type": "string",
+      "description": "UUID identifying the project."
+    },
+    "project_name": {
+      "type": "string",
+      "description": "Human-readable project name."
+    },
+    "normalized_input": {
+      "type": "integer",
+      "description": "Normalized input token count (cl100k_base)."
+    },
+    "normalized_output": {
+      "type": "integer",
+      "description": "Normalized output token count (cl100k_base)."
+    },
+    "normalized_total": {
+      "type": "integer",
+      "description": "Must equal normalized_input + normalized_output."
+    },
+    "cli": {
+      "type": "string",
+      "enum": ["claude-code", "pi", "codex", "copilot"],
+      "description": "CLI that produced this record."
+    },
+    "session_id": {
+      "type": ["string", "null"],
+      "description": "Session identifier from the CLI."
+    },
+    "parent_session_id": {
+      "type": ["string", "null"],
+      "description": "Parent session identifier for nested invocations."
+    },
+    "depth": {
+      "type": ["integer", "null"],
+      "description": "Nesting depth of this invocation."
+    },
+    "recorded_at": {
+      "type": "string",
+      "description": "UTC timestamp when the record was created (ISO 8601)."
+    },
+    "agent": {
+      "type": ["string", "null"],
+      "description": "Agent name if applicable."
+    },
+    "model": {
+      "type": ["string", "null"],
+      "description": "Model identifier used for this invocation."
+    },
+    "provider": {
+      "type": ["string", "null"],
+      "description": "Provider name (e.g. anthropic)."
+    },
+    "reported_input": {
+      "type": ["integer", "null"],
+      "description": "Provider-reported input token count."
+    },
+    "reported_output": {
+      "type": ["integer", "null"],
+      "description": "Provider-reported output token count."
+    },
+    "reported_cache_read": {
+      "type": ["integer", "null"],
+      "description": "Provider-reported cache read token count."
+    },
+    "reported_cache_write": {
+      "type": ["integer", "null"],
+      "description": "Provider-reported cache write token count."
+    },
+    "usage_granularity": {
+      "type": ["string", "null"],
+      "description": "Granularity of provider usage reporting."
+    },
+    "usage_capability": {
+      "type": ["string", "null"],
+      "description": "Provider usage capability level."
+    },
+    "cache_miss_turns": {
+      "type": ["integer", "null"],
+      "description": "Number of turns with cache misses."
+    },
+    "cache_miss_input_tokens": {
+      "type": ["integer", "null"],
+      "description": "Total input tokens on cache miss turns."
+    },
+    "late_early_input_ratio": {
+      "type": ["number", "null"],
+      "description": "Ratio of late to early input tokens."
+    },
+    "exit_status": {
+      "type": ["string", "null"],
+      "description": "Exit status of the invocation."
+    },
+    "branch": {
+      "type": ["string", "null"],
+      "description": "Git branch at invocation time."
+    },
+    "commit_id": {
+      "type": ["string", "null"],
+      "description": "Git commit SHA at invocation time."
+    },
+    "transcript_ref": {
+      "type": ["object", "null"],
+      "description": "Reference to persisted transcript copy.",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to the transcript file."
+        },
+        "span": {
+          "type": ["string", "null"],
+          "description": "Byte span within the transcript file."
+        }
+      },
+      "required": ["path", "span"],
+      "additionalProperties": false
+    }
+  }
+}

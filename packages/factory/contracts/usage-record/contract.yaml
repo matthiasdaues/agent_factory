@@ -1,0 +1,9 @@
+---
+owner: factory
+schema: v1.schema.json
+compatibility:
+  policy: major-version-bump
+  description: >-
+    Breaking changes to field names, types, nullability, or required status
+    require a new major version directory (v2/). Additive changes (new
+    optional fields) are compatible within the current version.
