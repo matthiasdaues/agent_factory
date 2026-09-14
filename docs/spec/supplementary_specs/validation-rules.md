@@ -221,7 +221,7 @@ These rules support the [local usage feature](../local-usage-processing-and-anal
 
 ### Query and export validation
 
-- Publish exactly six stable views: `raw_usage_snapshots`, `latest_run_snapshots`, `canonical_session_usage`, `usage_by_dimension`, `cache_efficiency`, and `capture_health`.
+- Publish exactly six stable views: `raw_usage_snapshots`, `latest_run_snapshots`, `session_usage`, `usage_by_dimension`, `cache_efficiency`, and `capture_health`.
 - Enforce the complete `query-model-v1` schema, key, nullability, and stable result ordering declared in [interface-contracts.md § Query-model-v1 schema contract](interface-contracts.md#query-model-v1-schema-contract) for non-empty and empty results.
 - Allow `capture_health` for any preflight outcome. Refuse every other stable view and all stable exports when any preflight failure exists.
 - Treat an empty input directory as valid and return each view's typed empty schema.

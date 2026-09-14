@@ -132,20 +132,20 @@ class TestDiagnosticFlag:
         assert data["has_failures"] is True
 
 
-class TestCanonicalSessionUsage:
-    """canonical_session_usage CLI smoke tests."""
+class TestSessionUsage:
+    """session_usage CLI smoke tests."""
 
     def test_exit_zero_valid_input(self, multi_cli_dir: Path) -> None:
         """Valid multi-cli fixtures produce exit 0 and JSON output."""
         # Use pi_sessions.jsonl — single CLI, clean ancestry.
         result = _run_cli(
-            "canonical_session_usage", "--usage-dir", str(multi_cli_dir / ".."),
+            "session_usage", "--usage-dir", str(multi_cli_dir / ".."),
         )
         # multi_cli_dir has mixed CLIs including unknown; use a tmp subset.
         # Instead, pass a dir containing only known CLIs.
         pass  # covered by targeted fixture test below
 
-    def test_canonical_output_structure(self, tmp_path: Path) -> None:
+    def test_session_usage_output_structure(self, tmp_path: Path) -> None:
         """Golden path: valid pi data produces correct JSON structure."""
         import shutil
 
@@ -154,11 +154,11 @@ class TestCanonicalSessionUsage:
         shutil.copy(src, tmp_path / "pi_sessions.jsonl")
 
         result = _run_cli(
-            "canonical_session_usage", "--usage-dir", str(tmp_path),
+            "session_usage", "--usage-dir", str(tmp_path),
         )
         assert result.returncode == 0, result.stderr
         data = json.loads(result.stdout)
-        assert data["view"] == "canonical_session_usage"
+        assert data["view"] == "session_usage"
         assert len(data["rows"]) == 1
         row = data["rows"][0]
         assert row["cli"] == "pi"
@@ -173,23 +173,23 @@ class TestCanonicalSessionUsage:
         shutil.copy(src, tmp_path / "unknown_cli.jsonl")
 
         result = _run_cli(
-            "canonical_session_usage", "--usage-dir", str(tmp_path),
+            "session_usage", "--usage-dir", str(tmp_path),
         )
         assert result.returncode == 1
         assert "mystery-tool" in result.stderr
 
     def test_stable_view_refusal_with_failures(self, ancestry_dir: Path) -> None:
-        """canonical_session_usage on data with failures exits 1 (stable-view refusal)."""
+        """session_usage on data with failures exits 1 (stable-view refusal)."""
         result = _run_cli(
-            "canonical_session_usage", "--usage-dir", str(ancestry_dir),
+            "session_usage", "--usage-dir", str(ancestry_dir),
         )
         assert result.returncode == 1
         assert "preflight" in result.stderr
 
     def test_available_in_view_list(self) -> None:
-        """canonical_session_usage is in AVAILABLE_VIEWS."""
+        """session_usage is in AVAILABLE_VIEWS."""
         from usage.cli import AVAILABLE_VIEWS
-        assert "canonical_session_usage" in AVAILABLE_VIEWS
+        assert "session_usage" in AVAILABLE_VIEWS
 
 
 class TestStableViewRefusal:

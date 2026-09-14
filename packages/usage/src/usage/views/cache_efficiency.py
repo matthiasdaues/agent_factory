@@ -32,13 +32,13 @@ def cache_efficiency(preflight_result: PreflightResult | None) -> dict:
         return {"error": "unknown_cli", "values": sorted(unknown)}
 
     accounting.build_session_roots(conn)
-    accounting.build_canonical_contributions(conn)
+    accounting.build_session_contributions(conn)
 
     cache_cols = ", ".join(f'"{c}"' for c in CACHE_COLUMNS)
     rows = conn.execute(
         f"SELECT root_session_id AS session_id, cli, provider, model, "
         f"{cache_cols} "
-        "FROM canonical_contributions "
+        "FROM session_contributions "
         "ORDER BY cli, root_session_id, record_id"
     ).fetchall()
 

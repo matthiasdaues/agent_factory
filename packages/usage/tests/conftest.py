@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
+
+
+def pytest_sessionstart(session):
+    """Enable subprocess coverage tracking when running under pytest-cov."""
+    if session.config.pluginmanager.hasplugin("_cov"):
+        config_file = str(Path(__file__).resolve().parent.parent / "pyproject.toml")
+        os.environ["COVERAGE_PROCESS_START"] = config_file
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 SNAPSHOT_DIR = FIXTURES_DIR / "snapshot"

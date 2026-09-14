@@ -10,7 +10,7 @@ From the project root, materialize the query pipeline into a persistent
 DuckDB file, then open the web explorer:
 
 ```bash
-factory/scripts/usage-query canonical_session_usage --persist usage.duckdb
+factory/scripts/usage-query session_usage --persist usage.duckdb
 factory/scripts/usage-explore usage.duckdb
 ```
 
@@ -27,7 +27,7 @@ formatted results. Pass a custom port as a second argument if 8642 is taken.
 If you prefer calling `uv` directly:
 
 ```bash
-uv run --directory packages/usage usage-query canonical_session_usage --persist usage.duckdb
+uv run --directory packages/usage usage-query session_usage --persist usage.duckdb
 uv run --directory packages/usage python -m usage.explorer usage.duckdb
 ```
 
@@ -36,14 +36,14 @@ uv run --directory packages/usage python -m usage.explorer usage.duckdb
 The query-model-v1 bootstrap SQL (`packages/usage/sql/bootstrap-v1.sql`)
 defines these six published views:
 
-| View                      | Description                                       |
-| ------------------------- | ------------------------------------------------- |
-| `raw_usage_snapshots`     | All valid records with evidence identity          |
-| `latest_run_snapshots`    | Latest snapshot per logical run                   |
-| `canonical_session_usage` | Per-session aggregated usage under conservation   |
-| `usage_by_dimension`      | Contributing runs for flexible dimension grouping |
-| `cache_efficiency`        | Contributing runs for cache-hit analysis          |
-| `capture_health`          | Record counts and validation summary              |
+| View                   | Description                                       |
+| ---------------------- | ------------------------------------------------- |
+| `raw_usage_snapshots`  | All valid records with evidence identity          |
+| `latest_run_snapshots` | Latest snapshot per logical run                   |
+| `session_usage`        | Per-session aggregated usage under conservation   |
+| `usage_by_dimension`   | Contributing runs for flexible dimension grouping |
+| `cache_efficiency`     | Contributing runs for cache-hit analysis          |
+| `capture_health`       | Record counts and validation summary              |
 
 ## Alternative: DuckDB CLI
 
@@ -56,7 +56,7 @@ duckdb -init packages/usage/sql/bootstrap-v1.sql
 ## Example Queries
 
 ```sql
-SELECT * FROM canonical_session_usage ORDER BY normalized_total DESC;
+SELECT * FROM session_usage ORDER BY normalized_total DESC;
 ```
 
 ```sql

@@ -14,7 +14,7 @@ from usage.accounting import (
     CONSERVATION_RULES,
     build_session_roots,
     check_unknown_clis,
-    compute_canonical,
+    compute_session_usage,
     select_latest_snapshots,
 )
 from usage.preflight import run_preflight
@@ -31,16 +31,16 @@ def _preflight_conn(paths: list[Path]):
     return result.conn
 
 
-def _canonical_rows(conn) -> list[dict]:
-    """Run the full accounting pipeline and return canonical rows."""
+def _session_rows(conn) -> list[dict]:
+    """Run the full accounting pipeline and return session usage rows."""
     select_latest_snapshots(conn)
     unknown = check_unknown_clis(conn)
     assert not unknown, f"Unexpected unknown CLIs: {unknown}"
     build_session_roots(conn)
-    compute_canonical(conn)
+    compute_session_usage(conn)
     rows = conn.execute(
         "SELECT session_id, cli, normalized_input, normalized_output, "
-        "normalized_total FROM canonical_session_usage ORDER BY cli, session_id"
+        "normalized_total FROM session_usage ORDER BY cli, session_id"
     ).fetchall()
     return [
         {
@@ -160,7 +160,7 @@ class TestClaudeCodeConservation:
         """Expected total = latest root (180) + child1 (65) + child2 (37) = 282."""
         paths = sorted(multi_cli_dir.glob("claude_code_capture*.jsonl"))
         conn = _preflight_conn(paths)
-        rows = _canonical_rows(conn)
+        rows = _session_rows(conn)
 
         cc_rows = [r for r in rows if r["cli"] == "claude-code"]
         assert len(cc_rows) == 1
@@ -206,7 +206,7 @@ class TestClaudeCodeConservation:
         )
 
         conn = _preflight_conn([f])
-        rows = _canonical_rows(conn)
+        rows = _session_rows(conn)
 
         cc_rows = [r for r in rows if r["cli"] == "claude-code"]
         assert len(cc_rows) == 1
@@ -226,7 +226,7 @@ class TestPiConservation:
         """Total = root (300) + child (75) + grandchild (15) = 390."""
         paths = [multi_cli_dir / "pi_sessions.jsonl"]
         conn = _preflight_conn(paths)
-        rows = _canonical_rows(conn)
+        rows = _session_rows(conn)
 
         pi_rows = [r for r in rows if r["cli"] == "pi"]
         assert len(pi_rows) == 1
@@ -246,7 +246,7 @@ class TestCodexConservation:
         """Total = root (700) only; child (150) excluded."""
         paths = [multi_cli_dir / "codex_sessions.jsonl"]
         conn = _preflight_conn(paths)
-        rows = _canonical_rows(conn)
+        rows = _session_rows(conn)
 
         codex_rows = [r for r in rows if r["cli"] == "codex"]
         assert len(codex_rows) == 1
@@ -266,7 +266,7 @@ class TestCopilotConservation:
         """Total = root (550) only; child (120) excluded."""
         paths = [multi_cli_dir / "copilot_sessions.jsonl"]
         conn = _preflight_conn(paths)
-        rows = _canonical_rows(conn)
+        rows = _session_rows(conn)
 
         copilot_rows = [r for r in rows if r["cli"] == "copilot"]
         assert len(copilot_rows) == 1

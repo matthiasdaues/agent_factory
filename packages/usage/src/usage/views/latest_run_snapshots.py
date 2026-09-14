@@ -1,4 +1,4 @@
-"""latest_run_snapshots view — one canonical snapshot per logical run."""
+"""latest_run_snapshots view — one snapshot per logical run."""
 
 from __future__ import annotations
 

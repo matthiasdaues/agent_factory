@@ -1,8 +1,8 @@
-"""Accounting Registry — conservation rules and canonical session usage.
+"""Accounting Registry — conservation rules and deduplicated session usage.
 
 Maps each known CLI to a conservation strategy and provides functions
 that create DuckDB views for latest-snapshot selection, session-root
-resolution, and per-CLI canonical usage aggregation.
+resolution, and per-CLI usage aggregation.
 """
 
 from __future__ import annotations
@@ -86,7 +86,7 @@ def build_session_roots(conn: duckdb.DuckDBPyConnection) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Canonical session usage view
+# Session contributions and usage views
 # ---------------------------------------------------------------------------
 
 _CONTRIBUTION_COLS = (
@@ -105,15 +105,15 @@ _CONTRIBUTION_COLS = (
 _L_COLS = ", ".join(f'l."{c}"' for c in _CONTRIBUTION_COLS)
 
 
-def build_canonical_contributions(conn: duckdb.DuckDBPyConnection) -> None:
-    """Create ``canonical_contributions`` view — one row per contributing run.
+def build_session_contributions(conn: duckdb.DuckDBPyConnection) -> None:
+    """Create ``session_contributions`` view — one row per contributing run.
 
-    Applies the same conservation filters as ``canonical_session_usage``
+    Applies the same conservation filters as ``session_usage``
     but without aggregation, preserving all dimension columns for
     downstream grouping (e.g. ``usage_by_dimension``).
     """
     conn.execute(f"""
-        CREATE OR REPLACE VIEW canonical_contributions AS
+        CREATE OR REPLACE VIEW session_contributions AS
 
         -- claude-code: root + direct children
         SELECT r.root_session_id, {_L_COLS}
@@ -142,18 +142,18 @@ def build_canonical_contributions(conn: duckdb.DuckDBPyConnection) -> None:
     """)
 
 
-def compute_canonical(conn: duckdb.DuckDBPyConnection) -> None:
-    """Create ``canonical_session_usage`` view applying per-CLI rules.
+def compute_session_usage(conn: duckdb.DuckDBPyConnection) -> None:
+    """Create ``session_usage`` view applying per-CLI rules.
 
-    Aggregates ``canonical_contributions`` by root session.
+    Aggregates ``session_contributions`` by root session.
     """
-    build_canonical_contributions(conn)
+    build_session_contributions(conn)
     conn.execute("""
-        CREATE OR REPLACE VIEW canonical_session_usage AS
+        CREATE OR REPLACE VIEW session_usage AS
         SELECT root_session_id AS session_id, cli,
                SUM(normalized_input) AS normalized_input,
                SUM(normalized_output) AS normalized_output,
                SUM(normalized_total) AS normalized_total
-        FROM canonical_contributions
+        FROM session_contributions
         GROUP BY root_session_id, cli
     """)

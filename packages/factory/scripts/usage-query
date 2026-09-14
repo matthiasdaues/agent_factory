@@ -30,7 +30,7 @@ def _resolve_paths(argv: list[str]) -> list[str]:
     out: list[str] = []
     i = 0
     while i < len(argv):
-        if argv[i] in ("--persist", "-o", "--output") and i + 1 < len(argv):
+        if argv[i] in ("--persist", "-o", "--output", "--usage-dir") and i + 1 < len(argv):
             out.append(argv[i])
             out.append(str(Path(argv[i + 1]).resolve()))
             i += 2

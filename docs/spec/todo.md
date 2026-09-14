@@ -53,7 +53,7 @@ The spec's `dispatch verify-story` uses `git cat-file -e` and `git branch --cont
 
 ## T-0006 — Harmonize the canonical ERD location across scenarios
 
-- status: open
+- status: resolved
 - source: discussion of [PROP-09](../proposals/cycle-based-orchestration.md#review--2026-09-14)
 
 The cycle-based CONCEPT contract names `docs/spec/entity-model.md` as a canonical
@@ -64,3 +64,11 @@ second stage. Other delivery scenarios must use the same canonical ERD location.
 **Action:** choose one project-wide ERD path, update every scenario, template,
 gate, and cross-reference to use it, and define how existing ERDs at legacy paths
 are discovered or migrated.
+
+**Resolution:** the stakeholder selected LinkML on 2026-09-14. The canonical
+source is `docs/spec/entity-model.yaml`. `docs/spec/entity-model.md` and
+`docs/assets/images/entity-model.svg` are derived projections. The
+[Cycle-Based Orchestration proposal](../proposals/cycle-based-orchestration.md#linkml-entity-model-contract)
+owns migration of live scenarios, templates, gates, and legacy paths. Structured
+JSON payloads are LinkML value-object classes validated by generated Pydantic
+models and persisted in JSON or JSONB columns.

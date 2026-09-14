@@ -11,7 +11,6 @@ from __future__ import annotations
 import json
 import os
 import sys
-import tempfile
 import threading
 import time
 import webbrowser
@@ -135,7 +134,7 @@ textarea#sql:focus{border-color:var(--accent)}
   <div class="editor-wrap">
     <div class="editor-area">
       <textarea id="sql" spellcheck="false" placeholder="SELECT ...">SELECT cli, count(*) AS sessions, sum(normalized_total) AS total_tokens
-FROM canonical_session_usage
+FROM session_usage
 GROUP BY cli
 ORDER BY total_tokens DESC</textarea>
     </div>
@@ -153,13 +152,13 @@ ORDER BY total_tokens DESC</textarea>
 <script>
 const PRESETS = [
   ["Summary by CLI",
-   "SELECT cli,\n       count(*) AS sessions,\n       sum(normalized_input) AS input_tokens,\n       sum(normalized_output) AS output_tokens,\n       sum(normalized_total) AS total_tokens\nFROM canonical_session_usage\nGROUP BY cli\nORDER BY total_tokens DESC"],
+   "SELECT cli,\n       count(*) AS sessions,\n       sum(normalized_input) AS input_tokens,\n       sum(normalized_output) AS output_tokens,\n       sum(normalized_total) AS total_tokens\nFROM session_usage\nGROUP BY cli\nORDER BY total_tokens DESC"],
   ["Top 20 sessions",
-   "SELECT session_id, cli, normalized_total\nFROM canonical_session_usage\nORDER BY normalized_total DESC\nLIMIT 20"],
+   "SELECT session_id, cli, normalized_total\nFROM session_usage\nORDER BY normalized_total DESC\nLIMIT 20"],
   ["I/O ratio",
-   "SELECT cli,\n       round(sum(normalized_input)*100.0 / nullif(sum(normalized_total),0), 1) AS input_pct,\n       round(sum(normalized_output)*100.0 / nullif(sum(normalized_total),0), 1) AS output_pct\nFROM canonical_session_usage\nGROUP BY cli"],
+   "SELECT cli,\n       round(sum(normalized_input)*100.0 / nullif(sum(normalized_total),0), 1) AS input_pct,\n       round(sum(normalized_output)*100.0 / nullif(sum(normalized_total),0), 1) AS output_pct\nFROM session_usage\nGROUP BY cli"],
   ["Session size buckets",
-   "SELECT cli,\n       count(*) FILTER (WHERE normalized_total = 0) AS zero,\n       count(*) FILTER (WHERE normalized_total BETWEEN 1 AND 10000) AS tiny,\n       count(*) FILTER (WHERE normalized_total BETWEEN 10001 AND 100000) AS small,\n       count(*) FILTER (WHERE normalized_total BETWEEN 100001 AND 1000000) AS medium,\n       count(*) FILTER (WHERE normalized_total > 1000000) AS large\nFROM canonical_session_usage\nGROUP BY cli"],
+   "SELECT cli,\n       count(*) FILTER (WHERE normalized_total = 0) AS zero,\n       count(*) FILTER (WHERE normalized_total BETWEEN 1 AND 10000) AS tiny,\n       count(*) FILTER (WHERE normalized_total BETWEEN 10001 AND 100000) AS small,\n       count(*) FILTER (WHERE normalized_total BETWEEN 100001 AND 1000000) AS medium,\n       count(*) FILTER (WHERE normalized_total > 1000000) AS large\nFROM session_usage\nGROUP BY cli"],
   ["Preflight records",
    "SELECT cli, count(*) AS records, count(DISTINCT session_id) AS sessions\nFROM preflight_valid\nGROUP BY cli"],
   ["Schema",
@@ -362,27 +361,26 @@ class _EvidenceWatcher:
                 self._rebuild()
 
     def _rebuild(self) -> None:
-        from usage import input_snapshot, preflight, accounting
+        from usage import input_snapshot, preflight, accounting, contract_check
+        from usage.persist import persist_to_duckdb
 
         paths, _digest = input_snapshot.snapshot(self.usage_dir)
         if not paths:
+            return
+
+        file_args = [str(p) for p in paths]
+        if contract_check.main(file_args) != 0:
+            print("[watch] contract check failed, skipping rebuild", file=sys.stderr)
             return
 
         result = preflight.run_preflight(paths)
         try:
             accounting.select_latest_snapshots(result.conn)
             accounting.build_session_roots(result.conn)
-            accounting.build_canonical_contributions(result.conn)
-            accounting.compute_canonical(result.conn)
+            accounting.build_session_contributions(result.conn)
+            accounting.compute_session_usage(result.conn)
 
-            tmp_fd, tmp_path = tempfile.mkstemp(
-                suffix=".duckdb", dir=str(self.db_path.parent),
-            )
-            os.close(tmp_fd)
-            Path(tmp_path).unlink()
-
-            self._persist(result.conn, tmp_path)
-            os.replace(tmp_path, str(self.db_path))
+            persist_to_duckdb(result.conn, self.db_path)
 
             with self._lock:
                 self.version += 1
@@ -393,30 +391,8 @@ class _EvidenceWatcher:
             )
         except Exception as exc:
             print(f"[watch] rebuild failed: {exc}", file=sys.stderr)
-            tmp = Path(tmp_path) if "tmp_path" in dir() else None
-            if tmp and tmp.exists():
-                tmp.unlink()
         finally:
             result.conn.close()
-
-    @staticmethod
-    def _persist(conn, path_str: str) -> None:
-        dest = Path(path_str)
-        conn.execute(f"ATTACH '{dest}' AS export_db")
-        objects = conn.execute(
-            "SELECT table_name FROM information_schema.tables "
-            "WHERE table_schema = 'main' "
-            "AND table_name NOT LIKE '\\_%' ESCAPE '\\'"
-        ).fetchall()
-        _exclude = {"latest_run_snapshots": "(_snapshot_rank)"}
-        for (name,) in objects:
-            exc = _exclude.get(name)
-            exc_clause = f" EXCLUDE {exc}" if exc else ""
-            conn.execute(
-                f'CREATE TABLE export_db."{name}" AS '
-                f'SELECT *{exc_clause} FROM main."{name}"'
-            )
-        conn.execute("DETACH export_db")
 
 
 def _make_handler(db_path, db_name, watcher=None):

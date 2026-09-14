@@ -184,6 +184,25 @@ def _detect_cycles(
             session_failures[(cli, sid)] = CYCLE
 
 
+def _follow_path(
+    start: str,
+    sessions: dict[str, str | None],
+    state: dict[str, int],
+) -> tuple[list[str], str | None]:
+    """Follow parent links from *start*, marking visited nodes in-progress.
+
+    Returns (path, stopped_at) where *stopped_at* is the node that
+    terminated the walk (already visited or outside *sessions*).
+    """
+    path: list[str] = []
+    current: str | None = start
+    while current is not None and current in sessions and state.get(current, 0) == 0:
+        state[current] = 1
+        path.append(current)
+        current = sessions[current]
+    return path, current
+
+
 def _find_cycle_members(
     sessions: dict[str, str | None],
 ) -> set[str]:
@@ -192,39 +211,60 @@ def _find_cycle_members(
     Each node has at most one outgoing edge (its parent).  Algorithm is
     iterative path-following with three-colour marking — O(V).
     """
-    # 0 = unvisited, 1 = in-progress, 2 = done
     state: dict[str, int] = {}
     in_cycle: set[str] = set()
 
     for start in sessions:
         if state.get(start, 0) != 0:
             continue
-        path: list[str] = []
-        current: str | None = start
-        while (
-            current is not None
-            and current in sessions
-            and state.get(current, 0) == 0
-        ):
-            state[current] = 1
-            path.append(current)
-            current = sessions[current]
+        path, stopped = _follow_path(start, sessions, state)
 
-        # If we stopped at an in-progress node, everything from that node
-        # to the end of *path* forms a cycle.
-        if (
-            current is not None
-            and current in sessions
-            and state.get(current) == 1
-        ):
-            idx = path.index(current)
-            for sid in path[idx:]:
-                in_cycle.add(sid)
+        if stopped is not None and stopped in sessions and state.get(stopped) == 1:
+            idx = path.index(stopped)
+            in_cycle.update(path[idx:])
 
         for sid in path:
             state[sid] = 2
 
     return in_cycle
+
+
+def _build_children_map(
+    session_parent: dict[SessionKey, str | None],
+    all_keys: set[SessionKey],
+) -> dict[SessionKey, list[SessionKey]]:
+    """Build a map from each session to its direct children."""
+    children: dict[SessionKey, list[SessionKey]] = defaultdict(list)
+    for (cli, sid), parent in session_parent.items():
+        if parent is not None:
+            parent_key: SessionKey = (cli, parent)
+            if parent_key in all_keys:
+                children[parent_key].append((cli, sid))
+                children[(cli, sid)]  # ensure child exists as key
+    return children
+
+
+def _bfs_component(
+    start: SessionKey,
+    all_keys: set[SessionKey],
+    children: dict[SessionKey, list[SessionKey]],
+    session_parent: dict[SessionKey, str | None],
+    visited: set[SessionKey],
+) -> set[SessionKey]:
+    """Collect one connected component via stack-based BFS from *start*."""
+    component: set[SessionKey] = set()
+    stack = [start]
+    while stack:
+        node = stack.pop()
+        if node in visited or node not in all_keys:
+            continue
+        visited.add(node)
+        component.add(node)
+        stack.extend(children.get(node, []))
+        parent = session_parent.get(node)
+        if parent is not None:
+            stack.append((node[0], parent))
+    return component
 
 
 def _find_connected_components(
@@ -235,16 +275,8 @@ def _find_connected_components(
     Two sessions belong to the same component when one names the other
     as parent (directly or transitively) under the same CLI.
     """
-    children: dict[SessionKey, list[SessionKey]] = defaultdict(list)
     all_keys: set[SessionKey] = set(session_parent.keys())
-
-    for (cli, sid), parent in session_parent.items():
-        if parent is not None:
-            parent_key: SessionKey = (cli, parent)
-            if parent_key in all_keys:
-                children[parent_key].append((cli, sid))
-                children[(cli, sid)]  # ensure child exists as key
-            # parent not in all_keys → PARENT_MISSING already flagged
+    children = _build_children_map(session_parent, all_keys)
 
     visited: set[SessionKey] = set()
     components: list[set[SessionKey]] = []
@@ -252,21 +284,9 @@ def _find_connected_components(
     for key in all_keys:
         if key in visited:
             continue
-        component: set[SessionKey] = set()
-        stack = [key]
-        while stack:
-            node = stack.pop()
-            if node in visited or node not in all_keys:
-                continue
-            visited.add(node)
-            component.add(node)
-            for child in children.get(node, []):
-                stack.append(child)
-            cli, sid = node
-            parent = session_parent.get(node)
-            if parent is not None:
-                stack.append((cli, parent))
-        components.append(component)
+        components.append(
+            _bfs_component(key, all_keys, children, session_parent, visited)
+        )
 
     return components
 
@@ -299,32 +319,38 @@ def _check_root_count(
 # Public entry point
 # ---------------------------------------------------------------------------
 
-def run_preflight(paths: list[Path]) -> PreflightResult:
-    """Classify every JSONL line and validate run ancestry.
+def _check_self_parent(
+    session_parent: dict[SessionKey, str | None],
+) -> dict[SessionKey, str]:
+    """Flag sessions whose parent_session_id equals their own session_id."""
+    failures: dict[SessionKey, str] = {}
+    for (cli, sid), parent in session_parent.items():
+        if parent is not None and parent == sid:
+            failures[(cli, sid)] = SELF_PARENT
+    return failures
 
-    Returns a :class:`PreflightResult` whose *conn* holds two queryable
-    DuckDB relations: ``preflight_valid`` and ``preflight_failure``.
-    """
-    records = _parse_lines(paths)
 
-    if not records:
-        conn = duckdb.connect()
-        conn.execute(
-            "CREATE TABLE preflight_valid "
-            "(_source_file VARCHAR, _line_number INTEGER)"
-        )
-        conn.execute(
-            "CREATE TABLE preflight_failure "
-            "(_source_file VARCHAR, _line_number INTEGER, _failure_code VARCHAR)"
-        )
-        return PreflightResult(
-            conn=conn, has_failures=False, valid_count=0, failure_count=0,
-        )
+def _check_boundary_missing(
+    session_parent: dict[SessionKey, str | None],
+    session_clis: dict[str, set[str]],
+    session_failures: dict[SessionKey, str],
+) -> None:
+    """Flag boundary or missing parent (mutually exclusive, lower priority)."""
+    for (cli, sid), parent in session_parent.items():
+        if (cli, sid) in session_failures or parent is None:
+            continue
+        if parent not in session_clis:
+            session_failures[(cli, sid)] = PARENT_MISSING
+        elif cli not in session_clis[parent]:
+            session_failures[(cli, sid)] = PARENT_BOUNDARY
 
-    # Phase 1 — parent-conflict (record-level, runs first).
+
+def _classify_lines(
+    records: list[dict[str, Any]],
+) -> dict[LineKey, str]:
+    """Run all validation phases and return a line-key-to-failure-code map."""
     conflict_lines = _find_parent_conflicts(records)
 
-    # Phase 2 — session-level data from non-conflict records.
     non_conflict = [
         r for r in records
         if (r["_source_file"], r["_line_number"]) not in conflict_lines
@@ -332,32 +358,11 @@ def run_preflight(paths: list[Path]) -> PreflightResult:
     session_parent = _build_session_map(non_conflict)
     session_clis = _build_session_cli_lookup(session_parent)
 
-    session_failures: dict[SessionKey, str] = {}
-
-    # Phase 3a — self-parent.
-    for (cli, sid), parent in session_parent.items():
-        if parent is not None and parent == sid:
-            session_failures[(cli, sid)] = SELF_PARENT
-
-    # Phase 3b — boundary / missing (mutually exclusive per session).
-    for (cli, sid), parent in session_parent.items():
-        if (cli, sid) in session_failures:
-            continue
-        if parent is None:
-            continue
-        if parent in session_clis:
-            if cli not in session_clis[parent]:
-                session_failures[(cli, sid)] = PARENT_BOUNDARY
-        else:
-            session_failures[(cli, sid)] = PARENT_MISSING
-
-    # Phase 4 — cycle detection (sessions not yet flagged).
+    session_failures = _check_self_parent(session_parent)
+    _check_boundary_missing(session_parent, session_clis, session_failures)
     _detect_cycles(session_parent, session_failures)
-
-    # Phase 5 — root count per CLI.
     _check_root_count(session_parent, session_failures)
 
-    # Propagate to individual lines.
     failure_map: dict[LineKey, str] = {}
     for lk in conflict_lines:
         failure_map[lk] = PARENT_CONFLICT
@@ -367,7 +372,14 @@ def run_preflight(paths: list[Path]) -> PreflightResult:
         if sk in session_failures:
             failure_map[lk] = session_failures[sk]
 
-    # Annotate every record and split.
+    return failure_map
+
+
+def _build_duckdb(
+    records: list[dict[str, Any]],
+    failure_map: dict[LineKey, str],
+) -> tuple[duckdb.DuckDBPyConnection, int, int]:
+    """Load annotated records into DuckDB, returning (conn, valid, failures)."""
     all_annotated: list[dict[str, Any]] = []
     for rec in records:
         out = dict(rec)
@@ -378,7 +390,6 @@ def run_preflight(paths: list[Path]) -> PreflightResult:
     valid_count = sum(1 for r in all_annotated if r["_failure_code"] is None)
     failure_count = len(all_annotated) - valid_count
 
-    # Build DuckDB relations via temp JSONL (stdlib + duckdb only).
     conn = duckdb.connect()
     fd, tmp_path = tempfile.mkstemp(suffix=".jsonl", prefix="preflight_")
     try:
@@ -404,6 +415,39 @@ def run_preflight(paths: list[Path]) -> PreflightResult:
         "SELECT * FROM _staging "
         "WHERE _failure_code IS NOT NULL"
     )
+
+    return conn, valid_count, failure_count
+
+
+def _empty_preflight() -> PreflightResult:
+    """Return a PreflightResult for an empty input set."""
+    conn = duckdb.connect()
+    conn.execute(
+        "CREATE TABLE preflight_valid "
+        "(_source_file VARCHAR, _line_number INTEGER)"
+    )
+    conn.execute(
+        "CREATE TABLE preflight_failure "
+        "(_source_file VARCHAR, _line_number INTEGER, _failure_code VARCHAR)"
+    )
+    return PreflightResult(
+        conn=conn, has_failures=False, valid_count=0, failure_count=0,
+    )
+
+
+def run_preflight(paths: list[Path]) -> PreflightResult:
+    """Classify every JSONL line and validate run ancestry.
+
+    Returns a :class:`PreflightResult` whose *conn* holds two queryable
+    DuckDB relations: ``preflight_valid`` and ``preflight_failure``.
+    """
+    records = _parse_lines(paths)
+
+    if not records:
+        return _empty_preflight()
+
+    failure_map = _classify_lines(records)
+    conn, valid_count, failure_count = _build_duckdb(records, failure_map)
 
     return PreflightResult(
         conn=conn,

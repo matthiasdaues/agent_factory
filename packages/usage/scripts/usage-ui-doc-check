@@ -18,7 +18,7 @@ from pathlib import Path
 EXPECTED_VIEWS = frozenset({
     "raw_usage_snapshots",
     "latest_run_snapshots",
-    "canonical_session_usage",
+    "session_usage",
     "usage_by_dimension",
     "cache_efficiency",
     "capture_health",

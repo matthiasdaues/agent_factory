@@ -368,20 +368,20 @@ The YAML manifest declares owner, current version, compatibility policy, and acc
 
 ### `usage-query`
 
-| Property                      | Contract                                                                                                                             |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Invocation                    | `uv run --project .agent-factory/usage-analysis usage-query <published-view> [options]`                                              |
-| Default input                 | Top-level `*.jsonl` files beneath `.agent-factory/usage/`, sorted at query start                                                     |
-| Input override                | `--usage-dir <path>`                                                                                                                 |
-| Published views               | `raw_usage_snapshots`, `latest_run_snapshots`, `canonical_session_usage`, `usage_by_dimension`, `cache_efficiency`, `capture_health` |
-| Required presentation outputs | Table and JSON                                                                                                                       |
-| Required programmatic outputs | DuckDB relation and PyArrow table                                                                                                    |
-| Parquet export                | `--format parquet --output <path>`                                                                                                   |
-| Dimension selection           | `--dimensions <comma-list>` and `--time-granularity none\|hour\|day\|week\|month`                                                    |
-| Direct runtime dependencies   | Compatible DuckDB and PyArrow versions, both declared in `pyproject.toml` and pinned by the installed `uv.lock`                      |
-| Reads                         | Selected top-level JSONL files, installed contract, bundled SQL and accounting registry                                              |
-| Writes                        | Only the explicit output path through a temporary sibling; optional private UI state is outside stable output                        |
-| Network                       | None after dependencies are cached; deterministic gates never require the UI                                                         |
+| Property                      | Contract                                                                                                                   |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Invocation                    | `uv run --project .agent-factory/usage-analysis usage-query <published-view> [options]`                                    |
+| Default input                 | Top-level `*.jsonl` files beneath `.agent-factory/usage/`, sorted at query start                                           |
+| Input override                | `--usage-dir <path>`                                                                                                       |
+| Published views               | `raw_usage_snapshots`, `latest_run_snapshots`, `session_usage`, `usage_by_dimension`, `cache_efficiency`, `capture_health` |
+| Required presentation outputs | Table and JSON                                                                                                             |
+| Required programmatic outputs | DuckDB relation and PyArrow table                                                                                          |
+| Parquet export                | `--format parquet --output <path>`                                                                                         |
+| Dimension selection           | `--dimensions <comma-list>` and `--time-granularity none\|hour\|day\|week\|month`                                          |
+| Direct runtime dependencies   | Compatible DuckDB and PyArrow versions, both declared in `pyproject.toml` and pinned by the installed `uv.lock`            |
+| Reads                         | Selected top-level JSONL files, installed contract, bundled SQL and accounting registry                                    |
+| Writes                        | Only the explicit output path through a temporary sibling; optional private UI state is outside stable output              |
+| Network                       | None after dependencies are cached; deterministic gates never require the UI                                               |
 
 #### Query-model-v1 schema contract
 
@@ -442,7 +442,7 @@ Key: `(normalized_source_path, source_line)`. Order: that key ascending.
 
 Key and order: `(cli, session_id, run_id)` ascending.
 
-##### `canonical_session_usage`
+##### `session_usage`
 
 | Column                | DuckDB type                | Constraint                         |
 | --------------------- | -------------------------- | ---------------------------------- |

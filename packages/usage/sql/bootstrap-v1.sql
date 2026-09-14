@@ -47,7 +47,7 @@ WITH RECURSIVE roots AS (
 )
 SELECT DISTINCT * FROM roots;
 
-CREATE VIEW canonical_contributions AS
+CREATE VIEW session_contributions AS
 SELECT r.root_session_id, l.*
 FROM latest_run_snapshots l
 JOIN session_roots r ON l.cli = r.cli AND l.session_id = r.session_id
@@ -65,19 +65,19 @@ SELECT * FROM preflight_valid;
 
 -- latest_run_snapshots: already created above as an internal view.
 
-CREATE VIEW canonical_session_usage AS
+CREATE VIEW session_usage AS
 SELECT root_session_id AS session_id, cli,
        SUM(normalized_input) AS normalized_input,
        SUM(normalized_output) AS normalized_output,
        SUM(normalized_total) AS normalized_total
-FROM canonical_contributions
+FROM session_contributions
 GROUP BY root_session_id, cli;
 
 CREATE VIEW usage_by_dimension AS
-SELECT * FROM canonical_contributions;
+SELECT * FROM session_contributions;
 
 CREATE VIEW cache_efficiency AS
-SELECT * FROM canonical_contributions;
+SELECT * FROM session_contributions;
 
 CREATE VIEW capture_health AS
 SELECT

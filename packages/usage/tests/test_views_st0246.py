@@ -207,7 +207,7 @@ class TestDimensionAdditivity:
         assert len(result["rows"]) == 1
         assert result["rows"][0]["normalized_total"] == 200
 
-    def test_cli_dimension_totals_match_canonical(self, tmp_path: Path) -> None:
+    def test_cli_dimension_totals_match_session_usage(self, tmp_path: Path) -> None:
         import shutil
         src_dir = Path(__file__).resolve().parent.parent / "fixtures" / "multi-cli"
         for name in ("claude_code_capture1.jsonl", "claude_code_capture2.jsonl",
@@ -218,8 +218,8 @@ class TestDimensionAdditivity:
         paths = sorted(tmp_path.glob("*.jsonl"))
         pf = run_preflight(paths)
 
-        from usage.views.canonical_session_usage import canonical_session_usage
-        canon = canonical_session_usage(pf)
+        from usage.views.session_usage import session_usage
+        canon = session_usage(pf)
         canonical_total = sum(r["normalized_total"] for r in canon["rows"])
 
         pf2 = run_preflight(paths)
@@ -306,7 +306,7 @@ class TestStableQuerySurface:
         from usage.cli import AVAILABLE_VIEWS
         expected = {
             "raw_usage_snapshots", "latest_run_snapshots",
-            "canonical_session_usage", "usage_by_dimension",
+            "session_usage", "usage_by_dimension",
             "cache_efficiency", "capture_health",
         }
         assert set(AVAILABLE_VIEWS) == expected

@@ -32,6 +32,8 @@ EXIT_OK = 0
 EXIT_VALIDATION = 1
 EXIT_OPERATIONAL = 2
 
+Diag = tuple[str, int, str, str, str]
+
 # Assertion keywords this validator implements.
 _IMPLEMENTED_KEYWORDS: frozenset[str] = frozenset({
     "type",
@@ -68,7 +70,6 @@ def _load_contract() -> tuple[dict[str, Any] | None, str | None]:
     if not contract_path.exists():
         return None, f"contract.yaml not found at {contract_path}"
 
-    # Read schema version from contract.yaml (stdlib, no PyYAML).
     schema_file: str | None = None
     with open(contract_path, encoding="utf-8") as fh:
         for line in fh:
@@ -101,11 +102,7 @@ def _check_unsupported_keywords(
     schema: dict[str, Any],
     path: str = "<root>",
 ) -> list[str]:
-    """Recursively check for unsupported assertion keywords.
-
-    Returns a list of diagnostic messages (empty if all keywords are
-    implemented).
-    """
+    """Recursively check for unsupported assertion keywords."""
     diags: list[str] = []
     allowed = _IMPLEMENTED_KEYWORDS | _META_KEYWORDS
 
@@ -115,7 +112,6 @@ def _check_unsupported_keywords(
                 f"schema uses unsupported keyword '{key}' at {path}"
             )
 
-    # Recurse into nested property schemas.
     props = schema.get("properties")
     if isinstance(props, dict):
         for prop_name, prop_schema in props.items():
@@ -144,130 +140,180 @@ _JSON_TYPE_MAP: dict[str, type | None] = {
 }
 
 
+def _check_single_type(value: Any, type_name: str) -> bool:
+    """Check whether *value* matches one JSON Schema type name."""
+    expected = _JSON_TYPE_MAP.get(type_name)
+    if expected is None:
+        return False
+    if isinstance(value, bool) and type_name in ("integer", "number"):
+        return False
+    if expected is type(None):
+        return value is None
+    return isinstance(value, expected)
+
+
 def _matches_type(value: Any, type_spec: str | list[str]) -> bool:
     """Check whether *value* matches a JSON Schema type specifier."""
-    if isinstance(type_spec, str):
-        types = [type_spec]
-    else:
-        types = list(type_spec)
-
-    for t in types:
-        expected = _JSON_TYPE_MAP.get(t)
-        if expected is None:
-            continue
-        if isinstance(expected, tuple):
-            if isinstance(value, expected):
-                # JSON booleans are a subtype of int in Python — reject.
-                if t in ("integer", "number") and isinstance(value, bool):
-                    continue
-                return True
-        else:
-            if expected is type(None):
-                if value is None:
-                    return True
-            elif isinstance(value, expected):
-                # Reject bool masquerading as int.
-                if t == "integer" and isinstance(value, bool):
-                    continue
-                return True
-    return False
+    types = [type_spec] if isinstance(type_spec, str) else type_spec
+    return any(_check_single_type(value, t) for t in types)
 
 
 # ---------------------------------------------------------------------------
-# Record validation
+# Record validation — split into focused checkers
 # ---------------------------------------------------------------------------
 
-def _validate_record(
+def _check_required(
     record: dict[str, Any],
     schema: dict[str, Any],
     filepath: str,
     line_no: int,
-) -> list[tuple[str, int, str, str, str]]:
-    """Validate one parsed JSON record against the schema.
-
-    Returns a list of (filepath, line_no, field, code, message) tuples.
-    """
-    diags: list[tuple[str, int, str, str, str]] = []
-
-    # --- required ---
-    required_fields: list[str] = schema.get("required", [])
-    for field in required_fields:
+) -> list[Diag]:
+    """Check that all required fields are present."""
+    diags: list[Diag] = []
+    for field in schema.get("required", []):
         if field not in record:
             diags.append((
                 filepath, line_no, field,
                 "SCHEMA_REQUIRED",
                 f"required field '{field}' is missing",
             ))
+    return diags
 
-    # --- additionalProperties ---
-    if schema.get("additionalProperties") is False:
-        allowed_keys = set(schema.get("properties", {}).keys())
-        for key in record:
-            if key not in allowed_keys:
-                diags.append((
-                    filepath, line_no, key,
-                    "SCHEMA_ADDITIONAL",
-                    f"additional property '{key}' is not allowed",
-                ))
 
-    # --- properties: type + minimum ---
-    prop_schemas: dict[str, dict[str, Any]] = schema.get("properties", {})
-    for field, prop_schema in prop_schemas.items():
+def _check_additional(
+    record: dict[str, Any],
+    schema: dict[str, Any],
+    filepath: str,
+    line_no: int,
+) -> list[Diag]:
+    """Check for disallowed additional properties."""
+    if schema.get("additionalProperties") is not False:
+        return []
+    allowed_keys = set(schema.get("properties", {}).keys())
+    diags: list[Diag] = []
+    for key in record:
+        if key not in allowed_keys:
+            diags.append((
+                filepath, line_no, key,
+                "SCHEMA_ADDITIONAL",
+                f"additional property '{key}' is not allowed",
+            ))
+    return diags
+
+
+def _check_type(
+    field: str,
+    value: Any,
+    prop_schema: dict[str, Any],
+    filepath: str,
+    line_no: int,
+) -> Diag | None:
+    """Return a diagnostic if *value* doesn't match the declared type."""
+    type_spec = prop_schema.get("type")
+    if type_spec is None or _matches_type(value, type_spec):
+        return None
+    expected = type_spec if isinstance(type_spec, str) else " | ".join(type_spec)
+    return (
+        filepath, line_no, field,
+        "SCHEMA_TYPE",
+        f"expected type {expected}, got {type(value).__name__}",
+    )
+
+
+def _check_minimum(
+    field: str,
+    value: Any,
+    prop_schema: dict[str, Any],
+    filepath: str,
+    line_no: int,
+) -> Diag | None:
+    """Return a diagnostic if *value* violates a minimum constraint."""
+    minimum = prop_schema.get("minimum")
+    if minimum is None or not _is_non_bool_int(value) or value >= minimum:
+        return None
+    return (
+        filepath, line_no, field,
+        "SCHEMA_MINIMUM",
+        f"value {value} is below minimum {minimum}",
+    )
+
+
+def _check_nested(
+    field: str,
+    value: Any,
+    prop_schema: dict[str, Any],
+    filepath: str,
+    line_no: int,
+) -> list[Diag]:
+    """Recursively validate nested object properties."""
+    if not isinstance(value, dict) or "properties" not in prop_schema:
+        return []
+    return [
+        (fp, ln, f"{field}.{fld}", code, msg)
+        for fp, ln, fld, code, msg
+        in _validate_record(value, prop_schema, filepath, line_no)
+    ]
+
+
+def _check_properties(
+    record: dict[str, Any],
+    schema: dict[str, Any],
+    filepath: str,
+    line_no: int,
+) -> list[Diag]:
+    """Check type, minimum, and nested objects for all properties."""
+    diags: list[Diag] = []
+    for field, prop_schema in schema.get("properties", {}).items():
         if field not in record:
-            continue  # Missing fields handled by 'required' above.
-
+            continue
         value = record[field]
+        type_diag = _check_type(field, value, prop_schema, filepath, line_no)
+        if type_diag:
+            diags.append(type_diag)
+        min_diag = _check_minimum(field, value, prop_schema, filepath, line_no)
+        if min_diag:
+            diags.append(min_diag)
+        diags.extend(_check_nested(field, value, prop_schema, filepath, line_no))
+    return diags
 
-        # type
-        type_spec = prop_schema.get("type")
-        if type_spec is not None:
-            if not _matches_type(value, type_spec):
-                expected = type_spec if isinstance(type_spec, str) else " | ".join(type_spec)
-                diags.append((
-                    filepath, line_no, field,
-                    "SCHEMA_TYPE",
-                    f"expected type {expected}, got {type(value).__name__}",
-                ))
 
-        # minimum (applies only when value is an integer, not null)
-        minimum = prop_schema.get("minimum")
-        if minimum is not None and isinstance(value, int) and not isinstance(value, bool):
-            if value < minimum:
-                diags.append((
-                    filepath, line_no, field,
-                    "SCHEMA_MINIMUM",
-                    f"value {value} is below minimum {minimum}",
-                ))
+def _is_non_bool_int(value: Any) -> bool:
+    """Return True if *value* is an int but not a bool."""
+    return isinstance(value, int) and not isinstance(value, bool)
 
-        # Nested object validation (for transcript_ref).
-        if (
-            isinstance(value, dict)
-            and isinstance(prop_schema, dict)
-            and "properties" in prop_schema
-        ):
-            nested_diags = _validate_record(
-                value, prop_schema, filepath, line_no,
-            )
-            # Prefix nested field names.
-            for fp, ln, fld, code, msg in nested_diags:
-                diags.append((fp, ln, f"{field}.{fld}", code, msg))
 
-    # --- cross-field invariant: normalized_total ---
+def _check_normalized_invariant(
+    record: dict[str, Any],
+    filepath: str,
+    line_no: int,
+) -> list[Diag]:
+    """Check that normalized_total == normalized_input + normalized_output."""
     ni = record.get("normalized_input")
     no = record.get("normalized_output")
     nt = record.get("normalized_total")
-    if (
-        isinstance(ni, int) and not isinstance(ni, bool)
-        and isinstance(no, int) and not isinstance(no, bool)
-        and isinstance(nt, int) and not isinstance(nt, bool)
-    ):
-        if nt != ni + no:
-            diags.append((
-                filepath, line_no, "normalized_total",
-                "INVARIANT_NORMALIZED_TOTAL",
-                f"normalized_total ({nt}) != normalized_input ({ni}) + normalized_output ({no})",
-            ))
+    if not (_is_non_bool_int(ni) and _is_non_bool_int(no) and _is_non_bool_int(nt)):
+        return []
+    if nt != ni + no:
+        return [(
+            filepath, line_no, "normalized_total",
+            "INVARIANT_NORMALIZED_TOTAL",
+            f"normalized_total ({nt}) != normalized_input ({ni}) + normalized_output ({no})",
+        )]
+    return []
 
+
+def _validate_record(
+    record: dict[str, Any],
+    schema: dict[str, Any],
+    filepath: str,
+    line_no: int,
+) -> list[Diag]:
+    """Validate one parsed JSON record against the schema."""
+    diags: list[Diag] = []
+    diags.extend(_check_required(record, schema, filepath, line_no))
+    diags.extend(_check_additional(record, schema, filepath, line_no))
+    diags.extend(_check_properties(record, schema, filepath, line_no))
+    diags.extend(_check_normalized_invariant(record, filepath, line_no))
     return diags
 
 
@@ -278,19 +324,16 @@ def _validate_record(
 def _validate_file(
     filepath: str,
     schema: dict[str, Any],
-) -> list[tuple[str, int, str, str, str]]:
-    """Validate every line of a JSONL file.
-
-    Returns a list of (filepath, line_no, field, code, message) tuples.
-    """
-    diags: list[tuple[str, int, str, str, str]] = []
+) -> list[Diag]:
+    """Validate every line of a JSONL file."""
+    diags: list[Diag] = []
 
     try:
         with open(filepath, encoding="utf-8") as fh:
             for line_no, line in enumerate(fh, start=1):
                 stripped = line.strip()
                 if not stripped:
-                    continue  # skip blank lines
+                    continue
 
                 try:
                     record = json.loads(stripped)
@@ -353,15 +396,77 @@ def _format_diagnostic(
 
 
 def _sort_diagnostics(
-    diags: list[tuple[str, int, str, str, str]],
-) -> list[tuple[str, int, str, str, str]]:
+    diags: list[Diag],
+) -> list[Diag]:
     """Sort by filepath, line_no, field, code."""
     return sorted(diags, key=lambda d: (d[0], d[1], d[2], d[3]))
 
 
 # ---------------------------------------------------------------------------
+# Input file collection
+# ---------------------------------------------------------------------------
+
+def _collect_input_files(args: list[str]) -> tuple[list[str], str | None]:
+    """Resolve CLI arguments to a list of JSONL files.
+
+    Returns (files, error_message).  On success error_message is None.
+    """
+    files: list[str] = []
+    for arg in args:
+        if os.path.isdir(arg):
+            found = _collect_jsonl_files(arg)
+            if not found:
+                return [], f"no *.jsonl files found under {arg}"
+            files.extend(found)
+        elif os.path.isfile(arg):
+            files.append(arg)
+        else:
+            return [], f"path not found: {arg}"
+
+    if not files:
+        return [], "no input files"
+    return files, None
+
+
+# ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
+
+def _load_and_check_schema() -> tuple[dict[str, Any] | None, int]:
+    """Load the schema and check for unsupported keywords.
+
+    Returns (schema, exit_code).  exit_code is EXIT_OK on success.
+    """
+    schema, err = _load_contract()
+    if err:
+        print(f"$:0:$: SCHEMA_PARSE: {err}", file=sys.stderr)
+        return None, EXIT_OPERATIONAL
+
+    assert schema is not None
+
+    unsupported = _check_unsupported_keywords(schema)
+    if unsupported:
+        for msg in unsupported:
+            print(f"$:0:$: UNSUPPORTED_SCHEMA_KEYWORD: {msg}", file=sys.stderr)
+        return None, EXIT_OPERATIONAL
+
+    return schema, EXIT_OK
+
+
+def _run_validation(files: list[str], schema: dict[str, Any]) -> int:
+    """Validate *files* and print diagnostics. Returns exit code."""
+    all_diags: list[Diag] = []
+    for filepath in files:
+        all_diags.extend(_validate_file(filepath, schema))
+
+    if not all_diags:
+        return EXIT_OK
+
+    for diag in _sort_diagnostics(all_diags):
+        print(_format_diagnostic(*diag), file=sys.stderr)
+
+    return EXIT_VALIDATION
+
 
 def main(argv: list[str] | None = None) -> int:
     """Run the contract check gate.
@@ -374,59 +479,16 @@ def main(argv: list[str] | None = None) -> int:
         print("usage: usage-contract-check <path> [<path> ...]", file=sys.stderr)
         return EXIT_OPERATIONAL
 
-    # Load the installed contract.
-    schema, err = _load_contract()
-    if err:
-        print(f"$:0:$: SCHEMA_PARSE: {err}", file=sys.stderr)
+    schema, rc = _load_and_check_schema()
+    if schema is None:
+        return rc
+
+    files, collect_err = _collect_input_files(args)
+    if collect_err:
+        print(collect_err, file=sys.stderr)
         return EXIT_OPERATIONAL
 
-    assert schema is not None
-
-    # Check for unsupported keywords.
-    unsupported = _check_unsupported_keywords(schema)
-    if unsupported:
-        for msg in unsupported:
-            print(
-                f"$:0:$: UNSUPPORTED_SCHEMA_KEYWORD: {msg}",
-                file=sys.stderr,
-            )
-        return EXIT_OPERATIONAL
-
-    # Collect input files.
-    files: list[str] = []
-    for arg in args:
-        if os.path.isdir(arg):
-            found = _collect_jsonl_files(arg)
-            if not found:
-                print(
-                    f"no *.jsonl files found under {arg}",
-                    file=sys.stderr,
-                )
-                return EXIT_OPERATIONAL
-            files.extend(found)
-        elif os.path.isfile(arg):
-            files.append(arg)
-        else:
-            print(f"path not found: {arg}", file=sys.stderr)
-            return EXIT_OPERATIONAL
-
-    if not files:
-        print("no input files", file=sys.stderr)
-        return EXIT_OPERATIONAL
-
-    # Validate.
-    all_diags: list[tuple[str, int, str, str, str]] = []
-    for filepath in files:
-        all_diags.extend(_validate_file(filepath, schema))
-
-    if not all_diags:
-        return EXIT_OK
-
-    # Print sorted diagnostics to stderr.
-    for diag in _sort_diagnostics(all_diags):
-        print(_format_diagnostic(*diag), file=sys.stderr)
-
-    return EXIT_VALIDATION
+    return _run_validation(files, schema)
 
 
 if __name__ == "__main__":

@@ -72,7 +72,7 @@ def export_parquet(
         if roundtrip.schema.remove_metadata() != source_table.schema.remove_metadata():
             raise RuntimeError("schema mismatch after round-trip")
 
-        os.rename(str(tmp_path), str(dest))
+        os.replace(str(tmp_path), str(dest))
 
     except BaseException:
         if tmp_path.exists():

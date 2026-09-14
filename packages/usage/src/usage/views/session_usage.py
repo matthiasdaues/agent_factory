@@ -1,4 +1,4 @@
-"""canonical_session_usage view — per-CLI canonical session usage.
+"""session_usage view — per-CLI deduplicated session usage.
 
 Applies conservation rules to deduplicated run snapshots, producing
 one row per root session with aggregated normalised token counts.
@@ -14,8 +14,8 @@ if TYPE_CHECKING:
     from usage.preflight import PreflightResult
 
 
-def canonical_session_usage(preflight_result: PreflightResult) -> dict:
-    """Build the canonical_session_usage view output.
+def session_usage(preflight_result: PreflightResult | None) -> dict:
+    """Build the session_usage view output.
 
     Parameters
     ----------
@@ -25,10 +25,13 @@ def canonical_session_usage(preflight_result: PreflightResult) -> dict:
     Returns
     -------
     dict
-        ``{"view": "canonical_session_usage", "rows": [...]}`` on success,
+        ``{"view": "session_usage", "rows": [...]}`` on success,
         or ``{"error": "unknown_cli", "values": [...]}`` when unknown
         CLIs are present in the input.
     """
+    if preflight_result is None:
+        return {"view": "session_usage", "rows": []}
+
     conn = preflight_result.conn
 
     accounting.select_latest_snapshots(conn)
@@ -38,16 +41,16 @@ def canonical_session_usage(preflight_result: PreflightResult) -> dict:
         return {"error": "unknown_cli", "values": sorted(unknown)}
 
     accounting.build_session_roots(conn)
-    accounting.compute_canonical(conn)
+    accounting.compute_session_usage(conn)
 
     rows = conn.execute(
         "SELECT session_id, cli, normalized_input, normalized_output, "
-        "normalized_total FROM canonical_session_usage "
+        "normalized_total FROM session_usage "
         "ORDER BY cli, session_id"
     ).fetchall()
 
     return {
-        "view": "canonical_session_usage",
+        "view": "session_usage",
         "rows": [
             {
                 "session_id": r[0],

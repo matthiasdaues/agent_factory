@@ -11,7 +11,7 @@ import pytest
 
 from usage import adapters
 from usage.preflight import run_preflight
-from usage.views.canonical_session_usage import canonical_session_usage
+from usage.views.session_usage import session_usage
 
 _HAS_PYARROW = True
 try:
@@ -71,14 +71,14 @@ class TestFormatValidation:
 class TestCliFormat:
 
     def test_json_output(self, pi_dir: Path) -> None:
-        r = _run_cli("canonical_session_usage", "--usage-dir", str(pi_dir),
+        r = _run_cli("session_usage", "--usage-dir", str(pi_dir),
                       "--format", "json")
         assert r.returncode == 0
         data = json.loads(r.stdout)
-        assert data["view"] == "canonical_session_usage"
+        assert data["view"] == "session_usage"
 
     def test_table_output(self, pi_dir: Path) -> None:
-        r = _run_cli("canonical_session_usage", "--usage-dir", str(pi_dir),
+        r = _run_cli("session_usage", "--usage-dir", str(pi_dir),
                       "--format", "table")
         assert r.returncode == 0
         assert "session_id" in r.stdout
@@ -86,19 +86,19 @@ class TestCliFormat:
         assert "(1 row)" in r.stdout
 
     def test_pandas_rejected_exit_2(self, pi_dir: Path) -> None:
-        r = _run_cli("canonical_session_usage", "--usage-dir", str(pi_dir),
+        r = _run_cli("session_usage", "--usage-dir", str(pi_dir),
                       "--format", "pandas")
         assert r.returncode == 2
         assert "unsupported" in r.stderr.lower()
 
     def test_polars_rejected_exit_2(self, pi_dir: Path) -> None:
-        r = _run_cli("canonical_session_usage", "--usage-dir", str(pi_dir),
+        r = _run_cli("session_usage", "--usage-dir", str(pi_dir),
                       "--format", "polars")
         assert r.returncode == 2
         assert "unsupported" in r.stderr.lower()
 
     def test_default_format_is_json(self, pi_dir: Path) -> None:
-        r = _run_cli("canonical_session_usage", "--usage-dir", str(pi_dir))
+        r = _run_cli("session_usage", "--usage-dir", str(pi_dir))
         assert r.returncode == 0
         data = json.loads(r.stdout)
         assert "view" in data
@@ -153,8 +153,8 @@ class TestRelationAdapter:
         import duckdb
         paths = sorted(pi_dir.glob("*.jsonl"))
         pf = run_preflight(paths)
-        canonical_session_usage(pf)
-        rel = adapters.to_relation(pf.conn, "canonical_session_usage")
+        session_usage(pf)
+        rel = adapters.to_relation(pf.conn, "session_usage")
         assert isinstance(rel, duckdb.DuckDBPyRelation)
         rows = rel.fetchall()
         assert len(rows) == 1
@@ -172,8 +172,8 @@ class TestArrowAdapter:
         import pyarrow
         paths = sorted(pi_dir.glob("*.jsonl"))
         pf = run_preflight(paths)
-        canonical_session_usage(pf)
-        tbl = adapters.to_arrow(pf.conn, "canonical_session_usage")
+        session_usage(pf)
+        tbl = adapters.to_arrow(pf.conn, "session_usage")
         assert isinstance(tbl, pyarrow.Table)
         assert tbl.num_rows == 1
         assert "session_id" in tbl.schema.names
@@ -199,7 +199,7 @@ class TestArrowAdapter:
         pf = run_preflight([f])
         from usage.views.cache_efficiency import cache_efficiency
         cache_efficiency(pf)
-        tbl = adapters.to_arrow(pf.conn, "canonical_contributions")
+        tbl = adapters.to_arrow(pf.conn, "session_contributions")
         col = tbl.column("reported_cache_read")
         assert col[0].as_py() is None
 

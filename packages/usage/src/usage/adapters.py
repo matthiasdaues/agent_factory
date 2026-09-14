@@ -28,6 +28,36 @@ def to_json(result: dict) -> str:
     return json.dumps(result, default=str)
 
 
+def _stringify_rows(rows: list[dict], cols: list[str]) -> list[list[str]]:
+    """Convert row dicts to string lists, rendering None as NULL."""
+    result: list[list[str]] = []
+    for r in rows:
+        result.append([
+            str(r.get(c, "")) if r.get(c) is not None else "NULL"
+            for c in cols
+        ])
+    return result
+
+
+def _column_widths(cols: list[str], str_rows: list[list[str]]) -> list[int]:
+    """Compute the display width for each column."""
+    return [
+        max(len(c), *(len(sr[i]) for sr in str_rows))
+        for i, c in enumerate(cols)
+    ]
+
+
+def _format_aligned(cols: list[str], str_rows: list[list[str]], widths: list[int]) -> str:
+    """Build header, separator, and body lines."""
+    header = "  ".join(c.ljust(w) for c, w in zip(cols, widths))
+    sep = "  ".join("-" * w for w in widths)
+    body = "\n".join(
+        "  ".join(v.ljust(w) for v, w in zip(sr, widths))
+        for sr in str_rows
+    )
+    return f"{header}\n{sep}\n{body}"
+
+
 def to_table(result: dict) -> str:
     """Format the view result dict as an aligned text table."""
     rows = result.get("rows", [])
@@ -35,16 +65,11 @@ def to_table(result: dict) -> str:
         return f"({result.get('view', 'view')}: 0 rows)"
 
     cols = list(rows[0].keys())
-    str_rows = [[str(r.get(c, "")) if r.get(c) is not None else "NULL" for c in cols] for r in rows]
-    widths = [max(len(c), *(len(sr[i]) for sr in str_rows)) for i, c in enumerate(cols)]
-
-    header = "  ".join(c.ljust(w) for c, w in zip(cols, widths))
-    sep = "  ".join("-" * w for w in widths)
-    body = "\n".join(
-        "  ".join(v.ljust(w) for v, w in zip(sr, widths))
-        for sr in str_rows
-    )
-    return f"{header}\n{sep}\n{body}\n\n({len(rows)} row{'s' if len(rows) != 1 else ''})"
+    str_rows = _stringify_rows(rows, cols)
+    widths = _column_widths(cols, str_rows)
+    table = _format_aligned(cols, str_rows, widths)
+    suffix = "s" if len(rows) != 1 else ""
+    return f"{table}\n\n({len(rows)} row{suffix})"
 
 
 def to_relation(

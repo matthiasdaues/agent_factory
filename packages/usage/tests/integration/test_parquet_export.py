@@ -39,7 +39,7 @@ def pi_dir(tmp_path: Path) -> Path:
 class TestParquetCliValidation:
 
     def test_parquet_without_output_rejected(self, pi_dir: Path) -> None:
-        r = _run_cli("canonical_session_usage", "--usage-dir", str(pi_dir),
+        r = _run_cli("session_usage", "--usage-dir", str(pi_dir),
                       "--format", "parquet")
         assert r.returncode == 2
         assert "-o" in r.stderr or "OUTPUT" in r.stderr
@@ -54,7 +54,7 @@ class TestParquetExport:
 
     def test_successful_export(self, pi_dir: Path, tmp_path: Path) -> None:
         dest = tmp_path / "out.parquet"
-        r = _run_cli("canonical_session_usage", "--usage-dir", str(pi_dir),
+        r = _run_cli("session_usage", "--usage-dir", str(pi_dir),
                       "--format", "parquet", "-o", str(dest))
         assert r.returncode == 0, r.stderr
         assert dest.exists()
@@ -63,7 +63,7 @@ class TestParquetExport:
 
     def test_provenance_metadata(self, pi_dir: Path, tmp_path: Path) -> None:
         dest = tmp_path / "out.parquet"
-        _run_cli("canonical_session_usage", "--usage-dir", str(pi_dir),
+        _run_cli("session_usage", "--usage-dir", str(pi_dir),
                  "--format", "parquet", "-o", str(dest))
         meta = pyarrow.parquet.read_metadata(str(dest))
         kv = meta.metadata
@@ -76,11 +76,11 @@ class TestParquetExport:
         dest.write_text("prior content")
         from usage.parquet_exporter import export_parquet
         from usage.preflight import run_preflight
-        from usage.views.canonical_session_usage import canonical_session_usage
+        from usage.views.session_usage import session_usage
         paths = sorted(pi_dir.glob("*.jsonl"))
         pf = run_preflight(paths)
-        canonical_session_usage(pf)
-        export_parquet(pf.conn, "canonical_session_usage", dest, input_digest="test")
+        session_usage(pf)
+        export_parquet(pf.conn, "session_usage", dest, input_digest="test")
         content = pyarrow.parquet.read_table(str(dest))
         assert content.num_rows == 1
 
