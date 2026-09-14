@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: "Local Usage Processing and Analysis"
-status: accepted
+status: implemented
 owner: agent-factory
 created: 2026-07-28
 updated: 2026-09-13
@@ -82,7 +82,7 @@ central storage. They are not required for local monitoring and analysis of
 files already retained on one machine.
 
 The current
-[`CONTEXT-MAP.md`](../arc42/CONTEXT-MAP.md)
+[`CONTEXT-MAP.md`](../../arc42/CONTEXT-MAP.md)
 still describes Usage Accounting as a PostgreSQL-backed projector. That text
 documents the superseded accepted design. Updating the context map and the
 canonical architecture model to the local JSONL-to-DuckDB boundary is part of
@@ -109,7 +109,7 @@ planning baseline.
 ### Boundary
 
 Factory remains the producer. Its capture hooks and
-[`usage-capture`](../../packages/factory/scripts/usage-capture) continue to
+[`usage-capture`](../../../packages/factory/scripts/usage-capture) continue to
 append JSONL records without waiting for an analytical consumer.
 
 A new `packages/usage/` subproject in the monorepo is the local analytical
@@ -144,7 +144,7 @@ copy is a distribution artifact.
 A dedicated `packages/usage/scripts/usage-contract-check` validates the
 installed schema, each selected JSONL object, cross-field invariants that JSON
 Schema cannot express, and producer/consumer version agreement. The existing
-[`schema-validate`](../../packages/factory/scripts/schema-validate) remains
+[`schema-validate`](../../../packages/factory/scripts/schema-validate) remains
 scoped to research artifacts and is not extended for this contract.
 
 ### Data flow
@@ -288,11 +288,11 @@ duplicate SQL accounting tests.
 - The usage-record contract gate is a standalone read-only command usable both
   against fixtures and against a selected runtime usage directory.
 - The project-owned pytest command declared in
-  [`docs/testing.yaml`](../testing.yaml) owns accounting, query-command,
+  [`docs/testing.yaml`](../../testing.yaml) owns accounting, query-command,
   Parquet, and boundary contracts at commit and phase boundaries.
-- [`dependency-check`](../../packages/factory/scripts/dependency-check) owns the
+- [`dependency-check`](../../../packages/factory/scripts/dependency-check) owns the
   dependency rules declared in
-  [`architecture.dsl`](../arc42/architecture.dsl): Factory must not depend on
+  [`architecture.dsl`](../../arc42/architecture.dsl): Factory must not depend on
   Usage Analysis, and Usage Analysis must consume the published record contract
   without importing Factory implementation modules.
 - Runtime JSONL files are local evidence, not repository fixtures. Repository
@@ -337,8 +337,8 @@ the supported reader range is explicit before the change can merge.
 - A documented DuckDB UI launch path whose executable smoke check resolves the
   six-view query-model bootstrap without starting or fetching the UI. Actual
   launch remains optional local exploration, not gate evidence.
-- Updates to [`architecture.dsl`](../arc42/architecture.dsl), derived arc42
-  explanations, and [`CONTEXT-MAP.md`](../arc42/CONTEXT-MAP.md) that replace the
+- Updates to [`architecture.dsl`](../../arc42/architecture.dsl), derived arc42
+  explanations, and [`CONTEXT-MAP.md`](../../arc42/CONTEXT-MAP.md) that replace the
   PostgreSQL projector with the local Usage Analysis bounded context and its
   published-record dependency.
 - Distribution through `init-factory`: `--with-usage` at init time,
@@ -346,7 +346,7 @@ the supported reader range is explicit before the change can merge.
   `--remove usage` to uninstall — all manifest-tracked, data-safe, extending
   the existing argument model from CLI-only to CLI-and-component.
 - Update to
-  [`interface-contracts.md`](../spec/supplementary_specs/interface-contracts.md)
+  [`interface-contracts.md`](../../spec/supplementary_specs/interface-contracts.md)
   documenting the new init-factory component operations and the
   `update-factory` boundary with installed components.
 - Quality gates and test ownership as specified above.
@@ -618,13 +618,13 @@ deferred dashboard products on 2026-09-11.
 11. Capture contract tests pass when all analytical components and derived
     outputs are absent.
 12. `uv run pytest --tb=short --quiet`, as declared in
-    [`docs/testing.yaml`](../testing.yaml), owns the analytical contract and
+    [`docs/testing.yaml`](../../testing.yaml), owns the analytical contract and
     integration tests;
-    [`dependency-check`](../../packages/factory/scripts/dependency-check) owns
+    [`dependency-check`](../../../packages/factory/scripts/dependency-check) owns
     the two architecture dependency rules. Both run locally and return non-zero
     on a blocking failure.
-13. [`architecture.dsl`](../arc42/architecture.dsl), its derived arc42
-    explanations, and [`CONTEXT-MAP.md`](../arc42/CONTEXT-MAP.md) describe local
+13. [`architecture.dsl`](../../arc42/architecture.dsl), its derived arc42
+    explanations, and [`CONTEXT-MAP.md`](../../arc42/CONTEXT-MAP.md) describe local
     JSONL-to-DuckDB analysis and contain no PostgreSQL projector or remote Usage
     Accounting dependency.
 14. `init-factory --with-usage` and `init-factory --add usage` install the
@@ -638,7 +638,7 @@ deferred dashboard products on 2026-09-11.
     entries without modifying data files. Capture continues writing after
     removal.
 17. Each distribution operation is idempotent: re-running it is a clean no-op.
-18. [`interface-contracts.md`](../spec/supplementary_specs/interface-contracts.md)
+18. [`interface-contracts.md`](../../spec/supplementary_specs/interface-contracts.md)
     documents the new init-factory component operations (`--with-usage`,
     `--add usage`, `--update usage`, `--remove usage`) and the division of
     responsibility between `init-factory --update` (components) and
@@ -683,14 +683,14 @@ The proposal is well-structured and substantially ready to plan from. The design
 
 ### Resolutions — 2026-09-11
 
-| ID      | Status   | Verification                                                                                                                                                                              |
-| ------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PROP-01 | resolved | All active boundary references name the tracked [`packages/factory/scripts/usage-capture`](../../packages/factory/scripts/usage-capture) source.                                          |
-| PROP-02 | resolved | Completion criterion 12 names the exact pytest command from [`docs/testing.yaml`](../testing.yaml) and the [`dependency-check`](../../packages/factory/scripts/dependency-check) gate.    |
-| PROP-03 | resolved | First-release scope now requires the canonical architecture model, its derived explanations, and the context map to register the local Usage Analysis bounded context.                    |
-| PROP-04 | resolved | Design fixes the contract format as JSON Schema Draft 2020-12 plus a YAML ownership and compatibility manifest, checked by a dedicated local contract gate.                               |
-| PROP-05 | resolved | The decomposition estimate now gives ranges for review hours, normalized edit volume, and total feature-addition consumption at low confidence.                                           |
-| PROP-06 | resolved | Motivation records the stale PostgreSQL description; scope and completion criterion 13 require its replacement in [`CONTEXT-MAP.md`](../arc42/CONTEXT-MAP.md) and the architecture model. |
+| ID      | Status   | Verification                                                                                                                                                                                 |
+| ------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-01 | resolved | All active boundary references name the tracked [`packages/factory/scripts/usage-capture`](../../../packages/factory/scripts/usage-capture) source.                                          |
+| PROP-02 | resolved | Completion criterion 12 names the exact pytest command from [`docs/testing.yaml`](../../testing.yaml) and the [`dependency-check`](../../../packages/factory/scripts/dependency-check) gate. |
+| PROP-03 | resolved | First-release scope now requires the canonical architecture model, its derived explanations, and the context map to register the local Usage Analysis bounded context.                       |
+| PROP-04 | resolved | Design fixes the contract format as JSON Schema Draft 2020-12 plus a YAML ownership and compatibility manifest, checked by a dedicated local contract gate.                                  |
+| PROP-05 | resolved | The decomposition estimate now gives ranges for review hours, normalized edit volume, and total feature-addition consumption at low confidence.                                              |
+| PROP-06 | resolved | Motivation records the stale PostgreSQL description; scope and completion criterion 13 require its replacement in [`CONTEXT-MAP.md`](../../arc42/CONTEXT-MAP.md) and the architecture model. |
 
 ## Review — 2026-09-11 (repeat pass)
 
@@ -782,17 +782,17 @@ Disposition: findings
 
 ### Prior findings
 
-| ID      | Severity | Check | Prior status | Current status | Verification                                                                                                                                                                                 |
-| ------- | -------- | ----- | ------------ | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PROP-01 | major    | 05    | confirmed    | confirmed      | All seven boundary paths resolve at the reviewed commit; the capture boundary remains the tracked `packages/factory/scripts/usage-capture` source.                                           |
-| PROP-02 | minor    | 01    | confirmed    | confirmed      | Completion criterion 12 still names the exact pytest command from [`docs/testing.yaml`](../testing.yaml) and the [`dependency-check`](../../packages/factory/scripts/dependency-check) gate. |
-| PROP-03 | minor    | 02    | confirmed    | confirmed      | First-release scope still includes [`architecture.dsl`](../arc42/architecture.dsl), its derived explanations, and [`CONTEXT-MAP.md`](../arc42/CONTEXT-MAP.md).                               |
-| PROP-04 | minor    | 06    | confirmed    | confirmed      | The proposal still selects JSON Schema Draft 2020-12 plus a YAML ownership and compatibility manifest.                                                                                       |
-| PROP-05 | minor    | 08    | confirmed    | confirmed      | The estimate remains 25,000–55,000 normalized tokens and 450,000–990,000 consumed tokens at 18×, with low confidence.                                                                        |
-| PROP-06 | minor    | 04    | confirmed    | confirmed      | Motivation identifies the stale PostgreSQL design and completion criterion 13 requires its replacement in the architecture artifacts.                                                        |
-| PROP-07 | major    | 02    | resolved     | confirmed      | The distribution design still defines the CLI/component union, `installed_components`, and the responsibility split between `init-factory --update usage` and `update-factory`.              |
-| PROP-08 | minor    | 02    | resolved     | confirmed      | The distribution lifecycle gate still covers `--with-usage`, `--add usage`, `--update usage`, and `--remove usage`.                                                                          |
-| PROP-09 | minor    | 05    | resolved     | confirmed      | [`interface-contracts.md`](../spec/supplementary_specs/interface-contracts.md) remains in scope and completion criterion 18 defines its required update.                                     |
+| ID      | Severity | Check | Prior status | Current status | Verification                                                                                                                                                                                       |
+| ------- | -------- | ----- | ------------ | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-01 | major    | 05    | confirmed    | confirmed      | All seven boundary paths resolve at the reviewed commit; the capture boundary remains the tracked `packages/factory/scripts/usage-capture` source.                                                 |
+| PROP-02 | minor    | 01    | confirmed    | confirmed      | Completion criterion 12 still names the exact pytest command from [`docs/testing.yaml`](../../testing.yaml) and the [`dependency-check`](../../../packages/factory/scripts/dependency-check) gate. |
+| PROP-03 | minor    | 02    | confirmed    | confirmed      | First-release scope still includes [`architecture.dsl`](../../arc42/architecture.dsl), its derived explanations, and [`CONTEXT-MAP.md`](../../arc42/CONTEXT-MAP.md).                               |
+| PROP-04 | minor    | 06    | confirmed    | confirmed      | The proposal still selects JSON Schema Draft 2020-12 plus a YAML ownership and compatibility manifest.                                                                                             |
+| PROP-05 | minor    | 08    | confirmed    | confirmed      | The estimate remains 25,000–55,000 normalized tokens and 450,000–990,000 consumed tokens at 18×, with low confidence.                                                                              |
+| PROP-06 | minor    | 04    | confirmed    | confirmed      | Motivation identifies the stale PostgreSQL design and completion criterion 13 requires its replacement in the architecture artifacts.                                                              |
+| PROP-07 | major    | 02    | resolved     | confirmed      | The distribution design still defines the CLI/component union, `installed_components`, and the responsibility split between `init-factory --update usage` and `update-factory`.                    |
+| PROP-08 | minor    | 02    | resolved     | confirmed      | The distribution lifecycle gate still covers `--with-usage`, `--add usage`, `--update usage`, and `--remove usage`.                                                                                |
+| PROP-09 | minor    | 05    | resolved     | confirmed      | [`interface-contracts.md`](../../spec/supplementary_specs/interface-contracts.md) remains in scope and completion criterion 18 defines its required update.                                        |
 
 ### New findings
 
@@ -801,7 +801,7 @@ Disposition: findings
 | PROP-10 | major    | 03    | open   | **The query command and its runtime are not decision-complete.** The proposal shows `usage query <published-view> --format parquet --output <path>`, but does not define how an installed module exposes `usage`, how a caller selects or overrides the JSONL input set, the default input location, or how the isolated locked DuckDB dependency becomes executable. Copying `packages/usage/` into `.agent-factory/usage-analysis/` does not by itself create a command or an offline-capable runtime. Planning would have to design a public interface and deployment mechanism that completion criteria 01, 07–10, and 14 assume. Specify the installed invocation, input-selection contract, dependency provisioning, and offline boundary. |
 | PROP-11 | major    | 03    | open   | **The `capture_health` view has no defined data source for preflight failures.** The data flow says preflight rejects an invalid selected set before DuckDB accounting runs, while `capture_health` promises failure counts grouped by failure code and source file. No persisted diagnostic store or in-memory relation feeding those failures into the published view is defined, and persistence is otherwise explicitly excluded. Planning cannot implement the stated view contract without choosing a new data flow. Define whether diagnostics are registered as a query-scoped DuckDB relation, exposed outside the published views, or removed from `capture_health`.                                                                   |
 | PROP-12 | major    | 03    | open   | **The published contract has conflicting ownership and paths.** The Boundary section says `packages/usage/` owns the record contract it accepts, then says the manifest names Factory as owner. It names repository paths `contracts/usage-record/contract.yaml` and `contracts/usage-record/v1.schema.json`, while the installed layout contains `usage-analysis/contract/` and the gate is named `usage/scripts/usage-contract-check`. These differences determine the authoritative source, installed copy, dependency direction, and gate location for an external contract. Choose one Factory-owned canonical source path and specify its projection into the consumer and installed layout.                                               |
-| PROP-13 | minor    | 02    | open   | **The declared `remove-factory` boundary has no release contract.** [`packages/factory/scripts/remove-factory`](../../packages/factory/scripts/remove-factory) is listed in `impact.boundaries`, but Design, Scope, gates, and completion criteria only define component removal through `init-factory --remove usage`. The current full remover deletes `.agent-factory/`, including usage data. State whether full Factory removal changes in this release and what it must do with `usage-analysis/`, `installed_components`, and `.agent-factory/usage/`; otherwise remove this boundary from the impact list.                                                                                                                               |
+| PROP-13 | minor    | 02    | open   | **The declared `remove-factory` boundary has no release contract.** [`packages/factory/scripts/remove-factory`](../../../packages/factory/scripts/remove-factory) is listed in `impact.boundaries`, but Design, Scope, gates, and completion criteria only define component removal through `init-factory --remove usage`. The current full remover deletes `.agent-factory/`, including usage data. State whether full Factory removal changes in this release and what it must do with `usage-analysis/`, `installed_components`, and `.agent-factory/usage/`; otherwise remove this boundary from the impact list.                                                                                                                            |
 | PROP-14 | minor    | 02    | open   | **Required dataframe support is ambiguous.** Design says the Python entry point “may return” DuckDB relations, Polars DataFrames, Pandas DataFrames, or Arrow tables; Scope and completion criterion 08 require supported conversions without naming them. The choices have different dependency and test implications, so an arbitrary conversion story cannot be classified in or out. Name the required release-1 conversions and defer the rest.                                                                                                                                                                                                                                                                                             |
 
 ### Eight-check summary

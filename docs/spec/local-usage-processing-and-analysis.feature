@@ -22,7 +22,7 @@ Scenario: Explicit input directory overrides the default
 Scenario: Six views form the stable query surface
   Given the selected input set passes preflight
   When the operator lists the stable query surface
-  Then it contains exactly "raw_usage_snapshots", "latest_run_snapshots", "canonical_session_usage", "usage_by_dimension", "cache_efficiency", and "capture_health"
+  Then it contains exactly "raw_usage_snapshots", "latest_run_snapshots", "session_usage", "usage_by_dimension", "cache_efficiency", and "capture_health"
   And stable table, JSON, and export outputs read only those published views
   And each view exposes its query-model-v1 column, type, key, nullability, and row-order contract
 
@@ -66,23 +66,23 @@ Scenario: Latest run snapshot uses deterministic evidence identity
 
 Scenario: Claude Code conserves root and distinct children
   Given a Claude Code session has repeated root snapshots and duplicate child evidence
-  When "canonical_session_usage" computes the session total
+  When "session_usage" computes the session total
   Then it adds the latest root snapshot and each distinct child run exactly once
 
 Scenario: Pi conserves root and distinct descendants
   Given a Pi session has a root record and nested descendant runs
-  When "canonical_session_usage" computes the session total
+  When "session_usage" computes the session total
   Then it adds the root record and each distinct descendant run exactly once
 
 Scenario: Codex uses the inclusive root total
   Given a Codex session has an inclusive root snapshot and child attribution records
-  When "canonical_session_usage" computes the session total
+  When "session_usage" computes the session total
   Then it uses the latest inclusive root snapshot as the session total
   And it does not add child attribution records to that total
 
 Scenario: GitHub Copilot CLI uses the inclusive root total
   Given a GitHub Copilot CLI session has an inclusive root snapshot and child attribution records
-  When "canonical_session_usage" computes the session total
+  When "session_usage" computes the session total
   Then it uses the latest inclusive root snapshot as the session total
   And it does not add child attribution records to that total
 

@@ -34,7 +34,7 @@ Derived from [`factory/rulebooks/conventions/foundational-principles.md`](../../
 
 Test gate presence exemplifies this principle end-to-end:
 
-1. **Project declares test commands** — you write `testing.yaml` (resolved via format detection: `docs/agent-context/testing.yaml` first, `docs/charter/testing.yaml` as fallback) with `test_command`, and optionally `test_staged_command` and `test_changed_command`.
+1. **Project declares test commands** — you write `testing.yaml` (at `docs/testing.yaml`) with `test_command`, and optionally `test_staged_command` and `test_changed_command`.
 2. **FSM gate resolves the declared command** — `phase advance` reads the FSM entry condition `script_exit_zero` with `charter:test_command`, resolves the actual command from the testing configuration, and executes it. Exit 0 advances; nonzero blocks.
 3. **Agent uses the declared command** — `block-dangerous-git.sh` reads all declared command fields from the testing configuration and allowlists them with exact-string matching. An agent running a declared command proceeds normally.
 4. **Agent blocked from bare test commands** — `block-dangerous-git.sh` denies `pytest`, `npm test`, etc. at PreToolUse unless they exactly match a declared command. Agent cannot bypass or "double-check" — only the declared, mechanically gated result is trustworthy.
@@ -65,7 +65,7 @@ This is **preventive validation**, not reactive. The agent never sees test outpu
 
 ## 8.3 Project-Declared Test Configuration
 
-Testing is project-owned infrastructure. Factory does not detect frameworks, construct test commands, or own test execution. The project declares its test commands in `testing.yaml`, resolved via format detection (`docs/agent-context/testing.yaml` first, `docs/charter/testing.yaml` as fallback):
+Testing is project-owned infrastructure. Factory does not detect frameworks, construct test commands, or own test execution. The project declares its test commands in `testing.yaml` (at `docs/testing.yaml`):
 
 | Field                  | Purpose                                                          | Used By                                      |
 | ---------------------- | ---------------------------------------------------------------- | -------------------------------------------- |
@@ -177,17 +177,17 @@ The `@`-reference notation links Gherkin Rules and Scenarios to the source code 
 
 ## 8.11 Agent Context as Cross-Cutting Concern
 
-The agent context (`docs/agent-context/`) is the factory-facing interface to all project knowledge. It is a cross-cutting concern: every factory agent, skill, playbook, script, and hook that needs project knowledge reads the agent context rather than scanning the project's documentation tree directly.
+The agent context (`docs/agent-context.md`) is the factory-facing interface to all project knowledge. It is a cross-cutting concern: every factory agent, skill, playbook, script, and hook that needs project knowledge reads the agent context rather than scanning the project's documentation tree directly.
 
-**Two-layer routing** separates "what should I read for this kind of work?" (Layer 1: `reading-guides.yaml`) from "what was decided about this topic, and where is it documented?" (Layer 2: `stack.yaml`, `workflow.yaml`, `governance.yaml`). Sources are maintained in exactly one place (the index files). See [ADR-0014](../adr/0014-two-layer-routing-with-two-mode-lifecycle.md).
+**Concern-oriented routing** organizes project knowledge into three concern categories: cross-cutting (always active), technical (per story), and domain (per story). Each concern section carries `Read:` paths that point agents to the relevant project documents. Stories declare their concerns in frontmatter (`concerns: {domain: [...], technical: [...]}`); agents follow matching sections in the context file.
 
-**Two-mode lifecycle** lets the context start as a notepad (`mode: primary`, greenfield) and mature into a pure link index (`mode: index`, after handbook and conventions exist). The transition is one-directional and atomic across all three index files. See [state-machines.md § Concern Registry Lifecycle](../spec/supplementary_specs/state-machines.md#concern-registry-lifecycle).
+**Single file.** The four YAML files (`stack.yaml`, `workflow.yaml`, `governance.yaml`, `reading-guides.yaml`) and their two-layer/two-mode lifecycle were replaced in 0.9.0 by one CLI-agnostic markdown file. See the [concern-oriented agent context proposal](../proposals/factory-concern-oriented-agent-context.md). ADR-0013 and ADR-0014 are superseded.
 
-**Format detection** ensures backward compatibility. Factory consumers walk a three-step chain to determine whether the project uses YAML agent-context, legacy YAML charter, or legacy markdown charter. `testing.yaml` path resolution is independent. See [ADR-0013](../adr/0013-yaml-agent-context-replaces-markdown-charter.md).
+**`testing.yaml`** remains a separate file at `docs/testing.yaml`, written by `detect-test-regime`. It is not part of the concern routing.
 
-**Validation** is deterministic. `context-lint` enforces structure, key presence, mode compliance, source-pointer integrity, and reading-guide reference resolution via `CX-*` finding codes. It runs both as a pre-commit hook and on demand. See [05_building_block_view.md § 5.2.5](05_building_block_view.md#525-agent-context-validation-context-lint).
+**Validation** is deterministic. `concern-lint` enforces structure, category headings, `Read:` path resolution, story concern vocabulary, and absence of residual YAML files via `CTX-*` finding codes. It runs both as a pre-commit hook and on demand.
 
-**Guiding rule**: The agent context is a routing table, not a knowledge base -- it tells agents where to look, never what they will find.
+**Guiding rule**: The agent context is a routing table, not a knowledge base — it tells agents where to look, never what they will find.
 
 ## 8.12 Local Usage Evidence and Derived Results
 

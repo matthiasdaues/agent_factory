@@ -125,25 +125,16 @@ via the `mutation-analysis` skill (see [ADR-0012 § Amended](../adr/0012-dispatc
 
 ### Agent Context Format and Structure
 
-**ADR-0013** replaces the markdown charter (`docs/charter/`) with a YAML-based
-agent context (`docs/agent-context/`). Three format alternatives were evaluated
-via Pugh Matrix: markdown (baseline), YAML, and JSON. YAML dominates on machine
-parseability, staleness resistance, and per-field source pointers while
-maintaining human readability parity with markdown. Format detection provides
-backward compatibility: factory consumers walk a three-step chain and select the
-appropriate validation mode. A new `context-lint` script (replacing
-`charter-lint`) validates the YAML structure with `CX-*` finding codes.
+**ADR-0013** (superseded) replaced the markdown charter (`docs/charter/`) with
+a YAML-based agent context (`docs/agent-context/`). **ADR-0014** (superseded)
+added two-layer routing and a two-mode lifecycle on top of the YAML format.
 
-**ADR-0014** records the two structural mechanisms that sit on top of the format
-decision. Two-layer routing separates concern-based access (Layer 1:
-`reading-guides.yaml`) from decision-domain indexing (Layer 2: `stack.yaml`,
-`workflow.yaml`, `governance.yaml`), keeping source pointers in exactly one
-place. A two-mode lifecycle lets greenfield projects write values directly
-(`mode: primary`) and mature projects maintain a pure link index
-(`mode: index`); the transition is one-directional and atomic. Neither mechanism
-has genuine alternatives: two layers resolve a concrete drift failure from the
-single-layer predecessor, and two modes follow from the greenfield-to-mature
-constraint.
+Both decisions were superseded in 0.9.0 by concern-oriented agent context: a
+single markdown file (`docs/agent-context.md`) where agents discover project
+knowledge through concern sections carrying `Read:` paths. The four YAML index
+files and their format-detection chain no longer exist. `concern-lint` replaced
+`context-lint`, validating structure with `CTX-*` finding codes. See the
+[concern-oriented agent context proposal](../proposals/factory-concern-oriented-agent-context.md).
 
 ### Local Usage Analysis
 

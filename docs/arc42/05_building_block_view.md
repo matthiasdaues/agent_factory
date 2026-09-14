@@ -53,7 +53,7 @@ Three additional on-demand validators enforce semantic code quality and architec
 
 ### 5.2.1 Project-Owned Test Gates via Charter Declaration
 
-**Purpose**: Factory ensures test gates exist; the project decides what runs inside them. Testing is project-owned infrastructure declared in `testing.yaml` (at `docs/agent-context/testing.yaml` or `docs/charter/testing.yaml`, resolved via format detection). Factory's guardrails and FSM gates read that declaration. Factory does not own test execution, framework detection, or structured test output.
+**Purpose**: Factory ensures test gates exist; the project decides what runs inside them. Testing is project-owned infrastructure declared in `testing.yaml` (at `docs/testing.yaml`). Factory's guardrails and FSM gates read that declaration. Factory does not own test execution, framework detection, or structured test output.
 
 **Test configuration** (`testing.yaml`, resolved via format detection):
 
@@ -162,7 +162,7 @@ A deterministic script that replaces the manual `impact.architecture_change` dec
 | `CX-GUIDE-REF`    | warning                             | Reading-guide key-path reference does not resolve to an existing index-file key |
 | `CX-FORMAT`       | error                               | Files exist in more than one location (testing.yaml exempt)                     |
 
-**Format detection** is shared across all factory consumers: `docs/agent-context/stack.yaml` (YAML agent-context) then `docs/charter/tech-stack.yaml` (legacy YAML charter) then `docs/charter/tech-stack.md` (legacy markdown charter). `testing.yaml` path resolution is independent and does not trigger mixed-location errors.
+**Concern routing** is shared across all factory consumers: agents discover project knowledge through concern sections in `docs/agent-context.md`, each carrying `Read:` paths to the relevant documents. `testing.yaml` path resolution is independent (`docs/testing.yaml`).
 
 **Referenced Specifications:**
 
@@ -251,15 +251,15 @@ usage-record contract. Factory capture has no dependency on analysis.
 
 ![Usage Analysis components](../assets/images/UsageAnalysisComponents.svg)
 
-| Component                 | Responsibility                                                                                                                                    |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Input Snapshot**        | Select and normalize a sorted list of top-level JSONL files once at query start.                                                                  |
-| **Contract Check**        | Validate the installed contract, every selected line, cross-field invariants, and version compatibility.                                          |
-| **Operational Preflight** | Classify every line, validate the rooted run graph, and register query-scoped valid and failure relations.                                        |
-| **Accounting Registry**   | Map exactly `claude-code`, `copilot`, `codex`, and `pi` to their conservation rule.                                                               |
-| **Query Model v1**        | Publish `raw_usage_snapshots`, `latest_run_snapshots`, `canonical_session_usage`, `usage_by_dimension`, `cache_efficiency`, and `capture_health`. |
-| **Result Adapters**       | Project one published view as a table, JSON, DuckDB relation, or PyArrow table without reimplementing accounting.                                 |
-| **Parquet Exporter**      | Stage, verify, attribute, and atomically replace an explicit Parquet export.                                                                      |
+| Component                 | Responsibility                                                                                                                          |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **Input Snapshot**        | Select and normalize a sorted list of top-level JSONL files once at query start.                                                        |
+| **Contract Check**        | Validate the installed contract, every selected line, cross-field invariants, and version compatibility.                                |
+| **Operational Preflight** | Classify every line, validate the rooted run graph, and register query-scoped valid and failure relations.                              |
+| **Accounting Registry**   | Map exactly `claude-code`, `copilot`, `codex`, and `pi` to their conservation rule.                                                     |
+| **Query Model v1**        | Publish `raw_usage_snapshots`, `latest_run_snapshots`, `session_usage`, `usage_by_dimension`, `cache_efficiency`, and `capture_health`. |
+| **Result Adapters**       | Project one published view as a table, JSON, DuckDB relation, or PyArrow table without reimplementing accounting.                       |
+| **Parquet Exporter**      | Stage, verify, attribute, and atomically replace an explicit Parquet export.                                                            |
 
 The valid and failure relations live only for the query process. When preflight
 finds a failure, `capture_health` remains available while the other five stable

@@ -45,7 +45,7 @@ For prerequisites (Git, Python 3.10+, uv, an AI coding CLI) and the full invento
 
 **Scripts** are deterministic checks: linting, schema validation, traceability gates, architecture consistency, pre-merge verification. They run automatically through git hooks and phase gates. When they fail, the output is specific and actionable.
 
-**Agent context** is a small set of YAML files where your project declares its stack, workflow, and governance decisions. Agents read these instead of guessing or asking. You fill them in once; they stay current as decisions change. See the [factory guide](packages/factory/docs/factory-guide.md#agent-context) for how it works.
+**Agent context** is a single markdown file (`docs/agent-context.md`) where your project declares what agents should read, organized by concern (cross-cutting, technical, domain). Agents follow the routing instead of guessing or scanning. You maintain it once; it stays current as decisions change. See the [factory guide](packages/factory/docs/factory-guide.md#agent-context) for how it works.
 
 **Usage capture** records token consumption per session — input, output, and model — across all supported CLIs. Records are append-only JSONL, keyed by project id, stored locally under `.agent-factory/usage/`. You never configure it; the installer wires it up. See the [factory guide](packages/factory/docs/factory-guide.md#runtime-usage-capture) for details.
 
@@ -70,6 +70,7 @@ This is a monorepo. Each product has its own documentation.
 | Product                                                     | What it does                             | Status           |
 | ----------------------------------------------------------- | ---------------------------------------- | ---------------- |
 | [`packages/factory/`](packages/factory/README.md)           | The installable toolset. Start here.     | Usable           |
+| [`packages/usage/`](packages/usage/)                        | Local usage processing and analysis.     | Usable           |
 | [`packages/orchestrator/`](packages/orchestrator/README.md) | CLI for driving playbooks automatically. | Work in progress |
 
 ## Repository internals
