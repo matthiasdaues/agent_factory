@@ -8,6 +8,9 @@ version = "0.0.0"
 requires-python = ">=3.10"
 dependencies = ["duckdb"]
 
+[project.optional-dependencies]
+arrow = ["pyarrow>=15.0.0,<20"]
+
 [project.scripts]
 usage-query = "usage.cli:main"
 

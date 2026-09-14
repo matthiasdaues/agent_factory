@@ -6,11 +6,10 @@ Routes queries through named views over a fixed local input set.
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
-from usage import contract_check, input_snapshot, preflight
+from usage import adapters, contract_check, input_snapshot, preflight
 from usage.views.cache_efficiency import cache_efficiency
 from usage.views.canonical_session_usage import canonical_session_usage
 from usage.views.capture_health import capture_health
@@ -59,8 +58,19 @@ def main() -> None:
         choices=("none", "hour", "day", "week", "month"),
         help="Time granularity for usage_by_dimension (default: none).",
     )
+    parser.add_argument(
+        "--format",
+        dest="output_format",
+        default="json",
+        help="Output format: json (default), table, relation, arrow.",
+    )
 
     args = parser.parse_args()
+
+    fmt_err = adapters.validate_format(args.output_format)
+    if fmt_err:
+        print(fmt_err, file=sys.stderr)
+        sys.exit(2)
 
     if args.view not in AVAILABLE_VIEWS:
         available = ", ".join(AVAILABLE_VIEWS)
@@ -107,7 +117,20 @@ def main() -> None:
 
     result = _route(args, preflight_result)
 
-    print(json.dumps(result, default=str))
+    if args.output_format == "json":
+        print(adapters.to_json(result))
+    elif args.output_format == "table":
+        print(adapters.to_table(result))
+    elif args.output_format in ("relation", "arrow"):
+        if preflight_result is None:
+            print(adapters.to_json(result))
+        else:
+            print(
+                f"format '{args.output_format}' is for programmatic use. "
+                "Use the Python API instead.",
+                file=sys.stderr,
+            )
+            print(adapters.to_json(result))
     sys.exit(0)
 
 
