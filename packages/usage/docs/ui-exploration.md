@@ -6,17 +6,30 @@ authoritative state.
 
 ## Launch
 
-Materialize the query pipeline into a persistent DuckDB file, then open the
-web explorer:
+From the project root, materialize the query pipeline into a persistent
+DuckDB file, then open the web explorer:
+
+```bash
+factory/scripts/usage-query canonical_session_usage --persist usage.duckdb
+factory/scripts/usage-explore usage.duckdb
+```
+
+The wrapper scripts discover the installed usage component
+(`.agent-factory/usage-analysis/`) or the development source
+(`packages/usage/`) and delegate via `uv run`.
+
+The explorer opens a browser tab at `http://localhost:8642` with a sidebar
+listing every materialized table, a SQL editor with preset queries, and
+formatted results. Pass a custom port as a second argument if 8642 is taken.
+
+### Direct invocation
+
+If you prefer calling `uv` directly:
 
 ```bash
 uv run --directory packages/usage usage-query canonical_session_usage --persist usage.duckdb
 uv run --directory packages/usage python -m usage.explorer usage.duckdb
 ```
-
-The explorer opens a browser tab at `http://localhost:8642` with a sidebar
-listing every materialized table, a SQL editor with preset queries, and
-formatted results. Pass a custom port as a second argument if 8642 is taken.
 
 ## Published Views
 

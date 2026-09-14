@@ -3476,10 +3476,20 @@ def install_usage_component(
 
     dest.mkdir(parents=True, exist_ok=True)
 
-    shutil.copytree(usage_src / "src" / "usage", dest / "usage")
+    shutil.copy2(usage_src / "pyproject.toml", dest / "pyproject.toml")
+    shutil.copytree(usage_src / "src", dest / "src")
     contracts_src = usage_src / "contracts"
     if contracts_src.is_dir():
         shutil.copytree(contracts_src, dest / "contracts")
+    sql_src = usage_src / "sql"
+    if sql_src.is_dir():
+        shutil.copytree(sql_src, dest / "sql")
+    docs_src = usage_src / "docs"
+    if docs_src.is_dir():
+        shutil.copytree(docs_src, dest / "docs")
+    lock_src = usage_src / "uv.lock"
+    if lock_src.is_file():
+        shutil.copy2(lock_src, dest / "uv.lock")
 
     major = _extract_contract_major(usage_src)
     meta = {

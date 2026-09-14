@@ -6,6 +6,7 @@ Routes queries through named views over a fixed local input set.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -25,6 +26,15 @@ AVAILABLE_VIEWS = (
     "usage_by_dimension",
     "cache_efficiency",
 )
+
+
+def _find_project_root() -> Path | None:
+    """Walk up from cwd to find the directory containing .agent-factory/."""
+    current = Path(os.getcwd()).resolve()
+    for parent in [current, *current.parents]:
+        if (parent / ".agent-factory").is_dir():
+            return parent
+    return None
 
 
 def main() -> None:
@@ -104,6 +114,12 @@ def main() -> None:
 
     usage_dir = Path(args.usage_dir)
     if not usage_dir.is_dir():
+        root = _find_project_root()
+        if root is not None:
+            candidate = root / args.usage_dir
+            if candidate.is_dir():
+                usage_dir = candidate
+    if not usage_dir.is_dir():
         print(
             f"directory not found: {args.usage_dir}",
             file=sys.stderr,
@@ -158,7 +174,11 @@ def main() -> None:
             print(adapters.to_json(result))
 
     if args.persist and preflight_result is not None:
-        _persist(preflight_result.conn, args.persist)
+        persist_path = args.persist
+        root = _find_project_root()
+        if root is not None and not Path(persist_path).is_absolute():
+            persist_path = str(root / persist_path)
+        _persist(preflight_result.conn, persist_path)
 
     sys.exit(0)
 

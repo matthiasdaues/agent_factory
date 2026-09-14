@@ -28,6 +28,10 @@ def source_root(tmp_path: Path) -> Path:
         "owner: factory\nschema: v1.schema.json\n"
     )
     (pkg / "contracts" / "v1.schema.json").write_text("{}\n")
+    (pkg / "sql").mkdir()
+    (pkg / "sql" / "bootstrap-v1.sql").write_text("-- bootstrap\n")
+    (pkg / "docs").mkdir()
+    (pkg / "docs" / "ui-exploration.md").write_text("# UI\n")
     (pkg / "pyproject.toml").write_text(
         '[project]\nname = "usage"\nversion = "0.1.0"\n'
     )
@@ -98,9 +102,12 @@ class TestInstallUsageComponent:
 
         dest = target / inf.COMPONENT_INSTALL_DIR
         assert dest.is_dir()
-        assert (dest / "usage" / "__init__.py").exists()
-        assert (dest / "usage" / "cli.py").exists()
+        assert (dest / "src" / "usage" / "__init__.py").exists()
+        assert (dest / "src" / "usage" / "cli.py").exists()
+        assert (dest / "pyproject.toml").exists()
         assert (dest / "contracts" / "contract.yaml").exists()
+        assert (dest / "sql" / "bootstrap-v1.sql").exists()
+        assert (dest / "docs" / "ui-exploration.md").exists()
 
         meta = json.loads((dest / "component.json").read_text())
         assert meta["component"] == "usage"
@@ -152,7 +159,7 @@ class TestDoUpdateComponent:
         assert rc == 0
 
         dest = target / inf.COMPONENT_INSTALL_DIR
-        assert (dest / "usage" / "new.py").exists()
+        assert (dest / "src" / "usage" / "new.py").exists()
         meta = json.loads((dest / "component.json").read_text())
         assert isinstance(meta["package_version"], str)
 
