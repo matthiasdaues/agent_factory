@@ -350,6 +350,7 @@ The cycle migration intentionally replaces these contracts:
 | `phase retry`                           | `factory/scripts/cycle retry --state STATE`                                     |
 | `transition-lint` phase-order rejection | Cycle-model and cycle-state integrity checks; recommendation warnings exit zero |
 | Supplementary entity-model path         | The canonical LinkML entity-model contract defined above                        |
+| Python 3.8+ minimum for phase commands  | Python 3.10+ minimum for all cycle-based orchestration commands                 |
 | `backlog/epics.md`                      | `backlog/epics-<feature-name>.md`                                               |
 
 The cutover retires `phase` after all factory consumers use `cycle`.

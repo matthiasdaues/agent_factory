@@ -266,7 +266,7 @@ Rules for `packages/factory/engine/models/delivery.yaml`:
 06. Every artifact reference in a `recommend_if` clause must reference a declared artifact type.
 07. Every validator reference must reference a declared validator.
 08. No validator field may contain an executable command — shell commands, pipes, redirects, subshell invocations, and backtick expansions are all rejected.
-09. Every cycle must declare a positive integer `delegated_attempt_limit`.
+09. Every non-terminal cycle must declare a positive integer `delegated_attempt_limit`.
 10. The model's `schema_version` must be a positive integer.
 
 ### Cycle state validation (`cycle-state-v1.schema.json`)
@@ -310,7 +310,7 @@ Concurrency and atomicity rules for the state adapter:
 
 ### Retry validation rules
 
-1. Every cycle in `delivery.yaml` must declare a positive `delegated_attempt_limit`.
+1. Every non-terminal cycle in `delivery.yaml` must declare a positive `delegated_attempt_limit`.
 2. Entering a new cycle (via `cycle select`) resets `attempt` to 1.
 3. Changing the `work` list resets `attempt` to 1, even when the cycle stays the same.
 4. A delegated retry with `attempt` below the limit: increment `attempt`, return `allowed`.

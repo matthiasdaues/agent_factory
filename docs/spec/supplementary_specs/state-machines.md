@@ -453,6 +453,9 @@ On SelectDifferentCycle:
 
 State: HUMAN_OVERRIDE
   # attempt > limit, proceeds with warning
+On DelegatedRetry:
+  Return paused with delegated_attempt_limit_reached
+  ChangeState(HUMAN_OVERRIDE)
 On HumanRetry:
   Increment attempt
   ChangeState(HUMAN_OVERRIDE)
@@ -476,6 +479,7 @@ stateDiagram-v2
     CAPPED --> CAPPED : DelegatedRetry (paused#59; no change)
     CAPPED --> HUMAN_OVERRIDE : HumanRetry
     CAPPED --> READY : SelectDifferentCycle (reset)
+    HUMAN_OVERRIDE --> HUMAN_OVERRIDE : DelegatedRetry (paused#59; no change)
     HUMAN_OVERRIDE --> HUMAN_OVERRIDE : HumanRetry (increment)
     HUMAN_OVERRIDE --> READY : SelectDifferentCycle (reset)
 ```
