@@ -11,28 +11,9 @@ import sys
 from pathlib import Path
 
 from usage import contract_check, input_snapshot, preflight
+from usage.views.capture_health import capture_health
 
 AVAILABLE_VIEWS = ("capture_health",)
-
-
-def _capture_health(
-    paths: list[Path],
-    digest: str,
-    preflight_result: preflight.PreflightResult | None = None,
-) -> dict:
-    """Return a minimal typed result for capture_health.
-
-    The real column contract is delivered in ST-0244.  For now include
-    preflight summary when available.
-    """
-    result: dict = {"view": "capture_health", "rows": []}
-    if preflight_result is not None:
-        result["preflight"] = {
-            "valid_count": preflight_result.valid_count,
-            "failure_count": preflight_result.failure_count,
-            "has_failures": preflight_result.has_failures,
-        }
-    return result
 
 
 def main() -> None:
@@ -49,6 +30,12 @@ def main() -> None:
         default=".agent-factory/usage/",
         help="Directory containing JSONL files (default: .agent-factory/usage/).",
     )
+    parser.add_argument(
+        "--diagnostic",
+        action="store_true",
+        default=False,
+        help="Run in diagnostic mode (only capture_health, informational output).",
+    )
 
     args = parser.parse_args()
 
@@ -57,6 +44,14 @@ def main() -> None:
         available = ", ".join(AVAILABLE_VIEWS)
         print(
             f"unknown view '{args.view}'. Available views: {available}",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    # Diagnostic mode only supports capture_health.
+    if args.diagnostic and args.view != "capture_health":
+        print(
+            "diagnostic mode only supports capture_health",
             file=sys.stderr,
         )
         sys.exit(2)
@@ -95,7 +90,7 @@ def main() -> None:
 
     # Route to view.
     if args.view == "capture_health":
-        result = _capture_health(paths, digest, preflight_result)
+        result = capture_health(preflight_result, diagnostic=args.diagnostic)
 
     print(json.dumps(result))
     sys.exit(0)
