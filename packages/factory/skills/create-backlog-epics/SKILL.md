@@ -32,20 +32,24 @@ If context files exist and Epic 0 stories are already in the backlog (created by
 
 **Boundary vocabulary:** derive boundary names from the project's architecture. Follow the technical concerns in `docs/agent-context.md` to locate architecture views (Structurizr DSL, building-block views, deployment views). Use the project's own component and container names (e.g. `IngestPipeline`, `APIGateway`, `EventBus`), not generic layer labels like "backend" or "database."
 
-For each EPIC, write one row. Each row names the user-visible outcome the EPIC delivers, the system boundaries it crosses, and a one-sentence demo.
+Each EPIC is a vertical slice — it starts where the user touches the system, passes through the logic that decides, and ends where the result is stored or shown. Every EPIC must be demo-able: a person performs an action and sees the outcome without depending on a later EPIC.
 
-| #   | EPIC outcome (what a person can do after) | Boundaries crossed | Demo sentence |
-| --- | ----------------------------------------- | ------------------ | ------------- |
+For each EPIC, write one row. Each row names what the user can do after, the path the action takes through the system, and a one-sentence demo.
 
-**Title convention:** The EPIC outcome column and every story title use an active verb phrase — what a person or system *does*, not what a thing *is*. "Activate a Domain with an immutable timezone", not "Domain activation with immutable timezone." This applies to the `title:` frontmatter, the `# ` heading, and the EPIC outcome column.
+| #   | What the user can do after | Path through the system | Demo sentence |
+| --- | -------------------------- | ----------------------- | ------------- |
+
+**Outcome column:** use an active verb phrase — what a person *does*, not what a thing *is*. "Activate a domain with an immutable timezone", not "Domain activation with immutable timezone." This applies to the `title:` frontmatter, the `# ` heading, and the outcome column.
+
+**Path column:** trace the vertical from entry point to persistence. Name three things in order: (1) what the user touches (command, menu option, skill invocation), (2) what decides or transforms (engine, validator, evaluator), (3) where the result lands (state file, index, report, screen output). Use the project's own component names, not generic labels. Two components inside the same step do not count as two entries in the path.
 
 **Gate — each rule is a hard pass/fail:**
 
-1. Every EPIC row crosses at least two system boundaries and has a concrete, showable demo.
-2. Boundaries must span distinct architectural layers or distinct actor touchpoints — two components within the same processing stage do not count as two boundaries.
-3. An EPIC whose demo requires a subsequent EPIC to produce a usable result is a layer, not a capability — recut it. Test: "Can the actor use this EPIC's output without the next EPIC?" If the answer is no, the EPIC is incomplete.
-4. An EPIC that groups work by layer rather than by capability must be recut.
-5. If the proposed EPICs form a fully serial dependency chain (each depends on the previous, no parallelism), flag this as likely horizontal slicing. Revisit whether thin vertical slices — each touching multiple layers but delivering one end-to-end capability — are possible before presenting.
+1. Every EPIC row traces a path from user entry through decision logic to a stored or shown result, and has a concrete, showable demo.
+2. The path must cross at least two distinct steps — an entry point and a decision step in the same module do not count. An EPIC whose path stays inside one layer (engine-only, persistence-only) is a horizontal, not a vertical — recut it.
+3. A person must be able to use this EPIC's result without any later EPIC. Test: "Can someone do the demo with only this EPIC built?" If the answer is no, the EPIC is incomplete.
+4. An EPIC that groups work by layer rather than by use case must be recut.
+5. If the proposed EPICs form a fully serial dependency chain (each depends on the previous, no parallelism), flag this as likely horizontal slicing. Revisit whether thin vertical slices — each delivering one end-to-end use case — are possible before presenting.
 
 ## Quality gate
 
