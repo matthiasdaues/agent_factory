@@ -55,7 +55,7 @@ Present this expanded tree only after B is chosen:
 >
 > At any point, ask 'what is [concept]?' for a plain-language explanation.
 
-When the user picks a leaf (a playbook or agent), run that playbook's operational procedure or spawn that agent with the user's stated goal as the task.
+When the user picks a leaf, run that playbook's operational procedure or activate that agent according to the direct-selection rules below.
 
 ______________________________________________________________________
 
@@ -69,7 +69,7 @@ ______________________________________________________________________
 
 On selection, list the full set and let the user pick by name or number, then run that playbook/agent with the user's stated goal as the task.
 If `P` → list all playbooks in the local `.*/playbooks` directory. Append an option to go back to the main menu. If the user picks a playbook, initiate that playbook's operational procedure.
-If `A` → list all agents in the local `.*/agents` directory. Append an option to go back to the main menu. If the user picks an agent, assume that agent's role and ask the user for the intended task.
+If `A` → list all agents in the local `.*/agents` directory. Append an option to return to the main menu. When the user selects an agent, adopt its role in the current session and ask for the intended task. If that agent explicitly requires isolation from work already performed in the session, spawn it instead.
 
 ______________________________________________________________________
 
@@ -85,4 +85,4 @@ Load the `guided-tour` skill. Walk the user through a conversational reorientati
 
 ______________________________________________________________________
 
-When a playbook is selected, read the playbook's markdown file and follow its operational procedure — running agents, enforcing gates, and producing its documented outputs. When an agent is selected directly: if the agent runs in the current session (coaching-agent), adopt its role per the adopt pattern; otherwise, spawn it via the correct mechanism for this CLI (see rules).
+When a playbook is selected, follow its operational procedure, including any required agent dispatch and isolation boundaries. When an agent is selected directly, adopt its role in the current session. Spawn it only when its definition requires a separate session or when the current session has performed work from which that agent must remain independent.

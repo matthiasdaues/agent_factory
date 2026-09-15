@@ -8,10 +8,12 @@
 # the removal key — do not rename it.
 #
 # FACTORY GUARD: hooks calling factory/scripts/* are wrapped in
-#   bash -c '[ -d factory ] || exit 0; exec factory/scripts/…'
+#   bash -c '[ -d factory ] || exit 0; …'
 # so teammates who don't have the factory installed can still commit.
 # The tracked .pre-commit-config.yaml reaches them; the untracked
-# factory/ directory does not.
+# factory/ directory does not. Hooks that only check use `exec`;
+# hooks that modify files (mdformat, arch-lint) drop `exec` to
+# chain `git add` and stage the results.
 #
 # LANGUAGE LINTERS: not included. Add project-specific linters (ruff,
 # eslint, checkstyle, etc.) during onboarding — they belong to the
@@ -24,7 +26,7 @@ repos:
       # Prevents style drift across authors and agents.
       - id: agent_factory_hook-mdformat
         name: "agent_factory: mdformat"
-        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/mdformat --number "$@"' --
+        entry: bash -c '[ -d factory ] || exit 0; factory/scripts/mdformat --number "$@"; rc=$?; git add "$@" 2>/dev/null; exit $rc' --
         language: system
         types: [markdown]
 
@@ -60,7 +62,7 @@ repos:
       # one but not the other. Also validates ADR frontmatter.
       - id: agent_factory_hook-arch-lint
         name: "agent_factory: arch-lint (arc42 <-> Structurizr consistency, ADR frontmatter)"
-        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/arch-lint --docs-dir docs/arc42 --no-validate' --
+        entry: bash -c '[ -d factory ] || exit 0; factory/scripts/arch-lint --docs-dir docs/arc42 --no-validate; rc=$?; git add docs/assets/images/*.svg 2>/dev/null; exit $rc'
         language: system
         pass_filenames: false
         files: ^docs/(arc42/(architecture\.dsl|05_building_block_view\.md)|assets/images/.*|adr/.*\.md)$

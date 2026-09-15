@@ -207,7 +207,7 @@ The full list, grouped by phase, is in [`factory/INDEX.yaml`](../INDEX.yaml). Ea
 The author/reviewer split depends on each agent running in its own session, so the reviewer sees only the artifact, never the author's reasoning. How that separate session is created depends on the CLI:
 
 - **Claude Code and GitHub Copilot CLI** spawn subagents natively: the parent session dispatches an agent and reads back its result.
-- **Codex** generates native custom agents under `.codex/agents/`. Spawn those agents through Codex's subagent mechanism; do not read the canonical Markdown and role-play it in the parent thread.
+- **Codex** generates native custom agents under `.codex/agents/`. When a separate session is required, spawn the generated custom agent through Codex's native subagent mechanism. Direct interactive agent selection may remain in the current session unless an isolation boundary applies.
 - **Pi** has no native subagent. `init-factory` installs a project-local extension, `.pi/extensions/run-agent.ts`, that registers a `run_agent` tool. Calling it spawns a genuinely separate `pi` subprocess with the chosen agent's markdown as its system prompt and returns the child's result. Under Pi, run a factory agent by calling `run_agent` — not by reading the agent file and acting it out in the current session, which would leak the author's reasoning into the review.
 
 `run_agent` resolves the child's model from `config/model.conf` — the `pi.<tier>` row for the agent's declared tier — unless an explicit model id is passed, and it bounds nested spawns with a recursion-depth cap. The git-safety guardrail extension loads in the child too, so a spawned agent stays governed by the same guardrail as its parent. See [ADR-0004](../../docs/adr/0004-pi-subagent-invocation-via-subprocess-spawn.md).
@@ -219,8 +219,9 @@ For parallel work, a second Pi extension, `.pi/extensions/dispatch-wave.ts`, reg
 `init-factory` installs Codex repository skills individually under
 `.agents/skills/`, generates native custom-agent TOML under `.codex/agents/`,
 and links the catalog, playbooks, rulebooks, and scripts under `.codex/`. Read
-`.codex/INDEX.yaml` first. Native subagents run as separate threads, preserving
-the author/reviewer boundary.
+`.codex/INDEX.yaml` first. Native subagents provide separate threads where
+author/reviewer independence, workflow isolation, or parallel execution
+requires them.
 
 Factory-generated agents do not pin a model, reasoning level, sandbox, or
 approval policy. They inherit the parent session's permissions and cannot
