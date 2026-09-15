@@ -9,7 +9,6 @@ inputs:
   - testing.yaml (at docs/testing.yaml)
 outputs:
   - backlog/epics.md
-disable-model-invocation: false
 ---
 
 # Testability Probe

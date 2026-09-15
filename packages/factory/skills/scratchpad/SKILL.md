@@ -2,7 +2,6 @@
 name: scratchpad
 description: Append a quick note to session-scratchpad.md, sectioned by date. Use when the user says "note this down:", "make a note of this:", or invokes "/scratchpad" or "/scratch".
 category: utility
-disable-model-invocation: true
 ---
 
 # Scratchpad

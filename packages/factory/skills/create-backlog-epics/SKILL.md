@@ -2,7 +2,6 @@
 name: create-backlog-epics
 description: "Survey codebase, read specs, and present the EPIC slicing approach for user approval. Phase 1 of 4 in the create-backlog sequence."
 category: planning
-disable-model-invocation: false
 ---
 
 # Create Backlog — Phase 1: EPIC Slicing Approach

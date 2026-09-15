@@ -2,7 +2,6 @@
 name: research-planning
 description: Turn a validated brief into the mode-appropriate survey or falsification research plan.
 category: research
-disable-model-invocation: false
 ---
 
 # Research Planning

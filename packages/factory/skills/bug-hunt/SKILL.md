@@ -2,7 +2,6 @@
 name: bug-hunt
 description: Exploratory testing followed by a TDD bug-fix loop. Find bugs, file findings, fix with regression tests, retest.
 category: quality
-disable-model-invocation: true
 ---
 
 # Bug Hunt

@@ -2,7 +2,6 @@
 name: validate
 description: Run every applicable deterministic gate on demand, mid-session — the custom lint scripts plus ruff and mdformat — without needing a git commit.
 category: utility
-disable-model-invocation: false
 ---
 
 # Validate

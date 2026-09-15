@@ -2,7 +2,6 @@
 name: source-research
 description: Find sources for one bounded assignment and record them against the source-record artifact.
 category: research
-disable-model-invocation: false
 ---
 
 # Source Research

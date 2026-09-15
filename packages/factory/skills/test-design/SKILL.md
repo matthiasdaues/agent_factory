@@ -10,7 +10,6 @@ inputs:
   - testing.yaml (at docs/testing.yaml)
 outputs:
   - tests/**/* (authored test files)
-disable-model-invocation: false
 ---
 
 # Test Design

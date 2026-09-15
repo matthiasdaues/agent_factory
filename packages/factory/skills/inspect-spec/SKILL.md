@@ -2,7 +2,6 @@
 name: inspect-spec
 description: Two-pass specification review — deterministic spec-lint then LLM semantic inspection. Files findings as local markdown files.
 category: requirements
-disable-model-invocation: false
 ---
 
 # Inspect Specification

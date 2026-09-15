@@ -2,7 +2,6 @@
 name: research-synthesis
 description: Build a cited survey report from recorded source records while preserving uncertainty and evidence bounds.
 category: research
-disable-model-invocation: false
 ---
 
 # Research Synthesis

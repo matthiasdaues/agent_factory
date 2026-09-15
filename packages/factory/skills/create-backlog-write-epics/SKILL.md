@@ -2,7 +2,6 @@
 name: create-backlog-write-epics
 description: "Write backlog/epics.md from the approved EPIC slicing approach. Phase 2 of 4 in the create-backlog sequence."
 category: planning
-disable-model-invocation: false
 ---
 
 # Create Backlog — Phase 2: Write EPICs

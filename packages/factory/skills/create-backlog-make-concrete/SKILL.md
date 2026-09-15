@@ -2,7 +2,6 @@
 name: make-concrete
 description: "Incorporate grilling results into a backlog story: fill resolved contract decisions into their home sections, write concrete Required API Behavior, and prepare the story for slicing. Phase 6 of the create-backlog sequence."
 category: planning
-disable-model-invocation: false
 ---
 
 # Create Backlog — Phase 6: Make Concrete

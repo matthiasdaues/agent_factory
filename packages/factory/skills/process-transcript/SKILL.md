@@ -7,7 +7,6 @@ description: >-
   to compare a discussion against the spec.
 category: utility
 version: 1.0.0
-disable-model-invocation: false
 ---
 
 # Process Transcript

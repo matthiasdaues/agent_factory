@@ -2,7 +2,6 @@
 name: refutation-design
 description: Define refuting evidence, conditions for refutation, and severe tests to expose them.
 category: research
-disable-model-invocation: false
 ---
 
 # Refutation Design

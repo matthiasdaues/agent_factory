@@ -2,7 +2,6 @@
 name: qa-strategy-from-spec
 description: Derive a per-feature QA strategy document from a consolidated .feature file, supplementary specs, testing.yaml layer bindings, and repository test infrastructure.
 category: requirements
-disable-model-invocation: false
 ---
 
 # QA Strategy From Spec

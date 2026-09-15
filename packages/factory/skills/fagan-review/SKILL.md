@@ -2,7 +2,6 @@
 name: fagan-review
 description: Structured code review following the Fagan Inspection method — correctness, Clean Architecture, SOLID, maintainability.
 category: quality
-disable-model-invocation: true
 ---
 
 # Fagan Review

@@ -6,7 +6,6 @@ description: >-
   Runs in the current session with the stakeholder present.
 category: requirements
 version: 0.3.0
-disable-model-invocation: false
 ---
 
 # Draft Proposal

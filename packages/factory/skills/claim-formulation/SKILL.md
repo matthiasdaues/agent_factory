@@ -2,7 +2,6 @@
 name: claim-formulation
 description: Produce one precise, testable claim from recorded evidence with scope, assumptions, and content hash.
 category: research
-disable-model-invocation: false
 ---
 
 # Claim Formulation

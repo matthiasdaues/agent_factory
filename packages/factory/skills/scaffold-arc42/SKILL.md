@@ -2,7 +2,6 @@
 name: scaffold-arc42
 description: Create arc42 architecture documentation and a Structurizr C4 model from the specification.
 category: architecture
-disable-model-invocation: true
 ---
 
 # Scaffold arc42

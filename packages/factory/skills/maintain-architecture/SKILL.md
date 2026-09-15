@@ -2,7 +2,6 @@
 name: maintain-architecture
 description: Maintain arc42 architecture docs with architecture.dsl as the single source of truth. Covers DSL-first workflow, image export, Mermaid derivation, and state machine pseudocode.
 category: architecture
-disable-model-invocation: true
 ---
 
 # Maintain Architecture

@@ -2,7 +2,6 @@
 name: create-backlog-story-slices
 description: "Read confirmed backlog/epics.md, sketch story-level slice tables per EPIC, and present them for user approval. Phase 3 of 4 in the create-backlog sequence."
 category: planning
-disable-model-invocation: false
 ---
 
 # Create Backlog — Phase 3: Story Slicing Approach

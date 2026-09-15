@@ -4,7 +4,6 @@ description: "Read confirmed slice tables, write backlog/ST-NNNN.md story files 
 category: planning
 inputs:
   - docs/testing.yaml
-disable-model-invocation: false
 ---
 
 # Create Backlog — Phase 4: Write Stories

@@ -2,7 +2,6 @@
 name: init-factory
 description: Wire Agent Factory into a project — new or existing — by running the deterministic init-factory script and relaying its result. Invoked explicitly, never automatically.
 category: utility
-disable-model-invocation: true
 ---
 
 # Init Factory

@@ -2,7 +2,6 @@
 name: crap-score
 description: Compute CRAP (Change Risk Anti-Patterns) per function and block when any exceeds the threshold.
 category: implementation
-disable-model-invocation: false
 ---
 
 # CRAP Score

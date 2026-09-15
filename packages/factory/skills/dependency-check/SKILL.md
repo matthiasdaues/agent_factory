@@ -2,7 +2,6 @@
 name: dependency-check
 description: Enforce architecture.dsl dependency rules by scanning source imports and writing a JSON gate report.
 category: implementation
-disable-model-invocation: false
 ---
 
 # Dependency Check

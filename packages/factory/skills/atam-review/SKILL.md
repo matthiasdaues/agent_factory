@@ -2,7 +2,6 @@
 name: atam-review
 description: Two-pass architecture review — deterministic arch-lint (structure, DSL consistency, diagram references) then ATAM evaluation against quality attribute scenarios. Files findings as local markdown files.
 category: architecture
-disable-model-invocation: false
 ---
 
 # ATAM Review

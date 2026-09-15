@@ -9,7 +9,6 @@ description: >-
   interactive migration to the concern model.
 category: requirements
 version: 5.0.0
-disable-model-invocation: false
 ---
 
 # Capture Context

@@ -2,7 +2,6 @@
 name: run-step
 description: Resolve and run the next agent or playbook step, deciding what "resume" means from observable state (the phase-gate marker, gate results, open findings) rather than a separately persisted execution status.
 category: utility
-disable-model-invocation: false
 ---
 
 # Run Step

@@ -2,7 +2,6 @@
 name: write-prd
 description: Synthesise a Product Requirements Document from clarified requirements.
 category: requirements
-disable-model-invocation: true
 ---
 
 # Write PRD

@@ -2,7 +2,6 @@
 name: write-adr
 description: Document an architecture decision as an ADR (Nygard format). The sole owner of ADR format in this project — every ADR, from any caller, is written by this skill.
 category: architecture
-disable-model-invocation: false
 ---
 
 # Write ADR

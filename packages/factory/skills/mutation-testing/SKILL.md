@@ -2,7 +2,6 @@
 name: mutation-testing
 description: Set up project-owned mutation testing to verify behavioral coverage, classify survivors, and — when a QA strategy contract-owner table exists — classify each mutant's contract ownership.
 category: quality
-disable-model-invocation: true
 ---
 
 # Mutation Analysis
