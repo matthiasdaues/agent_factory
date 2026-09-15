@@ -13,6 +13,10 @@ story slicing or implementation begins.
 Actor goals link directly to durable feature rules. The EPICs do not depend on
 the phase-1 capability table.
 
+Ownership names the planned building block because story identifiers do not
+exist before story slicing. Story slicing must transfer each assignment to the
+story created from that block.
+
 ## Epic 1 — Start, Continue, and Execute a Workstream
 
 ### Why this EPIC exists
@@ -89,7 +93,10 @@ None. This EPIC can begin from the current codebase.
 
 ### Size
 
-Estimated at three stories and 7–12 engineering days.
+Estimated at four stories and 7–12 engineering days. Phase 3 added one story:
+"Assign and run eligible agents" splits into metadata migration and run-step
+rewrite because they serve different actors (agent maintainer vs. human
+operator) through different entry points.
 
 ### Domain Rules
 
@@ -110,6 +117,29 @@ Estimated at three stories and 7–12 engineering days.
 | Start and reopen workstreams         | strong   | 2–4 days | Let an operator start `Atlas`, reopen it, and see its current cycle.        | Menu options B and C serve unrelated flows.                | Adds creation, listing, state, binding, locking, and menu results.            |
 | Assess evidence and recommend routes | strong   | 3–5 days | Show which routes current repository evidence supports.                     | Validators exist without a cycle engine or delivery model. | Adds model loading, artifact assessment, recommendations, and reconciliation. |
 | Assign and run eligible agents       | standard | 2–3 days | Let a maintainer assign eligibility and an operator run the eligible agent. | Agents use phase metadata; `run-step` reads legacy state.  | Migrates metadata, catalog generation, eligibility, and resume behavior.      |
+
+### Testability Assessment
+
+All actor goals produce observable, assertable outcomes. Tests can inspect menu
+output, workstream and binding files, model validation results, the generated
+catalog, trigger output, and `run-step` behavior. The acceptance-commit
+identifier is pinned when the feature branch is cut from `dev`;
+`dispatch init --baseline-commit` records the full 40-character SHA in the
+dispatch ledger. Characterization tests read the pinned SHA to snapshot the
+pre-migration index and command contracts.
+
+### Ownership Resolution
+
+| Contract                                            | `.feature` Rule                                                                                                                                                                                  | Owner                                | Rationale                                |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ | ---------------------------------------- |
+| Start a new workstream                              | [Human operator starts a new workstream](../docs/spec/cycle-based-orchestration.feature#rule-human-operator-starts-a-new-workstream)                                                             | Start and reopen workstreams         | Introduces creation and session binding. |
+| Continue an existing workstream                     | [Human operator continues an existing workstream](../docs/spec/cycle-based-orchestration.feature#rule-human-operator-continues-an-existing-workstream)                                           | Start and reopen workstreams         | Introduces listing and reopening.        |
+| Load and validate the delivery model                | [Engine loads and validates the delivery model](../docs/spec/cycle-based-orchestration.feature#rule-engine-loads-and-validates-the-delivery-model)                                               | Assess evidence and recommend routes | Introduces the validated routing model.  |
+| Evaluate artifact readiness                         | [Engine evaluates artifact readiness for route recommendations](../docs/spec/cycle-based-orchestration.feature#rule-engine-evaluates-artifact-readiness-for-route-recommendations)               | Assess evidence and recommend routes | Introduces structured readiness results. |
+| Recommend routes from evidence                      | [Engine recommends routes based on artifact evidence](../docs/spec/cycle-based-orchestration.feature#rule-engine-recommends-routes-based-on-artifact-evidence)                                   | Assess evidence and recommend routes | Introduces recommendation cardinality.   |
+| Reconcile changed code and canonical artifacts      | [Reconciliation runs when a cycle changes code or canonical artifacts](../docs/spec/cycle-based-orchestration.feature#rule-reconciliation-runs-when-a-cycle-changes-code-or-canonical-artifacts) | Assess evidence and recommend routes | First exercises reconciliation at exit.  |
+| Replace agent phase ordinals with cycle eligibility | [Agent definitions carry cycle eligibility instead of phase ordinals](../docs/spec/cycle-based-orchestration.feature#rule-agent-definitions-carry-cycle-eligibility-instead-of-phase-ordinals)   | Assign and run eligible agents       | Introduces eligibility metadata.         |
+| Execute cycle steps from observable state           | [`run-step` executes cycle steps instead of playbook steps](../docs/spec/cycle-based-orchestration.feature#rule-run-step-executes-cycle-steps-instead-of-playbook-steps)                         | Assign and run eligible agents       | Introduces cycle-based step resolution.  |
 
 ## Epic 2 — Select, Retry, and Check a Cycle
 
@@ -211,6 +241,25 @@ Estimated at three stories and 7–12 engineering days.
 | Retry a cycle safely      | strong   | 2–4 days | Let an operator retry and see whether work continued or paused.               | `phase retry` counts review iterations.          | Adds retry decisions, limits, warnings, resets, and consumed attempts.      |
 | Check migration integrity | standard | 2–3 days | Let a maintainer check cycle state while existing contracts remain available. | Lint and phase commands use legacy flow control. | Migrates linting, adds the stub, and characterizes interfaces.              |
 
+### Testability Assessment
+
+All actor goals produce observable, assertable outcomes. Tests can inspect
+command exit codes, diagnostic output, state and binding files, revisions,
+digests, lock results, and preserved command contracts. No testability red flag
+remains in this EPIC.
+
+### Ownership Resolution
+
+| Contract                                          | `.feature` Rule                                                                                                                                                      | Owner                     | Rationale                                       |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | ----------------------------------------------- |
+| Select the next cycle                             | [Human operator selects the next cycle](../docs/spec/cycle-based-orchestration.feature#rule-human-operator-selects-the-next-cycle)                                   | Select a cycle safely     | Introduces human cycle selection.               |
+| Enforce delegated retry limits                    | [Engine enforces delegated retry limits](../docs/spec/cycle-based-orchestration.feature#rule-engine-enforces-delegated-retry-limits)                                 | Retry a cycle safely      | Introduces retry decisions and attempt changes. |
+| Transition workstream state atomically            | [Adapter transitions workstream state atomically](../docs/spec/cycle-based-orchestration.feature#rule-adapter-transitions-workstream-state-atomically)               | Select a cycle safely     | Introduces state mutation and binding updates.  |
+| Handle concurrent workstream access               | [Adapter handles concurrent workstream access](../docs/spec/cycle-based-orchestration.feature#rule-adapter-handles-concurrent-workstream-access)                     | Select a cycle safely     | Introduces locking and conflict handling.       |
+| Retire the phase command with diagnostic guidance | [phase command exits as a diagnostic stub](../docs/spec/cycle-based-orchestration.feature#rule-phase-command-exits-as-a-diagnostic-stub)                             | Check migration integrity | Introduces the diagnostic stub.                 |
+| Validate cycle models and state files             | [transition-lint validates cycle models and state files](../docs/spec/cycle-based-orchestration.feature#rule-transition-lint-validates-cycle-models-and-state-files) | Check migration integrity | Introduces migrated integrity checks.           |
+| Keep acceptance-commit contracts                  | [Kept contracts preserve acceptance-commit behavior](../docs/spec/cycle-based-orchestration.feature#rule-kept-contracts-preserve-acceptance-commit-behavior)         | Check migration integrity | First verifies compatibility after migration.   |
+
 ## Epic 3 — Switch Workstreams During a Session
 
 ### Why this EPIC exists
@@ -218,8 +267,7 @@ Estimated at three stories and 7–12 engineering days.
 One session may encounter work for another objective. A confirmed switch must
 keep state and usage attribution attached to the correct workstream.
 
-This EPIC is provisional. Objective-change detection and visible confirmation
-remain unspecified.
+Objective-change detection uses only mechanical signals defined below.
 
 ### Actor Goals
 
@@ -229,14 +277,27 @@ remain unspecified.
 
 The current session model has no workstream binding and cannot switch between
 objectives. Usage capture records sessions and agents without a workstream
-boundary. No repository contract defines when new user input becomes a
-different objective.
+boundary.
 
-After the missing detection rule is decided, the Factory must suggest one
-specific target action: create a workstream or reopen a named workstream. A
-declined suggestion must be remembered for that objective during the session.
-A confirmed switch must capture the old usage boundary before updating the
-binding. The user must then see the active target name.
+The Factory detects an objective change through exactly these mechanical
+signals:
+
+1. The user names a different workstream explicitly (e.g. "let's work on
+   Borealis").
+2. The user references a proposal file (`docs/proposals/*.md`) not associated
+   with the current workstream's work list.
+3. The user invokes `cycle select` or menu option B/C targeting a different
+   workstream.
+
+Conversational semantics are not a detection signal. If no mechanical signal
+fires, the Factory does not suggest a switch. The user can always switch
+manually.
+
+On detection, the Factory must suggest one specific target action: create a
+workstream or reopen a named workstream. A declined suggestion must be
+remembered for that objective during the session. A confirmed switch must
+capture the old usage boundary before updating the binding. The user must
+then see the active target name.
 
 ### Demo
 
@@ -264,8 +325,6 @@ binding. The user must then see the active target name.
 ### Dependencies
 
 - [Epic 1](#epic-1--start-continue-and-execute-a-workstream) supplies bindings.
-- Story slicing is blocked by
-  [the objective-change gap](../docs/spec/cycle-based-orchestration-gaps.md#ambiguous-wording).
 
 ### Boundaries
 
@@ -290,6 +349,23 @@ Provisional estimate: two stories and 4–7 engineering days.
 | Suggest a switch              | standard | 2–3 days | Let an operator accept or decline one clear suggestion.          | No detection, prompt, or suppression record exists. | Adds approved criteria, confirmation, and suppression.                |
 | Switch state and usage safely | strong   | 2–4 days | Continue under the target without mixing the old usage boundary. | Capture has no binding; sessions cannot switch.     | Adds boundary capture, locked rebinding, conflicts, and confirmation. |
 
+### Testability Assessment
+
+All actor goals produce observable, assertable outcomes. Tests can inspect the
+binding update, usage boundary file, suppression record, and visible target
+through session output and stored files. Objective-change detection fires on
+three mechanical signals (explicit workstream name, unrelated proposal
+reference, menu or command targeting a different workstream). Tests can
+supply each signal and assert that the suggestion appears, and verify that
+no suggestion fires without a signal. No testability red flag remains in
+this EPIC.
+
+### Ownership Resolution
+
+| Contract                              | `.feature` Rule                                                                                                                                        | Owner            | Rationale                                |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- | ---------------------------------------- |
+| Switch workstreams during one session | [Human operator switches workstreams mid-session](../docs/spec/cycle-based-orchestration.feature#rule-human-operator-switches-workstreams-mid-session) | Suggest a switch | First introduces the switching contract. |
+
 ## Epic 4 — Delegate Bounded Cycle Routing
 
 ### Why this EPIC exists
@@ -297,8 +373,8 @@ Provisional estimate: two stories and 4–7 engineering days.
 Users can decide some routes before unattended work begins. Delegation must
 follow recorded human authority and pause at each defined boundary.
 
-This EPIC is provisional. Grant data and behavior exist in the specification,
-but no shipped grant-management interface is defined.
+Grant management uses the `cycle grant` CLI command defined in the
+[interface contracts](../docs/spec/supplementary_specs/interface-contracts.md#factoryscriptscycle-grant).
 
 ### Actor Goals
 
@@ -307,13 +383,16 @@ but no shipped grant-management interface is defined.
 
 ### Current State and Required Behavior
 
-The delivery specification defines route and destination grant data, but the
-command contract exposes no way to manage a grant. No engine currently follows
-a grant or returns a structured pause reason.
+The delivery specification defines route and destination grant data, but no
+command contract manages grants. No engine currently follows a grant or returns
+a structured pause reason.
 
-The missing interface must let a human create, replace, revoke, and resume a
-grant. Each successful change must pass through the same locked state adapter
-as cycle selection. Agents and engine code must be unable to extend the grant.
+The `cycle grant` command is the sole entry point for creating, replacing,
+revoking, and inspecting a grant. The session menu lists it under workstream
+management when a workstream is bound; the menu never suggests it
+contextually. Each successful change passes through the same locked state
+adapter as cycle selection. Agents and engine code cannot create, extend, or
+broaden a grant.
 
 An ordered grant must follow every recorded choice, even when recommendation
 evidence fails. A destination grant must continue only while exactly one route
@@ -350,9 +429,6 @@ the pause reason and next human action.
 
 - [Epic 2](#epic-2--select-retry-and-check-a-cycle) supplies mutation and
   conflict handling.
-- Story slicing is blocked until the stakeholder defines the interface. The
-  [`cycle select` contract](../docs/spec/supplementary_specs/interface-contracts.md#factoryscriptscycle-select)
-  has no grant arguments.
 
 ### Boundaries
 
@@ -380,6 +456,21 @@ Provisional estimate: three stories and 9–15 engineering days.
 | Manage grants                  | strong | 3–5 days | Let an operator create, replace, revoke, and resume a grant. | Grant data has no shipped interface. | Adds the approved interface, authority checks, state, and status. |
 | Follow an ordered route        | strong | 3–5 days | Follow a selected route and pause when it ends.              | No delegation evaluator exists.      | Adds ordered progress, evidence, and pause behavior.              |
 | Continue through a destination | strong | 3–5 days | Continue toward a destination while one route has support.   | No destination grant exists.         | Adds evidence routing, ambiguity pauses, and arrival pauses.      |
+
+### Testability Assessment
+
+All actor goals produce observable, assertable outcomes. Tests invoke
+`cycle grant route|through|revoke|show` and inspect grant state, transition
+output, pause reasons, and workstream state files. The `cycle grant` command
+provides a concrete test interface for creating, replacing, revoking, and
+inspecting grants. No testability red flag remains in this EPIC.
+
+### Ownership Resolution
+
+| Contract                               | `.feature` Rule                                                                                                                                      | Owner                          | Rationale                                     |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | --------------------------------------------- |
+| Follow a human-authored route sequence | [Human operator delegates a route sequence](../docs/spec/cycle-based-orchestration.feature#rule-human-operator-delegates-a-route-sequence)           | Follow an ordered route        | First completes ordered delegated execution.  |
+| Continue through a named destination   | [Human operator delegates through a destination](../docs/spec/cycle-based-orchestration.feature#rule-human-operator-delegates-through-a-destination) | Continue through a destination | First completes destination-based delegation. |
 
 ## Epic 5 — Analyse Usage by Workstream and Cycle
 
@@ -463,6 +554,20 @@ Estimated at two stories and 4–7 engineering days.
 | Capture attributable usage | strong | 2–4 days | Give analysts records with available workstream and cycle context. | Capture and its contract lack workstream fields. | Extends the contract, capture, child context, and null handling. |
 | Query attributable totals  | strong | 2–3 days | Group totals by workstream and cycle without false attribution.    | The query supports other dimensions.             | Extends relations, views, adapters, and unavailable output.      |
 
+### Testability Assessment
+
+All actor goals produce observable, assertable outcomes. Tests can inspect
+versioned usage records, inherited child context, query rows, command output,
+and unavailable-attribution values. No testability red flag remains in this
+EPIC.
+
+### Ownership Resolution
+
+| Contract                                   | `.feature` Rule                                                                                                                                                          | Owner                      | Rationale                              |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- | -------------------------------------- |
+| Capture workstream and cycle usage context | [Usage records carry workstream and cycle context](../docs/spec/cycle-based-orchestration.feature#rule-usage-records-carry-workstream-and-cycle-context)                 | Capture attributable usage | Introduces attributable record fields. |
+| Query by workstream and cycle dimensions   | [Usage analyst queries by workstream and cycle dimensions](../docs/spec/cycle-based-orchestration.feature#rule-usage-analyst-queries-by-workstream-and-cycle-dimensions) | Query attributable totals  | Introduces both analysis dimensions.   |
+
 ## Epic 6 — Bootstrap a Brownfield Concept Model
 
 ### Why this EPIC exists
@@ -509,7 +614,7 @@ must inform recommendations without preventing a human from choosing a cycle.
 - Validate classes, slots, inline value objects, and schema versions.
 - Generate faithful Markdown and Scalable Vector Graphics projections.
 - Generate Pydantic validation for persisted value objects.
-- Check one valid persistence round-trip.
+- Check one valid persistence round-trip through SQLAlchemy.
 - Report missing evidence without blocking human choice.
 
 **Out**
@@ -548,6 +653,24 @@ Estimated at two stories and 5–9 engineering days.
 | --------------------------------- | -------- | -------- | -------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------- |
 | Create the canonical LinkML model | strong   | 3–5 days | Validate one source and regenerate faithful projections. | A handwritten model exists without LinkML or generation. | Adds LinkML, linting, projections, Pydantic, and persistence checks.   |
 | Complete the brownfield bootstrap | standard | 2–4 days | Create and assess all three canonical objects.           | Onboarding omits `entity-model.yaml`.                    | Integrates modeling, readiness, missing evidence, and recommendations. |
+
+### Testability Assessment
+
+All actor goals produce observable, assertable outcomes. Canonical files,
+validator results, generated projections, model validation, and readiness
+output are directly inspectable. The persistence round-trip binds to two
+integration boundaries: Pydantic validation (generated models reject invalid
+payloads before storage) and SQLAlchemy (a valid generated object is stored
+and retrieved through an SQLAlchemy session without losing fields or
+schema-version data). Test fixtures own an in-memory or temporary SQLite
+database. No testability red flag remains in this EPIC.
+
+### Ownership Resolution
+
+| Contract                                  | `.feature` Rule                                                                                                                                                              | Owner                             | Rationale                                       |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ----------------------------------------------- |
+| Bootstrap the canonical concept model     | [Brownfield operator bootstraps the canonical concept model](../docs/spec/cycle-based-orchestration.feature#rule-brownfield-operator-bootstraps-the-canonical-concept-model) | Complete the brownfield bootstrap | Introduces the three-object bootstrap.          |
+| Use LinkML as the canonical domain source | [LinkML entity model serves as canonical domain source](../docs/spec/cycle-based-orchestration.feature#rule-linkml-entity-model-serves-as-canonical-domain-source)           | Create the canonical LinkML model | Introduces validation, generation, and storage. |
 
 ## Epic 7 — Link Research to Delivery Work
 
@@ -628,3 +751,15 @@ Estimated at two stories and 4–7 engineering days.
 | ------------------------- | -------- | -------- | ----------------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------- |
 | Create a linked brief     | standard | 2–3 days | Create either a valid linked brief or unchanged standalone brief. | Schemas and routes lack delivery-link fields. | Extends schemas, templates, validation, and creation.            |
 | Return validated research | standard | 2–4 days | Return a validated report to the declared cycle.                  | Reports do not update delivery state.         | Adds cycle resolution, references, resumption, and confirmation. |
+
+### Testability Assessment
+
+All actor goals produce observable, assertable outcomes. Tests can inspect
+brief fields, validation results, report references, workstream state, and
+resume output. No testability red flag remains in this EPIC.
+
+### Ownership Resolution
+
+| Contract                       | `.feature` Rule                                                                                                                                      | Owner                 | Rationale                                   |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | ------------------------------------------- |
+| Link research to delivery work | [Delivery cycle creates a linked research brief](../docs/spec/cycle-based-orchestration.feature#rule-delivery-cycle-creates-a-linked-research-brief) | Create a linked brief | First introduces the linked-brief contract. |

@@ -47,10 +47,10 @@ None. Every Rule has at least one Scenario.
 
 ## Ambiguous Wording
 
-| Location                                                          | Step Text                                             | Issue                                                              | Suggested Fix                                                                                       |
-| ----------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| Rule: Human operator switches workstreams mid-session, Scenario 1 | "When the human begins work on a different objective" | "different objective" is subjective — the factory must detect this | Clarify detection criteria: explicit topic change, new proposal reference, or different deliverable |
-| Rule: Engine evaluates artifact readiness, Scenario 3             | "changed files under src/"                            | "src/" assumes a specific directory structure                      | Use "changed source code files" or define the detection scope in the engine configuration           |
+| Location                                                          | Step Text                                             | Issue                                                              | Resolution                                                                                                                                                                                               |
+| ----------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rule: Human operator switches workstreams mid-session, Scenario 1 | "When the human begins work on a different objective" | "different objective" is subjective — the factory must detect this | Resolved: detection uses three mechanical signals only — explicit workstream name, unrelated proposal reference, or menu/command targeting a different workstream. No conversational-semantic inference. |
+| Rule: Engine evaluates artifact readiness, Scenario 3             | "changed files under src/"                            | "src/" assumes a specific directory structure                      | Use "changed source code files" or define the detection scope in the engine configuration                                                                                                                |
 
 ## Explicitly Deferred (from proposal)
 

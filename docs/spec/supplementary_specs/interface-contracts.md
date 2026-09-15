@@ -597,6 +597,20 @@ Proposal trace: [cycle-based-orchestration.md](../../proposals/cycle-based-orche
 | stdout    | YAML result with `status`, `reason`, `cycle`, `attempt`, and `limit` fields                                                               |
 | Behavior  | Acquires the workstream lock, checks the delegated retry limit, increments `attempt`, updates the session binding                         |
 
+### `factory/scripts/cycle grant`
+
+|           |                                                                                                                                                                                  |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage     | `cycle grant route --state STATE CYCLE [CYCLE ...]`<br>`cycle grant through --state STATE DESTINATION`<br>`cycle grant revoke --state STATE`<br>`cycle grant show --state STATE` |
+| STATE     | Path to the workstream state file under `.current-work/cycles/`                                                                                                                  |
+| CYCLE     | One or more cycle names: `IDEA`, `CONCEPT`, `ROADMAP`, `REFINE`, `REALIZE`                                                                                                       |
+| Reads     | The workstream state file, the session binding, `factory/engine/models/delivery.yaml`                                                                                            |
+| Writes    | The workstream state file (on success for `route`, `through`, and `revoke`), the session binding                                                                                 |
+| Exit code | `0` on success; `1` on conflict (stale state or lock timeout); `2` on invalid input (unknown cycle, empty route, destination not in model)                                       |
+| stdout    | `show`: YAML representation of the current grant or `no_grant`; `route`, `through`, `revoke`: YAML result with `status`, `grant_form`, and `revision` fields                     |
+
+`route` records an ordered sequence of human-authored cycle selections. The engine follows the sequence regardless of recommendation evidence. `through` records a destination; the engine continues only while exactly one route has supporting evidence. `revoke` removes the active grant. Each mutation acquires the workstream lock, validates the expected revision and digest, increments the revision, and updates the session binding. Agents and engine code cannot invoke `route`, `through`, or `revoke`; the command rejects non-human callers.
+
 ### `factory/scripts/phase` (diagnostic stub)
 
 |           |                                                                                                         |
