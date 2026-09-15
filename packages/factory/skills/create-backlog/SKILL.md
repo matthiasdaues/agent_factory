@@ -73,7 +73,11 @@ Chain stories so each one's deliverables become status quo for every story that 
 
 Spec rules are traces — evidence of coverage, not the decomposition axis. A story exists because it delivers a capability, not because a rule needs coverage. The code shape determines how the work decomposes; the spec determines what work is needed.
 
-**MUST NOT** decompose by layer. One story for types, one for schema, one for service, one for API, one for UI is horizontal decomposition — it produces stories that individually deliver nothing showable and violates the vertical-slice gate. Each story **MUST** cross all system boundaries its capability requires. Infrastructure (identity types, schema scaffolding, test markers, pre-commit fixes) enters as a line item inside the story that first uses it, never as a standalone story — unless the story was already created by the `capture-charter` completeness sweep as part of Epic 0. The planning agent never creates Epic 0 stories; it only acknowledges ones the charter sweep produced.
+**MUST NOT** decompose by layer. One story for types, one for schema, one for service, one for API, one for UI is horizontal decomposition — it produces stories that individually deliver nothing showable and violates the vertical-slice gate.
+
+Do not derive stories from components, layers, or implementation stages. Derive each story from an actor-visible outcome, then include every internal change required to deliver that outcome. An internal component may be a standalone story only when that component is itself a supported interface used by a named actor or external consumer. Build only the internal slice each actor-facing story requires — never a standalone "build the engine" or "create the schema" story.
+
+Each story **MUST** cross all system boundaries its capability requires. Infrastructure (identity types, schema scaffolding, test markers, pre-commit fixes) enters as a line item inside the story that first uses it, never as a standalone story — unless the story was already created by the `capture-charter` completeness sweep as part of Epic 0. The planning agent never creates Epic 0 stories; it only acknowledges ones the charter sweep produced.
 
 ### Rule 3: Criteria Are Invariants
 
@@ -103,9 +107,11 @@ Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gate
 
 - [ ] Story-level slice tables confirmed by user (Phase 3)
 
-- [ ] Every EPIC and story crosses at least two system boundaries
+- [ ] Every story names an actor or external consumer, a supported entry point, and an externally observable outcome
 
-- [ ] No horizontal (single-boundary) stories exist outside Epic 0
+- [ ] Every story's demo uses the shipped interface — not test output, source inspection, or direct invocation of internals
+
+- [ ] No horizontal stories exist outside Epic 0 (a story derived from a component rather than an actor-visible outcome is horizontal)
 
 - [ ] Stories meet INVEST criteria (especially: small and testable)
 

@@ -18,18 +18,29 @@ Follow the concern sections in `docs/agent-context.md` to locate domain vocabula
 
 **Boundary vocabulary:** derive boundary names from the project's architecture. Follow the technical concerns in `docs/agent-context.md` to locate architecture views. Use the project's own component and container names, not generic layer labels.
 
-For each confirmed EPIC, sketch a table of candidate stories. Each row names a user-visible capability, the system boundaries it crosses, what the story delivers, and a one-sentence demo.
+For each confirmed EPIC, sketch a table of candidate stories. Each row names an actor-visible capability, the entry point, the outcome, and a demo that uses the shipped interface.
 
-| #   | Capability | Goal (one sentence) | Boundaries crossed | Demo sentence |
-| --- | ---------- | ------------------- | ------------------ | ------------- |
+| #   | Capability | Actor / consumer | Trigger or entry point | Observable outcome | Production path | Demo |
+| --- | ---------- | ---------------- | ---------------------- | ------------------ | --------------- | ---- |
 
-**Goal column:** State what each story delivers in plain language — one sentence of concrete behavior. The Goal seeds the story's Goal section in Phase 4 (story file creation).
+**Capability column:** active verb phrase — this becomes the story title. "Start a workstream and select any cycle", not "Workstream creation and cycle selection."
 
-If a candidate row touches only one boundary and delivers nothing a person can demonstrate, it is not a story — fold it into the first row that needs it as a line item.
+**Actor / consumer column:** the person, agent, or external system that initiates or consumes the capability.
 
-**Title convention:** The Capability column uses an active verb phrase — this becomes the story title. "Deliver a command and accept it on the Agent", not "Command delivery and Agent acceptance."
+**Production path column:** trace the path from trigger to outcome through the system's own component names. Name the entry point, the deciding component, and where the result lands.
 
-**Gate:** every row crosses at least two system boundaries and has a concrete, showable demo.
+**Goal derivation:** the combination of Actor, Trigger, Outcome, and Path seeds the story's Goal section in Phase 4.
+
+If a candidate row has no named actor or external consumer, no supported entry point, or no externally observable outcome, it is not a story — fold it into the first row that needs it as a line item.
+
+**Gate:** every row must satisfy all of the following:
+
+1. It names an actor or external consumer, a supported entry point or trigger, and an externally observable outcome or rejection.
+2. It implements the complete path through every boundary required for that outcome.
+3. The demo must use the shipped interface, not source inspection, direct invocation of internals, database inspection, or a test suite. Tests verify a story; test output is not the capability the story delivers.
+4. **Isolation check:** assume only the current baseline, declared dependencies, and this candidate story are shipped. Can the named actor complete the demo through a supported interface? If not, merge or recut the story.
+
+**Story count:** the EPIC's size estimate is an estimate, never a target. Preserve natural capability seams even when the resulting count differs. Do not split an end-to-end capability into incomplete implementation units to match the estimate. If Phase 3 produces a different count, explain the variance and update `backlog/epics.md` (the building-block inventory and size field) after stakeholder confirmation.
 
 ## Quality gate
 

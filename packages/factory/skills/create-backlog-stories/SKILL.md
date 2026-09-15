@@ -29,7 +29,7 @@ For each story, fill the 13-section body using these 11 instructions:
 
 02. **Domain Rule extraction.** Read domain concerns from `docs/agent-context.md`, follow `Read:` paths to supplementary specs and glossary. Extract entity lifecycle rules and invariants relevant to this story — the constraints the implementation must honor.
 
-03. **Demo as numbered steps.** Write the Demo section as a numbered step list with concrete values, not 2–4 sentence paragraphs. Each step should name the actor, the action, and the expected observable result.
+03. **Demo as numbered steps.** Write the Demo section as a numbered step list with concrete values, not 2–4 sentence paragraphs. Each step should name the actor, the action, and the expected observable result. The demo must use the shipped interface — the command, menu option, API, or trigger the actor would use in production. Tests verify a story; test output is not the capability the story delivers. If the demo cannot be performed without reading source code or running a test suite, the story is not a vertical slice — recut it.
 
 04. **Affected Paths from codebase survey.** Extend the current Status Quo section survey. For each system layer (schema, backend, frontend, deployment, etc.), list specific files that exist and will change, and new files to create. Reference actual files in the codebase, not spec abstractions.
 

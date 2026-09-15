@@ -66,7 +66,8 @@ A sentence that serves the author instead does not belong.
 
 1. A Goal describes what the reader can do or see after. It does
    not describe what happens inside. Every verb in a Goal must name
-   something observable from outside: "the gate exits non-zero",
+   something observable through the artifact's declared interface by
+   its named actor or external consumer: "the gate exits non-zero",
    "four views expose totals", "the operator runs a command and sees
    a result." Internal mechanism is not observable: "validates JSONL",
    "maps CLIs to rules", "applies the formula." Method — including

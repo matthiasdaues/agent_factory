@@ -46,6 +46,17 @@ The same composition discipline governs EPICs and stories: Goal First, then Demo
 
 <Other EPICs that must complete first, or "None." The status quo section names what those EPICs deliver.>
 
+### Size
+
+<N> stories.
+
+### Building-Block Inventory
+
+| Story   | Goal | Tier | Size | Basis |
+| ------- | ---- | ---- | ---- | ----- |
+
+Story count is an estimate, not a target. Phase 3 (story slicing) may produce a different count when natural capability seams are identified. When the count changes, Phase 3 explains the variance and updates this table after stakeholder confirmation.
+
 ### Stories
 
 - [<ST-NNNN> <Story title>](ST-NNNN.md): <one-line scope>

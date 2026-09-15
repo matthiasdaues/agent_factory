@@ -22,8 +22,10 @@ Document every confirmed EPIC in `backlog/epics.md` with:
 - Scope
 - Dependencies on other EPICs
 - Boundaries (system boundaries the EPIC crosses)
-- Size / story count estimate
+- Size / story count estimate (an estimate, not a target — see reconciliation below)
 - Building-block inventory listing each anticipated story with its capacity tier, day-range estimate, and Goal (one sentence of concrete behavior). The Goal seeds the story's Goal section in Phase 4. For each block, note what already exists in the codebase (files, modules, tests) and what the story adds or changes.
+
+**Size reconciliation:** the story count in the building-block inventory is an estimate based on the EPIC's scope. Phase 3 (story slicing) may produce a different count when natural capability seams are identified. When the count changes, Phase 3 explains the variance and updates the EPIC's size field and building-block inventory after stakeholder confirmation. The approved EPIC artifact and story table must not drift apart.
 
 **Domain Rules subsection:** Each EPIC gains a Domain Rules subsection listing the invariants that govern the EPIC's stories as a bullet list. These invariants capture the business or technical rules that constrain how stories within the EPIC behave. This subsection seeds each story's Domain Rule section in Phase 4.
 
