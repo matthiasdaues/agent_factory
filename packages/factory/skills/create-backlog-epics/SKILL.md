@@ -1,6 +1,8 @@
-______________________________________________________________________
-
-## name: create-backlog-epics description: "Survey user capabilities, map them against the codebase, and present the EPIC slicing approach for user approval. Phase 1 of 4 in the create-backlog sequence." category: planning
+---
+name: create-backlog-epics
+description: "Survey user capabilities, map them against the codebase, and present the EPIC slicing approach for user approval. Phase 1 of 4 in the create-backlog sequence."
+category: planning
+---
 
 # Create Backlog — Phase 1: EPIC Slicing Approach
 
