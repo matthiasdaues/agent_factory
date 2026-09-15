@@ -63,17 +63,20 @@ strip_prefix() {
 case "${1:-}" in
     export-svg|export-all)
         docker run --rm \
+            --user "$(id -u):$(id -g)" \
             -v "${DOCS_DIR}:/workspace" \
             "${IMAGE}" export -format svg -workspace /workspace/arc42/architecture.dsl -output /workspace/assets/images
         strip_prefix
         ;;
     validate)
         exec docker run --rm \
+            --user "$(id -u):$(id -g)" \
             -v "${DOCS_DIR}:/workspace" \
             "${IMAGE}" validate -workspace /workspace/arc42/architecture.dsl
         ;;
     list-views)
         exec docker run --rm \
+            --user "$(id -u):$(id -g)" \
             -v "${DOCS_DIR}:/workspace" \
             "${IMAGE}" list-views -workspace /workspace/arc42/architecture.dsl
         ;;
