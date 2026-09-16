@@ -7,15 +7,12 @@ The architecture follows
 Capacity tiers follow the
 [dispatch tier rubric](../factory/rulebooks/conventions/dispatch-contract.md#tier-rubric).
 
-Epic 3 and Epic 4 are provisional. Their open decisions must be resolved before
-story slicing or implementation begins.
-
 Actor goals link directly to durable feature rules. The EPICs do not depend on
 the phase-1 capability table.
 
-Ownership names the planned building block because story identifiers do not
-exist before story slicing. Story slicing must transfer each assignment to the
-story created from that block.
+Story slicing is complete. Each EPIC carries a confirmed Story Slices table
+that maps actor-visible capabilities to candidate stories. EPIC 1 stories are
+written and partially implemented. EPICs 2–7 await story file creation.
 
 ## Epic 1 — Start, Continue, and Execute a Workstream
 
@@ -38,21 +35,17 @@ eligible agent.
 
 ### Current State and Required Behavior
 
-`packages/factory/config/session-menu.md` currently sends option B into a
-playbook choice and option C into direct agent or playbook selection. Neither
-option knows about workstreams. `packages/factory/engine/` does not exist.
+The Cycle Engine (`packages/factory/engine/`) exists with five modules:
+`cycle_model.py` (model loader), `cycles.py` (canonical names),
+`eligibility.py` (dispatch eligibility), `readiness.py` (readiness evaluator),
+and `recommendations.py` (route recommender). The State Adapter
+(`packages/factory/scripts/cycle`) supports `select`, `assess`, and `list`
+subcommands. JSON Schemas (`cycle-model-v1`, `cycle-state-v1`) and the proposal
+validator are shipped. Agent definitions carry `eligible_cycles`. Session
+bindings and workstream state files work. Menu option B creates workstreams.
 
-The delivered menu must create, list, and bind YAML workstream files under
-`.current-work/cycles/`. A session binding must remember the observed revision
-and SHA-256 digest. Reopening a workstream must run mechanical artifact checks,
-run semantic reconciliation when relevant files changed, and display every
-available cycle with evidence and warnings.
-
-Agent definitions currently carry `phase` and `phase-name`. `index-lint` must
-replace those fields with cycle eligibility while retaining every indexed name.
-The current `run-step` reads `.current-work/playbook-state.yml`; the replacement
-must resolve the next eligible agent from workstream state, the delivery model,
-and current repository evidence.
+Remaining: menu option C (continue), reconciliation trigger (code-change
+detection), and `run-step` rewrite from cycle state.
 
 ### Demo
 
@@ -93,10 +86,18 @@ None. This EPIC can begin from the current codebase.
 
 ### Size
 
-Estimated at four stories and 7–12 engineering days. Phase 3 added one story:
-"Assign and run eligible agents" splits into metadata migration and run-step
-rewrite because they serve different actors (agent maintainer vs. human
-operator) through different entry points.
+Five stories and 7–12 engineering days. Two done (ST-0252, ST-0253), three
+pending (ST-0254, ST-0255, ST-0256).
+
+### Story Slices
+
+| #   | Capability                                                    | Actor          | Story                 | Status  |
+| --- | ------------------------------------------------------------- | -------------- | --------------------- | ------- |
+| 1   | Start a workstream and select any cycle                       | Human operator | [ST-0252](ST-0252.md) | done    |
+| 2   | See route recommendations and select a cycle                  | Human operator | [ST-0253](ST-0253.md) | done    |
+| 3   | Continue a workstream and see recommendations                 | Human operator | [ST-0254](ST-0254.md) | pending |
+| 4   | Detect code changes and run reconciliation assessment         | Human operator | [ST-0255](ST-0255.md) | pending |
+| 5   | Resolve run-step from workstream state with cycle eligibility | Human operator | [ST-0256](ST-0256.md) | pending |
 
 ### Domain Rules
 
@@ -112,11 +113,11 @@ operator) through different entry points.
 
 ### Building-Block Inventory
 
-| Block                                | Tier     | Estimate | Goal                                                                        | Existing state                                             | Adds or changes                                                               |
-| ------------------------------------ | -------- | -------- | --------------------------------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Start and reopen workstreams         | strong   | 2–4 days | Let an operator start `Atlas`, reopen it, and see its current cycle.        | Menu options B and C serve unrelated flows.                | Adds creation, listing, state, binding, locking, and menu results.            |
-| Assess evidence and recommend routes | strong   | 3–5 days | Show which routes current repository evidence supports.                     | Validators exist without a cycle engine or delivery model. | Adds model loading, artifact assessment, recommendations, and reconciliation. |
-| Assign and run eligible agents       | standard | 2–3 days | Let a maintainer assign eligibility and an operator run the eligible agent. | Agents use phase metadata; `run-step` reads legacy state.  | Migrates metadata, catalog generation, eligibility, and resume behavior.      |
+| Block                                | Tier     | Estimate | Goal                                                                        | Existing state                                                           | Adds or changes                                                     |
+| ------------------------------------ | -------- | -------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| Start and reopen workstreams         | strong   | 2–4 days | Let an operator start `Atlas`, reopen it, and see its current cycle.        | Option B creates workstreams (ST-0252 done). Option C pending (ST-0254). | Listing, binding on reopen, and menu results for option C remain.   |
+| Assess evidence and recommend routes | strong   | 3–5 days | Show which routes current repository evidence supports.                     | Readiness evaluator and route recommender shipped (ST-0253 done).        | Code-change detection for reconciliation trigger remains (ST-0255). |
+| Assign and run eligible agents       | standard | 2–3 days | Let a maintainer assign eligibility and an operator run the eligible agent. | Agent defs carry `eligible_cycles`; eligibility module shipped.          | `run-step` rewrite from cycle state remains (ST-0256).              |
 
 ### Testability Assessment
 
@@ -158,15 +159,16 @@ commands to select or retry a cycle and check the resulting state safely.
 
 ### Current State and Required Behavior
 
-`packages/factory/scripts/phase` currently advances or retries the singleton
-playbook marker. `packages/factory/scripts/transition-lint` checks phase order
-against playbook finite-state-machine files. No `cycle` command exists.
+`packages/factory/scripts/cycle` exists with `select`, `assess`, and `list`
+subcommands (EPIC 1). `cycle select` writes state without OS-level locking —
+concurrent sessions can silently overwrite each other. No `cycle retry`
+subcommand exists. `packages/factory/scripts/phase` and
+`packages/factory/scripts/transition-lint` still use legacy flow control.
 
-`cycle select --state STATE TARGET [--work REF ...]` must accept any declared
-cycle, including a cycle unsupported by current evidence. The command must show
-warnings, write attempt 1, increment the revision, and refresh the session
-digest. A stale revision, digest mismatch, or five-second lock timeout must
-return a named conflict without changing either file.
+`cycle select` must acquire an OS-level lock, validate revision and digest, and
+write state atomically through temp-file replacement. A stale revision, digest
+mismatch, or five-second lock timeout must return a named conflict without
+changing either file.
 
 `cycle retry --state STATE` must distinguish human and delegated requests. An
 accepted retry consumes its attempt before execution starts. A later execution
@@ -216,7 +218,15 @@ The old `phase` command must exit 2 and name the matching replacement command.
 
 ### Size
 
-Estimated at three stories and 7–12 engineering days.
+Three stories and 7–12 engineering days.
+
+### Story Slices
+
+| #   | Capability                                                       | Actor              | Trigger                    | Observable outcome                                                                                                                                                              |
+| --- | ---------------------------------------------------------------- | ------------------ | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Select a cycle with atomic state writes and conflict detection   | Human operator     | `cycle select`             | Lock acquired; revision and digest validated; atomic write; stale revision returns `conflict`; lock timeout returns `workstream_busy`; different workstreams lock independently |
+| 2   | Retry a cycle with delegated attempt limits                      | Human operator     | `cycle retry` (new)        | Below limit: attempt increments; at limit: `paused`; human retry above limit: warning; work-list change resets attempt; failure after accepted retry keeps increment            |
+| 3   | Check cycle models and workstream states for migration integrity | Project maintainer | `transition-lint`; `phase` | `transition-lint` validates model and state files; `phase` exits 2 naming replacement; characterization tests confirm kept contracts                                            |
 
 ### Domain Rules
 
@@ -235,11 +245,11 @@ Estimated at three stories and 7–12 engineering days.
 
 ### Building-Block Inventory
 
-| Block                     | Tier     | Estimate | Goal                                                                          | Existing state                                   | Adds or changes                                                             |
-| ------------------------- | -------- | -------- | ----------------------------------------------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------- |
-| Select a cycle safely     | strong   | 3–5 days | Let an operator select any cycle and see its result with warnings.            | `phase advance` mutates singleton state.         | Adds cycle selection, locking, replacement, revisions, and binding updates. |
-| Retry a cycle safely      | strong   | 2–4 days | Let an operator retry and see whether work continued or paused.               | `phase retry` counts review iterations.          | Adds retry decisions, limits, warnings, resets, and consumed attempts.      |
-| Check migration integrity | standard | 2–3 days | Let a maintainer check cycle state while existing contracts remain available. | Lint and phase commands use legacy flow control. | Migrates linting, adds the stub, and characterizes interfaces.              |
+| Block                     | Tier     | Estimate | Goal                                                                          | Existing state                                         | Adds or changes                                                                          |
+| ------------------------- | -------- | -------- | ----------------------------------------------------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Select a cycle safely     | strong   | 3–5 days | Let an operator select any cycle and see its result with warnings.            | `cycle select` exists without locking (EPIC 1).        | Adds OS-level locking, atomic replacement, revision validation, and conflict detection.  |
+| Retry a cycle safely      | strong   | 2–4 days | Let an operator retry and see whether work continued or paused.               | `phase retry` counts review iterations.                | Adds `cycle retry` subcommand, retry decisions, limits, warnings, and consumed attempts. |
+| Check migration integrity | standard | 2–3 days | Let a maintainer check cycle state while existing contracts remain available. | Lint and phase commands still use legacy flow control. | Migrates linting to cycle model, adds the phase stub, and characterizes interfaces.      |
 
 ### Testability Assessment
 
@@ -333,7 +343,16 @@ Bindings, Raw Usage Spool, and visible confirmation.
 
 ### Size
 
-Provisional estimate: two stories and 4–7 engineering days.
+One story and 4–7 engineering days. The original estimate of two stories
+separated detection from safe switching. Story slicing merged them: the two
+building blocks serve one actor through one interaction — detection is the entry
+point, the switch is the outcome. Splitting fails the serial-layer-chain gate.
+
+### Story Slices
+
+| #   | Capability                                         | Actor          | Trigger                                                                                                                     | Observable outcome                                                                                                                                                                   |
+| --- | -------------------------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Confirm or decline a workstream switch mid-session | Human operator | Mechanical signal: explicit workstream name, unrelated proposal reference, or menu/command targeting a different workstream | Suggestion to create or reopen target; confirmed switch captures usage boundary, updates binding atomically; declined suggestion suppressed for that objective; new target displayed |
 
 ### Domain Rules
 
@@ -344,10 +363,9 @@ Provisional estimate: two stories and 4–7 engineering days.
 
 ### Building-Block Inventory
 
-| Block                         | Tier     | Estimate | Goal                                                             | Existing state                                      | Adds or changes                                                       |
-| ----------------------------- | -------- | -------- | ---------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------- |
-| Suggest a switch              | standard | 2–3 days | Let an operator accept or decline one clear suggestion.          | No detection, prompt, or suppression record exists. | Adds approved criteria, confirmation, and suppression.                |
-| Switch state and usage safely | strong   | 2–4 days | Continue under the target without mixing the old usage boundary. | Capture has no binding; sessions cannot switch.     | Adds boundary capture, locked rebinding, conflicts, and confirmation. |
+| Block                                    | Tier   | Estimate | Goal                                                                                                | Existing state                                                                    | Adds or changes                                                                                         |
+| ---------------------------------------- | ------ | -------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Suggest and execute a mid-session switch | strong | 4–7 days | Let an operator accept or decline a switch and continue under the target without mixing boundaries. | Session bindings exist (EPIC 1). No detection, prompt, suppression, or switching. | Adds detection criteria, suggestion, confirmation, suppression, boundary capture, and locked rebinding. |
 
 ### Testability Assessment
 
@@ -362,9 +380,9 @@ this EPIC.
 
 ### Ownership Resolution
 
-| Contract                              | `.feature` Rule                                                                                                                                        | Owner            | Rationale                                |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- | ---------------------------------------- |
-| Switch workstreams during one session | [Human operator switches workstreams mid-session](../docs/spec/cycle-based-orchestration.feature#rule-human-operator-switches-workstreams-mid-session) | Suggest a switch | First introduces the switching contract. |
+| Contract                              | `.feature` Rule                                                                                                                                        | Owner                                    | Rationale                                |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- | ---------------------------------------- |
+| Switch workstreams during one session | [Human operator switches workstreams mid-session](../docs/spec/cycle-based-orchestration.feature#rule-human-operator-switches-workstreams-mid-session) | Suggest and execute a mid-session switch | First introduces the switching contract. |
 
 ## Epic 4 — Delegate Bounded Cycle Routing
 
@@ -437,7 +455,17 @@ Grant interface → Delegation Evaluator, Route Recommender, and Retry Evaluator
 
 ### Size
 
-Provisional estimate: three stories and 9–15 engineering days.
+Two stories and 6–10 engineering days. The original estimate of three stories
+separated grant management from both delegation forms. Story slicing merged
+grant management into the first delegation story: grant CRUD (create, show,
+revoke, replace) is shared infrastructure, not a standalone actor capability.
+
+### Story Slices
+
+| #   | Capability                           | Actor          | Trigger                     | Observable outcome                                                                                                                                                                                                                                     |
+| --- | ------------------------------------ | -------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Delegate an ordered route sequence   | Human operator | `cycle grant route` (new)   | Grant recorded; engine follows recorded choices regardless of evidence; warnings at each transition; pauses on exhaustion, failure, conflict, or retry limit; `cycle grant show` and `cycle grant revoke` work; agents cannot create or broaden grants |
+| 2   | Delegate through a named destination | Human operator | `cycle grant through` (new) | Grant recorded; engine continues while exactly one route has evidence; pauses on zero evidence, multiple routes, arrival, failure, or conflict                                                                                                         |
 
 ### Domain Rules
 
@@ -451,11 +479,10 @@ Provisional estimate: three stories and 9–15 engineering days.
 
 ### Building-Block Inventory
 
-| Block                          | Tier   | Estimate | Goal                                                         | Existing state                       | Adds or changes                                                   |
-| ------------------------------ | ------ | -------- | ------------------------------------------------------------ | ------------------------------------ | ----------------------------------------------------------------- |
-| Manage grants                  | strong | 3–5 days | Let an operator create, replace, revoke, and resume a grant. | Grant data has no shipped interface. | Adds the approved interface, authority checks, state, and status. |
-| Follow an ordered route        | strong | 3–5 days | Follow a selected route and pause when it ends.              | No delegation evaluator exists.      | Adds ordered progress, evidence, and pause behavior.              |
-| Continue through a destination | strong | 3–5 days | Continue toward a destination while one route has support.   | No destination grant exists.         | Adds evidence routing, ambiguity pauses, and arrival pauses.      |
+| Block                          | Tier   | Estimate | Goal                                                                                                   | Existing state                                                          | Adds or changes                                                                                          |
+| ------------------------------ | ------ | -------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Follow an ordered route        | strong | 3–5 days | Let an operator record a route, see it followed, and manage the grant through the approved interface.  | State Adapter and engine exist (EPIC 1). No grants or delegation.       | Adds `cycle grant` subcommand (route, show, revoke), Delegation Evaluator, ordered progress, and pauses. |
+| Continue through a destination | strong | 3–5 days | Let an operator record a destination and see the engine continue while one route has evidence support. | Grant management and Delegation Evaluator from the ordered-route story. | Adds destination grant form, evidence-based routing, ambiguity pauses, and arrival pauses.               |
 
 ### Testability Assessment
 
@@ -536,7 +563,14 @@ whole cumulative session total to the last active workstream.
 
 ### Size
 
-Estimated at two stories and 4–7 engineering days.
+Two stories and 4–7 engineering days.
+
+### Story Slices
+
+| #   | Capability                                      | Actor                           | Trigger                                                   | Observable outcome                                                                                                                                |
+| --- | ----------------------------------------------- | ------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Capture usage with workstream and cycle context | Usage system (session operator) | Session start with bound workstream; child agent dispatch | Records contain `workstream_id`, `workstream_origin`, `cycle` when bound; null when unbound; child agents inherit; capture succeeds in both cases |
+| 2   | Query usage totals by workstream and cycle      | Usage analyst                   | `usage-query --dimensions workstream,cycle`               | Results grouped by workstream and cycle; unavailable attribution for unbound records; no false assignment of cumulative totals                    |
 
 ### Domain Rules
 
@@ -634,7 +668,14 @@ Modeler → canonical concept files and readiness output.
 
 ### Size
 
-Estimated at two stories and 5–9 engineering days.
+Two stories and 5–9 engineering days.
+
+### Story Slices
+
+| #   | Capability                                                                | Actor               | Trigger                                             | Observable outcome                                                                                                                                                                    |
+| --- | ------------------------------------------------------------------------- | ------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Create a validated, documented, persistence-ready entity model            | Entity modeler      | Author `entity-model.yaml` and run readiness checks | LinkML validation and linting pass; classes and slots resolve; Markdown and SVG projections generated; Pydantic rejects invalid payloads; valid objects round-trip through SQLAlchemy |
+| 2   | Run the brownfield bootstrap and see all three canonical objects assessed | Brownfield operator | CONCEPT bootstrap                                   | `architecture.dsl`, `scope-map.md`, and `entity-model.yaml` exist; readiness checks run; complete baseline recommends feature delivery; missing evidence reported without blocking    |
 
 ### Domain Rules
 
@@ -735,7 +776,14 @@ Validator → validated report, workstream reference, and output.
 
 ### Size
 
-Estimated at two stories and 4–7 engineering days.
+Two stories and 4–7 engineering days.
+
+### Story Slices
+
+| #   | Capability                                               | Actor         | Trigger                                  | Observable outcome                                                                                                                                              |
+| --- | -------------------------------------------------------- | ------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Create a linked research brief from a delivery cycle     | Research user | Create brief while delivery cycle active | Brief includes `origin_cycle`, `origin_ref`, `return_cycle`, `decision_needed`; standalone briefs omit all four; linked fields validated before research begins |
+| 2   | Return a validated research report to the delivery cycle | Research user | Report passes validation                 | Delivery workstream resumes at declared return cycle with report reference; validation failure leaves delivery state unchanged                                  |
 
 ### Domain Rules
 
