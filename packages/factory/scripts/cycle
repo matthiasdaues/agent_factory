@@ -3,8 +3,9 @@
 
 Usage:
   cycle select --state STATE TARGET [--topic TOPIC] [--work REF] [--model PATH]
+  cycle assess --state STATE [--model PATH]
 
-Exit codes: 0 (selected), 1 (conflict), 2 (invalid input).
+Exit codes: 0 (success), 1 (conflict), 2 (invalid input).
 """
 
 from __future__ import annotations
@@ -12,10 +13,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import os
+import subprocess
 import sys
 import tempfile
 import uuid
 from pathlib import Path
+from typing import Callable
 
 import yaml
 
@@ -26,9 +29,49 @@ if str(PACKAGES_DIR) not in sys.path:
     sys.path.insert(0, str(PACKAGES_DIR))
 
 from engine.cycle_model import CycleModelError, load_delivery_model
+from engine.readiness import evaluate_readiness
+from engine.recommendations import (
+    MultipleChoices,
+    NoRecommendation,
+    SingleRecommendation,
+    recommend,
+)
+from engine.validators.proposal import ValidatorResult, validate_proposal
 
 VALID_CYCLES = {"IDEA", "CONCEPT", "ROADMAP", "REFINE", "REALIZE", "DONE"}
 DEFAULT_MODEL = ENGINE_DIR / "models" / "delivery.yaml"
+
+
+def _current_commit() -> str:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=5,
+        )
+        return result.stdout.strip() if result.returncode == 0 else "unknown"
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return "unknown"
+
+
+# Each entry: (is_semantic, validator_fn).
+# is_semantic=True validators only run when code_changed=True.
+VALIDATOR_REGISTRY: dict[str, tuple[bool, Callable[..., ValidatorResult]]] = {
+    "proposal_lint": (False, lambda model, state, commit: validate_proposal(
+        _resolve_proposal_path(state), assessed_commit=commit,
+    )),
+}
+
+
+def _resolve_proposal_path(state: dict) -> Path:
+    origin = state.get("origin_ref")
+    if origin:
+        return Path(origin)
+    work = state.get("work")
+    if work and isinstance(work, list):
+        for ref in work:
+            if "proposals/" in str(ref):
+                return Path(ref)
+    return Path("docs/proposals/unknown.md")
 
 
 def cmd_select(args: argparse.Namespace) -> int:
@@ -155,6 +198,99 @@ def _write_binding(state_path: Path, state: dict) -> None:
     _atomic_write(binding_path, yaml.safe_dump(binding, default_flow_style=False, sort_keys=False))
 
 
+def cmd_assess(args: argparse.Namespace) -> int:
+    model_path = Path(args.model) if args.model else DEFAULT_MODEL
+
+    try:
+        model = load_delivery_model(model_path)
+    except CycleModelError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    state_path = Path(args.state)
+    if not state_path.exists():
+        print(f"error: state file not found: {state_path}", file=sys.stderr)
+        return 2
+
+    try:
+        state = yaml.safe_load(state_path.read_text())
+    except yaml.YAMLError as exc:
+        print(f"error: cannot read state file: {exc}", file=sys.stderr)
+        return 2
+
+    current_cycle = state.get("cycle", "")
+    if current_cycle not in VALID_CYCLES:
+        print(f"error: invalid current cycle: {current_cycle}", file=sys.stderr)
+        return 2
+
+    commit = _current_commit()
+    mechanical_results = {}
+    semantic_results = {}
+
+    for vname, validator_data in model.validators.items():
+        if vname in VALIDATOR_REGISTRY:
+            is_semantic, validator_fn = VALIDATOR_REGISTRY[vname]
+            result = validator_fn(model, state, commit)
+            if is_semantic:
+                semantic_results[vname] = result
+            else:
+                mechanical_results[vname] = result
+
+    # code_changed detection deferred to EPIC 6. Currently all registered
+    # validators are mechanical (proposal_lint), so False is correct.
+    readiness = evaluate_readiness(
+        current_cycle, model.routes, mechanical_results,
+        semantic_results=semantic_results, code_changed=False,
+    )
+    recommendation = recommend(current_cycle, readiness)
+
+    _print_assessment(current_cycle, readiness, recommendation)
+    return 0
+
+
+def _print_assessment(current_cycle: str, readiness, recommendation) -> None:
+    print(f"\n--- Assessment for cycle {current_cycle} ---\n")
+
+    if isinstance(recommendation, NoRecommendation):
+        print("Result: no evidence-supported recommendation.\n")
+        if recommendation.warnings:
+            print("Warnings:")
+            for w in recommendation.warnings:
+                print(f"  - {w}")
+            print()
+        print("Available cycles:")
+        for c in recommendation.available_cycles:
+            print(f"  - {c}")
+
+    elif isinstance(recommendation, SingleRecommendation):
+        print(f"Recommendation: {recommendation.from_cycle} → {recommendation.recommended_cycle}\n")
+        print("Evidence:")
+        for ev in recommendation.evidence:
+            if hasattr(ev, "checks"):
+                for check in ev.checks:
+                    status = "PASS" if check.passed else "FAIL"
+                    print(f"  [{status}] {check.name}: {check.detail}")
+            else:
+                print(f"  {ev}")
+        print()
+        if recommendation.available_cycles:
+            print("Other available cycles:")
+            for c in recommendation.available_cycles:
+                print(f"  - {c}")
+
+    elif isinstance(recommendation, MultipleChoices):
+        print("Multiple routes have supporting evidence (unranked):\n")
+        for choice in recommendation.choices:
+            print(f"  - {choice.from_cycle} → {choice.to_cycle}")
+        print()
+        if recommendation.available_cycles:
+            print("Other available cycles:")
+            for c in recommendation.available_cycles:
+                print(f"  - {c}")
+
+    print()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="cycle", description="Cycle state adapter.")
     sub = parser.add_subparsers(dest="subcommand", required=True)
@@ -166,9 +302,15 @@ def main(argv: list[str] | None = None) -> int:
     p_select.add_argument("--work", default=None, help="Proposal or work reference path")
     p_select.add_argument("--model", default=None, help="Path to delivery.yaml (default: built-in)")
 
+    p_assess = sub.add_parser("assess", help="Assess readiness and show route recommendations.")
+    p_assess.add_argument("--state", required=True, help="Path to the workstream state file")
+    p_assess.add_argument("--model", default=None, help="Path to delivery.yaml (default: built-in)")
+
     parsed = parser.parse_args(argv)
     if parsed.subcommand == "select":
         return cmd_select(parsed)
+    if parsed.subcommand == "assess":
+        return cmd_assess(parsed)
     return 2
 
 

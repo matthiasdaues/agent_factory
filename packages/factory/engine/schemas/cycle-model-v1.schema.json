@@ -79,6 +79,13 @@
         "recommend_if": {
           "type": "string",
           "minLength": 1
+        },
+        "validators": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },

@@ -45,6 +45,7 @@ class Route:
     from_cycle: str
     to_cycle: str
     recommend_if: str
+    validators: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -180,6 +181,8 @@ def _validate_semantics(raw: dict[str, Any]) -> None:
                 f"validator '{vname}' contains executable command in description"
             )
 
+    validator_names = set(raw.get("validators", {}).keys())
+
     routes = raw.get("routes", [])
     for route in routes:
         if not isinstance(route, dict):
@@ -189,6 +192,12 @@ def _validate_semantics(raw: dict[str, Any]) -> None:
                 raise CycleModelError(
                     f"rejected: route {route.get('from', '?')}→{route.get('to', '?')} "
                     f"contains forbidden field '{forbidden}'"
+                )
+        for vref in route.get("validators", []):
+            if vref not in validator_names:
+                raise CycleModelError(
+                    f"route {route.get('from', '?')}→{route.get('to', '?')} "
+                    f"references unknown validator: {vref}"
                 )
 
 
@@ -210,6 +219,7 @@ def _build_model(raw: dict[str, Any]) -> DeliveryModel:
             from_cycle=r["from"],
             to_cycle=r["to"],
             recommend_if=r["recommend_if"],
+            validators=tuple(r.get("validators", ())),
         ))
 
     artifacts = {}

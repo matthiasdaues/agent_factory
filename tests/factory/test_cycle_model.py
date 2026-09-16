@@ -142,6 +142,23 @@ class TestExecutableCommandRejected:
             load_delivery_model(bad)
 
 
+class TestRouteValidatorReference:
+    def test_unknown_validator_on_route_rejected(self, tmp_path):
+        raw = yaml.safe_load(DELIVERY_YAML.read_text())
+        raw["routes"][0]["validators"] = ["nonexistent_validator"]
+        bad = tmp_path / "bad.yaml"
+        bad.write_text(yaml.dump(raw))
+        with pytest.raises(CycleModelError, match="nonexistent_validator"):
+            load_delivery_model(bad)
+
+    def test_valid_validator_on_route_accepted(self):
+        model = load_delivery_model(DELIVERY_YAML)
+        route = model.routes[0]
+        assert len(route.validators) > 0
+        for vname in route.validators:
+            assert vname in model.validators
+
+
 class TestDirectionFieldRejected:
     def test_direction_on_route_rejected(self, tmp_path):
         raw = yaml.safe_load(DELIVERY_YAML.read_text())
