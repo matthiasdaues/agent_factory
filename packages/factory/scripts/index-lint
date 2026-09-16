@@ -13,8 +13,8 @@ When: On commit when those frontmatter files change; --check in /validate;
 By:   pre-commit hook `index-lint`; trigger imports its
       load_agents()/load_playbooks().
 
-INDEX.yaml is a generated artifact, never hand-edited: agents grouped by
-their `phase`/`phase-name` frontmatter, skills grouped by their `category`
+INDEX.yaml is a generated artifact, never hand-edited: agents sorted
+alphabetically with `eligible_cycles` from frontmatter, skills grouped by their `category`
 frontmatter, playbooks listed with the ordered agent sequence derived from
 their own `**Agent**: `x`` prose lines, and rulebooks with their token
 counts — derived, never hand-duplicated, the same principle this repo
@@ -59,6 +59,12 @@ import sys
 import argparse
 from pathlib import Path
 
+_PACKAGES_DIR = Path(__file__).resolve().parent.parent
+if str(_PACKAGES_DIR) not in sys.path:
+    sys.path.insert(0, str(_PACKAGES_DIR))
+
+from engine.cycles import REQUIRED_CYCLES
+
 CANONICAL_CATEGORY_ORDER = [
     "requirements",
     "architecture",
@@ -68,8 +74,10 @@ CANONICAL_CATEGORY_ORDER = [
     "utility",
 ]
 
-_FM_KEYS = {"name", "title", "phase", "phase-name", "category", "description", "tier"}
-_FM_LIST_KEYS = {"skills", "inputs"}
+VALID_CYCLES = REQUIRED_CYCLES
+
+_FM_KEYS = {"name", "title", "category", "description", "tier"}
+_FM_LIST_KEYS = {"skills", "inputs", "eligible_cycles"}
 _KEY_LINE = re.compile(r"^([A-Za-z0-9_-]+):\s*(.*)$")
 _LIST_ITEM = re.compile(r"^\s+-\s+(.+)$")
 _H1_LINE = re.compile(r"^#\s+.+$")
@@ -124,6 +132,14 @@ def parse_frontmatter(text: str) -> dict:
 
         # ── list-valued keys ──
         if key in _FM_LIST_KEYS:
+            if rest.startswith("[") and rest.endswith("]"):
+                inner = rest[1:-1]
+                result[key] = [
+                    v.strip().strip('"').strip("'")
+                    for v in inner.split(",") if v.strip()
+                ]
+                i += 1
+                continue
             items: list[str] = []
             i += 1
             while i < len(lines):
@@ -360,29 +376,21 @@ def build_agents_data(
 ) -> tuple[list[dict], list[str]]:
     warnings = []
 
-    def phase_key(a: dict) -> int:
-        try:
-            return int(a["phase"])
-        except (KeyError, ValueError):
-            return 999
-
     entries = []
-    for a in sorted(agents, key=lambda a: (phase_key(a), a["name"])):
+    for a in sorted(agents, key=lambda a: a["name"]):
         entry: dict[str, object] = {
             "name": a["name"],
             "title": a.get("title", a["name"]),
         }
-        phase = a.get("phase")
 
-        if phase not in (None, ""):
-            phase_name = a.get("phase-name")
-
-            if phase_name is None:
-                warnings.append(f"{a['_path']}: has 'phase' but no 'phase-name'")
-                phase_name = f"Phase {phase}"
-
-            entry["phase"] = int(phase)
-            entry["phase_name"] = phase_name
+        eligible = a.get("eligible_cycles", [])
+        for cycle in eligible:
+            if cycle not in VALID_CYCLES:
+                warnings.append(
+                    f"{a['_path']}: unknown cycle '{cycle}' in eligible_cycles"
+                )
+        if eligible:
+            entry["eligible_cycles"] = eligible
 
         if a.get("tier"):
             entry["tier"] = a["tier"]
@@ -391,7 +399,6 @@ def build_agents_data(
         entry["path"] = a["_path"]
         entry["tokens"] = a["_tokens"]
 
-        # Compute total_tokens: body + referenced skills + referenced rulebooks
         total = a["_tokens"]
 
         for skill_name in a.get("skills", []):
@@ -399,7 +406,6 @@ def build_agents_data(
 
         for input_path in a.get("inputs", []):
             if "rulebook" in input_path or "convention" in input_path:
-                # Match by stem (filename without extension).
                 stem = Path(input_path).stem
                 total += rulebook_tokens.get(stem, 0)
 
@@ -569,8 +575,7 @@ def render_index(
         [
             "name",
             "title",
-            "phase",
-            "phase_name",
+            "eligible_cycles",
             "tier",
             "description",
             "path",

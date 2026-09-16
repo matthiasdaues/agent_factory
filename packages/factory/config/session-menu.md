@@ -6,7 +6,7 @@ Presented by VIRGIL at the start of a session when no fitting is pending.
 >
 > **A** — I'm new here — show me around\
 > **B** — I want to start something new (prove an idea, research a topic, build a system)\
-> **C** — I want to run an agent or playbook directly\
+> **C** — I want to continue an existing workstream\
 > **D** — I just want to talk something through\
 > **E** — Where am I? What can I do next?
 >
@@ -32,17 +32,13 @@ If the user wants to do something that does not fit a workstream (a quick questi
 
 ______________________________________________________________________
 
-## C — Factory-content-based (user knows what they want to run)
+## C — Continue an existing workstream
 
-**Playbook or Agent?**
+Run `factory/scripts/cycle list --dir .current-work/cycles/`. If workstreams exist, present a numbered list showing each workstream's topic and current cycle. Ask the user to select one by number or name.
 
-> `P` — Run a playbook\
-> `A` — Run an agent\
-> `M` — Back to the Main Menu
+On selection, run `factory/scripts/cycle assess --state .current-work/cycles/<workstream-id>.yaml` to bind the session and assess the workstream. Present the route recommendations to the user.
 
-On selection, list the full set and let the user pick by name or number, then run that playbook/agent with the user's stated goal as the task.
-If `P` → list all playbooks in the local `.*/playbooks` directory. Append an option to go back to the main menu. If the user picks a playbook, initiate that playbook's operational procedure.
-If `A` → list all agents in the local `.*/agents` directory. Append an option to return to the main menu. When the user selects an agent, adopt its role in the current session and ask for the intended task. If that agent explicitly requires isolation from work already performed in the session, spawn it instead.
+If no workstreams exist, tell the user and offer option B (start something new) or a return to the main menu. Never select a workstream automatically.
 
 ______________________________________________________________________
 

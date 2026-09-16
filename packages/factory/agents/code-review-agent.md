@@ -2,8 +2,8 @@
 name: code-review-agent
 title: Code Review Agent
 tier: strong
-phase: 4
-phase-name: Implementation
+eligible_cycles:
+  - REALIZE
 description: >-
   Bounded code review on the implementation diff — correctness, architecture
   compliance, and maintainability — before the reconciliation run. Narrower

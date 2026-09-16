@@ -2,8 +2,7 @@
 name: virgil
 title: VIRGIL
 tier: standard
-phase: 0
-phase-name: Utility
+eligible_cycles: []
 description: >-
   Versatile Interactive Resource: Guide, Instructor, Liaison. The single
   human-facing session agent for Phase 0 — starts formless, reaches for

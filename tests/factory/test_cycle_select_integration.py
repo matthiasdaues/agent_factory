@@ -9,6 +9,7 @@ Owned contracts:
   - Invalid model produces error and no state write (standard risk)
   - Session binding appears after creation (standard risk)
   - origin_ref recorded when proposal path given (standard risk)
+  - cycle_entry_commit recorded on create and transition (standard risk)
 """
 
 from __future__ import annotations
@@ -242,3 +243,38 @@ class TestExitCodes:
             "--model", str(DELIVERY_YAML),
         ])
         assert result.returncode == 2
+
+
+class TestCycleEntryCommit:
+    def test_create_records_cycle_entry_commit(self, tmp_path):
+        state = tmp_path / "cycles" / "entry-commit.yaml"
+        state.parent.mkdir(parents=True)
+        run_cycle([
+            "select", "--state", str(state),
+            "--topic", "Entry commit test", "IDEA",
+            "--model", str(DELIVERY_YAML),
+        ])
+        data = yaml.safe_load(state.read_text())
+        assert "cycle_entry_commit" in data
+        assert isinstance(data["cycle_entry_commit"], str)
+        assert len(data["cycle_entry_commit"]) >= 7
+
+    def test_transition_updates_cycle_entry_commit(self, tmp_path):
+        state = tmp_path / "cycles" / "entry-update.yaml"
+        state.parent.mkdir(parents=True)
+        run_cycle([
+            "select", "--state", str(state),
+            "--topic", "Entry update test", "IDEA",
+            "--model", str(DELIVERY_YAML),
+        ])
+        data_before = yaml.safe_load(state.read_text())
+        commit_before = data_before["cycle_entry_commit"]
+
+        run_cycle([
+            "select", "--state", str(state), "CONCEPT",
+            "--model", str(DELIVERY_YAML),
+        ])
+        data_after = yaml.safe_load(state.read_text())
+        assert "cycle_entry_commit" in data_after
+        assert isinstance(data_after["cycle_entry_commit"], str)
+        assert len(data_after["cycle_entry_commit"]) >= 7

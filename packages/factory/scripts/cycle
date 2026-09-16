@@ -4,6 +4,7 @@
 Usage:
   cycle select --state STATE TARGET [--topic TOPIC] [--work REF] [--model PATH]
   cycle assess --state STATE [--model PATH]
+  cycle list [--dir DIR]
 
 Exit codes: 0 (success), 1 (conflict), 2 (invalid input).
 """
@@ -28,6 +29,7 @@ ENGINE_DIR = PACKAGES_DIR / "engine"
 if str(PACKAGES_DIR) not in sys.path:
     sys.path.insert(0, str(PACKAGES_DIR))
 
+from engine.cycles import REQUIRED_CYCLES
 from engine.cycle_model import CycleModelError, load_delivery_model
 from engine.readiness import evaluate_readiness
 from engine.recommendations import (
@@ -38,8 +40,15 @@ from engine.recommendations import (
 )
 from engine.validators.proposal import ValidatorResult, validate_proposal
 
-VALID_CYCLES = {"IDEA", "CONCEPT", "ROADMAP", "REFINE", "REALIZE", "DONE"}
+VALID_CYCLES = REQUIRED_CYCLES
 DEFAULT_MODEL = ENGINE_DIR / "models" / "delivery.yaml"
+
+CANONICAL_ARTIFACTS = frozenset({
+    "docs/spec/scope-map.md",
+    "docs/spec/entity-model.yaml",
+    "docs/arc42/architecture.dsl",
+})
+SOURCE_PREFIXES = ("src/", "packages/", "tests/")
 
 
 def _current_commit() -> str:
@@ -60,6 +69,36 @@ VALIDATOR_REGISTRY: dict[str, tuple[bool, Callable[..., ValidatorResult]]] = {
         _resolve_proposal_path(state), assessed_commit=commit,
     )),
 }
+
+
+def _detect_code_changed(entry_commit: str | None, current_commit: str) -> bool:
+    if not entry_commit or entry_commit == "unknown":
+        return False
+    if current_commit == "unknown":
+        return False
+    if entry_commit == current_commit:
+        return False
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--name-only", entry_commit, current_commit],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode != 0:
+            return False
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+
+    for line in result.stdout.strip().splitlines():
+        path = line.strip()
+        if not path:
+            continue
+        if any(path.startswith(p) for p in SOURCE_PREFIXES):
+            return True
+        if path in CANONICAL_ARTIFACTS:
+            return True
+        if path.startswith("docs/spec/") and path.endswith(".feature"):
+            return True
+    return False
 
 
 def _resolve_proposal_path(state: dict) -> Path:
@@ -117,6 +156,7 @@ def _create(state_path: Path, target: str, model, args: argparse.Namespace) -> i
         "origin_ref": args.work if args.work else None,
         "work": [args.work] if args.work else None,
         "delegation": None,
+        "cycle_entry_commit": _current_commit(),
     }
 
     state_path.parent.mkdir(parents=True, exist_ok=True)
@@ -151,6 +191,7 @@ def _transition(state_path: Path, target: str, model, args: argparse.Namespace) 
     state["cycle"] = target
     state["attempt"] = 1
     state["revision"] = state.get("revision", 0) + 1
+    state["cycle_entry_commit"] = _current_commit()
 
     _atomic_write(state_path, yaml.safe_dump(state, default_flow_style=False, sort_keys=False))
 
@@ -162,12 +203,15 @@ def _transition(state_path: Path, target: str, model, args: argparse.Namespace) 
 
 def _atomic_write(path: Path, content: str) -> None:
     fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    closed = False
     try:
         os.write(fd, content.encode())
         os.close(fd)
+        closed = True
         os.replace(tmp, path)
     except BaseException:
-        os.close(fd) if not os.get_inheritable(fd) else None
+        if not closed:
+            os.close(fd)
         if os.path.exists(tmp):
             os.unlink(tmp)
         raise
@@ -198,6 +242,35 @@ def _write_binding(state_path: Path, state: dict) -> None:
     _atomic_write(binding_path, yaml.safe_dump(binding, default_flow_style=False, sort_keys=False))
 
 
+def cmd_list(args: argparse.Namespace) -> int:
+    cycles_dir = Path(args.dir)
+    if not cycles_dir.exists():
+        print("no workstreams found")
+        return 0
+
+    state_files = sorted(cycles_dir.glob("*.yaml"))
+    if not state_files:
+        print("no workstreams found")
+        return 0
+
+    for sf in state_files:
+        try:
+            state = yaml.safe_load(sf.read_text())
+        except yaml.YAMLError:
+            continue
+        if not isinstance(state, dict):
+            continue
+
+        wid = state.get("workstream_id", sf.stem)
+        topic = state.get("topic", "")
+        cycle = state.get("cycle", "")
+        revision = state.get("revision", "")
+
+        print(f"{wid}\t{cycle}\trev {revision}\t{topic}")
+
+    return 0
+
+
 def cmd_assess(args: argparse.Namespace) -> int:
     model_path = Path(args.model) if args.model else DEFAULT_MODEL
 
@@ -218,6 +291,10 @@ def cmd_assess(args: argparse.Namespace) -> int:
         print(f"error: cannot read state file: {exc}", file=sys.stderr)
         return 2
 
+    if not isinstance(state, dict):
+        print("error: state file is not a valid YAML mapping", file=sys.stderr)
+        return 2
+
     current_cycle = state.get("cycle", "")
     if current_cycle not in VALID_CYCLES:
         print(f"error: invalid current cycle: {current_cycle}", file=sys.stderr)
@@ -236,20 +313,26 @@ def cmd_assess(args: argparse.Namespace) -> int:
             else:
                 mechanical_results[vname] = result
 
-    # code_changed detection deferred to EPIC 6. Currently all registered
-    # validators are mechanical (proposal_lint), so False is correct.
+    entry_commit = state.get("cycle_entry_commit")
+    code_changed = _detect_code_changed(entry_commit, commit)
+
     readiness = evaluate_readiness(
         current_cycle, model.routes, mechanical_results,
-        semantic_results=semantic_results, code_changed=False,
+        semantic_results=semantic_results, code_changed=code_changed,
     )
     recommendation = recommend(current_cycle, readiness)
 
-    _print_assessment(current_cycle, readiness, recommendation)
+    _write_binding(state_path, state)
+    _print_assessment(current_cycle, readiness, recommendation, code_changed)
     return 0
 
 
-def _print_assessment(current_cycle: str, readiness, recommendation) -> None:
+def _print_assessment(current_cycle: str, readiness, recommendation, code_changed: bool = False) -> None:
     print(f"\n--- Assessment for cycle {current_cycle} ---\n")
+    if code_changed:
+        print("Reconciliation: code or artifact changes detected since cycle entry.\n")
+    else:
+        print("Reconciliation: no relevant changes since cycle entry.\n")
 
     if isinstance(recommendation, NoRecommendation):
         print("Result: no evidence-supported recommendation.\n")
@@ -306,11 +389,16 @@ def main(argv: list[str] | None = None) -> int:
     p_assess.add_argument("--state", required=True, help="Path to the workstream state file")
     p_assess.add_argument("--model", default=None, help="Path to delivery.yaml (default: built-in)")
 
+    p_list = sub.add_parser("list", help="List existing workstreams.")
+    p_list.add_argument("--dir", default=".current-work/cycles", help="Directory to scan for state files")
+
     parsed = parser.parse_args(argv)
     if parsed.subcommand == "select":
         return cmd_select(parsed)
     if parsed.subcommand == "assess":
         return cmd_assess(parsed)
+    if parsed.subcommand == "list":
+        return cmd_list(parsed)
     return 2
 
 

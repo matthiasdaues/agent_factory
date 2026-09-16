@@ -2,8 +2,9 @@
 name: planning-agent
 title: Planning Agent
 tier: strong
-phase: 3
-phase-name: Planning
+eligible_cycles:
+  - ROADMAP
+  - REFINE
 description: >-
   Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
 skills:

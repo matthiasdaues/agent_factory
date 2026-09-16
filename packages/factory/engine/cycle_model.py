@@ -17,7 +17,7 @@ import yaml
 _SCHEMA_DIR = Path(__file__).resolve().parent / "schemas"
 _MODEL_SCHEMA_PATH = _SCHEMA_DIR / "cycle-model-v1.schema.json"
 
-REQUIRED_CYCLES = frozenset({"IDEA", "CONCEPT", "ROADMAP", "REFINE", "REALIZE", "DONE"})
+from engine.cycles import REQUIRED_CYCLES
 EXECUTABLE_PATTERN = re.compile(
     r"(?:^|[\s;|&])"
     r"(?:"

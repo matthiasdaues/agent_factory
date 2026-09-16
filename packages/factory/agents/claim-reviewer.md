@@ -2,8 +2,9 @@
 name: claim-reviewer
 title: Claim Reviewer
 tier: standard
-phase: 6
-phase-name: Research
+eligible_cycles:
+  - IDEA
+  - CONCEPT
 description: >-
   Attempts to refute a claim produced by the Researcher, checking whether it
   can be falsified, whether its sources hold up, and whether its tests were

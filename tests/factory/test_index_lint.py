@@ -19,11 +19,11 @@ class TestCountTokens:
 
 class TestParseFrontmatter:
     def test_scalar_keys(self):
-        text = "---\nname: test-agent\ntitle: Test Agent\nphase: 1\n---\nBody"
+        text = "---\nname: test-agent\ntitle: Test Agent\ntier: standard\n---\nBody"
         fm = il.parse_frontmatter(text)
         assert fm["name"] == "test-agent"
         assert fm["title"] == "Test Agent"
-        assert fm["phase"] == "1"
+        assert fm["tier"] == "standard"
 
     def test_no_frontmatter(self):
         assert il.parse_frontmatter("No frontmatter") == {}
@@ -53,11 +53,12 @@ class TestParseFrontmatter:
 class TestLoadAgents:
     def test_loads_from_directory(self, tmp_path):
         (tmp_path / "test-agent.md").write_text(
-            "---\nname: test-agent\ntitle: Test\nphase: 1\nphase-name: Proposal\n---\nBody"
+            "---\nname: test-agent\ntitle: Test\neligible_cycles:\n  - IDEA\n  - CONCEPT\n---\nBody"
         )
         agents = il.load_agents(tmp_path)
         assert len(agents) == 1
         assert agents[0]["name"] == "test-agent"
+        assert agents[0]["eligible_cycles"] == ["IDEA", "CONCEPT"]
         assert agents[0]["_tokens"] > 0
 
     def test_skips_files_without_name(self, tmp_path):
@@ -150,8 +151,7 @@ class TestBuildAgentsData:
             {
                 "name": "test-agent",
                 "title": "Test",
-                "phase": "1",
-                "phase-name": "Proposal",
+                "eligible_cycles": ["IDEA"],
                 "_path": "factory/agents/test-agent.md",
                 "_tokens": 100,
                 "skills": ["grilling"],
@@ -169,8 +169,7 @@ class TestBuildAgentsData:
             {
                 "name": "big-agent",
                 "title": "Big",
-                "phase": "1",
-                "phase-name": "X",
+                "eligible_cycles": ["REALIZE"],
                 "_path": "factory/agents/big-agent.md",
                 "_tokens": 25000,
             }
@@ -199,7 +198,7 @@ class TestRenderIndex:
         agents_dir = tmp_path / "agents"
         agents_dir.mkdir()
         (agents_dir / "test.md").write_text(
-            "---\nname: test\ntitle: Test Agent\nphase: 1\nphase-name: Init\n---\nBody"
+            "---\nname: test\ntitle: Test Agent\neligible_cycles:\n  - IDEA\n---\nBody"
         )
         skills_dir = tmp_path / "skills"
         skills_dir.mkdir()
@@ -226,7 +225,7 @@ class TestMainRoundTrip:
         for name in ("agents", "skills", "playbooks", "rulebooks"):
             (tmp_path / name).mkdir()
         (tmp_path / "agents" / "test.md").write_text(
-            "---\nname: test\ntitle: Test\nphase: 1\nphase-name: Init\n---\nBody"
+            "---\nname: test\ntitle: Test\neligible_cycles:\n  - IDEA\n---\nBody"
         )
         return tmp_path
 
