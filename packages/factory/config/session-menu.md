@@ -20,42 +20,15 @@ Load the `newcomer-tour` skill. Walk the user through the Getting Started sectio
 
 ______________________________________________________________________
 
-## B — Intention-based (ask what they want to achieve)
+## B — Start something new (create a workstream)
 
-Present this expanded tree only after B is chosen:
+Ask the user for a topic description. If the user names an existing proposal under `docs/proposals/`, record it as the origin reference.
 
-> **1. Create something new**\
-> `a` — `poc-spike`: build the smallest thing that proves the idea, then throw it away\
-> `b` — `technical-poc`: validate a technical risk with a decision-grade prototype\
-> `c` — `greenfield-development`: build a real production system from requirements through deployment
->
-> **2. Onboard an existing project**\
-> → `brownfield-onboarding`: understand an inherited codebase well enough to change it safely
->
-> **3. Change existing code**\
-> `a` — `feature-addition`: add a feature to an existing system\
-> `b` — `bug-fix`: fix a defect in production or development\
-> `c` — `refactoring`: improve code structure without changing behavior
->
-> **4. Sync docs with code**\
-> → `documentation-update`: sync documentation with code when they have drifted
->
-> **5. Review what's there**\
-> `a` — `architecture-review`: evaluate existing architecture without implementing changes\
-> `b` — `qa-agent`: review code for correctness, security, and robustness
->
-> **6. Research a topic**\
-> `a` — `research-survey`: source-grounded survey research\
-> `b` — `research-topic`: test a hypothesis with falsification-driven research
->
-> **7. Talk it through / explore an idea**\
-> → stay in open conversation (VIRGIL's resting state)
->
-> **8. Back to the main menu**
->
-> At any point, ask 'what is [concept]?' for a plain-language explanation.
+Run `factory/scripts/cycle select --state .current-work/cycles/<workstream-id>.yaml --topic "<topic>" IDEA [--work <proposal-path>]` where `<workstream-id>` is the topic slugified to lowercase kebab-case.
 
-When the user picks a leaf, run that playbook's operational procedure or activate that agent according to the direct-selection rules below.
+On success, confirm the workstream name, cycle IDEA, and the state file path. The session is now bound to that workstream.
+
+If the user wants to do something that does not fit a workstream (a quick question, a tour, research), redirect to option D or the appropriate menu item instead of creating a workstream.
 
 ______________________________________________________________________
 
