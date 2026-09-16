@@ -2,8 +2,9 @@
 name: researcher
 title: Researcher
 tier: standard
-phase: 6
-phase-name: Research
+eligible_cycles:
+  - IDEA
+  - CONCEPT
 description: >-
   Research a bounded question and form testable claims — find sources, assess
   their provenance, record evidence for and against, and design or execute

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cycle-state-v1",
+  "title": "Cycle Workstream State v1",
+  "description": "Structural contract for workstream state files (.current-work/cycles/<id>.yaml).",
+  "type": "object",
+  "required": ["schema_version", "workstream_id", "topic", "cycle", "revision", "attempt"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "workstream_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "topic": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cycle": {
+      "type": "string",
+      "enum": ["IDEA", "CONCEPT", "ROADMAP", "REFINE", "REALIZE", "DONE"]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "origin_ref": {
+      "type": ["string", "null"]
+    },
+    "work": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "string"
+      }
+    },
+    "delegation": {
+      "type": ["object", "null"]
+    },
+    "cycle_entry_commit": {
+      "type": ["string", "null"]
+    }
+  }
+}

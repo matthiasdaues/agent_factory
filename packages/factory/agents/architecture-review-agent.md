@@ -2,8 +2,8 @@
 name: architecture-review-agent
 title: Architecture Review Agent
 tier: strong
-phase: 2
-phase-name: Architecture
+eligible_cycles:
+  - CONCEPT
 description: >-
   Review architecture against quality attributes using ATAM in a separate session from the architecture author.
 skills:

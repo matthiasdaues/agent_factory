@@ -2,8 +2,9 @@
 name: reconciliation-agent
 title: Reconciliation Agent
 tier: strong
-phase: 4
-phase-name: Implementation
+eligible_cycles:
+  - REFINE
+  - REALIZE
 description: >-
   After implementation and QA, reconcile the specification and architecture
   documentation against the code-as-built. The inverse of spec-review — finds

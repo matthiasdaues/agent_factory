@@ -2,8 +2,8 @@
 name: spec-review-agent
 title: Specification Review Agent
 tier: strong
-phase: 1
-phase-name: Requirements
+eligible_cycles:
+  - CONCEPT
 description: >-
   Review the specification for consistency, completeness, and traceability using spec-lint plus semantic inspection, in a separate session from the author.
 skills:

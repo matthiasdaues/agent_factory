@@ -2,8 +2,8 @@
 name: qa-agent
 title: QA Agent
 tier: strong
-phase: 5
-phase-name: Quality
+eligible_cycles:
+  - REALIZE
 description: >-
   Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
 skills:

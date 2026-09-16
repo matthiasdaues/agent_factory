@@ -2,8 +2,8 @@
 name: proposal-review-agent
 title: Proposal Review Agent
 tier: strong
-phase: 1
-phase-name: Requirements
+eligible_cycles:
+  - IDEA
 description: >-
   Review a feature proposal for clarity, feasibility, and planning
   readiness — consultative on drafts, adversarial on open proposals.

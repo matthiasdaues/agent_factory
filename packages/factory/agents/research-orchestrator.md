@@ -2,8 +2,9 @@
 name: research-orchestrator
 title: Research Orchestrator
 tier: standard
-phase: 6
-phase-name: Research
+eligible_cycles:
+  - IDEA
+  - CONCEPT
 description: >-
   Selects survey or falsification research from the brief, advances the chosen
   validated playbook, and enforces its role boundaries and release gate.

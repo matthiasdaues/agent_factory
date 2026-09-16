@@ -2,8 +2,7 @@
 name: coaching-agent
 title: Coaching Agent
 tier: standard
-phase: 0
-phase-name: Utility
+eligible_cycles: []
 description: >-
   Run retrospectives, extract action items, and track process improvements across sessions.
 skills:

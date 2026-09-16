@@ -1,6 +1,8 @@
 ---
 name: developer-agent
 title: Developer Agent
+eligible_cycles:
+  - REALIZE
 description: >-
   Implement a single backlog story using TDD with spec traceability and feedback loop to documentation.
   Spawned as a subagent by the implementation-agent dispatcher.

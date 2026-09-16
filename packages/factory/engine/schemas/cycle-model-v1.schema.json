@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cycle-model-v1",
+  "title": "Cycle Delivery Model v1",
+  "description": "Structural contract for the declarative delivery model (delivery.yaml).",
+  "type": "object",
+  "required": ["schema_version", "cycles", "routes", "artifacts", "validators"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "cycles": {
+      "type": "object",
+      "required": ["IDEA", "CONCEPT", "ROADMAP", "REFINE", "REALIZE", "DONE"],
+      "additionalProperties": false,
+      "properties": {
+        "IDEA": { "$ref": "#/$defs/cycle" },
+        "CONCEPT": { "$ref": "#/$defs/cycle" },
+        "ROADMAP": { "$ref": "#/$defs/cycle" },
+        "REFINE": { "$ref": "#/$defs/cycle" },
+        "REALIZE": { "$ref": "#/$defs/cycle" },
+        "DONE": { "$ref": "#/$defs/terminal_cycle" }
+      }
+    },
+    "routes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/route" },
+      "minItems": 1
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/artifact" },
+      "minProperties": 1
+    },
+    "validators": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/validator" },
+      "minProperties": 1
+    }
+  },
+  "$defs": {
+    "cycle": {
+      "type": "object",
+      "required": ["delegated_attempt_limit"],
+      "additionalProperties": false,
+      "properties": {
+        "delegated_attempt_limit": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "terminal_cycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "route": {
+      "type": "object",
+      "required": ["from", "to", "recommend_if"],
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "type": "string",
+          "enum": ["IDEA", "CONCEPT", "ROADMAP", "REFINE", "REALIZE"]
+        },
+        "to": {
+          "type": "string",
+          "enum": ["IDEA", "CONCEPT", "ROADMAP", "REFINE", "REALIZE", "DONE"]
+        },
+        "recommend_if": {
+          "type": "string",
+          "minLength": 1
+        },
+        "validators": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["path"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "collection": {
+          "type": "boolean"
+        }
+      }
+    },
+    "validator": {
+      "type": "object",
+      "required": ["artifact"],
+      "additionalProperties": false,
+      "properties": {
+        "artifact": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

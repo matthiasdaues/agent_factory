@@ -2,8 +2,9 @@
 name: requirements-agent
 title: Requirements Agent
 tier: strong
-phase: 1
-phase-name: Requirements
+eligible_cycles:
+  - IDEA
+  - CONCEPT
 description: >-
   Capture a project vision, clarify requirements through adversarial interview, and produce a complete specification: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models.
 skills:

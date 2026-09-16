@@ -2,8 +2,8 @@
 name: architecture-agent
 title: Architecture Agent
 tier: strong
-phase: 2
-phase-name: Architecture
+eligible_cycles:
+  - CONCEPT
 description: >-
   Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
 skills:

@@ -2,8 +2,9 @@
 name: research-report-writer
 title: Research Report Writer
 tier: standard
-phase: 6
-phase-name: Research
+eligible_cycles:
+  - IDEA
+  - CONCEPT
 description: >-
   Writes a research report from completed research artifacts. In falsification
   mode, builds the final report from a frozen claim register. In survey mode,

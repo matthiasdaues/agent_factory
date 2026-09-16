@@ -2,8 +2,8 @@
 name: implementation-agent
 title: Implementation Agent (Dispatcher)
 tier: standard
-phase: 4
-phase-name: Implementation
+eligible_cycles:
+  - REALIZE
 description: >-
   Dispatch backlog stories to parallel developer-agent subagents, maximising
   concurrency within dependency AND file-overlap constraints in autonomous
