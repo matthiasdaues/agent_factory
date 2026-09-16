@@ -1470,6 +1470,59 @@ class TestConcernModelMigration:
         block = inf._orientation_block(".github", factory)
         assert "docs/agent-context.md" in block
 
+    def test_orientation_block_copilot_explicit_index_path(self, tmp_path):
+        """Copilot orientation uses .github/INDEX.yaml, not the generic list."""
+        factory = tmp_path / "factory"
+        (factory / "config").mkdir(parents=True)
+        agents_md = (
+            Path(__file__).resolve().parent.parent.parent
+            / "packages" / "factory" / "config" / "AGENTS.md"
+        )
+        (factory / "config" / "AGENTS.md").write_text(
+            agents_md.read_text(encoding="utf-8")
+        )
+        block = inf._orientation_block(".github", factory)
+        assert "`.github/INDEX.yaml`" in block
+        assert ".claude/INDEX.yaml" not in block
+        assert ".pi/INDEX.yaml" not in block
+        assert ".codex/INDEX.yaml" not in block
+
+    def test_orientation_block_codex_explicit_index_path(self, tmp_path):
+        """Codex orientation uses .codex/INDEX.yaml, not the generic list."""
+        factory = tmp_path / "factory"
+        (factory / "config").mkdir(parents=True)
+        agents_md = (
+            Path(__file__).resolve().parent.parent.parent
+            / "packages" / "factory" / "config" / "AGENTS.md"
+        )
+        (factory / "config" / "AGENTS.md").write_text(
+            agents_md.read_text(encoding="utf-8")
+        )
+        block = inf._orientation_block(".codex", factory)
+        assert "`.codex/INDEX.yaml`" in block
+        assert ".claude/INDEX.yaml" not in block
+
+    def test_orientation_block_session_menu_link_absolute(self, tmp_path):
+        """Non-Claude orientation fixes session-menu.md link to full path."""
+        factory = tmp_path / "factory"
+        (factory / "config").mkdir(parents=True)
+        agents_md = (
+            Path(__file__).resolve().parent.parent.parent
+            / "packages" / "factory" / "config" / "AGENTS.md"
+        )
+        (factory / "config" / "AGENTS.md").write_text(
+            agents_md.read_text(encoding="utf-8")
+        )
+        block = inf._orientation_block(".github", factory)
+        assert "](factory/config/session-menu.md)" in block
+        assert "](session-menu.md)" not in block
+
+    def test_orientation_block_claude_unchanged(self):
+        """Claude orientation still uses @-includes, not inlined content."""
+        include = inf.ORIENTATION_INCLUDE[".claude"]
+        assert include.startswith("@")
+        assert ".claude" not in inf.DOT_DIR_INDEX_PATH
+
 
 class TestExtractDepName:
     def test_simple_name(self):

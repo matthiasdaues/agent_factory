@@ -1001,6 +1001,19 @@ def install_copilot_agents(target: Path, install: dict, report: list[str]) -> No
     install["github_ignored_entries"].add(".github/agents")
 
 
+DOT_DIR_INDEX_PATH = {
+    ".github": ".github/INDEX.yaml",
+    ".pi": ".pi/INDEX.yaml",
+    ".codex": ".codex/INDEX.yaml",
+}
+
+GENERIC_INDEX_INSTRUCTION = (
+    "Read the local INDEX.yaml (`.claude/INDEX.yaml`, "
+    "`.github/INDEX.yaml`, `.pi/INDEX.yaml`, or "
+    "`.codex/INDEX.yaml`)."
+)
+
+
 def _orientation_block(dot_dir: str, factory: Path) -> str:
     """Build the marker-fenced orientation block for a given CLI."""
     include = ORIENTATION_INCLUDE.get(dot_dir)
@@ -1013,6 +1026,13 @@ def _orientation_block(dot_dir: str, factory: Path) -> str:
         target = RULEBOOK_LINK_TARGETS.get(dot_dir)
         if target is not None:
             body = body.replace("](../rulebooks/rules.md)", f"]({target})")
+        index_path = DOT_DIR_INDEX_PATH.get(dot_dir)
+        if index_path is not None:
+            body = body.replace(
+                GENERIC_INDEX_INSTRUCTION,
+                f"Read `{index_path}`.",
+            )
+        body = body.replace("](session-menu.md)", "](factory/config/session-menu.md)")
         body += "\nRead [`docs/agent-context.md`](docs/agent-context.md) for project context.\n"
     return (
         ORIENTATION_BEGIN
