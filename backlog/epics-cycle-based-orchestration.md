@@ -86,18 +86,17 @@ None. This EPIC can begin from the current codebase.
 
 ### Size
 
-Five stories and 7–12 engineering days. Two done (ST-0252, ST-0253), three
-pending (ST-0254, ST-0255, ST-0256).
+Five stories and 7–12 engineering days. All done (ST-0252 through ST-0256).
 
 ### Story Slices
 
-| #   | Capability                                                    | Actor          | Story                 | Status  |
-| --- | ------------------------------------------------------------- | -------------- | --------------------- | ------- |
-| 1   | Start a workstream and select any cycle                       | Human operator | [ST-0252](ST-0252.md) | done    |
-| 2   | See route recommendations and select a cycle                  | Human operator | [ST-0253](ST-0253.md) | done    |
-| 3   | Continue a workstream and see recommendations                 | Human operator | [ST-0254](ST-0254.md) | pending |
-| 4   | Detect code changes and run reconciliation assessment         | Human operator | [ST-0255](ST-0255.md) | pending |
-| 5   | Resolve run-step from workstream state with cycle eligibility | Human operator | [ST-0256](ST-0256.md) | pending |
+| #   | Capability                                                    | Actor          | Story                 | Status |
+| --- | ------------------------------------------------------------- | -------------- | --------------------- | ------ |
+| 1   | Start a workstream and select any cycle                       | Human operator | [ST-0252](ST-0252.md) | done   |
+| 2   | See route recommendations and select a cycle                  | Human operator | [ST-0253](ST-0253.md) | done   |
+| 3   | Continue a workstream and see recommendations                 | Human operator | [ST-0254](ST-0254.md) | done   |
+| 4   | Detect code changes and run reconciliation assessment         | Human operator | [ST-0255](ST-0255.md) | done   |
+| 5   | Resolve run-step from workstream state with cycle eligibility | Human operator | [ST-0256](ST-0256.md) | done   |
 
 ### Domain Rules
 
@@ -222,11 +221,11 @@ Three stories and 7–12 engineering days.
 
 ### Story Slices
 
-| #   | Capability                                                       | Actor              | Trigger                    | Observable outcome                                                                                                                                                              |
-| --- | ---------------------------------------------------------------- | ------------------ | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Select a cycle with atomic state writes and conflict detection   | Human operator     | `cycle select`             | Lock acquired; revision and digest validated; atomic write; stale revision returns `conflict`; lock timeout returns `workstream_busy`; different workstreams lock independently |
-| 2   | Retry a cycle with delegated attempt limits                      | Human operator     | `cycle retry` (new)        | Below limit: attempt increments; at limit: `paused`; human retry above limit: warning; work-list change resets attempt; failure after accepted retry keeps increment            |
-| 3   | Check cycle models and workstream states for migration integrity | Project maintainer | `transition-lint`; `phase` | `transition-lint` validates model and state files; `phase` exits 2 naming replacement; characterization tests confirm kept contracts                                            |
+| #   | Story   | Capability                                                       | Actor              | Trigger                    | Observable outcome                                                                                                                                                              |
+| --- | ------- | ---------------------------------------------------------------- | ------------------ | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | ST-0259 | Select a cycle with atomic state writes and conflict detection   | Human operator     | `cycle select`             | Lock acquired; revision and digest validated; atomic write; stale revision returns `conflict`; lock timeout returns `workstream_busy`; different workstreams lock independently |
+| 2   | ST-0260 | Retry a cycle with delegated attempt limits                      | Human operator     | `cycle retry` (new)        | Below limit: attempt increments; at limit: `paused`; human retry above limit: warning; work-list change resets attempt; failure after accepted retry keeps increment            |
+| 3   | ST-0261 | Check cycle models and workstream states for migration integrity | Project maintainer | `transition-lint`; `phase` | `transition-lint` validates model and state files; `phase` exits 2 naming replacement; characterization tests confirm kept contracts                                            |
 
 ### Domain Rules
 
@@ -672,10 +671,10 @@ Two stories and 5–9 engineering days.
 
 ### Story Slices
 
-| #   | Capability                                                                | Actor               | Trigger                                             | Observable outcome                                                                                                                                                                    |
-| --- | ------------------------------------------------------------------------- | ------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Create a validated, documented, persistence-ready entity model            | Entity modeler      | Author `entity-model.yaml` and run readiness checks | LinkML validation and linting pass; classes and slots resolve; Markdown and SVG projections generated; Pydantic rejects invalid payloads; valid objects round-trip through SQLAlchemy |
-| 2   | Run the brownfield bootstrap and see all three canonical objects assessed | Brownfield operator | CONCEPT bootstrap                                   | `architecture.dsl`, `scope-map.md`, and `entity-model.yaml` exist; readiness checks run; complete baseline recommends feature delivery; missing evidence reported without blocking    |
+| #   | Story   | Capability                                                                | Actor               | Trigger                                             | Observable outcome                                                                                                                                                                    |
+| --- | ------- | ------------------------------------------------------------------------- | ------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | ST-0257 | Create a validated, documented, persistence-ready entity model            | Entity modeler      | Author `entity-model.yaml` and run readiness checks | LinkML validation and linting pass; classes and slots resolve; Markdown and SVG projections generated; Pydantic rejects invalid payloads; valid objects round-trip through SQLAlchemy |
+| 2   | ST-0258 | Run the brownfield bootstrap and see all three canonical objects assessed | Brownfield operator | CONCEPT bootstrap                                   | `architecture.dsl`, `scope-map.md`, and `entity-model.yaml` exist; readiness checks run; complete baseline recommends feature delivery; missing evidence reported without blocking    |
 
 ### Domain Rules
 
