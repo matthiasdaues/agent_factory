@@ -65,6 +65,22 @@ Each slice must have a demo — a concrete capability a person can show. A slice
 that delivers nothing observable is not a slice; fold it into the first slice
 that needs it.
 
+**Prefer the backend/frontend boundary as the primary cut.** Split the backend
+slices among themselves first, then the frontend slices. Do not pair each
+capability with its own UI slice — that couples every backend contract to a
+frontend session and hides the moment the API became demonstrable.
+
+**Name the demo surface before writing the slice.**
+
+| Slice kind | Demo surface                        | End-to-end means                                                               |
+| ---------- | ----------------------------------- | ------------------------------------------------------------------------------ |
+| Backend    | the project's API client collection | every route **and every rejection path** is callable against a seeded database |
+| Frontend   | the running UI                      | every user action reaches routes a predecessor slice already delivered         |
+
+A backend slice is complete when a person can demonstrate it with no UI. A
+frontend slice ships no backend change. If a slice needs both to be
+demonstrable, the cut is in the wrong place.
+
 If the story is narrow enough to implement in one session without crossing
 hard boundaries, do not split. Set the original story's `status` to `in-progress`
 and dispatch it directly.
@@ -92,6 +108,58 @@ for a reason.
 paths, outputs, and constraints that belong to its boundary. Move criteria that
 belong to a different slice into that slice, not into Out of Scope.
 
+**Give every fact one home.** Each section answers one question. A fact stated
+in its home section is referenced elsewhere, never restated. Before writing a
+sentence, ask which section owns it; if another section owns it, write a
+reference instead.
+
+| Section              | Owns                                        | Never contains                              |
+| -------------------- | ------------------------------------------- | ------------------------------------------- |
+| Goal                 | the observable outcome                      | how it is verified or built                 |
+| Domain Rule          | invariants and must-nevers, domain language | status codes, request shapes, API mechanics |
+| Demo Scenario        | the ordered walkthrough with literal values | deliverables                                |
+| Demo Data            | the seeded rows                             | behavior                                    |
+| Affected Paths       | where the work lands                        | what the work does                          |
+| Outputs              | the deliverables                            | field lists owned by Required Behavior      |
+| Suggested Agent Plan | the order of work                           | detail already in Outputs                   |
+| Acceptance Criteria  | falsifiable checks                          | restatements of each other                  |
+
+The common failures are a deliverable named in Affected Paths, Outputs, the
+Agent Plan, and Acceptance Criteria; and a verification method stated in the
+Goal. Both are redundancy, not emphasis.
+
+**Specify demo data as data, not as a task.** Every slice carries a
+`## Demo Data` section.
+
+When the slice seeds rows, the section holds a table — one row per seeded
+record, one column per field, literal values. It also states:
+
+- Which seeding script is extended, named by path.
+- Whether the slice extends an existing row or adds a new one.
+- Which rows must be written directly through the model because no API
+  delivers them yet.
+- What the script's idempotency guard and existing output must preserve.
+
+When the slice seeds nothing, the section says so and names the predecessor
+slice whose seed set it depends on, plus the specific rows and states the flow
+needs.
+
+Every identifier in the Demo Scenario must resolve to a row in a Demo Data
+table — in this slice or a predecessor. Never invent demo names inline.
+
+**Write Affected Paths at the coarsest honest granularity.** Name a file only
+when that exact file already exists and the slice changes it. For work that
+creates new files, name the directory that will hold them and say what is
+added.
+
+- `src/module/service.py` — existing file, extend ✅ (the file exists)
+- `src/module/` — new `dtos.py`, `errors.py` ✅ (directory plus intent)
+- `src/module/dtos.py` — new file to create ❌ (a path guessed at planning time)
+
+A path invented at planning time ages badly and constrains the developer agent
+for no benefit. This also makes the `touches` derivation trivial — the
+directory prefixes are already written.
+
 **Chain dependencies.** The first slice has no `deps` on sibling slices (it may
 depend on other stories). Later slices depend on earlier siblings via `deps`.
 The dependency chain follows the build order: backend contract before generated
@@ -105,7 +173,8 @@ lists the spec rules, ADRs, and codebase files relevant to its boundary.
 
 - Backend contract exists (delivered by a predecessor slice or `deps` story).
 - OpenAPI/generated types exist.
-- Demo data or seed data exists if the UI flow needs it.
+- Seeded demo data exists — the slice's `## Demo Data` section names the
+  predecessor seed set and the specific rows and states the UI flow needs.
 
 State expected structure without prescribing internal names:
 

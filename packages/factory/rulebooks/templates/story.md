@@ -1,6 +1,6 @@
 ---
 title: Backlog Story Template
-version: 2.1.0
+version: 2.2.0
 ---
 
 # Backlog Story Template
@@ -66,15 +66,25 @@ Numbered step list (not paragraphs). Observable actions with concrete values.
 2. Step showing outcome or edge case
 3. (continue as needed)
 
+## Demo Data
+
+The seeded records the Demo Scenario depends on, stated as data rather than as a task.
+
+When the story seeds rows: a table with one row per seeded record and one column per field, carrying literal values. Name the seeding script by path. State whether the story extends an existing row or adds a new one, which rows must be written directly through the model because no API delivers them yet, and what the script's idempotency guard and existing output must preserve.
+
+When the story seeds nothing: say so and name the predecessor story whose seed set it depends on, plus the specific rows and states the flow needs.
+
+Every identifier used in the Demo Scenario must resolve to a row in a Demo Data table — in this story or a predecessor.
+
 ## Affected Paths
 
-Explicit file listing grouped by layer. Existing files that change, new files to create.
+Grouped by layer, at the coarsest honest granularity. Name a file only when that exact file already exists and the story changes it. For new work, name the directory that will hold the files and say what is added — a path invented at planning time ages badly and constrains the developer agent for no benefit.
 
 - `src/module/file.py` — existing file, change here
-- `src/module/new_file.py` — new file to create
+- `src/module/` — new `dtos.py`, `errors.py`
 - `tests/unit/test_module.py` — existing test file
 
-Follow the [`touches` hygiene rules](../../rulebooks/conventions/touches-hygiene.md) when populating the `touches` frontmatter field.
+Follow the [`touches` hygiene rules](../../rulebooks/conventions/touches-hygiene.md) when populating the `touches` frontmatter field. Written this way, the directory prefixes are already present.
 
 ## Inputs
 
