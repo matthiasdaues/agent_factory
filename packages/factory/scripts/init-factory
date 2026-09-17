@@ -207,9 +207,18 @@ ORIENTATION_END = "<!-- <<< agent_factory orientation <<< -->"
 
 # Per-CLI include directives.  Claude Code supports @-includes (path relative
 # to the file's directory); Copilot CLI and Pi have no native include so the
-# full AGENTS.md content is inlined between the markers.
+# CLI-specific AGENTS.<cli>.md content is inlined between the markers.
 ORIENTATION_INCLUDE = {
-    ".claude": "@../factory/config/AGENTS.md\n@../docs/agent-context.md\n",
+    ".claude": "@../factory/config/AGENTS.claude.md\n@../docs/agent-context.md\n",
+}
+
+# CLI-specific orientation file, used when content is inlined (non-Claude CLIs).
+# Falls back to AGENTS.md if the CLI-specific file does not exist.
+CLI_ORIENTATION_FILE = {
+    ".claude": "AGENTS.claude.md",
+    ".github": "AGENTS.copilot.md",
+    ".pi": "AGENTS.pi.md",
+    ".codex": "AGENTS.codex.md",
 }
 
 RULEBOOK_LINK_TARGETS = {
@@ -1001,37 +1010,22 @@ def install_copilot_agents(target: Path, install: dict, report: list[str]) -> No
     install["github_ignored_entries"].add(".github/agents")
 
 
-DOT_DIR_INDEX_PATH = {
-    ".github": ".github/INDEX.yaml",
-    ".pi": ".pi/INDEX.yaml",
-    ".codex": ".codex/INDEX.yaml",
-}
-
-GENERIC_INDEX_INSTRUCTION = (
-    "Read the local INDEX.yaml (`.claude/INDEX.yaml`, "
-    "`.github/INDEX.yaml`, `.pi/INDEX.yaml`, or "
-    "`.codex/INDEX.yaml`)."
-)
-
-
 def _orientation_block(dot_dir: str, factory: Path) -> str:
     """Build the marker-fenced orientation block for a given CLI."""
     include = ORIENTATION_INCLUDE.get(dot_dir)
     if include is not None:
         body = include
     else:
-        body = (factory / "config" / "AGENTS.md").read_text(encoding="utf-8")
+        cli_file = CLI_ORIENTATION_FILE.get(dot_dir, "AGENTS.md")
+        cli_path = factory / "config" / cli_file
+        if not cli_path.is_file():
+            cli_path = factory / "config" / "AGENTS.md"
+        body = cli_path.read_text(encoding="utf-8")
         if not body.endswith("\n"):
             body += "\n"
         target = RULEBOOK_LINK_TARGETS.get(dot_dir)
         if target is not None:
             body = body.replace("](../rulebooks/rules.md)", f"]({target})")
-        index_path = DOT_DIR_INDEX_PATH.get(dot_dir)
-        if index_path is not None:
-            body = body.replace(
-                GENERIC_INDEX_INSTRUCTION,
-                f"Read `{index_path}`.",
-            )
         body = body.replace("](session-menu.md)", "](factory/config/session-menu.md)")
         body += "\nRead [`docs/agent-context.md`](docs/agent-context.md) for project context.\n"
     return (
@@ -1078,22 +1072,45 @@ def _inject_orientation(
     log(report, f"{rel}: prepended Agent Factory orientation block")
 
 
+def _orientation_dest(dot_dir: str, factory: Path) -> Path:
+    """Return the CLI-specific orientation source file, falling back to AGENTS.md."""
+    cli_file = CLI_ORIENTATION_FILE.get(dot_dir, "AGENTS.md")
+    cli_path = factory / "config" / cli_file
+    if cli_path.is_file():
+        return cli_path
+    return factory / "config" / "AGENTS.md"
+
+
+def _is_factory_orientation_link(link: Path, factory: Path) -> bool:
+    """True if link points to any factory orientation file (generic or CLI-specific)."""
+    current = (link.parent / os.readlink(link)).resolve()
+    config = (factory / "config").resolve()
+    if not str(current).startswith(str(config)):
+        return False
+    return current.name == "AGENTS.md" or current.name.startswith("AGENTS.")
+
+
 def _link_orientation(
     target: Path, dot_dir: str, factory: Path, install: dict, report: list[str]
 ) -> None:
     rel = ORIENTATION_FILE[dot_dir]
     link = target / rel
-    dest = factory / "config" / "AGENTS.md"
+    dest = _orientation_dest(dot_dir, factory)
 
     if link.is_symlink():
-        current = (link.parent / os.readlink(link)).resolve()
-        if current == dest.resolve():
+        if _is_factory_orientation_link(link, factory):
+            current = (link.parent / os.readlink(link)).resolve()
+            if current != dest.resolve():
+                link.unlink()
+                ensure_symlink(link, dest, report, install=install)
+                log(report, f"{rel}: updated symlink to CLI-specific orientation")
+            else:
+                log(report, f"skip (already linked): {rel}")
             install["remove_paths"].append(rel)
             install["orientation"][rel] = "linked"
-            log(report, f"skip (already linked): {rel}")
         else:
             install["orientation"][rel] = "external"
-            log(report, f"{rel}: symlinked externally to {current} — left untouched.")
+            log(report, f"{rel}: symlinked externally — left untouched.")
             log(report, f"  To use factory integration, add an include of")
             log(report, f"  factory/rulebooks/rules.md to your own file.")
         if dot_dir == ".github":
