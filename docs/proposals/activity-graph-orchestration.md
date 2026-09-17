@@ -46,52 +46,51 @@ estimate:
 Replace stage-based orchestration with a precondition graph over activities and
 artifacts. The system tracks what artifacts exist and what shape they are in.
 Agents and skills declare their prerequisites. The system shows what can run
-next given the current repository state. There are no named stages, no
-transition matrix, and no state machine. The happy path emerges from the
-dependency chain. Rework is just going to fix the artifact that broke.
+next given the current repository state. No named stages, no transition matrix,
+no state machine. The sequence emerges from the dependency chain. Rework means
+fixing the artifact that needs fixing.
 
-Granular observability replaces stage-attributed usage. The factory preserves
-structured transcripts and enriches usage records with workstream, skill, and
-activity context at capture time.
+The factory retains structured transcripts and enriches usage records with
+workstream, skill, and activity context at capture time. These replace
+stage-attributed usage.
 
 ## Motivation
 
 The cycle-based orchestration proposal (2026-09-13) replaced the linear
 playbook model with a five-cycle directed graph. That graph is less rigid than
 a pipeline, but it is still prescriptive. Five named stages, eighteen declared
-routes, per-artifact readiness tables, and a recommendation engine exert strong
-gravitational pull on the human's choices. "You may select any cycle" is
-formally true and practically unlikely when the system shows green checks on
-one route and warnings on everything else.
+routes, per-artifact readiness tables, and a recommendation engine steer the
+human toward one path. "You may select any cycle" is formally true. It is
+unlikely in practice when the system shows green checks on one route and
+warnings on all others.
 
-The deeper problem surfaced in practice: a story grilling session discovers a
-concept-level flaw. The real move is to pause grilling, fix the specification
-or rethink the premise, and return. But the stage model frames this as a
-full-cycle transition — REFINE back to CONCEPT — with reconciliation evidence
-and recommendation checks. It is heavyweight ceremony for what should be "this
-assumption is wrong, let me fix it upstream."
+The deeper problem showed up in practice. A story grilling session discovers a
+concept-level flaw. The correct response is to pause grilling, fix the
+specification, and return. The stage model frames this as a full-cycle
+transition — REFINE back to CONCEPT — with reconciliation evidence and
+recommendation checks. That is ceremony for what should be "this assumption is
+wrong, let me fix it upstream."
 
 The stage model describes the wrong unit. Real work does not move between
-stages. It moves between an activity and the thing that activity just
-invalidated, at whatever granularity the invalidation happens. Sometimes that
+stages. It moves between an activity and the artifact that activity
+invalidated, at whatever granularity the invalidation requires. Sometimes that
 is "the whole proposal is wrong." Sometimes it is "this one entity definition
 is missing a field." A stage model treats both as the same kind of event.
 
-Stages also imply doneness. "CONCEPT is done" means "we stopped finding
+Stages imply completeness. "CONCEPT is done" means "we stopped finding
 problems with the concept," not "the concept is correct." The next downstream
-activity will test upstream assumptions again whether the model accounts for it
-or not. When the model says you are "in REFINE," concept work reads as going
-backward. But what actually happened is the grilling worked — it found
-something. That is success, not regression.
+activity tests upstream assumptions again regardless of what the model says.
+When the model says "in REFINE," concept work reads as regression. But the
+grilling found something. That is a result, not a failure.
 
 The cycle-based orchestration proposal's EPIC 1 (workstream identity, session
-binding, menu integration, basic assessment) is implemented and working. This
-proposal preserves that infrastructure and replaces the stage-transition model
-that EPICs 2–7 would have built.
+binding, menu integration, basic assessment) is implemented. This proposal
+keeps that infrastructure and replaces the stage-transition model that
+EPICs 2–7 would have built.
 
 The timing follows the same drivers as the cycle proposal: the 2026-09-09
-user-experience review, the opportunity before further stage-model investment,
-and the need for concurrent workstream attribution.
+user-experience review, the window before further stage-model investment, and
+the need for concurrent workstream attribution.
 
 ## Core Principles
 
@@ -103,13 +102,12 @@ and the need for concurrent workstream attribution.
 - Activities have preconditions, not phase assignments. An agent or skill
   declares what must exist before it can run. The system checks those
   preconditions against the repository. No named stage is involved.
-- Rework is invisible to the model. Fixing an upstream artifact is just fixing
-  an artifact. No transition, no ceremony, no "returning to an earlier stage."
-  The dependency graph absorbs rework naturally because it never declared a
-  forward direction.
-- Observability comes from what actually happened, not from what stage it was
-  attributed to. Agent invocations, skill calls, files touched, and timestamps
-  are the activity record.
+- Rework is invisible to the model. Fixing an upstream artifact is fixing an
+  artifact. No transition, no ceremony, no "returning to an earlier stage."
+  The dependency graph has no forward direction to violate.
+- Observability comes from what happened, not from stage attribution. Agent
+  invocations, skill calls, files touched, and timestamps are the activity
+  record.
 - The factory enriches usage records. Workstream identity, skill invocations,
   and activity context are factory concerns, added at capture time. The usage
   package stores and queries whatever it receives.
@@ -196,8 +194,7 @@ eligible activity. In human sessions, `outputs` is informational only — no
 enforcement, no warning for missing or unexpected outputs.
 
 The dependency graph comes from `inputs.required` and `outputs` across all
-agent and skill definitions. No separate precondition schema or route table
-exists.
+agent definitions. No separate precondition schema or route table exists.
 
 Skills do not appear in the precondition graph. They are tools invoked by
 agents or by the human mid-session, not standalone activities. Skills gain
@@ -208,26 +205,22 @@ appear in the "what can run now?" eligibility list.
 
 ### The precondition graph
 
-The graph is implicit: it is the transitive closure of every agent's
+The graph is implicit. It is the transitive closure of every agent's
 `inputs.required` and `outputs` declarations. No explicit edge list or route
 table exists.
 
-The system answers two questions:
+The system answers one question:
 
-1. **What can run now?** Given the artifacts on disk, which agents have their
-   preconditions satisfied?
-2. **What just broke?** Given that an artifact changed, which downstream
-   artifacts or activities depend on it?
+**What can run now?** Given the artifacts on disk, which agents have their
+preconditions satisfied?
 
-The first question drives the "what next?" interaction. The system presents
-the agents whose preconditions are met. The human picks one. No
-recommendation, no ranking, no warnings about "going backward."
+The system presents eligible agents. The human picks one. No recommendation,
+no ranking, no warnings about direction.
 
-The second question drives the interrupt flow. When a grilling session
-discovers a specification flaw, the system can show: "the scope map was
-modified; these artifacts reference it: architecture.dsl, entity-model.yaml,
-these feature files." The human decides what needs updating. No stage
-transition is involved.
+The human knows what they changed. When a grilling session finds a
+specification flaw, the human fixes the artifact and runs the evaluator again.
+The eligibility list reflects the new state. No automated change detection or
+impact analysis is needed.
 
 ### The happy path and its absence
 
@@ -235,14 +228,13 @@ A typical delivery sequence — proposal, specification, architecture, stories,
 implementation — emerges from the precondition chain without being declared.
 The architecture agent requires an accepted proposal. The planning agent
 requires concept artifacts. The developer agent requires a story or an epic.
-Follow the dependencies and you get the familiar sequence.
+Following the dependencies produces the familiar sequence.
 
-But the sequence is not prescribed. A developer who already knows what to
-build can go from an accepted proposal straight to implementation, provided
-the implementation agent's preconditions are met (the proposal has boundaries
-and completion criteria). A brownfield project can start from existing code
-and reverse-engineer concept artifacts. The graph accommodates both without
-special cases because it never declared a single correct path.
+The sequence is not prescribed. A developer who already knows what to build can
+go from an accepted proposal to implementation if the implementation agent's
+preconditions are met (boundaries and completion criteria exist). A brownfield
+project can start from existing code and derive concept artifacts afterward.
+The graph handles both cases because it never declared a single correct path.
 
 ### Artifact state detection
 
@@ -264,13 +256,12 @@ specific activities, not as readiness evidence for stage transitions.
 
 ### Workstreams
 
-A workstream remains one body of work — one proposal being developed, one
-feature being built, one research question being investigated. Workstream
-identity, session binding, and the session menu integration from EPIC 1 are
-preserved.
+A workstream is one body of work — one proposal being developed, one feature
+being built, one research question being investigated. Workstream identity,
+session binding, and session menu integration from EPIC 1 are kept.
 
-The workstream state file simplifies. It no longer tracks a current cycle,
-attempt count, or delegation grant. It tracks:
+The workstream state file carries fewer fields. It no longer tracks a current
+cycle, attempt count, or delegation grant. It contains:
 
 ```yaml
 schema_version: 2
@@ -280,18 +271,41 @@ origin_ref: docs/proposals/activity-graph-orchestration.md
 ```
 
 The `cycle`, `attempt`, `revision`, `delegation`, and `work` fields are
-removed. Workstream scope is derived from the dependency graph: the
-precondition evaluator traces which artifacts are reachable from the
-workstream's `origin_ref` through `inputs.required` and `outputs`
-declarations. No maintained artifact list. Concurrency control (locking,
-revision checks) is retained for the workstream state file but simplified
-since fewer fields change.
+removed. No maintained artifact list. Concurrency control (locking, revision
+checks) is kept for the workstream state file but simplified because fewer
+fields change.
+
+#### Artifact-to-workstream association
+
+Artifacts are either workstream-scoped or global.
+
+**Workstream-scoped artifacts** belong to one workstream and carry a
+`workstream` field in their YAML frontmatter:
+
+```yaml
+workstream: activity-graph-orchestration
+```
+
+Proposals, epics, stories, and feature files are workstream-scoped. A lint
+check at artifact creation time verifies the field is present and references a
+known workstream identifier.
+
+**Global artifacts** are shared across workstreams and do not carry a
+`workstream` field. The architecture DSL (`architecture.dsl`), the scope map
+(`scope-map.md`), and the entity model (`entity-model.yaml`) are global.
+
+The evaluator uses the `workstream` field to narrow precondition matches when a
+workstream is bound. Global artifacts are always included in precondition
+evaluation regardless of the bound workstream. When an artifact in the
+precondition chain is missing — a proposal and epic exist but no feature file
+does — the evaluator reports unsatisfied preconditions. The graph reveals
+incompleteness in the dependency chain, not workstream membership.
 
 ### Delegation
 
 The cycle proposal defined explicit-route and destination grants to authorize
-unattended execution. In the activity model, delegation becomes: "keep doing
-whatever the precondition graph makes possible without asking."
+unattended execution. In the activity model, delegation means: "keep running
+whatever the precondition graph makes eligible without asking."
 
 The first release defines one delegation form:
 
@@ -307,11 +321,11 @@ when an activity fails, or when an activity requires human judgment (proposal
 acceptance, story shaping). The human creates, replaces, or revokes the grant.
 The system cannot create, extend, or broaden it.
 
-Delegation is session-scoped. It dies when the session ends. The next session
-starts with no standing delegation — the human must grant it again. This
-prevents surprise auto-execution from a grant the human forgot about. No
-delegation field exists in the workstream state file. The grant is stored in
-the session binding file alongside the per-activity attempt counters:
+Delegation is session-scoped. It ends when the session ends. The next session
+starts with no delegation — the human must grant it again. This prevents
+auto-execution from a grant the human forgot about. No delegation field exists
+in the workstream state file. The grant is stored in the session binding file
+alongside the per-activity attempt counters:
 
 ```yaml
 # session binding (session-scoped, dies with the session)
@@ -324,24 +338,24 @@ attempts:
   developer-agent: 0
 ```
 
-This is persistent enough to survive context compaction within a session but
-does not outlive the session binding.
+The session binding file survives context compaction within a session but does
+not outlive the session.
 
 ### Retry limits
 
 Retry limits remain. Each activity (agent or skill) can declare a
 `delegated_attempt_limit`. The limit prevents unattended loops. A human can
-always retry without limit or ceremony. The mechanism is unchanged from the
-cycle proposal except that it is per-activity rather than per-cycle.
+retry without limit. The mechanism is unchanged from the cycle proposal except
+that the limit applies per activity rather than per cycle.
 
 ### Granular observability
 
-#### Preserving structured transcripts
+#### Structured transcript retention
 
-The usage capture pipeline currently reads the CLI's native structured
-transcript (JSONL), tokenizes it, and writes a flattened plain-text copy. The
-structured source is discarded. This proposal changes capture to preserve the
-structured JSONL alongside the text rendering.
+The usage capture pipeline reads the CLI's native structured transcript
+(JSONL), tokenizes it, and writes a flattened plain-text copy. The structured
+source is discarded. This proposal changes capture to retain the structured
+JSONL alongside the text rendering.
 
 Each CLI's native transcript contains tool-call records with full arguments:
 
@@ -360,8 +374,8 @@ From these structured transcripts, jq or a lightweight extractor can recover:
 - Every bash command: what was run
 - Tool result status: success or failure
 
-This is the activity log. No new instrumentation is needed at the agent or
-skill level. The data is already captured; it is currently thrown away.
+These records form the activity log. No new instrumentation is needed at the
+agent or skill level. The data is already captured. It is currently discarded.
 
 #### Structured transcript storage
 
@@ -370,13 +384,13 @@ The structured copy is stored alongside the existing text rendering:
 ```
 .agent-factory/usage/transcripts/<session-key>/
 ├── <record-id>.jsonl        # existing text rendering (for tokenization)
-├── <record-id>.structured.jsonl  # new: native JSONL preserved
+├── <record-id>.structured.jsonl  # new: native JSONL retained
 ```
 
 The structured file is a verbatim copy of the source transcript the normalizer
-read. No transformation, no CLI-specific rewriting. The normalizer already
-opens and parses this file; copying it before or after normalization is
-trivial.
+reads. No transformation, no CLI-specific rewriting. The normalizer already
+opens and parses the file. Copying it before or after normalization is a small
+addition.
 
 Storage cost is bounded by the existing transcript retention policy. When
 retention is `omit`, neither file is written. When retention is `full`, both
@@ -386,11 +400,11 @@ counts are already on the usage record.
 
 #### Activity extraction (deferred)
 
-The preserved structured transcripts contain sufficient data for per-CLI
-activity extraction — agent dispatches, skill invocations, and tool-call
-results. The extractor design, common activity record format, and extraction
-timing (capture-time vs. post-hoc) are deferred to a future proposal. The
-first release preserves the raw material; extraction is built on top of it.
+The retained structured transcripts contain data for per-CLI activity
+extraction — agent dispatches, skill invocations, and tool-call results. The
+extractor design, common activity record format, and extraction timing
+(capture-time or post-hoc) are deferred to a future proposal. The first
+release retains the raw material. Extraction is built on top of it.
 
 #### Usage record enrichment
 
@@ -414,17 +428,16 @@ Usage analysis gains these dimensions without requiring stage attribution:
 
 - **Cost per workstream** — sum invocations by `workstream_id`
 - **Cost per activity type** — group by agent name or skill name
-- **Rework visibility** — the sequence of invocations tells the story: "scope
-  map was edited three times, each time after a grilling call"
+- **Rework visibility** — the invocation sequence shows patterns: "scope map
+  was edited three times, each time after a grilling call"
 - **Cross-CLI comparison** — normalized activity records are CLI-agnostic
 
 These dimensions come from the usage record fields and, for deeper analysis,
-from the preserved structured transcripts. No stage label is needed.
+from the retained structured transcripts. No stage label is needed.
 
 ### Session menu
 
-The current menu (A–E) is restructured into four lanes that reflect what a
-human actually comes to do:
+The current menu (A–E) is restructured into four lanes:
 
 | Lane             | Entry point | What it does                                          |
 | ---------------- | ----------- | ----------------------------------------------------- |
@@ -436,30 +449,46 @@ human actually comes to do:
 **Help** combines the current newcomer tour (A) and reorientation (E). It
 routes to the `newcomer-tour` or `guided-tour` skill as before.
 
-**Housekeeping** is new. The first release presents a brief inventory of
-factory state (installed version, fitting status, CLI integrations, usage
-pipeline health) and lists what the human can do manually. It does not yet
-automate maintenance actions or use a precondition graph. That is a separate
-future concern with its own model.
+**Housekeeping** is new. The first release presents a factory state inventory
+(installed version, fitting status, CLI integrations, usage pipeline health)
+and lists available manual actions. It does not automate maintenance actions or
+use a precondition graph. Housekeeping automation is a separate future concern.
 
 **Project Work** subsumes the current options B (start something new) and C
 (continue an existing workstream). After workstream binding, the system checks
 artifact state and presents the agents whose preconditions are currently
 satisfied.
 
-**Open Stage** is the current option D. VIRGIL's resting state — follow the
-conversation wherever it leads, route to the right next step when the idea
-finds its shape.
+**Open Stage** is the current option D. Freeform conversation with no
+structure. VIRGIL routes to the appropriate skill or agent when the
+conversation reaches a concrete next step.
 
 ### Folder consolidation
 
-All factory runtime state is consolidated under `.agent-factory/`. The
-`.current-work/` folder is eliminated. The unified layout:
+All factory-delivered content is consolidated under `.agent-factory/`. The
+top-level `factory/` directory, the `config/` directory, and the
+`.current-work/` folder are eliminated as separate roots. Only CLI-specific
+directories (`.claude/`, `.pi/`, `.codex/`, `.github/`), `.gitignore`,
+`.pre-commit-config.yaml`, and `.git/` remain outside.
+
+The unified layout:
 
 ```
 .agent-factory/
 ├── install.json                     # factory version, installed CLIs
 ├── checksums.json                   # per-file integrity
+│
+├── factory/                         # installed factory tree
+│   ├── scripts/                     # dispatch scripts (run-step, etc.)
+│   ├── agents/                      # agent definitions
+│   ├── skills/                      # skill definitions
+│   ├── rulebooks/                   # rules.md, policies
+│   └── engine/                      # deterministic engine
+│       └── validators/
+│
+├── config/                          # project configuration
+│   ├── project-context.json
+│   └── testing.yaml
 │
 ├── workstreams/                     # workstream state files
 │   ├── <id>.yaml
@@ -487,8 +516,11 @@ All factory runtime state is consolidated under `.agent-factory/`. The
 
 Design rationale:
 
-- **Six top-level entries.** Each is a named concern. `ls .agent-factory/`
-  tells the full story.
+- **Single root.** Everything the factory delivers lives under one dotfolder.
+  The project root carries only its own files plus CLI-specific configuration.
+- **`factory/` and `config/` move inward.** They are factory artifacts, not
+  project artifacts. Placing them under `.agent-factory/` makes the ownership
+  boundary visible in the directory tree.
 - **Sessions under workstreams.** A session binding serves a workstream. Open
   Stage sessions use `workstream_id: null`. Flat session lookup:
   `workstreams/sessions/<id>.yaml`.
@@ -499,17 +531,19 @@ Design rationale:
 - **`factory-` prefix dropped.** Redundant under `.agent-factory/`.
 - **Dropped artifacts:** `playbook-state.yml`, `step-guard-debug.json`,
   `dispatch-ledger.yaml.bak` — obsolete under the new model. Dispatch ledgers
-  for active features are preserved under `workstreams/`.
+  for active features are kept under `workstreams/`.
 
-All scripts and hooks that reference `.current-work/` or the old
-`.agent-factory/` sub-paths are updated. The `.gitignore` is updated to
-cover the new layout.
+All scripts, hooks, agent definitions, skill definitions, CLI index files, and
+configuration that reference `factory/`, `config/`, `.current-work/`, or the
+old `.agent-factory/` sub-paths are updated. The `.gitignore` is updated to
+cover the new layout. The install script writes to `.agent-factory/factory/`
+and `.agent-factory/config/` instead of the project root.
 
 ### Compatibility with EPIC 1
 
 EPIC 1 implemented workstream identity, session binding, the `cycle select`
 and `cycle assess` commands, menu integration, and basic delivery-model
-validation. This proposal preserves:
+validation. This proposal keeps:
 
 - Workstream state files (moved to `.agent-factory/workstreams/`)
 - Session bindings
@@ -548,16 +582,41 @@ preconditions requires a clean break at the engine level:
 | `validators/`          | Keep (adapt to precondition condition types)                |
 | `schemas/`             | Keep (adapt to new workstream state schema)                 |
 
-"Preserve EPIC 1" means preserving the workstream and session plumbing. The
-engine's conceptual foundation — cycles, routes, the delivery YAML model — is
-replaced.
+"Keep EPIC 1" means keeping the workstream and session plumbing. The engine's
+conceptual foundation — cycles, routes, the delivery YAML model — is replaced.
+
+#### Engine architectural constraints
+
+The cycle proposal established architectural constraints for the engine. These
+carry forward unchanged:
+
+- **Scripts are thin adapters.** They own CLI parsing, output formatting, exit
+  codes, process lifecycle, and state-file writes. They contain no evaluation
+  or decision logic.
+- **The engine returns immutable decisions.** It evaluates preconditions and
+  reports eligible activities. It never writes repository state.
+- **Dependency direction is enforced.** Scripts may call the engine. The engine
+  never imports scripts, configuration, agent definitions, or skills. A
+  deterministic boundary test enforces this.
+- **Trusted validator identifiers.** The `check` condition type references
+  validators by name. The engine resolves the name to an executable — bash
+  scripts under `factory/scripts/` (e.g. `spec-lint`) or Python validators
+  under `engine/validators/` (e.g. `proposal.py`). The model never contains
+  shell commands.
+- **Shared validator result format.** Every validator returns: artifact type,
+  artifact reference, assessed commit, individual check results, and warnings.
+  The precondition evaluator interprets pass/fail from these results.
+- **Installed-shape tests.** The distributed factory must contain and be able
+  to execute the engine. Tests verify this.
+- **Tracked source is the test surface.** `packages/factory/engine/` is the
+  source of truth. Installation copies the same tree to `factory/engine/`.
 
 #### Workstream state migration
 
 Existing `schema_version: 1` workstream state files are deleted. This is a
 clean break. The user re-creates workstreams under `schema_version: 2`. There
-are three v1 files in this project; manual recreation is trivial. No
-migration script is needed.
+are three v1 files in this project. Manual recreation takes less time than
+writing a migration script. No migration script is needed.
 
 #### Dispatch and diagnostic scripts
 
@@ -571,15 +630,12 @@ Research uses a sibling precondition set. A research agent requires a research
 brief. The existing survey and falsification routes are unchanged.
 
 The cycle proposal's brief fields `origin_cycle` and `return_cycle` reference
-named cycles that no longer exist. They are replaced with artifact references:
+named cycles that no longer exist. These fields are removed. The precondition
+graph handles routing: a research agent's output is an artifact, and any agent
+that declares that artifact as a required input becomes eligible when the
+research completes. No explicit origin or return field is needed.
 
-- `origin_artifact` — the artifact path that triggered the research question
-- `return_artifact` — the artifact path where the research result will be
-  consumed
-- `decision_needed` — unchanged
-
-This makes the brief concrete (paths to real files) instead of abstract
-(cycle names).
+The `decision_needed` field is unchanged.
 
 ## Scope
 
@@ -596,7 +652,7 @@ This makes the brief concrete (paths to real files) instead of abstract
   and checks them against the repository.
 - Present eligible agents (those with satisfied required inputs) after
   workstream binding in the Project Work lane.
-- Preserve structured transcripts at capture time alongside the text rendering.
+- Retain structured transcripts at capture time alongside the text rendering.
 - Add `workstream_id`, `workstream_origin`, and `skills_invoked` to the usage-
   record contract as optional fields (v1 additive schema update).
 - Supply workstream context from the factory's capture hooks.
@@ -604,10 +660,14 @@ This makes the brief concrete (paths to real files) instead of abstract
 - Simplify the workstream state file: remove `cycle`, `attempt`, `revision`,
   `delegation`, and `work` fields. Retain only `workstream_id`, `topic`, and
   `origin_ref`.
+- Add a `workstream` frontmatter field to all artifact types (proposals,
+  epics, stories, feature files, architecture documents). Add a lint check
+  at artifact creation time that verifies the field is present and references
+  a known workstream identifier.
 - Define a single `continue: true` delegation form.
-- Preserve per-activity retry limits with the same consumed-attempt semantics.
-- Rename the `cycle` command family to `intent`: `intent select`, `intent assess`, `intent status`, `intent delegate`. The old `cycle` commands are
-  removed; no alias is provided.
+- Keep per-activity retry limits with the same consumed-attempt semantics.
+- Rename the `cycle` command family to `intent`: `intent select` and
+  `intent assess`. The old `cycle` commands are removed; no alias is provided.
 - Clean-break the engine: delete `cycle_model.py`, `cycles.py`, and
   `models/delivery.yaml`. Rewrite `eligibility.py`, `readiness.py`, and
   `recommendations.py`. Keep `validators/` and `schemas/` (adapted).
@@ -616,18 +676,36 @@ This makes the brief concrete (paths to real files) instead of abstract
   diagnostic stub.
 - Store session-scoped delegation grants and per-activity attempt counters in
   the session binding file.
-- Keep EPIC 1 infrastructure: workstream/session plumbing, menu integration,
-  deterministic checks.
+- Keep EPIC 1 infrastructure: workstream and session plumbing, menu
+  integration, deterministic checks.
 - Replace `eligible_cycles` metadata and flat `inputs` lists with structured
   `inputs.required` / `inputs.context` on agent definitions. Add
   `inputs.context` to skill definitions.
-- Update delivery-to-research brief fields: replace `origin_cycle` and
-  `return_cycle` with `origin_artifact` and `return_artifact`.
-- Consolidate all factory runtime state under `.agent-factory/`. Eliminate
-  `.current-work/`. Move workstream state to `workstreams/`, session bindings
-  to `workstreams/sessions/`, quality gate results to `checks/`, usage
-  pipeline internals into `usage/` subfolders. Update all path references in
-  scripts, hooks, and configuration.
+- Consolidate all factory content under `.agent-factory/`. Move `factory/`
+  to `.agent-factory/factory/`, `config/` to `.agent-factory/config/`.
+  Eliminate `.current-work/`. Move workstream state to
+  `.agent-factory/workstreams/`, session bindings to
+  `.agent-factory/workstreams/sessions/`, quality gate results to
+  `.agent-factory/checks/`. Update all path references in scripts, hooks,
+  agent definitions, skill definitions, CLI index files, and configuration.
+  Update the install script to write the new layout.
+- Restructure `.agent-factory/` internals: rename `factory-install.json` →
+  `install.json`, `factory-checksums.json` → `checksums.json`. Collapse
+  `usage-control/`, `usage-runtime/`, `usage-analysis/`, and `usage.duckdb`
+  into `usage/` subfolders (`control/`, `runtime/`, `analysis/`,
+  `store.duckdb`). Move flat usage records into `usage/records/`. Move
+  `factory-user-changes/` and `.freshness-check` into `maintenance/`.
+- Update branching policy and git-hook enforcement: `block-dangerous-git.sh`
+  worktree path allowlist, `branching-policy.md`, and `git-workflow.md`
+  references from `.current-work/` to the new `.agent-factory/` layout.
+- Retire `packages/orchestrator`. Delete the `packages/orchestrator/`
+  directory. Remove references to the orchestrator from documentation,
+  backlog stories, and CI configuration. Review existing orchestrator tests
+  for any that cover behavior still needed (e.g. engine-level validation,
+  workstream state handling) and migrate those tests to their new homes
+  (e.g. `packages/factory/engine/`). The playbook FSM runner, `phase`
+  script dependency, playbook FSM files, and linear state machine model are
+  all superseded. No consumers remain under the activity-graph model.
 - Supersede the cycle-based orchestration proposal.
 
 ### Explicitly deferred
@@ -636,12 +714,12 @@ This makes the brief concrete (paths to real files) instead of abstract
   factory state. The first release shows inventory and manual actions only.
   Housekeeping's own model is a separate future concern.
 - Per-CLI activity extractors and the common activity record format. The
-  first release preserves structured transcripts; extraction from them is a
+  first release retains structured transcripts; extraction from them is a
   separate concern.
 - Git-diff-based change tracking for activity impact analysis.
 - Capture-time activity extraction.
-- Automated dependency impact analysis ("this artifact changed; these
-  downstream artifacts may be affected").
+- Automated artifact-impact analysis: given that an artifact changed, surface
+  which other artifacts reference it and may need reconciliation.
 - `structured-only` transcript retention mode.
 - Removing playbook files (they remain as reference documentation).
 - Self-directed delegation beyond a human-authored `continue` grant.
@@ -673,8 +751,11 @@ None.
   selection.
 - Workstream state files contain `workstream_id`, `topic`, and `origin_ref`.
   They do not contain `cycle`, `attempt`, `delegation`, or `work` fields.
-  Workstream scope is derived from the dependency graph.
-- Structured transcripts are preserved at capture time for all four supported
+- Every artifact belonging to a workstream carries a `workstream` frontmatter
+  field referencing a known workstream identifier. A lint check at artifact
+  creation time rejects artifacts missing the field or referencing an unknown
+  identifier.
+- Structured transcripts are retained at capture time for all four supported
   CLIs (Claude Code, Pi, Copilot, Codex) when transcript retention is `full`.
 - The usage-record contract includes optional `workstream_id`,
   `workstream_origin`, and `skills_invoked` fields. Capture succeeds with null
@@ -685,22 +766,41 @@ None.
   exactly one activity is eligible and the previous activity succeeded. Zero or
   multiple eligible activities pause for human direction.
 - Per-activity retry limits use the same consumed-attempt semantics as the
-  cycle proposal. A human can retry without limit or ceremony.
-- EPIC 1 infrastructure remains functional: workstream state files, session
-  bindings, the `intent` command family, and all deterministic checks.
-- All factory runtime state lives under `.agent-factory/`. The `.current-work/`
-  folder does not exist. Workstream state files are under `workstreams/`,
-  session bindings under `workstreams/sessions/`, quality gate results under
-  `checks/`, and usage pipeline state under `usage/` with `records/`,
-  `transcripts/`, `control/`, `runtime/`, `analysis/` subfolders. No script
-  or hook references `.current-work/` or the old `.agent-factory/` sub-paths.
+  cycle proposal. A human can retry without limit.
+- Workstream state files load, create, and update under
+  `.agent-factory/workstreams/`. Fields are `workstream_id`, `topic`, and
+  `origin_ref` only.
+- Session bindings attach to a workstream, persist delegation grants and
+  attempt counters, and tear down cleanly at session end. Path:
+  `.agent-factory/workstreams/sessions/<session-id>.yaml`.
+- The `intent` command family (`intent select`, `intent assess`) operates
+  against the activity-graph model. `intent select` lists eligible activities
+  based on precondition evaluation. `intent assess` runs validators and
+  reports results per the shared result format.
+- All deterministic checks (CRAP score, dependency check, mutation analysis,
+  module graph check) run and write results to `.agent-factory/checks/`.
+- All factory-delivered content lives under `.agent-factory/`. The project root
+  contains only its own files and CLI-specific directories. The installed
+  factory tree is at `.agent-factory/factory/`, project configuration at
+  `.agent-factory/config/`. Neither `factory/` nor `config/` nor
+  `.current-work/` exists at the project root. Workstream state files are under
+  `workstreams/`, session bindings under `workstreams/sessions/`, quality gate
+  results under `checks/`, and usage pipeline state under `usage/` with
+  `records/`, `transcripts/`, `control/`, `runtime/`, `analysis/` subfolders.
+  No script, hook, agent definition, or CLI index references `factory/`,
+  `config/`, `.current-work/`, or the old `.agent-factory/` sub-paths at the
+  project root.
+- `packages/orchestrator/` does not exist. No documentation, backlog story,
+  or CI configuration references the orchestrator. Tests that covered
+  still-needed behavior have been migrated to `packages/factory/engine/` or
+  the appropriate package.
 - The cycle-based orchestration proposal has status `superseded`.
 - A single delivery sequence (proposal through concept through implementation)
   completes successfully under the activity model without named stage
   transitions.
-- Rework (fixing an upstream artifact mid-activity) requires no transition,
-  ceremony, or state-machine update. The human edits the artifact and resumes
-  the interrupted activity.
+- Rework (fixing an upstream artifact mid-activity) requires no transition or
+  state-machine update. The human edits the artifact and resumes the
+  interrupted activity.
 
 ## Guiding Rule
 
@@ -854,19 +954,19 @@ to point to `intent` instead of `cycle`.
 
 All 11 findings resolved in the proposal body:
 
-| #   | Finding                       | Resolution                                               |
-| --- | ----------------------------- | -------------------------------------------------------- |
-| 1   | Boundary reference            | Changed back to `scripts/cycle`                          |
-| 2   | Engine code fate              | Engine module disposition table added                    |
-| 3   | Scope vs. design on skills    | Scope item says "agents"                                 |
-| 4   | Workstream migration          | Clean break: delete v1 files                             |
-| 5   | Schema `additionalProperties` | v1 additive update stated                                |
-| 6   | Delegation storage            | Session binding file                                     |
-| 7   | Retry persistence             | Attempt counters in session binding                      |
-| 8   | Research brief fields         | `origin_artifact` / `return_artifact` replace cycle refs |
-| 9   | "Activity" undefined          | Terminology section added                                |
-| 10  | `run-step` migration          | Dispatch scripts section added                           |
-| 11  | `phase` stub                  | Deleted, stated in dispatch scripts section              |
+| #   | Finding                       | Resolution                                                     |
+| --- | ----------------------------- | -------------------------------------------------------------- |
+| 1   | Boundary reference            | Changed back to `scripts/cycle`                                |
+| 2   | Engine code fate              | Engine module disposition table added                          |
+| 3   | Scope vs. design on skills    | Scope item says "agents"                                       |
+| 4   | Workstream migration          | Clean break: delete v1 files                                   |
+| 5   | Schema `additionalProperties` | v1 additive update stated                                      |
+| 6   | Delegation storage            | Session binding file                                           |
+| 7   | Retry persistence             | Attempt counters in session binding                            |
+| 8   | Research brief fields         | `origin_cycle` / `return_cycle` removed; graph handles routing |
+| 9   | "Activity" undefined          | Terminology section added                                      |
+| 10  | `run-step` migration          | Dispatch scripts section added                                 |
+| 11  | `phase` stub                  | Deleted, stated in dispatch scripts section                    |
 
 ### Structural observations
 
@@ -890,3 +990,71 @@ implemented independently of the precondition-graph work. Consider
 whether the proposal should note this separability, since it enables
 parallel work and reduces risk — the observability stories deliver value
 even if the precondition evaluator takes longer than expected.
+
+## Review — 2026-09-17
+
+Reviewer: proposal-review-agent
+Reviewed commit: b684671f4b5bd2960f026535cf687b5feb0015f2
+Disposition: findings
+
+### Findings
+
+| ID      | Severity | Check | Status    | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------- | -------- | ----- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-01 | major    | 02    | resolved  | Design describes "what just broke?" as half of the core model (lines 209-231) but Scope defers it under "Automated dependency impact analysis" without flagging the gap in the Design section. A planner reading the Design would scope stories for both questions. **Resolution:** "What just broke?" removed from Design. Deferred item reworded to "Automated artifact-impact analysis."                                                                                                                                                                |
+| PROP-02 | major    | 02    | resolved  | `.agent-factory/` internal restructuring has no Scope item. The current layout (`factory-install.json`, `factory-checksums.json`, four `usage-*` siblings, flat usage records in `usage/`) differs from the Design layout (`install.json`, `checksums.json`, `usage/records/`, `usage/control/`, etc.). Completion Criteria describe the target state but no scope item covers the migration from current to target. **Resolution:** Separate scope item added for `.agent-factory/` internal restructuring.                                               |
+| PROP-03 | major    | 02    | resolved  | Folder consolidation changes the branching policy. `block-dangerous-git.sh` hardcodes `.current-work/*` as the sole allowed worktree path (lines 91-108). `branching-policy.md` and `git-workflow.md` prescribe `.current-work/` as the worktree root. Changing the folder name changes the project's branching and safety enforcement model. The scope buries this under "Update all path references" rather than acknowledging it as a distinct concern. **Resolution:** Separate scope item added for branching policy and git-hook enforcement update. |
+| PROP-04 | major    | 05    | resolved  | `packages/orchestrator` is not in the boundary list but has 30+ `.current-work/` references including hardcoded paths in source code (`cli.py` lines 27-28), the PRD, demo script, README, backlog stories, and supplementary specs. It is a separate package from `packages/factory` and is not covered by any listed boundary. **Resolution:** `packages/orchestrator` retired wholesale. Scope item added.                                                                                                                                              |
+| PROP-05 | minor    | 03    | resolved  | The `check` condition type says named validators are "the same scripts the factory already runs" but the codebase has two validator forms: Python classes in `engine/validators/` (e.g. `proposal.py`) and bash scripts in `factory/scripts/` (e.g. `spec-lint`). The design does not specify how the evaluator resolves a validator name to an executable or what interface it expects. **Resolution:** Engine architectural constraints section added. Validator resolution specified.                                                                   |
+| PROP-06 | minor    | 01    | resolved  | "EPIC 1 infrastructure remains functional" groups four capabilities (state files, session bindings, intent commands, deterministic checks) into one assertion. Each should be a separately testable criterion, or the single criterion should enumerate what "functional" means for each. **Resolution:** Split into four separate completion criteria.                                                                                                                                                                                                    |
+| PROP-07 | minor    | 02    | resolved  | Scope says "replace `origin_cycle` and `return_cycle` with `origin_artifact` and `return_artifact`" but neither field exists in the current research brief schema (`research-brief.schema.json`) or template. EPICs 2-7 where these would have been added were never implemented. The scope item should say "add" not "replace." **Resolution:** Scope item dropped. The precondition graph handles routing; no explicit origin/return fields needed.                                                                                                      |
+| PROP-08 | minor    | 08    | no change | All estimate fields are `unknown` for a scope with countable units: 17 agent definition restructurings, 6 engine module rewrites/deletes, 150+ `.current-work/` path references, two folder migrations, new evaluator, and contract changes. While `unknown` is permitted by policy, even a rough token range would provide planning signal. **Resolution:** Estimates stay `unknown` per policy.                                                                                                                                                          |
+
+### Summary
+
+The proposal's conceptual model is sound and the motivation is well-grounded. Five of eight checks pass. The three failures center on one theme: the folder consolidation is larger and more consequential than the proposal acknowledges. It encompasses two distinct migrations (`.current-work/` elimination and `.agent-factory/` internal restructuring), changes the project's branching policy and git-hook enforcement model, and reaches into a sibling package (`packages/orchestrator`) that is not in the boundary list. These omissions would cause a planning agent to underscope the folder consolidation work and miss the orchestrator package entirely. The Design section's presentation of "what just broke?" alongside "what can run now?" as a pair would lead a planner to include both in scope when only the first is intended. Address the four major findings before this proposal is ready to plan from.
+
+## Review — 2026-09-17 (pass 3)
+
+Reviewer: proposal-review-agent
+Reviewed content: working tree (uncommitted changes on 41dfd301d15e2846cbc0a5cf7fe867dce55d1027)
+Disposition: findings (minor only)
+
+### Prior findings
+
+| ID      | Severity | Check | Status    | Verification                                                                                                                            |
+| ------- | -------- | ----- | --------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-01 | major    | 02    | resolved  | "What just broke?" removed from Design. Deferred item reworded to "Automated artifact-impact analysis." Confirmed in working tree.      |
+| PROP-02 | major    | 02    | resolved  | Separate scope item for `.agent-factory/` internal restructuring at line 666. Confirmed.                                                |
+| PROP-03 | major    | 02    | resolved  | Separate scope item for branching policy and git-hook enforcement at line 672. Confirmed.                                               |
+| PROP-04 | major    | 05    | resolved  | `packages/orchestrator` retirement in scope at line 675. Confirmed on disk.                                                             |
+| PROP-05 | minor    | 03    | resolved  | Engine architectural constraints section at lines 568-591. Validator resolution specified. Confirmed.                                   |
+| PROP-06 | minor    | 01    | resolved  | Split into four separate completion criteria (workstream state, session bindings, intent commands, deterministic checks). Confirmed.    |
+| PROP-07 | minor    | 02    | resolved  | Scope item dropped. Research brief routing handled by precondition graph. `origin_cycle`/`return_cycle` removed at line 612. Confirmed. |
+| PROP-08 | minor    | 08    | no change | All estimate fields remain `unknown`. Accepted per policy.                                                                              |
+
+### New findings
+
+| ID      | Severity | Check | Status | Finding                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------- | -------- | ----- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| PROP-09 | minor    | 02    | open   | Scope lists four `intent` commands (`select`, `assess`, `status`, `delegate`) at line 643 but completion criteria at line 742 specify behavior for `select` and `assess` only. The `intent status` output content and the `intent delegate` command interface have no testable endpoint in the proposal. A planner cannot write acceptance tests for these two commands from the criteria alone. |
+| PROP-10 | minor    | 02    | open   | `packages/orchestrator` retirement is in scope (line 675) but has no matching completion criterion. "Retire" is ambiguous without a verifiable endpoint: delete the directory, remove from CI, mark deprecated, or some combination.                                                                                                                                                             |
+| PROP-11 | minor    | 01    | open   | Completion criterion 6 (line 721) contains "Workstream scope is derived from the dependency graph" — a design mechanism description, not a testable assertion. The field-presence checks in the same criterion are testable; this sentence is not.                                                                                                                                               |
+| PROP-12 | minor    | 03    | open   | Design line 196 says the dependency graph comes from "agent and skill definitions" but lines 200-205 exclude skills from the graph and line 209 restricts the computation to "every agent's" declarations. A planner reading line 196 alone would incorrectly include skill outputs in the graph.                                                                                                |
+
+### Check results
+
+| #   | Check                            | Result                                                           |
+| --- | -------------------------------- | ---------------------------------------------------------------- |
+| 1   | Completion criteria testable     | Pass — one minor untestable clause (PROP-11)                     |
+| 2   | Scope boundary sharp             | Pass — two scope items lack matching criteria (PROP-09, PROP-10) |
+| 3   | Design decomposable              | Pass — one wording inconsistency (PROP-12)                       |
+| 4   | Impact classification consistent | Pass                                                             |
+| 5   | Boundary references exist        | Pass — all 10 paths resolve                                      |
+| 6   | Open questions genuine           | Pass — "None" appropriate after two prior passes                 |
+| 7   | Motivation justifies timing      | Pass                                                             |
+| 8   | Estimate plausible               | Pass — `unknown` accepted per PROP-08                            |
+
+### Summary
+
+All eight checks pass at the major level. Four minor findings remain: two scope-criteria alignment gaps where in-scope commands and a retirement action lack testable completion criteria (PROP-09, PROP-10), one untestable mechanism clause embedded in a completion criterion (PROP-11), and one wording inconsistency between a paragraph and its surrounding context in the Design section (PROP-12). The four prior major findings are verified resolved. The quality-gate rewrite improved prose clarity without introducing structural problems. The proposal is planning-ready; addressing these minor findings would sharpen precision but does not block story decomposition.
