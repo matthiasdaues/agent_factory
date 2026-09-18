@@ -93,6 +93,26 @@ None. This is the foundational EPIC.
 | ST-0264 | Build `intent select` script and wire agent presentation into Project Work lane — call evaluator, format and display all agents with requirement evidence after workstream binding                            | standard | M    | CLI adapter + menu integration; calls evaluator; formats terminal output; no new engine logic                                                             |
 | ST-0265 | Enable unrestricted selection, rework without ceremony, research routing, and end-to-end delivery sequence — behavioral properties of the evaluator                                                           | economy  | S    | No override dialog; evaluator re-checks on re-run; research output satisfies downstream preconditions; no origin_cycle/return_cycle; no stage transitions |
 
+### Testability Assessment
+
+All actor goals produce observable, assertable outcomes. Tests instrument: agent definition YAML files (structured `inputs.required`/`inputs.context`/`outputs` fields parsed by index-lint), `eligibility.py` function returns (evidence dicts with per-agent, per-requirement satisfied/unsatisfied status and checked paths), `intent select` stdout and exit code (formatted agent list with evidence), INDEX.yaml entries (new format accepted, old format rejected), session behavior (no confirmation dialog on unsatisfied selection), and evaluator re-run output (evidence reflects fixed artifacts). No red flags.
+
+### Ownership Resolution
+
+| Contract                | .feature Rule                                                         | Owner   | Rationale                                                                      |
+| ----------------------- | --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------ |
+| Structured agent inputs | Agent definition declares required and contextual inputs              | ST-0262 | Introduces structured inputs.required/context format on all agent definitions  |
+| Skill contextual inputs | Skill definition carries contextual inputs only                       | ST-0262 | Introduces inputs.context on skill definitions                                 |
+| Evaluator evidence      | Precondition evaluator checks agent inputs against the repository     | ST-0263 | Introduces the evaluator that reads declarations and reports evidence          |
+| Path resolution         | Precondition evaluator resolves path patterns with scope filtering    | ST-0263 | Introduces the path resolution algorithm (glob, scope, condition, cardinality) |
+| Agent evidence display  | Human operator sees all agents with precondition evidence             | ST-0264 | Introduces intent select UI showing all agents with evidence                   |
+| Intent select           | Intent select lists all agents with precondition status               | ST-0264 | Introduces the intent select script                                            |
+| Unrestricted selection  | Human operator selects any agent regardless of precondition status    | ST-0265 | Introduces unrestricted selection with no override dialog                      |
+| Ceremony-free rework    | Human operator fixes an upstream artifact without transition ceremony | ST-0265 | Introduces rework requiring no state update or ceremony                        |
+| No-transition rework    | Rework requires no transition or state update                         | ST-0265 | Introduces the no-transition property of the activity model                    |
+| Research routing        | Research brief uses the precondition graph for routing                | ST-0265 | Introduces research output satisfying downstream preconditions                 |
+| Delivery sequence       | Single delivery sequence completes under the activity model           | ST-0265 | Introduces the stageless delivery sequence                                     |
+
 ## EPIC 2: Fence agent outputs and assess artifacts
 
 ### Why this EPIC exists
@@ -159,6 +179,17 @@ EPIC 1 (the fence runner reads `outputs.declarations` from agent definitions; th
 | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---- | --------------------------------------------------------------------------------------------------------------- |
 | ST-0266 | Build the fence runner: snapshot outputs, invoke validators, check required/optional/minimum_changed, aggregate pass/fail, store evidence at `.agent-factory/checks/fences/` | strong   | L    | New engine module; snapshot/compare logic; validator invocation; evidence format; integration with evaluator    |
 | ST-0267 | Build `intent assess` subcommand: run validators against artifacts on disk, report results in the shared validator format                                                    | standard | M    | CLI adapter calling validators; format terminal output; no new engine logic beyond invoking existing validators |
+
+### Testability Assessment
+
+All actor goals produce observable, assertable outcomes. Tests instrument: fence evidence YAML files at `.agent-factory/checks/fences/<session-id>/<invocation-id>.yaml` (field checks for required/optional status, validator results, aggregate pass/fail), `intent assess` stdout and exit code (validator result format: artifact type, reference, assessed commit, checks, warnings), and the evaluator's evidence model (downstream precondition satisfied when fence passes, unsatisfied when fence fails). No red flags.
+
+### Ownership Resolution
+
+| Contract              | .feature Rule                                           | Owner   | Rationale                                                                   |
+| --------------------- | ------------------------------------------------------- | ------- | --------------------------------------------------------------------------- |
+| Deterministic fencing | Every agent activity is fenced by a deterministic check | ST-0266 | Introduces the fence runner with snapshot, validation, and evidence storage |
+| Artifact assessment   | Intent assess runs validators and reports results       | ST-0267 | Introduces the assess subcommand calling validators                         |
 
 ## EPIC 3: Navigate the session menu and manage workstreams
 
@@ -236,6 +267,20 @@ EPIC 1 (the Project Work lane calls the evaluator to present agents with evidenc
 | ST-0269 | Implement workstream state v2 (immutable identity-only files) and session binding format; delete v1 cycle state and session binding files    | standard | L    | New state file format; immutability enforcement; binding creation; v1 cleanup; directory creation; validation logic |
 | ST-0270 | Wire Project Work lane for workstream creation and continuation — create or list workstreams, bind session, call evaluator to present agents | standard | M    | Menu integration; list/select workflow; session binding creation; evaluator call; depends on ST-0263 and ST-0269    |
 
+### Testability Assessment
+
+All actor goals produce observable, assertable outcomes. Tests instrument: session-menu.md content (menu text matching four lanes H/K/P/O), workstream state files at `.agent-factory/workstreams/<id>.yaml` (YAML field checks for schema_version, workstream_id, topic, origin_ref; absence of other fields), session binding files at `.agent-factory/workstreams/sessions/<id>.yaml` (field checks for session_id, workstream_id, bound_at), file system for v1 deletion (absence of files under `.current-work/cycles/` and `.current-work/session-bindings/`), and immutability enforcement (write attempt returns error, file unchanged). No red flags.
+
+### Ownership Resolution
+
+| Contract                   | .feature Rule                                      | Owner   | Rationale                                                           |
+| -------------------------- | -------------------------------------------------- | ------- | ------------------------------------------------------------------- |
+| Four-lane menu             | Session menu presents four lanes                   | ST-0268 | Introduces the restructured menu with H/K/P/O lanes                 |
+| Immutable workstream state | Workstream state file is immutable after creation  | ST-0269 | Introduces workstream state v2 with immutability enforcement        |
+| Session binding format     | Session binding attaches a session to a workstream | ST-0269 | Introduces the session binding file format and validation           |
+| Start workstream           | Human operator starts a new workstream             | ST-0270 | Introduces workstream creation through the Project Work lane        |
+| Continue workstream        | Human operator continues an existing workstream    | ST-0270 | Introduces workstream listing and continuation through Project Work |
+
 ## EPIC 4: Inspect factory state and run maintenance
 
 ### Why this EPIC exists
@@ -303,6 +348,16 @@ EPIC 3 (soft — the Housekeeping lane exists in the four-lane menu; this EPIC f
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ST-0271 | Build Housekeeping About section displaying factory state, and Re-fit/Update Factory actions that rerun fitting and install updates                                                   | standard | M    | Read from 4 sources (install.json, project-context.json, project config, usage state); Re-fit calls existing procedure; Update Factory calls init-factory; error handling for unreadable values |
 | ST-0272 | Extend `capture-context` with `--update --scan` mode: scan repository, compare with existing agent-context.md, present differences, write confirmed changes, verify with concern-lint | standard | L    | New mode for existing skill; repository scanning; diffing concerns and Read paths; interactive confirmation; concern-lint integration; guard for missing file                                   |
+
+### Testability Assessment
+
+All actor goals produce observable, assertable outcomes. Tests instrument: About section terminal output (version string, fitting status counts, CLI integration names, health indicator, "unknown" with error for unreadable sources), init-factory exit code and stdout (Update Factory), fitting procedure results (Re-fit), capture-context skill output (discovered differences, confirmed changes), concern-lint exit code (passes after writing). The "unreadable values" scenario is testable by removing or corrupting the source file. No red flags.
+
+### Ownership Resolution
+
+| Contract                           | .feature Rule                                                   | Owner   | Rationale                                                        |
+| ---------------------------------- | --------------------------------------------------------------- | ------- | ---------------------------------------------------------------- |
+| Housekeeping state and maintenance | Housekeeping shows factory state and offers maintenance actions | ST-0271 | Introduces the About section, Re-fit, and Update Factory actions |
 
 ## EPIC 5: Declare and enforce artifact scope
 
@@ -381,6 +436,16 @@ EPIC 3 (scope-lint validates scope values against known workstream identifiers; 
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | ---- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | ST-0273 | Build `scope-lint` script that validates scope declarations across 7 governed artifact types, checking presence, format, and value against known workstreams | standard | M    | New script; 3 format representations (YAML frontmatter, top-level YAML, first-line comment); workstream lookup; rejection messages |
 | ST-0274 | Add scope declarations to all existing governed artifacts and wire scope-lint into the evaluator's scope filtering step                                      | economy  | M    | Mechanical across many files (proposals, epics, stories, features, DSL, entity model, scope map); integration point in evaluator   |
+
+### Testability Assessment
+
+All actor goals produce observable, assertable outcomes. Tests instrument: governed artifact files (YAML frontmatter `scope` field, first-line comment format, top-level YAML field), scope-lint stdout and exit code (rejection messages for missing or unknown values, pass for valid declarations), and the evaluator's scope filtering results (candidate list narrowed by workstream). Non-governed artifacts (ADRs, conventions) are checked to confirm they are skipped. No red flags.
+
+### Ownership Resolution
+
+| Contract           | .feature Rule                                          | Owner   | Rationale                                                                 |
+| ------------------ | ------------------------------------------------------ | ------- | ------------------------------------------------------------------------- |
+| Scope declarations | Graph-addressable artifact carries a scope declaration | ST-0273 | Introduces scope-lint and the declaration format for all 7 governed types |
 
 ## EPIC 6: Consolidate layout, retire orchestrator, assure compatibility
 
@@ -464,6 +529,19 @@ None. This EPIC can proceed in parallel with EPICs 1-5. Path references in agent
 | ST-0276 | Retire `packages/orchestrator/` — delete directory, remove all references from docs/backlog/CI, migrate still-needed tests                                                                           | standard | M    | Deletion and reference cleanup; test migration from orchestrator to factory engine; grep-and-fix across docs               |
 | ST-0277 | Supersede cycle-based orchestration proposal and write characterization tests verifying standard checks, branch safety commands, and indexed name preservation                                       | standard | M    | Proposal status change; characterization tests for 3 contract areas; tests run against post-migration state                |
 
+### Testability Assessment
+
+All actor goals produce observable, assertable outcomes. Tests instrument: file system paths (`.agent-factory/factory/`, `.agent-factory/config/`, absence of `factory/`, `config/`, `packages/orchestrator/`), installed metadata files (`install.json`, `checksums.json`), init-factory exit code, INDEX.yaml entries (agent and skill name preservation), proposal YAML frontmatter (`status: superseded`), and characterization test pass/fail via pytest. No red flags.
+
+### Ownership Resolution
+
+| Contract                | .feature Rule                                      | Owner   | Rationale                                                                  |
+| ----------------------- | -------------------------------------------------- | ------- | -------------------------------------------------------------------------- |
+| Layout consolidation    | Factory content consolidates under .agent-factory/ | ST-0275 | Introduces the consolidated directory layout and init-factory path changes |
+| Orchestrator retirement | Orchestrator package is retired                    | ST-0276 | Introduces orchestrator deletion and reference cleanup                     |
+| Proposal supersession   | Cycle-based orchestration proposal is superseded   | ST-0277 | Introduces the superseded status on the cycle proposal                     |
+| Contract preservation   | Kept contracts preserve acceptance-commit behavior | ST-0277 | Introduces characterization tests verifying command and name contracts     |
+
 ## EPIC 7: Retain structured transcripts
 
 ### Why this EPIC exists
@@ -523,3 +601,13 @@ EPIC 6 (the transcript storage path `.agent-factory/usage/transcripts/` is creat
 | Story   | Capability                                                                                         | Tier    | Size | Basis                                                                                     |
 | ------- | -------------------------------------------------------------------------------------------------- | ------- | ---- | ----------------------------------------------------------------------------------------- |
 | ST-0278 | Retain structured JSONL alongside text rendering at capture time, respecting the retention setting | economy | S    | Single copy step in existing pipeline; conditional on retention flag; no new engine logic |
+
+### Testability Assessment
+
+All actor goals produce observable, assertable outcomes. Tests instrument the usage capture pipeline's output directory at `.agent-factory/usage/transcripts/<session-key>/`: file existence checks confirm the JSONL file appears alongside the text rendering, byte-level comparison confirms verbatim content, and the omit case checks that neither file is written. No red flags.
+
+### Ownership Resolution
+
+| Contract                        | .feature Rule                                | Owner   | Rationale                                              |
+| ------------------------------- | -------------------------------------------- | ------- | ------------------------------------------------------ |
+| Structured transcript retention | Usage capture retains structured transcripts | ST-0278 | Introduces the JSONL copy step in the capture pipeline |
