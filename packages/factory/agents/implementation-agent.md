@@ -2,8 +2,6 @@
 name: implementation-agent
 title: Implementation Agent (Dispatcher)
 tier: standard
-eligible_cycles:
-  - REALIZE
 description: >-
   Dispatch backlog stories to parallel developer-agent subagents, maximising
   concurrency within dependency AND file-overlap constraints in autonomous
@@ -13,24 +11,40 @@ description: >-
 skills:
   - handoff
 inputs:
-  - backlog/ST-*.md
-  - config/model.conf
-  - docs/spec/prd.md
-  - docs/spec/*.feature
-  - docs/spec/scope-map.md
-  - docs/spec/supplementary_specs/*.md
-  - docs/CONTEXT.md
-  - docs/agent-context.md (shared registry; concern resolution implicit in CLI orientation)
-  - factory/rulebooks/conventions/branching-policy.md
-  - factory/rulebooks/conventions/dispatch-contract.md
-  - factory/scripts/crap-score
-  - factory/scripts/dependency-check
-  - factory/scripts/test-design-verify
+  required:
+    - type: story
+      path_pattern: "backlog/ST-*.md"
+    - type: feature
+      path_pattern: "docs/spec/*.feature"
+    - type: scope-map
+      path_pattern: docs/spec/scope-map.md
+    - type: supplementary-spec
+      path_pattern: "docs/spec/supplementary_specs/*.md"
+  context:
+    - config/model.conf
+    - docs/spec/prd.md
+    - docs/CONTEXT.md
+    - docs/agent-context.md
+    - factory/rulebooks/conventions/branching-policy.md
+    - factory/rulebooks/conventions/dispatch-contract.md
+    - factory/scripts/crap-score
+    - factory/scripts/dependency-check
+    - factory/scripts/test-design-verify
 outputs:
-  - src/**/*
-  - tests/**/*
-  - docs/spec/**/*.md
-  - docs/adr/*.md
+  minimum_changed: 1
+  declarations:
+    - path_pattern: "src/**/*"
+      validator:
+      required: true
+    - path_pattern: "tests/**/*"
+      validator:
+      required: true
+    - path_pattern: "docs/spec/**/*.md"
+      validator:
+      required: false
+    - path_pattern: "docs/adr/*.md"
+      validator:
+      required: false
 triggers:
   - "implement backlog"
   - "start implementation"

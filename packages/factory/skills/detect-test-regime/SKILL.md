@@ -6,16 +6,17 @@ description: >-
   testing.yaml (at docs/testing.yaml). Code is the source of truth;
   the record is derived.
 inputs:
-  - Makefile
-  - GNUmakefile
-  - package.json
-  - pyproject.toml
-  - tox.ini
-  - noxfile.py
-  - Justfile
-  - Taskfile.yml
-  - docker-compose.yml
-  - docker-compose.*.yml
+  context:
+    - Makefile
+    - GNUmakefile
+    - package.json
+    - pyproject.toml
+    - tox.ini
+    - noxfile.py
+    - Justfile
+    - Taskfile.yml
+    - docker-compose.yml
+    - "docker-compose.*.yml"
   - compose.yaml
   - .github/workflows/*.yml
   - .gitlab-ci.yml

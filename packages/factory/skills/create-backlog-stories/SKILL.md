@@ -3,7 +3,8 @@ name: create-backlog-stories
 description: "Read confirmed slice tables, write backlog/ST-NNNN.md story files with MoSCoW priorities, dependencies, and quality gates. Phase 4 of 4 in the create-backlog sequence."
 category: planning
 inputs:
-  - docs/testing.yaml
+  context:
+    - docs/testing.yaml
 ---
 
 # Create Backlog — Phase 4: Write Stories

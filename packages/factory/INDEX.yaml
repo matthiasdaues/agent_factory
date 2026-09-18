@@ -6,159 +6,552 @@
 agents:
   - name: architecture-agent
     title: Architecture Agent
-    eligible_cycles:
-      - CONCEPT
     tier: strong
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
-    tokens: 1272
-    total_tokens: 8172
+    tokens: 1203
+    total_tokens: 8103
+    inputs:
+      required:
+        - type: feature
+          path_pattern: docs/spec/*.feature
+        - type: scope-map
+          path_pattern: docs/spec/scope-map.md
+      context:
+        - docs/arc42/CONTEXT.md
+        - docs/spec/prd.md
+        - docs/reviews/atam-review.md
+        - docs/agent-context.md
+        - factory/rulebooks/conventions/state-machine-notation.md
+        - factory/rulebooks/conventions/commit-conventions.md
+    outputs:
+      minimum_changed: 1
+      declarations:
+        - path_pattern: docs/arc42/*.md
+          validator: ""
+          required: true
+        - path_pattern: docs/arc42/architecture.dsl
+          validator: ""
+          required: true
+        - path_pattern: docs/README.md
+          validator: ""
+          required: false
+        - path_pattern: docs/adr/*.md
+          validator: ""
+          required: false
+        - path_pattern: docs/assets/images/*
+          validator: ""
+          required: false
   - name: architecture-review-agent
     title: Architecture Review Agent
-    eligible_cycles:
-      - CONCEPT
     tier: strong
     description: Review architecture against quality attributes using ATAM in a separate session from the architecture author.
     path: agents/architecture-review-agent.md
-    tokens: 648
-    total_tokens: 5334
+    tokens: 702
+    total_tokens: 5388
+    inputs:
+      required:
+        - type: feature
+          path_pattern: docs/spec/*.feature
+        - type: scope-map
+          path_pattern: docs/spec/scope-map.md
+        - type: architecture
+          path_pattern: docs/arc42/architecture.dsl
+      context:
+        - docs/arc42/CONTEXT.md
+        - docs/spec/prd.md
+        - docs/*.md
+        - docs/assets/images/*
+        - docs/agent-context.md
+        - factory/rulebooks/conventions/report-format.md
+        - factory/rulebooks/conventions/finding-format.md
+        - factory/rulebooks/conventions/review-loop-discipline.md
+    outputs:
+      minimum_changed: 1
+      declarations:
+        - path_pattern: docs/reviews/atam-review.md
+          validator: ""
+          required: true
+        - path_pattern: docs/findings/ATAM-*.md
+          validator: ""
+          required: false
   - name: claim-reviewer
     title: Claim Reviewer
-    eligible_cycles:
-      - IDEA
-      - CONCEPT
     tier: standard
     description: Attempts to refute a claim produced by the Researcher, checking whether it can be falsified, whether its sources hold up, and whether its tests were severe — then casts a vote on its disposition without ever editing the claim itself.
     path: agents/claim-reviewer.md
-    tokens: 564
-    total_tokens: 2142
+    tokens: 589
+    total_tokens: 2167
+    inputs:
+      context:
+        - factory/rulebooks/templates/research-conjecture.md
+        - factory/rulebooks/templates/research-review.md
+        - factory/rulebooks/templates/research-vote.md
+        - factory/rulebooks/conventions/research-role-separation.md
+        - factory/rulebooks/conventions/research-evidence-policy.md
+    outputs:
+      minimum_changed: 1
+      declarations:
+        - path_pattern: docs/research/reviews/*.md
+          validator: ""
+          required: true
+        - path_pattern: docs/research/votes/*.md
+          validator: ""
+          required: true
   - name: coaching-agent
     title: Coaching Agent
     tier: standard
     description: Run retrospectives, extract action items, and track process improvements across sessions.
     path: agents/coaching-agent.md
-    tokens: 441
-    total_tokens: 1149
+    tokens: 462
+    total_tokens: 1170
+    inputs:
+      context:
+        - docs/arc42/CONTEXT.md
+        - docs/reviews/retro-*.md
+        - docs/spec/todos.md
+    outputs:
+      minimum_changed: 1
+      declarations:
+        - path_pattern: docs/reviews/retro-*.md
+          validator: ""
+          required: true
   - name: code-review-agent
     title: Code Review Agent
-    eligible_cycles:
-      - REALIZE
     tier: strong
     description: "Bounded code review on the implementation diff — correctness, architecture compliance, and maintainability — before the reconciliation run. Narrower than the QA agent: changed files only, no security review, no bug hunt."
     path: agents/code-review-agent.md
-    tokens: 838
-    total_tokens: 4803
+    tokens: 907
+    total_tokens: 4872
+    inputs:
+      required:
+        - type: story
+          path_pattern: backlog/ST-*.md
+        - type: feature
+          path_pattern: docs/spec/{name}.feature
+        - type: qa-strategy
+          path_pattern: docs/spec/{name}-qa-strategy.md
+        - type: scope-map
+          path_pattern: docs/spec/scope-map.md
+      context:
+        - docs/CONTEXT.md
+        - docs/agent-context.md
+        - docs/testing.yaml
+        - factory/rulebooks/conventions/finding-format.md
+        - factory/rulebooks/conventions/report-format.md
+        - factory/rulebooks/conventions/review-loop-discipline.md
+        - factory/rulebooks/conventions/cross-reference-format.md
+    outputs:
+      minimum_changed: 1
+      declarations:
+        - path_pattern: docs/reviews/code-review-*.md
+          validator: ""
+          required: true
+        - path_pattern: docs/findings/IMPL-*.md
+          validator: ""
+          required: false
   - name: developer-agent
     title: Developer Agent
-    eligible_cycles:
-      - REALIZE
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
-    tokens: 1875
-    total_tokens: 4913
+    tokens: 1955
+    total_tokens: 4993
+    inputs:
+      required:
+        - type: feature
+          path_pattern: docs/spec/*.feature
+        - type: scope-map
+          path_pattern: docs/spec/scope-map.md
+        - type: supplementary-spec
+          path_pattern: docs/spec/supplementary_specs/*.md
+        - type: story
+          path_pattern: backlog/ST-{id}.md
+      context:
+        - docs/spec/prd.md
+        - docs/CONTEXT.md
+        - docs/agent-context.md
+        - docs/testing.yaml
+        - factory/rulebooks/conventions/commit-conventions.md
+    outputs:
+      minimum_changed: 1
+      declarations:
+        - path_pattern: src/**/*
+          validator: ""
+          required: true
+        - path_pattern: tests/**/*
+          validator: ""
+          required: true
+        - path_pattern: docs/spec/**/*.md
+          validator: ""
+          required: false
+        - path_pattern: docs/adr/*.md
+          validator: ""
+          required: false
   - name: implementation-agent
     title: Implementation Agent (Dispatcher)
-    eligible_cycles:
-      - REALIZE
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in autonomous mode, or serial human-reviewed work in the primary checkout in review mode. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 3431
-    total_tokens: 11687
+    tokens: 3517
+    total_tokens: 11773
+    inputs:
+      required:
+        - type: story
+          path_pattern: backlog/ST-*.md
+        - type: feature
+          path_pattern: docs/spec/*.feature
+        - type: scope-map
+          path_pattern: docs/spec/scope-map.md
+        - type: supplementary-spec
+          path_pattern: docs/spec/supplementary_specs/*.md
+      context:
+        - config/model.conf
+        - docs/spec/prd.md
+        - docs/CONTEXT.md
+        - docs/agent-context.md
+        - factory/rulebooks/conventions/branching-policy.md
+        - factory/rulebooks/conventions/dispatch-contract.md
+        - factory/scripts/crap-score
+        - factory/scripts/dependency-check
+        - factory/scripts/test-design-verify
+    outputs:
+      minimum_changed: 1
+      declarations:
+        - path_pattern: src/**/*
+          validator: ""
+          required: true
+        - path_pattern: tests/**/*
+          validator: ""
+          required: true
+        - path_pattern: docs/spec/**/*.md
+          validator: ""
+          required: false
+        - path_pattern: docs/adr/*.md
+          validator: ""
+          required: false
   - name: planning-agent
     title: Planning Agent
-    eligible_cycles:
-      - ROADMAP
-      - REFINE
     tier: strong
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
-    tokens: 1517
-    total_tokens: 13722
+    tokens: 1544
+    total_tokens: 13752
+    inputs:
+      required:
+        - type: feature
+          path_pattern: docs/spec/*.feature
+        - type: scope-map
+          path_pattern: docs/spec/scope-map.md
+      context:
+        - docs/agent-context.md
+        - docs/testing.yaml
+    outputs:
+      minimum_changed: 1
+      declarations:
+        - path_pattern: backlog/ST-*.md
+          validator: ""
+          required: true
   - name: proposal-review-agent
     title: Proposal Review Agent
-    eligible_cycles:
-      - IDEA
     tier: strong
     description: Review a feature proposal for clarity, feasibility, and planning readiness — consultative on drafts, adversarial on open proposals. Runs in a separate session from the proposal author.
     path: agents/proposal-review-agent.md
-    tokens: 1431
-    total_tokens: 2948
+    tokens: 1455
+    total_tokens: 2972
+    inputs:
+      required:
+        - type: proposal
+          path_pattern: docs/proposals/{name}.md
+      context:
+        - docs/CONTEXT.md
+        - factory/rulebooks/templates/proposal.md
+    outputs:
+      minimum_changed: 1
+      declarations:
+        - path_pattern: docs/proposals/{name}.md
+          validator: ""
+          required: true
   - name: qa-agent
     title: QA Agent
-    eligible_cycles:
-      - REALIZE
     tier: strong
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
-    tokens: 1182
-    total_tokens: 9206
+    tokens: 1244
+    total_tokens: 9268
+    inputs:
+      required:
+        - type: feature
+          path_pattern: docs/spec/{name}.feature
+        - type: qa-strategy
+          path_pattern: docs/spec/{name}-qa-strategy.md
+        - type: scope-map
+          path_pattern: docs/spec/scope-map.md
+      context:
+        - docs/spec/prd.md
+        - docs/*.md
+        - docs/arc42/CONTEXT.md
+        - docs/agent-context.md
+        - factory/rulebooks/conventions/testing-strategy.md
+        - factory/rulebooks/conventions/cross-reference-format.md
+        - factory/rulebooks/conventions/report-format.md
+        - factory/rulebooks/conventions/finding-format.md
+        - factory/rulebooks/conventions/commit-conventions.md
+    outputs:
+      minimum_changed: 1
+      declarations:
+        - path_pattern: docs/reviews/fagan-review-*.md
+          validator: ""
+          required: true
+        - path_pattern: docs/reviews/security-review-*.md
+          validator: ""
+          required: false
+        - path_pattern: tests/**/*
+          validator: ""
+          required: false
+        - path_pattern: docs/findings/*.md
+          validator: ""
+          required: false
   - name: reconciliation-agent
     title: Reconciliation Agent
-    eligible_cycles:
-      - REFINE
-      - REALIZE
     tier: strong
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
-    tokens: 2089
-    total_tokens: 16748
+    tokens: 2165
+    total_tokens: 16824
+    inputs:
+      required:
+        - type: scope-map
+          path_pattern: docs/spec/scope-map.md
+        - type: supplementary-spec
+          path_pattern: docs/spec/supplementary_specs/*.md
+        - type: feature
+          path_pattern: docs/spec/*.feature
+      context:
+        - docs/CONTEXT.md
+        - docs/spec/prd.md
+        - docs/*.md
+        - docs/adr/*.md
+        - docs/agent-context.md
+        - src/**/*
+        - tests/**/*
+        - factory/rulebooks/conventions/finding-format.md
+        - factory/rulebooks/conventions/report-format.md
+        - factory/rulebooks/conventions/commit-conventions.md
+        - factory/rulebooks/conventions/review-loop-discipline.md
+        - factory/rulebooks/conventions/dispatch-contract.md
+        - factory/rulebooks/conventions/cross-reference-format.md
+    outputs:
+      minimum_changed: 1
+      declarations:
+        - path_pattern: docs/reviews/reconciliation-*.md
+          validator: ""
+          required: true
+        - path_pattern: docs/spec/supplementary_specs/*.md
+          validator: ""
+          required: false
+        - path_pattern: docs/spec/*.feature
+          validator: ""
+          required: false
+        - path_pattern: docs/spec/scope-map.md
+          validator: ""
+          required: false
+        - path_pattern: docs/*.md
+          validator: ""
+          required: false
+        - path_pattern: docs/adr/*.md
+          validator: ""
+          required: false
+        - path_pattern: docs/CONTEXT.md
+          validator: ""
+          required: false
+        - path_pattern: docs/findings/RECON-*.md
+          validator: ""
+          required: false
   - name: requirements-agent
     title: Requirements Agent
-    eligible_cycles:
-      - IDEA
-      - CONCEPT
     tier: strong
     description: "Derive a complete specification from an accepted proposal: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models. When no proposal exists, capture a vision and clarify requirements to produce one."
     path: agents/requirements-agent.md
-    tokens: 1377
-    total_tokens: 16755
+    tokens: 1490
+    total_tokens: 16868
+    inputs:
+      required:
+        - type: proposal
+          path_pattern: docs/proposals/{name}.md
+          conditions:
+            field: status
+            value: accepted
+      context:
+        - docs/CONTEXT.md
+        - docs/spec/todos.md
+        - factory/rulebooks/conventions/commit-conventions.md
+        - factory/rulebooks/conventions/testing-strategy.md
+        - factory/rulebooks/conventions/cross-reference-format.md
+    outputs:
+      minimum_changed: 1
+      declarations:
+        - path_pattern: docs/spec/scope-map.md
+          validator: ""
+          required: true
+        - path_pattern: docs/spec/{name}.feature
+          validator: ""
+          required: true
+        - path_pattern: docs/spec/{name}-gaps.md
+          validator: ""
+          required: true
+        - path_pattern: docs/spec/{name}-qa-strategy.md
+          validator: ""
+          required: true
+        - path_pattern: docs/spec/supplementary_specs/entity-model.md
+          validator: ""
+          required: true
+        - path_pattern: docs/spec/supplementary_specs/interface-contracts.md
+          validator: ""
+          required: true
+        - path_pattern: docs/spec/supplementary_specs/state-machines.md
+          validator: ""
+          required: true
+        - path_pattern: docs/spec/supplementary_specs/validation-rules.md
+          validator: ""
+          required: true
   - name: research-orchestrator
     title: Research Orchestrator
-    eligible_cycles:
-      - IDEA
-      - CONCEPT
     tier: standard
     description: Selects survey or falsification research from the brief, advances the chosen validated playbook, and enforces its role boundaries and release gate.
     path: agents/research-orchestrator.md
-    tokens: 1145
-    total_tokens: 7500
+    tokens: 1222
+    total_tokens: 7577
+    inputs:
+      context:
+        - factory/playbooks/research-topic.md
+        - factory/playbooks/research-survey.md
+        - factory/rulebooks/conventions/dispatch-contract.md
+        - factory/rulebooks/conventions/research-role-separation.md
+        - factory/rulebooks/conventions/research-claim-admission-policy.md
+        - factory/rulebooks/schemas/research-*.schema.json
+    outputs:
+      minimum_changed: 1
+      declarations:
+        - path_pattern: docs/research/research-plan.md
+          validator: ""
+          required: true
+        - path_pattern: docs/research/research-survey-plan.md
+          validator: ""
+          required: false
+        - path_pattern: docs/research/assignments/*.md
+          validator: ""
+          required: false
+        - path_pattern: docs/research/survey-report.md
+          validator: ""
+          required: false
+        - path_pattern: docs/research/claim-register.md
+          validator: ""
+          required: false
+        - path_pattern: docs/research/final-report.md
+          validator: ""
+          required: false
   - name: research-report-writer
     title: Research Report Writer
-    eligible_cycles:
-      - IDEA
-      - CONCEPT
     tier: standard
     description: Writes a research report from completed research artifacts. In falsification mode, builds the final report from a frozen claim register. In survey mode, synthesizes recorded source records into a cited report. Never conducts new research or overstates what the evidence supports.
     path: agents/research-report-writer.md
-    tokens: 937
-    total_tokens: 1663
+    tokens: 960
+    total_tokens: 1686
+    inputs:
+      context:
+        - factory/rulebooks/conventions/research-report-policy.md
+        - factory/rulebooks/templates/research-claim-register.md
+        - factory/rulebooks/templates/research-final-report.md
+        - factory/rulebooks/schemas/research-final-report.schema.json
+        - factory/rulebooks/templates/research-survey-report.md
+        - factory/rulebooks/schemas/research-survey-report.schema.json
+    outputs:
+      minimum_changed: 1
+      declarations:
+        - path_pattern: docs/research/final-report.md
+          validator: ""
+          required: true
+        - path_pattern: docs/research/survey-report.md
+          validator: ""
+          required: false
   - name: researcher
     title: Researcher
-    eligible_cycles:
-      - IDEA
-      - CONCEPT
     tier: standard
     description: Research a bounded question and form testable claims — find sources, assess their provenance, record evidence for and against, and design or execute refutation tests. Never reviews or votes on its own claim.
     path: agents/researcher.md
-    tokens: 432
-    total_tokens: 2010
+    tokens: 445
+    total_tokens: 2023
+    inputs:
+      context:
+        - factory/rulebooks/conventions/research-role-separation.md
+        - factory/rulebooks/conventions/research-evidence-policy.md
+    outputs:
+      minimum_changed: 1
+      declarations:
+        - path_pattern: docs/research/claims/*.md
+          validator: ""
+          required: true
   - name: spec-review-agent
     title: Specification Review Agent
-    eligible_cycles:
-      - CONCEPT
     tier: strong
     description: Review the specification for consistency, completeness, and traceability using spec-lint plus semantic inspection, in a separate session from the author.
     path: agents/spec-review-agent.md
-    tokens: 619
-    total_tokens: 4109
+    tokens: 675
+    total_tokens: 4165
+    inputs:
+      required:
+        - type: prd
+          path_pattern: docs/spec/prd.md
+        - type: feature
+          path_pattern: docs/spec/*.feature
+        - type: scope-map
+          path_pattern: docs/spec/scope-map.md
+      context:
+        - docs/CONTEXT.md
+        - docs/spec/todos.md
+        - docs/agent-context.md
+        - factory/rulebooks/conventions/report-format.md
+        - factory/rulebooks/conventions/finding-format.md
+        - factory/rulebooks/conventions/review-loop-discipline.md
+    outputs:
+      minimum_changed: 1
+      declarations:
+        - path_pattern: docs/reviews/spec-review-*.md
+          validator: ""
+          required: true
+        - path_pattern: docs/findings/SPEC-*.md
+          validator: ""
+          required: false
   - name: virgil
     title: VIRGIL
     tier: standard
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
-    tokens: 2477
-    total_tokens: 12783
+    tokens: 2527
+    total_tokens: 12833
+    inputs:
+      context:
+        - config/project-context.json
+        - factory/docs/factory-guide.md
+        - factory/INDEX.yaml
+        - docs/agent-context.md
+        - docs/testing.yaml
+        - factory/rulebooks/conventions/testing-strategy.md
+    outputs:
+      minimum_changed: 0
+      declarations:
+        - path_pattern: config/project-context.json
+          validator: ""
+          required: false
+        - path_pattern: docs/agent-context.md
+          validator: ""
+          required: false
+        - path_pattern: docs/testing.yaml
+          validator: ""
+          required: false
+        - path_pattern: backlog/ST-*.md
+          validator: ""
+          required: false
 
 skills:
   - name: capture-context
@@ -250,7 +643,7 @@ skills:
     category: planning
     description: Read confirmed slice tables, write backlog/ST-NNNN.md story files with MoSCoW priorities, dependencies, and quality gates. Phase 4 of 4 in the create-backlog sequence.
     path: skills/create-backlog-stories/SKILL.md
-    tokens: 2188
+    tokens: 2191
   - name: create-backlog-story-slices
     category: planning
     description: Read confirmed backlog/epics.md, sketch story-level slice tables per EPIC, and present them for user approval. Phase 3 of 4 in the create-backlog sequence.
@@ -305,7 +698,7 @@ skills:
     category: implementation
     description: Design and author integration and edge-case tests from implemented code. Invoked by the developer agent post-GREEN on non-.feature-governed stories. Reads ownership assignments from the testability probe, classifies owned contracts by risk class, identifies untested integration paths, and authors test files.
     path: skills/test-design/SKILL.md
-    tokens: 1809
+    tokens: 1796
   - name: vue-best-practices
     category: implementation
     description: Project-specific Vue conventions for packages/server. Load before any Vue/frontend implementation task.
@@ -350,7 +743,7 @@ skills:
     category: utility
     description: Scan project for test suites and record each one in testing.yaml (at docs/testing.yaml). Code is the source of truth; the record is derived.
     path: skills/detect-test-regime/SKILL.md
-    tokens: 3175
+    tokens: 3179
   - name: domain-modeling
     category: utility
     description: Build and sharpen a project's domain model — challenge terminology, record architecture decisions, update docs/CONTEXT.md and docs/adr/ inline as decisions crystallise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
@@ -395,7 +788,7 @@ skills:
     category: utility
     description: Resolve the next agent from the workstream's current cycle and agent eligibility, then dispatch it. Re-derives state from disk on every invocation.
     path: skills/run-step/SKILL.md
-    tokens: 632
+    tokens: 636
   - name: scratchpad
     category: utility
     description: Append a quick note to session-scratchpad.md, sectioned by date. Use when the user says "note this down:", "make a note of this:", or invokes "/scratchpad" or "/scratch".
@@ -458,7 +851,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1108
-    total_tokens: 14614
+    total_tokens: 14599
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -470,7 +863,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3015
-    total_tokens: 33269
+    total_tokens: 33330
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -481,7 +874,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 777
-    total_tokens: 14896
+    total_tokens: 15038
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -493,7 +886,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 944
-    total_tokens: 38822
+    total_tokens: 39094
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -510,7 +903,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 5151
-    total_tokens: 95687
+    total_tokens: 96164
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -529,7 +922,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 3417
-    total_tokens: 95102
+    total_tokens: 95600
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -545,7 +938,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1281
-    total_tokens: 15400
+    total_tokens: 15542
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -558,7 +951,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 1020
-    total_tokens: 12193
+    total_tokens: 12306
   - name: research-topic
     title: Research Topic Playbook
     category: orchestration
@@ -579,7 +972,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 3026
-    total_tokens: 16341
+    total_tokens: 16479
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration

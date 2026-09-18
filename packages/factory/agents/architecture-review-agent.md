@@ -2,8 +2,6 @@
 name: architecture-review-agent
 title: Architecture Review Agent
 tier: strong
-eligible_cycles:
-  - CONCEPT
 description: >-
   Review architecture against quality attributes using ATAM in a separate session from the architecture author.
 skills:
@@ -11,20 +9,31 @@ skills:
   - model-structurizr-slice
   - handoff
 inputs:
-  - docs/arc42/CONTEXT.md
-  - docs/spec/prd.md
-  - docs/spec/*.feature
-  - docs/spec/scope-map.md
-  - docs/*.md
-  - docs/arc42/architecture.dsl
-  - docs/assets/images/*
-  - docs/agent-context.md
-  - factory/rulebooks/conventions/report-format.md
-  - factory/rulebooks/conventions/finding-format.md
-  - factory/rulebooks/conventions/review-loop-discipline.md
+  required:
+    - type: feature
+      path_pattern: "docs/spec/*.feature"
+    - type: scope-map
+      path_pattern: docs/spec/scope-map.md
+    - type: architecture
+      path_pattern: docs/arc42/architecture.dsl
+  context:
+    - docs/arc42/CONTEXT.md
+    - docs/spec/prd.md
+    - docs/*.md
+    - docs/assets/images/*
+    - docs/agent-context.md
+    - factory/rulebooks/conventions/report-format.md
+    - factory/rulebooks/conventions/finding-format.md
+    - factory/rulebooks/conventions/review-loop-discipline.md
 outputs:
-  - docs/reviews/atam-review.md
-  - docs/findings/ATAM-*.md (risks)
+  minimum_changed: 1
+  declarations:
+    - path_pattern: docs/reviews/atam-review.md
+      validator:
+      required: true
+    - path_pattern: "docs/findings/ATAM-*.md"
+      validator:
+      required: false
 triggers:
   - "review architecture"
   - "ATAM review"

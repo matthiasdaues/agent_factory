@@ -2,9 +2,6 @@
 name: research-report-writer
 title: Research Report Writer
 tier: standard
-eligible_cycles:
-  - IDEA
-  - CONCEPT
 description: >-
   Writes a research report from completed research artifacts. In falsification
   mode, builds the final report from a frozen claim register. In survey mode,
@@ -13,15 +10,22 @@ description: >-
 aliases:
   - research-synthesizer
 inputs:
-  - factory/rulebooks/conventions/research-report-policy.md
-  - factory/rulebooks/templates/research-claim-register.md
-  - factory/rulebooks/templates/research-final-report.md
-  - factory/rulebooks/schemas/research-final-report.schema.json
-  - factory/rulebooks/templates/research-survey-report.md
-  - factory/rulebooks/schemas/research-survey-report.schema.json
+  context:
+    - factory/rulebooks/conventions/research-report-policy.md
+    - factory/rulebooks/templates/research-claim-register.md
+    - factory/rulebooks/templates/research-final-report.md
+    - factory/rulebooks/schemas/research-final-report.schema.json
+    - factory/rulebooks/templates/research-survey-report.md
+    - factory/rulebooks/schemas/research-survey-report.schema.json
 outputs:
-  - final-report.md (falsification mode)
-  - survey-report.md (survey mode)
+  minimum_changed: 1
+  declarations:
+    - path_pattern: docs/research/final-report.md
+      validator:
+      required: true
+    - path_pattern: docs/research/survey-report.md
+      validator:
+      required: false
 triggers:
   - "write the research report"
   - "build the final report"

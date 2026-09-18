@@ -2,8 +2,6 @@
 name: architecture-agent
 title: Architecture Agent
 tier: strong
-eligible_cycles:
-  - CONCEPT
 description: >-
   Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
 skills:
@@ -15,31 +13,36 @@ skills:
   - update-charter
   - handoff
 inputs:
-  - docs/arc42/CONTEXT.md
-  - docs/spec/prd.md
-  - docs/spec/*.feature
-  - docs/spec/scope-map.md
-  - docs/reviews/atam-review.md
-  - docs/agent-context.md
-  - factory/rulebooks/conventions/state-machine-notation.md
-  - factory/rulebooks/conventions/commit-conventions.md
+  required:
+    - type: feature
+      path_pattern: "docs/spec/*.feature"
+    - type: scope-map
+      path_pattern: docs/spec/scope-map.md
+  context:
+    - docs/arc42/CONTEXT.md
+    - docs/spec/prd.md
+    - docs/reviews/atam-review.md
+    - docs/agent-context.md
+    - factory/rulebooks/conventions/state-machine-notation.md
+    - factory/rulebooks/conventions/commit-conventions.md
 outputs:
-  - docs/README.md
-  - docs/arc42/01_introduction_and_goals.md
-  - docs/arc42/02_architecture_constraints.md
-  - docs/arc42/03_system_scope_and_context.md
-  - docs/arc42/04_solution_strategy.md
-  - docs/arc42/05_building_block_view.md
-  - docs/arc42/06_runtime_view.md
-  - docs/arc42/07_deployment_view.md
-  - docs/arc42/08_crosscutting_concepts.md
-  - docs/arc42/09_architecture_decisions.md
-  - docs/arc42/10_quality_requirements.md
-  - docs/arc42/11_risks_and_technical_debt.md
-  - docs/arc42/12_glossary.md
-  - docs/arc42/architecture.dsl
-  - docs/adr/*.md
-  - docs/assets/images/*
+  minimum_changed: 1
+  declarations:
+    - path_pattern: "docs/arc42/*.md"
+      validator:
+      required: true
+    - path_pattern: docs/arc42/architecture.dsl
+      validator:
+      required: true
+    - path_pattern: docs/README.md
+      validator:
+      required: false
+    - path_pattern: "docs/adr/*.md"
+      validator:
+      required: false
+    - path_pattern: "docs/assets/images/*"
+      validator:
+      required: false
 triggers:
   - "create architecture"
   - "scaffold arc42"

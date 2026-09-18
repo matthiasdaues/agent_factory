@@ -14,33 +14,18 @@ By:   pre-commit hook `index-lint`; trigger imports its
       load_agents()/load_playbooks().
 
 INDEX.yaml is a generated artifact, never hand-edited: agents sorted
-alphabetically with `eligible_cycles` from frontmatter, skills grouped by their `category`
-frontmatter, playbooks listed with the ordered agent sequence derived from
-their own `**Agent**: `x`` prose lines, and rulebooks with their token
-counts — derived, never hand-duplicated, the same principle this repo
-already applies to Mermaid diagrams (see
-factory/rulebooks/conventions/state-machine-notation.md). Same spirit as
-the other *-lint scripts: deterministic, a minimal targeted frontmatter
-parser and YAML emitter (not a general YAML library) — matching
-spec-lint/backlog-lint's own approach.
+alphabetically with structured `inputs` and `outputs` from frontmatter,
+skills grouped by their `category` frontmatter, playbooks listed with the
+ordered agent sequence derived from their own `**Agent**: `x`` prose lines,
+and rulebooks with their token counts — derived, never hand-duplicated.
 
 Token budget: every entry carries a `tokens` field (tiktoken cl100k_base,
 chars ÷ 4 fallback). Agents also carry `total_tokens` (body + referenced
-skills + referenced rulebooks from their `inputs:` frontmatter). Playbooks
-carry `total_tokens` (body + unique agent totals). A warning fires when an
-agent's `total_tokens` exceeds 20 000.
+skills + referenced rulebooks from their `inputs.context` frontmatter).
+Playbooks carry `total_tokens` (body + unique agent totals). A warning
+fires when an agent's `total_tokens` exceeds 20 000.
 
-YAML over JSON: this file's primary reader is an LLM agent session (the
-project's own orientation rule requires reading it first), where token
-count matters; YAML's lack of field-name/brace punctuation is measurably
-cheaper than JSON for the same data. Writing YAML by hand is tractable
-because this script only ever emits it, never parses arbitrary YAML back
-in — the --check comparison is a plain text diff against the last write,
-not a structural parse.
-
-Usage (run from the repo root; generated paths are computed relative to
---out's own directory, not the repo root, so --out and the --*-dir flags
-must point at directories that are actually siblings on disk)
+Usage (run from the repo root)
   index-lint                          # regenerate factory/INDEX.yaml in place
   index-lint --check                  # gate mode: exit 1 if stale, write nothing
   index-lint --agents-dir factory/agents --skills-dir factory/skills \
@@ -48,7 +33,7 @@ must point at directories that are actually siblings on disk)
              --out factory/INDEX.yaml
 
 Exit code: 0 if INDEX.yaml is (now, or already) up to date; 1 in --check
-mode if it was stale.
+mode if it was stale or an agent uses the rejected flat format.
 """
 
 from __future__ import annotations
@@ -63,8 +48,6 @@ _PACKAGES_DIR = Path(__file__).resolve().parent.parent
 if str(_PACKAGES_DIR) not in sys.path:
     sys.path.insert(0, str(_PACKAGES_DIR))
 
-from engine.cycles import REQUIRED_CYCLES
-
 CANONICAL_CATEGORY_ORDER = [
     "requirements",
     "architecture",
@@ -74,10 +57,9 @@ CANONICAL_CATEGORY_ORDER = [
     "utility",
 ]
 
-VALID_CYCLES = REQUIRED_CYCLES
-
 _FM_KEYS = {"name", "title", "category", "description", "tier"}
-_FM_LIST_KEYS = {"skills", "inputs", "eligible_cycles"}
+_FM_LIST_KEYS = {"skills"}
+_FM_STRUCTURED_KEYS = {"inputs", "outputs"}
 _KEY_LINE = re.compile(r"^([A-Za-z0-9_-]+):\s*(.*)$")
 _LIST_ITEM = re.compile(r"^\s+-\s+(.+)$")
 _H1_LINE = re.compile(r"^#\s+.+$")
@@ -104,12 +86,123 @@ def count_tokens(text: str) -> int:
     return max(1, len(text) // 4)
 
 
+def _indent_level(line: str) -> int:
+    return len(line) - len(line.lstrip())
+
+
+def _parse_structured_block(lines: list[str], start: int) -> tuple[dict, int]:
+    """Parse a nested YAML-like block (inputs or outputs) from frontmatter.
+
+    Returns (parsed_dict, next_line_index).
+
+    Handles:
+    - inputs.required: list of objects with type, path_pattern, conditions
+    - inputs.context: list of strings
+    - outputs.minimum_changed: integer
+    - outputs.declarations: list of objects with path_pattern, validator, required
+    """
+    result: dict = {}
+    i = start
+
+    while i < len(lines):
+        line = lines[i]
+        if not line.strip() or _indent_level(line) < 2:
+            break
+
+        m = re.match(r"^  ([a-z_-]+):\s*(.*)", line)
+        if not m:
+            i += 1
+            continue
+
+        subkey = m.group(1)
+        rest = m.group(2).strip()
+
+        if subkey in ("required", "declarations"):
+            items = []
+            i += 1
+            while i < len(lines) and _indent_level(lines[i]) >= 4:
+                item_line = lines[i]
+                lm = re.match(r"^\s+-\s+(\S+):\s*(.*)", item_line)
+                if lm:
+                    obj: dict = {lm.group(1): lm.group(2).strip().strip('"').strip("'")}
+                    i += 1
+                    while i < len(lines) and _indent_level(lines[i]) >= 6:
+                        pm = re.match(r"^\s+([a-z_-]+):\s*(.*)", lines[i])
+                        if pm:
+                            pk, pv = pm.group(1), pm.group(2).strip().strip('"').strip("'")
+                            if pk == "conditions":
+                                conds = {}
+                                i += 1
+                                while i < len(lines) and _indent_level(lines[i]) >= 8:
+                                    cm = re.match(r"^\s+([a-z_-]+):\s*(.*)", lines[i])
+                                    if cm:
+                                        ck = cm.group(1)
+                                        cv = cm.group(2).strip().strip('"').strip("'")
+                                        if ck == "one_of":
+                                            vals = []
+                                            i += 1
+                                            while i < len(lines) and _indent_level(lines[i]) >= 10:
+                                                vm = re.match(r"^\s+-\s+(.+)", lines[i])
+                                                if vm:
+                                                    vals.append(vm.group(1).strip().strip('"').strip("'"))
+                                                i += 1
+                                            conds[ck] = vals
+                                        else:
+                                            conds[ck] = cv
+                                            i += 1
+                                    else:
+                                        i += 1
+                                obj["conditions"] = conds
+                            else:
+                                if pv == "null":
+                                    obj[pk] = None
+                                elif pv == "true":
+                                    obj[pk] = True
+                                elif pv == "false":
+                                    obj[pk] = False
+                                elif pv.isdigit():
+                                    obj[pk] = int(pv)
+                                else:
+                                    obj[pk] = pv
+                                i += 1
+                        else:
+                            i += 1
+                    items.append(obj)
+                else:
+                    i += 1
+            result[subkey] = items
+
+        elif subkey == "context":
+            items = []
+            i += 1
+            while i < len(lines) and _indent_level(lines[i]) >= 4:
+                lm = re.match(r"^\s+-\s+(.+)", lines[i])
+                if lm:
+                    items.append(lm.group(1).strip().strip('"').strip("'"))
+                i += 1
+            result[subkey] = items
+
+        elif subkey == "minimum_changed":
+            try:
+                result[subkey] = int(rest)
+            except ValueError:
+                result[subkey] = 0
+            i += 1
+
+        else:
+            result[subkey] = rest.strip('"').strip("'")
+            i += 1
+
+    return result, i
+
+
 def parse_frontmatter(text: str) -> dict:
-    """Extract scalar and list-valued keys from YAML frontmatter.
+    """Extract scalar, list-valued, and structured keys from YAML frontmatter.
 
     Scalar keys in ``_FM_KEYS`` are returned as strings.  List keys in
-    ``_FM_LIST_KEYS`` (``skills:``, ``inputs:``) are returned as
-    ``list[str]``.  Other keys are silently skipped.
+    ``_FM_LIST_KEYS`` (``skills``) are returned as ``list[str]``.
+    Structured keys in ``_FM_STRUCTURED_KEYS`` (``inputs``, ``outputs``)
+    are returned as nested dicts.  Other keys are silently skipped.
     """
     if not text.startswith("---"):
         return {}
@@ -129,6 +222,42 @@ def parse_frontmatter(text: str) -> dict:
             continue
 
         key, rest = m.group(1), m.group(2).strip()
+
+        # ── structured keys (inputs, outputs) ──
+        if key in _FM_STRUCTURED_KEYS:
+            if rest == "" or rest in (">-", ">"):
+                i += 1
+                # Check if next line starts a nested structure (indented subkey)
+                if i < len(lines) and _indent_level(lines[i]) >= 2:
+                    peek_m = re.match(r"^  ([a-z_-]+):", lines[i])
+                    if peek_m:
+                        parsed, i = _parse_structured_block(lines, i)
+                        result[key] = parsed
+                        continue
+                    # Flat list under inputs:/outputs: (old format)
+                    flat_items = []
+                    while i < len(lines):
+                        lm = _LIST_ITEM.match(lines[i])
+                        if lm:
+                            flat_items.append(lm.group(1).strip().strip('"').strip("'"))
+                            i += 1
+                        elif lines[i].strip() == "":
+                            i += 1
+                        else:
+                            break
+                    result[key] = flat_items  # flat list signals old format
+                continue
+            # Inline: inputs: {} or inputs: []
+            if rest.startswith("[") and rest.endswith("]"):
+                inner = rest[1:-1]
+                result[key] = [
+                    v.strip().strip('"').strip("'")
+                    for v in inner.split(",") if v.strip()
+                ]
+            elif rest.startswith("{") and rest.endswith("}"):
+                result[key] = {}
+            i += 1
+            continue
 
         # ── list-valued keys ──
         if key in _FM_LIST_KEYS:
@@ -210,10 +339,6 @@ def _first_body_paragraph(text: str) -> str:
 
 
 def _extract_agent_sequence(text: str) -> list[str]:
-    """Ordered (file-order, duplicates kept) list of agents this playbook
-    invokes, derived from its own `**Agent**: `x`` prose lines. A playbook
-    with none (poc-spike, technical-poc) deliberately has no fixed chain.
-    """
     return _AGENT_REF.findall(text)
 
 
@@ -286,14 +411,12 @@ def load_rulebooks(rulebooks_dir: Path) -> list[dict]:
     rulebooks = []
 
     for path in sorted(rulebooks_dir.rglob("*.md")):
-        # Skip templates — their content is replaced at runtime.
         if "templates" in path.parts:
             continue
 
         text = path.read_text(encoding="utf-8")
         name = path.stem
 
-        # Derive category from parent dir name (e.g. conventions, or root).
         rel = path.relative_to(rulebooks_dir)
         category = rel.parts[0] if len(rel.parts) > 1 else ""
 
@@ -356,8 +479,48 @@ def _render_list_of_dicts(items: list[dict], key_order: list[str]) -> list[str]:
                 lines.append(f"{prefix}{key}:")
                 for v in value:
                     lines.append(f"      - {_yaml_scalar(v)}")
+            elif isinstance(value, dict):
+                lines += _render_structured_field(prefix, key, value)
             else:
                 lines.append(f"{prefix}{key}: {_yaml_scalar(value)}")
+
+    return lines
+
+
+def _render_structured_field(prefix: str, key: str, value: dict) -> list[str]:
+    """Render a structured field (inputs or outputs) as nested YAML."""
+    lines = [f"{prefix}{key}:"]
+    indent = "      "
+
+    if key == "inputs":
+        if "required" in value and value["required"]:
+            lines.append(f"{indent}required:")
+            for r in value["required"]:
+                lines.append(f"{indent}  - type: {_yaml_scalar(r.get('type', ''))}")
+                lines.append(f"{indent}    path_pattern: {_yaml_scalar(r.get('path_pattern', ''))}")
+                if "conditions" in r:
+                    c = r["conditions"]
+                    lines.append(f"{indent}    conditions:")
+                    for ck, cv in c.items():
+                        if isinstance(cv, list):
+                            lines.append(f"{indent}      {ck}:")
+                            for v in cv:
+                                lines.append(f"{indent}        - {_yaml_scalar(v)}")
+                        else:
+                            lines.append(f"{indent}      {ck}: {_yaml_scalar(cv)}")
+        if "context" in value and value["context"]:
+            lines.append(f"{indent}context:")
+            for c in value["context"]:
+                lines.append(f"{indent}  - {_yaml_scalar(c)}")
+
+    elif key == "outputs":
+        lines.append(f"{indent}minimum_changed: {value.get('minimum_changed', 0)}")
+        if "declarations" in value and value["declarations"]:
+            lines.append(f"{indent}declarations:")
+            for d in value["declarations"]:
+                lines.append(f"{indent}  - path_pattern: {_yaml_scalar(d.get('path_pattern', ''))}")
+                lines.append(f"{indent}    validator: {_yaml_scalar(d.get('validator'))}")
+                lines.append(f"{indent}    required: {_yaml_scalar(d.get('required', False))}")
 
     return lines
 
@@ -369,6 +532,11 @@ def _render_section(key: str, items: list[dict], key_order: list[str]) -> list[s
     return [f"{key}:"] + _render_list_of_dicts(items, key_order)
 
 
+def _is_flat_format(inputs_value: object) -> bool:
+    """Detect old flat inputs/outputs format (a plain list of strings)."""
+    return isinstance(inputs_value, list)
+
+
 def build_agents_data(
     agents: list[dict],
     skill_tokens: dict[str, int],
@@ -378,19 +546,19 @@ def build_agents_data(
 
     entries = []
     for a in sorted(agents, key=lambda a: a["name"]):
+        # Reject old flat format
+        for field in ("inputs", "outputs"):
+            if _is_flat_format(a.get(field)):
+                warnings.append(
+                    f"{a['_path']}: uses rejected flat '{field}:' format — "
+                    f"restructure to nested format (required/context or "
+                    f"minimum_changed/declarations)"
+                )
+
         entry: dict[str, object] = {
             "name": a["name"],
             "title": a.get("title", a["name"]),
         }
-
-        eligible = a.get("eligible_cycles", [])
-        for cycle in eligible:
-            if cycle not in VALID_CYCLES:
-                warnings.append(
-                    f"{a['_path']}: unknown cycle '{cycle}' in eligible_cycles"
-                )
-        if eligible:
-            entry["eligible_cycles"] = eligible
 
         if a.get("tier"):
             entry["tier"] = a["tier"]
@@ -404,7 +572,10 @@ def build_agents_data(
         for skill_name in a.get("skills", []):
             total += skill_tokens.get(skill_name, 0)
 
-        for input_path in a.get("inputs", []):
+        # Sum rulebook tokens from inputs.context
+        inputs = a.get("inputs", {})
+        context_paths = inputs.get("context", []) if isinstance(inputs, dict) else []
+        for input_path in context_paths:
             if "rulebook" in input_path or "convention" in input_path:
                 stem = Path(input_path).stem
                 total += rulebook_tokens.get(stem, 0)
@@ -415,6 +586,14 @@ def build_agents_data(
             warnings.append(
                 f"{a['_path']}: total_tokens {total} exceeds {AGENT_TOTAL_TOKENS_WARN}"
             )
+
+        # Include structured inputs and outputs
+        if isinstance(inputs, dict) and inputs:
+            entry["inputs"] = inputs
+
+        outputs = a.get("outputs", {})
+        if isinstance(outputs, dict) and outputs:
+            entry["outputs"] = outputs
 
         entries.append(entry)
 
@@ -479,7 +658,6 @@ def build_playbooks_data(
 
         entry["tokens"] = p["_tokens"]
 
-        # Sum agent total_tokens (unique agents, not repeated invocations).
         agent_names = p.get("agents", [])
         if agent_names:
             seen: set[str] = set()
@@ -539,14 +717,12 @@ def render_index(
     for r in rulebooks:
         r["_path"] = os.path.relpath(r["_path"], start=out_dir)
 
-    # Build lookup maps for dependency resolution.
     skill_tokens = {s["name"]: s["_tokens"] for s in skills}
     rulebook_tokens = {r["name"]: r["_tokens"] for r in rulebooks}
 
     agent_entries, aw = build_agents_data(agents, skill_tokens, rulebook_tokens)
     skill_entries, sw = build_skills_data(skills)
 
-    # Agent total_tokens lookup for playbook roll-up.
     agent_total_tokens = {
         a["name"]: a.get("total_tokens", a.get("tokens", 0)) for a in agent_entries
     }
@@ -575,12 +751,13 @@ def render_index(
         [
             "name",
             "title",
-            "eligible_cycles",
             "tier",
             "description",
             "path",
             "tokens",
             "total_tokens",
+            "inputs",
+            "outputs",
         ],
     )
     lines.append("")
@@ -641,8 +818,18 @@ def main(argv: list[str] | None = None) -> int:
         args.out,
     )
 
+    # Check for flat-format rejections
+    flat_format_errors = [w for w in warnings if "rejected flat" in w]
+
     for w in warnings:
         print(f"[WARNING] {w}", file=sys.stderr)
+
+    if flat_format_errors:
+        print(
+            f"index-lint: {len(flat_format_errors)} agent(s) use rejected flat format",
+            file=sys.stderr,
+        )
+        return 1
 
     current = args.out.read_text(encoding="utf-8") if args.out.exists() else None
 

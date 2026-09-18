@@ -2,9 +2,6 @@
 name: reconciliation-agent
 title: Reconciliation Agent
 tier: strong
-eligible_cycles:
-  - REFINE
-  - REALIZE
 description: >-
   After implementation and QA, reconcile the specification and architecture
   documentation against the code-as-built. The inverse of spec-review — finds
@@ -15,31 +12,54 @@ skills:
   - capture-context
   - handoff
 inputs:
-  - docs/CONTEXT.md
-  - docs/spec/prd.md
-  - docs/spec/scope-map.md
-  - docs/spec/supplementary_specs/*.md
-  - docs/spec/*.feature
-  - docs/*.md
-  - docs/adr/*.md
-  - docs/agent-context.md
-  - src/**/*
-  - tests/**/*
-  - factory/rulebooks/conventions/finding-format.md
-  - factory/rulebooks/conventions/report-format.md
-  - factory/rulebooks/conventions/commit-conventions.md
-  - factory/rulebooks/conventions/review-loop-discipline.md
-  - factory/rulebooks/conventions/dispatch-contract.md
-  - factory/rulebooks/conventions/cross-reference-format.md
+  required:
+    - type: scope-map
+      path_pattern: docs/spec/scope-map.md
+    - type: supplementary-spec
+      path_pattern: "docs/spec/supplementary_specs/*.md"
+    - type: feature
+      path_pattern: "docs/spec/*.feature"
+  context:
+    - docs/CONTEXT.md
+    - docs/spec/prd.md
+    - docs/*.md
+    - docs/adr/*.md
+    - docs/agent-context.md
+    - src/**/*
+    - tests/**/*
+    - factory/rulebooks/conventions/finding-format.md
+    - factory/rulebooks/conventions/report-format.md
+    - factory/rulebooks/conventions/commit-conventions.md
+    - factory/rulebooks/conventions/review-loop-discipline.md
+    - factory/rulebooks/conventions/dispatch-contract.md
+    - factory/rulebooks/conventions/cross-reference-format.md
 outputs:
-  - docs/reviews/reconciliation-*.md
-  - docs/spec/supplementary_specs/*.md (updated)
-  - docs/spec/*.feature (updated — @-ref backfill)
-  - docs/spec/scope-map.md (updated — discovery and drift reconciliation)
-  - docs/*.md (updated)
-  - docs/adr/*.md (new ADRs if decisions changed)
-  - docs/CONTEXT.md (updated if terminology drifted)
-  - docs/findings/RECON-*.md (code defects, missing @-refs, scope-map discovery/drift found during reconciliation)
+  minimum_changed: 1
+  declarations:
+    - path_pattern: "docs/reviews/reconciliation-*.md"
+      validator:
+      required: true
+    - path_pattern: "docs/spec/supplementary_specs/*.md"
+      validator:
+      required: false
+    - path_pattern: "docs/spec/*.feature"
+      validator:
+      required: false
+    - path_pattern: docs/spec/scope-map.md
+      validator:
+      required: false
+    - path_pattern: "docs/*.md"
+      validator:
+      required: false
+    - path_pattern: "docs/adr/*.md"
+      validator:
+      required: false
+    - path_pattern: docs/CONTEXT.md
+      validator:
+      required: false
+    - path_pattern: "docs/findings/RECON-*.md"
+      validator:
+      required: false
 triggers:
   - "reconcile spec"
   - "spec back sync"

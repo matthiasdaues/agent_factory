@@ -2,8 +2,6 @@
 name: proposal-review-agent
 title: Proposal Review Agent
 tier: strong
-eligible_cycles:
-  - IDEA
 description: >-
   Review a feature proposal for clarity, feasibility, and planning
   readiness — consultative on drafts, adversarial on open proposals.
@@ -12,11 +10,18 @@ skills:
   - grilling
   - handoff
 inputs:
-  - docs/CONTEXT.md
-  - docs/proposals/<proposal-name>.md
-  - factory/rulebooks/templates/proposal.md
+  required:
+    - type: proposal
+      path_pattern: "docs/proposals/{name}.md"
+  context:
+    - docs/CONTEXT.md
+    - factory/rulebooks/templates/proposal.md
 outputs:
-  - docs/proposals/<proposal-name>.md (review sections appended)
+  minimum_changed: 1
+  declarations:
+    - path_pattern: "docs/proposals/{name}.md"
+      validator:
+      required: true
 triggers:
   - "review the proposal"
   - "review this proposal"

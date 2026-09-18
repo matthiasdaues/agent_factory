@@ -16,7 +16,7 @@ Read the session binding (`.current-work/session-bindings/<session-id>.yaml`) to
 
 ## Step 2 — Resolve eligible agents
 
-Read `.claude/INDEX.yaml`. Filter agents whose `eligible_cycles` list includes the current cycle.
+Read `.claude/INDEX.yaml`. Filter agents whose `inputs.required` preconditions are satisfied by the current repository state.
 
 | Eligible agents | Action                                                                               |
 | --------------- | ------------------------------------------------------------------------------------ |

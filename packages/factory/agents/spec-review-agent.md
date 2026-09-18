@@ -2,26 +2,35 @@
 name: spec-review-agent
 title: Specification Review Agent
 tier: strong
-eligible_cycles:
-  - CONCEPT
 description: >-
   Review the specification for consistency, completeness, and traceability using spec-lint plus semantic inspection, in a separate session from the author.
 skills:
   - inspect-spec
   - handoff
 inputs:
-  - docs/CONTEXT.md
-  - docs/spec/prd.md
-  - docs/spec/*.feature
-  - docs/spec/scope-map.md
-  - docs/spec/todos.md
-  - docs/agent-context.md
-  - factory/rulebooks/conventions/report-format.md
-  - factory/rulebooks/conventions/finding-format.md
-  - factory/rulebooks/conventions/review-loop-discipline.md
+  required:
+    - type: prd
+      path_pattern: docs/spec/prd.md
+    - type: feature
+      path_pattern: "docs/spec/*.feature"
+    - type: scope-map
+      path_pattern: docs/spec/scope-map.md
+  context:
+    - docs/CONTEXT.md
+    - docs/spec/todos.md
+    - docs/agent-context.md
+    - factory/rulebooks/conventions/report-format.md
+    - factory/rulebooks/conventions/finding-format.md
+    - factory/rulebooks/conventions/review-loop-discipline.md
 outputs:
-  - docs/reviews/spec-review-*.md
-  - docs/findings/SPEC-*.md (spec defects)
+  minimum_changed: 1
+  declarations:
+    - path_pattern: "docs/reviews/spec-review-*.md"
+      validator:
+      required: true
+    - path_pattern: "docs/findings/SPEC-*.md"
+      validator:
+      required: false
 triggers:
   - "review the spec"
   - "review requirements"

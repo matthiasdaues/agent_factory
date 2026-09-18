@@ -2,17 +2,21 @@
 name: coaching-agent
 title: Coaching Agent
 tier: standard
-eligible_cycles: []
 description: >-
   Run retrospectives, extract action items, and track process improvements across sessions.
 skills:
   - retrospective
 inputs:
-  - docs/arc42/CONTEXT.md
-  - docs/reviews/retro-*.md
-  - docs/spec/todos.md
+  context:
+    - docs/arc42/CONTEXT.md
+    - docs/reviews/retro-*.md
+    - docs/spec/todos.md
 outputs:
-  - docs/reviews/retro-*.md
+  minimum_changed: 1
+  declarations:
+    - path_pattern: "docs/reviews/retro-*.md"
+      validator:
+      required: true
 triggers:
   - "retrospective"
   - "retro"

@@ -2,18 +2,20 @@
 name: researcher
 title: Researcher
 tier: standard
-eligible_cycles:
-  - IDEA
-  - CONCEPT
 description: >-
   Research a bounded question and form testable claims — find sources, assess
   their provenance, record evidence for and against, and design or execute
   refutation tests. Never reviews or votes on its own claim.
 inputs:
-  - factory/rulebooks/conventions/research-role-separation.md
-  - factory/rulebooks/conventions/research-evidence-policy.md
+  context:
+    - factory/rulebooks/conventions/research-role-separation.md
+    - factory/rulebooks/conventions/research-evidence-policy.md
 outputs:
-  - docs/research/claims/*.md
+  minimum_changed: 1
+  declarations:
+    - path_pattern: "docs/research/claims/*.md"
+      validator:
+      required: true
 version: 0.1.1
 ---
 

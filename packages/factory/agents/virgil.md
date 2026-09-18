@@ -2,7 +2,6 @@
 name: virgil
 title: VIRGIL
 tier: standard
-eligible_cycles: []
 description: >-
   Versatile Interactive Resource: Guide, Instructor, Liaison. The single
   human-facing session agent for Phase 0 — starts formless, reaches for
@@ -18,17 +17,28 @@ skills:
   - draft-proposal
   - comic-relief
 inputs:
-  - config/project-context.json
-  - factory/docs/factory-guide.md
-  - factory/INDEX.yaml
-  - docs/agent-context.md
-  - docs/testing.yaml
-  - factory/rulebooks/conventions/testing-strategy.md
+  context:
+    - config/project-context.json
+    - factory/docs/factory-guide.md
+    - factory/INDEX.yaml
+    - docs/agent-context.md
+    - docs/testing.yaml
+    - factory/rulebooks/conventions/testing-strategy.md
 outputs:
-  - config/project-context.json (fitting state updates)
-  - docs/agent-context.md
-  - docs/testing.yaml
-  - backlog/ST-*.md
+  minimum_changed: 0
+  declarations:
+    - path_pattern: config/project-context.json
+      validator:
+      required: false
+    - path_pattern: docs/agent-context.md
+      validator:
+      required: false
+    - path_pattern: docs/testing.yaml
+      validator:
+      required: false
+    - path_pattern: "backlog/ST-*.md"
+      validator:
+      required: false
 triggers:
   - "show me around"
   - "set up the project"

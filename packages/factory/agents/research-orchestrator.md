@@ -2,26 +2,38 @@
 name: research-orchestrator
 title: Research Orchestrator
 tier: standard
-eligible_cycles:
-  - IDEA
-  - CONCEPT
 description: >-
   Selects survey or falsification research from the brief, advances the chosen
   validated playbook, and enforces its role boundaries and release gate.
 inputs:
-  - factory/playbooks/research-topic.md
-  - factory/playbooks/research-survey.md
-  - factory/rulebooks/conventions/dispatch-contract.md
-  - factory/rulebooks/conventions/research-role-separation.md
-  - factory/rulebooks/conventions/research-claim-admission-policy.md
-  - factory/rulebooks/schemas/research-*.schema.json
+  context:
+    - factory/playbooks/research-topic.md
+    - factory/playbooks/research-survey.md
+    - factory/rulebooks/conventions/dispatch-contract.md
+    - factory/rulebooks/conventions/research-role-separation.md
+    - factory/rulebooks/conventions/research-claim-admission-policy.md
+    - factory/rulebooks/schemas/research-*.schema.json
 outputs:
-  - research-plan.md (validation result)
-  - research-survey-plan.md (validation result)
-  - assignments/*.md
-  - survey-report.md (validation result)
-  - claim-register.md (frozen)
-  - final-report.md (validation result)
+  minimum_changed: 1
+  declarations:
+    - path_pattern: docs/research/research-plan.md
+      validator:
+      required: true
+    - path_pattern: docs/research/research-survey-plan.md
+      validator:
+      required: false
+    - path_pattern: "docs/research/assignments/*.md"
+      validator:
+      required: false
+    - path_pattern: docs/research/survey-report.md
+      validator:
+      required: false
+    - path_pattern: docs/research/claim-register.md
+      validator:
+      required: false
+    - path_pattern: docs/research/final-report.md
+      validator:
+      required: false
 triggers:
   - "run the research playbook"
   - "start research on"

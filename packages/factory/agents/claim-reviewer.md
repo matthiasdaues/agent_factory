@@ -2,23 +2,27 @@
 name: claim-reviewer
 title: Claim Reviewer
 tier: standard
-eligible_cycles:
-  - IDEA
-  - CONCEPT
 description: >-
   Attempts to refute a claim produced by the Researcher, checking whether it
   can be falsified, whether its sources hold up, and whether its tests were
   severe — then casts a vote on its disposition without ever editing the
   claim itself.
 inputs:
-  - factory/rulebooks/templates/research-conjecture.md
-  - factory/rulebooks/templates/research-review.md
-  - factory/rulebooks/templates/research-vote.md
-  - factory/rulebooks/conventions/research-role-separation.md
-  - factory/rulebooks/conventions/research-evidence-policy.md
+  context:
+    - factory/rulebooks/templates/research-conjecture.md
+    - factory/rulebooks/templates/research-review.md
+    - factory/rulebooks/templates/research-vote.md
+    - factory/rulebooks/conventions/research-role-separation.md
+    - factory/rulebooks/conventions/research-evidence-policy.md
 outputs:
-  - review artifact (per review.md template)
-  - vote artifact (per vote.md template)
+  minimum_changed: 1
+  declarations:
+    - path_pattern: "docs/research/reviews/*.md"
+      validator:
+      required: true
+    - path_pattern: "docs/research/votes/*.md"
+      validator:
+      required: true
 handoff-to:
   - research-orchestrator
 version: 0.1.1

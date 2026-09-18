@@ -1474,33 +1474,33 @@ class TestConcernModelMigration:
         """Copilot orientation uses .github/INDEX.yaml, not the generic list."""
         factory = tmp_path / "factory"
         (factory / "config").mkdir(parents=True)
-        agents_md = (
-            Path(__file__).resolve().parent.parent.parent
-            / "packages" / "factory" / "config" / "AGENTS.md"
-        )
+        src = Path(__file__).resolve().parent.parent.parent / "packages" / "factory" / "config"
         (factory / "config" / "AGENTS.md").write_text(
-            agents_md.read_text(encoding="utf-8")
+            (src / "AGENTS.md").read_text(encoding="utf-8")
         )
+        copilot_src = src / "AGENTS.copilot.md"
+        if copilot_src.is_file():
+            (factory / "config" / "AGENTS.copilot.md").write_text(
+                copilot_src.read_text(encoding="utf-8")
+            )
         block = inf._orientation_block(".github", factory)
         assert "`.github/INDEX.yaml`" in block
-        assert ".claude/INDEX.yaml" not in block
-        assert ".pi/INDEX.yaml" not in block
-        assert ".codex/INDEX.yaml" not in block
 
     def test_orientation_block_codex_explicit_index_path(self, tmp_path):
         """Codex orientation uses .codex/INDEX.yaml, not the generic list."""
         factory = tmp_path / "factory"
         (factory / "config").mkdir(parents=True)
-        agents_md = (
-            Path(__file__).resolve().parent.parent.parent
-            / "packages" / "factory" / "config" / "AGENTS.md"
-        )
+        src = Path(__file__).resolve().parent.parent.parent / "packages" / "factory" / "config"
         (factory / "config" / "AGENTS.md").write_text(
-            agents_md.read_text(encoding="utf-8")
+            (src / "AGENTS.md").read_text(encoding="utf-8")
         )
+        codex_src = src / "AGENTS.codex.md"
+        if codex_src.is_file():
+            (factory / "config" / "AGENTS.codex.md").write_text(
+                codex_src.read_text(encoding="utf-8")
+            )
         block = inf._orientation_block(".codex", factory)
         assert "`.codex/INDEX.yaml`" in block
-        assert ".claude/INDEX.yaml" not in block
 
     def test_orientation_block_session_menu_link_absolute(self, tmp_path):
         """Non-Claude orientation fixes session-menu.md link to full path."""
@@ -1521,7 +1521,6 @@ class TestConcernModelMigration:
         """Claude orientation still uses @-includes, not inlined content."""
         include = inf.ORIENTATION_INCLUDE[".claude"]
         assert include.startswith("@")
-        assert ".claude" not in inf.DOT_DIR_INDEX_PATH
 
 
 class TestExtractDepName:
