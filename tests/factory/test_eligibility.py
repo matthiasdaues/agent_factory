@@ -1,10 +1,10 @@
-"""Contract tests for agent eligibility resolution.
+"""Contract tests for agent eligibility (precondition evaluator API).
 
 Owned contracts:
-  - Agent with matching cycle is eligible (standard risk)
-  - Agent without matching cycle is excluded (standard risk)
-  - Agent with multiple eligible cycles matches each (standard risk)
-  - Empty eligible_cycles matches nothing (standard risk)
+  - Agent with no required inputs is eligible (standard risk)
+  - Agent with satisfied inputs is eligible (standard risk)
+  - Agent with unsatisfied inputs is not eligible (standard risk)
+  - Evidence includes per-requirement detail (standard risk)
 """
 
 from __future__ import annotations
@@ -12,58 +12,68 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import yaml
+
 PACKAGES_DIR = Path(__file__).resolve().parents[2] / "packages" / "factory"
 if str(PACKAGES_DIR) not in sys.path:
     sys.path.insert(0, str(PACKAGES_DIR))
 
-from engine.eligibility import resolve_eligible
+from engine.eligibility import evaluate_agent, evaluate_all
 
 
-def _agent(name: str, cycles: list[str]) -> dict:
-    return {"name": name, "eligible_cycles": cycles}
+def _write_frontmatter(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fm = yaml.safe_dump(data, default_flow_style=False, sort_keys=False)
+    path.write_text(f"---\n{fm}---\n\n# Content\n")
 
 
-class TestResolveEligible:
-    def test_matching_cycle_is_eligible(self):
-        agents = [_agent("dev", ["REALIZE"])]
-        result = resolve_eligible("REALIZE", agents)
-        assert len(result) == 1
-        assert result[0]["name"] == "dev"
+class TestEvaluateAgent:
+    def test_no_required_always_eligible(self):
+        result = evaluate_agent({"name": "coach", "inputs": {"required": []}})
+        assert result["eligible"] is True
 
-    def test_non_matching_cycle_excluded(self):
-        agents = [_agent("dev", ["REALIZE"])]
-        result = resolve_eligible("IDEA", agents)
-        assert result == []
+    def test_satisfied_requirement(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "docs" / "proposals").mkdir(parents=True)
+        _write_frontmatter(tmp_path / "docs" / "proposals" / "x.md", {"status": "accepted"})
 
-    def test_multiple_eligible_cycles(self):
-        agents = [_agent("recon", ["REFINE", "REALIZE"])]
-        assert len(resolve_eligible("REFINE", agents)) == 1
-        assert len(resolve_eligible("REALIZE", agents)) == 1
-        assert len(resolve_eligible("IDEA", agents)) == 0
+        agent = {
+            "name": "arch",
+            "inputs": {"required": [{
+                "type": "proposal",
+                "path_pattern": "docs/proposals/{name}.md",
+                "conditions": {"field": "status", "value": "accepted"},
+            }]},
+        }
+        result = evaluate_agent(agent)
+        assert result["eligible"] is True
+        assert result["requirements"][0]["satisfied"] is True
 
-    def test_empty_eligible_cycles_matches_nothing(self):
-        agents = [_agent("virgil", [])]
-        for cycle in ["IDEA", "CONCEPT", "ROADMAP", "REFINE", "REALIZE", "DONE"]:
-            assert resolve_eligible(cycle, agents) == []
+    def test_unsatisfied_requirement(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        agent = {
+            "name": "arch",
+            "inputs": {"required": [{
+                "type": "proposal",
+                "path_pattern": "docs/proposals/{name}.md",
+            }]},
+        }
+        result = evaluate_agent(agent)
+        assert result["eligible"] is False
+        assert result["requirements"][0]["satisfied"] is False
 
-    def test_multiple_agents_filtered(self):
+    def test_preserves_agent_name(self):
+        result = evaluate_agent({"name": "dev", "inputs": {}})
+        assert result["agent_name"] == "dev"
+
+
+class TestEvaluateAll:
+    def test_returns_results_for_all(self):
         agents = [
-            _agent("req", ["IDEA", "CONCEPT"]),
-            _agent("arch", ["CONCEPT"]),
-            _agent("plan", ["ROADMAP"]),
+            {"name": "a", "inputs": {}},
+            {"name": "b", "inputs": {}},
         ]
-        result = resolve_eligible("CONCEPT", agents)
-        names = [a["name"] for a in result]
-        assert "req" in names
-        assert "arch" in names
-        assert "plan" not in names
-
-    def test_missing_eligible_cycles_key_excluded(self):
-        agents = [{"name": "legacy"}]
-        result = resolve_eligible("IDEA", agents)
-        assert result == []
-
-    def test_preserves_agent_data(self):
-        agent = {"name": "dev", "eligible_cycles": ["REALIZE"], "path": "agents/dev.md"}
-        result = resolve_eligible("REALIZE", [agent])
-        assert result[0]["path"] == "agents/dev.md"
+        results = evaluate_all(agents)
+        assert len(results) == 2
+        names = {r["agent_name"] for r in results}
+        assert names == {"a", "b"}

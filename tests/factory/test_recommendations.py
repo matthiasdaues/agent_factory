@@ -1,10 +1,9 @@
-"""Contract tests for the route recommender.
+"""Contract tests for evaluation summary.
 
 Owned contracts:
-  - Zero supported routes → no recommendation with warnings (standard risk)
-  - One supported route → recommendation with evidence (standard risk)
-  - Multiple supported routes → unranked choices (standard risk)
-  - Recommender never selects between multiple routes (standard risk)
+  - Eligible agents separated from blocked agents (standard risk)
+  - All warnings collected (standard risk)
+  - Empty input returns empty summary (standard risk)
 """
 
 from __future__ import annotations
@@ -12,152 +11,56 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import pytest
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-PACKAGES_DIR = REPO_ROOT / "packages" / "factory"
-
+PACKAGES_DIR = Path(__file__).resolve().parents[2] / "packages" / "factory"
 if str(PACKAGES_DIR) not in sys.path:
     sys.path.insert(0, str(PACKAGES_DIR))
 
-from engine.readiness import RouteReadiness
-from engine.recommendations import (
-    MultipleChoices,
-    NoRecommendation,
-    SingleRecommendation,
-    recommend,
-)
+from engine.readiness import AgentReadiness
+from engine.recommendations import EvaluationSummary, summarize
 
 
-def _verdict(from_c: str, to_c: str, supported: bool, warnings: tuple[str, ...] = ()) -> RouteReadiness:
-    return RouteReadiness(
-        from_cycle=from_c,
-        to_cycle=to_c,
-        recommend_if="test",
-        supported=supported,
-        evidence=(),
-        warnings=warnings,
-    )
-
-
-class TestZeroSupportedRoutes:
-    def test_returns_no_recommendation(self):
+class TestSummarize:
+    def test_eligible_separated(self):
         verdicts = [
-            _verdict("IDEA", "CONCEPT", False, ("proposal missing",)),
+            AgentReadiness("a", eligible=True),
+            AgentReadiness("b", eligible=False, unsatisfied=({"type": "x"},)),
         ]
-        result = recommend("IDEA", verdicts)
-        assert isinstance(result, NoRecommendation)
+        result = summarize(verdicts)
+        assert len(result.eligible_agents) == 1
+        assert len(result.blocked_agents) == 1
+        assert result.eligible_agents[0].agent_name == "a"
+        assert result.blocked_agents[0].agent_name == "b"
 
-    def test_warnings_included(self):
+    def test_all_eligible(self):
         verdicts = [
-            _verdict("IDEA", "CONCEPT", False, ("proposal missing",)),
+            AgentReadiness("a", eligible=True),
+            AgentReadiness("b", eligible=True),
         ]
-        result = recommend("IDEA", verdicts)
-        assert "proposal missing" in result.warnings
+        result = summarize(verdicts)
+        assert len(result.eligible_agents) == 2
+        assert len(result.blocked_agents) == 0
 
-    def test_available_cycles_listed(self):
-        verdicts = [_verdict("IDEA", "CONCEPT", False)]
-        result = recommend("IDEA", verdicts)
-        assert len(result.available_cycles) > 0
-        assert "IDEA" not in result.available_cycles
-
-    def test_no_verdicts_returns_no_recommendation(self):
-        result = recommend("IDEA", [])
-        assert isinstance(result, NoRecommendation)
-
-
-class TestOneSupportedRoute:
-    def test_returns_single_recommendation(self):
+    def test_all_blocked(self):
         verdicts = [
-            _verdict("IDEA", "CONCEPT", True),
+            AgentReadiness("a", eligible=False),
+            AgentReadiness("b", eligible=False),
         ]
-        result = recommend("IDEA", verdicts)
-        assert isinstance(result, SingleRecommendation)
-        assert result.recommended_cycle == "CONCEPT"
+        result = summarize(verdicts)
+        assert len(result.eligible_agents) == 0
+        assert len(result.blocked_agents) == 2
 
-    def test_evidence_included(self):
-        evidence_verdict = RouteReadiness(
-            from_cycle="IDEA",
-            to_cycle="CONCEPT",
-            recommend_if="proposal accepted",
-            supported=True,
-            evidence=("check_a passed", "check_b passed"),
-        )
-        result = recommend("IDEA", [evidence_verdict])
-        assert isinstance(result, SingleRecommendation)
-        assert len(result.evidence) > 0
-
-    def test_available_cycles_listed(self):
-        verdicts = [_verdict("IDEA", "CONCEPT", True)]
-        result = recommend("IDEA", verdicts)
-        assert isinstance(result, SingleRecommendation)
-        assert "CONCEPT" not in result.available_cycles
-        assert len(result.available_cycles) > 0
-
-    def test_one_supported_one_not(self):
+    def test_warnings_collected(self):
         verdicts = [
-            _verdict("CONCEPT", "ROADMAP", True),
-            _verdict("CONCEPT", "REFINE", False),
-            _verdict("CONCEPT", "REALIZE", False),
+            AgentReadiness("a", eligible=True, warnings=("w1",)),
+            AgentReadiness("b", eligible=False, warnings=("w2",)),
         ]
-        result = recommend("CONCEPT", verdicts)
-        assert isinstance(result, SingleRecommendation)
-        assert result.recommended_cycle == "ROADMAP"
+        result = summarize(verdicts)
+        assert "w1" in result.warnings
+        assert "w2" in result.warnings
 
-
-class TestMultipleSupportedRoutes:
-    def test_returns_multiple_choices(self):
-        verdicts = [
-            _verdict("CONCEPT", "ROADMAP", True),
-            _verdict("CONCEPT", "REFINE", True),
-        ]
-        result = recommend("CONCEPT", verdicts)
-        assert isinstance(result, MultipleChoices)
-
-    def test_choices_are_unranked(self):
-        verdicts = [
-            _verdict("CONCEPT", "ROADMAP", True),
-            _verdict("CONCEPT", "REFINE", True),
-            _verdict("CONCEPT", "REALIZE", True),
-        ]
-        result = recommend("CONCEPT", verdicts)
-        assert isinstance(result, MultipleChoices)
-        targets = {c.to_cycle for c in result.choices}
-        assert targets == {"ROADMAP", "REFINE", "REALIZE"}
-
-    def test_engine_does_not_select(self):
-        verdicts = [
-            _verdict("CONCEPT", "ROADMAP", True),
-            _verdict("CONCEPT", "REFINE", True),
-        ]
-        result = recommend("CONCEPT", verdicts)
-        assert isinstance(result, MultipleChoices)
-        assert not hasattr(result, "recommended_cycle") or not isinstance(result, SingleRecommendation)
-
-    def test_available_cycles_excludes_choices(self):
-        verdicts = [
-            _verdict("CONCEPT", "ROADMAP", True),
-            _verdict("CONCEPT", "REFINE", True),
-        ]
-        result = recommend("CONCEPT", verdicts)
-        choice_targets = {c.to_cycle for c in result.choices}
-        for c in result.available_cycles:
-            assert c not in choice_targets
-
-
-class TestResultShape:
-    def test_no_recommendation_has_kind(self):
-        result = recommend("IDEA", [])
-        assert result.kind == "none"
-
-    def test_single_has_kind(self):
-        result = recommend("IDEA", [_verdict("IDEA", "CONCEPT", True)])
-        assert result.kind == "single"
-
-    def test_multiple_has_kind(self):
-        verdicts = [
-            _verdict("CONCEPT", "ROADMAP", True),
-            _verdict("CONCEPT", "REFINE", True),
-        ]
-        result = recommend("CONCEPT", verdicts)
-        assert result.kind == "multiple"
+    def test_empty_input(self):
+        result = summarize([])
+        assert isinstance(result, EvaluationSummary)
+        assert result.eligible_agents == ()
+        assert result.blocked_agents == ()
+        assert result.warnings == ()

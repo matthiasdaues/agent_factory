@@ -1,77 +1,38 @@
-"""Route Recommender — applies the supported-route cardinality table.
+"""Evaluation summary — classifies agents by eligibility.
 
-Pure domain logic. Receives readiness verdicts, returns one of three
-result types. Never ranks and never selects between choices.
+Accepts readiness verdicts, returns which agents are eligible
+(all inputs satisfied) and which have unsatisfied inputs.
+No cycle or route vocabulary.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
-from engine.cycle_model import REQUIRED_CYCLES
-from engine.readiness import RouteReadiness
-
-ACTIVE_CYCLES = REQUIRED_CYCLES - {"DONE"}
+from engine.readiness import AgentReadiness
 
 
 @dataclass(frozen=True)
-class NoRecommendation:
-    """Zero routes have supporting evidence."""
-    kind: str = "none"
+class EvaluationSummary:
+    eligible_agents: tuple[AgentReadiness, ...] = ()
+    blocked_agents: tuple[AgentReadiness, ...] = ()
     warnings: tuple[str, ...] = ()
-    available_cycles: tuple[str, ...] = ()
 
 
-@dataclass(frozen=True)
-class SingleRecommendation:
-    """Exactly one route has supporting evidence."""
-    kind: str = "single"
-    recommended_cycle: str = ""
-    from_cycle: str = ""
-    evidence: tuple[Any, ...] = ()
-    available_cycles: tuple[str, ...] = ()
+def summarize(readiness_verdicts: list[AgentReadiness]) -> EvaluationSummary:
+    eligible = []
+    blocked = []
+    all_warnings: list[str] = []
 
-
-@dataclass(frozen=True)
-class MultipleChoices:
-    """More than one route has supporting evidence. Unranked."""
-    kind: str = "multiple"
-    choices: tuple[RouteReadiness, ...] = ()
-    available_cycles: tuple[str, ...] = ()
-
-
-RecommendationResult = NoRecommendation | SingleRecommendation | MultipleChoices
-
-
-def recommend(
-    current_cycle: str,
-    readiness_verdicts: list[RouteReadiness],
-) -> RecommendationResult:
-    supported = [v for v in readiness_verdicts if v.supported]
-    all_warnings = []
     for v in readiness_verdicts:
+        if v.eligible:
+            eligible.append(v)
+        else:
+            blocked.append(v)
         all_warnings.extend(v.warnings)
 
-    other_cycles = tuple(sorted(ACTIVE_CYCLES - {current_cycle}))
-
-    if len(supported) == 0:
-        return NoRecommendation(
-            warnings=tuple(all_warnings),
-            available_cycles=other_cycles,
-        )
-
-    if len(supported) == 1:
-        route = supported[0]
-        return SingleRecommendation(
-            recommended_cycle=route.to_cycle,
-            from_cycle=route.from_cycle,
-            evidence=route.evidence,
-            available_cycles=tuple(c for c in other_cycles if c != route.to_cycle),
-        )
-
-    return MultipleChoices(
-        choices=tuple(supported),
-        available_cycles=tuple(c for c in other_cycles
-                               if c not in {s.to_cycle for s in supported}),
+    return EvaluationSummary(
+        eligible_agents=tuple(eligible),
+        blocked_agents=tuple(blocked),
+        warnings=tuple(all_warnings),
     )
