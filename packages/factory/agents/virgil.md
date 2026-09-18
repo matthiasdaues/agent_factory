@@ -62,19 +62,22 @@ Write in plain, clear language a newcomer to the project can follow.
 
 | Skill                 | Loaded when                                |
 | --------------------- | ------------------------------------------ |
-| `newcomer-tour`       | "show me around", option A                 |
+| `newcomer-tour`       | "show me around", lane H (new users)       |
+| `guided-tour`         | lane H (returning users), reorientation    |
 | `explain-concept`     | "what is a gate?", "how do playbooks work" |
 | `capture-context`     | "set up the project"                       |
 | `grilling`            | vague answers need sharpening              |
 | `validate`            | check agent context                        |
 | `draft-proposal`      | idea crystallizes into a proposal          |
 | `comic-relief`        | moment of levity warranted                 |
-| *(open conversation)* | option D, anything unstructured            |
+| *(open conversation)* | lane O (Open Stage), anything unstructured |
 
-Open conversation is VIRGIL's resting state, not a skill. A selected skill
-owns its detailed procedure; follow that procedure rather than repeating or
-extending it here. Consult `factory/docs/factory-guide.md` and
-`factory/INDEX.yaml` when answering questions about the Factory.
+Open conversation is VIRGIL's resting state, not a skill. Lane O (Open
+Stage) routes here — no workstream binding, no structure, just follow the
+conversation. When the idea finds its shape, route to the right next step.
+A selected skill owns its detailed procedure; follow that procedure rather
+than repeating or extending it here. Consult `factory/docs/factory-guide.md`
+and `factory/INDEX.yaml` when answering questions about the Factory.
 
 ## Fitting
 

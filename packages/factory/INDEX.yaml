@@ -4,156 +4,161 @@
 # hand, regenerate with scripts/index-lint.
 
 agents:
-  - name: coaching-agent
-    title: Coaching Agent
-    phase: 0
-    phase_name: Utility
-    tier: standard
-    description: Run retrospectives, extract action items, and track process improvements across sessions.
-    path: agents/coaching-agent.md
-    tokens: 447
-    total_tokens: 1155
-  - name: virgil
-    title: VIRGIL
-    phase: 0
-    phase_name: Utility
-    tier: standard
-    description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
-    path: agents/virgil.md
-    tokens: 2423
-    total_tokens: 12729
-  - name: proposal-review-agent
-    title: Proposal Review Agent
-    phase: 1
-    phase_name: Requirements
-    tier: strong
-    description: Review a feature proposal for clarity, feasibility, and planning readiness — consultative on drafts, adversarial on open proposals. Runs in a separate session from the proposal author.
-    path: agents/proposal-review-agent.md
-    tokens: 1434
-    total_tokens: 2951
-  - name: requirements-agent
-    title: Requirements Agent
-    phase: 1
-    phase_name: Requirements
-    tier: strong
-    description: "Capture a project vision, clarify requirements through adversarial interview, and produce a complete specification: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models."
-    path: agents/requirements-agent.md
-    tokens: 1327
-    total_tokens: 11895
-  - name: spec-review-agent
-    title: Specification Review Agent
-    phase: 1
-    phase_name: Requirements
-    tier: strong
-    description: Review the specification for consistency, completeness, and traceability using spec-lint plus semantic inspection, in a separate session from the author.
-    path: agents/spec-review-agent.md
-    tokens: 621
-    total_tokens: 4111
   - name: architecture-agent
     title: Architecture Agent
-    phase: 2
-    phase_name: Architecture
+    eligible_cycles:
+      - CONCEPT
     tier: strong
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
-    tokens: 1274
-    total_tokens: 8174
+    tokens: 1272
+    total_tokens: 8172
   - name: architecture-review-agent
     title: Architecture Review Agent
-    phase: 2
-    phase_name: Architecture
+    eligible_cycles:
+      - CONCEPT
     tier: strong
     description: Review architecture against quality attributes using ATAM in a separate session from the architecture author.
     path: agents/architecture-review-agent.md
-    tokens: 650
-    total_tokens: 5336
-  - name: planning-agent
-    title: Planning Agent
-    phase: 3
-    phase_name: Planning
-    tier: strong
-    description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
-    path: agents/planning-agent.md
-    tokens: 1514
-    total_tokens: 11515
-  - name: code-review-agent
-    title: Code Review Agent
-    phase: 4
-    phase_name: Implementation
-    tier: strong
-    description: "Bounded code review on the implementation diff — correctness, architecture compliance, and maintainability — before the reconciliation run. Narrower than the QA agent: changed files only, no security review, no bug hunt."
-    path: agents/code-review-agent.md
-    tokens: 840
-    total_tokens: 4805
-  - name: implementation-agent
-    title: Implementation Agent (Dispatcher)
-    phase: 4
-    phase_name: Implementation
-    tier: standard
-    description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in autonomous mode, or serial human-reviewed work in the primary checkout in review mode. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
-    path: agents/implementation-agent.md
-    tokens: 3433
-    total_tokens: 11689
-  - name: reconciliation-agent
-    title: Reconciliation Agent
-    phase: 4
-    phase_name: Implementation
-    tier: strong
-    description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
-    path: agents/reconciliation-agent.md
-    tokens: 2086
-    total_tokens: 16745
-  - name: qa-agent
-    title: QA Agent
-    phase: 5
-    phase_name: Quality
-    tier: strong
-    description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
-    path: agents/qa-agent.md
-    tokens: 1184
-    total_tokens: 9208
+    tokens: 648
+    total_tokens: 5334
   - name: claim-reviewer
     title: Claim Reviewer
-    phase: 6
-    phase_name: Research
+    eligible_cycles:
+      - IDEA
+      - CONCEPT
     tier: standard
     description: Attempts to refute a claim produced by the Researcher, checking whether it can be falsified, whether its sources hold up, and whether its tests were severe — then casts a vote on its disposition without ever editing the claim itself.
     path: agents/claim-reviewer.md
-    tokens: 562
-    total_tokens: 2140
+    tokens: 564
+    total_tokens: 2142
+  - name: coaching-agent
+    title: Coaching Agent
+    tier: standard
+    description: Run retrospectives, extract action items, and track process improvements across sessions.
+    path: agents/coaching-agent.md
+    tokens: 441
+    total_tokens: 1149
+  - name: code-review-agent
+    title: Code Review Agent
+    eligible_cycles:
+      - REALIZE
+    tier: strong
+    description: "Bounded code review on the implementation diff — correctness, architecture compliance, and maintainability — before the reconciliation run. Narrower than the QA agent: changed files only, no security review, no bug hunt."
+    path: agents/code-review-agent.md
+    tokens: 838
+    total_tokens: 4803
+  - name: developer-agent
+    title: Developer Agent
+    eligible_cycles:
+      - REALIZE
+    description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
+    path: agents/developer-agent.md
+    tokens: 1875
+    total_tokens: 4913
+  - name: implementation-agent
+    title: Implementation Agent (Dispatcher)
+    eligible_cycles:
+      - REALIZE
+    tier: standard
+    description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in autonomous mode, or serial human-reviewed work in the primary checkout in review mode. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
+    path: agents/implementation-agent.md
+    tokens: 3431
+    total_tokens: 11687
+  - name: planning-agent
+    title: Planning Agent
+    eligible_cycles:
+      - ROADMAP
+      - REFINE
+    tier: strong
+    description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
+    path: agents/planning-agent.md
+    tokens: 1517
+    total_tokens: 13722
+  - name: proposal-review-agent
+    title: Proposal Review Agent
+    eligible_cycles:
+      - IDEA
+    tier: strong
+    description: Review a feature proposal for clarity, feasibility, and planning readiness — consultative on drafts, adversarial on open proposals. Runs in a separate session from the proposal author.
+    path: agents/proposal-review-agent.md
+    tokens: 1431
+    total_tokens: 2948
+  - name: qa-agent
+    title: QA Agent
+    eligible_cycles:
+      - REALIZE
+    tier: strong
+    description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
+    path: agents/qa-agent.md
+    tokens: 1182
+    total_tokens: 9206
+  - name: reconciliation-agent
+    title: Reconciliation Agent
+    eligible_cycles:
+      - REFINE
+      - REALIZE
+    tier: strong
+    description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
+    path: agents/reconciliation-agent.md
+    tokens: 2089
+    total_tokens: 16748
+  - name: requirements-agent
+    title: Requirements Agent
+    eligible_cycles:
+      - IDEA
+      - CONCEPT
+    tier: strong
+    description: "Derive a complete specification from an accepted proposal: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models. When no proposal exists, capture a vision and clarify requirements to produce one."
+    path: agents/requirements-agent.md
+    tokens: 1377
+    total_tokens: 16755
   - name: research-orchestrator
     title: Research Orchestrator
-    phase: 6
-    phase_name: Research
+    eligible_cycles:
+      - IDEA
+      - CONCEPT
     tier: standard
     description: Selects survey or falsification research from the brief, advances the chosen validated playbook, and enforces its role boundaries and release gate.
     path: agents/research-orchestrator.md
-    tokens: 1143
-    total_tokens: 7498
+    tokens: 1145
+    total_tokens: 7500
   - name: research-report-writer
     title: Research Report Writer
-    phase: 6
-    phase_name: Research
+    eligible_cycles:
+      - IDEA
+      - CONCEPT
     tier: standard
     description: Writes a research report from completed research artifacts. In falsification mode, builds the final report from a frozen claim register. In survey mode, synthesizes recorded source records into a cited report. Never conducts new research or overstates what the evidence supports.
     path: agents/research-report-writer.md
-    tokens: 935
-    total_tokens: 1661
+    tokens: 937
+    total_tokens: 1663
   - name: researcher
     title: Researcher
-    phase: 6
-    phase_name: Research
+    eligible_cycles:
+      - IDEA
+      - CONCEPT
     tier: standard
     description: Research a bounded question and form testable claims — find sources, assess their provenance, record evidence for and against, and design or execute refutation tests. Never reviews or votes on its own claim.
     path: agents/researcher.md
-    tokens: 430
-    total_tokens: 2008
-  - name: developer-agent
-    title: Developer Agent
-    description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
-    path: agents/developer-agent.md
-    tokens: 1867
-    total_tokens: 4905
+    tokens: 432
+    total_tokens: 2010
+  - name: spec-review-agent
+    title: Specification Review Agent
+    eligible_cycles:
+      - CONCEPT
+    tier: strong
+    description: Review the specification for consistency, completeness, and traceability using spec-lint plus semantic inspection, in a separate session from the author.
+    path: agents/spec-review-agent.md
+    tokens: 619
+    total_tokens: 4109
+  - name: virgil
+    title: VIRGIL
+    tier: standard
+    description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
+    path: agents/virgil.md
+    tokens: 2477
+    total_tokens: 12783
 
 skills:
   - name: capture-context
@@ -235,27 +240,27 @@ skills:
     category: planning
     description: Break specification and architecture into a local backlog of markdown stories — EPICs and User Stories with INVEST criteria and MoSCoW priority.
     path: skills/create-backlog/SKILL.md
-    tokens: 2052
+    tokens: 2182
   - name: create-backlog-epics
     category: planning
-    description: Survey codebase, read specs, and present the EPIC slicing approach for user approval. Phase 1 of 4 in the create-backlog sequence.
+    description: Survey user capabilities, map them against the codebase, and present the EPIC slicing approach for user approval. Phase 1 of 4 in the create-backlog sequence.
     path: skills/create-backlog-epics/SKILL.md
-    tokens: 1360
+    tokens: 2430
   - name: create-backlog-stories
     category: planning
     description: Read confirmed slice tables, write backlog/ST-NNNN.md story files with MoSCoW priorities, dependencies, and quality gates. Phase 4 of 4 in the create-backlog sequence.
     path: skills/create-backlog-stories/SKILL.md
-    tokens: 2120
+    tokens: 2188
   - name: create-backlog-story-slices
     category: planning
     description: Read confirmed backlog/epics.md, sketch story-level slice tables per EPIC, and present them for user approval. Phase 3 of 4 in the create-backlog sequence.
     path: skills/create-backlog-story-slices/SKILL.md
-    tokens: 714
+    tokens: 1556
   - name: create-backlog-write-epics
     category: planning
     description: Write backlog/epics.md from the approved EPIC slicing approach. Phase 2 of 4 in the create-backlog sequence.
     path: skills/create-backlog-write-epics/SKILL.md
-    tokens: 1079
+    tokens: 1173
   - name: make-concrete
     category: planning
     description: "Incorporate grilling results into a backlog story: fill resolved contract decisions into their home sections, write concrete Required API Behavior, and prepare the story for slicing. Phase 6 of the create-backlog sequence."
@@ -265,7 +270,7 @@ skills:
     category: planning
     description: Cut a concrete backlog story into independently implementable slices along contract boundaries. Phase 7 of the create-backlog sequence.
     path: skills/create-backlog-slice-story/SKILL.md
-    tokens: 1506
+    tokens: 2308
   - name: testability-probe
     category: planning
     description: Assess epic testability and resolve contract ownership backlog-wide before stories are cut. Mandatory step 2.5 in the create-backlog sequence, between create-backlog-write-epics and create-backlog-story-slices. Writes a testability paragraph and ownership table per EPIC into backlog/epics.md — no failure scenarios, test paths, or risk classifications.
@@ -388,9 +393,9 @@ skills:
     tokens: 708
   - name: run-step
     category: utility
-    description: Resolve and run the next agent or playbook step, deciding what "resume" means from observable state (the phase-gate marker, gate results, open findings) rather than a separately persisted execution status.
+    description: Resolve the next agent from the workstream's current cycle and agent eligibility, then dispatch it. Re-derives state from disk on every invocation.
     path: skills/run-step/SKILL.md
-    tokens: 1180
+    tokens: 632
   - name: scratchpad
     category: utility
     description: Append a quick note to session-scratchpad.md, sectioned by date. Use when the user says "note this down:", "make a note of this:", or invokes "/scratchpad" or "/scratch".
@@ -453,7 +458,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1108
-    total_tokens: 14618
+    total_tokens: 14614
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -465,7 +470,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3015
-    total_tokens: 33270
+    total_tokens: 33269
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -476,7 +481,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 777
-    total_tokens: 14890
+    total_tokens: 14896
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -488,7 +493,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 944
-    total_tokens: 38825
+    total_tokens: 38822
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -505,7 +510,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 5151
-    total_tokens: 88629
+    total_tokens: 95687
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -524,7 +529,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 3417
-    total_tokens: 88050
+    total_tokens: 95102
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -540,7 +545,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1281
-    total_tokens: 15394
+    total_tokens: 15400
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -553,7 +558,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 1020
-    total_tokens: 12187
+    total_tokens: 12193
   - name: research-topic
     title: Research Topic Playbook
     category: orchestration
@@ -574,7 +579,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 3026
-    total_tokens: 16333
+    total_tokens: 16341
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration
@@ -697,7 +702,7 @@ rulebooks:
   - name: writing-quality-gates
     category: conventions
     path: rulebooks/conventions/writing-quality-gates.md
-    tokens: 971
+    tokens: 984
   - name: cockburn-reasoning
     category: principles
     path: rulebooks/principles/cockburn-reasoning.md
