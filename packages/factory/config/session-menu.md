@@ -32,25 +32,28 @@ ______________________________________________________________________
 
 ## P — Project Work
 
-The Project Work lane handles workstream creation and continuation.
+The Project Work lane handles workstream creation and continuation. Ask the user whether they want to start a new workstream or continue an existing one.
 
 ### Start a new workstream
 
-Ask the user for a topic description. If the user names an existing proposal under `docs/proposals/`, record it as the origin reference.
+1. Ask the user for a topic description.
+2. Derive the workstream ID by slugifying the topic to lowercase kebab-case (e.g. "activity graph orchestration" → `activity-graph-orchestration`).
+3. Ask whether an existing proposal under `docs/proposals/` should be the origin reference. If yes, record its path as `origin_ref`.
+4. Create the workstream state file at `.agent-factory/workstreams/<workstream-id>.yaml` using `engine/workstream.py::create_workstream`. The file contains exactly four fields: `schema_version: 2`, `workstream_id`, `topic`, `origin_ref`. No cycle, attempt, delegation, or work fields exist.
+5. Create a session binding at `.agent-factory/workstreams/sessions/<session-id>.yaml` using `engine/session_binding.py::create_binding`. The binding records `session_id`, `workstream_id`, and `bound_at`.
+6. Confirm the workstream name and binding to the user.
+7. Run `factory/scripts/intent select --workstream <workstream-id>` to present all agents with their precondition evidence. The developer selects an agent from the list.
 
-Create a workstream state file using the workstream engine (`engine/workstream.py`). Create a session binding (`engine/session_binding.py`). The session is now bound to that workstream.
-
-Run `factory/scripts/intent select --workstream <workstream-id>` to present all agents with their precondition evidence. The developer selects an agent from the list.
-
-If the user wants to do something that does not fit a workstream (a quick question, a tour, research), redirect to lane O or the appropriate menu item instead of creating a workstream.
+If the user wants to do something that does not fit a workstream (a quick question, a tour, research), redirect to lane O (Open Stage) instead of creating a workstream.
 
 ### Continue an existing workstream
 
-List existing workstreams by scanning `.agent-factory/workstreams/`. If workstreams exist, present a numbered list showing each workstream's topic. Ask the user to select one by number or name.
+1. List existing workstreams by calling `engine/workstream.py::list_workstreams`, which scans `.agent-factory/workstreams/*.yaml`.
+2. If workstreams exist, present a numbered list showing each workstream's topic and ID. Ask the user to select one by number or name. Never select a workstream automatically.
+3. On selection, create a session binding for the selected workstream using `engine/session_binding.py::create_binding`.
+4. Run `factory/scripts/intent select --workstream <workstream-id>` to present all agents with their precondition evidence. The developer selects an agent from the list.
 
-On selection, create a session binding. Then run `factory/scripts/intent select --workstream <workstream-id>` to present all agents with their precondition evidence. The developer selects an agent from the list.
-
-If no workstreams exist, tell the user and offer to start a new workstream or return to the main menu. Never select a workstream automatically.
+If no workstreams exist, tell the user and offer to start a new workstream (go to "Start a new workstream" above) or return to the main menu.
 
 ### Intention-based routing
 
