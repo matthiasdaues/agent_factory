@@ -149,9 +149,17 @@ inputs:
     - docs/reviews/atam-review.md
     - docs/agent-context.md
 outputs:
-  - docs/arc42/architecture.dsl
-  - docs/arc42/*.md
-  - docs/adr/*.md
+  minimum_changed: 2
+  declarations:
+    - path_pattern: docs/arc42/architecture.dsl
+      validator: arch-lint
+      required: true
+    - path_pattern: docs/arc42/*.md
+      validator: arch-lint
+      required: true
+    - path_pattern: docs/adr/*.md
+      validator: arch-lint
+      required: false
 ```
 
 `inputs.required` lists the artifacts that must exist and the conditions they
@@ -186,21 +194,29 @@ The evaluator resolves a pattern in four steps:
    - **Zero survivors** — the precondition is unsatisfied.
    - **One survivor** — the precondition is satisfied against that artifact.
    - **Multiple survivors** — the evaluator reports all. The human picks one.
-     Delegation pauses (same rule as multiple eligible activities).
+     For external chaining, an orchestrator must supply one of the reported
+     artifact references before dispatching the agent; without an explicit
+     selection, it stops for human direction.
 
 No maintained artifact list is needed. The `scope` field and the filesystem
 are the only inputs.
 
 `inputs.context` lists everything else the agent reads when running — material
-it consumes if available, not gates on eligibility. `outputs` declares what
-the agent creates or modifies, unchanged from the current format.
+it consumes if available, not gates on eligibility. `outputs.minimum_changed`
+declares how many output declarations must have a created or modified match for
+the activity. Each `outputs.declarations` entry declares a `path_pattern`, a
+trusted `validator` identifier, and whether that specific output is `required`
+for every invocation. Agent definitions with a missing `minimum_changed`,
+validator, or required flag are invalid. `minimum_changed: 0` permits a
+legitimate no-output activity; conditional and mode-exclusive outputs use
+`required: false` with a positive minimum when at least one must change.
 
 `outputs` is declarative for graph building: the evaluator uses it to compute
-which activities become possible after a given agent runs. For delegation,
-`outputs` serves as a success check: the delegation mechanism confirms that at
-least one declared output was created or modified before proceeding to the next
-eligible activity. In human sessions, `outputs` is informational only — no
-enforcement, no warning for missing or unexpected outputs.
+which activities become possible after a given agent runs. The deterministic
+fence runs against declared outputs after each activity. For external
+orchestrators, the fence result determines whether chaining proceeds. In human
+sessions, the fence result is informational — no enforcement, no warning for
+missing or unexpected outputs.
 
 The dependency graph comes from `inputs.required` and `outputs` across all
 agent definitions. No separate precondition schema or route table exists.
@@ -271,7 +287,7 @@ being built, one research question being investigated. Workstream identity,
 session binding, and session menu integration from EPIC 1 are kept.
 
 The workstream state file carries fewer fields. It no longer tracks a current
-cycle, attempt count, or delegation grant. It contains:
+cycle or attempt count. It contains:
 
 ```yaml
 schema_version: 2
@@ -281,7 +297,8 @@ origin_ref: docs/proposals/activity-graph-orchestration.md
 ```
 
 The `cycle`, `attempt`, `revision`, `delegation`, and `work` fields are
-removed. No maintained artifact list. The workstream state file is written at
+removed. No delegation or attempt-tracking fields exist in workstream state
+or session bindings. No maintained artifact list. The workstream state file is written at
 creation and is immutable. Multiple sessions may bind to the same workstream.
 The first release provides no workstream-level concurrency exclusion; branch,
 worktree, and artifact-write rules remain responsible for preventing
@@ -297,13 +314,28 @@ registry also requires defining its scope representation and lint rule. The
 value is either `global` or a workstream identifier. The representation depends
 on the artifact format:
 
-**YAML frontmatter** (proposals, epics, stories, `scope-map.md`):
+**YAML frontmatter** (epics, stories, `scope-map.md`):
 
 ```yaml
 ---
 scope: activity-graph-orchestration
 ---
 ```
+
+**Proposals** use `scope` in place of `title`. The proposal filename already
+carries the workstream identity, and the display name lives in the document
+heading. The `scope` field replaces `title` rather than adding a field:
+
+```yaml
+---
+schema_version: 2
+scope: activity-graph-orchestration
+status: accepted
+owner: Matthias Daues
+---
+```
+
+The proposal template is updated as part of the implementation.
 
 **Top-level YAML field** (`entity-model.yaml`):
 
@@ -327,8 +359,10 @@ The evaluator reads `scope` from YAML frontmatter when present, otherwise from
 a `scope:` declaration on the first line of the file. The comment prefix (`#`,
 `//`) is format-dependent.
 
-Proposals, epics, and stories carry a workstream identifier. The architecture
-DSL (`architecture.dsl`), the scope map (`scope-map.md`), and the entity model
+Proposals carry the workstream identifier in `scope`, which replaces `title` in
+their frontmatter. Epics and stories carry the workstream identifier in `scope`
+alongside their other frontmatter fields. The architecture DSL
+(`architecture.dsl`), the scope map (`scope-map.md`), and the entity model
 (`entity-model.yaml`) carry `global`. Feature files carry the workstream
 identifier of the workstream they belong to. A lint check at artifact creation
 time verifies the declaration is present and carries either `global` or a known
@@ -341,60 +375,60 @@ missing — a proposal and epic exist but no feature file does — the evaluator
 reports unsatisfied preconditions. The graph reveals incompleteness in the
 dependency chain, not workstream membership.
 
-### Delegation
+### Deterministic fencing
 
-The cycle proposal defined explicit-route and destination grants to authorize
-unattended execution. In the activity model, delegation means: "keep running
-whatever the precondition graph makes eligible without asking."
+Every agent activity is bookended by deterministic checks. The precondition
+evaluator checks inputs before an activity. The runner snapshots the agent's
+declared output patterns before invocation and runs the validator named by each
+output declaration against files created or modified by the activity.
 
-The first release defines one delegation form:
+A required output with no created or modified match fails the fence. An
+optional output with no match is skipped; if it changed, its validator runs.
+The fence fails when fewer than `minimum_changed` declarations have a created
+or modified match. When one declaration matches several changed files, its
+validator receives the resolved file list in one invocation. When several
+declarations match, all applicable validators run. The aggregate fence passes
+only when every required output changed, the minimum was met, and every invoked
+validator passed.
 
-```yaml
-delegation:
-  continue: true
-```
+Each validator returns the shared structured result format. The runner returns
+the aggregate result to its caller and stores the per-output and aggregate
+evidence at
+`.agent-factory/checks/fences/<session-id>/<invocation-id>.yaml`. A passing
+output becomes available as satisfied evidence for downstream preconditions.
+A failing output carries unsatisfied evidence. Neither outcome blocks human
+action. Validator selection comes only from the invoked agent's output
+declarations; there is no central artifact-type-to-validator registry.
 
-A `continue` grant authorizes automatic execution while exactly one activity
-has its preconditions satisfied and the previous activity completed
-successfully. The system pauses when zero or multiple activities are eligible
-or when an activity fails. Agents that need human judgment (e.g. review mode)
-handle the pause internally — they do not complete until the human responds.
-The human creates, replaces, or revokes the grant. The system cannot create,
-extend, or broaden it.
+Delegation is not an engine concept. When every activity is delimited by
+deterministic fences, chaining happens from the outside. An external
+orchestrator (the implementation-agent dispatcher, a script, or the human)
+inspects the evaluator evidence after each fence. If exactly one downstream
+agent has all preconditions satisfied, every multiple-match input has an
+explicit artifact selection, and the fence passed, the orchestrator dispatches
+it. If zero or multiple agents are eligible, an input selection is missing, or
+the fence failed, the orchestrator pauses for human direction.
 
-Delegation is session-scoped. It ends when the session ends. The next session
-starts with no delegation — the human must grant it again. This prevents
-auto-execution from a grant the human forgot about. No delegation field exists
-in the workstream state file. The grant is stored in the session binding file
-alongside the per-agent attempt counters:
+No delegation grant, no `delegated_attempt_limit`, and no attempt counter
+exist in the engine, in agent definitions, or in session bindings. Retry logic
+belongs to the external orchestrator. The engine reports what can run now and
+whether the last fence passed. That is all.
+
+The session binding file carries session identity and its workstream reference:
 
 ```yaml
 # session binding (session-scoped, dies with the session)
 session_id: abc-123
+workstream_id: activity-graph-orchestration
 bound_at: 2026-09-17T14:30:00Z
-delegation:
-  continue: true
-attempts:
-  architecture-agent: 1
-  developer-agent: 0
 ```
 
-The session binding file survives context compaction within a session but does
-not outlive the session.
-
-### Retry limits
-
-Retry limits remain. Each agent definition can declare a
-`delegated_attempt_limit` in its frontmatter:
-
-```yaml
-delegated_attempt_limit: 3   # integer, minimum 1
-```
-
-When omitted, the agent cannot be dispatched by delegation — it requires human
-selection. The limit prevents unattended loops. A human can retry any agent
-without limit. The per-agent attempt counter is stored in the session binding
-file and resets with the session.
+The `workstream_id` key must be present. A missing key makes the binding
+invalid. A known workstream identifier means the session is bound; an explicit
+`workstream_id: null` means Open Stage. Validation checks key presence rather
+than using a lookup that treats missing and null as equivalent. Selecting a
+different workstream updates `workstream_id` and `bound_at`; no workstream state
+file is modified.
 
 ### Granular observability
 
@@ -557,10 +591,11 @@ The unified layout:
 │
 ├── workstreams/                     # workstream state files
 │   ├── <id>.yaml
-│   └── sessions/                    # session bindings (delegation, attempts)
+│   └── sessions/                    # session bindings
 │       └── <session-id>.yaml
 │
 ├── checks/                          # all quality gate output
+│   ├── fences/                      # per-invocation output-fence evidence
 │   ├── crap-score/
 │   ├── dependency-check/
 │   ├── mutation-analysis/
@@ -634,15 +669,15 @@ validation. This proposal keeps:
 
 This proposal replaces:
 
-| EPIC 1 artifact                  | Replacement                                         |
-| -------------------------------- | --------------------------------------------------- |
-| `cycle` command family           | `intent` command family                             |
-| `cycle assess` route recommender | Precondition checker: what can run now?             |
-| `eligible_cycles` agent metadata | `inputs.required` declarations                      |
-| `delivery.yaml` route table      | Implicit graph from `inputs.required` and `outputs` |
-| Cycle-state `cycle` field        | Removed; workstream tracks work references only     |
-| Cycle-state `attempt` field      | Per-agent attempt tracking                          |
-| Cycle-state `delegation` field   | Simplified `continue: true` delegation              |
+| EPIC 1 artifact                  | Replacement                                            |
+| -------------------------------- | ------------------------------------------------------ |
+| `cycle` command family           | `intent` command family                                |
+| `cycle assess` route recommender | Precondition checker: what can run now?                |
+| `eligible_cycles` agent metadata | `inputs.required` declarations                         |
+| `delivery.yaml` route table      | Implicit graph from `inputs.required` and `outputs`    |
+| Cycle-state `cycle` field        | Removed; workstream tracks work references only        |
+| Cycle-state `attempt` field      | Removed; external orchestrator owns retry logic        |
+| Cycle-state `delegation` field   | Removed; chaining is external via deterministic fences |
 
 EPICs 2–7 of the cycle proposal are not implemented and are fully superseded.
 
@@ -742,8 +777,10 @@ The `decision_needed` field is unchanged.
   not exist, it directs the user to `capture-context --init --scan` without
   writing.
 - Restructure agent `inputs` into `required` (artifact type, path pattern,
-  conditions) and `context` (plain paths). `outputs` unchanged. Skills gain
-  `inputs.context` only — they do not appear in the precondition graph.
+  conditions) and `context` (plain paths). Restructure every agent `outputs`
+  declaration into `path_pattern`, `validator`, and `required` fields under an
+  agent-level `minimum_changed`. Skills gain `inputs.context` only — they do not
+  appear in the precondition graph.
 - Implement a precondition evaluator that reads `inputs.required` declarations
   and checks them against the repository.
 - Present all agents after workstream binding in the Project Work lane,
@@ -763,8 +800,12 @@ The `decision_needed` field is unchanged.
   not require `scope`. Adding a type to the precondition registry requires its
   scope representation and lint rule. Add a lint check at artifact creation
   time that verifies required declarations are present and valid.
-- Define a single `continue: true` delegation form.
-- Keep per-agent retry limits with the same consumed-attempt semantics.
+- Fence every agent activity using the validators named by its output
+  declarations. Reject agent definitions whose outputs omit `minimum_changed`
+  or whose declarations omit `path_pattern`, `validator`, or `required`. Record
+  per-output and aggregate evidence under `.agent-factory/checks/fences/`.
+  Chaining is external — no delegation grant, attempt counter, or retry limit
+  in the engine.
 - Rename the `cycle` command family to `intent`: `intent select` and
   `intent assess`. The old `cycle` commands are removed; no alias is provided.
 - Clean-break the engine: delete `cycle_model.py`, `cycles.py`, and
@@ -773,8 +814,10 @@ The `decision_needed` field is unchanged.
 - Delete existing v1 workstream state files. No migration script.
 - Rewrite `run-step` to use the precondition evaluator. Delete the `phase`
   diagnostic stub.
-- Store session-scoped delegation grants and per-agent attempt counters in
-  the session binding file.
+- Session bindings carry `session_id`, `workstream_id`, and `bound_at`. The
+  `workstream_id` key must be present: a known identifier means bound, explicit
+  `null` means Open Stage, and a missing key is invalid. No delegation or
+  attempt fields. Selecting a workstream updates the binding.
 - Keep EPIC 1 infrastructure: workstream and session plumbing, menu
   integration, deterministic checks.
 - Replace `eligible_cycles` metadata and flat `inputs` lists with structured
@@ -820,7 +863,7 @@ The `decision_needed` field is unchanged.
   which other artifacts reference it and may need reconciliation.
 - `structured-only` transcript retention mode.
 - Removing playbook files (they remain as reference documentation).
-- Self-directed delegation beyond a human-authored `continue` grant.
+- Self-directed delegation beyond external chaining.
 - Batch identity tracking across refinement-realization loops.
 - Replacing the internal survey and falsification research routes.
 - Usage record enrichment: adding `workstream_id`, `workstream_origin`, and
@@ -873,27 +916,37 @@ None.
   carrying an unknown value. Other artifacts do not require `scope`.
 - Structured transcripts are retained at capture time for all four supported
   CLIs (Claude Code, Pi, Copilot, Codex) when transcript retention is `full`.
-- A `continue: true` delegation grant authorizes automatic execution while
-  exactly one agent has all required inputs satisfied and the previous activity
-  succeeded. Zero or multiple such agents, or a failed activity, pause for
-  human direction.
-- Per-agent retry limits use the same consumed-attempt semantics as the cycle
-  proposal. Agents without `delegated_attempt_limit` cannot be dispatched by
-  delegation. A human can retry any agent without limit.
+- Every agent defines `outputs.minimum_changed`; every output declaration
+  contains `path_pattern`, `validator`, and `required`. Missing fields make the
+  agent definition invalid. After an activity, required outputs must have a
+  created or modified match; optional outputs without a match are skipped; and
+  fewer changed declarations than `minimum_changed` fails the fence. Every
+  changed output is checked by its declared validator. The aggregate passes
+  only when all required outputs changed, the minimum was met, and every
+  invoked validator passed. Per-output and aggregate evidence is returned to
+  the caller and stored under
+  `.agent-factory/checks/fences/<session-id>/<invocation-id>.yaml`. Fence
+  failure does not block human action. Chaining is external — no delegation
+  grant, attempt counter, or retry limit exists in the engine, agent
+  definitions, or session bindings.
 - Workstream state files can be created and loaded under
   `.agent-factory/workstreams/`. Fields are `workstream_id`, `topic`, and
   `origin_ref` only. Attempts to modify an existing state file fail without
   changing it.
-- Session bindings attach to a workstream, persist delegation grants and
-  attempt counters, and tear down cleanly at session end. Path:
+- Session bindings contain `session_id`, `workstream_id`, and `bound_at`, and
+  tear down cleanly at session end. The `workstream_id` key is always present:
+  a known identifier means bound, explicit `null` means Open Stage, and a
+  missing key fails validation. Selecting a different workstream updates
+  `workstream_id` and `bound_at` without modifying workstream state. Path:
   `.agent-factory/workstreams/sessions/<session-id>.yaml`.
 - The `intent` command family (`intent select`, `intent assess`) operates
   against the activity-graph model. `intent select` lists all agents with
   their precondition status (satisfied and unsatisfied requirements).
   `intent assess` runs validators and reports results per the shared result
   format.
-- All deterministic checks (CRAP score, dependency check, mutation analysis,
-  module graph check) run and write results to `.agent-factory/checks/`.
+- All deterministic checks (output fences, CRAP score, dependency check,
+  mutation analysis, module graph check) run and write results to
+  `.agent-factory/checks/`.
 - All factory-delivered content lives under `.agent-factory/`. The project root
   contains only its own files, CLI-specific directories, and `.current-work/`
   as the runtime root for linked worktrees, dispatch ledgers, and verification
@@ -1433,3 +1486,65 @@ Disposition: clean
 ### Summary
 
 Both pass-7 findings are resolved. All eight checks pass. No new findings. The proposal is planning-ready: a planning agent can decompose it into stories without re-deriving the design. The twenty-six findings accumulated across eight review passes are all resolved or accepted.
+
+## Review — 2026-09-18 (pass 9)
+
+Reviewer: proposal-review-agent
+Reviewed commit: 2b9374934b0b1912b38bf580dee11e2de2be2df0
+Reviewed content: working tree with uncommitted proposal changes
+Disposition: findings
+
+### Prior findings
+
+| ID      | Severity | Check | Status    | Verification                                                                                                                                 |
+| ------- | -------- | ----- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-01 | major    | 02    | resolved  | Automated artifact-impact analysis remains deferred.                                                                                         |
+| PROP-02 | major    | 02    | resolved  | `.agent-factory/` restructuring remains explicit.                                                                                            |
+| PROP-03 | major    | 02    | resolved  | Branching and hook behavior remains explicit.                                                                                                |
+| PROP-04 | major    | 05    | resolved  | Orchestrator retirement remains explicit and bounded.                                                                                        |
+| PROP-05 | minor    | 03    | resolved  | Validator resolution and result format remain defined.                                                                                       |
+| PROP-06 | minor    | 01    | resolved  | Completion criteria remain separated by capability.                                                                                          |
+| PROP-07 | minor    | 02    | resolved  | Research routing remains graph-based without cycle fields.                                                                                   |
+| PROP-08 | minor    | 08    | no change | Estimate fields remain `unknown`, as policy permits.                                                                                         |
+| PROP-09 | minor    | 02    | resolved  | The command family remains limited to two commands.                                                                                          |
+| PROP-10 | minor    | 02    | resolved  | Orchestrator retirement retains a testable endpoint.                                                                                         |
+| PROP-11 | minor    | 01    | resolved  | The untestable mechanism clause remains absent.                                                                                              |
+| PROP-12 | minor    | 03    | resolved  | Only agent definitions form the graph.                                                                                                       |
+| PROP-13 | major    | 03    | resolved  | Workstream state remains immutable and testable.                                                                                             |
+| PROP-14 | major    | 01    | resolved  | Every agent remains visible with requirement evidence.                                                                                       |
+| PROP-15 | major    | 03    | resolved  | Engine-managed delegation was removed, making the former human-judgment signal unnecessary.                                                  |
+| PROP-16 | major    | 03    | resolved  | Retry limits and counters were removed from engine, agent, and session contracts. External orchestrators own retries.                        |
+| PROP-17 | major    | 02    | resolved  | Usage enrichment remains explicitly deferred.                                                                                                |
+| PROP-18 | major    | 02    | resolved  | Workstream and global artifact groups remain defined.                                                                                        |
+| PROP-19 | major    | 04    | resolved  | Declared boundaries cover affected tracked areas.                                                                                            |
+| PROP-20 | major    | 03    | resolved  | Path resolution multiple-survivor rule now says “orchestrator must supply” and “stops for human direction” — no delegation language remains. |
+| PROP-21 | major    | 03    | resolved  | Seven governed artifact types and their representations remain explicit.                                                                     |
+| PROP-22 | minor    | 03    | resolved  | Agents declare prerequisites; skills carry context only.                                                                                     |
+| PROP-23 | major    | 03    | resolved  | `.current-work/` retains existing runtime path contracts.                                                                                    |
+| PROP-24 | major    | 01    | resolved  | Housekeeping retains one inventory and three defined actions.                                                                                |
+| PROP-25 | major    | 01    | resolved  | The evaluator reports evidence for every agent and required input. No regression.                                                            |
+| PROP-26 | major    | 03    | resolved  | Installed runtime paths use `.agent-factory/factory/...`; the documented bootstrap exception is explicit. No regression.                     |
+
+### Findings
+
+| ID      | Severity | Check | Status   | Finding                                                                                                                                                                                                                                                                         |
+| ------- | -------- | ----- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-27 | major    | 03    | resolved | Deterministic fencing section defines validator selection from output declarations, required/optional behavior, minimum_changed, aggregate pass/fail, and evidence storage at `.agent-factory/checks/fences/`. No central registry — each agent's outputs name their validator. |
+| PROP-28 | major    | 03    | resolved | Session binding carries `session_id`, `workstream_id`, `bound_at`. The `workstream_id` key must be present: known identifier = bound, `null` = Open Stage, missing key = invalid.                                                                                               |
+
+### Check results
+
+| #   | Check                            | Result                                                                                                       |
+| --- | -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| 1   | Completion criteria testable     | Pass — fence evidence, session binding, and path resolution are fully specified.                             |
+| 2   | Scope boundary sharp             | Pass — engine delegation, retry state, and counters are removed; external chaining is distinct and deferred. |
+| 3   | Design decomposable              | Pass — fencing, session binding, and path resolution contracts are complete.                                 |
+| 4   | Impact classification consistent | Pass — cross-component reach, both change flags, and declared boundaries match the revised Design.           |
+| 5   | Boundary references exist        | Pass — all fifteen declared paths resolve in the reviewed working tree.                                      |
+| 6   | Open questions genuine           | Pass — `None` is appropriate after nine review passes resolving twenty-eight findings.                       |
+| 7   | Motivation justifies timing      | Pass — observed workflow friction and the window before further stage-model investment justify timing.       |
+| 8   | Estimate plausible               | Pass — `unknown` remains preferable to an unsupported range after the scope change.                          |
+
+### Summary
+
+All twenty-eight findings across nine review passes are resolved. All eight checks pass. The proposal is planning-ready.

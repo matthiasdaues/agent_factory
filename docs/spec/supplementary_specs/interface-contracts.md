@@ -566,98 +566,89 @@ All component operations are idempotent. An update whose consumer range excludes
 
 Non-owning layers may exercise a journey but must not duplicate the owner's assertions.
 
-## Cycle-Based Orchestration Commands
+## Activity-Graph Orchestration Commands
 
-These commands supersede the playbook-based command contracts for software-delivery routing. The existing contracts above remain as documentation of the pre-migration behavior. All scripts are stdlib-only Python 3.10+.
+These commands supersede the cycle-based command contracts. The `cycle` command family (`cycle select`, `cycle retry`, `cycle grant`), the `phase` diagnostic stub, and the migrated `transition-lint` are all deleted. All scripts are stdlib-only Python 3.10+.
 
-Proposal trace: [cycle-based-orchestration.md](../../proposals/cycle-based-orchestration.md)
+Proposal trace: [activity-graph-orchestration.md](../../proposals/activity-graph-orchestration.md)
 
-### `factory/scripts/cycle select`
+### `.agent-factory/factory/scripts/intent select`
 
-|           |                                                                                                                                                 |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage     | `cycle select --state STATE TARGET [--work REF ...]`                                                                                            |
-| STATE     | Path to the workstream state file under `.current-work/cycles/`                                                                                 |
-| TARGET    | Cycle name: `IDEA`, `CONCEPT`, `ROADMAP`, `REFINE`, `REALIZE`, or `DONE`                                                                        |
-| --work    | Zero or more artifact references (proposals, epic sections, story files)                                                                        |
-| Reads     | The workstream state file, the session binding, `factory/engine/models/delivery.yaml`                                                           |
-| Writes    | The workstream state file (on success), the session binding                                                                                     |
-| Exit code | `0` on success; `1` on conflict (stale state or lock timeout); `2` on invalid input                                                             |
-| Behavior  | Acquires the workstream lock, validates expected revision and digest, writes the new cycle with attempt 1, increments revision, updates binding |
+|           |                                                                                                                                            |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Usage     | `intent select [--workstream ID]`                                                                                                          |
+| Reads     | Agent definitions under `.agent-factory/factory/agents/`, the repository filesystem, the session binding                                   |
+| Writes    | Nothing — read-only                                                                                                                        |
+| Exit code | `0` on success; `2` on invalid input                                                                                                       |
+| stdout    | Every agent listed with its name, description, and each required input marked satisfied or unsatisfied with evidence (matched path or gap) |
+| Behavior  | Calls the precondition evaluator for all agents, applies scope filtering when a workstream is bound, and formats the result for the human  |
 
-### `factory/scripts/cycle retry`
+### `.agent-factory/factory/scripts/intent assess`
 
-|           |                                                                                                                                           |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage     | `cycle retry --state STATE`                                                                                                               |
-| STATE     | Path to the workstream state file under `.current-work/cycles/`                                                                           |
-| Reads     | The workstream state file, the session binding, `factory/engine/models/delivery.yaml` (for `delegated_attempt_limit`)                     |
-| Writes    | The workstream state file (on success), the session binding                                                                               |
-| Exit code | `0` on allowed or allowed_with_warning; `1` on conflict or workstream_busy; `2` on paused (delegated limit reached); `3` on invalid state |
-| stdout    | YAML result with `status`, `reason`, `cycle`, `attempt`, and `limit` fields                                                               |
-| Behavior  | Acquires the workstream lock, checks the delegated retry limit, increments `attempt`, updates the session binding                         |
+|           |                                                                                                                           |
+| --------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Usage     | `intent assess [--workstream ID] [--format text\|json]`                                                                   |
+| Reads     | Agent definitions, governed artifacts, the repository filesystem                                                          |
+| Writes    | Nothing — read-only                                                                                                       |
+| Exit code | `0` on success; `2` on invalid input                                                                                      |
+| stdout    | Per-artifact validator results in the shared format: artifact type, artifact reference, assessed commit, checks, warnings |
+| Behavior  | Runs all applicable validators (mechanical and, when triggered, semantic) and reports results per the shared format       |
 
-### `factory/scripts/cycle grant`
+### Precondition evaluator (engine API)
 
-|           |                                                                                                                                                                                  |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage     | `cycle grant route --state STATE CYCLE [CYCLE ...]`<br>`cycle grant through --state STATE DESTINATION`<br>`cycle grant revoke --state STATE`<br>`cycle grant show --state STATE` |
-| STATE     | Path to the workstream state file under `.current-work/cycles/`                                                                                                                  |
-| CYCLE     | One or more cycle names: `IDEA`, `CONCEPT`, `ROADMAP`, `REFINE`, `REALIZE`                                                                                                       |
-| Reads     | The workstream state file, the session binding, `factory/engine/models/delivery.yaml`                                                                                            |
-| Writes    | The workstream state file (on success for `route`, `through`, and `revoke`), the session binding                                                                                 |
-| Exit code | `0` on success; `1` on conflict (stale state or lock timeout); `2` on invalid input (unknown cycle, empty route, destination not in model)                                       |
-| stdout    | `show`: YAML representation of the current grant or `no_grant`; `route`, `through`, `revoke`: YAML result with `status`, `grant_form`, and `revision` fields                     |
+|                 |                                                                                                                                                                       |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Module          | `packages/factory/engine/eligibility.py` (tracked source); `.agent-factory/factory/engine/eligibility.py` (installed)                                                 |
+| Input           | All agent definitions with `inputs.required` declarations, the repository filesystem, the bound workstream identifier (or null for Open Stage)                        |
+| Output          | Per-agent, per-requirement evidence: each required input marked satisfied or unsatisfied, with matched path, condition result, and validator output where applicable  |
+| Side effects    | None — the evaluator never writes repository state                                                                                                                    |
+| Path resolution | Four ordered steps: glob expansion (placeholders → `*`), scope filtering (match bound workstream or `global`; skipped in Open Stage), condition checking, cardinality |
+| Cardinality     | Zero survivors = unsatisfied; one = satisfied; multiple = reported for human or orchestrator selection                                                                |
 
-`route` records an ordered sequence of human-authored cycle selections. The engine follows the sequence regardless of recommendation evidence. `through` records a destination; the engine continues only while exactly one route has supporting evidence. `revoke` removes the active grant. Each mutation acquires the workstream lock, validates the expected revision and digest, increments the revision, and updates the session binding. Agents and engine code cannot invoke `route`, `through`, or `revoke`; the command rejects non-human callers.
+### Fence runner (engine API)
 
-### `factory/scripts/phase` (diagnostic stub)
+|                   |                                                                                                                                                                 |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Module            | `packages/factory/engine/fence.py` (tracked source); `.agent-factory/factory/engine/fence.py` (installed)                                                       |
+| Input             | The agent's output declarations, pre-activity and post-activity filesystem state                                                                                |
+| Output            | Per-output validator results and an aggregate pass/fail result                                                                                                  |
+| Storage           | `.agent-factory/checks/fences/<session-id>/<invocation-id>.yaml`                                                                                                |
+| Aggregate rule    | Passes when every required output changed, `declarations_changed >= minimum_changed`, and every invoked validator passed                                        |
+| Required output   | Must have a created or modified match; missing match fails the fence                                                                                            |
+| Optional output   | No match → skipped; changed → validator runs                                                                                                                    |
+| Human sessions    | Fence result is informational — no enforcement, no warning for missing or unexpected outputs                                                                    |
+| External chaining | The caller (implementation-agent dispatcher, script, or human) inspects the fence result and evaluator evidence to decide whether to dispatch the next activity |
 
-|           |                                                                                                         |
-| --------- | ------------------------------------------------------------------------------------------------------- |
-| Usage     | `phase advance [...]` or `phase retry [...]`                                                            |
-| Reads     | Nothing                                                                                                 |
-| Writes    | Nothing                                                                                                 |
-| Exit code | Always `2`                                                                                              |
-| stderr    | Diagnostic message naming the replacement command (`cycle select` for advance, `cycle retry` for retry) |
+### Deleted commands
 
-The diagnostic stub remains for one release after cutover. It does not emulate the old transition behavior.
+The following scripts are deleted with no replacement shim:
 
-### `factory/scripts/transition-lint` (migrated)
+| Script                            | Reason                                                                     |
+| --------------------------------- | -------------------------------------------------------------------------- |
+| `factory/scripts/cycle select`    | Replaced by `intent select` and unrestricted human agent selection         |
+| `factory/scripts/cycle retry`     | No retry logic in the engine; external orchestrators own retries           |
+| `factory/scripts/cycle grant`     | No delegation in the engine; chaining is external via deterministic fences |
+| `factory/scripts/phase` (stub)    | No phases exist to diagnose                                                |
+| `factory/scripts/transition-lint` | No transitions exist to lint                                               |
 
-|               |                                                                                                                                                               |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage         | `transition-lint [--format text\|json] [--report-only]`                                                                                                       |
-| Reads         | `factory/engine/models/delivery.yaml`, workstream state files under `.current-work/cycles/`                                                                   |
-| Writes        | Nothing — read-only                                                                                                                                           |
-| Exit code     | Count of error-severity findings (`0` = clean), unless `--report-only` (always `0`)                                                                           |
-| Finding codes | `TL-CYCLE-MODEL` (error — invalid cycle model), `TL-CYCLE-STATE` (error — invalid state file), `TL-ROUTE-EVIDENCE` (warning — failed recommendation evidence) |
+## Usage Record v1 Schema — Deferred Additions
 
-After migration, transition-lint reads the cycle model and workstream state files instead of the playbook FSM and playbook-state marker. The pre-migration finding codes (`TL-NOMARKER`, `TL-MARKER`, `TL-NOFSM`, `TL-STATE`, `TL-ORDER`) are retired.
+The following fields were planned as v1-additive additions. They are deferred to a future proposal that addresses usage record enrichment, capture-hook integration, and workstream-dimension analysis in bulk:
 
-## Usage Record v1 Schema Additions
+| Field               | Type               | Description                                    | Status   |
+| ------------------- | ------------------ | ---------------------------------------------- | -------- |
+| `workstream_id`     | `string` or `null` | Workstream identifier from the session binding | deferred |
+| `workstream_origin` | `string` or `null` | Path to the workstream's origin artifact       | deferred |
+| `skills_invoked`    | `array` or `null`  | Skill names called during the session          | deferred |
 
-Three optional fields are added to the usage-record v1 schema at [v1.schema.json](../../../factory/contracts/usage-record/v1.schema.json):
+No `cycle` field exists — named cycles are not part of the activity-graph model.
 
-| Field               | Type               | Description                                                    |
-| ------------------- | ------------------ | -------------------------------------------------------------- |
-| `workstream_id`     | `string` or `null` | Workstream identifier from the session binding                 |
-| `workstream_origin` | `string` or `null` | Path to the workstream's origin artifact                       |
-| `cycle`             | `string` or `null` | Current cycle name: IDEA, CONCEPT, ROADMAP, REFINE, or REALIZE |
+## Research Brief Schema — Simplified
 
-All three fields are nullable. Missing cycle context leaves all three null. Capture succeeds without error when no session binding exists.
+The cycle-based `origin_cycle` and `return_cycle` fields are removed. The precondition graph handles routing: a research agent's output is an artifact, and any agent that declares that artifact as a required input sees the requirement become satisfied when the research completes.
 
-These additions are compatible with the v1 contract's additive-change policy. No major version bump is needed. The orchestration adapter supplies the fields. Usage capture does not import the cycle engine.
+| Field             | Type               | Description                                              |
+| ----------------- | ------------------ | -------------------------------------------------------- |
+| `decision_needed` | `string` or `null` | The decision the research result must inform (unchanged) |
 
-## Research Brief Schema Additions
-
-Four optional fields are added to the research-brief schema at [research-brief.schema.json](../../../factory/rulebooks/schemas/research-brief.schema.json):
-
-| Field             | Type               | Description                                                                             |
-| ----------------- | ------------------ | --------------------------------------------------------------------------------------- |
-| `origin_cycle`    | `string` or `null` | Delivery cycle that initiated the research (IDEA, CONCEPT, ROADMAP, REFINE, or REALIZE) |
-| `origin_ref`      | `string` or `null` | Path to the artifact that needs evidence                                                |
-| `return_cycle`    | `string` or `null` | Delivery cycle that consumes the research result                                        |
-| `decision_needed` | `string` or `null` | The decision the research result must inform                                            |
-
-Standalone research omits these fields. Linked research (opened from a delivery cycle) requires all four. The existing survey and falsification routes remain unchanged.
+Standalone research omits this field. The existing survey and falsification routes remain unchanged.

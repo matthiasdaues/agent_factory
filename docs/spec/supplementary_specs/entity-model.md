@@ -76,13 +76,13 @@ erDiagram
     AGENT_ENTRY {
         string name
         string title
-        int    phase "nullable"
-        string phase_name "nullable"
         string tier "nullable — economy | standard | strong"
         string description
         string path
         int    tokens "tiktoken cl100k_base body count"
         int    total_tokens "body + skills + rulebooks"
+        object inputs "required and context subkeys"
+        object outputs "minimum_changed and declarations"
     }
     SKILL_ENTRY {
         string name
@@ -442,55 +442,71 @@ erDiagram
 - `PARQUET_EXPORT` is derived, attributable, atomic, and rebuildable. It is never authoritative state.
 - `INSTALLED_COMPONENT` and `.agent-factory/usage/` have independent lifecycles. Component removal preserves evidence; full Factory removal does not.
 
-## Cycle-Based Orchestration Entities
+## Activity-Graph Orchestration Entities
 
-The cycle engine replaces the linear playbook FSM as the software-delivery routing authority. The entities below describe what the engine loads, what it writes, and what sessions use to bind to workstreams. These entities supersede `PLAYBOOK_STATE_MARKER` and `FSM_DEFINITION` for delivery routing. The superseded entities remain documented above for reference.
+The activity graph replaces both the linear playbook FSM and the cycle engine as the delivery routing model. Agents declare structured inputs and outputs. The precondition evaluator checks inputs against the repository. Sequence emerges from the dependency chain — no named stages, no transition matrix, no route table.
 
-Proposal trace: [cycle-based-orchestration.md](../../proposals/cycle-based-orchestration.md)
+These entities supersede `DELIVERY_MODEL`, `CYCLE_DECLARATION`, `ROUTE_DECLARATION`, `DELEGATION_GRANT`, and the v1 `WORKSTREAM_STATE` and `SESSION_BINDING`. The superseded entities are removed from the codebase; they remain documented in git history. `VALIDATOR_RESULT` carries forward with the same structure.
+
+Proposal trace: [activity-graph-orchestration.md](../../proposals/activity-graph-orchestration.md)
 
 ```mermaid
 erDiagram
-    DELIVERY_MODEL ||--o{ CYCLE_DECLARATION : declares
-    DELIVERY_MODEL ||--o{ ROUTE_DECLARATION : declares
-    DELIVERY_MODEL ||--o{ ARTIFACT_DECLARATION : declares
-    DELIVERY_MODEL ||--o{ VALIDATOR_DECLARATION : registers
-    ROUTE_DECLARATION }o--|| CYCLE_DECLARATION : "from"
-    ROUTE_DECLARATION }o--|| CYCLE_DECLARATION : "to"
-    ROUTE_DECLARATION ||--o{ PREDICATE_REFERENCE : "recommend_if"
-    ARTIFACT_DECLARATION }o--|| VALIDATOR_DECLARATION : "validated by"
-    VALIDATOR_DECLARATION ||--o{ VALIDATOR_RESULT : produces
-    WORKSTREAM_STATE }o--|| CYCLE_DECLARATION : "currently at"
-    WORKSTREAM_STATE ||--o| DELEGATION_GRANT : "nullable"
-    SESSION_BINDING }o--|| WORKSTREAM_STATE : observes
+    AGENT_DEFINITION ||--o{ REQUIRED_INPUT : "inputs.required"
+    AGENT_DEFINITION ||--o{ CONTEXT_INPUT : "inputs.context"
+    AGENT_DEFINITION ||--|| OUTPUT_SPEC : "outputs"
+    OUTPUT_SPEC ||--o{ OUTPUT_DECLARATION : "declarations"
+    REQUIRED_INPUT ||--o{ INPUT_CONDITION : "conditions"
+    OUTPUT_DECLARATION }o--|| VALIDATOR_RESULT : "validator produces"
+    PRECONDITION_EVIDENCE }o--|| AGENT_DEFINITION : "evaluates"
+    PRECONDITION_EVIDENCE }o--|| REQUIRED_INPUT : "checks"
+    FENCE_EVIDENCE }o--|| OUTPUT_DECLARATION : "validates"
+    FENCE_EVIDENCE ||--o{ VALIDATOR_RESULT : "contains"
+    WORKSTREAM_STATE }o--o{ SESSION_BINDING : "bound by"
+    GOVERNED_ARTIFACT }o--o| WORKSTREAM_STATE : "scoped to"
 
-    DELIVERY_MODEL {
-        int schema_version "positive integer"
-        map cycles "cycle name to CycleDeclaration"
-        list routes "RouteDeclaration list"
-        map artifacts "artifact type to ArtifactDeclaration"
-        map validators "validator ID to ValidatorDeclaration"
+    AGENT_DEFINITION {
+        string name
+        string tier "economy | standard | strong"
+        object inputs "required and context subkeys"
+        object outputs "minimum_changed and declarations"
     }
-    CYCLE_DECLARATION {
-        string name "IDEA | CONCEPT | ROADMAP | REFINE | REALIZE | DONE"
-        int delegated_attempt_limit "positive integer"
-        list eligible_agents "agent names"
-        list eligible_skills "skill names"
+    REQUIRED_INPUT {
+        string artifact "artifact type identifier"
+        string path_pattern "glob with {name} placeholders"
+        list conditions "nullable — InputCondition list"
     }
-    ROUTE_DECLARATION {
-        string from "source cycle name"
-        string to "target cycle name"
-        list recommend_if "predicate references"
+    INPUT_CONDITION {
+        string field "nullable — frontmatter field name"
+        string value "nullable — exact match (with field)"
+        list one_of "nullable — any-match list (with field)"
+        string check "nullable — trusted validator identifier"
     }
-    ARTIFACT_DECLARATION {
-        string type "identifier e.g. proposal, scope_map, entity_model"
-        string required_inventory "what must exist"
-        string validator "validator identifier"
+    CONTEXT_INPUT {
+        string path "plain path or glob, no conditions"
     }
-    VALIDATOR_DECLARATION {
-        string id "trusted validator identifier"
+    OUTPUT_SPEC {
+        int minimum_changed "how many declarations must have a match"
     }
-    PREDICATE_REFERENCE {
-        string id "references a validator or composed check"
+    OUTPUT_DECLARATION {
+        string path_pattern "glob pattern for output artifacts"
+        string validator "trusted validator identifier"
+        bool required "true if output must be created or modified"
+    }
+    PRECONDITION_EVIDENCE {
+        string agent_name "evaluated agent"
+        string input_artifact "required input reference"
+        string status "satisfied | unsatisfied"
+        string matched_path "nullable — file that satisfied the input"
+        string condition_result "nullable — detail from condition check"
+    }
+    FENCE_EVIDENCE {
+        string session_id "owning session"
+        string invocation_id "unique activity invocation"
+        string agent_name "agent that ran"
+        string aggregate_result "pass | fail"
+        int declarations_changed "count of declarations with matches"
+        int minimum_required "from output spec"
     }
     VALIDATOR_RESULT {
         string artifact_type "e.g. proposal"
@@ -500,36 +516,34 @@ erDiagram
         list warnings "free-text strings"
     }
     WORKSTREAM_STATE {
-        int schema_version "always 1"
-        int revision "positive integer, starts at 1"
+        int schema_version "always 2"
         string workstream_id "filesystem-safe slug"
         string topic "human-readable description"
         string origin_ref "nullable, path to proposal"
-        string cycle "IDEA | CONCEPT | ROADMAP | REFINE | REALIZE | DONE"
-        int attempt "positive integer, starts at 1"
-        list work "artifact references: proposals, epic sections, story files"
-        object delegation "nullable DelegationGrant"
-    }
-    DELEGATION_GRANT {
-        list route "nullable, ordered cycle names (human-authored sequence)"
-        string through "nullable, single cycle name (automatic until destination)"
     }
     SESSION_BINDING {
         string session_id "CLI session identifier"
-        string workstream_id "bound workstream"
-        int revision "last observed workstream revision"
-        string digest "SHA-256 hex of workstream state file bytes"
+        string workstream_id "known identifier or null for Open Stage"
+        string bound_at "UTC timestamp, ISO 8601"
+    }
+    GOVERNED_ARTIFACT {
+        string path "canonical tracked path"
+        string scope "workstream identifier or global"
+        string representation "frontmatter | top-level-yaml | first-line-comment"
     }
 ```
 
 ### Notes
 
-- **DELIVERY_MODEL** is loaded from `packages/factory/engine/models/delivery.yaml` (tracked source) or `factory/engine/models/delivery.yaml` (installed copy). The schema at `packages/factory/engine/schemas/cycle-model-v1.schema.json` rejects direction fields, classification fields, and executable commands in validator references.
-- **CYCLE_DECLARATION** names one node in the delivery graph. DONE is the terminal node. Every non-terminal cycle declares a positive `delegated_attempt_limit`.
-- **ROUTE_DECLARATION** is one directed edge. It has no direction or classification field. The source and target define the edge. `recommend_if` lists predicate references whose results determine whether the engine recommends this route. Failed predicates produce warnings but do not remove the route from human selection.
-- **ARTIFACT_DECLARATION** maps an artifact type to its required inventory and validator. The validator field references a `VALIDATOR_DECLARATION` by identifier. It never contains a shell command.
-- **VALIDATOR_RESULT** is immutable once produced. Every result carries the assessed commit SHA, individual check results, and warnings. The engine computes recommendations from these results without writing repository state.
-- **WORKSTREAM_STATE** is persisted at `.current-work/cycles/<workstream-id>.yaml`. `revision` increments on every successful mutation. `attempt` starts at 1 on cycle entry or work-list change and increments on each accepted retry. `delegation` is null when no grant is active. The `work` list contains references to existing proposals, epic sections, or story files; it never copies requirements or assessment results.
-- **DELEGATION_GRANT** is a value object within `WORKSTREAM_STATE`. It contains exactly one of `route` (an ordered list of human-authored cycle selections) or `through` (a single destination cycle). Only a human can create, replace, or revoke a grant.
-- **SESSION_BINDING** is persisted at `.current-work/session-bindings/<cli>/<session-id>.yaml`. Path components use the existing usage-capture filesystem-key encoding. The binding is session-local navigation state, not delivery evidence. A stale binding (digest mismatch) is detected on the next mutation attempt and triggers a refresh.
-- **Concurrency model:** Every workstream mutation acquires an exclusive operating-system lock at `.current-work/cycles/.locks/<workstream-id>.lock`. The lock covers only the read, comparison, validation, and replacement sequence. The adapter reads the current state, compares the session binding's `revision` and `digest` against the file on disk, and either writes a temporary sibling file followed by an atomic replacement, or returns a conflict without writing. Different workstreams use separate locks.
+- **AGENT_DEFINITION** is parsed from agent definition files under `packages/factory/agents/` (tracked source) or `.agent-factory/factory/agents/` (installed copy). `inputs.required` and `outputs` determine the agent's position in the precondition graph. `inputs.context` is reading material, not a graph edge. Agent definitions missing `outputs.minimum_changed` or whose declarations omit `path_pattern`, `validator`, or `required` are invalid.
+- **REQUIRED_INPUT** declares one artifact the agent needs. A `conditions` list adds constraints checked against YAML frontmatter. An entry with no `conditions` key checks file existence only. Each condition type is mutually exclusive: `field`+`value`, `field`+`one_of`, or `check`.
+- **INPUT_CONDITION** with `check` references a trusted validator by name. The engine resolves the name to a bash script under `.agent-factory/factory/scripts/` or a Python validator under `.agent-factory/factory/engine/validators/`. The model never contains shell commands.
+- **OUTPUT_DECLARATION** names a `validator` that runs against created or modified files matching `path_pattern` after the activity completes. `required: true` means the fence fails if no match exists. `required: false` means the output is optional — if it changed, its validator runs; if it did not change, it is skipped.
+- **PRECONDITION_EVIDENCE** is the evaluator's per-requirement result. One evidence record per required input per agent. The evaluator never writes repository state.
+- **FENCE_EVIDENCE** is stored at `.agent-factory/checks/fences/<session-id>/<invocation-id>.yaml`. The aggregate passes only when every required output changed, `declarations_changed >= minimum_required`, and every invoked validator passed. Fence failure does not block human action. For external orchestrators, the fence result determines whether chaining proceeds.
+- **VALIDATOR_RESULT** is immutable once produced. Carried forward from the cycle model with the same structure. Every result carries the assessed commit SHA, individual check results, and warnings.
+- **WORKSTREAM_STATE** is persisted at `.agent-factory/workstreams/<workstream-id>.yaml`. The file is immutable after creation — no `cycle`, `attempt`, `revision`, `delegation`, or `work` fields. Multiple sessions may bind to the same workstream. No concurrency control is needed because the file does not change.
+- **SESSION_BINDING** is persisted at `.agent-factory/workstreams/sessions/<session-id>.yaml`. The `workstream_id` key must always be present: a known identifier means the session is bound, explicit `null` means Open Stage, and a missing key fails validation. Selecting a different workstream updates `workstream_id` and `bound_at`. The binding is session-scoped and dies with the session.
+- **GOVERNED_ARTIFACT** is any artifact in the closed first-release set: proposals, epics, stories, Gherkin feature files, `architecture.dsl`, `scope-map.md`, and `entity-model.yaml`. The `scope` field is read from YAML frontmatter when present, otherwise from a `scope:` declaration on the first line of the file. Proposals use `scope` in place of `title`. A lint check at artifact creation time verifies the declaration is present and carries either `global` or a known workstream identifier.
+- **Path resolution:** The evaluator resolves a `path_pattern` in four ordered steps: glob expansion (replace placeholders with `*`), scope filtering (keep only candidates whose `scope` matches the bound workstream or equals `global`; skipped in Open Stage), condition checking (evaluate all conditions, remove failing candidates), and cardinality (zero = unsatisfied, one = satisfied, multiple = reported for human selection).
+- **No delegation in the engine.** Chaining happens externally — an external orchestrator inspects evaluator evidence after each fence. No delegation grant, attempt counter, or retry limit exists in the engine, agent definitions, or session bindings.

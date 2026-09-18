@@ -27,11 +27,19 @@ Feature: Activity-graph orchestration
       When the human selects lane H
       Then the session routes to the newcomer-tour or guided-tour skill
 
-    Scenario: Open Stage opens freeform conversation
+    Scenario: Concept explanation is available at any point
+      Given the session is active in any lane
+      When the human asks "what is [concept]?"
+      Then the explain-concept skill looks up the concept and explains it
+      # @packages/factory/skills/explain-concept/SKILL.md
+
+    Scenario: Open Stage opens freeform conversation under VIRGIL
       Given the session menu is displayed
       When the human selects lane O
-      Then the session enters freeform conversation with no structure
+      Then the VIRGIL agent enters freeform conversation with no structure
       And no workstream binding is created
+      And VIRGIL routes to the appropriate skill or agent when the conversation reaches a concrete next step
+      # @packages/factory/agents/virgil.md
 
   Rule: Housekeeping shows factory state and offers maintenance actions
     # actor: Human operator
@@ -133,11 +141,18 @@ Feature: Activity-graph orchestration
       When the evaluator checks the input
       Then the evaluator accepts the artifact when the field value matches any entry in the list
 
-    Scenario: Required input with check condition runs a named validator
+    Scenario: Required input with check condition that passes marks the requirement satisfied
       Given an agent definition declares a required input with condition check: spec-lint
+      And the validator returns a passing result
       When the evaluator checks the input
-      Then the evaluator runs the named validator script
-      And the evaluator interprets pass or fail from the validator result
+      Then the requirement is marked satisfied with the validator result as evidence
+
+    Scenario: Required input with check condition that fails marks the requirement unsatisfied
+      Given an agent definition declares a required input with condition check: spec-lint
+      And the validator returns a failing result
+      When the evaluator checks the input
+      Then the requirement is marked unsatisfied with the validator result as evidence
+      And the human can still select the agent
 
     Scenario: Required input with no conditions checks file existence only
       Given an agent definition declares a required input with no conditions key
@@ -222,20 +237,22 @@ Feature: Activity-graph orchestration
       When the evaluator counts survivors
       Then the precondition is satisfied against that file
 
-    Scenario: Multiple survivors pause delegation for human selection
+    Scenario: Multiple survivors are reported for human selection
       Given a path pattern matches two files after filtering and conditions
       When the evaluator counts survivors
       Then the evaluator reports both candidates
-      And delegation pauses for the human to pick one
+      And the human picks one or an external orchestrator supplies an explicit artifact selection
 
   Rule: Graph-addressable artifact carries a scope declaration
     # actor: Artifact author
 
-    Scenario: Proposal carries scope in YAML frontmatter
+    Scenario: Proposal carries scope in place of title in YAML frontmatter
       Given a proposal exists under docs/proposals/
       When the scope lint runs
       Then the proposal YAML frontmatter contains a scope field
-      And the scope value is a known workstream identifier or global
+      And the scope value is the workstream identifier matching the proposal filename
+      And no title field exists in the frontmatter
+      And the display name is carried in the document heading
 
     Scenario: Epic carries scope in YAML frontmatter
       Given an epic exists under backlog/
@@ -318,93 +335,34 @@ Feature: Activity-graph orchestration
       When the human selects it
       Then no confirmation dialog, override flag, or justification field is presented
 
-  Rule: Human operator grants delegation for automatic execution
-    # actor: Human operator
+  Rule: Every agent activity is fenced by a deterministic check
+    # actor: Precondition evaluator
 
-    Scenario: Human grants continue delegation
-      Given the session is bound to a workstream
-      When the human grants delegation with continue: true
-      Then the session binding file records the delegation grant
-      And automatic sequential execution begins
+    Scenario: Agent outputs are validated by a deterministic fence after completion
+      Given an agent declares outputs
+      And a deterministic check exists for the output artifact type
+      When the agent activity completes
+      Then the fence runs the applicable lint, validator, or formatter against the outputs
+      And the fence result is recorded as evidence
 
-    Scenario: Only the human creates, replaces, or revokes a delegation grant
-      Given a delegation grant exists in the session binding
-      When an agent or the engine attempts to create, extend, or broaden the grant
-      Then the attempt is rejected
+    Scenario: Fence pass makes downstream preconditions satisfiable
+      Given an agent activity completes and its output fence passes
+      When the evaluator checks downstream agents
+      Then the fenced outputs satisfy downstream required inputs
+      And evidence includes the fence result
 
-    Scenario: Human revokes delegation
-      Given a delegation grant exists
-      When the human revokes the grant
-      Then the session binding no longer contains a delegation grant
-      And automatic execution stops
+    Scenario: Fence failure is reported without blocking human action
+      Given an agent activity completes and its output fence fails
+      When the evaluator checks downstream agents
+      Then the failed fence is reported as unsatisfied evidence
+      And the human can still select any agent
 
-  Rule: Delegation auto-executes when exactly one agent is eligible
-    # actor: Delegation mechanism
-
-    Scenario: One eligible agent after a successful activity triggers auto-execution
-      Given delegation continue: true is active
-      And the previous activity completed successfully
-      And exactly one agent has all required inputs satisfied
-      When the delegation mechanism evaluates
-      Then the eligible agent is dispatched automatically
-
-    Scenario: Zero eligible agents pauses delegation
-      Given delegation continue: true is active
-      And no agent has all required inputs satisfied
-      When the delegation mechanism evaluates
-      Then delegation pauses for human direction
-
-    Scenario: Multiple eligible agents pauses delegation
-      Given delegation continue: true is active
-      And two agents have all required inputs satisfied
-      When the delegation mechanism evaluates
-      Then delegation pauses for human direction
-
-    Scenario: Failed activity pauses delegation
-      Given delegation continue: true is active
-      And the previous activity failed
-      When the delegation mechanism evaluates
-      Then delegation pauses for human direction
-
-    Scenario: Delegation ends when the session ends
-      Given delegation continue: true is active
-      When the session ends
-      Then the delegation grant is discarded
-      And the next session starts with no delegation
-
-  Rule: Per-agent retry limits prevent unattended loops
-    # actor: Delegation mechanism
-
-    Scenario: Agent with delegated_attempt_limit allows dispatch below the limit
-      Given an agent declares delegated_attempt_limit: 3
-      And the session binding records 1 attempt for that agent
-      When delegation dispatches the agent
-      Then the attempt counter increments to 2
-      And dispatch proceeds
-
-    Scenario: Agent at the delegated_attempt_limit pauses delegation
-      Given an agent declares delegated_attempt_limit: 3
-      And the session binding records 3 attempts for that agent
-      When delegation attempts to dispatch the agent
-      Then delegation pauses for human direction
-      And the attempt counter is not modified
-
-    Scenario: Human can retry any agent without limit
-      Given an agent has reached its delegated_attempt_limit
-      When the human selects the agent manually
-      Then the agent is dispatched
-      And the attempt counter increments
-
-    Scenario: Agent without delegated_attempt_limit cannot be dispatched by delegation
-      Given an agent definition omits the delegated_attempt_limit field
-      When delegation evaluates eligible agents
-      Then that agent is excluded from automatic dispatch
-      And human selection is required
-
-    Scenario: Attempt counters reset with the session
-      Given the session binding records 3 attempts for an agent
-      When a new session starts
-      Then the attempt counter for that agent is 0
+    Scenario: Chaining happens externally when fences pass
+      Given an agent activity completes and its fence passes
+      And exactly one downstream agent has all required inputs satisfied
+      When an external orchestrator or the human inspects the evaluator evidence
+      Then the next activity can be dispatched by the orchestrator or selected by the human
+      And no internal delegation mechanism is involved
 
   Rule: Human operator fixes an upstream artifact without transition ceremony
     # actor: Human operator
@@ -441,33 +399,27 @@ Feature: Activity-graph orchestration
       Then both sessions create separate session binding files
       And the workstream state file is unchanged
 
-  Rule: Session binding carries delegation and attempt counters
+  Rule: Session binding attaches a session to a workstream
     # actor: Session manager
 
     Scenario: Session binding file records binding metadata
       Given a session binds to a workstream
       When the binding file is created at .agent-factory/workstreams/sessions/<session-id>.yaml
-      Then the file records the session_id and bound_at timestamp
-
-    Scenario: Delegation grant is stored in the session binding
-      Given a session is bound to a workstream
-      When the human grants delegation
-      Then the session binding file records delegation: {continue: true}
-
-    Scenario: Per-agent attempt counters are stored in the session binding
-      Given a session dispatches an agent
-      When the dispatch completes
-      Then the session binding file increments the attempt counter for that agent
+      Then the file records the session_id, workstream_id, and bound_at timestamp
+      And the workstream_id key is always present
+      And a known workstream identifier means bound
+      And explicit null means Open Stage
+      And a missing workstream_id key fails validation
 
     Scenario: Session binding dies with the session
       Given a session binding file exists
       When the session ends
       Then the binding file is no longer active
-      And the next session creates a fresh binding with no delegation and zero attempt counters
+      And the next session creates a fresh binding
 
   Rule: Intent select lists all agents with precondition status
     # actor: Human operator
-    # @packages/factory/scripts/cycle
+    # @packages/factory/scripts/intent
 
     Scenario: intent select lists every agent with its precondition status
       Given agent definitions with inputs.required exist

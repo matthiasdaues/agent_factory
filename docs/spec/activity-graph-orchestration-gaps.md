@@ -14,7 +14,7 @@ Supersedes: docs/spec/cycle-based-orchestration-gaps.md
 | Human operator          | Continue a workstream           | Human operator continues an existing workstream                       | specified |
 | Human operator          | See precondition evidence       | Human operator sees all agents with precondition evidence             | specified |
 | Human operator          | Select any agent                | Human operator selects any agent regardless of precondition status    | specified |
-| Human operator          | Grant delegation                | Human operator grants delegation for automatic execution              | specified |
+| Human operator          | Chain via external orchestrator | Chaining happens externally when deterministic fences pass            | specified |
 | Human operator          | Fix upstream artifact           | Human operator fixes an upstream artifact without transition ceremony | specified |
 | Human operator          | Rework without ceremony         | Rework requires no transition or state update                         | specified |
 | Human operator          | Run intent select               | Intent select lists all agents with precondition status               | specified |
@@ -24,11 +24,10 @@ Supersedes: docs/spec/cycle-based-orchestration-gaps.md
 | Skill definition author | Declare contextual inputs       | Skill definition carries contextual inputs only                       | specified |
 | Precondition evaluator  | Check inputs against repository | Precondition evaluator checks agent inputs against the repository     | specified |
 | Precondition evaluator  | Resolve path patterns           | Precondition evaluator resolves path patterns with scope filtering    | specified |
-| Delegation mechanism    | Auto-execute next agent         | Delegation auto-executes when exactly one agent is eligible           | specified |
-| Delegation mechanism    | Enforce retry limits            | Per-agent retry limits prevent unattended loops                       | specified |
+| Precondition evaluator  | Fence agent outputs             | Every agent activity is fenced by a deterministic check               | specified |
 | Artifact author         | Carry scope declaration         | Graph-addressable artifact carries a scope declaration                | specified |
 | Workstream manager      | Maintain immutable state        | Workstream state file is immutable after creation                     | specified |
-| Session manager         | Carry session binding           | Session binding carries delegation and attempt counters               | specified |
+| Session manager         | Attach session to workstream    | Session binding attaches a session to a workstream                    | specified |
 | Usage capture pipeline  | Retain structured transcripts   | Usage capture retains structured transcripts                          | specified |
 | Factory installer       | Consolidate layout              | Factory content consolidates under .agent-factory/                    | specified |
 | Factory maintainer      | Retire orchestrator             | Orchestrator package is retired                                       | specified |
@@ -63,10 +62,9 @@ No Rule is without at least one Scenario.
 | Workstream state files contain only identity fields         | Workstream state file is immutable after creation                 | yes     |
 | Governed artifacts carry scope                              | Graph-addressable artifact carries a scope declaration            | yes     |
 | Structured transcripts retained                             | Usage capture retains structured transcripts                      | yes     |
-| continue:true delegation                                    | Human operator grants delegation; Delegation auto-executes        | yes     |
-| Per-agent retry limits                                      | Per-agent retry limits prevent unattended loops                   | yes     |
+| Deterministic fencing of agent outputs                      | Every agent activity is fenced by a deterministic check           | yes     |
 | Workstream state under .agent-factory/workstreams/          | Factory content consolidates under .agent-factory/                | yes     |
-| Session bindings under .agent-factory/workstreams/sessions/ | Session binding carries delegation and attempt counters           | yes     |
+| Session bindings under .agent-factory/workstreams/sessions/ | Session binding attaches a session to a workstream                | yes     |
 | intent select and intent assess                             | Intent select; Intent assess                                      | yes     |
 | Deterministic checks under .agent-factory/checks/           | Factory content consolidates under .agent-factory/                | yes     |
 | All factory content under .agent-factory/                   | Factory content consolidates under .agent-factory/                | yes     |
@@ -84,7 +82,7 @@ The following items from the proposal's "Explicitly deferred" list are intention
 - Capture-time activity extraction
 - Automated artifact-impact analysis
 - structured-only transcript retention mode
-- Self-directed delegation beyond continue grant
+- Self-directed delegation beyond external chaining
 - Batch identity tracking
 - Replacing internal research routes
 - Usage record enrichment (workstream_id, workstream_origin, skills_invoked)
