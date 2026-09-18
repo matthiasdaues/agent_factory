@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: Activity-Graph Orchestration
-status: open
+status: accepted
 owner: Matthias Daues
 created: 2026-09-16
 updated: 2026-09-17
@@ -19,9 +19,14 @@ impact:
     - packages/factory/agents
     - packages/factory/skills/run-step
     - packages/factory/config/session-menu.md
-    - packages/factory/contracts/usage-record
+    - packages/orchestrator
     - .agent-factory
     - .current-work
+    - docs/proposals/cycle-based-orchestration.md
+    - docs/
+    - backlog/
+    - .pre-commit-config.yaml
+    - .gitignore
 
 governance:
   assurance: high
@@ -45,14 +50,13 @@ estimate:
 
 Replace stage-based orchestration with a precondition graph over activities and
 artifacts. The system tracks what artifacts exist and what shape they are in.
-Agents and skills declare their prerequisites. The system shows what can run
-next given the current repository state. No named stages, no transition matrix,
+Agents declare their prerequisites. The system shows what can run next given
+the current repository state. No named stages, no transition matrix,
 no state machine. The sequence emerges from the dependency chain. Rework means
 fixing the artifact that needs fixing.
 
-The factory retains structured transcripts and enriches usage records with
-workstream, skill, and activity context at capture time. These replace
-stage-attributed usage.
+The factory retains structured transcripts at capture time. Usage record
+enrichment with workstream and activity context is deferred.
 
 ## Motivation
 
@@ -99,18 +103,18 @@ the need for concurrent workstream attribution.
   discourage legitimate work.
 - Artifacts are the ground truth. "What exists and what shape is it in?"
   replaces "which stage are you in?"
-- Activities have preconditions, not phase assignments. An agent or skill
-  declares what must exist before it can run. The system checks those
-  preconditions against the repository. No named stage is involved.
+- Activities have preconditions, not phase assignments. An agent declares what
+  must exist before it can run. The system checks those preconditions against
+  the repository. No named stage is involved.
 - Rework is invisible to the model. Fixing an upstream artifact is fixing an
   artifact. No transition, no ceremony, no "returning to an earlier stage."
   The dependency graph has no forward direction to violate.
 - Observability comes from what happened, not from stage attribution. Agent
   invocations, skill calls, files touched, and timestamps are the activity
   record.
-- The factory enriches usage records. Workstream identity, skill invocations,
-  and activity context are factory concerns, added at capture time. The usage
-  package stores and queries whatever it receives.
+- The factory retains structured transcripts at capture time. Usage record
+  enrichment is a separate concern addressed after the activity graph is in
+  place.
 
 ## Design
 
@@ -168,19 +172,24 @@ the input is broken before committing to a session.
 
 #### Path resolution
 
-A `path_pattern` like `"docs/proposals/{name}.md"` contains placeholders that
-must resolve to concrete file paths. The evaluator expands the pattern as a
-glob against the repository, finds all matching files, and checks conditions
-on each match.
+A `path_pattern` like `"docs/proposals/{name}.md"` contains placeholders.
+The evaluator resolves a pattern in four steps:
 
-When a workstream is bound, the evaluator narrows results using `origin_ref`:
-if the pattern matches the origin artifact's path, that match is preferred
-over other glob hits. For patterns that don't match the origin, the evaluator
-returns all matches that satisfy conditions — the human picks the relevant one
-if there are multiple.
+1. **Glob expansion.** Replace each placeholder with `*` and expand against
+   the filesystem. Every matching file is a candidate.
+2. **Scope filtering.** When a workstream is bound, keep only candidates whose
+   `scope` frontmatter matches the bound workstream identifier or equals
+   `global`. Without a bound workstream (Open Stage), skip this step.
+3. **Condition checking.** Evaluate all `conditions` entries against each
+   surviving candidate. Remove candidates that fail any condition.
+4. **Cardinality.**
+   - **Zero survivors** — the precondition is unsatisfied.
+   - **One survivor** — the precondition is satisfied against that artifact.
+   - **Multiple survivors** — the evaluator reports all. The human picks one.
+     Delegation pauses (same rule as multiple eligible activities).
 
-This keeps path resolution simple and stateless. No maintained artifact list
-is needed.
+No maintained artifact list is needed. The `scope` field and the filesystem
+are the only inputs.
 
 `inputs.context` lists everything else the agent reads when running — material
 it consumes if available, not gates on eligibility. `outputs` declares what
@@ -214,13 +223,14 @@ The system answers one question:
 **What can run now?** Given the artifacts on disk, which agents have their
 preconditions satisfied?
 
-The system presents eligible agents. The human picks one. No recommendation,
-no ranking, no warnings about direction.
+The system presents all agents and reports whether each required input is
+satisfied, with evidence. The human picks any agent. No recommendation, no
+ranking, no hiding of options.
 
 The human knows what they changed. When a grilling session finds a
 specification flaw, the human fixes the artifact and runs the evaluator again.
-The eligibility list reflects the new state. No automated change detection or
-impact analysis is needed.
+The requirement evidence reflects the new state. No automated change detection
+or impact analysis is needed.
 
 ### The happy path and its absence
 
@@ -271,35 +281,65 @@ origin_ref: docs/proposals/activity-graph-orchestration.md
 ```
 
 The `cycle`, `attempt`, `revision`, `delegation`, and `work` fields are
-removed. No maintained artifact list. Concurrency control (locking, revision
-checks) is kept for the workstream state file but simplified because fewer
-fields change.
+removed. No maintained artifact list. The workstream state file is written at
+creation and is immutable. Multiple sessions may bind to the same workstream.
+The first release provides no workstream-level concurrency exclusion; branch,
+worktree, and artifact-write rules remain responsible for preventing
+conflicting changes.
 
 #### Artifact-to-workstream association
 
-Artifacts are either workstream-scoped or global.
+Every graph-addressable artifact carries a `scope` declaration. The
+first-release governed set is proposals, epics, stories, Gherkin feature files,
+`architecture.dsl`, `scope-map.md`, and `entity-model.yaml`. Other artifacts do
+not require a `scope` declaration. Adding an artifact type to the precondition
+registry also requires defining its scope representation and lint rule. The
+value is either `global` or a workstream identifier. The representation depends
+on the artifact format:
 
-**Workstream-scoped artifacts** belong to one workstream and carry a
-`workstream` field in their YAML frontmatter:
+**YAML frontmatter** (proposals, epics, stories, `scope-map.md`):
 
 ```yaml
-workstream: activity-graph-orchestration
+---
+scope: activity-graph-orchestration
+---
 ```
 
-Proposals, epics, stories, and feature files are workstream-scoped. A lint
-check at artifact creation time verifies the field is present and references a
-known workstream identifier.
+**Top-level YAML field** (`entity-model.yaml`):
 
-**Global artifacts** are shared across workstreams and do not carry a
-`workstream` field. The architecture DSL (`architecture.dsl`), the scope map
-(`scope-map.md`), and the entity model (`entity-model.yaml`) are global.
+```yaml
+scope: global
+```
 
-The evaluator uses the `workstream` field to narrow precondition matches when a
-workstream is bound. Global artifacts are always included in precondition
-evaluation regardless of the bound workstream. When an artifact in the
-precondition chain is missing — a proposal and epic exist but no feature file
-does — the evaluator reports unsatisfied preconditions. The graph reveals
-incompleteness in the dependency chain, not workstream membership.
+**First-line comment** (formats without YAML frontmatter):
+
+```gherkin
+# scope: activity-graph-orchestration
+Feature: Story slicing
+```
+
+```dsl
+// scope: global
+workspace {
+```
+
+The evaluator reads `scope` from YAML frontmatter when present, otherwise from
+a `scope:` declaration on the first line of the file. The comment prefix (`#`,
+`//`) is format-dependent.
+
+Proposals, epics, and stories carry a workstream identifier. The architecture
+DSL (`architecture.dsl`), the scope map (`scope-map.md`), and the entity model
+(`entity-model.yaml`) carry `global`. Feature files carry the workstream
+identifier of the workstream they belong to. A lint check at artifact creation
+time verifies the declaration is present and carries either `global` or a known
+workstream identifier.
+
+The evaluator uses the `scope` field to narrow precondition matches when a
+workstream is bound. Artifacts with `scope: global` are always included in
+precondition evaluation. When an artifact in the precondition chain is
+missing — a proposal and epic exist but no feature file does — the evaluator
+reports unsatisfied preconditions. The graph reveals incompleteness in the
+dependency chain, not workstream membership.
 
 ### Delegation
 
@@ -316,16 +356,17 @@ delegation:
 
 A `continue` grant authorizes automatic execution while exactly one activity
 has its preconditions satisfied and the previous activity completed
-successfully. The system pauses when zero or multiple activities are eligible,
-when an activity fails, or when an activity requires human judgment (proposal
-acceptance, story shaping). The human creates, replaces, or revokes the grant.
-The system cannot create, extend, or broaden it.
+successfully. The system pauses when zero or multiple activities are eligible
+or when an activity fails. Agents that need human judgment (e.g. review mode)
+handle the pause internally — they do not complete until the human responds.
+The human creates, replaces, or revokes the grant. The system cannot create,
+extend, or broaden it.
 
 Delegation is session-scoped. It ends when the session ends. The next session
 starts with no delegation — the human must grant it again. This prevents
 auto-execution from a grant the human forgot about. No delegation field exists
 in the workstream state file. The grant is stored in the session binding file
-alongside the per-activity attempt counters:
+alongside the per-agent attempt counters:
 
 ```yaml
 # session binding (session-scoped, dies with the session)
@@ -343,10 +384,17 @@ not outlive the session.
 
 ### Retry limits
 
-Retry limits remain. Each activity (agent or skill) can declare a
-`delegated_attempt_limit`. The limit prevents unattended loops. A human can
-retry without limit. The mechanism is unchanged from the cycle proposal except
-that the limit applies per activity rather than per cycle.
+Retry limits remain. Each agent definition can declare a
+`delegated_attempt_limit` in its frontmatter:
+
+```yaml
+delegated_attempt_limit: 3   # integer, minimum 1
+```
+
+When omitted, the agent cannot be dispatched by delegation — it requires human
+selection. The limit prevents unattended loops. A human can retry any agent
+without limit. The per-agent attempt counter is stored in the session binding
+file and resets with the session.
 
 ### Granular observability
 
@@ -442,22 +490,38 @@ The current menu (A–E) is restructured into four lanes:
 | Lane             | Entry point | What it does                                          |
 | ---------------- | ----------- | ----------------------------------------------------- |
 | **Help**         | H           | Tours, explanations, "what is [concept]?"             |
-| **Housekeeping** | K           | Factory maintenance: re-fit, update, module changes   |
+| **Housekeeping** | K           | Factory state, re-fit, update, agent-context guidance |
 | **Project Work** | P           | Start or continue a workstream                        |
 | **Open Stage**   | O           | Freeform conversation — no structure, no deliverables |
 
 **Help** combines the current newcomer tour (A) and reorientation (E). It
 routes to the `newcomer-tour` or `guided-tour` skill as before.
 
-**Housekeeping** is new. The first release presents a factory state inventory
-(installed version, fitting status, CLI integrations, usage pipeline health)
-and lists available manual actions. It does not automate maintenance actions or
-use a precondition graph. Housekeeping automation is a separate future concern.
+**Housekeeping** is new. It opens with a read-only **About** section that shows
+the installed Factory version, fitting status, configured CLI integrations,
+and usage pipeline health. A value that cannot be read is shown as `unknown`
+with its source error; it is not omitted. The About section is followed by
+exactly three manual actions. Housekeeping does not use a precondition graph:
+
+1. **Re-fit** reruns the complete five-step fitting procedure. It reports the
+   resulting completed and remaining fitting steps.
+2. **Update Factory** runs
+   `.agent-factory/factory/scripts/init-factory --update <project-root> --force`, relays its output and exit status, and refreshes the inventory
+   after success.
+3. **Update agent context** invokes `capture-context --update --scan`. The new
+   mode scans the repository and documentation, compares the discovered
+   concerns and `Read:` paths with the existing `docs/agent-context.md`, and
+   presents proposed changes interactively. It preserves existing content
+   unless the user confirms a change, writes only after confirmation, and runs
+   `.agent-factory/factory/scripts/concern-lint` after writing.
+
+Automated maintenance recommendations and additional actions are separate
+future concerns.
 
 **Project Work** subsumes the current options B (start something new) and C
 (continue an existing workstream). After workstream binding, the system checks
-artifact state and presents the agents whose preconditions are currently
-satisfied.
+artifact state and presents all agents with their precondition status. The
+human selects any agent.
 
 **Open Stage** is the current option D. Freeform conversation with no
 structure. VIRGIL routes to the appropriate skill or agent when the
@@ -466,10 +530,11 @@ conversation reaches a concrete next step.
 ### Folder consolidation
 
 All factory-delivered content is consolidated under `.agent-factory/`. The
-top-level `factory/` directory, the `config/` directory, and the
-`.current-work/` folder are eliminated as separate roots. Only CLI-specific
-directories (`.claude/`, `.pi/`, `.codex/`, `.github/`), `.gitignore`,
-`.pre-commit-config.yaml`, and `.git/` remain outside.
+top-level `factory/` and `config/` directories are eliminated as separate
+roots. `.current-work/` remains the runtime root for linked worktrees, dispatch
+ledgers, and verification markers; it is not factory-delivered content.
+CLI-specific directories (`.claude/`, `.pi/`, `.codex/`, `.github/`),
+`.gitignore`, `.pre-commit-config.yaml`, and `.git/` also remain outside.
 
 The unified layout:
 
@@ -514,10 +579,22 @@ The unified layout:
     └── freshness-check
 ```
 
+The layout migration has one bootstrap exception. The existing
+`factory/scripts/init-factory --update <project-root> --force` command starts
+the migration from the pre-migration layout. It installs and validates the new
+tree, including `.agent-factory/factory/scripts/init-factory`, before removing
+the old top-level `factory/` and `config/` directories. After that successful
+migration, every runtime command and internal reference uses
+`.agent-factory/factory/`; no compatibility shim remains at `factory/`.
+
 Design rationale:
 
 - **Single root.** Everything the factory delivers lives under one dotfolder.
-  The project root carries only its own files plus CLI-specific configuration.
+  The project root carries only its own files, CLI-specific configuration, and
+  the `.current-work/` runtime root.
+- **Runtime stays separate.** Linked worktrees, dispatch ledgers, and
+  verification markers remain under `.current-work/` with their existing path
+  contracts and safety enforcement.
 - **`factory/` and `config/` move inward.** They are factory artifacts, not
   project artifacts. Placing them under `.agent-factory/` makes the ownership
   boundary visible in the directory tree.
@@ -526,18 +603,21 @@ Design rationale:
   `workstreams/sessions/<id>.yaml`.
 - **Usage consolidated.** The four `usage-*` siblings and `usage.duckdb` become
   one `usage/` folder with internal structure. Pipeline internals are hidden.
-- **Checks absorb all gate output.** CRAP scores, dependency checks, mutation
-  analysis, module graph checks, and premerge markers in one place.
+- **Checks absorb deterministic quality output.** CRAP scores, dependency
+  checks, mutation analysis, and module graph checks live in one place.
+  Dispatch safety markers remain under `.current-work/`.
 - **`factory-` prefix dropped.** Redundant under `.agent-factory/`.
 - **Dropped artifacts:** `playbook-state.yml`, `step-guard-debug.json`,
   `dispatch-ledger.yaml.bak` — obsolete under the new model. Dispatch ledgers
-  for active features are kept under `workstreams/`.
+  for active features remain under `.current-work/<feature-branch>/`.
 
 All scripts, hooks, agent definitions, skill definitions, CLI index files, and
-configuration that reference `factory/`, `config/`, `.current-work/`, or the
-old `.agent-factory/` sub-paths are updated. The `.gitignore` is updated to
-cover the new layout. The install script writes to `.agent-factory/factory/`
-and `.agent-factory/config/` instead of the project root.
+configuration that reference `factory/`, `config/`, `.current-work/cycles/`,
+or the old `.agent-factory/` sub-paths are updated. Branching, worktree,
+dispatch-ledger, and verification-marker references to `.current-work/` remain
+unchanged. The `.gitignore` is updated to cover the new layout. The install
+script writes to `.agent-factory/factory/` and `.agent-factory/config/` instead
+of the project root.
 
 ### Compatibility with EPIC 1
 
@@ -561,7 +641,7 @@ This proposal replaces:
 | `eligible_cycles` agent metadata | `inputs.required` declarations                      |
 | `delivery.yaml` route table      | Implicit graph from `inputs.required` and `outputs` |
 | Cycle-state `cycle` field        | Removed; workstream tracks work references only     |
-| Cycle-state `attempt` field      | Per-activity attempt tracking                       |
+| Cycle-state `attempt` field      | Per-agent attempt tracking                          |
 | Cycle-state `delegation` field   | Simplified `continue: true` delegation              |
 
 EPICs 2–7 of the cycle proposal are not implemented and are fully superseded.
@@ -593,23 +673,24 @@ carry forward unchanged:
 - **Scripts are thin adapters.** They own CLI parsing, output formatting, exit
   codes, process lifecycle, and state-file writes. They contain no evaluation
   or decision logic.
-- **The engine returns immutable decisions.** It evaluates preconditions and
-  reports eligible activities. It never writes repository state.
+- **The engine returns immutable assessments.** It reports requirement evidence
+  for every agent. It never writes repository state.
 - **Dependency direction is enforced.** Scripts may call the engine. The engine
   never imports scripts, configuration, agent definitions, or skills. A
   deterministic boundary test enforces this.
 - **Trusted validator identifiers.** The `check` condition type references
   validators by name. The engine resolves the name to an executable — bash
-  scripts under `factory/scripts/` (e.g. `spec-lint`) or Python validators
-  under `engine/validators/` (e.g. `proposal.py`). The model never contains
-  shell commands.
+  scripts under `.agent-factory/factory/scripts/` (e.g. `spec-lint`) or Python
+  validators under `.agent-factory/factory/engine/validators/` (e.g.
+  `proposal.py`). The model never contains shell commands.
 - **Shared validator result format.** Every validator returns: artifact type,
   artifact reference, assessed commit, individual check results, and warnings.
   The precondition evaluator interprets pass/fail from these results.
 - **Installed-shape tests.** The distributed factory must contain and be able
   to execute the engine. Tests verify this.
 - **Tracked source is the test surface.** `packages/factory/engine/` is the
-  source of truth. Installation copies the same tree to `factory/engine/`.
+  source of truth. Installation copies the same tree to
+  `.agent-factory/factory/engine/`.
 
 #### Workstream state migration
 
@@ -632,8 +713,9 @@ brief. The existing survey and falsification routes are unchanged.
 The cycle proposal's brief fields `origin_cycle` and `return_cycle` reference
 named cycles that no longer exist. These fields are removed. The precondition
 graph handles routing: a research agent's output is an artifact, and any agent
-that declares that artifact as a required input becomes eligible when the
-research completes. No explicit origin or return field is needed.
+that declares that artifact as a required input sees that requirement become
+satisfied when the research completes. No explicit origin or return field is
+needed.
 
 The `decision_needed` field is unchanged.
 
@@ -643,29 +725,46 @@ The `decision_needed` field is unchanged.
 
 - Restructure the session menu into four lanes: Help, Housekeeping, Project
   Work, Open Stage.
-- Housekeeping lane: present a factory state inventory and list of manual
-  actions. No automation or precondition graph.
+- Housekeeping lane: present a read-only About section followed by exactly three
+  manual actions. About shows the installed Factory version, fitting status,
+  configured CLI integrations, and usage pipeline health; unreadable values
+  appear as `unknown` with their source error. Re-fit reruns the complete
+  five-step fitting procedure. Update Factory runs
+  `.agent-factory/factory/scripts/init-factory --update <project-root> --force`, relays its result, and refreshes About after success. Update agent
+  context invokes the interactive `capture-context --update --scan` mode. No
+  precondition graph.
+- Extend `capture-context` with `--update --scan`. It requires an existing
+  `docs/agent-context.md`, scans the repository and documentation, compares
+  discovered concerns and `Read:` paths with the existing file, and presents
+  proposed changes for confirmation. It preserves unconfirmed content, writes
+  only confirmed changes, and runs
+  `.agent-factory/factory/scripts/concern-lint` after writing. If the file does
+  not exist, it directs the user to `capture-context --init --scan` without
+  writing.
 - Restructure agent `inputs` into `required` (artifact type, path pattern,
   conditions) and `context` (plain paths). `outputs` unchanged. Skills gain
   `inputs.context` only — they do not appear in the precondition graph.
 - Implement a precondition evaluator that reads `inputs.required` declarations
   and checks them against the repository.
-- Present eligible agents (those with satisfied required inputs) after
-  workstream binding in the Project Work lane.
+- Present all agents after workstream binding in the Project Work lane,
+  showing satisfied and unsatisfied required inputs with evidence. Human
+  selection remains unrestricted.
 - Retain structured transcripts at capture time alongside the text rendering.
-- Add `workstream_id`, `workstream_origin`, and `skills_invoked` to the usage-
-  record contract as optional fields (v1 additive schema update).
-- Supply workstream context from the factory's capture hooks.
-- Add workstream dimension to usage analysis.
 - Simplify the workstream state file: remove `cycle`, `attempt`, `revision`,
   `delegation`, and `work` fields. Retain only `workstream_id`, `topic`, and
   `origin_ref`.
-- Add a `workstream` frontmatter field to all artifact types (proposals,
-  epics, stories, feature files, architecture documents). Add a lint check
-  at artifact creation time that verifies the field is present and references
-  a known workstream identifier.
+- Add a `scope` declaration to every graph-addressable artifact in the closed
+  first-release governed set: proposals, epics, stories, Gherkin feature files,
+  `architecture.dsl`, `scope-map.md`, and `entity-model.yaml`. Markdown
+  artifacts carry it in YAML frontmatter, `entity-model.yaml` as a top-level
+  field, and Structurizr DSL and Gherkin feature files as a first-line comment
+  (`// scope: ...` or `# scope: ...`). Workstream-scoped artifacts carry the
+  workstream identifier. Global artifacts carry `global`. Other artifacts do
+  not require `scope`. Adding a type to the precondition registry requires its
+  scope representation and lint rule. Add a lint check at artifact creation
+  time that verifies required declarations are present and valid.
 - Define a single `continue: true` delegation form.
-- Keep per-activity retry limits with the same consumed-attempt semantics.
+- Keep per-agent retry limits with the same consumed-attempt semantics.
 - Rename the `cycle` command family to `intent`: `intent select` and
   `intent assess`. The old `cycle` commands are removed; no alias is provided.
 - Clean-break the engine: delete `cycle_model.py`, `cycles.py`, and
@@ -674,7 +773,7 @@ The `decision_needed` field is unchanged.
 - Delete existing v1 workstream state files. No migration script.
 - Rewrite `run-step` to use the precondition evaluator. Delete the `phase`
   diagnostic stub.
-- Store session-scoped delegation grants and per-activity attempt counters in
+- Store session-scoped delegation grants and per-agent attempt counters in
   the session binding file.
 - Keep EPIC 1 infrastructure: workstream and session plumbing, menu
   integration, deterministic checks.
@@ -683,8 +782,9 @@ The `decision_needed` field is unchanged.
   `inputs.context` to skill definitions.
 - Consolidate all factory content under `.agent-factory/`. Move `factory/`
   to `.agent-factory/factory/`, `config/` to `.agent-factory/config/`.
-  Eliminate `.current-work/`. Move workstream state to
-  `.agent-factory/workstreams/`, session bindings to
+  Retain `.current-work/` for linked worktrees, dispatch ledgers, and
+  verification markers. Move workstream state from `.current-work/cycles/` to
+  `.agent-factory/workstreams/` and session bindings to
   `.agent-factory/workstreams/sessions/`, quality gate results to
   `.agent-factory/checks/`. Update all path references in scripts, hooks,
   agent definitions, skill definitions, CLI index files, and configuration.
@@ -695,9 +795,6 @@ The `decision_needed` field is unchanged.
   into `usage/` subfolders (`control/`, `runtime/`, `analysis/`,
   `store.duckdb`). Move flat usage records into `usage/records/`. Move
   `factory-user-changes/` and `.freshness-check` into `maintenance/`.
-- Update branching policy and git-hook enforcement: `block-dangerous-git.sh`
-  worktree path allowlist, `branching-policy.md`, and `git-workflow.md`
-  references from `.current-work/` to the new `.agent-factory/` layout.
 - Retire `packages/orchestrator`. Delete the `packages/orchestrator/`
   directory. Remove references to the orchestrator from documentation,
   backlog stories, and CI configuration. Review existing orchestrator tests
@@ -710,9 +807,10 @@ The `decision_needed` field is unchanged.
 
 ### Explicitly deferred
 
-- Housekeeping automation: precondition graph or drift-detection engine for
-  factory state. The first release shows inventory and manual actions only.
-  Housekeeping's own model is a separate future concern.
+- Housekeeping automation beyond the three defined actions: automated
+  recommendations, additional maintenance actions, a precondition graph, or a
+  drift-detection engine for factory state. Housekeeping's own model is a
+  separate future concern.
 - Per-CLI activity extractors and the common activity record format. The
   first release retains structured transcripts; extraction from them is a
   separate concern.
@@ -725,6 +823,10 @@ The `decision_needed` field is unchanged.
 - Self-directed delegation beyond a human-authored `continue` grant.
 - Batch identity tracking across refinement-realization loops.
 - Replacing the internal survey and falsification research routes.
+- Usage record enrichment: adding `workstream_id`, `workstream_origin`, and
+  `skills_invoked` to the usage-record contract, workstream-dimension usage
+  analysis, and capture-hook integration. Addressed in bulk after the
+  activity-graph orchestration is in place.
 
 ## Open Questions
 
@@ -733,63 +835,78 @@ None.
 ## Completion Criteria
 
 - The session menu presents four lanes: Help, Housekeeping, Project Work, and
-  Open Stage. Help routes to tour skills. Housekeeping shows a factory state
-  inventory and available manual actions. Project Work starts or continues a
-  workstream. Open Stage opens freeform conversation.
+  Open Stage. Help routes to tour skills. Housekeeping first shows a read-only
+  About section containing installed Factory version, fitting status,
+  configured CLI integrations, and usage pipeline health. Unreadable values
+  display as `unknown` with their source error. About is followed by exactly
+  three actions: Re-fit reruns all five fitting steps and reports their
+  resulting status; Update Factory runs
+  `.agent-factory/factory/scripts/init-factory --update <project-root> --force`, relays its output and exit status, and refreshes About after
+  success; Update agent context invokes `capture-context --update --scan`.
+  Project Work starts or continues a workstream. Open Stage opens freeform
+  conversation.
+- `capture-context --update --scan` requires an existing
+  `docs/agent-context.md`, reports discovered differences in concerns and
+  `Read:` paths, and waits for confirmation before writing. Unconfirmed content
+  remains unchanged. Confirmed changes are written and
+  `.agent-factory/factory/scripts/concern-lint` passes. When the file is absent,
+  the mode directs the user to `capture-context --init --scan` and performs no
+  write.
 - Every agent definition carries structured `inputs` with `required` and
   `context` subkeys. Required entries reference artifact types, path patterns,
   and conditions. Context entries are plain paths. Neither references stage
   names. Skills carry `inputs.context` only.
 - A precondition evaluator reads `inputs.required` declarations, checks them
-  against the repository, and returns a list of eligible activities with
-  evidence for each satisfied and unsatisfied requirement.
-- After workstream binding in the Project Work lane, the session presents
-  eligible activities instead of route recommendations. A human can select any
-  listed activity.
-- An agent whose required inputs are not fully satisfied can still be selected
-  by a human. The system reports unsatisfied requirements without preventing
-  selection.
+  against the repository, and reports evidence for every agent and every
+  required input, marking each requirement satisfied or unsatisfied. This
+  evidence does not block human selection.
+- After workstream binding in the Project Work lane, the session presents all
+  agents with their requirement evidence. The human can select any agent
+  regardless of which requirements are satisfied.
 - Workstream state files contain `workstream_id`, `topic`, and `origin_ref`.
   They do not contain `cycle`, `attempt`, `delegation`, or `work` fields.
-- Every artifact belonging to a workstream carries a `workstream` frontmatter
-  field referencing a known workstream identifier. A lint check at artifact
-  creation time rejects artifacts missing the field or referencing an unknown
-  identifier.
+- Every graph-addressable artifact in the governed set carries a `scope`
+  declaration with a value of `global` or a known workstream identifier. The
+  governed set is proposals, epics, stories, Gherkin feature files,
+  `architecture.dsl`, `scope-map.md`, and `entity-model.yaml`. A lint check at
+  artifact creation time rejects governed artifacts missing the declaration or
+  carrying an unknown value. Other artifacts do not require `scope`.
 - Structured transcripts are retained at capture time for all four supported
   CLIs (Claude Code, Pi, Copilot, Codex) when transcript retention is `full`.
-- The usage-record contract includes optional `workstream_id`,
-  `workstream_origin`, and `skills_invoked` fields. Capture succeeds with null
-  values when no workstream context exists.
-- Usage analysis groups records by workstream without reading `.current-work`
-  files or relying on stage labels.
 - A `continue: true` delegation grant authorizes automatic execution while
-  exactly one activity is eligible and the previous activity succeeded. Zero or
-  multiple eligible activities pause for human direction.
-- Per-activity retry limits use the same consumed-attempt semantics as the
-  cycle proposal. A human can retry without limit.
-- Workstream state files load, create, and update under
+  exactly one agent has all required inputs satisfied and the previous activity
+  succeeded. Zero or multiple such agents, or a failed activity, pause for
+  human direction.
+- Per-agent retry limits use the same consumed-attempt semantics as the cycle
+  proposal. Agents without `delegated_attempt_limit` cannot be dispatched by
+  delegation. A human can retry any agent without limit.
+- Workstream state files can be created and loaded under
   `.agent-factory/workstreams/`. Fields are `workstream_id`, `topic`, and
-  `origin_ref` only.
+  `origin_ref` only. Attempts to modify an existing state file fail without
+  changing it.
 - Session bindings attach to a workstream, persist delegation grants and
   attempt counters, and tear down cleanly at session end. Path:
   `.agent-factory/workstreams/sessions/<session-id>.yaml`.
 - The `intent` command family (`intent select`, `intent assess`) operates
-  against the activity-graph model. `intent select` lists eligible activities
-  based on precondition evaluation. `intent assess` runs validators and
-  reports results per the shared result format.
+  against the activity-graph model. `intent select` lists all agents with
+  their precondition status (satisfied and unsatisfied requirements).
+  `intent assess` runs validators and reports results per the shared result
+  format.
 - All deterministic checks (CRAP score, dependency check, mutation analysis,
   module graph check) run and write results to `.agent-factory/checks/`.
 - All factory-delivered content lives under `.agent-factory/`. The project root
-  contains only its own files and CLI-specific directories. The installed
-  factory tree is at `.agent-factory/factory/`, project configuration at
-  `.agent-factory/config/`. Neither `factory/` nor `config/` nor
-  `.current-work/` exists at the project root. Workstream state files are under
-  `workstreams/`, session bindings under `workstreams/sessions/`, quality gate
-  results under `checks/`, and usage pipeline state under `usage/` with
-  `records/`, `transcripts/`, `control/`, `runtime/`, `analysis/` subfolders.
-  No script, hook, agent definition, or CLI index references `factory/`,
-  `config/`, `.current-work/`, or the old `.agent-factory/` sub-paths at the
-  project root.
+  contains only its own files, CLI-specific directories, and `.current-work/`
+  as the runtime root for linked worktrees, dispatch ledgers, and verification
+  markers. The installed factory tree is at `.agent-factory/factory/`, project
+  configuration at `.agent-factory/config/`. Neither `factory/` nor `config/`
+  exists at the project root. Workstream state files are under `workstreams/`,
+  session bindings under `workstreams/sessions/`, quality gate results under
+  `checks/`, and usage pipeline state under `usage/` with `records/`,
+  `transcripts/`, `control/`, `runtime/`, `analysis/` subfolders. No script,
+  hook, agent definition, or CLI index references the old `factory/`, `config/`,
+  `.current-work/cycles/`, or `.agent-factory/` sub-paths at the project root.
+  Existing branching, worktree, dispatch-ledger, and verification-marker paths
+  under `.current-work/` remain unchanged.
 - `packages/orchestrator/` does not exist. No documentation, backlog story,
   or CI configuration references the orchestrator. Tests that covered
   still-needed behavior have been migrated to `packages/factory/engine/` or
@@ -1035,12 +1152,12 @@ Disposition: findings (minor only)
 
 ### New findings
 
-| ID      | Severity | Check | Status | Finding                                                                                                                                                                                                                                                                                                                                                                                          |
-| ------- | -------- | ----- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| PROP-09 | minor    | 02    | open   | Scope lists four `intent` commands (`select`, `assess`, `status`, `delegate`) at line 643 but completion criteria at line 742 specify behavior for `select` and `assess` only. The `intent status` output content and the `intent delegate` command interface have no testable endpoint in the proposal. A planner cannot write acceptance tests for these two commands from the criteria alone. |
-| PROP-10 | minor    | 02    | open   | `packages/orchestrator` retirement is in scope (line 675) but has no matching completion criterion. "Retire" is ambiguous without a verifiable endpoint: delete the directory, remove from CI, mark deprecated, or some combination.                                                                                                                                                             |
-| PROP-11 | minor    | 01    | open   | Completion criterion 6 (line 721) contains "Workstream scope is derived from the dependency graph" — a design mechanism description, not a testable assertion. The field-presence checks in the same criterion are testable; this sentence is not.                                                                                                                                               |
-| PROP-12 | minor    | 03    | open   | Design line 196 says the dependency graph comes from "agent and skill definitions" but lines 200-205 exclude skills from the graph and line 209 restricts the computation to "every agent's" declarations. A planner reading line 196 alone would incorrectly include skill outputs in the graph.                                                                                                |
+| ID      | Severity | Check | Status   | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------- | -------- | ----- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-09 | minor    | 02    | resolved | Scope lists four `intent` commands (`select`, `assess`, `status`, `delegate`) at line 643 but completion criteria at line 742 specify behavior for `select` and `assess` only. The `intent status` output content and the `intent delegate` command interface have no testable endpoint in the proposal. A planner cannot write acceptance tests for these two commands from the criteria alone. **Resolution:** Scope and completion criteria now define only intent select and intent assess. |
+| PROP-10 | minor    | 02    | resolved | `packages/orchestrator` retirement is in scope (line 675) but has no matching completion criterion. "Retire" is ambiguous without a verifiable endpoint: delete the directory, remove from CI, mark deprecated, or some combination. **Resolution:** Completion criteria now require deletion of packages/orchestrator, removal of references, and migration of still-needed tests.                                                                                                             |
+| PROP-11 | minor    | 01    | resolved | Completion criterion 6 (line 721) contains "Workstream scope is derived from the dependency graph" — a design mechanism description, not a testable assertion. The field-presence checks in the same criterion are testable; this sentence is not. **Resolution:** The untestable dependency-graph clause was removed from the completion criterion.                                                                                                                                            |
+| PROP-12 | minor    | 03    | resolved | Design line 196 says the dependency graph comes from "agent and skill definitions" but lines 200-205 exclude skills from the graph and line 209 restricts the computation to "every agent's" declarations. A planner reading line 196 alone would incorrectly include skill outputs in the graph. **Resolution:** Design now states that the graph comes from agent definitions only.                                                                                                           |
 
 ### Check results
 
@@ -1058,3 +1175,261 @@ Disposition: findings (minor only)
 ### Summary
 
 All eight checks pass at the major level. Four minor findings remain: two scope-criteria alignment gaps where in-scope commands and a retirement action lack testable completion criteria (PROP-09, PROP-10), one untestable mechanism clause embedded in a completion criterion (PROP-11), and one wording inconsistency between a paragraph and its surrounding context in the Design section (PROP-12). The four prior major findings are verified resolved. The quality-gate rewrite improved prose clarity without introducing structural problems. The proposal is planning-ready; addressing these minor findings would sharpen precision but does not block story decomposition.
+
+## Review — 2026-09-17 (pass 4)
+
+Reviewer: proposal-review-agent
+Reviewed commit: 72f466e33415578a1cd6c14cb170cb73d3b6721e
+Disposition: findings
+
+### Prior findings
+
+| ID      | Severity | Check | Status   | Verification                                                                                                                 |
+| ------- | -------- | ----- | -------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| PROP-09 | minor    | 02    | resolved | Scope and completion criteria now define only `intent select` and `intent assess`.                                           |
+| PROP-10 | minor    | 02    | resolved | Completion criteria require deletion of `packages/orchestrator`, removal of references, and migration of still-needed tests. |
+| PROP-11 | minor    | 01    | resolved | The untestable dependency-graph clause was removed from the completion criterion.                                            |
+| PROP-12 | minor    | 03    | resolved | Design now states that the graph comes from agent definitions only.                                                          |
+
+### Findings
+
+| ID      | Severity | Check | Status   | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------- | -------- | ----- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-13 | major    | 03    | open     | The workstream schema removes `revision`, but the Design keeps revision checks for concurrency control. A revision check has no declared value to compare. Retain a revision value or define the replacement concurrency contract. **Verification:** The direct contradiction was removed, but no replacement concurrency contract is defined. Workstream state remains updateable, and the retained session plumbing permits several sessions to bind to one workstream.                                                                       |
+| PROP-14 | major    | 01    | open     | The Project Work lane presents eligible agents only. The proposal also requires humans to select agents with failed requirements. Define how a human discovers and selects an ineligible agent, then add a matching completion criterion. **Verification:** The precondition-graph and completion sections now show all agents, but the Session Menu section still presents only agents with satisfied preconditions. The intent-select criterion also lists eligible activities only.                                                          |
+| PROP-15 | major    | 03    | resolved | Delegation pauses when an activity requires human judgment, but no declaration or evaluator rule marks such activities. Define that signal and how the dispatcher checks it, or remove this pause condition. **Resolution:** Human judgment is handled inside the invoked agent. Delegation waits because the agent does not complete until the human responds.                                                                                                                                                                                 |
+| PROP-16 | major    | 03    | open     | The retry design says each activity, “agent or skill,” declares `delegated_attempt_limit`. The terminology defines activities as agent invocations and excludes skills from the graph. State which definitions own the limit and specify its schema after `delivery.yaml` is deleted. **Verification:** Agent frontmatter now owns the limit, but its type, allowed range, required/default behavior, and omitted-value semantics remain undefined. Scope and completion criteria also still call the limit per-activity rather than per-agent. |
+| PROP-17 | major    | 02    | resolved | The first release records `skills_invoked`, but capture-time activity extraction is deferred. Pi and Codex have no skill tool in the proposal’s own table. Include the required extraction or instrumentation, or defer `skills_invoked`. **Resolution:** Usage-record enrichment, capture-hook integration, and workstream analysis moved to Explicitly deferred.                                                                                                                                                                              |
+| PROP-18 | major    | 02    | resolved | Design classifies architecture DSL as global, while Scope requires a `workstream` field on “architecture documents.” Define which architecture artifacts are global and which are workstream-scoped. Align the lint rule and completion criteria with that partition. **Resolution:** The proposal now partitions named artifact types into workstream-scoped and global groups and aligns Scope and Completion Criteria with that partition. PROP-21 covers the separate representation defect introduced by the resolution.                   |
+| PROP-19 | major    | 04    | open     | `impact.boundaries` omits affected areas named by Scope: `packages/orchestrator`, the superseded proposal, backlog documents, and CI configuration. Add the concrete tracked boundaries so planning and review inspect the full impact. **Verification:** Boundaries now include packages/orchestrator, the superseded proposal, and backlog. They still omit the documentation tree and CI configuration that Scope requires changing.                                                                                                         |
+| PROP-20 | major    | 03    | open     | Path resolution does not define placeholder expansion, match cardinality, or delegation behavior when several artifacts satisfy one required input. Define those rules so eligibility and unattended execution are deterministic. **Verification:** Placeholder expansion, cardinality, and delegation behavior are now defined. The cardinality rules run after scope filtering but do not state whether condition-failing candidates are removed before counting.                                                                             |
+
+### Check results
+
+| #   | Check                            | Result                                                                                                                      |
+| --- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Completion criteria testable     | Fail — human override has no discoverable interface or complete criterion (PROP-14).                                        |
+| 2   | Scope boundary sharp             | Fail — skill capture and architecture ownership conflict with deferrals and Design (PROP-17, PROP-18).                      |
+| 3   | Design decomposable              | Fail — concurrency, delegation, retry, and path-resolution contracts remain undecided (PROP-13, PROP-15, PROP-16, PROP-20). |
+| 4   | Impact classification consistent | Fail — declared boundaries omit several affected areas (PROP-19).                                                           |
+| 5   | Boundary references exist        | Pass — all ten declared paths resolve at the reviewed commit.                                                               |
+| 6   | Open questions genuine           | Pass — `None` contains no padding, but the findings identify decisions that must move into the proposal.                    |
+| 7   | Motivation justifies timing      | Pass — it identifies prior investment, observed workflow friction, and the cost of further stage-model work.                |
+| 8   | Estimate plausible               | Pass — `unknown` is permitted and more honest than an unsupported range.                                                    |
+
+### Summary
+
+The four prior open findings are resolved. Eight major findings remain. The proposal still needs deterministic contracts for concurrency, manual override, delegation, retries, and path resolution. It must also align skill capture, architecture ownership, and impact boundaries before Planning can decompose it without re-deriving the design.
+
+Handoff: 8 open findings. Address and re-open when ready.
+
+## Review — 2026-09-17 (pass 5)
+
+Reviewer: proposal-review-agent
+Reviewed commit: 0be4b38bf994114ec651d301b95154ccfce4dc69
+Reviewed content: working tree with uncommitted proposal changes
+Disposition: findings
+
+### Prior findings
+
+| ID      | Severity | Check | Status    | Verification                                                                                                                                                                                                                                                                                                                                                                        |
+| ------- | -------- | ----- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-01 | major    | 02    | resolved  | “What just broke?” remains deferred as automated artifact-impact analysis.                                                                                                                                                                                                                                                                                                          |
+| PROP-02 | major    | 02    | resolved  | `.agent-factory/` restructuring remains a separate first-release scope item.                                                                                                                                                                                                                                                                                                        |
+| PROP-03 | major    | 02    | resolved  | Branching-policy and git-hook changes remain explicit in Scope.                                                                                                                                                                                                                                                                                                                     |
+| PROP-04 | major    | 05    | resolved  | `packages/orchestrator` retirement remains explicit and is now a declared boundary.                                                                                                                                                                                                                                                                                                 |
+| PROP-05 | minor    | 03    | resolved  | Validator resolution and the shared result format remain defined.                                                                                                                                                                                                                                                                                                                   |
+| PROP-06 | minor    | 01    | resolved  | The completion criteria still separate state, bindings, commands, and checks.                                                                                                                                                                                                                                                                                                       |
+| PROP-07 | minor    | 02    | resolved  | Research routing still uses the graph without invented origin or return fields.                                                                                                                                                                                                                                                                                                     |
+| PROP-08 | minor    | 08    | no change | Estimate fields remain `unknown`, which policy permits.                                                                                                                                                                                                                                                                                                                             |
+| PROP-09 | minor    | 02    | resolved  | Scope and criteria still define only `intent select` and `intent assess`.                                                                                                                                                                                                                                                                                                           |
+| PROP-10 | minor    | 02    | resolved  | Orchestrator retirement retains a testable completion criterion.                                                                                                                                                                                                                                                                                                                    |
+| PROP-11 | minor    | 01    | resolved  | The untestable mechanism clause remains absent from completion criteria.                                                                                                                                                                                                                                                                                                            |
+| PROP-12 | minor    | 03    | resolved  | The graph still comes from agent definitions only.                                                                                                                                                                                                                                                                                                                                  |
+| PROP-13 | major    | 03    | open      | The direct revision-check contradiction is gone, but replacement concurrency behavior is still undefined. **Verification:** The Design now says the state file is immutable after creation, which removes the need for concurrency control. Completion Criteria still require state files to “load, create, and update.” Remove “update” or define update and concurrency behavior. |
+| PROP-14 | major    | 01    | resolved  | Two sections show all agents, but Session Menu and `intent select` still expose eligible agents only. **Resolution:** Precondition Graph, Session Menu, Scope, Completion Criteria, and intent-select behavior now present all agents with eligible or ineligible status.                                                                                                           |
+| PROP-15 | major    | 03    | resolved  | Human judgment now pauses inside the invoked agent until it completes.                                                                                                                                                                                                                                                                                                              |
+| PROP-16 | major    | 03    | resolved  | Agent frontmatter owns the retry limit, but the field schema and omitted-value behavior remain undefined. **Resolution:** Agent frontmatter owns the integer field with minimum 1. Omission disables delegated dispatch. Scope, storage, reset behavior, and Completion Criteria now use per-agent semantics.                                                                       |
+| PROP-17 | major    | 02    | resolved  | Usage-record enrichment and its capture integration are explicitly deferred.                                                                                                                                                                                                                                                                                                        |
+| PROP-18 | major    | 02    | resolved  | Named artifact types are partitioned into workstream-scoped and global groups.                                                                                                                                                                                                                                                                                                      |
+| PROP-19 | major    | 04    | resolved  | Three boundaries were added, but documentation and CI configuration remain omitted. **Resolution:** Boundaries now include docs, backlog, the superseded proposal, pre-commit configuration, and gitignore. No tracked CI configuration currently references the orchestrator.                                                                                                      |
+| PROP-20 | major    | 03    | resolved  | Expansion and cardinality are defined, but condition filtering is not ordered before cardinality. **Resolution:** Path resolution now orders glob expansion, scope filtering, condition checking, and cardinality. Failed candidates are removed before counting.                                                                                                                   |
+
+### Findings
+
+| ID      | Severity | Check | Status   | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------- | -------- | ----- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-21 | major    | 03    | open     | The proposal requires every artifact to carry `scope` in YAML frontmatter. Structurizr DSL and Gherkin feature files do not support YAML frontmatter, and adding it would break their parsers. Define a valid representation per artifact format, then narrow “every artifact” to an explicit artifact-type list. **Verification:** The proposal now defines valid YAML, Gherkin, and Structurizr representations. It still says “every artifact” and “all artifact types” while naming only seven types; reviews, findings, ADRs, research records, and other artifacts remain mechanically ambiguous. |
+| PROP-22 | minor    | 03    | resolved | Summary and Core Principles say skills declare prerequisites. Design and Scope give skills contextual inputs only and exclude them from the graph. Use one rule throughout: either skills declare prerequisites or they do not. **Resolution:** Summary and Core Principles now state that agents declare prerequisites. Skills carry contextual inputs only and remain outside the graph.                                                                                                                                                                                                              |
+
+### Check results
+
+| #   | Check                            | Result                                                                                                                                                                                                 |
+| --- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Completion criteria testable     | Fail — agent presentation conflicts across criteria and command behavior, while “every artifact” is not enumerable (PROP-14, PROP-21).                                                                 |
+| 2   | Scope boundary sharp             | Fail — documentation and CI impact remain outside declared boundaries, and “every artifact” is broader than the named types (PROP-19, PROP-21).                                                        |
+| 3   | Design decomposable              | Fail — concurrency, retry schema, condition-filter ordering, artifact metadata representation, and skill prerequisites remain undecided or inconsistent (PROP-13, PROP-16, PROP-20, PROP-21, PROP-22). |
+| 4   | Impact classification consistent | Fail — the flags are correct, but declared boundaries still omit affected documentation and CI paths (PROP-19).                                                                                        |
+| 5   | Boundary references exist        | Pass — all twelve declared paths resolve in the reviewed working tree.                                                                                                                                 |
+| 6   | Open questions genuine           | Pass — `None` contains no padding, but the open findings identify decisions that belong in the proposal body.                                                                                          |
+| 7   | Motivation justifies timing      | Pass — it ties the change to observed workflow friction and the window before further stage-model investment.                                                                                          |
+| 8   | Estimate plausible               | Pass — `unknown` remains preferable to an unsupported range.                                                                                                                                           |
+
+### Summary
+
+Three pass-4 findings are resolved. Five remain open, and two new findings were found. Six major findings and one minor finding now block planning. The proposal needs consistent agent presentation, deterministic concurrency and retry contracts, ordered condition filtering, format-valid scope metadata, complete impact boundaries, and one rule for skill prerequisites.
+
+Handoff: 7 open findings. Address and re-open when ready.
+
+## Review — 2026-09-17 (pass 6)
+
+Reviewer: proposal-review-agent
+Reviewed commit: 0be4b38bf994114ec651d301b95154ccfce4dc69
+Reviewed content: working tree with uncommitted proposal changes
+Disposition: findings
+
+### Prior findings
+
+| ID      | Severity | Check | Status    | Verification                                                                                                                                                                                                                                                                                                                   |
+| ------- | -------- | ----- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| PROP-01 | major    | 02    | resolved  | Automated artifact-impact analysis remains deferred.                                                                                                                                                                                                                                                                           |
+| PROP-02 | major    | 02    | resolved  | `.agent-factory/` restructuring remains explicit in Scope.                                                                                                                                                                                                                                                                     |
+| PROP-03 | major    | 02    | resolved  | Branching-policy and hook changes remain explicit in Scope.                                                                                                                                                                                                                                                                    |
+| PROP-04 | major    | 05    | resolved  | Orchestrator retirement remains explicit and bounded.                                                                                                                                                                                                                                                                          |
+| PROP-05 | minor    | 03    | resolved  | Validator resolution and result format remain defined.                                                                                                                                                                                                                                                                         |
+| PROP-06 | minor    | 01    | resolved  | Completion criteria remain separated by capability.                                                                                                                                                                                                                                                                            |
+| PROP-07 | minor    | 02    | resolved  | Research routing remains graph-based without cycle fields.                                                                                                                                                                                                                                                                     |
+| PROP-08 | minor    | 08    | no change | Estimate fields remain `unknown`, as policy permits.                                                                                                                                                                                                                                                                           |
+| PROP-09 | minor    | 02    | resolved  | The command family remains limited to `intent select` and `intent assess`.                                                                                                                                                                                                                                                     |
+| PROP-10 | minor    | 02    | resolved  | Orchestrator retirement retains a testable endpoint.                                                                                                                                                                                                                                                                           |
+| PROP-11 | minor    | 01    | resolved  | The untestable mechanism clause remains absent.                                                                                                                                                                                                                                                                                |
+| PROP-12 | minor    | 03    | resolved  | Only agent definitions form the graph.                                                                                                                                                                                                                                                                                         |
+| PROP-13 | major    | 03    | resolved  | Design declares immutable state, but Completion Criteria still require updates. **Resolution:** Workstream state is immutable after creation. Completion Criteria now allow create and load only and require attempted modification to fail without changing the file.                                                         |
+| PROP-14 | major    | 01    | resolved  | All relevant sections and `intent select` now expose every agent with status.                                                                                                                                                                                                                                                  |
+| PROP-15 | major    | 03    | resolved  | Human judgment remains inside the invoked agent.                                                                                                                                                                                                                                                                               |
+| PROP-16 | major    | 03    | resolved  | Retry field schema, omission behavior, storage, reset, and per-agent semantics are defined.                                                                                                                                                                                                                                    |
+| PROP-17 | major    | 02    | resolved  | Usage enrichment remains explicitly deferred.                                                                                                                                                                                                                                                                                  |
+| PROP-18 | major    | 02    | resolved  | Workstream and global artifact groups remain defined.                                                                                                                                                                                                                                                                          |
+| PROP-19 | major    | 04    | resolved  | Declared boundaries now cover the affected tracked areas.                                                                                                                                                                                                                                                                      |
+| PROP-20 | major    | 03    | resolved  | Condition filtering now occurs before cardinality.                                                                                                                                                                                                                                                                             |
+| PROP-21 | major    | 03    | resolved  | Format-specific scope declarations are valid, but the governed artifact set remains undefined. **Resolution:** The governed set is closed to seven named artifact types. The proposal defines YAML-frontmatter, top-level-YAML, Gherkin-comment, and Structurizr-comment representations; other artifacts need no declaration. |
+| PROP-22 | minor    | 03    | resolved  | Agents declare prerequisites; skills carry context only.                                                                                                                                                                                                                                                                       |
+
+### Findings
+
+| ID      | Severity | Check | Status   | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------- | -------- | ----- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-23 | major    | 03    | resolved | Scope eliminates `.current-work/` and updates worktree enforcement to the new layout, but the unified layout defines no worktree directory. Specify the exact worktree root plus the new ledger and verification-marker paths. **Resolution:** `.current-work/` remains the runtime root for linked worktrees, dispatch ledgers, and verification markers. Existing branching and safety path contracts remain unchanged.                                                              |
+| PROP-24 | major    | 01    | resolved | Housekeeping must list “available manual actions,” but Design, Scope, and Completion Criteria never enumerate them. Define the first-release action list and observable output, or limit Housekeeping to inventory display. **Resolution:** Housekeeping now defines a read-only About section and exactly three actions: Re-fit, Update Factory, and Update agent context. Scope and Completion Criteria define their commands, outputs, confirmation behavior, and failure behavior. |
+
+### Check results
+
+| #   | Check                            | Result                                                                                                                                             |
+| --- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Completion criteria testable     | Fail — state updates conflict with Design, the artifact set is not enumerable, and Housekeeping actions are undefined (PROP-13, PROP-21, PROP-24). |
+| 2   | Scope boundary sharp             | Fail — “all artifact types” has no closed list, and Housekeeping’s action surface is unspecified (PROP-21, PROP-24).                               |
+| 3   | Design decomposable              | Fail — workstream updates and the replacement worktree layout remain undefined (PROP-13, PROP-23).                                                 |
+| 4   | Impact classification consistent | Pass — cross-component reach and both change flags match the Design; boundaries cover affected tracked areas.                                      |
+| 5   | Boundary references exist        | Pass — all fifteen declared paths resolve in the reviewed working tree.                                                                            |
+| 6   | Open questions genuine           | Pass — `None` contains no padding, but the open findings identify decisions that must move into the body.                                          |
+| 7   | Motivation justifies timing      | Pass — observed workflow friction and the window before further stage-model investment justify timing.                                             |
+| 8   | Estimate plausible               | Pass — `unknown` remains preferable to an unsupported range.                                                                                       |
+
+### Summary
+
+Five pass-5 findings are resolved. Two remain open, and two new major findings were found. Four major findings block planning: state mutability, the governed artifact set, the replacement worktree layout, and Housekeeping’s manual-action contract.
+
+Handoff: 4 open findings. Address and re-open when ready.
+
+## Review — 2026-09-17 (pass 7)
+
+Reviewer: proposal-review-agent
+Reviewed commit: 0be4b38bf994114ec651d301b95154ccfce4dc69
+Reviewed content: working tree with uncommitted proposal changes
+Disposition: findings
+
+### Prior findings
+
+| ID      | Severity | Check | Status    | Verification                                                              |
+| ------- | -------- | ----- | --------- | ------------------------------------------------------------------------- |
+| PROP-01 | major    | 02    | resolved  | Automated artifact-impact analysis remains deferred.                      |
+| PROP-02 | major    | 02    | resolved  | `.agent-factory/` restructuring remains explicit in Scope.                |
+| PROP-03 | major    | 02    | resolved  | Branching and hook behavior remains explicit.                             |
+| PROP-04 | major    | 05    | resolved  | Orchestrator retirement remains explicit and bounded.                     |
+| PROP-05 | minor    | 03    | resolved  | Validator resolution and result format remain defined.                    |
+| PROP-06 | minor    | 01    | resolved  | Completion criteria remain separated by capability.                       |
+| PROP-07 | minor    | 02    | resolved  | Research routing remains graph-based without cycle fields.                |
+| PROP-08 | minor    | 08    | no change | Estimate fields remain `unknown`, as policy permits.                      |
+| PROP-09 | minor    | 02    | resolved  | The command family remains limited to two commands.                       |
+| PROP-10 | minor    | 02    | resolved  | Orchestrator retirement retains a testable endpoint.                      |
+| PROP-11 | minor    | 01    | resolved  | The untestable mechanism clause remains absent.                           |
+| PROP-12 | minor    | 03    | resolved  | Only agent definitions form the graph.                                    |
+| PROP-13 | major    | 03    | resolved  | State is immutable; create, load, and rejected modification are testable. |
+| PROP-14 | major    | 01    | resolved  | Every agent remains visible with its precondition status.                 |
+| PROP-15 | major    | 03    | resolved  | Human judgment remains inside the invoked agent.                          |
+| PROP-16 | major    | 03    | resolved  | Retry schema and per-agent semantics remain defined.                      |
+| PROP-17 | major    | 02    | resolved  | Usage enrichment remains explicitly deferred.                             |
+| PROP-18 | major    | 02    | resolved  | Workstream and global artifact groups remain defined.                     |
+| PROP-19 | major    | 04    | resolved  | Declared boundaries cover affected tracked areas.                         |
+| PROP-20 | major    | 03    | resolved  | Condition filtering occurs before cardinality.                            |
+| PROP-21 | major    | 03    | resolved  | Seven governed types and their representations are explicit.              |
+| PROP-22 | minor    | 03    | resolved  | Agents declare prerequisites; skills carry context only.                  |
+| PROP-23 | major    | 03    | resolved  | `.current-work/` retains all existing runtime path contracts.             |
+| PROP-24 | major    | 01    | resolved  | Housekeeping exposes one defined inventory and three defined actions.     |
+
+### Findings
+
+| ID      | Severity | Check | Status | Finding                                                                                                                                                                                                                                                                                                                                            |
+| ------- | -------- | ----- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-25 | major    | 01    | open   | The evaluator criterion returns “a list of eligible activities” with evidence for satisfied and unsatisfied requirements. Eligible activities cannot have unsatisfied requirements, while the menu requires every agent’s status. Define one result shape that covers all evaluated agents or separate eligible results from rejected evaluations. |
+| PROP-26 | major    | 03    | open   | Folder consolidation removes the top-level `factory/` directory, but runtime design and criteria still invoke `factory/scripts/init-factory`, `factory/scripts/concern-lint`, resolve validators under `factory/scripts/`, and install the engine to `factory/engine/`. Update these to `.agent-factory/factory/...` or define retained shims.     |
+
+### Check results
+
+| #   | Check                            | Result                                                                                                                                     |
+| --- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Completion criteria testable     | Fail — the evaluator result is internally contradictory, and Housekeeping invokes paths that the same proposal removes (PROP-25, PROP-26). |
+| 2   | Scope boundary sharp             | Pass — first-release and deferred lists now partition the work, including the closed artifact set and Housekeeping actions.                |
+| 3   | Design decomposable              | Fail — Planning must still invent the evaluator result contract and installed runtime paths (PROP-25, PROP-26).                            |
+| 4   | Impact classification consistent | Pass — cross-component reach and both change flags match the Design; boundaries cover affected tracked areas.                              |
+| 5   | Boundary references exist        | Pass — all fifteen declared paths resolve in the reviewed working tree.                                                                    |
+| 6   | Open questions genuine           | Pass — `None` contains no padding, but the two open findings identify decisions that belong in the body.                                   |
+| 7   | Motivation justifies timing      | Pass — observed workflow friction and the window before further stage-model investment justify timing.                                     |
+| 8   | Estimate plausible               | Pass — `unknown` remains preferable to an unsupported range.                                                                               |
+
+### Summary
+
+All four pass-6 findings are resolved. Two new major findings block planning: the evaluator needs one coherent result contract, and runtime commands must use paths that survive folder consolidation.
+
+Handoff: 2 open findings. Address and re-open when ready.
+
+## Review — 2026-09-18 (pass 8)
+
+Reviewer: proposal-review-agent
+Reviewed commit: 4949e0d92300b755cb9800eda82322a895dad8eb
+Reviewed content: working tree with uncommitted proposal changes
+Disposition: clean
+
+### Prior findings
+
+| ID      | Severity | Check | Status   | Verification                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------- | -------- | ----- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-25 | major    | 01    | resolved | The evaluator criterion now reads "reports evidence for every agent and every required input, marking each requirement satisfied or unsatisfied." The `intent select` criterion says "lists all agents with their precondition status." The session menu and precondition graph sections present "all agents." "Eligible activities" no longer appears in any criterion — only in delegation context and the engine disposition table. |
+| PROP-26 | major    | 03    | resolved | Every runtime path in Design, Scope, and Completion Criteria now uses `.agent-factory/factory/...` prefixes. The sole bare `factory/` reference is the intentional bootstrap exception describing the pre-migration entry point. `packages/factory/` references are to tracked source code, not the installed runtime.                                                                                                                 |
+
+### Check results
+
+| #   | Check                            | Result                                                                                                                                                                                                                                   |
+| --- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Completion criteria testable     | Pass — every criterion specifies observable, verifiable conditions without requiring authorial interpretation.                                                                                                                           |
+| 2   | Scope boundary sharp             | Pass — in-scope and deferred lists partition the space; the governed artifact set is closed to seven named types; Housekeeping actions are enumerated.                                                                                   |
+| 3   | Design decomposable              | Pass — input format, condition types, path resolution, delegation, retry limits, transcript retention, session menu, folder consolidation, and engine disposition are all specified to a level that supports INVEST story decomposition. |
+| 4   | Impact classification consistent | Pass — cross-component scope, both change flags, and fifteen boundary paths match the Design's reach.                                                                                                                                    |
+| 5   | Boundary references exist        | Pass — all fifteen declared paths resolve in the reviewed working tree.                                                                                                                                                                  |
+| 6   | Open questions genuine           | Pass — "None" is appropriate after eight review passes resolving twenty-six findings.                                                                                                                                                    |
+| 7   | Motivation justifies timing      | Pass — observed workflow friction, the wrong unit of work in the stage model, and the window before further investment justify acting now.                                                                                               |
+| 8   | Estimate plausible               | Pass — `unknown` remains preferable to an unsupported range given the scope.                                                                                                                                                             |
+
+### Summary
+
+Both pass-7 findings are resolved. All eight checks pass. No new findings. The proposal is planning-ready: a planning agent can decompose it into stories without re-deriving the design. The twenty-six findings accumulated across eight review passes are all resolved or accepted.
