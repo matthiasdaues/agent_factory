@@ -38,15 +38,17 @@ The Project Work lane handles workstream creation and continuation.
 
 Ask the user for a topic description. If the user names an existing proposal under `docs/proposals/`, record it as the origin reference.
 
-Create a workstream and bind the session. The session is now bound to that workstream.
+Create a workstream state file using the workstream engine (`engine/workstream.py`). Create a session binding (`engine/session_binding.py`). The session is now bound to that workstream.
+
+Run `factory/scripts/intent select --workstream <workstream-id>` to present all agents with their precondition evidence. The developer selects an agent from the list.
 
 If the user wants to do something that does not fit a workstream (a quick question, a tour, research), redirect to lane O or the appropriate menu item instead of creating a workstream.
 
 ### Continue an existing workstream
 
-List existing workstreams. If workstreams exist, present a numbered list showing each workstream's topic. Ask the user to select one by number or name.
+List existing workstreams by scanning `.agent-factory/workstreams/`. If workstreams exist, present a numbered list showing each workstream's topic. Ask the user to select one by number or name.
 
-On selection, bind the session to that workstream and assess precondition status. Present the results to the user.
+On selection, create a session binding. Then run `factory/scripts/intent select --workstream <workstream-id>` to present all agents with their precondition evidence. The developer selects an agent from the list.
 
 If no workstreams exist, tell the user and offer to start a new workstream or return to the main menu. Never select a workstream automatically.
 
