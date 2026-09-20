@@ -1,3 +1,7 @@
+---
+scope: global
+---
+
 # Cycle-Based Orchestration EPICs
 
 This plan implements the approved seven-EPIC decomposition for
@@ -391,7 +395,7 @@ Users can decide some routes before unattended work begins. Delegation must
 follow recorded human authority and pause at each defined boundary.
 
 Grant management uses the `cycle grant` CLI command defined in the
-[interface contracts](../docs/spec/supplementary_specs/interface-contracts.md#factoryscriptscycle-grant).
+interface contracts § cycle-grant (section removed).
 
 ### Actor Goals
 
