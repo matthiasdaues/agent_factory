@@ -67,11 +67,10 @@ This installs a local `factory/` copy (gitignored) so the repo uses its own tool
 
 This is a monorepo. Each product has its own documentation.
 
-| Product                                                     | What it does                             | Status           |
-| ----------------------------------------------------------- | ---------------------------------------- | ---------------- |
-| [`packages/factory/`](packages/factory/README.md)           | The installable toolset. Start here.     | Usable           |
-| [`packages/usage/`](packages/usage/)                        | Local usage processing and analysis.     | Usable           |
-| [`packages/orchestrator/`](packages/orchestrator/README.md) | CLI for driving playbooks automatically. | Work in progress |
+| Product                                           | What it does                         | Status |
+| ------------------------------------------------- | ------------------------------------ | ------ |
+| [`packages/factory/`](packages/factory/README.md) | The installable toolset. Start here. | Usable |
+| [`packages/usage/`](packages/usage/)              | Local usage processing and analysis. | Usable |
 
 ## Repository internals
 
