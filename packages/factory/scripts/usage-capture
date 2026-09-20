@@ -266,7 +266,38 @@ class UsageStoragePaths:
                     pass
                 raise OSError(f"unsafe transcript target: {path}")
             os.fchmod(fd, _FILE_MODE)
-            return TranscriptReservation(candidate, path, fd)
+            # Reserve structured JSONL alongside text rendering
+            structured = path.parent / f"{filesystem_key(candidate)}.structured.jsonl"
+            structured_fd = -1
+            try:
+                structured_fd = os.open(structured, flags, _FILE_MODE)
+                s_opened = os.fstat(structured_fd)
+                if not stat.S_ISREG(s_opened.st_mode) or s_opened.st_nlink != 1:
+                    os.close(structured_fd)
+                    try:
+                        structured.unlink()
+                    except OSError:
+                        pass
+                    raise OSError(f"unsafe structured transcript target: {structured}")
+                os.fchmod(structured_fd, _FILE_MODE)
+            except Exception:
+                os.close(fd)
+                try:
+                    path.unlink()
+                except OSError:
+                    pass
+                if structured_fd >= 0:
+                    os.close(structured_fd)
+                    try:
+                        structured.unlink()
+                    except OSError:
+                        pass
+                raise
+            return TranscriptReservation(
+                candidate, path, fd,
+                structured_path=structured,
+                structured_fd=structured_fd,
+            )
 
 
 @dataclass
@@ -276,6 +307,8 @@ class TranscriptReservation:
     record_id: str
     path: Path
     fd: int
+    structured_path: Optional[Path] = None
+    structured_fd: int = -1
 
     def discard(self) -> None:
         if self.fd >= 0:
@@ -285,6 +318,14 @@ class TranscriptReservation:
             self.path.unlink()
         except OSError:
             pass
+        if self.structured_fd >= 0:
+            os.close(self.structured_fd)
+            self.structured_fd = -1
+        if self.structured_path is not None:
+            try:
+                self.structured_path.unlink()
+            except OSError:
+                pass
 
 
 def supports_owner_only_permissions() -> bool:
@@ -636,10 +677,13 @@ class JsonlLoggingAdapter:
         usage_record: "UsageRecord",
         transcript_text: str,
         reservation: TranscriptReservation,
+        source_transcript: Optional[Path] = None,
     ) -> bool:
         """Persist a capture using the transcript it atomically reserved."""
         try:
-            self._write_reserved(usage_record, transcript_text, reservation)
+            self._write_reserved(
+                usage_record, transcript_text, reservation, source_transcript
+            )
             return True
         except Exception as exc:  # best-effort: never raise into the caller
             print(
@@ -654,11 +698,50 @@ class JsonlLoggingAdapter:
         usage_record: "UsageRecord",
         transcript_text: str,
         reservation: TranscriptReservation,
+        source_transcript: Optional[Path] = None,
     ) -> None:
         session_id = usage_record.session_id or "unknown"
         try:
             if self._retention == "full":
                 _write_all(reservation.fd, transcript_text.encode("utf-8"))
+                # Write verbatim byte-level copy of source transcript
+                if (
+                    source_transcript is not None
+                    and reservation.structured_fd >= 0
+                    and reservation.structured_path is not None
+                ):
+                    try:
+                        self._storage._require_regular_if_present(
+                            Path(source_transcript)
+                        )
+                        source_flags = (
+                            os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+                        )
+                        src_fd = os.open(source_transcript, source_flags)
+                        try:
+                            raw = b""
+                            while True:
+                                chunk = os.read(src_fd, 65536)
+                                if not chunk:
+                                    break
+                                raw += chunk
+                        finally:
+                            os.close(src_fd)
+                        _write_all(reservation.structured_fd, raw)
+                    except Exception as exc:
+                        print(
+                            "usage-capture: structured JSONL copy failed: "
+                            f"{exc}",
+                            file=sys.stderr,
+                        )
+            if reservation.structured_fd >= 0:
+                os.close(reservation.structured_fd)
+                reservation.structured_fd = -1
+            if self._retention == "omit" and reservation.structured_path is not None:
+                try:
+                    reservation.structured_path.unlink()
+                except OSError:
+                    pass
             os.close(reservation.fd)
             reservation.fd = -1
             usage_record.transcript_ref = TranscriptRef(
@@ -1603,6 +1686,7 @@ def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> bool
                 record,
                 transcript.text,
                 reservation,
+                source_transcript=Path(args.transcript),
             )
     return False
 
