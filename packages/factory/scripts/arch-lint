@@ -255,8 +255,9 @@ def check_staleness(rep: Report, dsl_path: Path, images: list[Path]) -> None:
         needs_export = True
     else:
         dsl_mtime = dsl_path.stat().st_mtime
-        stale = [p for p in images if p.stat().st_mtime < dsl_mtime]
-        if stale:
+        newest_svg_mtime = max(p.stat().st_mtime for p in images)
+        if dsl_mtime > newest_svg_mtime:
+            stale = [p for p in images if p.stat().st_mtime < dsl_mtime]
             names = ", ".join(sorted(p.name for p in stale))
             rep.info(
                 "ARCH-STALE",
