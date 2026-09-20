@@ -129,7 +129,7 @@ function trustedInheritedRoot(
   if (derived && candidate !== derived) return undefined;
   if (!derived && candidate !== cwd) return undefined;
   if (!existsSync(join(candidate, ".agent-factory", "factory-install.json"))) return undefined;
-  if (!existsSync(join(candidate, "factory", "scripts", "usage-capture"))) return undefined;
+  if (!existsSync(join(candidate, ".agent-factory", "factory", "scripts", "usage-capture"))) return undefined;
   return candidate;
 }
 
@@ -142,7 +142,7 @@ function gitPrimaryRoot(cwd: string): string | undefined {
     ).trim();
     if (!common || !isAbsolute(common)) return undefined;
     const root = canonical(dirname(common));
-    return existsSync(join(root, "factory", "scripts", "usage-capture")) ? root : undefined;
+    return existsSync(join(root, ".agent-factory", "factory", "scripts", "usage-capture")) ? root : undefined;
   } catch {
     return undefined;
   }

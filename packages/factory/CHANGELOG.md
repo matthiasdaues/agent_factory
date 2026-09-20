@@ -2,15 +2,61 @@
 
 ## Unreleased
 
-Local usage processing and analysis: full implementation of all twelve
-stories (ST-0240 through ST-0251), delivering the `packages/usage`
-Python package from contract to interactive explorer. Agent and skill
-inventory consolidated after audit. Usage package hardened with
-post-implementation fixes, a live-watch explorer mode, and a CRAP score
-reduction pass.
+Activity graph orchestration: full implementation of all seventeen
+stories (ST-0262 through ST-0278), delivering precondition evaluation,
+fence-based validation, intent routing, workstream management, and a
+restructured session menu. Factory layout consolidated under
+`.agent-factory/`. Local usage processing and analysis: full
+implementation of all twelve stories (ST-0240 through ST-0251),
+delivering the `packages/usage` Python package from contract to
+interactive explorer. Agent and skill inventory consolidated after
+audit. Cycle-based orchestration proposal superseded by the activity
+graph.
 
 ### Features
 
+- **Activity graph orchestration — implementation complete.** All
+  seventeen stories implemented end to end:
+  - **Structured agent/skill declarations (ST-0262).** Flat
+    inputs/outputs lists replaced with typed precondition objects
+    (`inputs.required`, `inputs.context`, `outputs.declarations`)
+    across all 17 agent definitions. Index-lint rewritten for the new
+    format.
+  - **Precondition evaluator (ST-0263).** Eligibility rewritten as a
+    precondition evaluator that checks typed conditions against project
+    state.
+  - **Intent select command (ST-0264).** Presents all agents with
+    their precondition evidence for developer selection in the Project
+    Work lane.
+  - **Behavioral verification tests (ST-0265).** Test suite validating
+    activity-graph model behavior.
+  - **Fence runner (ST-0266).** Output validation with evidence
+    storage for activity-graph assertions.
+  - **Intent assess subcommand (ST-0267).** Artifact validation
+    through the intent command.
+  - **Session menu restructured (ST-0268).** From 5-option (A–E) to
+    4-lane layout (H, K, P, O).
+  - **Workstream state v2 and session binding (ST-0269).** Workstream
+    lifecycle and session-to-workstream binding modules.
+  - **Project Work lane (ST-0270).** Workstream creation and
+    continuation wired into the session menu.
+  - **Housekeeping about section (ST-0271).** Factory state display
+    with re-fit and update actions.
+  - **Capture-context update and scan mode (ST-0272).** Extends
+    `capture-context` with `--update --scan` for refreshing an
+    existing `docs/agent-context.md`.
+  - **Scope-lint script (ST-0273).** Deterministic scope validation
+    for governed artifacts.
+  - **Scope declarations (ST-0274).** Scope frontmatter added to
+    governed artifacts with scope filtering in lint and dispatch.
+  - **Factory layout consolidation (ST-0275).** `factory/` moved
+    under `.agent-factory/factory/`, all internal references updated.
+  - **Orchestrator retired (ST-0276).** `packages/orchestrator`
+    removed; needed tests migrated to `packages/factory`.
+  - **Cycle proposal superseded (ST-0277).** Cycle-based orchestration
+    proposal superseded with characterization tests added.
+  - **Structured JSONL retained (ST-0278).** Structured JSONL
+    preserved alongside text rendering.
 - **Local usage processing and analysis — implementation complete.** All
   twelve stories implemented end to end:
   - **Usage-record contract and package scaffold (ST-0240).** Canonical
@@ -44,9 +90,6 @@ reduction pass.
 - **Usage explorer live-watch mode.** `usage-explore` gains a
   file-watching mode that auto-refreshes the DuckDB view when JSONL
   source files change.
-- **Convenience wrappers.** `usage-query` and `usage-explore` scripts at
-  the project root for direct invocation without navigating to the
-  package directory.
 - **Agent and skill inventory cleanup.** Shared conventions extracted
   into reusable reference files. Overlapping agents and skills
   consolidated. Native-knowledge overlap trimmed with flipped-default
@@ -57,6 +100,16 @@ reduction pass.
 
 ### Fixes
 
+- **Broken links after layout migration.** All `factory/` references
+  updated to `.agent-factory/factory/` across rulebooks, templates, poc,
+  and findings.
+- **arch-lint SVG diagrams.** Regenerated after link migration.
+- **arch-lint conditional export.** Exports only when DSL is newer than
+  the youngest SVG, avoiding unnecessary regeneration.
+- **File-modifying hooks restricted to commit stage.** Hooks that
+  rewrite files no longer fire on non-commit tool calls.
+- **Invalid YAML frontmatter.** Fixed malformed frontmatter in governed
+  artifacts.
 - **ROOT_COUNT per connected component.** Conservation check now
   validates ROOT_COUNT within each connected component rather than
   globally per CLI.
@@ -76,9 +129,21 @@ reduction pass.
 - **Usage submodule rename.** `canonical_` prefix removed from module
   names. CRAP scores reduced across usage submodules. Unit test coverage
   added.
+- **Root convenience scripts removed.** `usage-query` and
+  `usage-explore` wrappers removed from the project root.
 
 ### Documentation
 
+- **Activity graph orchestration — full lifecycle.** Proposal accepted,
+  specification derived, architecture extended, backlog planned (7
+  EPICs, 17 stories), all stories implemented and merged.
+- **Cycle-based orchestration — superseded.** Proposal accepted,
+  specification derived, architecture added, ATAM findings resolved
+  (ATAM-0003 through ATAM-0009), four spec-review findings resolved
+  (SPEC-0023 through SPEC-0026). Stories rejected; proposal superseded
+  by the activity graph.
+- **Opencode integration research.** Exploration of OpenCode as a
+  fifth CLI integration.
 - Specification reconciled after ST-0241 implementation.
 - QA strategy updated: LU-03-CT-01 state moved to available.
 - ST-0243, ST-0244, ST-0245 marked done.

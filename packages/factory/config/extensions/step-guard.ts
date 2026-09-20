@@ -54,7 +54,7 @@ function projectScript(cwd: string) {
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
-    return join(root, "factory", "scripts", "step-guard");
+    return join(root, ".agent-factory", "factory", "scripts", "step-guard");
   } catch {
     return null;
   }

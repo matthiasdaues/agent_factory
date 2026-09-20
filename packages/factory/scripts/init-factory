@@ -1083,12 +1083,25 @@ def _orientation_dest(dot_dir: str, factory: Path) -> Path:
 
 
 def _is_factory_orientation_link(link: Path, factory: Path) -> bool:
-    """True if link points to any factory orientation file (generic or CLI-specific)."""
-    current = (link.parent / os.readlink(link)).resolve()
+    """True if link points to any factory orientation file (generic or CLI-specific).
+
+    Handles dangling symlinks from the pre-migration ``factory/config/`` layout
+    by matching the raw readlink target when resolve() yields a non-existent path.
+    """
+    raw = os.readlink(link)
+    current = (link.parent / raw).resolve()
     config = (factory / "config").resolve()
-    if not str(current).startswith(str(config)):
-        return False
-    return current.name == "AGENTS.md" or current.name.startswith("AGENTS.")
+    if str(current).startswith(str(config)):
+        return current.name == "AGENTS.md" or current.name.startswith("AGENTS.")
+    raw_posix = Path(raw).as_posix()
+    if re.match(r"(\.?/)?factory/config/AGENTS(\..+)?\.md$", raw_posix):
+        return True
+    return False
+
+
+def _shared_orientation_path(rel: str) -> bool:
+    """True when more than one CLI maps to the same orientation file path."""
+    return sum(1 for v in ORIENTATION_FILE.values() if v == rel) > 1
 
 
 def _link_orientation(
@@ -1096,7 +1109,15 @@ def _link_orientation(
 ) -> None:
     rel = ORIENTATION_FILE[dot_dir]
     link = target / rel
-    dest = _orientation_dest(dot_dir, factory)
+
+    # When multiple CLIs share the same link path (e.g. Pi and Codex both use
+    # AGENTS.md), point the shared link to the generic routing file instead of
+    # a CLI-specific orientation. The generic file tells each CLI to read its
+    # own orientation from .agent-factory/factory/config/AGENTS.<cli>.md.
+    if _shared_orientation_path(rel):
+        dest = factory / "config" / "AGENTS.md"
+    else:
+        dest = _orientation_dest(dot_dir, factory)
 
     if link.is_symlink():
         if _is_factory_orientation_link(link, factory):
@@ -3898,7 +3919,7 @@ def do_remove(target: Path, remove_args: list[str] | None) -> int:
             kept_paths.append(rel)
             shared_paths.append(rel)
 
-    # AGENTS.md is shared between pi and codex
+    # AGENTS.md is shared between pi and codex (as a generic router)
     agents_md_owners = {"pi", "codex"}
     agents_md_remaining = agents_md_owners - set(chosen)
     remaining_set = set(remaining)

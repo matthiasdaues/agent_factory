@@ -51,7 +51,7 @@ export default function (pi: ExtensionAPI) {
     name: "run_agent",
     label: "Run factory agent",
     description:
-      "Run a factory agent (factory/agents/<agent>.md) in a separate, throwaway `pi` " +
+      "Run a factory agent (.agent-factory/factory/agents/<agent>.md) in a separate, throwaway `pi` " +
       "session and return its result. Use this instead of reading an agent file and " +
       "role-playing it in the current session: the separate session preserves " +
       "author/reviewer independence (the reviewer never sees the author's reasoning). " +
@@ -63,7 +63,7 @@ export default function (pi: ExtensionAPI) {
     ],
     parameters: Type.Object({
       agent: Type.String({
-        description: "Agent name, e.g. 'spec-review-agent' (resolves factory/agents/<agent>.md).",
+        description: "Agent name, e.g. 'spec-review-agent' (resolves .agent-factory/factory/agents/<agent>.md).",
       }),
       task: Type.String({
         description: "The task or prompt to hand the agent as its first and only message.",
@@ -76,11 +76,11 @@ export default function (pi: ExtensionAPI) {
     }),
     async execute(_toolCallId, params, signal, onUpdate, ctx) {
       const cwd = (ctx as { cwd: string }).cwd;
-      const agentFile = join(cwd, "factory", "agents", `${params.agent}.md`);
+      const agentFile = join(cwd, ".agent-factory", "factory", "agents", `${params.agent}.md`);
       if (!existsSync(agentFile)) {
         return errorResult(
           params.agent,
-          `agent file not found: factory/agents/${params.agent}.md`,
+          `agent file not found: .agent-factory/factory/agents/${params.agent}.md`,
         );
       }
 
@@ -219,7 +219,7 @@ export function childTask(task: string): string {
     `${task}\n\nBefore returning, persist the complete result in canonical Git-tracked ` +
     "report and finding artifacts. Your final assistant message must be exactly one JSON object " +
     "with only `disposition`, `finding_counts`, `artifact_paths`, and `next_action`, as defined " +
-    "by factory/rulebooks/conventions/report-format.md; include no Markdown fence or other prose."
+    "by .agent-factory/factory/rulebooks/conventions/report-format.md; include no Markdown fence or other prose."
   );
 }
 
@@ -423,7 +423,7 @@ function hasOneToThreeSentences(value: string): boolean {
 
 /** Shell the shared Python tier resolver. Returns {model} or {error}. */
 function resolveModel(cwd: string, agent: string): { model?: string; error?: string } {
-  const script = join(cwd, "factory", "scripts", "resolve-model");
+  const script = join(cwd, ".agent-factory", "factory", "scripts", "resolve-model");
   try {
     const out = execFileSync(
       script,
@@ -433,9 +433,9 @@ function resolveModel(cwd: string, agent: string): { model?: string; error?: str
         "--cli",
         "pi",
         "--model-conf",
-        join(cwd, "config", "model.conf"),
+        join(cwd, ".agent-factory", "config", "model.conf"),
         "--agents-dir",
-        join(cwd, "factory", "agents"),
+        join(cwd, ".agent-factory", "factory", "agents"),
       ],
       { cwd, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] },
     );

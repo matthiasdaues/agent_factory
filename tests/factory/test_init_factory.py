@@ -1513,6 +1513,10 @@ class TestConcernModelMigration:
         (factory / "config" / "AGENTS.md").write_text(
             agents_md.read_text(encoding="utf-8")
         )
+        copilot_md = agents_md.with_name("AGENTS.copilot.md")
+        (factory / "config" / "AGENTS.copilot.md").write_text(
+            copilot_md.read_text(encoding="utf-8")
+        )
         block = inf._orientation_block(".github", factory)
         assert "](.agent-factory/factory/config/session-menu.md)" in block
         assert "](session-menu.md)" not in block
