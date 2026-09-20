@@ -1,0 +1,201 @@
+#!/usr/bin/env python3
+"""migrate-layout — migrate a pre-ST-0275 factory install to the consolidated layout.
+
+Old layout (pre-0.13):
+    factory/                          → installed factory copy
+    .agent-factory/factory-install.json
+    .agent-factory/factory-checksums.json
+    .agent-factory/factory-user-changes/
+    .agent-factory/usage-runtime/
+    .agent-factory/usage-control/
+    .agent-factory/usage-analysis/
+    config/project-context.json
+    config/project.json
+    config/model.conf
+
+New layout (0.13+):
+    .agent-factory/factory/           → installed factory copy
+    .agent-factory/install.json
+    .agent-factory/checksums.json
+    .agent-factory/user-changes/
+    .agent-factory/usage/runtime/
+    .agent-factory/usage/control/
+    .agent-factory/usage/analysis/
+    .agent-factory/config/project-context.json
+    .agent-factory/config/project.json
+    .agent-factory/config/model.conf
+
+Usage:
+    packages/factory/scripts/migrate-layout [--dry-run] [TARGET]
+
+TARGET defaults to the current directory.
+--dry-run shows what would happen without making changes.
+
+After migration, run:
+    packages/factory/scripts/init-factory --update TARGET --force
+to rewire symlinks and update the manifest.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import shutil
+import sys
+from pathlib import Path
+
+MOVES: list[tuple[str, str]] = [
+    # (old_path, new_path) — relative to target root
+    ("factory", ".agent-factory/factory"),
+    (".agent-factory/factory-install.json", ".agent-factory/install.json"),
+    (".agent-factory/factory-checksums.json", ".agent-factory/checksums.json"),
+    (".agent-factory/factory-user-changes", ".agent-factory/user-changes"),
+    (".agent-factory/usage-runtime", ".agent-factory/usage/runtime"),
+    (".agent-factory/usage-control", ".agent-factory/usage/control"),
+    (".agent-factory/usage-analysis", ".agent-factory/usage/analysis"),
+    ("config/project-context.json", ".agent-factory/config/project-context.json"),
+    ("config/project.json", ".agent-factory/config/project.json"),
+    ("config/model.conf", ".agent-factory/config/model.conf"),
+]
+
+MANIFEST_REWRITES: dict[str, str] = {
+    "factory": ".agent-factory/factory",
+    "config/project-context.json": ".agent-factory/config/project-context.json",
+    "config/project.json": ".agent-factory/config/project.json",
+    "config/model.conf": ".agent-factory/config/model.conf",
+}
+
+
+def log(msg: str, *, dry: bool = False) -> None:
+    prefix = "[DRY RUN] " if dry else ""
+    print(f"  {prefix}{msg}")
+
+
+def move_path(target: Path, old: str, new: str, *, dry: bool) -> bool:
+    src = target / old
+    dst = target / new
+
+    if not src.exists():
+        return False
+
+    if dst.exists():
+        log(f"SKIP {old} → {new}  (destination already exists)", dry=dry)
+        return False
+
+    log(f"MOVE {old} → {new}", dry=dry)
+    if not dry:
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        src.rename(dst)
+    return True
+
+
+def rewrite_manifest(target: Path, *, dry: bool) -> None:
+    new_path = target / ".agent-factory" / "install.json"
+    if not new_path.exists():
+        log("SKIP manifest rewrite (install.json not found)", dry=dry)
+        return
+
+    data = json.loads(new_path.read_text(encoding="utf-8"))
+    changed = False
+
+    remove_paths = data.get("remove_paths", [])
+    for i, p in enumerate(remove_paths):
+        if p in MANIFEST_REWRITES:
+            log(f"MANIFEST remove_paths: {p} → {MANIFEST_REWRITES[p]}", dry=dry)
+            remove_paths[i] = MANIFEST_REWRITES[p]
+            changed = True
+
+    if changed and not dry:
+        new_path.write_text(
+            json.dumps(data, indent=2, default=list) + "\n",
+            encoding="utf-8",
+        )
+        log("MANIFEST install.json updated")
+
+
+def clean_empty_config_dir(target: Path, *, dry: bool) -> None:
+    config_dir = target / "config"
+    if not config_dir.is_dir():
+        return
+    remaining = list(config_dir.iterdir())
+    if not remaining:
+        log("REMOVE config/ (empty after migration)", dry=dry)
+        if not dry:
+            config_dir.rmdir()
+    else:
+        names = [p.name for p in remaining]
+        log(f"KEEP config/ ({len(remaining)} files remain: {', '.join(names)})")
+
+
+def check_preconditions(target: Path) -> list[str]:
+    errors = []
+
+    old_factory = target / "factory"
+    if not old_factory.is_dir():
+        errors.append("factory/ does not exist — nothing to migrate")
+
+    old_manifest = target / ".agent-factory" / "factory-install.json"
+    if not old_manifest.exists():
+        errors.append(
+            ".agent-factory/factory-install.json not found — "
+            "is this a factory-installed project?"
+        )
+
+    new_factory = target / ".agent-factory" / "factory"
+    if new_factory.exists():
+        errors.append(
+            ".agent-factory/factory/ already exists — "
+            "already migrated or mixed state"
+        )
+
+    return errors
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Migrate pre-ST-0275 factory install to consolidated layout."
+    )
+    parser.add_argument(
+        "target",
+        nargs="?",
+        default=".",
+        help="Project root (default: current directory)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would happen without making changes",
+    )
+    args = parser.parse_args(argv)
+    target = Path(args.target).resolve()
+    dry = args.dry_run
+
+    print(f"migrate-layout: {target}")
+    if dry:
+        print("  (dry run — no changes will be made)\n")
+
+    errors = check_preconditions(target)
+    if errors:
+        for e in errors:
+            print(f"  ERROR: {e}", file=sys.stderr)
+        return 1
+
+    moved = 0
+    for old, new in MOVES:
+        if move_path(target, old, new, dry=dry):
+            moved += 1
+
+    rewrite_manifest(target, dry=dry)
+    clean_empty_config_dir(target, dry=dry)
+
+    print(f"\n  {moved} paths moved.")
+    if not dry:
+        print(
+            "\n  Next step: run init-factory --update to rewire symlinks:\n"
+            f"    packages/factory/scripts/init-factory --update {args.target} --force"
+        )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

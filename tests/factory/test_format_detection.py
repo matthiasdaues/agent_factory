@@ -25,6 +25,7 @@ import pytest
 
 SCRIPT = (
     Path(__file__).resolve().parent.parent.parent
+    / ".agent-factory"
     / "factory"
     / "scripts"
     / "context-lint"

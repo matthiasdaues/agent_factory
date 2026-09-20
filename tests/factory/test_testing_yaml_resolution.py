@@ -17,6 +17,7 @@ from pathlib import Path
 
 SCRIPT = (
     Path(__file__).resolve().parent.parent.parent
+    / ".agent-factory"
     / "factory"
     / "scripts"
     / "context-lint"

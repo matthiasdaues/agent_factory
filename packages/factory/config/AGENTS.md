@@ -1,6 +1,6 @@
 # Agent Factory — CLI Orientation
 
-Read and follow [`.agent-factory/factory/rulebooks/rules.md`](../rulebooks/rules.md) in full — every MUST and MUST NOT is binding for the entire session. If the file is missing or unreadable, stop and tell the user.
+Read and follow `.agent-factory/factory/rulebooks/rules.md` in full — every MUST and MUST NOT is binding for the entire session. If the file is missing or unreadable, stop and tell the user.
 
 Read the local INDEX.yaml (`.claude/INDEX.yaml`, `.github/INDEX.yaml`, `.pi/INDEX.yaml`, or `.codex/INDEX.yaml`). All available agents, skills, and playbooks are listed there.
 
@@ -10,7 +10,7 @@ Read the local INDEX.yaml (`.claude/INDEX.yaml`, `.github/INDEX.yaml`, `.pi/INDE
 
 ### 1. Check fitting state
 
-Read `config/project-context.json`. If the file exists and `fitting.status` is `"unfitted"`:
+Read `.agent-factory/config/project-context.json`. If the file exists and `fitting.status` is `"unfitted"`:
 
 Summarize what the scan found (languages, frameworks, CI, linters from the observations). Then ask:
 

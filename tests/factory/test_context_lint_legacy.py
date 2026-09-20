@@ -17,6 +17,7 @@ from pathlib import Path
 
 SCRIPT = (
     Path(__file__).resolve().parent.parent.parent
+    / ".agent-factory"
     / "factory"
     / "scripts"
     / "context-lint"
@@ -26,6 +27,7 @@ FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "agent-context"
 
 REAL_TEMPLATE_DIR = (
     Path(__file__).resolve().parent.parent.parent
+    / ".agent-factory"
     / "factory"
     / "rulebooks"
     / "templates"

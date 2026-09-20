@@ -1,6 +1,6 @@
 # Agent Factory — CLI Orientation (Claude Code)
 
-Read and follow [`.agent-factory/factory/rulebooks/rules.md`](../rulebooks/rules.md) in full — every MUST and MUST NOT is binding for the entire session. If the file is missing or unreadable, stop and tell the user.
+Read and follow `.agent-factory/factory/rulebooks/rules.md` in full — every MUST and MUST NOT is binding for the entire session. If the file is missing or unreadable, stop and tell the user.
 
 Read the local INDEX.yaml (`.claude/INDEX.yaml`). All available agents, skills, and playbooks are listed there.
 
