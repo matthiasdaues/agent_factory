@@ -28,7 +28,7 @@ def capture_project(tmp_path: Path) -> Path:
     usage_dir = tmp_path / ".agent-factory" / "usage"
     usage_dir.mkdir(parents=True)
 
-    assert not (tmp_path / ".agent-factory" / "usage-analysis").exists()
+    assert not (tmp_path / ".agent-factory" / "usage" / "analysis").exists()
     return tmp_path
 
 
@@ -53,7 +53,7 @@ class TestCaptureIndependence:
         self, capture_project: Path, transcript: Path
     ) -> None:
         """Capture appends a JSONL record when usage-analysis is absent (LU-09)."""
-        assert not (capture_project / ".agent-factory" / "usage-analysis").exists()
+        assert not (capture_project / ".agent-factory" / "usage" / "analysis").exists()
 
         result = subprocess.run(
             [

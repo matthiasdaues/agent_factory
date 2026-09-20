@@ -2,8 +2,9 @@
 """init-factory — idempotent, *tracelessly removable* setup: wire Agent Factory
 into a target project without interfering with what's already there.
 
-What: Copies factory/ in and symlinks the per-CLI resources, guardrails, and
-      config, recording everything for clean removal.
+What: Copies factory content into .agent-factory/factory/ and symlinks the
+      per-CLI resources, guardrails, and config, recording everything for
+      clean removal.
 When: Once per project to install the toolset (re-run to update).
 By:   run by hand (a shell, no AI needed); the init-factory skill relays it.
 
@@ -22,10 +23,10 @@ promises govern every step:
      related" block, so it never enters the project's tracked history at all,
      or (b) — for the one file that must be tracked, the pre-commit config —
      added as hooks whose ids are prefixed `agent_factory_hook-`, extricable
-     by that prefix. A companion script, `factory/scripts/remove-factory`,
+     by that prefix. A companion script, `.agent-factory/factory/scripts/remove-factory`,
      reverses the whole install back to a clean `git status`. init-factory
-     records exactly what it did in `.agent-factory/factory-install.json` so
-     the remover can be exact.
+     records exactly what it did in `.agent-factory/install.json` so the
+     remover can be exact.
 
 Why .github can't just be git-ignored wholesale: the target's own GitHub
 Actions live in `.github/workflows/`. Ignoring all of `.github` would hide
@@ -51,16 +52,16 @@ subtree — those are created lazily by the skill that first needs them
 Steps
 Sections (printed as the run progresses)
 
-  Scaffolding     Create --target, git init, copy factory/.
+  Scaffolding     Create --target, git init, copy into .agent-factory/factory/.
   CLI selection    Auto-detect from existing dot-dirs, accept --cli, or ask
                    interactively. --cli accepts multiple values.
   Wiring           Create dot-dirs, symlink factory content, install
                    guardrails, step guards, and usage capture for the
                    selected CLI(s).
-  Project identity Copy config/model.conf (if absent), create or preserve
-                   config/project.json.
+  Project identity Copy .agent-factory/config/model.conf (if absent), create or preserve
+                   .agent-factory/config/project.json.
   Project context  Scan the target tree for languages, frameworks, CI, linters,
-  scan             test runners, docs. Write config/project-context.json.
+  scan             test runners, docs. Write .agent-factory/config/project-context.json.
   Gitignore        Emit the single "agent_factory related" .gitignore block.
   Pre-commit       If no .pre-commit-config.yaml exists, create one with
                    factory hooks and run `uvx pre-commit install`.
@@ -209,7 +210,7 @@ ORIENTATION_END = "<!-- <<< agent_factory orientation <<< -->"
 # to the file's directory); Copilot CLI and Pi have no native include so the
 # CLI-specific AGENTS.<cli>.md content is inlined between the markers.
 ORIENTATION_INCLUDE = {
-    ".claude": "@../factory/config/AGENTS.claude.md\n@../docs/agent-context.md\n",
+    ".claude": "@../../.agent-factory/factory/config/AGENTS.claude.md\n@../docs/agent-context.md\n",
 }
 
 # CLI-specific orientation file, used when content is inlined (non-Claude CLIs).
@@ -222,19 +223,19 @@ CLI_ORIENTATION_FILE = {
 }
 
 RULEBOOK_LINK_TARGETS = {
-    ".github": "../factory/rulebooks/rules.md",
-    ".pi": "factory/rulebooks/rules.md",
-    ".codex": "factory/rulebooks/rules.md",
+    ".github": "../.agent-factory/factory/rulebooks/rules.md",
+    ".pi": ".agent-factory/factory/rulebooks/rules.md",
+    ".codex": ".agent-factory/factory/rulebooks/rules.md",
 }
 
-MANIFEST_PATH = ".agent-factory/factory-install.json"
-FACTORY_VERSION_FILE = Path("factory/VERSION")
-USAGE_RUNTIME = Path(".agent-factory/usage-runtime")
-USAGE_REQUIREMENTS = Path("factory/config/usage-runtime-requirements.txt")
-PROJECT_IDENTITY = Path("config/project.json")
+MANIFEST_PATH = ".agent-factory/install.json"
+FACTORY_VERSION_FILE = Path(".agent-factory/factory/VERSION")
+USAGE_RUNTIME = Path(".agent-factory/usage/runtime")
+USAGE_REQUIREMENTS = Path(".agent-factory/factory/config/usage-runtime-requirements.txt")
+PROJECT_IDENTITY = Path(".agent-factory/config/project.json")
 
 KNOWN_COMPONENTS = ("usage",)
-COMPONENT_INSTALL_DIR = ".agent-factory/usage-analysis"
+COMPONENT_INSTALL_DIR = ".agent-factory/usage/analysis"
 
 
 def _read_factory_version(target: Path) -> str:
@@ -263,7 +264,7 @@ def _factory_tree_hash(source: str | None) -> str | None:
         return None
 
 
-CHECKSUMS_PATH = ".agent-factory/factory-checksums.json"
+CHECKSUMS_PATH = ".agent-factory/checksums.json"
 CHECKSUM_SKIP_PREFIXES = ("__pycache__/",)
 CHECKSUM_SKIP_SUFFIXES = (".pyc",)
 
@@ -336,7 +337,7 @@ def detect_factory_modifications(
     if stored is None:
         return None
 
-    factory_dir = target / "factory"
+    factory_dir = target / ".agent-factory" / "factory"
     if not factory_dir.is_dir():
         return None
 
@@ -599,25 +600,25 @@ def _lock_installed_factory(dest: Path) -> None:
 def copy_factory(
     source_factory: Path, target: Path, install: dict, report: list[str]
 ) -> None:
-    dest = target / "factory"
+    dest = target / ".agent-factory" / "factory"
 
-    # factory/ is unconditionally Agent Factory's own toolset — always record
-    # it for removal, whether we copy it now or it was copied on a prior run.
-    install["remove_paths"].append("factory")
+    # .agent-factory/factory/ is unconditionally Agent Factory's own toolset —
+    # always record it for removal, whether we copy it now or on a prior run.
+    install["remove_paths"].append(".agent-factory/factory")
 
     if dest.exists():
         log(
             report,
-            "factory/: already present, skipped — refreshing an existing "
-            "factory/ is the update script's job (factory/scripts/update-factory), "
-            "not init's",
+            ".agent-factory/factory/: already present, skipped — refreshing "
+            "is the update script's job, not init's",
         )
         return
 
+    dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(source_factory, dest, symlinks=False)
     write_factory_checksums(target, dest)
     _lock_installed_factory(dest)
-    log(report, f"factory/: copied in from {source_factory}")
+    log(report, f".agent-factory/factory/: copied in from {source_factory}")
 
 
 def ensure_dot_dirs(target: Path, install: dict, report: list[str],
@@ -717,7 +718,7 @@ def _relpath(path: Path, install: dict) -> str:
 
 def symlink_factory_content(target: Path, install: dict, report: list[str],
                             dot_dirs: list[str] | None = None) -> None:
-    factory = target / "factory"
+    factory = target / ".agent-factory" / "factory"
 
     for dot_dir in (dot_dirs if dot_dirs is not None else DOT_DIRS):
         base = target / dot_dir
@@ -781,7 +782,7 @@ def preflight_codex_adapter(target: Path, install: dict) -> None:
     The .codex/ dot-dir itself is created by ensure_dot_dirs and validated there.
     This function covers what's unique to codex: .agents/ tree, agent generation
     targets, and hook script destinations."""
-    factory = target / "factory"
+    factory = target / ".agent-factory" / "factory"
     directory_paths = (
         target / ".agents",
         target / ".agents/skills",
@@ -804,7 +805,7 @@ def preflight_codex_adapter(target: Path, install: dict) -> None:
                   "check-factory-freshness.sh"):
         _preflight_codex_link(
             target / ".codex/hooks" / name,
-            target / "factory/config/hooks" / name,
+            target / ".agent-factory/factory/config/hooks" / name,
         )
 
     prior_agents = install["codex_generated_agents"]
@@ -862,7 +863,7 @@ def install_codex_adapter(target: Path, install: dict, report: list[str]) -> Non
     scripts, INDEX.yaml) are already handled by ensure_dot_dirs and
     symlink_factory_content. This function covers the codex-specific layout:
     .agents/skills/ symlinks, .codex/agents/*.toml generation, and sub-dirs."""
-    factory = target / "factory"
+    factory = target / ".agent-factory" / "factory"
     agents_root = target / ".agents"
     skills_dir = agents_root / "skills"
     generated_dir = target / ".codex" / "agents"
@@ -921,7 +922,7 @@ def _has_copilot_agent_marker(path: Path) -> bool:
 
 def preflight_copilot_agents(target: Path, install: dict) -> None:
     """Validate the Copilot agents directory before generating into it."""
-    factory = target / "factory"
+    factory = target / ".agent-factory" / "factory"
     agents_dir = target / ".github" / "agents"
 
     if agents_dir.is_symlink():
@@ -970,7 +971,7 @@ def preflight_copilot_agents(target: Path, install: dict) -> None:
 
 def install_copilot_agents(target: Path, install: dict, report: list[str]) -> None:
     """Generate Copilot agent definitions with tools: frontmatter."""
-    factory = target / "factory"
+    factory = target / ".agent-factory" / "factory"
     agents_dir = target / ".github" / "agents"
 
     if agents_dir.is_symlink():
@@ -1026,12 +1027,12 @@ def _orientation_block(dot_dir: str, factory: Path) -> str:
         target = RULEBOOK_LINK_TARGETS.get(dot_dir)
         if target is not None:
             body = body.replace("](../rulebooks/rules.md)", f"]({target})")
-        body = body.replace("](session-menu.md)", "](factory/config/session-menu.md)")
+        body = body.replace("](session-menu.md)", "](.agent-factory/factory/config/session-menu.md)")
         body += "\nRead [`docs/agent-context.md`](docs/agent-context.md) for project context.\n"
     return (
         ORIENTATION_BEGIN
         + "\n"
-        + "Added by init-factory; remove with factory/scripts/remove-factory.\n"
+        + "Added by init-factory; remove with .agent-factory/factory/scripts/remove-factory.\n"
         + body
         + ORIENTATION_END
         + "\n"
@@ -1112,7 +1113,7 @@ def _link_orientation(
             install["orientation"][rel] = "external"
             log(report, f"{rel}: symlinked externally — left untouched.")
             log(report, f"  To use factory integration, add an include of")
-            log(report, f"  factory/rulebooks/rules.md to your own file.")
+            log(report, f"  .agent-factory/factory/rulebooks/rules.md to your own file.")
         if dot_dir == ".github":
             install["github_ignored_entries"].add(rel)
         elif dot_dir in (".pi", ".codex"):
@@ -1180,7 +1181,7 @@ def install_usage_capture(target: Path, install: dict, report: list[str],
         hooks_dir = target / ".claude" / "hooks"
         hooks_dir.mkdir(parents=True, exist_ok=True)
         link = hooks_dir / "capture-usage.sh"
-        dest = target / "factory" / "config" / "hooks" / "capture-usage.sh"
+        dest = target / ".agent-factory" / "factory" / "config" / "hooks" / "capture-usage.sh"
         ensure_symlink(link, dest, report, install=install)
         _ensure_claude_capture_settings(target, install, report)
     if _wants(clis, "copilot"):
@@ -1284,7 +1285,7 @@ def _install_pi_usage_capture(target: Path, install: dict, report: list[str]) ->
     for name in ("capture-usage.ts", "pi-usage.ts"):
         ensure_symlink(
             extensions_dir / name,
-            target / "factory" / "config" / "extensions" / name,
+            target / ".agent-factory" / "factory" / "config" / "extensions" / name,
             report,
             install=install,
         )
@@ -1299,7 +1300,7 @@ def _install_codex_usage_capture(
 
     ensure_symlink(
         hooks_dir / "capture-codex-usage.sh",
-        target / "factory/config/hooks/capture-codex-usage.sh",
+        target / ".agent-factory/factory/config/hooks/capture-codex-usage.sh",
         report,
         install=install,
     )
@@ -1381,7 +1382,7 @@ def _install_codex_guardrail(target: Path, install: dict, report: list[str]) -> 
     link = hooks_dir / "block-dangerous-git.sh"
     ensure_symlink(
         link,
-        target / "factory/config/hooks/block-dangerous-git.sh",
+        target / ".agent-factory/factory/config/hooks/block-dangerous-git.sh",
         report,
         install=install,
     )
@@ -1433,7 +1434,7 @@ def _install_copilot_usage_capture(
     for name in ("capture-copilot-usage.sh", "capture-usage.json"):
         ensure_symlink(
             hooks_dir / name,
-            target / "factory" / "config" / "hooks" / name,
+            target / ".agent-factory" / "factory" / "config" / "hooks" / name,
             report,
             install=install,
         )
@@ -1450,7 +1451,7 @@ def _install_claude_guardrail(target: Path, install: dict, report: list[str]) ->
     hooks_dir.mkdir(parents=True, exist_ok=True)
 
     link = hooks_dir / "block-dangerous-git.sh"
-    dest = target / "factory" / "config" / "hooks" / "block-dangerous-git.sh"
+    dest = target / ".agent-factory" / "factory" / "config" / "hooks" / "block-dangerous-git.sh"
     ensure_symlink(link, dest, report, install=install)
 
     _ensure_claude_guardrail_settings(target, install, report)
@@ -1461,7 +1462,7 @@ def _install_claude_step_guard(target: Path, install: dict, report: list[str]) -
     hooks_dir.mkdir(parents=True, exist_ok=True)
 
     link = hooks_dir / "step-guard.sh"
-    dest = target / "factory" / "config" / "hooks" / "step-guard.sh"
+    dest = target / ".agent-factory" / "factory" / "config" / "hooks" / "step-guard.sh"
     ensure_symlink(link, dest, report, install=install)
 
     _ensure_claude_step_guard_settings(target, install, report)
@@ -1473,11 +1474,11 @@ def _install_copilot_guardrail(target: Path, install: dict, report: list[str]) -
     install["github_ignored_entries"].add(".github/hooks")
 
     script_link = hooks_dir / "block-dangerous-git.sh"
-    script_dest = target / "factory" / "config" / "hooks" / "block-dangerous-git.sh"
+    script_dest = target / ".agent-factory" / "factory" / "config" / "hooks" / "block-dangerous-git.sh"
     ensure_symlink(script_link, script_dest, report, install=install)
 
     config_link = hooks_dir / "block-dangerous-git.json"
-    config_dest = target / "factory" / "config" / "hooks" / "block-dangerous-git.json"
+    config_dest = target / ".agent-factory" / "factory" / "config" / "hooks" / "block-dangerous-git.json"
     ensure_symlink(config_link, config_dest, report, install=install)
 
 
@@ -1489,7 +1490,7 @@ def _install_copilot_step_guard(target: Path, install: dict, report: list[str]) 
     for name in ("step-guard.sh", "step-guard.json"):
         ensure_symlink(
             hooks_dir / name,
-            target / "factory" / "config" / "hooks" / name,
+            target / ".agent-factory" / "factory" / "config" / "hooks" / name,
             report,
             install=install,
         )
@@ -1502,7 +1503,7 @@ def _install_codex_step_guard(target: Path, install: dict, report: list[str]) ->
 
     ensure_symlink(
         hooks_dir / "step-guard.sh",
-        target / "factory" / "config" / "hooks" / "step-guard.sh",
+        target / ".agent-factory" / "factory" / "config" / "hooks" / "step-guard.sh",
         report,
         install=install,
     )
@@ -1555,7 +1556,7 @@ def _install_pi_guardrail(target: Path, install: dict, report: list[str]) -> Non
     extensions_dir = _ensure_pi_extensions_dir(target, install, report)
 
     link = extensions_dir / "block-dangerous-git.ts"
-    dest = target / "factory" / "config" / "extensions" / "block-dangerous-git.ts"
+    dest = target / ".agent-factory" / "factory" / "config" / "extensions" / "block-dangerous-git.ts"
     ensure_symlink(link, dest, report, install=install)
 
 
@@ -1563,7 +1564,7 @@ def _install_pi_step_guard(target: Path, install: dict, report: list[str]) -> No
     extensions_dir = _ensure_pi_extensions_dir(target, install, report)
 
     link = extensions_dir / "step-guard.ts"
-    dest = target / "factory" / "config" / "extensions" / "step-guard.ts"
+    dest = target / ".agent-factory" / "factory" / "config" / "extensions" / "step-guard.ts"
     ensure_symlink(link, dest, report, install=install)
 
 
@@ -1576,7 +1577,7 @@ def install_pi_invocation_layer(target: Path, install: dict, report: list[str]) 
 
     for name in ("run-agent.ts", "dispatch-wave.ts", "pi-usage.ts"):
         link = extensions_dir / name
-        dest = target / "factory" / "config" / "extensions" / name
+        dest = target / ".agent-factory" / "factory" / "config" / "extensions" / name
         ensure_symlink(link, dest, report, install=install)
 
 
@@ -1587,7 +1588,7 @@ def _install_claude_freshness_check(
     hooks_dir.mkdir(parents=True, exist_ok=True)
 
     link = hooks_dir / "check-factory-freshness.sh"
-    dest = target / "factory" / "config" / "hooks" / "check-factory-freshness.sh"
+    dest = target / ".agent-factory" / "factory" / "config" / "hooks" / "check-factory-freshness.sh"
     ensure_symlink(link, dest, report, install=install)
 
     _ensure_claude_freshness_settings(target, install, report)
@@ -1603,7 +1604,7 @@ def _install_copilot_freshness_check(
     for name in ("check-factory-freshness.sh", "check-factory-freshness.json"):
         ensure_symlink(
             hooks_dir / name,
-            target / "factory" / "config" / "hooks" / name,
+            target / ".agent-factory" / "factory" / "config" / "hooks" / name,
             report,
             install=install,
         )
@@ -1615,7 +1616,7 @@ def _install_pi_freshness_check(
     extensions_dir = _ensure_pi_extensions_dir(target, install, report)
 
     link = extensions_dir / "check-factory-freshness.ts"
-    dest = target / "factory" / "config" / "extensions" / "check-factory-freshness.ts"
+    dest = target / ".agent-factory" / "factory" / "config" / "extensions" / "check-factory-freshness.ts"
     ensure_symlink(link, dest, report, install=install)
 
 
@@ -1626,7 +1627,7 @@ def _install_codex_freshness_check(
     link = hooks_dir / "check-factory-freshness.sh"
     ensure_symlink(
         link,
-        target / "factory/config/hooks/check-factory-freshness.sh",
+        target / ".agent-factory/factory/config/hooks/check-factory-freshness.sh",
         report,
         install=install,
     )
@@ -2369,7 +2370,7 @@ def _derive_fitting_keys(target: Path) -> dict:
     configured` is deliberately absent -- config/model.conf is untracked and
     user-specific, so it is never derived (see write_project_context)."""
     fingerprint_confirmed = False
-    project_context_path = target / "config" / "project-context.json"
+    project_context_path = target / ".agent-factory" / "config" / "project-context.json"
     if project_context_path.exists():
         try:
             cached = json.loads(project_context_path.read_text(encoding="utf-8"))
@@ -2582,16 +2583,16 @@ def _reconcile_project_context(target: Path, path: Path, report: list[str]) -> N
     try:
         cached = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
-        log(report, "config/project-context.json: unreadable, left untouched")
+        log(report, ".agent-factory/config/project-context.json: unreadable, left untouched")
         return
 
     if not isinstance(cached, dict):
-        log(report, "config/project-context.json: unexpected shape, left untouched")
+        log(report, ".agent-factory/config/project-context.json: unexpected shape, left untouched")
         return
 
     cached_fitting = cached.get("fitting")
     if not isinstance(cached_fitting, dict) or cached_fitting.get("status") == "greenfield":
-        log(report, "config/project-context.json: already present, left untouched")
+        log(report, ".agent-factory/config/project-context.json: already present, left untouched")
         return
 
     fitting = dict(cached_fitting)
@@ -2604,9 +2605,9 @@ def _reconcile_project_context(target: Path, path: Path, report: list[str]) -> N
     if changed:
         cached["fitting"] = fitting
         path.write_text(json.dumps(cached, indent=2) + "\n", encoding="utf-8")
-        log(report, "config/project-context.json: fitting keys reconciled against tracked artifacts")
+        log(report, ".agent-factory/config/project-context.json: fitting keys reconciled against tracked artifacts")
     else:
-        log(report, "config/project-context.json: already present, fitting keys confirmed")
+        log(report, ".agent-factory/config/project-context.json: already present, fitting keys confirmed")
 
 
 def write_project_context(
@@ -2615,7 +2616,7 @@ def write_project_context(
     """Run the deterministic project scan and write config/project-context.json.
     If the file already exists, reconcile its fitting keys against tracked
     artifacts instead of leaving a stale cache untouched."""
-    path = target / "config" / "project-context.json"
+    path = target / ".agent-factory" / "config" / "project-context.json"
 
     if path.exists():
         _reconcile_project_context(target, path, report)
@@ -2625,7 +2626,7 @@ def write_project_context(
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(context, indent=2) + "\n", encoding="utf-8")
-    install["remove_paths"].append("config/project-context.json")
+    install["remove_paths"].append(".agent-factory/config/project-context.json")
     install["ignore_project_context"] = True
 
     counts = []
@@ -2640,7 +2641,7 @@ def write_project_context(
             log(report, f"  {line}")
     else:
         log(report, "  (no signals detected — greenfield project)")
-    log(report, "config/project-context.json: written")
+    log(report, ".agent-factory/config/project-context.json: written")
     if context["fitting"]["status"] == "greenfield":
         log(report, "  fitting: greenfield — no existing stack to fit, session opens with menu")
 
@@ -2666,11 +2667,11 @@ MODEL_MATRIX_HEADER = """\
 #   Pi           → OpenRouter prefixed IDs (openrouter/anthropic/claude-sonnet-4.6)
 #   Codex        → OpenAI model IDs        (gpt-4o-mini, gpt-4o, o3)
 #
-# For Pi on OpenRouter, run `factory/scripts/openrouter-discover --suggest`
+# For Pi on OpenRouter, run `.agent-factory/factory/scripts/openrouter-discover --suggest`
 # to get tier picks from the live catalog.
 #
 # Validate after editing:
-#   factory/scripts/matrix-lint --matrix config/model.conf
+#   .agent-factory/factory/scripts/matrix-lint --matrix .agent-factory/config/model.conf
 #
 # Precedence: --model flag > model.conf > CLI default.
 # If on_missing is "halt", a missing tier stops dispatch with an error.
@@ -2694,7 +2695,7 @@ copilot.strong   = CONFIGURE-ME
 """,
     "pi": """\
 # Pi via OpenRouter — validate/refresh with
-# `factory/scripts/openrouter-discover --check` (drift) / `--suggest` (picks).
+# `.agent-factory/factory/scripts/openrouter-discover --check` (drift) / `--suggest` (picks).
 pi.economy  = CONFIGURE-ME
 pi.standard = CONFIGURE-ME
 pi.strong   = CONFIGURE-ME
@@ -2726,25 +2727,25 @@ def _generate_model_matrix(clis: list[str] | None) -> str:
 
 
 def copy_model_matrix(target: Path, install: dict, report: list[str]) -> None:
-    config_dir = target / "config"
+    config_dir = target / ".agent-factory" / "config"
     dest = config_dir / "model.conf"
 
     if dest.exists():
         log(
             report,
-            "config/model.conf: already present, left untouched (meant to diverge per project)",
+            ".agent-factory/config/model.conf: already present, left untouched (meant to diverge per project)",
         )
         return
 
     if not config_dir.exists():
         config_dir.mkdir(parents=True)
-        install["remove_paths"].append("config")
+        install["remove_paths"].append(".agent-factory/config")
 
     clis = install.get("cli")
     dest.write_text(_generate_model_matrix(clis), encoding="utf-8")
-    install["remove_paths"].append("config/model.conf")
+    install["remove_paths"].append(".agent-factory/config/model.conf")
     install["ignore_model_conf"] = True
-    log(report, "config/model.conf: generated for installed CLIs (configure model IDs during fitting)")
+    log(report, ".agent-factory/config/model.conf: generated for installed CLIs (configure model IDs during fitting)")
 
 
 def ensure_project_identity(
@@ -2791,7 +2792,7 @@ def ensure_project_identity(
 
 def handle_precommit(target: Path, install: dict, report: list[str]) -> None:
     dest = target / ".pre-commit-config.yaml"
-    template = target / "factory" / "config" / "pre-commit-config.yaml"
+    template = target / ".agent-factory" / "factory" / "config" / "pre-commit-config.yaml"
 
     if dest.is_symlink():
         current = (dest.parent / os.readlink(dest)).resolve()
@@ -2833,7 +2834,7 @@ def handle_precommit(target: Path, install: dict, report: list[str]) -> None:
     )
     log(
         report,
-        "factory/scripts/merge-precommit-config).",
+        ".agent-factory/factory/scripts/merge-precommit-config).",
     )
 
 
@@ -2852,7 +2853,7 @@ def _fresh_precommit_text(template: Path) -> str:
 
     header = (
         "# Created by Agent Factory init-factory. The agent_factory_hook-* hooks\n"
-        "# below are added here and removed by factory/scripts/remove-factory\n"
+        "# below are added here and removed by .agent-factory/factory/scripts/remove-factory\n"
         "# (extricable by their id prefix). Safe to delete if it holds nothing else.\n"
         "repos:\n"
     )
@@ -2931,7 +2932,7 @@ def _write_testing_yaml(target: Path, command: str) -> None:
         "# Detected by Agent Factory's detect-test-regime scan during init-factory.\n"
         "# Code is the source of truth; this file is a derived record — re-run\n"
         "# the detect-test-regime skill by hand once the project's test setup\n"
-        "# changes. Schema: factory/rulebooks/templates/charter-testing.yaml\n"
+        "# changes. Schema: .agent-factory/factory/rulebooks/templates/charter-testing.yaml\n"
         "\n"
         f'test_command: "{command}"\n',
         encoding="utf-8",
@@ -3010,7 +3011,6 @@ def write_gitignore_block(target: Path, install: dict, report: list[str]) -> Non
 
     clis = install.get("cli")
     entries = [
-        "/factory/",
         "/.agent-factory/",
         "/.current-work/",
         "/session-scratchpad.md",
@@ -3019,12 +3019,6 @@ def write_gitignore_block(target: Path, install: dict, report: list[str]) -> Non
         entries.append("/.claude/")
     if _wants(clis, "pi"):
         entries.append("/.pi/")
-    if install.get("ignore_model_conf"):
-        entries.append("/config/model.conf")
-    if install.get("ignore_project_identity"):
-        entries.append(f"/{PROJECT_IDENTITY}")
-    if install.get("ignore_project_context"):
-        entries.append("/config/project-context.json")
     if install.get("ignore_root_agents"):
         entries.append("/AGENTS.md")
     for entry in sorted(install["github_ignored_entries"]):
@@ -3038,7 +3032,7 @@ def write_gitignore_block(target: Path, install: dict, report: list[str]) -> Non
 
     body = [
         GITIGNORE_BEGIN,
-        "# Added by init-factory; remove with factory/scripts/remove-factory.",
+        "# Added by init-factory; remove with .agent-factory/factory/scripts/remove-factory.",
         *entries,
         GITIGNORE_END,
     ]
@@ -3269,11 +3263,13 @@ def initialize_usage_lifecycle(
     target: Path, report: list[str], transcript_retention: str | None = None
 ) -> None:
     """Pre-create and probe the atomic Pi registration fence and registry."""
-    control = target / ".agent-factory" / "usage-control"
+    control = target / ".agent-factory" / "usage" / "control"
     usage = target / ".agent-factory" / "usage"
+    _private_directory(usage)
     _private_directory(control)
     _private_directory(control / "pending")
-    _private_directory(usage)
+    _private_directory(usage / "records")
+    _private_directory(usage / "transcripts")
     _private_directory(usage / ".capture")
     state = control / "state.json"
     if not state.exists():
@@ -3281,7 +3277,7 @@ def initialize_usage_lifecycle(
             state,
             json.dumps({"mode": "active", "generation": str(uuid.uuid4())}) + "\n",
         )
-        log(report, ".agent-factory/usage-control: initialized")
+        log(report, ".agent-factory/usage/control: initialized")
     else:
         state_info = state.lstat()
         if (
@@ -3754,7 +3750,7 @@ def do_add(target: Path, source_factory: Path, add_args: list[str] | None) -> in
     }
     load_prior_manifest(target, install, report)
 
-    factory = target / "factory"
+    factory = target / ".agent-factory" / "factory"
     combined = existing + chosen
     dot_dirs = _active_dot_dirs(chosen)
 
@@ -3876,7 +3872,7 @@ def do_remove(target: Path, remove_args: list[str] | None) -> int:
     if not remaining:
         print(
             "\n  Removing all CLIs. To uninstall Agent Factory entirely,\n"
-            "  use factory/scripts/remove-factory instead.\n"
+            "  use .agent-factory/factory/scripts/remove-factory instead.\n"
         )
 
     print("\ninit-factory --remove")
@@ -4061,7 +4057,7 @@ def do_remove(target: Path, remove_args: list[str] | None) -> int:
         print(f"  remaining: {', '.join(remaining)}")
     else:
         print("  no CLIs wired — factory install preserved")
-        print("  use factory/scripts/remove-factory to uninstall entirely")
+        print("  use .agent-factory/factory/scripts/remove-factory to uninstall entirely")
     print()
     return 0
 
@@ -4081,7 +4077,7 @@ def main(argv: list[str] | None = None) -> int:
         "--source",
         type=Path,
         default=None,
-        help="agent_factory checkout to copy factory/ from (default: the checkout this script itself lives in)",
+        help="agent_factory checkout to copy from (default: the checkout this script itself lives in)",
     )
     ap.add_argument(
         "--target",
@@ -4374,7 +4370,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"\n{'═' * 54}")
     print(f"  target: {target}")
     print(f"  cli:    {cli_label}")
-    print(f"  undo:   factory/scripts/remove-factory")
+    print(f"  undo:   .agent-factory/factory/scripts/remove-factory")
     print()
 
     return 0

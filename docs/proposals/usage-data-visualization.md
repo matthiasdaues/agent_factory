@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: Usage Data Visualization
 status: draft
 owner: md@matthiasdaues.de
 created: 2026-09-14

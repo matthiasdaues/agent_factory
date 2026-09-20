@@ -47,7 +47,7 @@ Read: docs/adr/*.md, docs/arc42/*.md, docs/arc42/architecture.dsl
 ### Python toolchain
 
 Python 3.10 or newer, pytest, Ruff, and uv-based project tooling.
-Read: pyproject.toml, packages/orchestrator/pyproject.toml, docs/testing.yaml
+Read: pyproject.toml, docs/testing.yaml
 
 ### CLI integrations
 

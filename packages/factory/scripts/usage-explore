@@ -16,7 +16,7 @@ def _find_usage_package() -> Path | None:
     """Return the directory containing the usage package's pyproject.toml."""
     cwd = Path(os.getcwd()).resolve()
     for parent in [cwd, *cwd.parents]:
-        installed = parent / ".agent-factory" / "usage-analysis"
+        installed = parent / ".agent-factory" / "usage" / "analysis"
         if (installed / "pyproject.toml").is_file():
             return installed
         source = parent / "packages" / "usage"
@@ -47,7 +47,7 @@ def main() -> None:
     if pkg is None:
         print(
             "usage-explore: usage package not found "
-            "(no .agent-factory/usage-analysis/ or packages/usage/)",
+            "(no .agent-factory/usage/analysis/ or packages/usage/)",
             file=sys.stderr,
         )
         sys.exit(2)

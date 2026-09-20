@@ -46,7 +46,7 @@ Rules:
 
 Template reference: [`matthiasdaues/arc42-markdown-template`](https://github.com/matthiasdaues/arc42-markdown-template).
 
-Format every chapter file and `docs/README.md` via `factory/scripts/mdformat --number <path>` per [markdown-formatting.md](../../factory/rulebooks/conventions/markdown-formatting.md).
+Format every chapter file and `docs/README.md` via `.agent-factory/factory/scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 
 **Completion**: all 12 chapter files exist with substantive content, every chapter starts with the back-link, `docs/README.md` links to all chapters and all links resolve.
 
@@ -61,7 +61,7 @@ Define **C4** System Context and Container views; add a Component view for key c
 Validate the model:
 
 ```bash
-factory/scripts/structurizr validate
+.agent-factory/factory/scripts/structurizr validate
 ```
 
 **Completion**: `docs/arc42/architecture.dsl` validates without errors, views cover system context and containers at minimum.
@@ -69,7 +69,7 @@ factory/scripts/structurizr validate
 ## Step 3 — Export and embed diagrams
 
 ```bash
-factory/scripts/structurizr export-all
+.agent-factory/factory/scripts/structurizr export-all
 ```
 
 Exports SVG and PNG to `docs/assets/images/` (requires Docker; see [STRUCTURIZR.md](STRUCTURIZR.md) for individual-format and `list-views` commands). Embed in the relevant arc42 chapters using relative paths:

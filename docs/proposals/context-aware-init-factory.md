@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: Context-Aware Init-Factory
 status: implemented
 owner: md@matthiasdaues.de
 created: 2026-09-04

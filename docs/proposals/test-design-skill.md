@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: "Test Design Skill"
 status: implemented
 owner: md@matthiasdaues.de
 created: 2026-09-01

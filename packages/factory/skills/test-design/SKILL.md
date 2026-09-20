@@ -3,11 +3,12 @@ name: test-design
 description: "Design and author integration and edge-case tests from implemented code. Invoked by the developer agent post-GREEN on non-.feature-governed stories. Reads ownership assignments from the testability probe, classifies owned contracts by risk class, identifies untested integration paths, and authors test files."
 category: implementation
 inputs:
-  - backlog/ST-NNNN.md (the story being implemented)
-  - backlog/epics.md (ownership assignments from testability-probe)
-  - docs/spec/*.feature
-  - docs/spec/scope-map.md
-  - testing.yaml (at docs/testing.yaml)
+  context:
+    - backlog/ST-NNNN.md
+    - backlog/epics.md
+    - "docs/spec/*.feature"
+    - docs/spec/scope-map.md
+    - docs/testing.yaml
 outputs:
   - tests/**/* (authored test files)
 ---

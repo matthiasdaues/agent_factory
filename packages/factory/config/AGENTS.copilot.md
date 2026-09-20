@@ -1,6 +1,6 @@
 # Agent Factory — CLI Orientation (GitHub Copilot)
 
-Read and follow [`factory/rulebooks/rules.md`](../rulebooks/rules.md) in full — every MUST and MUST NOT is binding for the entire session. If the file is missing or unreadable, stop and tell the user.
+Read and follow [`.agent-factory/factory/rulebooks/rules.md`](../rulebooks/rules.md) in full — every MUST and MUST NOT is binding for the entire session. If the file is missing or unreadable, stop and tell the user.
 
 Read `.github/INDEX.yaml`. All available agents, skills, and playbooks are listed there.
 
@@ -63,7 +63,7 @@ If the file is missing or `fitting.status` is anything other than `"unfitted"` o
 
 ### 2. Present the session menu
 
-Read and present [`factory/config/session-menu.md`](session-menu.md). It contains the full menu and all option handlers. Follow the instructions there.
+Read and present [`.agent-factory/factory/config/session-menu.md`](session-menu.md). It contains the full menu and all option handlers. Follow the instructions there.
 
 ## Deeper guidance
 

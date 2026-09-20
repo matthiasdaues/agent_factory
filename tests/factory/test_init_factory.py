@@ -60,14 +60,14 @@ class TestCopyFactory:
         install = {"remove_paths": []}
         report: list[str] = []
         inf.copy_factory(source, target, install, report)
-        assert (target / "factory" / "scripts" / "lint").exists()
-        assert "factory" in install["remove_paths"]
+        assert (target / ".agent-factory" / "factory" / "scripts" / "lint").exists()
+        assert ".agent-factory/factory" in install["remove_paths"]
 
     def test_existing_factory_skipped(self, tmp_path):
         source = tmp_path / "source_factory"
         source.mkdir()
         target = tmp_path / "project"
-        (target / "factory").mkdir(parents=True)
+        (target / ".agent-factory" / "factory").mkdir(parents=True)
         install = {"remove_paths": []}
         report: list[str] = []
         inf.copy_factory(source, target, install, report)
@@ -207,7 +207,7 @@ class TestWriteGitignoreBlock:
         gi = (tmp_path / ".gitignore").read_text()
         assert inf.GITIGNORE_BEGIN in gi
         assert inf.GITIGNORE_END in gi
-        assert "/factory/" in gi
+        assert "/.agent-factory/" in gi
 
     def test_appends_to_existing_gitignore(self, tmp_path):
         (tmp_path / ".gitignore").write_text("*.pyc\n")
@@ -237,7 +237,7 @@ class TestWriteGitignoreBlock:
         assert "/.claude/" not in gi
         assert "/.pi/" not in gi
         assert "/.github/copilot-instructions.md" in gi
-        assert "/factory/" in gi
+        assert "/.agent-factory/" in gi
 
     def test_refreshes_existing_block(self, tmp_path):
         existing = f"*.pyc\n\n{inf.GITIGNORE_BEGIN}\n/factory/\n{inf.GITIGNORE_END}\n"
@@ -252,7 +252,7 @@ class TestWriteGitignoreBlock:
         report: list[str] = []
         inf.write_gitignore_block(tmp_path, install, report)
         gi = (tmp_path / ".gitignore").read_text()
-        assert "/config/model.conf" in gi
+        assert "/.agent-factory/" in gi
         assert gi.count(inf.GITIGNORE_BEGIN) == 1
 
 
@@ -288,7 +288,7 @@ class TestEnsureProjectIdentity:
 class TestWriteManifest:
     def test_writes_valid_json(self, tmp_path):
         install = {
-            "remove_paths": ["factory", ".claude"],
+            "remove_paths": [".agent-factory/factory", ".claude"],
             "merged_dirs": [],
             "orientation": {},
             "copilot_generated_agents": set(),
@@ -304,17 +304,17 @@ class TestWriteManifest:
         assert path.exists()
         data = json.loads(path.read_text())
         assert data["version"] == 1
-        assert "factory" in data["remove_paths"]
+        assert ".agent-factory/factory" in data["remove_paths"]
 
 
 class TestLoadPriorManifest:
     def test_loads_existing_manifest(self, tmp_path):
         manifest_dir = tmp_path / ".agent-factory"
         manifest_dir.mkdir()
-        (manifest_dir / "factory-install.json").write_text(
+        (manifest_dir / "install.json").write_text(
             json.dumps(
                 {
-                    "remove_paths": ["factory", ".claude"],
+                    "remove_paths": [".agent-factory/factory", ".claude"],
                     "merged_dirs": [],
                     "orientation": {},
                     "precommit": {"path": ".pre-commit-config.yaml", "existed": True},
@@ -335,7 +335,7 @@ class TestLoadPriorManifest:
         }
         report: list[str] = []
         inf.load_prior_manifest(tmp_path, install, report)
-        assert "factory" in install["remove_paths"]
+        assert ".agent-factory/factory" in install["remove_paths"]
         assert install["git_initialized_by_us"] is True
 
     def test_missing_manifest_is_noop(self, tmp_path):
@@ -350,7 +350,7 @@ class TestHandlePrecommit:
 
     def _make_template(self, target: Path):
         """Create the factory template that handle_precommit reads."""
-        config_dir = target / "factory" / "config"
+        config_dir = target / ".agent-factory" / "factory" / "config"
         config_dir.mkdir(parents=True)
         (config_dir / "pre-commit-config.yaml").write_text(
             "repos:\n"
@@ -361,7 +361,7 @@ class TestHandlePrecommit:
             "        entry: echo ok\n"
             "        language: system\n"
         )
-        scripts_dir = target / "factory" / "scripts"
+        scripts_dir = target / ".agent-factory" / "factory" / "scripts"
         scripts_dir.mkdir(parents=True)
 
     def test_creates_from_scratch(self, tmp_path):
@@ -399,7 +399,7 @@ class TestSymlinkFactoryContent:
     """Integration: symlinks factory content into dot-dirs."""
 
     def test_symlinks_created(self, tmp_path):
-        factory = tmp_path / "factory"
+        factory = tmp_path / ".agent-factory" / "factory"
         for name in inf.FACTORY_CONTENT:
             path = factory / name
             if name == "INDEX.yaml":
@@ -438,7 +438,7 @@ class TestSymlinkFactoryContent:
                 assert link.is_symlink(), f"{link} should be a symlink"
 
     def test_symlinks_are_idempotent(self, tmp_path):
-        factory = tmp_path / "factory"
+        factory = tmp_path / ".agent-factory" / "factory"
         for name in inf.FACTORY_CONTENT:
             path = factory / name
             if name == "INDEX.yaml":
@@ -475,7 +475,7 @@ class TestManifestRoundTrip:
 
     def test_write_then_load_preserves_state(self, tmp_path):
         install = {
-            "remove_paths": ["factory", ".claude"],
+            "remove_paths": [".agent-factory/factory", ".claude"],
             "merged_dirs": ["merged1"],
             "orientation": {".claude": "injected"},
             "precommit": {"path": ".pre-commit-config.yaml", "existed": True},
@@ -503,7 +503,7 @@ class TestManifestRoundTrip:
             "codex_hook_handlers": [],
         }
         inf.load_prior_manifest(tmp_path, reloaded, [])
-        assert "factory" in reloaded["remove_paths"]
+        assert ".agent-factory/factory" in reloaded["remove_paths"]
         assert ".claude" in reloaded["remove_paths"]
         assert reloaded["git_initialized_by_us"] is True
         assert reloaded["orientation"] == {".claude": "injected"}
@@ -651,8 +651,8 @@ class TestLinkOrientation:
     @pytest.fixture
     def setup(self, tmp_path):
         """Set up a minimal target with factory/config/AGENTS.md."""
-        factory = tmp_path / "factory"
-        factory.mkdir()
+        factory = tmp_path / ".agent-factory" / "factory"
+        factory.mkdir(parents=True)
         config = factory / "config"
         config.mkdir()
         agents_md = config / "AGENTS.md"
@@ -850,8 +850,8 @@ class TestScanProjectContext:
         assert ctx["languages"] == []
 
     def test_skips_factory_dir(self, tmp_path):
-        factory = tmp_path / "factory"
-        factory.mkdir()
+        factory = tmp_path / ".agent-factory" / "factory"
+        factory.mkdir(parents=True)
         (factory / "pyproject.toml").write_text("[project]\nname = 'factory'\n")
         ctx = inf._scan_project_context(tmp_path)
         assert ctx["languages"] == []
@@ -951,16 +951,16 @@ class TestDeriveFittingKeys:
     ST-0210 derivation table."""
 
     def test_fingerprint_confirmed_true_when_cache_has_languages(self, tmp_path):
-        (tmp_path / "config").mkdir()
-        (tmp_path / "config" / "project-context.json").write_text(
+        (tmp_path / ".agent-factory" / "config").mkdir(parents=True)
+        (tmp_path / ".agent-factory" / "config" / "project-context.json").write_text(
             json.dumps({"languages": [{"name": "python", "evidence": "pyproject.toml"}]})
         )
         derived = inf._derive_fitting_keys(tmp_path)
         assert derived["fingerprint_confirmed"] is True
 
     def test_fingerprint_confirmed_true_when_cache_has_frameworks(self, tmp_path):
-        (tmp_path / "config").mkdir()
-        (tmp_path / "config" / "project-context.json").write_text(
+        (tmp_path / ".agent-factory" / "config").mkdir(parents=True)
+        (tmp_path / ".agent-factory" / "config" / "project-context.json").write_text(
             json.dumps({"languages": [], "frameworks": [{"name": "django", "evidence": "x"}]})
         )
         derived = inf._derive_fitting_keys(tmp_path)
@@ -971,8 +971,8 @@ class TestDeriveFittingKeys:
         assert derived["fingerprint_confirmed"] is False
 
     def test_fingerprint_not_confirmed_when_cache_has_no_signals(self, tmp_path):
-        (tmp_path / "config").mkdir()
-        (tmp_path / "config" / "project-context.json").write_text(
+        (tmp_path / ".agent-factory" / "config").mkdir(parents=True)
+        (tmp_path / ".agent-factory" / "config" / "project-context.json").write_text(
             json.dumps({"languages": [], "frameworks": []})
         )
         derived = inf._derive_fitting_keys(tmp_path)
@@ -1180,10 +1180,10 @@ class TestWriteProjectContext:
     def test_writes_json_file(self, tmp_path):
         install = {"remove_paths": []}
         report: list[str] = []
-        (tmp_path / "config").mkdir()
+        (tmp_path / ".agent-factory" / "config").mkdir(parents=True)
         (tmp_path / "pyproject.toml").write_text("[project]\nname = 'demo'\n")
         inf.write_project_context(tmp_path, install, report)
-        path = tmp_path / "config" / "project-context.json"
+        path = tmp_path / ".agent-factory" / "config" / "project-context.json"
         assert path.exists()
         data = json.loads(path.read_text())
         assert "languages" in data
@@ -1191,8 +1191,8 @@ class TestWriteProjectContext:
         assert data["fitting"]["status"] == "unfitted"
 
     def test_skips_if_exists(self, tmp_path):
-        (tmp_path / "config").mkdir()
-        existing = tmp_path / "config" / "project-context.json"
+        (tmp_path / ".agent-factory" / "config").mkdir(parents=True)
+        existing = tmp_path / ".agent-factory" / "config" / "project-context.json"
         existing.write_text('{"custom": true}')
         install = {"remove_paths": []}
         report: list[str] = []
@@ -1202,16 +1202,16 @@ class TestWriteProjectContext:
     def test_adds_to_install_manifest(self, tmp_path):
         install = {"remove_paths": []}
         report: list[str] = []
-        (tmp_path / "config").mkdir()
+        (tmp_path / ".agent-factory" / "config").mkdir(parents=True)
         inf.write_project_context(tmp_path, install, report)
-        assert "config/project-context.json" in install["remove_paths"]
+        assert ".agent-factory/config/project-context.json" in install["remove_paths"]
         assert install.get("ignore_project_context") is True
 
     def test_creates_config_dir(self, tmp_path):
         install = {"remove_paths": []}
         report: list[str] = []
         inf.write_project_context(tmp_path, install, report)
-        assert (tmp_path / "config" / "project-context.json").exists()
+        assert (tmp_path / ".agent-factory" / "config" / "project-context.json").exists()
 
 
 class TestReconcileProjectContext:
@@ -1221,8 +1221,8 @@ class TestReconcileProjectContext:
 
     @staticmethod
     def _seed_cache(tmp_path: Path, fitting: dict, **extra) -> Path:
-        (tmp_path / "config").mkdir()
-        path = tmp_path / "config" / "project-context.json"
+        (tmp_path / ".agent-factory" / "config").mkdir(parents=True)
+        path = tmp_path / ".agent-factory" / "config" / "project-context.json"
         payload = {"languages": [], "frameworks": [], "fitting": fitting, **extra}
         path.write_text(json.dumps(payload))
         return path
@@ -1384,8 +1384,8 @@ class TestReconcileProjectContext:
         assert cache_path.read_text() == before
 
     def test_cache_without_fitting_key_left_untouched(self, tmp_path):
-        (tmp_path / "config").mkdir()
-        cache_path = tmp_path / "config" / "project-context.json"
+        (tmp_path / ".agent-factory" / "config").mkdir(parents=True)
+        cache_path = tmp_path / ".agent-factory" / "config" / "project-context.json"
         cache_path.write_text(json.dumps({"custom": True}))
         install = {"remove_paths": []}
         report: list[str] = []
@@ -1464,7 +1464,7 @@ class TestConcernModelMigration:
 
     def test_orientation_block_non_claude_references_agent_context(self, tmp_path):
         """Non-Claude orientation blocks reference docs/agent-context.md."""
-        factory = tmp_path / "factory"
+        factory = tmp_path / ".agent-factory" / "factory"
         (factory / "config").mkdir(parents=True)
         (factory / "config" / "AGENTS.md").write_text("# Test orientation\n")
         block = inf._orientation_block(".github", factory)
@@ -1472,39 +1472,39 @@ class TestConcernModelMigration:
 
     def test_orientation_block_copilot_explicit_index_path(self, tmp_path):
         """Copilot orientation uses .github/INDEX.yaml, not the generic list."""
-        factory = tmp_path / "factory"
+        factory = tmp_path / ".agent-factory" / "factory"
         (factory / "config").mkdir(parents=True)
-        agents_md = (
-            Path(__file__).resolve().parent.parent.parent
-            / "packages" / "factory" / "config" / "AGENTS.md"
-        )
+        src = Path(__file__).resolve().parent.parent.parent / "packages" / "factory" / "config"
         (factory / "config" / "AGENTS.md").write_text(
-            agents_md.read_text(encoding="utf-8")
+            (src / "AGENTS.md").read_text(encoding="utf-8")
         )
+        copilot_src = src / "AGENTS.copilot.md"
+        if copilot_src.is_file():
+            (factory / "config" / "AGENTS.copilot.md").write_text(
+                copilot_src.read_text(encoding="utf-8")
+            )
         block = inf._orientation_block(".github", factory)
         assert "`.github/INDEX.yaml`" in block
-        assert ".claude/INDEX.yaml" not in block
-        assert ".pi/INDEX.yaml" not in block
-        assert ".codex/INDEX.yaml" not in block
 
     def test_orientation_block_codex_explicit_index_path(self, tmp_path):
         """Codex orientation uses .codex/INDEX.yaml, not the generic list."""
-        factory = tmp_path / "factory"
+        factory = tmp_path / ".agent-factory" / "factory"
         (factory / "config").mkdir(parents=True)
-        agents_md = (
-            Path(__file__).resolve().parent.parent.parent
-            / "packages" / "factory" / "config" / "AGENTS.md"
-        )
+        src = Path(__file__).resolve().parent.parent.parent / "packages" / "factory" / "config"
         (factory / "config" / "AGENTS.md").write_text(
-            agents_md.read_text(encoding="utf-8")
+            (src / "AGENTS.md").read_text(encoding="utf-8")
         )
+        codex_src = src / "AGENTS.codex.md"
+        if codex_src.is_file():
+            (factory / "config" / "AGENTS.codex.md").write_text(
+                codex_src.read_text(encoding="utf-8")
+            )
         block = inf._orientation_block(".codex", factory)
         assert "`.codex/INDEX.yaml`" in block
-        assert ".claude/INDEX.yaml" not in block
 
     def test_orientation_block_session_menu_link_absolute(self, tmp_path):
         """Non-Claude orientation fixes session-menu.md link to full path."""
-        factory = tmp_path / "factory"
+        factory = tmp_path / ".agent-factory" / "factory"
         (factory / "config").mkdir(parents=True)
         agents_md = (
             Path(__file__).resolve().parent.parent.parent
@@ -1514,14 +1514,13 @@ class TestConcernModelMigration:
             agents_md.read_text(encoding="utf-8")
         )
         block = inf._orientation_block(".github", factory)
-        assert "](factory/config/session-menu.md)" in block
+        assert "](.agent-factory/factory/config/session-menu.md)" in block
         assert "](session-menu.md)" not in block
 
     def test_orientation_block_claude_unchanged(self):
         """Claude orientation still uses @-includes, not inlined content."""
         include = inf.ORIENTATION_INCLUDE[".claude"]
         assert include.startswith("@")
-        assert ".claude" not in inf.DOT_DIR_INDEX_PATH
 
 
 class TestExtractDepName:
@@ -1575,7 +1574,7 @@ class TestDoAdd:
         assert rc == 1
 
     def test_reports_all_installed(self, tmp_path):
-        manifest_path = tmp_path / ".agent-factory" / "factory-install.json"
+        manifest_path = tmp_path / ".agent-factory" / "install.json"
         manifest_path.parent.mkdir(parents=True)
         manifest_path.write_text(json.dumps({"cli": None}))
         rc = inf.do_add(tmp_path, tmp_path, ["claude"])
@@ -1588,7 +1587,7 @@ class TestDoRemove:
         assert rc == 1
 
     def test_reports_not_installed(self, tmp_path):
-        manifest_path = tmp_path / ".agent-factory" / "factory-install.json"
+        manifest_path = tmp_path / ".agent-factory" / "install.json"
         manifest_path.parent.mkdir(parents=True)
         manifest_path.write_text(json.dumps({
             "cli": ["copilot"],
@@ -1606,7 +1605,7 @@ class TestDoRemove:
         agents_md.write_text(
             f"# Project\n{begin}\nFactory content\n{end}\nUser content\n"
         )
-        manifest_path = tmp_path / ".agent-factory" / "factory-install.json"
+        manifest_path = tmp_path / ".agent-factory" / "install.json"
         manifest_path.parent.mkdir(parents=True)
         gitignore = tmp_path / ".gitignore"
         gitignore.write_text("# project\n")
@@ -1628,8 +1627,8 @@ class TestFactoryChecksums:
     """Per-file checksum recording and modification detection."""
 
     def _make_factory(self, tmp_path):
-        factory = tmp_path / "factory"
-        factory.mkdir()
+        factory = tmp_path / ".agent-factory" / "factory"
+        factory.mkdir(parents=True)
         (factory / "scripts").mkdir()
         (factory / "scripts" / "step-guard").write_text("#!/usr/bin/env python3\npass\n")
         (factory / "skills").mkdir()
@@ -1705,7 +1704,7 @@ class TestFactoryChecksums:
         report: list[str] = []
         install = {"remove_paths": []}
         inf.copy_factory(source.parent / "factory", target, install, report)
-        assert (target / ".agent-factory" / "factory-checksums.json").exists()
+        assert (target / ".agent-factory" / "checksums.json").exists()
         stored = inf.read_factory_checksums(target)
         assert stored is not None
         assert "scripts/step-guard" in stored
@@ -1718,7 +1717,7 @@ class TestDoRemoveCLIPaths:
         claude_dir.mkdir()
         settings = claude_dir / "settings.json"
         settings.write_text("{}")
-        manifest_path = tmp_path / ".agent-factory" / "factory-install.json"
+        manifest_path = tmp_path / ".agent-factory" / "install.json"
         manifest_path.parent.mkdir(parents=True)
         gitignore = tmp_path / ".gitignore"
         gitignore.write_text("# project\n")

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""update-factory — refresh an installed factory/ to the current checkout.
+"""update-factory — refresh an installed .agent-factory/factory/ to the current checkout.
 
-What: Brings a project's installed `factory/` up to date with the current state
+What: Brings a project's installed `.agent-factory/factory/` up to date with the current state
       of the referenced agent_factory checkout, then re-applies every *derived*
       install step through the sourced init-factory — regenerated Codex
       adapters and Copilot agent copies (with tools: frontmatter), re-verified
@@ -12,12 +12,12 @@ By:   run by hand (a shell, no AI needed); companion to init-factory and
       remove-factory. Run it from the checkout (`--target <project>`) or from
       inside the installed project (`--source <checkout>`); either works.
 
-Safety: Before replacing factory/, the script compares per-file checksums
+Safety: Before replacing .agent-factory/factory/, the script compares per-file checksums
 recorded at install time against the currently installed files. Files that
 the user added (custom skills, agents, scripts) or modified (tweaked prompts,
 adjusted rules) are detected and reported. When user changes are found, the
 update stops unless --force is passed. With --force, user-changed and
-user-added files are preserved in .agent-factory/factory-user-changes/ so
+user-added files are preserved in .agent-factory/user-changes/ so
 nothing is lost.
 
 Installations created before checksum recording was introduced have no
@@ -28,21 +28,22 @@ Paths a pre-commit hook regenerates after install (see HOOK_REGENERATED_PATHS,
 currently INDEX.yaml) are excluded from checksum comparison entirely: a hook
 doing its job is never a user modification, so it never triggers --force.
 These paths are still overwritten on every update, same as everything else in
-factory/ — they are just never diffed against the baseline.
+.agent-factory/factory/ — they are just never diffed against the baseline.
 
-What is *not* touched: only `factory/` is replaced. The project's own files,
-the `.gitignore`/`.pre-commit-config.yaml` edits, and the `.agent-factory/`
-directory — including the usage-tracking transcripts under
-`.agent-factory/usage/` and the lifecycle state under `.agent-factory/usage-
+What is *not* touched: only `.agent-factory/factory/` is replaced. The project's
+own files, the `.gitignore`/`.pre-commit-config.yaml` edits, and the rest of
+`.agent-factory/` — including the usage-tracking transcripts under
+`.agent-factory/usage/` and the lifecycle state under `.agent-factory/usage/
 control/` — are all preserved. init-factory only rewrites the removal manifest
-(`.agent-factory/factory-install.json`) and initializes the lifecycle
+(`.agent-factory/install.json`) and initializes the lifecycle
 if-absent; it never deletes usage data.
 
-On failure, the install is rolled back: the old `factory/` is moved aside
-(not deleted) before the refresh, and if the sourced init-factory returns
-non-zero — a `Collision`, the only non-graceful failure — the previous
-`factory/` is restored in place. The project is never left without a
-`factory/` and dangling runtime symlinks; resolve the reported collision and
+On failure, the install is rolled back: the old `.agent-factory/factory/` is
+moved aside (not deleted) before the refresh, and if the sourced init-factory
+returns non-zero — a `Collision`, the only non-graceful failure — the previous
+`.agent-factory/factory/` is restored in place. The project is never left
+without a `.agent-factory/factory/` and dangling runtime symlinks; resolve the
+reported collision and
 re-run `update-factory` to finish.
 
 The one decision update-factory cannot infer is WHICH checkout to pull from.
@@ -75,9 +76,9 @@ import sys
 import uuid
 from pathlib import Path
 
-MANIFEST_PATH = ".agent-factory/factory-install.json"
-CHECKSUMS_PATH = ".agent-factory/factory-checksums.json"
-USER_CHANGES_DIR = ".agent-factory/factory-user-changes"
+MANIFEST_PATH = ".agent-factory/install.json"
+CHECKSUMS_PATH = ".agent-factory/checksums.json"
+USER_CHANGES_DIR = ".agent-factory/user-changes"
 CHECKSUM_SKIP_PREFIXES = ("__pycache__/",)
 CHECKSUM_SKIP_SUFFIXES = (".pyc",)
 
@@ -199,7 +200,7 @@ def _detect_modifications(
     if stored is None:
         return None
 
-    factory_dir = target / "factory"
+    factory_dir = target / ".agent-factory" / "factory"
     if not factory_dir.is_dir():
         return None
 
@@ -217,7 +218,7 @@ def _report_modifications(
 ) -> None:
     """Print a human-readable report of user changes."""
     total = len(modified) + len(added) + len(removed)
-    print(f"\n  Found {total} user change(s) in factory/:\n")
+    print(f"\n  Found {total} user change(s) in .agent-factory/factory/:\n")
     if modified:
         print("  Modified (content differs from install baseline):")
         for f in modified:
@@ -248,7 +249,7 @@ def _preserve_user_changes(
 
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     dest = target / USER_CHANGES_DIR / stamp
-    factory_dir = target / "factory"
+    factory_dir = target / ".agent-factory" / "factory"
 
     for rel in to_save:
         src = factory_dir / rel
@@ -356,7 +357,7 @@ def main(argv: list[str] | None = None) -> int:
             if saved:
                 log(f"preserved {len(modified) + len(added)} user-changed files in {saved}")
         elif args.check:
-            log("no user modifications detected in factory/")
+            log("no user modifications detected in .agent-factory/factory/")
             return 0
     else:
         if args.check:
@@ -385,16 +386,16 @@ def main(argv: list[str] | None = None) -> int:
         source = Path(recorded).resolve()
 
     pkg_factory = source / "packages" / "factory"
-    source_factory = pkg_factory if pkg_factory.is_dir() else source / "factory"
+    source_factory = pkg_factory if pkg_factory.is_dir() else source / ".agent-factory" / "factory"
     if not source_factory.is_dir():
         print(
-            f"update-factory: no factory/ found at {source} — pass "
+            f"update-factory: no packages/factory/ found at {source} — pass "
             "--source explicitly",
             file=sys.stderr,
         )
         return 1
 
-    target_factory = target / "factory"
+    target_factory = target / ".agent-factory" / "factory"
     if target_factory.exists() and not target_factory.is_dir():
         print(
             f"update-factory: {target_factory} exists and is not a directory — "
@@ -403,7 +404,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    # ── Replace factory/ ───────────────────────────────────────────────
+    # ── Replace .agent-factory/factory/ ────────────────────────────────
 
     backup: Path | None = None
     if target_factory.is_dir():
@@ -412,16 +413,16 @@ def main(argv: list[str] | None = None) -> int:
         backup_dir.mkdir(parents=True, exist_ok=True)
         backup = backup_dir / f"factory-backup-{uuid.uuid4()}"
         os.rename(target_factory, backup)
-        log(f"moved existing factory/ aside ({target_factory})")
+        log(f"moved existing .agent-factory/factory/ aside ({target_factory})")
     else:
-        log("no existing factory/ to remove — installing fresh")
+        log("no existing .agent-factory/factory/ to remove — installing fresh")
 
-    log(f"refreshing factory/ from {source_factory}")
+    log(f"refreshing .agent-factory/factory/ from {source_factory}")
     code = _run_init(source, target)
     if code != 0:
         if backup is not None and backup.is_dir() and not target_factory.exists():
             os.rename(backup, target_factory)
-            log("restored the previous factory/ after the failed reinstall")
+            log("restored the previous .agent-factory/factory/ after the failed reinstall")
         print(
             "update-factory: the sourced init-factory did not complete — "
             "see its output above; resolve the reported collision and re-run "
@@ -443,7 +444,7 @@ def main(argv: list[str] | None = None) -> int:
     _stamp_tree_hash(source, target)
     _write_checksums(target, target_factory)
     _lock_factory(target_factory)
-    log("done, factory/ is now current")
+    log("done, .agent-factory/factory/ is now current")
     return 0
 
 

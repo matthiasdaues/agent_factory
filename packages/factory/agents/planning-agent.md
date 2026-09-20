@@ -2,9 +2,6 @@
 name: planning-agent
 title: Planning Agent
 tier: strong
-eligible_cycles:
-  - ROADMAP
-  - REFINE
 description: >-
   Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
 skills:
@@ -15,12 +12,20 @@ skills:
   - create-backlog-story-slices
   - create-backlog-stories
 inputs:
-  - docs/agent-context.md
-  - docs/spec/*.feature
-  - docs/spec/scope-map.md
-  - docs/testing.yaml
+  required:
+    - type: feature
+      path_pattern: "docs/spec/*.feature"
+    - type: scope-map
+      path_pattern: docs/spec/scope-map.md
+  context:
+    - docs/agent-context.md
+    - docs/testing.yaml
 outputs:
-  - backlog/ST-*.md (User Stories, grouped by epic)
+  minimum_changed: 1
+  declarations:
+    - path_pattern: "backlog/ST-*.md"
+      validator:
+      required: true
 triggers:
   - "create backlog"
   - "plan the work"

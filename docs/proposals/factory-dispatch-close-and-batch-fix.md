@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: Dispatch Lifecycle Close and Mechanical Enforcement
 status: implemented
 owner: Matthias Daues
 created: 2026-09-08

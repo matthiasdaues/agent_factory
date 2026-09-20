@@ -148,14 +148,14 @@ The [factory guide](docs/factory-guide.md) covers the full picture:
 | Hook config          | `.claude/settings.json` (hook entries), `.codex/hooks.json` (hook entries)                                                                                   | No       |
 | Pre-commit hooks     | `.pre-commit-config.yaml` — `agent_factory_hook-*` block                                                                                                     | Yes      |
 | Gitignore block      | `.gitignore` — `agent_factory related` section                                                                                                               | Yes      |
-| Project config       | `config/project.json` (name + UUID), `config/model.conf`, `config/project-context.json` (scan results)                                                       | No       |
+| Project config       | `.agent-factory/config/project.json` (name + UUID), `.agent-factory/config/project-context.json` (scan results)                                              | No       |
 | Test regime          | `docs/testing.yaml` — `test_command` if a single unambiguous entrypoint is detected                                                                          | No       |
-| Usage runtime        | `.agent-factory/usage-runtime/` — hash-verified tokenizer venv                                                                                               | No       |
-| Usage lifecycle      | `.agent-factory/usage-control/` — registration fence and capture state                                                                                       | No       |
-| Install manifest     | `.agent-factory/factory-install.json`                                                                                                                        | No       |
-| Install checksums    | `.agent-factory/factory-checksums.json` — per-file SHA-256 for modification detection by `update-factory`                                                    | No       |
+| Usage runtime        | `.agent-factory/usage/runtime/` — hash-verified tokenizer venv                                                                                               | No       |
+| Usage lifecycle      | `.agent-factory/usage/control/` — registration fence and capture state                                                                                       | No       |
+| Install manifest     | `.agent-factory/install.json`                                                                                                                                | No       |
+| Install checksums    | `.agent-factory/checksums.json` — per-file SHA-256 for modification detection by `update-factory`                                                            | No       |
 
-Re-running is safe. If `factory/` exists, it is left alone — use `factory/scripts/update-factory` instead.
+Re-running is safe. If `.agent-factory/factory/` exists, it is left alone — use `.agent-factory/factory/scripts/update-factory` instead.
 
 ### Test execution
 

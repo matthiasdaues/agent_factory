@@ -7,7 +7,7 @@ When: At dispatch, when an agent must be launched with a resolved model.
 By:   the Pi run_agent tool (run-agent.ts) and trigger — not a pre-commit hook.
 
 The shared tier resolver behind both `trigger` (Python) and the Pi
-`run_agent` tool (`factory/config/extensions/run-agent.ts`, which shells this
+`run_agent` tool (`.agent-factory/factory/config/extensions/run-agent.ts`, which shells this
 script). It keeps `config/model.conf` with exactly one parser: it imports
 `matrix-lint`'s own `parse_matrix()` rather than re-implementing the format
 (SOLID SRP; ADR-0004, todos T-09).

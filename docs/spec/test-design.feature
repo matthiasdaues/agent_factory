@@ -1,3 +1,4 @@
+# scope: global
 Feature: Test Design Skill
 
   The test-design skill designs test scenarios from .feature contracts and the

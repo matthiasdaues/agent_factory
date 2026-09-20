@@ -1,3 +1,7 @@
+---
+scope: global
+---
+
 # EPICs — Test-Design Layer Redistribution
 
 Proposal trace: [test-design-layer-redistribution.md](../docs/proposals/implemented/test-design-layer-redistribution.md)

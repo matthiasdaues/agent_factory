@@ -24,7 +24,7 @@ It flags:
   RECON-STALE        docs/spec/ changed but spec-lint never ran this session.
 
 Scope (PoC). Full branch-root -> branch-head wiring per
-factory/rulebooks/conventions/branching-policy.md § "Two SHAs Tracked Per
+.agent-factory/factory/rulebooks/conventions/branching-policy.md § "Two SHAs Tracked Per
 Invocation" is deferred: this script proves the comparison logic, not the
 orchestrator integration. Pass ``--base <ref>`` to compare committed changes
 over ``<base>..<head>``; omit it to reconcile the working tree alone. Only the

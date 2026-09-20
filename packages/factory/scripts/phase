@@ -8,8 +8,8 @@ By:   the run-step skill / playbook harness — not a pre-commit hook.
 
 Subcommand-style tool (like ``structurizr validate``). Two subcommands:
 
-  factory/scripts/phase advance [--by NAME]
-  factory/scripts/phase retry [--default-max-iterations N]
+  .agent-factory/factory/scripts/phase advance [--by NAME]
+  .agent-factory/factory/scripts/phase retry [--default-max-iterations N]
 
 ``advance`` reads the git-ignored marker (``.current-work/playbook-state.yml``),
 finds the current state's forward transition in the playbook FSM, checks the
@@ -22,7 +22,7 @@ new state) — ``recorded_at`` from this process's own clock, never agent-suppli
 
 ``retry`` is the iteration-cap check: called before re-dispatching the SAME
 state's agent (a gate failed with findings to address, not a hard error — see
-factory/skills/run-step/SKILL.md § Step 3). It increments the marker's
+.agent-factory/factory/skills/run-step/SKILL.md § Step 3). It increments the marker's
 ``iteration`` count for the current state and refuses once that state's cap is
 hit. The cap is configurable two ways, checked in order: (1) the playbook's own
 ``.fsm.yml`` — a ``halt_conditions`` entry of ``type: max_iterations`` naming
@@ -54,7 +54,11 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_MARKER = Path(".current-work/playbook-state.yml")
-DEFAULT_PLAYBOOKS_DIR = Path("factory/playbooks")
+DEFAULT_PLAYBOOKS_DIR = Path(
+    ".agent-factory/factory/playbooks"
+    if Path(".agent-factory/factory").is_dir()
+    else "factory/playbooks"
+)
 DEFAULT_PLAYBOOK = "greenfield-development"
 FINDINGS_DIR = Path("docs/findings")
 

@@ -1,3 +1,4 @@
+# scope: global
 Feature: Local usage processing and analysis
 The local operator derives reproducible usage answers from retained JSONL evidence
 without operating a database service, reading transcripts, or changing capture.

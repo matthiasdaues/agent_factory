@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: Specification Entry-Point Consistency Gate
 status: open
 owner: Agent Factory maintainers
 created: 2026-09-15

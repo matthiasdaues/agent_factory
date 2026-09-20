@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: Skill & Agent Efficiency Remediation
 status: implemented
 owner: Matthias Daues
 created: 2026-09-12

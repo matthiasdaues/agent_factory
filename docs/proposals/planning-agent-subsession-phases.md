@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: Planning Agent Subsession Phases
 status: draft
 owner: Matthias Daues
 created: 2026-09-08

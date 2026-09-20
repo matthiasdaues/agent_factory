@@ -49,16 +49,76 @@ class TestParseFrontmatter:
         assert "name" in fm
         assert "unknown_key" not in fm
 
+    def test_structured_inputs(self):
+        text = (
+            "---\nname: test\ninputs:\n"
+            "  required:\n"
+            "    - type: feature\n"
+            '      path_pattern: "docs/spec/*.feature"\n'
+            "  context:\n"
+            "    - docs/agent-context.md\n"
+            "---\n"
+        )
+        fm = il.parse_frontmatter(text)
+        assert isinstance(fm["inputs"], dict)
+        assert len(fm["inputs"]["required"]) == 1
+        assert fm["inputs"]["required"][0]["type"] == "feature"
+        assert fm["inputs"]["context"] == ["docs/agent-context.md"]
+
+    def test_structured_outputs(self):
+        text = (
+            "---\nname: test\noutputs:\n"
+            "  minimum_changed: 1\n"
+            "  declarations:\n"
+            '    - path_pattern: "docs/arc42/*.md"\n'
+            "      validator: null\n"
+            "      required: true\n"
+            "---\n"
+        )
+        fm = il.parse_frontmatter(text)
+        assert isinstance(fm["outputs"], dict)
+        assert fm["outputs"]["minimum_changed"] == 1
+        assert len(fm["outputs"]["declarations"]) == 1
+        assert fm["outputs"]["declarations"][0]["required"] is True
+
+    def test_flat_inputs_detected(self):
+        text = "---\nname: test\ninputs:\n  - docs/foo.md\n  - docs/bar.md\n---\n"
+        fm = il.parse_frontmatter(text)
+        assert isinstance(fm["inputs"], list)
+
+    def test_inputs_with_conditions(self):
+        text = (
+            "---\nname: test\ninputs:\n"
+            "  required:\n"
+            "    - type: proposal\n"
+            '      path_pattern: "docs/proposals/{name}.md"\n'
+            "      conditions:\n"
+            "        field: status\n"
+            "        value: accepted\n"
+            "---\n"
+        )
+        fm = il.parse_frontmatter(text)
+        req = fm["inputs"]["required"][0]
+        assert req["conditions"]["field"] == "status"
+        assert req["conditions"]["value"] == "accepted"
+
 
 class TestLoadAgents:
     def test_loads_from_directory(self, tmp_path):
         (tmp_path / "test-agent.md").write_text(
-            "---\nname: test-agent\ntitle: Test\neligible_cycles:\n  - IDEA\n  - CONCEPT\n---\nBody"
+            "---\nname: test-agent\ntitle: Test\n"
+            "inputs:\n  context:\n    - docs/foo.md\n"
+            "outputs:\n  minimum_changed: 1\n"
+            "  declarations:\n"
+            "    - path_pattern: docs/out.md\n"
+            "      validator: null\n"
+            "      required: true\n"
+            "---\nBody"
         )
         agents = il.load_agents(tmp_path)
         assert len(agents) == 1
         assert agents[0]["name"] == "test-agent"
-        assert agents[0]["eligible_cycles"] == ["IDEA", "CONCEPT"]
+        assert isinstance(agents[0]["inputs"], dict)
         assert agents[0]["_tokens"] > 0
 
     def test_skips_files_without_name(self, tmp_path):
@@ -151,11 +211,18 @@ class TestBuildAgentsData:
             {
                 "name": "test-agent",
                 "title": "Test",
-                "eligible_cycles": ["IDEA"],
-                "_path": "factory/agents/test-agent.md",
+                "_path": ".agent-factory/factory/agents/test-agent.md",
                 "_tokens": 100,
                 "skills": ["grilling"],
-                "inputs": ["factory/rulebooks/rules.md"],
+                "inputs": {
+                    "context": [
+                        ".agent-factory/factory/rulebooks/conventions/rules.md",
+                    ],
+                },
+                "outputs": {
+                    "minimum_changed": 1,
+                    "declarations": [],
+                },
             }
         ]
         skill_tokens = {"grilling": 200}
@@ -169,13 +236,28 @@ class TestBuildAgentsData:
             {
                 "name": "big-agent",
                 "title": "Big",
-                "eligible_cycles": ["REALIZE"],
-                "_path": "factory/agents/big-agent.md",
+                "_path": ".agent-factory/factory/agents/big-agent.md",
                 "_tokens": 25000,
+                "inputs": {},
+                "outputs": {},
             }
         ]
         _, warnings = il.build_agents_data(agents, {}, {})
         assert any("exceeds" in w for w in warnings)
+
+    def test_rejects_flat_inputs_format(self):
+        agents = [
+            {
+                "name": "old-agent",
+                "title": "Old",
+                "_path": ".agent-factory/factory/agents/old-agent.md",
+                "_tokens": 100,
+                "inputs": ["docs/foo.md", "docs/bar.md"],
+                "outputs": {},
+            }
+        ]
+        _, warnings = il.build_agents_data(agents, {}, {})
+        assert any("rejected flat" in w for w in warnings)
 
 
 class TestBuildSkillsData:
@@ -198,7 +280,14 @@ class TestRenderIndex:
         agents_dir = tmp_path / "agents"
         agents_dir.mkdir()
         (agents_dir / "test.md").write_text(
-            "---\nname: test\ntitle: Test Agent\neligible_cycles:\n  - IDEA\n---\nBody"
+            "---\nname: test\ntitle: Test Agent\n"
+            "inputs:\n  context:\n    - docs/foo.md\n"
+            "outputs:\n  minimum_changed: 1\n"
+            "  declarations:\n"
+            "    - path_pattern: docs/out.md\n"
+            "      validator: null\n"
+            "      required: true\n"
+            "---\nBody"
         )
         skills_dir = tmp_path / "skills"
         skills_dir.mkdir()
@@ -216,16 +305,25 @@ class TestRenderIndex:
         assert "playbooks:" in content
         assert "rulebooks:" in content
         assert "test" in content
+        assert "inputs:" in content
+        assert "outputs:" in content
 
 
 class TestMainRoundTrip:
-    """Integration: main() wires load → render → write/check → exit code."""
+    """Integration: main() wires load -> render -> write/check -> exit code."""
 
     def _make_factory_dirs(self, tmp_path):
         for name in ("agents", "skills", "playbooks", "rulebooks"):
             (tmp_path / name).mkdir()
         (tmp_path / "agents" / "test.md").write_text(
-            "---\nname: test\ntitle: Test\neligible_cycles:\n  - IDEA\n---\nBody"
+            "---\nname: test\ntitle: Test\n"
+            "inputs:\n  context:\n    - docs/foo.md\n"
+            "outputs:\n  minimum_changed: 1\n"
+            "  declarations:\n"
+            "    - path_pattern: docs/out.md\n"
+            "      validator: null\n"
+            "      required: true\n"
+            "---\nBody"
         )
         return tmp_path
 
@@ -338,3 +436,28 @@ class TestMainRoundTrip:
             ]
         )
         assert out.read_text() == first
+
+    def test_rejects_flat_format(self, tmp_path):
+        for name in ("agents", "skills", "playbooks", "rulebooks"):
+            (tmp_path / name).mkdir()
+        (tmp_path / "agents" / "old.md").write_text(
+            "---\nname: old\ntitle: Old Agent\n"
+            "inputs:\n  - docs/foo.md\n"
+            "---\nBody"
+        )
+        out = tmp_path / "INDEX.yaml"
+        rc = il.main(
+            [
+                "--agents-dir",
+                str(tmp_path / "agents"),
+                "--skills-dir",
+                str(tmp_path / "skills"),
+                "--playbooks-dir",
+                str(tmp_path / "playbooks"),
+                "--rulebooks-dir",
+                str(tmp_path / "rulebooks"),
+                "--out",
+                str(out),
+            ]
+        )
+        assert rc == 1

@@ -256,7 +256,7 @@ them.
 
 `init-factory` prepares the tokenizer at its explicit trusted installation
 boundary before wiring capture hooks. It installs exact hash-verified wheels
-into the owner-only `.agent-factory/usage-runtime` with builds and Python
+into the owner-only `.agent-factory/usage/runtime` with builds and Python
 downloads disabled. Set `UV_OFFLINE=1` for an offline initialization; capture is
 enabled only when every verified artifact is already available. A missing or
 invalid artifact leaves unrelated Factory setup intact and reports capture as
@@ -335,7 +335,7 @@ therefore do not delay human shutdown or `run_agent` / `dispatch_wave` results.
 The supervisor waits outside the measured lifecycle and solely removes the
 validated pending/committing marker, private completion status, and staged
 source after the capture child terminates. Capture child failures retain a
-bounded diagnostic in the private usage-control tree;
+bounded diagnostic in the private usage/control tree;
 diagnostics contain no transcript text. Explicit uninstall cancellation is
 benign and no supervisor failure recreates removed Factory paths. Only the local
 durable staging write remains synchronous. Abrupt supervisor or host shutdown
@@ -514,7 +514,7 @@ The `draft-proposal` skill crystallizes an explored idea into a proposal file. I
 
 ## Rulebooks
 
-A rulebook is a cross-cutting convention that applies across agents and skills — commit message format, how to cross-reference other documents, ADR style, branch scoping. [`factory/rulebooks/rules.md`](../rulebooks/rules.md) states each rule in one line; the matching file in `factory/rulebooks/conventions/` carries the reasoning, examples, and edge cases. Agents and skills cite these rules rather than restating them.
+A rulebook is a cross-cutting convention that applies across agents and skills — commit message format, how to cross-reference other documents, ADR style, branch scoping. [`.agent-factory/factory/rulebooks/rules.md`](../rulebooks/rules.md) states each rule in one line; the matching file in `.agent-factory/factory/rulebooks/conventions/` carries the reasoning, examples, and edge cases. Agents and skills cite these rules rather than restating them.
 
 Rulebooks are grouped by kind, one directory per kind. `index-lint` derives each rulebook's `category` from its parent directory:
 

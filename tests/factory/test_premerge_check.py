@@ -29,16 +29,16 @@ class TestCheckOutOfScope:
 
     def test_in_scope_passes(self):
         ok, msg = pm.check_out_of_scope(
-            ["factory/scripts/lint.py"],
-            ["factory/scripts/"],
+            [".agent-factory/factory/scripts/lint.py"],
+            [".agent-factory/factory/scripts/"],
         )
         assert ok
         assert "PASS" in msg
 
     def test_out_of_scope_blocks(self):
         ok, msg = pm.check_out_of_scope(
-            ["docs/README.md", "factory/scripts/lint.py"],
-            ["factory/scripts/"],
+            ["docs/README.md", ".agent-factory/factory/scripts/lint.py"],
+            [".agent-factory/factory/scripts/"],
         )
         assert not ok
         assert "BLOCK" in msg

@@ -46,7 +46,7 @@ Exit codes
 
 On PASS, writes `.current-work/premerge-check-ok` at the invoking repo's
 top level, keyed to `<branch>`'s current head SHA.
-`factory/config/hooks/block-dangerous-git.sh` denies `git merge <branch>`
+`.agent-factory/factory/config/hooks/block-dangerous-git.sh` denies `git merge <branch>`
 unless that marker matches — mechanical enforcement, not just a prompt
 instruction.
 """

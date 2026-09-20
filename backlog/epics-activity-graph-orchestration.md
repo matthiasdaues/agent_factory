@@ -1,5 +1,5 @@
 ---
-scope: activity-graph-orchestration
+scope: global
 ---
 
 # EPICs — Activity-Graph Orchestration

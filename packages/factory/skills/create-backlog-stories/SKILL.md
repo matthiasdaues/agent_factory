@@ -3,7 +3,8 @@ name: create-backlog-stories
 description: "Read confirmed slice tables, write backlog/ST-NNNN.md story files with MoSCoW priorities, dependencies, and quality gates. Phase 4 of 4 in the create-backlog sequence."
 category: planning
 inputs:
-  - docs/testing.yaml
+  context:
+    - docs/testing.yaml
 ---
 
 # Create Backlog — Phase 4: Write Stories
@@ -65,7 +66,7 @@ For each story, fill the 13-section body using these 11 instructions:
 
 See the [story template](../../rulebooks/templates/story.md) for the complete 13-section structure. Reference the [parent skill composition rules](../create-backlog/SKILL.md#story-composition-rules) for section-ordering and depth guidance.
 
-Format each story file via `factory/scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
+Format each story file via `.agent-factory/factory/scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 
 ## Step 3 — Prioritise with MoSCoW
 
@@ -73,7 +74,7 @@ Record each story's **MoSCoW** priority in its body: `**Priority:** must-have | 
 
 ## Step 4 — Mark dependencies
 
-List blocking stories in `deps` (by `ST-NNNN` id). Run `factory/scripts/backlog-lint --backlog-dir backlog` — it checks acyclicity — and fix any errors.
+List blocking stories in `deps` (by `ST-NNNN` id). Run `.agent-factory/factory/scripts/backlog-lint --backlog-dir backlog` — it checks acyclicity — and fix any errors.
 
 ## Quality gate
 

@@ -2,9 +2,6 @@
 name: requirements-agent
 title: Requirements Agent
 tier: strong
-eligible_cycles:
-  - IDEA
-  - CONCEPT
 description: >-
   Derive a complete specification from an accepted proposal: scope map,
   consolidated Gherkin feature file, gaps report, per-feature QA strategy,
@@ -21,21 +18,45 @@ skills:
   - capture-context
   - handoff
 inputs:
-  - docs/CONTEXT.md
-  - docs/spec/todos.md
-  - docs/proposals/<proposal-name>.md
-  - factory/rulebooks/conventions/commit-conventions.md
-  - factory/rulebooks/conventions/testing-strategy.md
-  - factory/rulebooks/conventions/cross-reference-format.md
+  required:
+    - type: proposal
+      path_pattern: "docs/proposals/{name}.md"
+      conditions:
+        field: status
+        value: accepted
+  context:
+    - docs/CONTEXT.md
+    - docs/spec/todos.md
+    - .agent-factory/factory/rulebooks/conventions/commit-conventions.md
+    - .agent-factory/factory/rulebooks/conventions/testing-strategy.md
+    - .agent-factory/factory/rulebooks/conventions/cross-reference-format.md
 outputs:
-  - docs/spec/scope-map.md
-  - docs/spec/<feature-name>.feature
-  - docs/spec/<feature-name>-gaps.md
-  - docs/spec/<feature-name>-qa-strategy.md
-  - docs/spec/supplementary_specs/entity-model.md
-  - docs/spec/supplementary_specs/interface-contracts.md
-  - docs/spec/supplementary_specs/state-machines.md
-  - docs/spec/supplementary_specs/validation-rules.md
+  minimum_changed: 1
+  declarations:
+    - path_pattern: docs/spec/scope-map.md
+      validator:
+      required: true
+    - path_pattern: "docs/spec/{name}.feature"
+      validator:
+      required: true
+    - path_pattern: "docs/spec/{name}-gaps.md"
+      validator:
+      required: true
+    - path_pattern: "docs/spec/{name}-qa-strategy.md"
+      validator:
+      required: true
+    - path_pattern: docs/spec/supplementary_specs/entity-model.md
+      validator:
+      required: true
+    - path_pattern: docs/spec/supplementary_specs/interface-contracts.md
+      validator:
+      required: true
+    - path_pattern: docs/spec/supplementary_specs/state-machines.md
+      validator:
+      required: true
+    - path_pattern: docs/spec/supplementary_specs/validation-rules.md
+      validator:
+      required: true
 triggers:
   - "start requirements"
   - "capture the vision"
@@ -95,7 +116,7 @@ Follow the [agent lifecycle protocol](../../rulebooks/conventions/agent-lifecycl
 - `docs/spec/<feature-name>-gaps.md` exists with the actor-goal matrix and any detected gaps
 - `docs/spec/<feature-name>-qa-strategy.md` exists with all six sections filled
 - Supplementary specs (`entity-model.md`, `interface-contracts.md`, `state-machines.md`, `validation-rules.md`) exist under `docs/spec/supplementary_specs/`
-- All outputs pass `factory/scripts/validate`
+- All outputs pass `.agent-factory/factory/scripts/validate`
 
 ## Handoff
 

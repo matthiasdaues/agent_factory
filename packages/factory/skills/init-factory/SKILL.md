@@ -6,20 +6,20 @@ category: utility
 
 # Init Factory
 
-A thin wrapper around `factory/scripts/init-factory` — a normal, standalone, idempotent Python script that does all the actual work (git init, dot-dir symlinks, `.gitignore`/`.pre-commit-config.yaml` merging, `pre-commit install`). It is built to two promises: it never disturbs what the project already owns, and everything it adds is reversible without a trace via its companion `factory/scripts/remove-factory`. This skill exists only for CLIs that want to trigger it conversationally; **the script itself needs no AI in the loop at all** — running it directly from a shell works exactly the same way. Use whichever is convenient.
+A thin wrapper around `.agent-factory/factory/scripts/init-factory` — a normal, standalone, idempotent Python script that does all the actual work (git init, dot-dir symlinks, `.gitignore`/`.pre-commit-config.yaml` merging, `pre-commit install`). It is built to two promises: it never disturbs what the project already owns, and everything it adds is reversible without a trace via its companion `.agent-factory/factory/scripts/remove-factory`. This skill exists only for CLIs that want to trigger it conversationally; **the script itself needs no AI in the loop at all** — running it directly from a shell works exactly the same way. Use whichever is convenient.
 
-**Bootstrap note.** Before this has ever run against a project, there is no `.claude/skills/` or `.github/skills/` yet for a CLI to resolve this skill by name — that's the whole point of running it. The very first invocation has to name the file directly (e.g. "read `factory/skills/init-factory/SKILL.md` in the agent_factory checkout and follow it"), not rely on skill-name resolution. Every later invocation, in a project that already has `factory/` installed, can be a normal by-name skill call.
+**Bootstrap note.** Before this has ever run against a project, there is no `.claude/skills/` or `.github/skills/` yet for a CLI to resolve this skill by name — that's the whole point of running it. The very first invocation has to name the file directly (e.g. "read `.agent-factory/factory/skills/init-factory/SKILL.md` in the agent_factory checkout and follow it"), not rely on skill-name resolution. Every later invocation, in a project that already has `factory/` installed, can be a normal by-name skill call.
 
 ## Step 1 — Locate the script and confirm the target
 
-Find `factory/scripts/init-factory` — either inside this project's own `factory/` (already initialized once) or, on a first-ever run, inside the agent_factory checkout the user pointed you at.
+Find `.agent-factory/factory/scripts/init-factory` — either inside this project's own `factory/` (already initialized once) or, on a first-ever run, inside the agent_factory checkout the user pointed you at.
 
 State plainly what's about to happen before running anything: the target directory (default: current directory — confirm this is right, don't assume), whether it's a fresh directory or an existing repo, and that this will run `git init` (if needed), create symlinks, and modify `.gitignore` / `.pre-commit-config.yaml`. Wait for confirmation — this mutates repo state and is exactly the kind of action that warrants a check first, not a courtesy skip.
 
 ## Step 2 — Run it
 
 ```bash
-factory/scripts/init-factory --target <confirmed target> [--source <agent_factory checkout, if not already inside one>]
+.agent-factory/factory/scripts/init-factory --target <confirmed target> [--source <agent_factory checkout, if not already inside one>]
 ```
 
 Do not pass flags the script doesn't have, and do not try to reimplement any of its steps by hand (writing symlinks yourself, hand-editing `.pre-commit-config.yaml`) — the whole point of the script is that its idempotency and collision checks are deterministic; redoing them by hand reintroduces the variance this design avoids.

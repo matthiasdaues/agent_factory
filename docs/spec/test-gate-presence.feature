@@ -1,3 +1,4 @@
+# scope: global
 Feature: Test Gate Presence over Test Execution
 
   Factory ensures test gates exist; the project decides what runs inside them.

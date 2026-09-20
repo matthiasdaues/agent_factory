@@ -1,3 +1,4 @@
+# scope: global
 Feature: Concern-oriented agent context
 Factory agents route project knowledge through one CLI-agnostic concern
 registry while machine-consumed test configuration remains separate.

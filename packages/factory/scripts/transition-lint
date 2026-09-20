@@ -12,7 +12,7 @@ By:   pre-commit hook `transition-lint`.
 Reads the git-ignored run-state marker (``.current-work/playbook-state.yml``)
 to learn which playbook state a run is in, then maps every staged file to the
 state that declares it via the ``outputs:`` globs in the corresponding
-``factory/playbooks/<playbook>.fsm.yml``. Blocks a commit that stages a file
+``.agent-factory/factory/playbooks/<playbook>.fsm.yml``. Blocks a commit that stages a file
 belonging to any state other than the current one — the phase-ordering rule the
 playbook harness proposal describes.
 
@@ -49,7 +49,11 @@ from typing import Any, Dict, List, Optional
 SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
 
 DEFAULT_MARKER = Path(".current-work/playbook-state.yml")
-DEFAULT_PLAYBOOKS_DIR = Path("factory/playbooks")
+DEFAULT_PLAYBOOKS_DIR = Path(
+    ".agent-factory/factory/playbooks"
+    if Path(".agent-factory/factory").is_dir()
+    else "factory/playbooks"
+)
 
 
 @dataclass
@@ -321,7 +325,7 @@ def check_transitions(
         if owner in succ:
             hint = (
                 f"belongs to '{owner}', a successor of '{current}' — "
-                f"run `factory/scripts/phase advance` once its gate passes"
+                f"run `.agent-factory/factory/scripts/phase advance` once its gate passes"
             )
         else:
             hint = f"belongs to '{owner}', out of order for current state '{current}'"

@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: "Structured Playbooks as a Deterministic Harness"
 status: open
 owner: agent-factory
 created: 2026-07-11

@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: Upstream the extended-traceability map and unify traceability-file naming
 status: draft
 owner: matthias
 created: 2026-08-03

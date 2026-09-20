@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: "Test Gate Presence over Test Execution"
 status: accepted
 owner: Matthias Daues
 created: 2026-08-28

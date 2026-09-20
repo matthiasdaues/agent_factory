@@ -1,3 +1,7 @@
+---
+scope: global
+---
+
 # Proto-Proposal: Spec-Code Traceability
 
 Status: **collecting ideas**

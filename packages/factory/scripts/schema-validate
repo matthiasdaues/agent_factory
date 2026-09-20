@@ -9,7 +9,7 @@
 #       semantic); the load-bearing gate every later artifact and playbook step
 #       depends on. Invoked by the research skills/agents (ST-0019..0022) and on
 #       demand from the CLI.
-# By:   `factory/scripts/schema-validate <artifact-file> <schema-file>`.
+# By:   `.agent-factory/factory/scripts/schema-validate <artifact-file> <schema-file>`.
 #
 # Like spec-lint and arch-lint, this has NO third-party dependencies (Python 3.8+
 # stdlib only), so it runs anywhere without a virtualenv. It implements only the

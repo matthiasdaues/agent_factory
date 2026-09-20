@@ -207,9 +207,9 @@ section. They inherit the resolved answers in their home sections.
 
 ### 6. Format and validate
 
-Format each story via `factory/scripts/mdformat --number <path>`.
+Format each story via `.agent-factory/factory/scripts/mdformat --number <path>`.
 
-Run `factory/scripts/backlog-lint --backlog-dir backlog` to validate frontmatter,
+Run `.agent-factory/factory/scripts/backlog-lint --backlog-dir backlog` to validate frontmatter,
 check dependency acyclicity, and confirm touches hygiene.
 
 ## Output

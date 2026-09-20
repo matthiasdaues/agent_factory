@@ -3,10 +3,11 @@ name: testability-probe
 description: "Assess epic testability and resolve contract ownership backlog-wide before stories are cut. Mandatory step 2.5 in the create-backlog sequence, between create-backlog-write-epics and create-backlog-story-slices. Writes a testability paragraph and ownership table per EPIC into backlog/epics.md — no failure scenarios, test paths, or risk classifications."
 category: planning
 inputs:
-  - backlog/epics.md
-  - docs/spec/*.feature
-  - docs/spec/scope-map.md
-  - testing.yaml (at docs/testing.yaml)
+  context:
+    - backlog/epics.md
+    - "docs/spec/*.feature"
+    - docs/spec/scope-map.md
+    - docs/testing.yaml
 outputs:
   - backlog/epics.md
 ---
@@ -211,7 +212,7 @@ Rules for this block:
   keys, risk classifications, or test paths. Those belong to the
   implementation-time `test-design` skill.
 
-Format `backlog/epics.md` via `factory/scripts/mdformat --number backlog/epics.md`
+Format `backlog/epics.md` via `.agent-factory/factory/scripts/mdformat --number backlog/epics.md`
 per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md)
 after writing.
 

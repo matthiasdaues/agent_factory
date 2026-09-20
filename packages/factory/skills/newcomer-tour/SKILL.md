@@ -18,7 +18,7 @@ Orient newcomers warmly and briefly.
 
 02. If yes, offer to skip ahead or start fresh. If no, begin the tour.
 
-03. Read the full Getting Started section of `factory/docs/factory-guide.md`.
+03. Read the full Getting Started section of `.agent-factory/factory/docs/factory-guide.md`.
 
 04. Cover its concepts in order, combining adjacent material when one
     explanation is enough.

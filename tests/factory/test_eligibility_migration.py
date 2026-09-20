@@ -1,8 +1,8 @@
-"""Characterization tests for the phase-to-eligibility migration.
+"""Characterization tests for agent declaration format.
 
 Owned contracts:
   - No agent definition contains phase or phase-name (standard risk)
-  - Every agent definition contains eligible_cycles (standard risk)
+  - Every agent definition uses structured inputs/outputs, not flat lists (standard risk)
   - index-lint --check exits 0 after regeneration (standard risk)
   - Every agent and skill name from acceptance commit exists post-migration (standard risk)
 """
@@ -57,37 +57,43 @@ class TestNoLegacyPhaseFields:
                     pytest.fail(f"{path.name} still has 'phase-name:' field")
 
 
-class TestEligibleCyclesPresent:
-    def test_every_agent_has_eligible_cycles(self):
+class TestStructuredDeclarationsPresent:
+    def test_every_agent_has_structured_inputs(self):
+        for path in sorted(AGENTS_DIR.glob("*.md")):
+            lines = _read_frontmatter_lines(path)
+            has_inputs = any(
+                line.strip().startswith("inputs:")
+                for line in lines
+            )
+            assert has_inputs, f"{path.name} missing 'inputs:'"
+
+    def test_no_agent_has_flat_inputs(self):
+        for path in sorted(AGENTS_DIR.glob("*.md")):
+            lines = _read_frontmatter_lines(path)
+            in_inputs = False
+            for line in lines:
+                stripped = line.strip()
+                if stripped == "inputs:":
+                    in_inputs = True
+                    continue
+                if in_inputs:
+                    if stripped.startswith("- ") and not stripped.startswith("- type:"):
+                        pytest.fail(
+                            f"{path.name} uses flat 'inputs:' list (rejected)"
+                        )
+                    elif stripped and not stripped.startswith("-") and not stripped.startswith(" "):
+                        break
+
+    def test_no_agent_has_eligible_cycles(self):
         for path in sorted(AGENTS_DIR.glob("*.md")):
             lines = _read_frontmatter_lines(path)
             has_eligible = any(
                 line.strip().startswith("eligible_cycles")
                 for line in lines
             )
-            assert has_eligible, f"{path.name} missing 'eligible_cycles'"
-
-    def test_eligible_cycles_values_are_valid(self):
-        from engine.cycles import REQUIRED_CYCLES
-        valid = REQUIRED_CYCLES
-        for path in sorted(AGENTS_DIR.glob("*.md")):
-            lines = _read_frontmatter_lines(path)
-            in_eligible = False
-            for line in lines:
-                stripped = line.strip()
-                if stripped.startswith("eligible_cycles"):
-                    if stripped == "eligible_cycles: []":
-                        break
-                    in_eligible = True
-                    continue
-                if in_eligible:
-                    if stripped.startswith("- "):
-                        cycle = stripped[2:].strip()
-                        assert cycle in valid, (
-                            f"{path.name}: invalid cycle '{cycle}'"
-                        )
-                    elif stripped and not stripped.startswith("-"):
-                        break
+            assert not has_eligible, (
+                f"{path.name} still has 'eligible_cycles' (removed)"
+            )
 
 
 class TestIndexLintConsistency:
@@ -118,7 +124,7 @@ class TestIndexLintConsistency:
             f"index-lint --check failed: {check.stdout}\n{check.stderr}"
         )
 
-    def test_generated_index_has_eligible_cycles(self, tmp_path):
+    def test_generated_index_has_structured_inputs(self, tmp_path):
         out = tmp_path / "INDEX.yaml"
         subprocess.run(
             [sys.executable, str(INDEX_LINT),
@@ -130,7 +136,9 @@ class TestIndexLintConsistency:
             capture_output=True, text=True,
         )
         content = out.read_text()
-        assert "eligible_cycles:" in content
+        assert "inputs:" in content
+        assert "outputs:" in content
+        assert "eligible_cycles:" not in content
         assert "phase:" not in content.split("playbooks:")[0]
         assert "phase_name:" not in content.split("playbooks:")[0]
 
