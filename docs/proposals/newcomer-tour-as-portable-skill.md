@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: "VIRGIL: Portable Newcomer Tour and Unified Session Agent"
 status: implemented
 owner: md@matthiasdaues.de
 created: 2026-08-30

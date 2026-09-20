@@ -1,3 +1,4 @@
+# scope: global
 Feature: Newcomer onboarding and incremental brownfield
 
   The factory presents rigour as a ramp, not a wall. A newcomer walks

@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: "Bausteinsicht Factory Integration"
 status: accepted
 owner: agent-factory
 created: 2026-08-17

@@ -40,6 +40,41 @@ def _expand_pattern(path_pattern: str) -> str:
     return re.sub(r"\{[^}]+\}", "*", path_pattern)
 
 
+def _extract_scope(path: Path) -> str | None:
+    """Extract scope declaration from a file, handling all three formats."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+
+    suffix = path.suffix.lower()
+
+    if suffix == ".feature":
+        first_line = text.split("\n", 1)[0].strip()
+        m = re.match(r"^#\s*scope:\s*(.+)$", first_line)
+        return m.group(1).strip() if m else None
+
+    if suffix == ".dsl":
+        first_line = text.split("\n", 1)[0].strip()
+        m = re.match(r"^//\s*scope:\s*(.+)$", first_line)
+        return m.group(1).strip() if m else None
+
+    if suffix in (".yaml", ".yml") and not text.startswith("---"):
+        try:
+            data = yaml.safe_load(text)
+        except yaml.YAMLError:
+            return None
+        if isinstance(data, dict):
+            return data.get("scope")
+        return None
+
+    fm = _read_frontmatter(path)
+    if fm is not None:
+        return fm.get("scope")
+
+    return None
+
+
 def _scope_filter(
     candidates: list[str], workstream_id: str | None,
 ) -> list[str]:
@@ -48,11 +83,7 @@ def _scope_filter(
 
     filtered = []
     for c in candidates:
-        fm = _read_frontmatter(Path(c))
-        if fm is None:
-            filtered.append(c)
-            continue
-        scope = fm.get("scope")
+        scope = _extract_scope(Path(c))
         if scope is None:
             filtered.append(c)
             continue

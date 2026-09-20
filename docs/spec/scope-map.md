@@ -1,3 +1,7 @@
+---
+scope: global
+---
+
 # Scope Map — Agent Factory
 
 Each row traces a behavioral rule to its specification origin and, when implemented, to the code that realizes it. This is the project's traceability mechanism.

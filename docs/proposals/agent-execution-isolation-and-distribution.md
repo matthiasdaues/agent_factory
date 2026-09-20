@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: "Agent Execution Isolation and Optional Container Distribution"
 status: open
 owner: agent-factory
 created: 2026-08-10

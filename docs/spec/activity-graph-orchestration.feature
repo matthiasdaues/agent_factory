@@ -1,3 +1,4 @@
+# scope: global
 Feature: Activity-graph orchestration
 
   Replace stage-based orchestration with a precondition graph over

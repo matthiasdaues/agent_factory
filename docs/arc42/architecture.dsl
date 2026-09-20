@@ -1,3 +1,4 @@
+// scope: global
 workspace "Agent Factory" "Cycle-based delivery orchestration, dispatch, validation, and usage capture for Agent Factory" {
 
     properties {

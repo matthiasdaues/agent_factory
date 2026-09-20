@@ -1,3 +1,4 @@
+# scope: global
 Feature: Cycle-Based Orchestration
 
 Replace the linear software-delivery playbook model with a cycle-based

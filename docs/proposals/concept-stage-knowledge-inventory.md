@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: Concept Stage Knowledge Inventory
 status: draft
 owner: Agent Factory maintainers
 created: 2026-09-14

@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: Hermes Host Adapter
 status: draft
 owner: md@matthiasdaues.de
 created: 2026-09-16

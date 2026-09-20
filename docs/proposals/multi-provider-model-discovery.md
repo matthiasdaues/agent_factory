@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: Multi-Provider Model Discovery
 status: draft
 owner: md@matthiasdaues.de
 created: 2026-09-07

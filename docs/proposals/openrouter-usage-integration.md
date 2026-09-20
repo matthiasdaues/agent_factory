@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: "OpenRouter Usage Integration"
 status: draft
 owner: matthias
 created: 2026-08-07

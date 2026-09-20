@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: "Matrix Project Channel and Spoken Clarification"
 status: open
 owner: agent-factory
 created: 2026-08-07

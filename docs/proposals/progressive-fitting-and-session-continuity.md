@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: Progressive Fitting and Session Continuity
 status: accepted
 owner: md@matthiasdaues.de
 created: 2026-09-07

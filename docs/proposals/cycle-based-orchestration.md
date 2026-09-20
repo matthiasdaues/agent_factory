@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: Cycle-Based Orchestration
 status: accepted
 owner: Matthias Daues
 created: 2026-09-13
