@@ -17,16 +17,16 @@ inputs:
     - Taskfile.yml
     - docker-compose.yml
     - "docker-compose.*.yml"
-  - compose.yaml
-  - .github/workflows/*.yml
-  - .gitlab-ci.yml
-  - conftest.py
-  - pytest.ini
-  - setup.cfg
-  - vitest.config.*
-  - jest.config.*
-  - tests/
-  - test/
+    - compose.yaml
+    - .github/workflows/*.yml
+    - .gitlab-ci.yml
+    - conftest.py
+    - pytest.ini
+    - setup.cfg
+    - vitest.config.*
+    - jest.config.*
+    - tests/
+    - test/
 outputs:
   - docs/testing.yaml
 category: utility

@@ -21,6 +21,7 @@ repos:
         entry: bash -c '[ -d .agent-factory ] || exit 0; .agent-factory/factory/scripts/mdformat --number "$@"; rc=$?; git add "$@" 2>/dev/null; exit $rc' --
         language: system
         types: [markdown]
+        stages: [pre-commit, pre-merge-commit]
 
       # Verify that relative links between markdown files resolve.
       # Catches renames, moves, and typos before they reach review.
@@ -58,6 +59,7 @@ repos:
         language: system
         pass_filenames: false
         files: ^docs/(arc42/(architecture\.dsl|05_building_block_view\.md)|assets/images/.*|adr/.*\.md)$
+        stages: [pre-commit, pre-merge-commit]
 
       # Validate backlog story files — required frontmatter fields,
       # allowed status values, and dependency references that must
@@ -106,6 +108,7 @@ repos:
         language: system
         pass_filenames: false
         files: ^(\.agent-factory/factory/agents/.*\.md|\.agent-factory/factory/skills/.*/SKILL\.md|\.agent-factory/factory/playbooks/.*\.md)$
+        stages: [pre-commit, pre-merge-commit]
 
       # Enforce playbook phase ordering. A playbook moves through
       # phases in a fixed sequence (requirements → architecture →
@@ -132,6 +135,7 @@ repos:
         entry: bash -c '.agent-factory/factory/scripts/mdformat --number "$@"; rc=$?; git add "$@" 2>/dev/null; exit $rc' --
         language: system
         types: [markdown]
+        stages: [pre-commit, pre-merge-commit]
 
       - id: link-check
         name: link-check (local Markdown links)
@@ -153,6 +157,7 @@ repos:
         language: system
         pass_filenames: false
         files: ^docs/(arc42/(architecture\.dsl|05_building_block_view\.md)|assets/images/.*|adr/.*\.md)$
+        stages: [pre-commit, pre-merge-commit]
 
       - id: backlog-lint
         name: backlog-lint (story schema & traceability gate)
@@ -188,6 +193,7 @@ repos:
         language: system
         pass_filenames: false
         files: ^(packages/factory/agents/.*\.md|packages/factory/skills/.*/SKILL\.md|packages/factory/playbooks/.*\.md|packages/factory/rulebooks/(?!templates/).*\.md)$
+        stages: [pre-commit, pre-merge-commit]
 
       - id: transition-lint
         name: transition-lint (playbook phase-ordering gate)
