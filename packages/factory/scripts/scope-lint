@@ -1,0 +1,256 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
+"""scope-lint — validate scope declarations on governed artifacts.
+
+What: Checks that every governed artifact carries a scope declaration in the
+      correct format with a valid value (a known workstream ID or 'global').
+When: On commit when governed artifact files change.
+By:   pre-commit hook `scope-lint`; manual invocation.
+
+Seven governed artifact types:
+  - Proposals        (docs/proposals/*.md)           — YAML frontmatter scope
+  - Epics            (backlog/epics-*.md)             — YAML frontmatter scope
+  - Stories          (backlog/ST-*.md)                 — YAML frontmatter scope
+  - Feature files    (docs/spec/*.feature)            — first-line # scope: <v>
+  - Structurizr DSL  (docs/arc42/architecture.dsl)    — first-line // scope: <v>
+  - Entity model     (docs/spec/supplementary_specs/entity-model.{md,yaml})
+  - Scope map        (docs/spec/scope-map.md)         — YAML frontmatter scope
+
+Exit code: number of errors (0 = clean).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+
+@dataclass
+class Finding:
+    path: str
+    error_type: str
+    detail: str
+
+    def line(self) -> str:
+        return f"ERROR: {self.path} — {self.detail}"
+
+
+# --- YAML frontmatter parser (stdlib only) ------------------------------------
+
+
+def _parse_yaml_value(raw: str) -> Any:
+    val = raw.strip()
+    if not val or val in ("~", "null"):
+        return None
+    if val in ("true", "True", "yes"):
+        return True
+    if val in ("false", "False", "no"):
+        return False
+    if val.startswith("[") and val.endswith("]"):
+        inner = val[1:-1]
+        if not inner.strip():
+            return []
+        return [_unquote(t.strip()) for t in inner.split(",") if t.strip()]
+    return _unquote(val)
+
+
+def _unquote(s: str) -> str:
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in ('"', "'"):
+        return s[1:-1]
+    return s
+
+
+def parse_frontmatter(text: str) -> Tuple[Optional[Dict[str, Any]], str]:
+    lines = text.split("\n")
+    if not lines or lines[0].strip() != "---":
+        return None, text
+
+    end = None
+    for i, ln in enumerate(lines[1:], start=1):
+        if ln.strip() == "---":
+            end = i
+            break
+    if end is None:
+        return None, text
+
+    fm: Dict[str, Any] = {}
+    for ln in lines[1:end]:
+        m = re.match(r"^([A-Za-z_][A-Za-z0-9_-]*)\s*:\s*(.*)?$", ln)
+        if m:
+            key = m.group(1)
+            raw_val = (m.group(2) or "").strip()
+            fm[key] = _parse_yaml_value(raw_val) if raw_val else None
+    return fm, "\n".join(lines[end + 1 :])
+
+
+# --- Scope extraction --------------------------------------------------------
+
+
+def extract_scope_yaml_frontmatter(path: Path) -> Optional[str]:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    fm, _ = parse_frontmatter(text)
+    if fm is None:
+        return None
+    return fm.get("scope")
+
+
+def extract_scope_first_line_comment(path: Path, prefix: str) -> Optional[str]:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    first_line = text.split("\n", 1)[0].strip()
+    pattern = re.compile(rf"^{re.escape(prefix)}\s*scope:\s*(.+)$")
+    m = pattern.match(first_line)
+    if m:
+        return m.group(1).strip()
+    return None
+
+
+def extract_scope_top_level_yaml(path: Path) -> Optional[str]:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    for line in text.split("\n"):
+        m = re.match(r"^scope\s*:\s*(.+)$", line)
+        if m:
+            return _unquote(m.group(1).strip())
+    return None
+
+
+# --- Workstream discovery -----------------------------------------------------
+
+
+def discover_workstreams(base_dir: Path) -> set[str]:
+    ws_dir = base_dir / ".agent-factory" / "workstreams"
+    if not ws_dir.is_dir():
+        return set()
+    return {p.stem for p in ws_dir.glob("*.yaml") if p.stem != "sessions" and p.is_file()}
+
+
+# --- Governed artifact discovery & validation ---------------------------------
+
+
+def _discover_governed(base_dir: Path) -> list[tuple[Path, str, str]]:
+    """Return (path, type_label, scope_format) for each governed artifact found."""
+    artifacts: list[tuple[Path, str, str]] = []
+
+    proposals_dir = base_dir / "docs" / "proposals"
+    if proposals_dir.is_dir():
+        for p in sorted(proposals_dir.glob("*.md")):
+            artifacts.append((p, "proposal", "YAML frontmatter"))
+
+    backlog_dir = base_dir / "backlog"
+    if backlog_dir.is_dir():
+        for p in sorted(backlog_dir.glob("epics-*.md")):
+            artifacts.append((p, "epic", "YAML frontmatter"))
+        for p in sorted(backlog_dir.glob("ST-*.md")):
+            artifacts.append((p, "story", "YAML frontmatter"))
+
+    spec_dir = base_dir / "docs" / "spec"
+    if spec_dir.is_dir():
+        for p in sorted(spec_dir.glob("*.feature")):
+            artifacts.append((p, "feature file", "first-line comment (# scope:)"))
+
+    scope_map = base_dir / "docs" / "spec" / "scope-map.md"
+    if scope_map.is_file():
+        artifacts.append((scope_map, "scope map", "YAML frontmatter"))
+
+    dsl = base_dir / "docs" / "arc42" / "architecture.dsl"
+    if dsl.is_file():
+        artifacts.append((dsl, "Structurizr DSL", "first-line comment (// scope:)"))
+
+    entity_yaml = base_dir / "docs" / "spec" / "supplementary_specs" / "entity-model.yaml"
+    entity_md = base_dir / "docs" / "spec" / "supplementary_specs" / "entity-model.md"
+    if entity_yaml.is_file():
+        artifacts.append((entity_yaml, "entity model", "top-level YAML field"))
+    elif entity_md.is_file():
+        artifacts.append((entity_md, "entity model (md)", "YAML frontmatter"))
+
+    return artifacts
+
+
+def _extract_scope(path: Path, type_label: str) -> Optional[str]:
+    if type_label in ("proposal", "epic", "story", "scope map", "entity model (md)"):
+        return extract_scope_yaml_frontmatter(path)
+    elif type_label == "feature file":
+        return extract_scope_first_line_comment(path, "#")
+    elif type_label == "Structurizr DSL":
+        return extract_scope_first_line_comment(path, "//")
+    elif type_label == "entity model":
+        return extract_scope_top_level_yaml(path)
+    return None
+
+
+def validate_scope(
+    base_dir: Path,
+) -> list[Finding]:
+    known_ws = discover_workstreams(base_dir)
+    valid_values = known_ws | {"global"}
+    artifacts = _discover_governed(base_dir)
+    findings: list[Finding] = []
+
+    for path, type_label, scope_format in artifacts:
+        rel = str(path.relative_to(base_dir))
+        scope = _extract_scope(path, type_label)
+
+        if scope is None:
+            findings.append(Finding(
+                path=rel,
+                error_type="missing",
+                detail=f"missing scope declaration in {scope_format}",
+            ))
+        elif scope not in valid_values:
+            findings.append(Finding(
+                path=rel,
+                error_type="unknown",
+                detail=f"unknown scope value '{scope}'",
+            ))
+
+    return findings
+
+
+# --- Driver -------------------------------------------------------------------
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(
+        description="Validate scope declarations on governed artifacts."
+    )
+    p.add_argument("--base-dir", default=".", type=Path,
+                   help="project root directory (default: .)")
+    p.add_argument("--format", choices=["text", "json"], default="text", dest="fmt")
+    args = p.parse_args(argv)
+
+    findings = validate_scope(args.base_dir)
+    error_count = len(findings)
+
+    if args.fmt == "json":
+        print(json.dumps(
+            {"findings": [asdict(f) for f in findings], "errors": error_count},
+            indent=2,
+        ))
+    else:
+        for f in findings:
+            print(f.line())
+        if error_count == 0:
+            print("scope-lint: all governed artifacts pass.")
+        else:
+            print(f"\nscope-lint: {error_count} error(s).")
+
+    return error_count
+
+
+if __name__ == "__main__":
+    sys.exit(main())
