@@ -59,7 +59,7 @@ Present the findings to the user before writing any files. The user decides whic
 - [architecture-review-agent.md § Workflow](../../agents/architecture-review-agent.md#workflow)
 - [code-review-agent.md § Workflow](../../agents/code-review-agent.md#workflow)
 - [qa-agent.md § Workflow](../../agents/qa-agent.md#workflow)
-- [security-review § Step 3 — Write the review report](../../skills/security-review/SKILL.md#step-3--write-the-review-report)
+- [security-review § Report](../../skills/security-review/SKILL.md#report)
 - [reconcile-spec § Step 2 — Update](../../skills/reconcile-spec/SKILL.md#step-2--update)
 - [bug-hunt § Phase: Hunt](../../skills/bug-hunt/SKILL.md#phase-hunt)
 - [inspect-spec § Step 3 — Write the review report](../../skills/inspect-spec/SKILL.md#step-3--write-the-review-report)

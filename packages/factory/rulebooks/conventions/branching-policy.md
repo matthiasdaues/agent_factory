@@ -141,4 +141,4 @@ story/ST-0021, story/ST-0051, story/ST-0054, story/ST-0056          # parallel: 
 - [implementation-agent.md § Workflow](../../agents/implementation-agent.md#workflow) — the enforcing agent's workflow
 - [verify-base](../../scripts/verify-base) — Verify-Base Preamble / Declared Base SHA enforcement
 - [premerge-check](../../scripts/premerge-check) — Pre-Merge Diff Check enforcement
-- [docs/reviews/retro-2026-07-12.md](../../../docs/reviews/retro-2026-07-12.md) and [docs/reviews/retro-2026-07-10.md](../../../docs/reviews/retro-2026-07-10.md) — the sessions that motivated these sections
+- [docs/reviews/retro-2026-07-12.md](../../../../docs/reviews/retro-2026-07-12.md) and [docs/reviews/retro-2026-07-10.md](../../../../docs/reviews/retro-2026-07-10.md) — the sessions that motivated these sections

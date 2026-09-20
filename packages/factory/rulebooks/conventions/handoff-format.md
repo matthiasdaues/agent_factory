@@ -123,4 +123,4 @@ overrides the repository. The prior transcript is not replayed.
 - Scope-map rule: "Continue a multi-phase workflow in a fresh session with bounded context" → `factory/skills/handoff/SKILL.md`
 - [git-workflow.md § Record branch state explicitly](git-workflow.md#record-branch-state-explicitly)
 - [dispatch-contract.md § Verify Sub-Agent Reports Against State](dispatch-contract.md#verify-sub-agent-reports-against-state)
-- [Accepted session-transcript proposal](../../../docs/proposals/proposal-session-transcript-token-control.md)
+- [Accepted session-transcript proposal](../../../../docs/proposals/implemented/proposal-session-transcript-token-control.md)

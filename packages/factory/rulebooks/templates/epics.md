@@ -102,5 +102,5 @@ Each acceptance criterion is a falsifiable statement. Trace scope-map rule IDs p
 
 ## Referenced from
 
-- [create-backlog § Step 1](../../skills/create-backlog/SKILL.md#step-1--define-epics-and-identify-epic-0)
+- [create-backlog § Operational sequence](../../skills/create-backlog/SKILL.md#operational-sequence)
 - [story.md template](story.md) — `epic:` frontmatter references an EPIC title from this document

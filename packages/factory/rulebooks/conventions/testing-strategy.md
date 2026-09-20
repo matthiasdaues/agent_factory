@@ -253,10 +253,10 @@ consumes. This separation keeps planning lightweight and grounded: the probe
 asks "who will test what," not "how will they test it." Detailed test design
 waits until the code exists.
 
-Proposal trace: [test-design-layer-redistribution.md](../../../docs/proposals/test-design-layer-redistribution.md).
+Proposal trace: [test-design-layer-redistribution.md](../../../../docs/proposals/implemented/test-design-layer-redistribution.md).
 
 ## References
 
 - [foundational-principles.md § Agentic Creation, Deterministic Validation](foundational-principles.md#agentic-creation-deterministic-validation)
-- [sustainable-testing-regime.md](../../../docs/proposals/sustainable-testing-regime.md)
+- [sustainable-testing-regime.md](../../../../docs/proposals/sustainable-testing-regime.md)
 - [rules.md § Testing](../rules.md#testing)
