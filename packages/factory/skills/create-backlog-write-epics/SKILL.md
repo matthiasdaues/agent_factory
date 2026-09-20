@@ -41,7 +41,7 @@ Every User Goal from the actor-goal list must belong to exactly one EPIC.
 
 If charter files exist and Epic 0 stories are already in the backlog (created by the `capture-charter` completeness sweep), record Epic 0 in `epics.md` and note that feature EPICs depend on its completion. Feature stories derived from the charter's Feature List shall depend on the final Epic 0 story via `deps:`.
 
-Format via `factory/scripts/mdformat --number backlog/epics.md` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
+Format via `.agent-factory/factory/scripts/mdformat --number backlog/epics.md` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 
 ## Quality gate
 

@@ -23,10 +23,10 @@ inputs:
     - docs/CONTEXT.md
     - docs/agent-context.md
     - docs/testing.yaml
-    - factory/rulebooks/conventions/finding-format.md
-    - factory/rulebooks/conventions/report-format.md
-    - factory/rulebooks/conventions/review-loop-discipline.md
-    - factory/rulebooks/conventions/cross-reference-format.md
+    - .agent-factory/factory/rulebooks/conventions/finding-format.md
+    - .agent-factory/factory/rulebooks/conventions/report-format.md
+    - .agent-factory/factory/rulebooks/conventions/review-loop-discipline.md
+    - .agent-factory/factory/rulebooks/conventions/cross-reference-format.md
 outputs:
   minimum_changed: 1
   declarations:

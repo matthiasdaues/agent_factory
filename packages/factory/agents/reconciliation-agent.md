@@ -27,12 +27,12 @@ inputs:
     - docs/agent-context.md
     - src/**/*
     - tests/**/*
-    - factory/rulebooks/conventions/finding-format.md
-    - factory/rulebooks/conventions/report-format.md
-    - factory/rulebooks/conventions/commit-conventions.md
-    - factory/rulebooks/conventions/review-loop-discipline.md
-    - factory/rulebooks/conventions/dispatch-contract.md
-    - factory/rulebooks/conventions/cross-reference-format.md
+    - .agent-factory/factory/rulebooks/conventions/finding-format.md
+    - .agent-factory/factory/rulebooks/conventions/report-format.md
+    - .agent-factory/factory/rulebooks/conventions/commit-conventions.md
+    - .agent-factory/factory/rulebooks/conventions/review-loop-discipline.md
+    - .agent-factory/factory/rulebooks/conventions/dispatch-contract.md
+    - .agent-factory/factory/rulebooks/conventions/cross-reference-format.md
 outputs:
   minimum_changed: 1
   declarations:

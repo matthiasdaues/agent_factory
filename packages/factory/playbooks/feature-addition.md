@@ -117,12 +117,12 @@ steps:
       - 'backlog/ST-*.md'
       - 'docs/spec/**/*.md'
       - 'docs/spec/**/*.feature'
-      - 'factory/**/*.py'
+      - '.agent-factory/factory/**/*.py'
       - 'orchestrator/**/*.py'
       - 'tests/**/*.py'
       - 'config/**/*.json'
     outputs:
-      - 'factory/**/*.py'
+      - '.agent-factory/factory/**/*.py'
       - 'orchestrator/**/*.py'
       - 'tests/**/*.py'
       - 'config/**/*.json'
@@ -134,7 +134,7 @@ steps:
       - 'backlog/ST-*.md'
       - 'docs/spec/**/*.md'
       - 'docs/spec/**/*.feature'
-      - 'factory/**/*.py'
+      - '.agent-factory/factory/**/*.py'
       - 'orchestrator/**/*.py'
       - 'tests/**/*.py'
       - 'config/**/*.json'
@@ -152,12 +152,12 @@ steps:
       - 'backlog/ST-*.md'
       - 'docs/spec/**/*.md'
       - 'docs/spec/**/*.feature'
-      - 'factory/**/*.py'
+      - '.agent-factory/factory/**/*.py'
       - 'orchestrator/**/*.py'
       - 'tests/**/*.py'
       - 'config/**/*.json'
     outputs:
-      - 'factory/**/*.py'
+      - '.agent-factory/factory/**/*.py'
       - 'orchestrator/**/*.py'
       - 'tests/**/*.py'
       - 'config/**/*.json'
@@ -171,7 +171,7 @@ steps:
     max_input_tokens: 20000
   - name: qa
     inputs:
-      - 'factory/**/*.py'
+      - '.agent-factory/factory/**/*.py'
       - 'orchestrator/**/*.py'
       - 'tests/**/*.py'
       - 'docs/**/*.md'

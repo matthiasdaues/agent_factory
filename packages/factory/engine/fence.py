@@ -101,7 +101,8 @@ def _run_validator(
     changed_files: list[str],
     warnings: list[str],
 ) -> bool:
-    script_path = Path("factory/scripts") / validator_name
+    _fr = Path(".agent-factory/factory/scripts") if Path(".agent-factory/factory").is_dir() else Path("factory/scripts")
+    script_path = _fr / validator_name
     if not script_path.exists():
         warnings.append(
             f"validator '{validator_name}' not found at {script_path}"

@@ -22,11 +22,11 @@ inputs:
     - docs/*.md
     - docs/arc42/CONTEXT.md
     - docs/agent-context.md
-    - factory/rulebooks/conventions/testing-strategy.md
-    - factory/rulebooks/conventions/cross-reference-format.md
-    - factory/rulebooks/conventions/report-format.md
-    - factory/rulebooks/conventions/finding-format.md
-    - factory/rulebooks/conventions/commit-conventions.md
+    - .agent-factory/factory/rulebooks/conventions/testing-strategy.md
+    - .agent-factory/factory/rulebooks/conventions/cross-reference-format.md
+    - .agent-factory/factory/rulebooks/conventions/report-format.md
+    - .agent-factory/factory/rulebooks/conventions/finding-format.md
+    - .agent-factory/factory/rulebooks/conventions/commit-conventions.md
 outputs:
   minimum_changed: 1
   declarations:

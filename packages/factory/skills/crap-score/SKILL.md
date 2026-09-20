@@ -32,13 +32,13 @@ per-line test coverage data. Both are resolved automatically via the
 Run from the repository root:
 
 ```bash
-factory/scripts/crap-score
+.agent-factory/factory/scripts/crap-score
 ```
 
 Optional arguments:
 
 ```bash
-factory/scripts/crap-score \
+.agent-factory/factory/scripts/crap-score \
   --story-id ST-0101 \
   --source-root factory/fixtures/quality-gates/high-crap \
   --coverage-json factory/fixtures/quality-gates/high-crap/coverage.json

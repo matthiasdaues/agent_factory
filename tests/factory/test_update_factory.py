@@ -77,8 +77,8 @@ class TestDetectModificationsIgnoresIndexYamlChanges:
     """A hook-regenerated INDEX.yaml must never surface as a user change."""
 
     def _make_factory(self, root: Path) -> Path:
-        factory = root / "factory"
-        factory.mkdir()
+        factory = root / ".agent-factory" / "factory"
+        factory.mkdir(parents=True)
         (factory / "INDEX.yaml").write_text("agents: []\n")
         (factory / "scripts").mkdir()
         (factory / "scripts" / "step-guard").write_text("pass\n")
@@ -123,8 +123,8 @@ class TestMainSkipsForceGateForIndexYamlOnlyChanges:
     real init-factory checkout -- out of scope for this contract test."""
 
     def _install(self, target: Path, source: Path) -> Path:
-        factory = target / "factory"
-        factory.mkdir()
+        factory = target / ".agent-factory" / "factory"
+        factory.mkdir(parents=True)
         (factory / "INDEX.yaml").write_text("agents: []\n")
         (factory / "scripts").mkdir()
         (factory / "scripts" / "step-guard").write_text("pass\n")

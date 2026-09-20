@@ -20,11 +20,11 @@ def _write_install(base: Path, *, version: str = "0.12.0", source: str = "/src",
         "factory_source": source,
         "cli": cli if cli is not None else ["claude", "copilot"],
     }
-    (af / "factory-install.json").write_text(json.dumps(data), encoding="utf-8")
+    (af / "install.json").write_text(json.dumps(data), encoding="utf-8")
 
 
 def _write_context(base: Path, *, status: str = "fitted", steps: dict[str, bool] | None = None) -> None:
-    cfg = base / "config"
+    cfg = base / ".agent-factory" / "config"
     cfg.mkdir(parents=True, exist_ok=True)
     fitting = {
         "status": status,

@@ -15,7 +15,7 @@ inputs:
       path_pattern: "docs/proposals/{name}.md"
   context:
     - docs/CONTEXT.md
-    - factory/rulebooks/templates/proposal.md
+    - .agent-factory/factory/rulebooks/templates/proposal.md
 outputs:
   minimum_changed: 1
   declarations:

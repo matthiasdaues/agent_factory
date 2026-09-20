@@ -47,13 +47,13 @@ segment of a Python module import as the boundary name.
 Run from the repository root:
 
 ```bash
-factory/scripts/dependency-check
+.agent-factory/factory/scripts/dependency-check
 ```
 
 Optional arguments:
 
 ```bash
-factory/scripts/dependency-check   --story-id ST-0103   --dsl-path factory/fixtures/quality-gates/dependency-violation/architecture.dsl   --source-root factory/fixtures/quality-gates/dependency-violation
+.agent-factory/factory/scripts/dependency-check   --story-id ST-0103   --dsl-path factory/fixtures/quality-gates/dependency-violation/architecture.dsl   --source-root factory/fixtures/quality-gates/dependency-violation
 ```
 
 - `--dsl-path` defaults to `docs/arc42/architecture.dsl`

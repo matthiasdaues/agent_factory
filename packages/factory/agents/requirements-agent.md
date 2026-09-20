@@ -27,9 +27,9 @@ inputs:
   context:
     - docs/CONTEXT.md
     - docs/spec/todos.md
-    - factory/rulebooks/conventions/commit-conventions.md
-    - factory/rulebooks/conventions/testing-strategy.md
-    - factory/rulebooks/conventions/cross-reference-format.md
+    - .agent-factory/factory/rulebooks/conventions/commit-conventions.md
+    - .agent-factory/factory/rulebooks/conventions/testing-strategy.md
+    - .agent-factory/factory/rulebooks/conventions/cross-reference-format.md
 outputs:
   minimum_changed: 1
   declarations:
@@ -116,7 +116,7 @@ Follow the [agent lifecycle protocol](../../rulebooks/conventions/agent-lifecycl
 - `docs/spec/<feature-name>-gaps.md` exists with the actor-goal matrix and any detected gaps
 - `docs/spec/<feature-name>-qa-strategy.md` exists with all six sections filled
 - Supplementary specs (`entity-model.md`, `interface-contracts.md`, `state-machines.md`, `validation-rules.md`) exist under `docs/spec/supplementary_specs/`
-- All outputs pass `factory/scripts/validate`
+- All outputs pass `.agent-factory/factory/scripts/validate`
 
 ## Handoff
 

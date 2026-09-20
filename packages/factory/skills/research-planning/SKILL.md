@@ -36,7 +36,7 @@ For a `falsification` brief, produce a research plan validated against [`researc
 | `review_requirements`   | What a review of this plan's output must check      |
 | `stop_conditions`       | Conditions under which this research effort stops   |
 
-Refer to [`factory/rulebooks/templates/research-plan.md`](../../rulebooks/templates/research-plan.md) for the template structure.
+Refer to [`.agent-factory/factory/rulebooks/templates/research-plan.md`](../../rulebooks/templates/research-plan.md) for the template structure.
 
 ## Survey Plan Output
 

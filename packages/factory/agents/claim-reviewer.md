@@ -9,11 +9,11 @@ description: >-
   claim itself.
 inputs:
   context:
-    - factory/rulebooks/templates/research-conjecture.md
-    - factory/rulebooks/templates/research-review.md
-    - factory/rulebooks/templates/research-vote.md
-    - factory/rulebooks/conventions/research-role-separation.md
-    - factory/rulebooks/conventions/research-evidence-policy.md
+    - .agent-factory/factory/rulebooks/templates/research-conjecture.md
+    - .agent-factory/factory/rulebooks/templates/research-review.md
+    - .agent-factory/factory/rulebooks/templates/research-vote.md
+    - .agent-factory/factory/rulebooks/conventions/research-role-separation.md
+    - .agent-factory/factory/rulebooks/conventions/research-evidence-policy.md
 outputs:
   minimum_changed: 1
   declarations:

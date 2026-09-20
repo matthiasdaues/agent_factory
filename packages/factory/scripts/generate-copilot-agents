@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate Copilot-specific agent definitions from Factory agent Markdown.
 
-What: Reads canonical factory/agents/*.md and writes .github/agents/*.md with
+What: Reads canonical .agent-factory/factory/agents/*.md and writes .github/agents/*.md with
       Copilot-specific tools: frontmatter injected. Canonical definitions stay
       CLI-neutral; these copies get the correct tool names for Copilot CLI.
 When: Called by init-factory during project setup and re-run on update.
@@ -127,7 +127,7 @@ def generate(agents_dir: Path, output_dir: Path) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Generate .github/agents/*.md from factory/agents/*.md."
+        description="Generate .github/agents/*.md from .agent-factory/factory/agents/*.md."
     )
     parser.add_argument("--agents-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)

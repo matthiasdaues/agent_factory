@@ -52,7 +52,7 @@ def target(tmp_path: Path) -> Path:
         "installed_components": {},
         "remove_paths": [],
     }
-    (af / "factory-install.json").write_text(
+    (af / "install.json").write_text(
         json.dumps(manifest, indent=2) + "\n"
     )
     return t

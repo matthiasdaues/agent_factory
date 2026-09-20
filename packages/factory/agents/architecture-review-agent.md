@@ -22,9 +22,9 @@ inputs:
     - docs/*.md
     - docs/assets/images/*
     - docs/agent-context.md
-    - factory/rulebooks/conventions/report-format.md
-    - factory/rulebooks/conventions/finding-format.md
-    - factory/rulebooks/conventions/review-loop-discipline.md
+    - .agent-factory/factory/rulebooks/conventions/report-format.md
+    - .agent-factory/factory/rulebooks/conventions/finding-format.md
+    - .agent-factory/factory/rulebooks/conventions/review-loop-discipline.md
 outputs:
   minimum_changed: 1
   declarations:
@@ -63,7 +63,7 @@ Follow the [agent lifecycle protocol](../../rulebooks/conventions/agent-lifecycl
 **Invoke skill:** `atam-review`
 
 1. **Read** — arc42 docs, ADRs, spec. Understand what was built and why.
-2. **ATAM Review** — Deterministic: `factory/scripts/arch-lint --docs-dir docs/arc42`. Semantic: evaluate each quality scenario from `docs/arc42/10_quality_requirements.md` (sensitivity points, tradeoff points, risks, non-risks). YAGNI pass: flag artificial complexity.
+2. **ATAM Review** — Deterministic: `.agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42`. Semantic: evaluate each quality scenario from `docs/arc42/10_quality_requirements.md` (sensitivity points, tradeoff points, risks, non-risks). YAGNI pass: flag artificial complexity.
 3. **Report** — Save `docs/reviews/atam-review.md` per [report-format.md](../rulebooks/conventions/report-format.md), file Medium+ risks per [finding-format.md](../rulebooks/conventions/finding-format.md).
 4. **Verify prior findings** (repeat passes) — Per [review-loop-discipline.md](../rulebooks/conventions/review-loop-discipline.md): resolve/annotate each open `ATAM` finding, **and** re-run the full evaluation fresh.
 

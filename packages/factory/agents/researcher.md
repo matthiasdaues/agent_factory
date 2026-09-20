@@ -8,8 +8,8 @@ description: >-
   refutation tests. Never reviews or votes on its own claim.
 inputs:
   context:
-    - factory/rulebooks/conventions/research-role-separation.md
-    - factory/rulebooks/conventions/research-evidence-policy.md
+    - .agent-factory/factory/rulebooks/conventions/research-role-separation.md
+    - .agent-factory/factory/rulebooks/conventions/research-evidence-policy.md
 outputs:
   minimum_changed: 1
   declarations:

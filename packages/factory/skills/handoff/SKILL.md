@@ -47,7 +47,7 @@ state, then read only the named artifacts in bounded chunks.
 Run:
 
 ```bash
-factory/scripts/handoff-lint <handoff-path> --repo-root <repository-root>
+.agent-factory/factory/scripts/handoff-lint <handoff-path> --repo-root <repository-root>
 ```
 
 If any structural finding is reported, correct every finding and rerun the

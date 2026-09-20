@@ -36,7 +36,7 @@ def read_install(base: Path) -> dict[str, str]:
     result: dict[str, str] = {}
     try:
         data = json.loads(
-            (base / ".agent-factory" / "factory-install.json").read_text(encoding="utf-8")
+            (base / ".agent-factory" / "install.json").read_text(encoding="utf-8")
         )
         result["version"] = str(data.get("factory_version", "unknown"))
         result["source"] = str(data.get("factory_source", "unknown"))
@@ -53,7 +53,7 @@ def read_install(base: Path) -> dict[str, str]:
 def read_fitting(base: Path) -> str:
     try:
         data = json.loads(
-            (base / "config" / "project-context.json").read_text(encoding="utf-8")
+            (base / ".agent-factory" / "config" / "project-context.json").read_text(encoding="utf-8")
         )
         fitting = data.get("fitting", {})
         done = []

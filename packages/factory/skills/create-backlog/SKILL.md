@@ -14,7 +14,7 @@ Every story is a **tracer bullet** — a **vertical slice** that is independentl
 
 Factory-canonical artifacts (`scope-map.md`, `.feature` files, `testing.yaml`) are read by path. Everything else — source directories, supplementary specs, ADRs, handbooks, architecture views, conventions — is discovered through the concern sections in `docs/agent-context.md`. Each concern section carries `Read:` paths — follow them instead of hardcoding project-specific file paths. As a pre-backlog activity, the planning agent reads the full concern registry by judgment, not narrowed by story concerns.
 
-Stories are project artifacts, not entries in an external tracker: one file per story, `backlog/ST-NNNN.md`, with strict frontmatter validated by `factory/scripts/backlog-lint`.
+Stories are project artifacts, not entries in an external tracker: one file per story, `backlog/ST-NNNN.md`, with strict frontmatter validated by `.agent-factory/factory/scripts/backlog-lint`.
 
 ## Operational sequence
 
@@ -125,6 +125,6 @@ Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gate
 
 - [ ] Every story passes Agent-Answerability and International Readability gates
 
-- [ ] `factory/scripts/backlog-lint` reports zero errors
+- [ ] `.agent-factory/factory/scripts/backlog-lint` reports zero errors
 
 - [ ] Every story has a "Resolve Before Implementation" section (even if "None")

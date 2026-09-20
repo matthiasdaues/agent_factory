@@ -211,12 +211,12 @@ class TestBuildAgentsData:
             {
                 "name": "test-agent",
                 "title": "Test",
-                "_path": "factory/agents/test-agent.md",
+                "_path": ".agent-factory/factory/agents/test-agent.md",
                 "_tokens": 100,
                 "skills": ["grilling"],
                 "inputs": {
                     "context": [
-                        "factory/rulebooks/conventions/rules.md",
+                        ".agent-factory/factory/rulebooks/conventions/rules.md",
                     ],
                 },
                 "outputs": {
@@ -236,7 +236,7 @@ class TestBuildAgentsData:
             {
                 "name": "big-agent",
                 "title": "Big",
-                "_path": "factory/agents/big-agent.md",
+                "_path": ".agent-factory/factory/agents/big-agent.md",
                 "_tokens": 25000,
                 "inputs": {},
                 "outputs": {},
@@ -250,7 +250,7 @@ class TestBuildAgentsData:
             {
                 "name": "old-agent",
                 "title": "Old",
-                "_path": "factory/agents/old-agent.md",
+                "_path": ".agent-factory/factory/agents/old-agent.md",
                 "_tokens": 100,
                 "inputs": ["docs/foo.md", "docs/bar.md"],
                 "outputs": {},

@@ -11,12 +11,12 @@
 #       a test was severe. Those semantic questions belong to stage 3 and to
 #       human/agent reviewers.
 #
-# When: After schema validation (stage 1, `factory/scripts/schema-validate`) and
+# When: After schema validation (stage 1, `.agent-factory/factory/scripts/schema-validate`) and
 #       before semantic review (stage 3). The `--pipeline` mode runs the stages
 #       in order and stops at the first failing stage.
 #
-# By:   `factory/scripts/policy-validate <artifact-or-dir>...`
-#       `factory/scripts/policy-validate --pipeline <artifact-or-dir>...`
+# By:   `.agent-factory/factory/scripts/policy-validate <artifact-or-dir>...`
+#       `.agent-factory/factory/scripts/policy-validate --pipeline <artifact-or-dir>...`
 #
 # Like schema-validate, this has NO third-party dependencies (Python 3.8+ stdlib
 # only), so it runs anywhere without a virtualenv, and is subprocess-friendly:

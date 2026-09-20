@@ -73,14 +73,14 @@ Report what was found to the user before proceeding.
 Prepare the six generic cross-cutting concern sections. These are
 factory-shipped defaults — every project gets them:
 
-| Concern            | Description                                                                  | Default Read path(s)                                                             |
-| ------------------ | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Branching          | Branching policy and worktree discipline.                                    | `factory/rulebooks/conventions/branching-policy.md`                              |
-| Committing         | Commit message format and hook discipline.                                   | `factory/rulebooks/conventions/commit-conventions.md`, `.pre-commit-config.yaml` |
-| Testing discipline | Risk-based testing, test admission, layer ownership, risk classes.           | `docs/handbook/testing/conventions.md`, `docs/handbook/testing/strategy.md`      |
-| Review             | Peer review rules, architecture review triggers, creation/review separation. | `factory/rulebooks/conventions/review-policy.md`                                 |
-| Scope discipline   | Build accepted scope only, YAGNI, deferred-feature boundaries.               | `factory/rulebooks/conventions/scope-policy.md`                                  |
-| Security           | Security-focused review triggers, secret handling, authorization boundaries. | `factory/rulebooks/conventions/security-policy.md`                               |
+| Concern            | Description                                                                  | Default Read path(s)                                                                            |
+| ------------------ | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Branching          | Branching policy and worktree discipline.                                    | `.agent-factory/factory/rulebooks/conventions/branching-policy.md`                              |
+| Committing         | Commit message format and hook discipline.                                   | `.agent-factory/factory/rulebooks/conventions/commit-conventions.md`, `.pre-commit-config.yaml` |
+| Testing discipline | Risk-based testing, test admission, layer ownership, risk classes.           | `docs/handbook/testing/conventions.md`, `docs/handbook/testing/strategy.md`                     |
+| Review             | Peer review rules, architecture review triggers, creation/review separation. | `.agent-factory/factory/rulebooks/conventions/review-policy.md`                                 |
+| Scope discipline   | Build accepted scope only, YAGNI, deferred-feature boundaries.               | `.agent-factory/factory/rulebooks/conventions/scope-policy.md`                                  |
+| Security           | Security-focused review triggers, secret handling, authorization boundaries. | `.agent-factory/factory/rulebooks/conventions/security-policy.md`                               |
 
 For each default `Read:` path, check whether the file exists in the
 project. If it does not, keep the path as a placeholder — the concern
@@ -149,11 +149,11 @@ structure:
 
 ### Branching
 Branching policy and worktree discipline.
-Read: factory/rulebooks/conventions/branching-policy.md
+Read: .agent-factory/factory/rulebooks/conventions/branching-policy.md
 
 ### Committing
 Commit message format and hook discipline.
-Read: factory/rulebooks/conventions/commit-conventions.md, .pre-commit-config.yaml
+Read: .agent-factory/factory/rulebooks/conventions/commit-conventions.md, .pre-commit-config.yaml
 
 ### Testing discipline
 Risk-based testing, test admission, layer ownership, risk classes.
@@ -161,15 +161,15 @@ Read: docs/handbook/testing/conventions.md, docs/handbook/testing/strategy.md
 
 ### Review
 Peer review rules, architecture review triggers, creation/review separation.
-Read: factory/rulebooks/conventions/review-policy.md
+Read: .agent-factory/factory/rulebooks/conventions/review-policy.md
 
 ### Scope discipline
 Build accepted scope only, YAGNI, deferred-feature boundaries.
-Read: factory/rulebooks/conventions/scope-policy.md
+Read: .agent-factory/factory/rulebooks/conventions/scope-policy.md
 
 ### Security
 Security-focused review triggers, secret handling, authorization boundaries.
-Read: factory/rulebooks/conventions/security-policy.md
+Read: .agent-factory/factory/rulebooks/conventions/security-policy.md
 
 ## Technical concerns
 
@@ -195,7 +195,7 @@ directory.
 
 ### Step 6 — Validate
 
-Run `factory/scripts/concern-lint` — confirms the output file has the
+Run `.agent-factory/factory/scripts/concern-lint` — confirms the output file has the
 required category headings, each concern section has a description and
 `Read:` paths, and no legacy YAML residue exists. Fix any `CTX-SECTIONS`
 or `CTX-PATHS` finding before proceeding.
@@ -279,7 +279,7 @@ Same as greenfield Step 5, using each concern's confirmed `Read:` list
 
 ### Step 5 — Validate
 
-Same as greenfield Step 6: run `factory/scripts/concern-lint` and fix any
+Same as greenfield Step 6: run `.agent-factory/factory/scripts/concern-lint` and fix any
 `CTX-SECTIONS` or `CTX-PATHS` finding before proceeding.
 
 ### Step 6 — Commit
@@ -505,7 +505,7 @@ On confirmation:
 
 ### Step 6 — Validate
 
-Run `factory/scripts/concern-lint` — confirms `docs/agent-context.md` has
+Run `.agent-factory/factory/scripts/concern-lint` — confirms `docs/agent-context.md` has
 the required structure and that no legacy YAML residue remains
 (`CTX-LEGACY`). Fix any finding before proceeding.
 
@@ -521,9 +521,9 @@ sections; `docs/testing.yaml` exists if a `testing.yaml` was present;
 
 ## Validation reference
 
-| Script                         | Checks                                                                                                                             |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `factory/scripts/concern-lint` | section structure (CTX-SECTIONS), path resolution (CTX-PATHS), concern-reference integrity (CTX-REFS), legacy residue (CTX-LEGACY) |
+| Script                                        | Checks                                                                                                                             |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `.agent-factory/factory/scripts/concern-lint` | section structure (CTX-SECTIONS), path resolution (CTX-PATHS), concern-reference integrity (CTX-REFS), legacy residue (CTX-LEGACY) |
 
 `validate` runs `concern-lint` automatically once `docs/agent-context.md`
 exists — invoking it here is a courtesy check during the interactive

@@ -7,12 +7,12 @@ description: >-
   validated playbook, and enforces its role boundaries and release gate.
 inputs:
   context:
-    - factory/playbooks/research-topic.md
-    - factory/playbooks/research-survey.md
-    - factory/rulebooks/conventions/dispatch-contract.md
-    - factory/rulebooks/conventions/research-role-separation.md
-    - factory/rulebooks/conventions/research-claim-admission-policy.md
-    - factory/rulebooks/schemas/research-*.schema.json
+    - .agent-factory/factory/playbooks/research-topic.md
+    - .agent-factory/factory/playbooks/research-survey.md
+    - .agent-factory/factory/rulebooks/conventions/dispatch-contract.md
+    - .agent-factory/factory/rulebooks/conventions/research-role-separation.md
+    - .agent-factory/factory/rulebooks/conventions/research-claim-admission-policy.md
+    - .agent-factory/factory/rulebooks/schemas/research-*.schema.json
 outputs:
   minimum_changed: 1
   declarations:

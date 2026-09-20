@@ -15,7 +15,7 @@
 #            the protocol runs makes the claim unadmittable regardless of merit.
 # When: Run at Step 6 (Validate the Conjecture), before any test/review/vote
 #       session is spent on the claim.
-# By:   `factory/scripts/conjecture-lint <conjecture-file> [--expect-tests N]`
+# By:   `.agent-factory/factory/scripts/conjecture-lint <conjecture-file> [--expect-tests N]`
 #       `--expect-tests` is the plan's tests-per-claim for this claim's tier
 #       (see research-planning). Omit it to check atomicity + non-empty tests
 #       only.

@@ -223,11 +223,11 @@ export function capturePiFile(
     removeRegistration("", transcript);
     return;
   }
-  const captureScript = join(usageRoot, "factory", "scripts", "usage-capture-runtime");
-  const bootstrapScript = join(usageRoot, "factory", "scripts", "pi-capture-bootstrap.mjs");
-  const factoryState = join(usageRoot, ".agent-factory", "usage-control", "state.json");
-  const controlDir = join(usageRoot, ".agent-factory", "usage-control");
-  const pendingDir = join(usageRoot, ".agent-factory", "usage-control", "pending");
+  const captureScript = join(usageRoot, ".agent-factory", "factory", "scripts", "usage-capture-runtime");
+  const bootstrapScript = join(usageRoot, ".agent-factory", "factory", "scripts", "pi-capture-bootstrap.mjs");
+  const factoryState = join(usageRoot, ".agent-factory", "usage", "control", "state.json");
+  const controlDir = join(usageRoot, ".agent-factory", "usage", "control");
+  const pendingDir = join(usageRoot, ".agent-factory", "usage", "control", "pending");
   const scratch = join(usageRoot, ".agent-factory", "usage", ".capture");
   const registrationId = `${sessionId}-${randomUUID()}`;
   const marker = join(pendingDir, `${registrationId}.pending.json`);
@@ -321,10 +321,10 @@ export function capturePiFile(
 }
 
 function usageRuntimeReady(root: string): boolean {
-  const runtime = join(root, ".agent-factory", "usage-runtime");
+  const runtime = join(root, ".agent-factory", "usage", "runtime");
   return existsSync(join(runtime, ".requirements-sha256")) &&
     (existsSync(join(runtime, "bin", "python")) || existsSync(join(runtime, "Scripts", "python.exe"))) &&
-    existsSync(join(root, "factory", "scripts", "usage-capture-runtime"));
+    existsSync(join(root, ".agent-factory", "factory", "scripts", "usage-capture-runtime"));
 }
 
 interface UsageState {

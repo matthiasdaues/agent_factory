@@ -61,7 +61,7 @@ Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gate
 
 ## Validation
 
-Run `factory/scripts/mdformat --number docs/proposals/<name>.md` before
+Run `.agent-factory/factory/scripts/mdformat --number docs/proposals/<name>.md` before
 committing.
 
 No dedicated lint script exists for proposals yet. The gate in Step 5 is

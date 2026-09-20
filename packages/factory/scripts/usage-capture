@@ -301,7 +301,7 @@ def resolve_transcript_retention(
     environment = os.environ if environ is None else environ
     value = cli_value or environment.get(_RETENTION_ENV)
     if value is None:
-        config = Path(base_dir).resolve() / ".agent-factory/usage-control/config.json"
+        config = Path(base_dir).resolve() / ".agent-factory/usage/control/config.json"
         try:
             info = config.lstat()
             if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
@@ -1381,7 +1381,7 @@ def _delete_factory_pending_marker(path: Path, base_dir: Union[str, Path]) -> No
     try:
         candidate = Path(path)
         pending = (
-            Path(base_dir).resolve() / ".agent-factory" / "usage-control" / "pending"
+            Path(base_dir).resolve() / ".agent-factory" / "usage" / "control" / "pending"
         )
         if (
             candidate.is_absolute()
@@ -1404,7 +1404,7 @@ def _write_supervisor_completion(
     """Write one bounded status only inside Factory's usage-control dir."""
     try:
         candidate = Path(path)
-        control = Path(base_dir).resolve() / ".agent-factory" / "usage-control"
+        control = Path(base_dir).resolve() / ".agent-factory" / "usage" / "control"
         pending = control / "pending"
         marker = Path(pending_marker) if pending_marker is not None else Path()
         expected = control / marker.name.replace(".pending.json", ".completion.json")
@@ -1446,7 +1446,7 @@ def _pi_persistence_fence(args: argparse.Namespace, base_dir: Union[str, Path]):
         return
 
     root = Path(base_dir).resolve()
-    pending = root / ".agent-factory" / "usage-control" / "pending"
+    pending = root / ".agent-factory" / "usage" / "control" / "pending"
     committing: Optional[Path] = None
     allowed = False
     try:
@@ -1465,7 +1465,7 @@ def _pi_persistence_fence(args: argparse.Namespace, base_dir: Union[str, Path]):
         marker.replace(committing)
         registration = json.loads(committing.read_text(encoding="utf-8"))
         state = json.loads(
-            (root / ".agent-factory" / "usage-control" / "state.json").read_text(
+            (root / ".agent-factory" / "usage" / "control" / "state.json").read_text(
                 encoding="utf-8"
             )
         )

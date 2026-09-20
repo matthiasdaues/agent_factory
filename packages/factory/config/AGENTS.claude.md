@@ -1,6 +1,6 @@
 # Agent Factory — CLI Orientation (Claude Code)
 
-Read and follow [`factory/rulebooks/rules.md`](../rulebooks/rules.md) in full — every MUST and MUST NOT is binding for the entire session. If the file is missing or unreadable, stop and tell the user.
+Read and follow [`.agent-factory/factory/rulebooks/rules.md`](../rulebooks/rules.md) in full — every MUST and MUST NOT is binding for the entire session. If the file is missing or unreadable, stop and tell the user.
 
 Read the local INDEX.yaml (`.claude/INDEX.yaml`). All available agents, skills, and playbooks are listed there.
 
@@ -8,7 +8,7 @@ Read the local INDEX.yaml (`.claude/INDEX.yaml`). All available agents, skills, 
 
 You are running in Claude Code. Use these capabilities:
 
-- **Subagents:** spawn with the `Agent` tool. Typed agent definitions are in `factory/agents/`. Use `subagent_type: "fork"` for background research; named types for specialised roles. Isolation via `isolation: "worktree"` for implementation agents.
+- **Subagents:** spawn with the `Agent` tool. Typed agent definitions are in `.agent-factory/factory/agents/`. Use `subagent_type: "fork"` for background research; named types for specialised roles. Isolation via `isolation: "worktree"` for implementation agents.
 - **Skills:** invoke with `/skill-name` or the `Skill` tool. Available skills are listed in the system reminder.
 - **Task tracking:** use `TaskCreate` and `TaskUpdate` to break work into steps and track progress.
 - **Workflow orchestration:** the `Workflow` tool runs multi-agent scripts when the user opts in.
@@ -22,7 +22,7 @@ You are running in Claude Code. Use these capabilities:
 
 ### 1. Check fitting state
 
-Read `config/project-context.json`. If the file exists and `fitting.status` is `"unfitted"`:
+Read `.agent-factory/config/project-context.json`. If the file exists and `fitting.status` is `"unfitted"`:
 
 Summarize what the scan found (languages, frameworks, CI, linters from the observations). Then ask:
 
@@ -35,7 +35,7 @@ Summarize what the scan found (languages, frameworks, CI, linters from the obser
 
 If the file exists and `fitting.status` is `"fitting"`:
 
-Read the five fitting keys from `config/project-context.json` → `fitting`.
+Read the five fitting keys from `.agent-factory/config/project-context.json` → `fitting`.
 These values are cached; `init-factory` re-derives them from tracked
 artifacts on each run. If fitting progress looks stale after a pull,
 suggest running `init-factory --update .` to reconcile.
@@ -63,7 +63,7 @@ If the file is missing or `fitting.status` is anything other than `"unfitted"` o
 
 ### 2. Present the session menu
 
-Read and present [`factory/config/session-menu.md`](session-menu.md). It contains the full menu and all option handlers. Follow the instructions there.
+Read and present [`.agent-factory/factory/config/session-menu.md`](session-menu.md). It contains the full menu and all option handlers. Follow the instructions there.
 
 ## Deeper guidance
 

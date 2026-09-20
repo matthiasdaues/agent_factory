@@ -2020,9 +2020,9 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
 
     # Monorepo sync: if packages/factory/ exists, sync it to the installed
     # factory/ copy so post-merge tests load the merged code (tests import
-    # from factory/scripts/, not packages/factory/scripts/).
+    # from .agent-factory/factory/scripts/, not packages/factory/scripts/).
     pkg_factory = project_root / "packages" / "factory"
-    installed_factory = project_root / "factory"
+    installed_factory = project_root / ".agent-factory" / "factory"
     if pkg_factory.is_dir() and installed_factory.is_dir():
         import shutil
 

@@ -24,7 +24,7 @@ inputs:
     - docs/CONTEXT.md
     - docs/agent-context.md
     - docs/testing.yaml
-    - factory/rulebooks/conventions/commit-conventions.md
+    - .agent-factory/factory/rulebooks/conventions/commit-conventions.md
 outputs:
   minimum_changed: 1
   declarations:

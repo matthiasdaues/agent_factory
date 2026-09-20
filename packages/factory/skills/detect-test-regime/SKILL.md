@@ -114,7 +114,7 @@ planning starts.
 
 `testing_strategy` is the path to the project's testing strategy document.
 This field is always populated, never null — it defaults to
-`factory/rulebooks/conventions/testing-strategy.md` when the project has no
+`.agent-factory/factory/rulebooks/conventions/testing-strategy.md` when the project has no
 project-specific document.
 
 ## Workflow
@@ -253,7 +253,7 @@ Record the answer as the `testing_strategy:` field:
 
 - If the user names a path, record it verbatim.
 - If the project has no testing strategy document, default to
-  `factory/rulebooks/conventions/testing-strategy.md`.
+  `.agent-factory/factory/rulebooks/conventions/testing-strategy.md`.
 
 This field is always populated, never null. The testing strategy document
 tells planner and developer agents *how* to test — clusters, budgets,
@@ -305,7 +305,7 @@ gap to the user first.
 After writing, run:
 
 ```bash
-factory/scripts/mdformat --number <resolved-testing-yaml-path>
+.agent-factory/factory/scripts/mdformat --number <resolved-testing-yaml-path>
 ```
 
 `testing.yaml` is YAML, not Markdown — `mdformat` is a no-op on it here for

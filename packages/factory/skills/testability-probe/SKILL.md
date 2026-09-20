@@ -212,7 +212,7 @@ Rules for this block:
   keys, risk classifications, or test paths. Those belong to the
   implementation-time `test-design` skill.
 
-Format `backlog/epics.md` via `factory/scripts/mdformat --number backlog/epics.md`
+Format `backlog/epics.md` via `.agent-factory/factory/scripts/mdformat --number backlog/epics.md`
 per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md)
 after writing.
 

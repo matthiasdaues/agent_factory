@@ -104,7 +104,7 @@ class TestRunFence:
 
         d = tmp_path / "opt"
         d.mkdir()
-        scripts = tmp_path / "factory" / "scripts"
+        scripts = tmp_path / ".agent-factory" / "factory" / "scripts"
         scripts.mkdir(parents=True)
         validator = scripts / "check-opt"
         validator.write_text("#!/bin/sh\nexit 0\n")
@@ -161,7 +161,7 @@ class TestRunFence:
     def test_validator_fail_fails_fence(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
 
-        scripts = tmp_path / "factory" / "scripts"
+        scripts = tmp_path / ".agent-factory" / "factory" / "scripts"
         scripts.mkdir(parents=True)
         validator = scripts / "fail-check"
         validator.write_text("#!/bin/sh\nexit 1\n")

@@ -23,8 +23,8 @@ inputs:
     - docs/spec/prd.md
     - docs/reviews/atam-review.md
     - docs/agent-context.md
-    - factory/rulebooks/conventions/state-machine-notation.md
-    - factory/rulebooks/conventions/commit-conventions.md
+    - .agent-factory/factory/rulebooks/conventions/state-machine-notation.md
+    - .agent-factory/factory/rulebooks/conventions/commit-conventions.md
 outputs:
   minimum_changed: 1
   declarations:
@@ -78,8 +78,8 @@ Follow the [agent lifecycle protocol](../../rulebooks/conventions/agent-lifecycl
    - `05_building_block_view.md`, `06_runtime_view.md`, and `07_deployment_view.md` must derive from these DSL views
    - The workspace `properties` block must include `"arc42.projected" "false"` by default (see step 3 for when to flip)
    ```bash
-   factory/scripts/structurizr validate
-   factory/scripts/structurizr export-all
+   .agent-factory/factory/scripts/structurizr validate
+   .agent-factory/factory/scripts/structurizr export-all
    ```
 3. **Write arc42 prose from DSL** — Fill chapters with code and IaC citations. Use exported DSL views as the canonical diagrams.
    - **arc42.projected gating**: Set `"arc42.projected"` to `"true"` only when the user asks for prose chapters. Leave it `"false"` during DSL-only work (modeling, validation, dependency-check). `arch-lint` skips prose-completeness checks while the property is `"false"`.

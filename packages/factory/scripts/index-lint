@@ -3,10 +3,10 @@
 # requires-python = ">=3.10"
 # dependencies = ["tiktoken"]
 # ///
-"""index-lint - Generate/verify factory/INDEX.yaml from factory/agents/,
-factory/skills/, factory/playbooks/, and factory/rulebooks/ frontmatter.
+"""index-lint - Generate/verify .agent-factory/factory/INDEX.yaml from .agent-factory/factory/agents/,
+.agent-factory/factory/skills/, .agent-factory/factory/playbooks/, and .agent-factory/factory/rulebooks/ frontmatter.
 
-What: Regenerates factory/INDEX.yaml from that frontmatter, with per-entry
+What: Regenerates .agent-factory/factory/INDEX.yaml from that frontmatter, with per-entry
       token counts; --check verifies it is current instead of rewriting.
 When: On commit when those frontmatter files change; --check in /validate;
       run plain to regenerate.
@@ -26,11 +26,11 @@ Playbooks carry `total_tokens` (body + unique agent totals). A warning
 fires when an agent's `total_tokens` exceeds 20 000.
 
 Usage (run from the repo root)
-  index-lint                          # regenerate factory/INDEX.yaml in place
+  index-lint                          # regenerate .agent-factory/factory/INDEX.yaml in place
   index-lint --check                  # gate mode: exit 1 if stale, write nothing
-  index-lint --agents-dir factory/agents --skills-dir factory/skills \
-             --playbooks-dir factory/playbooks --rulebooks-dir factory/rulebooks \
-             --out factory/INDEX.yaml
+  index-lint --agents-dir .agent-factory/factory/agents --skills-dir .agent-factory/factory/skills \
+             --playbooks-dir .agent-factory/factory/playbooks --rulebooks-dir .agent-factory/factory/rulebooks \
+             --out .agent-factory/factory/INDEX.yaml
 
 Exit code: 0 if INDEX.yaml is (now, or already) up to date; 1 in --check
 mode if it was stale or an agent uses the rejected flat format.
@@ -793,15 +793,23 @@ def render_index(
     return body, all_warnings
 
 
+def _factory_root() -> str:
+    """Return the factory root: .agent-factory/factory if installed, else factory."""
+    if Path(".agent-factory/factory").is_dir():
+        return ".agent-factory/factory"
+    return "factory"
+
+
 def main(argv: list[str] | None = None) -> int:
+    fr = _factory_root()
     ap = argparse.ArgumentParser(
         description="Generate/verify INDEX.yaml from frontmatter."
     )
-    ap.add_argument("--agents-dir", default="factory/agents", type=Path)
-    ap.add_argument("--skills-dir", default="factory/skills", type=Path)
-    ap.add_argument("--playbooks-dir", default="factory/playbooks", type=Path)
-    ap.add_argument("--rulebooks-dir", default="factory/rulebooks", type=Path)
-    ap.add_argument("--out", default="factory/INDEX.yaml", type=Path)
+    ap.add_argument("--agents-dir", default=f"{fr}/agents", type=Path)
+    ap.add_argument("--skills-dir", default=f"{fr}/skills", type=Path)
+    ap.add_argument("--playbooks-dir", default=f"{fr}/playbooks", type=Path)
+    ap.add_argument("--rulebooks-dir", default=f"{fr}/rulebooks", type=Path)
+    ap.add_argument("--out", default=f"{fr}/INDEX.yaml", type=Path)
     ap.add_argument(
         "--check",
         action="store_true",

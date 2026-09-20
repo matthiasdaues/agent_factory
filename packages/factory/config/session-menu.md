@@ -17,7 +17,7 @@ ______________________________________________________________________
 
 Route to a tour skill based on familiarity:
 
-- **New users** — load the `newcomer-tour` skill. Walk the user through the Getting Started section of `factory/docs/factory-guide.md` conversationally.
+- **New users** — load the `newcomer-tour` skill. Walk the user through the Getting Started section of `.agent-factory/factory/docs/factory-guide.md` conversationally.
 - **Returning users** — load the `guided-tour` skill. Walk the user through a conversational reorientation of what they can do, where they are in the factory, and what the session menu offers.
 
 Ask "Have you used the factory before?" if unclear which tour fits.
@@ -36,11 +36,11 @@ Present four actions when the developer selects K:
 
 ### About
 
-Run `factory/scripts/housekeeping-about` and display its output to the developer. The script reads four independent sources and reports:
+Run `.agent-factory/factory/scripts/housekeeping-about` and display its output to the developer. The script reads four independent sources and reports:
 
-- **Factory version** and source path — from `.agent-factory/factory-install.json`
-- **Fitting status** — from `config/project-context.json` (X/5 with step names)
-- **CLI integrations** — from `.agent-factory/factory-install.json`
+- **Factory version** and source path — from `.agent-factory/install.json`
+- **Fitting status** — from `.agent-factory/config/project-context.json` (X/5 with step names)
+- **CLI integrations** — from `.agent-factory/install.json`
 - **Usage pipeline health** — from `.agent-factory/usage/` directory existence
 
 Each source is read independently. When a source is unreadable, its line shows `unknown` with the error message.
@@ -74,7 +74,7 @@ The Project Work lane handles workstream creation and continuation. Ask the user
 4. Create the workstream state file at `.agent-factory/workstreams/<workstream-id>.yaml` using `engine/workstream.py::create_workstream`. The file contains exactly four fields: `schema_version: 2`, `workstream_id`, `topic`, `origin_ref`. No cycle, attempt, delegation, or work fields exist.
 5. Create a session binding at `.agent-factory/workstreams/sessions/<session-id>.yaml` using `engine/session_binding.py::create_binding`. The binding records `session_id`, `workstream_id`, and `bound_at`.
 6. Confirm the workstream name and binding to the user.
-7. Run `factory/scripts/intent select --workstream <workstream-id>` to present all agents with their precondition evidence. The developer selects an agent from the list.
+7. Run `.agent-factory/factory/scripts/intent select --workstream <workstream-id>` to present all agents with their precondition evidence. The developer selects an agent from the list.
 
 If the user wants to do something that does not fit a workstream (a quick question, a tour, research), redirect to lane O (Open Stage) instead of creating a workstream.
 
@@ -83,7 +83,7 @@ If the user wants to do something that does not fit a workstream (a quick questi
 1. List existing workstreams by calling `engine/workstream.py::list_workstreams`, which scans `.agent-factory/workstreams/*.yaml`.
 2. If workstreams exist, present a numbered list showing each workstream's topic and ID. Ask the user to select one by number or name. Never select a workstream automatically.
 3. On selection, create a session binding for the selected workstream using `engine/session_binding.py::create_binding`.
-4. Run `factory/scripts/intent select --workstream <workstream-id>` to present all agents with their precondition evidence. The developer selects an agent from the list.
+4. Run `.agent-factory/factory/scripts/intent select --workstream <workstream-id>` to present all agents with their precondition evidence. The developer selects an agent from the list.
 
 If no workstreams exist, tell the user and offer to start a new workstream (go to "Start a new workstream" above) or return to the main menu.
 

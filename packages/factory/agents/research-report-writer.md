@@ -11,12 +11,12 @@ aliases:
   - research-synthesizer
 inputs:
   context:
-    - factory/rulebooks/conventions/research-report-policy.md
-    - factory/rulebooks/templates/research-claim-register.md
-    - factory/rulebooks/templates/research-final-report.md
-    - factory/rulebooks/schemas/research-final-report.schema.json
-    - factory/rulebooks/templates/research-survey-report.md
-    - factory/rulebooks/schemas/research-survey-report.schema.json
+    - .agent-factory/factory/rulebooks/conventions/research-report-policy.md
+    - .agent-factory/factory/rulebooks/templates/research-claim-register.md
+    - .agent-factory/factory/rulebooks/templates/research-final-report.md
+    - .agent-factory/factory/rulebooks/schemas/research-final-report.schema.json
+    - .agent-factory/factory/rulebooks/templates/research-survey-report.md
+    - .agent-factory/factory/rulebooks/schemas/research-survey-report.schema.json
 outputs:
   minimum_changed: 1
   declarations:

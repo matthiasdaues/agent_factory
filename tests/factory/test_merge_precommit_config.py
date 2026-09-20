@@ -14,13 +14,13 @@ repos:
     hooks:
       - id: agent_factory_hook-mdformat
         name: "agent_factory: mdformat"
-        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/mdformat --number "$@"' --
+        entry: bash -c '[ -d .agent-factory ] || exit 0; exec .agent-factory/factory/scripts/mdformat --number "$@"' --
         language: system
         types: [markdown]
 
       - id: agent_factory_hook-link-check
         name: "agent_factory: link-check"
-        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/link-check "$@"' --
+        entry: bash -c '[ -d .agent-factory ] || exit 0; exec .agent-factory/factory/scripts/link-check "$@"' --
         language: system
         types: [markdown]
 """
@@ -44,7 +44,7 @@ class TestToolsInTarget:
             "  - repo: local",
             "    hooks:",
             "      - id: mdformat",
-            "        entry: factory/scripts/mdformat --number",
+            "        entry: .agent-factory/factory/scripts/mdformat --number",
             "        language: system",
         ]
         assert mpc._tools_in_target(lines) == set()
@@ -55,7 +55,7 @@ class TestToolsInTarget:
             "  - repo: local",
             "    hooks:",
             "      - id: agent_factory_hook-mdformat",
-            "        entry: factory/scripts/mdformat --number",
+            "        entry: .agent-factory/factory/scripts/mdformat --number",
             "        language: system",
         ]
         assert mpc._tools_in_target(lines) == set()
@@ -66,7 +66,7 @@ class TestToolsInTarget:
             "  - repo: local",
             "    hooks:",
             "      - id: mdformat",
-            "        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/mdformat --number \"$@\"' --",
+            "        entry: bash -c '[ -d .agent-factory ] || exit 0; exec .agent-factory/factory/scripts/mdformat --number \"$@\"' --",
             "        language: system",
         ]
         assert mpc._tools_in_target(lines) == set()
@@ -84,23 +84,23 @@ class TestMerge:
         assert mpc.merge(target, TEMPLATE) is None
 
     def test_update_preserves_mdformat_with_factory_script_entry(self):
-        """Dev repo case: target has a second section using factory/scripts/mdformat.
+        """Dev repo case: target has a second section using .agent-factory/factory/scripts/mdformat.
         The dedup must NOT drop the factory hook."""
         target = (
             "repos:\n"
             "  - repo: local\n"
             "    hooks:\n"
             "      - id: agent_factory_hook-mdformat\n"
-            "        entry: factory/scripts/mdformat --number\n"
+            "        entry: .agent-factory/factory/scripts/mdformat --number\n"
             "        language: system\n"
             "      - id: agent_factory_hook-link-check\n"
-            "        entry: factory/scripts/link-check\n"
+            "        entry: .agent-factory/factory/scripts/link-check\n"
             "        language: system\n"
             "\n"
             "  - repo: local\n"
             "    hooks:\n"
             "      - id: mdformat\n"
-            "        entry: factory/scripts/mdformat --number\n"
+            "        entry: .agent-factory/factory/scripts/mdformat --number\n"
             "        language: system\n"
         )
         result = mpc.merge(target, TEMPLATE, update=True)
@@ -115,10 +115,10 @@ class TestMerge:
             "  - repo: local\n"
             "    hooks:\n"
             "      - id: agent_factory_hook-mdformat\n"
-            "        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/mdformat --number \"$@\"' --\n"
+            "        entry: bash -c '[ -d .agent-factory ] || exit 0; exec .agent-factory/factory/scripts/mdformat --number \"$@\"' --\n"
             "        language: system\n"
             "      - id: agent_factory_hook-link-check\n"
-            "        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/link-check \"$@\"' --\n"
+            "        entry: bash -c '[ -d .agent-factory ] || exit 0; exec .agent-factory/factory/scripts/link-check \"$@\"' --\n"
             "        language: system\n"
             "\n"
             "  - repo: local\n"
@@ -140,7 +140,7 @@ class TestMerge:
             "  - repo: local\n"
             "    hooks:\n"
             "      - id: agent_factory_hook-mdformat\n"
-            "        entry: factory/scripts/mdformat --number\n"
+            "        entry: .agent-factory/factory/scripts/mdformat --number\n"
             "        language: system\n"
             "      - id: my-custom-hook\n"
             "        entry: echo hi\n"

@@ -62,7 +62,7 @@ const DEFAULT_AGENT = "developer-agent";
 /** Where per-item worktrees are cut, under the project's git-ignored dir. */
 const WORKTREE_DIR = join(".current-work", "worktrees");
 /** Canonical tracked report that closes blocked waves under BR-040. */
-const BLOCKED_WAVE_REPORT = "factory/reports/dispatch-wave-blocked.md";
+const BLOCKED_WAVE_REPORT = ".agent-factory/factory/reports/dispatch-wave-blocked.md";
 
 interface ItemResult {
   branch: string;

@@ -6,13 +6,13 @@ category: utility
 
 # Run Step
 
-Dispatches one agent invocation via `factory/scripts/trigger`. Re-derives "what's next" from the workstream state file and agent eligibility on every invocation, so a crash, a closed terminal, or a fresh session never leaves work stranded behind stale state.
+Dispatches one agent invocation via `.agent-factory/factory/scripts/trigger`. Re-derives "what's next" from the workstream state file and agent eligibility on every invocation, so a crash, a closed terminal, or a fresh session never leaves work stranded behind stale state.
 
 ## Step 1 — Read the workstream state
 
 Read the session binding (`.current-work/session-bindings/<session-id>.yaml`) to find the active workstream, then read its state file (`.current-work/cycles/<workstream-id>.yaml`) for the current cycle.
 
-**No binding or state file** → run `factory/scripts/cycle list --dir .current-work/cycles/` to show available workstreams, or direct the user to start one via the session menu.
+**No binding or state file** → run `.agent-factory/factory/scripts/cycle list --dir .current-work/cycles/` to show available workstreams, or direct the user to start one via the session menu.
 
 ## Step 2 — Resolve eligible agents
 
@@ -28,17 +28,17 @@ Read `.claude/INDEX.yaml`. Filter agents whose `inputs.required` preconditions a
 
 Check the current cycle's expected outputs against what is on disk, then run the applicable gate (`spec-lint`, `arch-lint`, `backlog-lint` — whichever applies):
 
-| Observed state                                     | Action                                                                            |
-| -------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Outputs don't exist yet                            | Fresh start — run the chosen agent from Step 1 of its workflow.                   |
-| Outputs exist, gate passes clean, no open findings | Step is done — offer `factory/scripts/cycle select` to advance to the next cycle. |
-| Outputs exist, gate reports open findings          | Resume — run the same agent again; its own workflow reads open findings.          |
-| Outputs exist but the gate errors                  | Stop. Escalate to the user.                                                       |
+| Observed state                                     | Action                                                                                           |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Outputs don't exist yet                            | Fresh start — run the chosen agent from Step 1 of its workflow.                                  |
+| Outputs exist, gate passes clean, no open findings | Step is done — offer `.agent-factory/factory/scripts/cycle select` to advance to the next cycle. |
+| Outputs exist, gate reports open findings          | Resume — run the same agent again; its own workflow reads open findings.                         |
+| Outputs exist but the gate errors                  | Stop. Escalate to the user.                                                                      |
 
 ## Step 4 — Dispatch
 
 ```bash
-factory/scripts/trigger agent <name> --background --cli claude --cwd <project-root>
+.agent-factory/factory/scripts/trigger agent <name> --background --cli claude --cwd <project-root>
 ```
 
 Use `--interactive` instead of `--background` when a human should drive the session directly.
@@ -49,5 +49,5 @@ This skill does **not** read `.current-work/playbook-state.yml`. The workstream 
 
 ## Referenced from
 
-- [factory/scripts/trigger](../../scripts/trigger)
-- [factory/scripts/cycle](../../scripts/cycle)
+- [.agent-factory/factory/scripts/trigger](../../scripts/trigger)
+- [.agent-factory/factory/scripts/cycle](../../scripts/cycle)

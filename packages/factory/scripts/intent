@@ -276,7 +276,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_select.add_argument(
         "--agents-dir", default=None,
-        help="Path to agents directory (default: factory/agents)",
+        help="Path to agents directory (default: .agent-factory/factory/agents)",
     )
 
     p_assess = sub.add_parser("assess", help="Validate artifacts and report results.")

@@ -115,7 +115,7 @@ Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gate
 
 ### 5. Format
 
-Format the story via `factory/scripts/mdformat --number <path>` per
+Format the story via `.agent-factory/factory/scripts/mdformat --number <path>` per
 \[markdown-formatting.md\](../../rulebooks/conventions/markdown-f
 
 ## Output
