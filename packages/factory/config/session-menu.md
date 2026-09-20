@@ -26,7 +26,31 @@ ______________________________________________________________________
 
 ## K — Housekeeping
 
-Housekeeping actions are coming soon — about, re-fit, update factory, update agent context. Return to the menu to continue.
+Present three actions when the developer selects K:
+
+> **1** — About: show factory state\
+> **2** — Re-fit: rerun all fitting steps\
+> **3** — Update Factory: install latest version\
+> **4** — Back to the main menu
+
+### About
+
+Run `factory/scripts/housekeeping-about` and display its output to the developer. The script reads four independent sources and reports:
+
+- **Factory version** and source path — from `.agent-factory/factory-install.json`
+- **Fitting status** — from `config/project-context.json` (X/5 with step names)
+- **CLI integrations** — from `.agent-factory/factory-install.json`
+- **Usage pipeline health** — from `.agent-factory/usage/` directory existence
+
+Each source is read independently. When a source is unreadable, its line shows `unknown` with the error message.
+
+### Re-fit
+
+Rerun all five fitting steps: model matrix, fingerprint, agent context, test regime, hooks. Call the existing fitting procedure from the virgil agent definition. Report completed and remaining steps after running.
+
+### Update Factory
+
+Run `init-factory --update <project-root> --force`. Relay the command's stdout and exit status to the developer. On success, rerun About to show the refreshed factory state.
 
 ______________________________________________________________________
 

@@ -1,0 +1,107 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
+"""housekeeping-about — display factory installation state.
+
+Reads four independent sources and prints a summary: factory version,
+fitting status, CLI integrations, and usage pipeline health.
+Each source is read independently; a failure in one does not prevent
+reading others. Unreadable values show as "unknown" with the error.
+
+Usage
+  housekeeping-about
+  housekeeping-about --base-dir /path/to/project
+
+Exit code: always 0 (display-only).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+FITTING_STEPS = [
+    ("model_matrix_configured", "model matrix"),
+    ("fingerprint_confirmed", "fingerprint"),
+    ("agent_context_populated", "agent context"),
+    ("test_regime_detected", "test regime"),
+    ("hooks_decided", "hooks"),
+]
+
+
+def read_install(base: Path) -> dict[str, str]:
+    result: dict[str, str] = {}
+    try:
+        data = json.loads(
+            (base / ".agent-factory" / "factory-install.json").read_text(encoding="utf-8")
+        )
+        result["version"] = str(data.get("factory_version", "unknown"))
+        result["source"] = str(data.get("factory_source", "unknown"))
+        cli = data.get("cli", [])
+        result["cli"] = ", ".join(cli) if cli else "none"
+    except Exception as exc:
+        msg = f"unknown ({type(exc).__name__}: {exc})"
+        result["version"] = msg
+        result["source"] = msg
+        result["cli"] = msg
+    return result
+
+
+def read_fitting(base: Path) -> str:
+    try:
+        data = json.loads(
+            (base / "config" / "project-context.json").read_text(encoding="utf-8")
+        )
+        fitting = data.get("fitting", {})
+        done = []
+        for key, label in FITTING_STEPS:
+            if fitting.get(key):
+                done.append(label)
+        return f"{len(done)}/5 ({', '.join(done)})" if done else "0/5 (none)"
+    except Exception as exc:
+        return f"unknown ({type(exc).__name__}: {exc})"
+
+
+def read_usage_health(base: Path) -> str:
+    try:
+        usage_dir = base / ".agent-factory" / "usage"
+        if usage_dir.is_dir():
+            return "healthy"
+        return "unknown (usage directory not found)"
+    except Exception as exc:
+        return f"unknown ({type(exc).__name__}: {exc})"
+
+
+def report(base: Path) -> str:
+    install = read_install(base)
+    fitting = read_fitting(base)
+    health = read_usage_health(base)
+
+    lines = [
+        f"Factory version: {install['version']}",
+        f"Factory source: {install['source']}",
+        f"Fitting: {fitting}",
+        f"CLI integrations: {install['cli']}",
+        f"Usage pipeline: {health}",
+    ]
+    return "\n".join(lines)
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(
+        description="Display factory installation state."
+    )
+    parser.add_argument(
+        "--base-dir",
+        default=".",
+        help="Project root directory (default: current directory)",
+    )
+    args = parser.parse_args(argv)
+    print(report(Path(args.base_dir)))
+
+
+if __name__ == "__main__":
+    main()
