@@ -26,12 +26,13 @@ ______________________________________________________________________
 
 ## K — Housekeeping
 
-Present three actions when the developer selects K:
+Present four actions when the developer selects K:
 
 > **1** — About: show factory state\
 > **2** — Re-fit: rerun all fitting steps\
 > **3** — Update Factory: install latest version\
-> **4** — Back to the main menu
+> **4** — Update agent context: refresh concern registry\
+> **5** — Back to the main menu
 
 ### About
 
@@ -51,6 +52,13 @@ Rerun all five fitting steps: model matrix, fingerprint, agent context, test reg
 ### Update Factory
 
 Run `init-factory --update <project-root> --force`. Relay the command's stdout and exit status to the developer. On success, rerun About to show the refreshed factory state.
+
+### Update agent context
+
+Check if `docs/agent-context.md` exists:
+
+- If yes: invoke the `capture-context` skill with `--update --scan`. The skill scans the repository, compares discovered concerns and Read paths against the existing file, presents differences grouped by category, and writes only confirmed changes.
+- If no: tell the developer "docs/agent-context.md does not exist. Run `capture-context --init --scan` to create it." and return to the Housekeeping menu.
 
 ______________________________________________________________________
 

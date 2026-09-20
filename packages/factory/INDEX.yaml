@@ -317,7 +317,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 2165
-    total_tokens: 16824
+    total_tokens: 18005
     inputs:
       required:
         - type: scope-map
@@ -373,7 +373,7 @@ agents:
     description: "Derive a complete specification from an accepted proposal: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models. When no proposal exists, capture a vision and clarify requirements to produce one."
     path: agents/requirements-agent.md
     tokens: 1490
-    total_tokens: 16868
+    total_tokens: 18049
     inputs:
       required:
         - type: proposal
@@ -528,7 +528,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 2527
-    total_tokens: 12833
+    total_tokens: 14014
     inputs:
       context:
         - config/project-context.json
@@ -556,9 +556,9 @@ agents:
 skills:
   - name: capture-context
     category: requirements
-    description: Initialize docs/agent-context.md — the concern-based routing interface between agents and project knowledge. --init scans the repo, seeds cross-cutting concerns, proposes technical and domain concerns, and writes the file. --init --scan adds brownfield documentation discovery. Bare invocation (no flags) detects a legacy YAML agent-context and offers interactive migration to the concern model.
+    description: Initialize or update docs/agent-context.md — the concern-based routing interface between agents and project knowledge. --init seeds concerns from a repo scan. --init --scan adds documentation discovery. --update --scan refreshes an existing file by diffing a rescan against current content. Bare invocation migrates legacy YAML to the concern model.
     path: skills/capture-context/SKILL.md
-    tokens: 3977
+    tokens: 5158
   - name: capture-vision
     category: requirements
     description: Capture a project vision through structured interview.
@@ -863,7 +863,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3015
-    total_tokens: 33330
+    total_tokens: 34511
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -886,7 +886,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 944
-    total_tokens: 39094
+    total_tokens: 40275
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -903,7 +903,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 5151
-    total_tokens: 96164
+    total_tokens: 98526
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -922,7 +922,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 3417
-    total_tokens: 95600
+    total_tokens: 97962
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration

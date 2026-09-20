@@ -1,14 +1,14 @@
 ---
 name: capture-context
 description: >-
-  Initialize docs/agent-context.md — the concern-based routing interface
-  between agents and project knowledge. --init scans the repo, seeds
-  cross-cutting concerns, proposes technical and domain concerns, and
-  writes the file. --init --scan adds brownfield documentation discovery.
-  Bare invocation (no flags) detects a legacy YAML agent-context and offers
-  interactive migration to the concern model.
+  Initialize or update docs/agent-context.md — the concern-based routing
+  interface between agents and project knowledge. --init seeds concerns
+  from a repo scan. --init --scan adds documentation discovery. --update
+  --scan refreshes an existing file by diffing a rescan against current
+  content. Bare invocation migrates legacy YAML to the concern model.
 category: requirements
 version: 5.0.0
+disable-model-invocation: false
 ---
 
 # Capture Context
@@ -38,11 +38,12 @@ belong to the retired YAML model).
 
 ## Invocation
 
-| Invocation                      | When                                                         |
-| ------------------------------- | ------------------------------------------------------------ |
-| `capture-context --init`        | Right after vision capture, before requirements              |
-| `capture-context --init --scan` | Existing project with documentation to discover              |
-| `capture-context` (bare)        | Existing project with a legacy YAML agent-context to migrate |
+| Invocation                        | When                                                         |
+| --------------------------------- | ------------------------------------------------------------ |
+| `capture-context --init`          | Right after vision capture, before requirements              |
+| `capture-context --init --scan`   | Existing project with documentation to discover              |
+| `capture-context --update --scan` | Refresh an existing agent-context from a repository rescan   |
+| `capture-context` (bare)          | Existing project with a legacy YAML agent-context to migrate |
 
 ## `--init` (greenfield)
 
@@ -294,6 +295,139 @@ proposed, confirmed, and enriched with discovered `Read:` paths through
 the concern-based interview walked in category order (cross-cutting,
 technical, domain); `concern-lint` reports zero errors; no YAML files
 were created.
+
+## `--update --scan` (refresh existing agent-context)
+
+Requires an existing `docs/agent-context.md`. Rescans the repository,
+compares discovered concerns and Read paths against the current file,
+presents differences grouped by category, and writes only confirmed
+changes. Use this from the Housekeeping K lane or when the project's
+stack, documentation, or scope map has changed since the last init or
+update.
+
+### Step 0 — Guard
+
+If `docs/agent-context.md` does not exist, stop and tell the user:
+"docs/agent-context.md does not exist — run `capture-context --init --scan` to create it." Do not create the file; do not proceed.
+
+### Step 1 — Parse existing agent-context
+
+Read `docs/agent-context.md` and extract:
+
+- Each concern section: heading name, description line, `Read:` paths.
+- The category each concern belongs to: cross-cutting (under
+  `## Always (cross-cutting)`), technical (under `## Technical concerns`),
+  or domain (under `## Domain concerns`).
+
+Build an in-memory map of `{category → {concern_name → {description, read_paths}}}`.
+
+### Step 2 — Repository rescan
+
+Run the same repository scan as `--init --scan` Steps 1–2:
+
+1. **Stack scan** (same as `--init` Step 1): detect languages, frameworks,
+   test runners, infrastructure, linting, CI/CD.
+2. **Documentation discovery** (same as `--init --scan` Step 2): scan for
+   handbooks, ADRs, supplementary specs, feature files.
+3. **Scope map check**: read `docs/spec/scope-map.md` for domain areas.
+
+From these results, derive the same concern proposals that `--init --scan`
+would produce: six cross-cutting defaults, stack-derived technical
+concerns, scope-map-derived domain concerns — each with their candidate
+`Read:` paths.
+
+### Step 3 — Compute diff
+
+Compare the rescan proposals (Step 2) against the existing content
+(Step 1). Classify each difference:
+
+| Difference type | Condition                                                                |
+| --------------- | ------------------------------------------------------------------------ |
+| **Addition**    | Concern discovered in rescan but absent from the existing file           |
+| **Removal**     | Concern present in the existing file but not discovered in the rescan    |
+| **Path change** | Concern exists in both, but `Read:` paths differ (added, removed, moved) |
+
+Cross-cutting factory defaults (Branching, Committing, Testing discipline,
+Review, Scope discipline, Security) are never flagged for removal — they
+are permanent fixtures. If a factory default's `Read:` paths differ, flag
+it as a path change only.
+
+### Step 4 — Present differences
+
+Show differences grouped by category. Use this format:
+
+```text
+## Cross-cutting
+  ~ CHANGED: Testing discipline
+    Read: docs/handbook/testing/conventions.md
+    → Read: docs/handbook/testing/conventions.md, docs/testing.yaml
+
+## Technical
+  + NEW: data-storage — ORM detected (SQLAlchemy)
+    Read: packages/app/models/
+  ~ CHANGED: Python toolchain
+    Read: pyproject.toml
+    → Read: pyproject.toml, setup.cfg
+  - REMOVED: legacy-ci
+    was Read: .travis.yml
+
+## Domain
+  + NEW: payments — scope-map area added
+    Read: docs/spec/payments.feature
+```
+
+If no differences are found, report "Agent context is up to date — no
+changes detected." and stop.
+
+### Step 5 — Confirm changes
+
+Walk each difference and ask the developer to confirm or skip:
+
+- **Addition**: "Add `<concern>` to `<category>` with Read paths
+  `<paths>`? (y/n)"
+- **Removal**: "Remove `<concern>` from `<category>`? Its Read paths were
+  `<paths>`. (y/n)"
+- **Path change**: "Update `<concern>` Read paths from `<old>` to
+  `<new>`? (y/n)"
+
+Concerns the developer declines to add remain absent. Concerns the
+developer declines to remove remain present. Path changes the developer
+declines keep the original paths.
+
+### Step 6 — Write confirmed changes
+
+Apply only confirmed changes to `docs/agent-context.md` in place:
+
+- **Additions**: insert the new concern section under the correct category
+  heading, maintaining alphabetical order within the category.
+- **Removals**: delete the concern's `###` heading, description, and
+  `Read:` lines.
+- **Path changes**: replace the `Read:` line(s) for the concern.
+
+Preserve the existing file structure: category headings, concern ordering,
+and any content outside concern sections (comments, notes) remain
+untouched.
+
+### Step 7 — Validate
+
+Run `factory/scripts/concern-lint`. If it reports any findings:
+
+1. Show the findings to the developer.
+2. Stop. Do not commit. The developer must fix the findings before
+   proceeding.
+
+If `concern-lint` reports zero errors, confirm: "Agent context updated —
+concern-lint passes."
+
+### Step 8 — Commit
+
+```
+docs: update agent context (--update --scan)
+```
+
+**Completion**: `docs/agent-context.md` reflects confirmed additions,
+removals, and path changes; `concern-lint` reports zero errors; no
+unconfirmed changes were written.
 
 ## Bare invocation (YAML migration)
 
