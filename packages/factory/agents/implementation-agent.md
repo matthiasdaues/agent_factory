@@ -64,7 +64,7 @@ Resolve dependency graph and dispatch stories to **parallel developer-agent suba
 
 ## Lifecycle
 
-Follow the [agent lifecycle protocol](../../rulebooks/conventions/agent-lifecycle-protocol.md).
+Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-protocol.md).
 
 ## Branching model
 
@@ -174,7 +174,7 @@ Maximum fix iterations per tier: **3**. Iteration 1 is the original implementati
 When the cap is hit at the current tier:
 
 1. Mark the story as failed: `.agent-factory/factory/scripts/dispatch mark-failed <story-id> --class acceptance_unmet`.
-2. Attempt tier escalation: `.agent-factory/factory/scripts/dispatch escalate <story-id>`. The escalation follows the evidence-gated predicate from [cost-aware-agent-delegation.md](../../docs/proposals/superseded/cost-aware-agent-delegation.md) — the dispatch script enforces all six escalation conditions.
+2. Attempt tier escalation: `.agent-factory/factory/scripts/dispatch escalate <story-id>`. The escalation follows the evidence-gated predicate from [cost-aware-agent-delegation.md](../../../docs/proposals/superseded/cost-aware-agent-delegation.md) — the dispatch script enforces all six escalation conditions.
 3. If escalation succeeds, the story is re-dispatched at tier+1 with a fresh 3-iteration cap.
 4. If escalation fails (already at `strong`, wave escalation slot taken, or scope violation), the story is terminal.
 

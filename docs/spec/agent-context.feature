@@ -28,7 +28,7 @@ Scenario: Pre-backlog agents survey the registry by judgment
 
 Rule: User initializes a concern registry from project evidence
 \# actor: User
-\# @factory/skills/capture-context/SKILL.md
+\# @.agent-factory/factory/skills/capture-context/SKILL.md
 
 ```
 Scenario: Greenfield fitting creates the concern registry
@@ -54,7 +54,7 @@ Scenario: Registry sections have one stable shape
 
 Rule: User migrates legacy context into the concern registry
 \# actor: User
-\# @factory/skills/capture-context/SKILL.md
+\# @.agent-factory/factory/skills/capture-context/SKILL.md
 
 ```
 Scenario: Bare capture-context offers legacy YAML migration
@@ -112,7 +112,7 @@ Scenario: update-context reports its retirement
 
 Rule: concern-lint validates concern structure and references
 \# actor: concern-lint
-\# @factory/scripts/concern-lint
+\# @.agent-factory/factory/scripts/concern-lint
 
 ```
 Scenario: CTX-SECTIONS validates the registry shape
@@ -139,7 +139,7 @@ Scenario: CTX-LEGACY rejects competing context formats
 
 Rule: Test configuration remains separate from context routing
 \# actor: Test regime detector
-\# @factory/skills/detect-test-regime/SKILL.md
+\# @.agent-factory/factory/skills/detect-test-regime/SKILL.md
 
 ```
 Scenario: detect-test-regime writes the canonical configuration path

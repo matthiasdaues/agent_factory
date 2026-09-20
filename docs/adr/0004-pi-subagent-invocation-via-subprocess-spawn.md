@@ -12,7 +12,7 @@ Agent Factory supports three CLIs: Claude Code, Copilot CLI, and Pi. Claude Code
 
 The Pi scaffold already committed on this branch makes Pi able to *find* factory content — `.pi/` is created, factory directories are symlinked, the guardrail extension is installed, and `AGENTS.md` wires orientation. It does not make Pi able to *run* agents as designed. The `AGENTS.md` line pointing the model at `.pi/agents/<name>.md` yields only in-context role-play: the model reads the file and acts it out in the *current* session. That destroys the two properties the factory's multi-agent design depends on — author/reviewer independence (the reviewer must work from the artifact alone, never the author's reasoning) and parallel dispatch.
 
-The choice of invocation mechanism is hard to reverse once agents, playbooks, and the dispatcher depend on it; it is surprising without this context (a reader will reasonably assume in-context role-play is "good enough"); and it is the result of a real trade-off. All three bars the [`write-adr` skill](../../factory/skills/write-adr/SKILL.md) sets are met.
+The choice of invocation mechanism is hard to reverse once agents, playbooks, and the dispatcher depend on it; it is surprising without this context (a reader will reasonably assume in-context role-play is "good enough"); and it is the result of a real trade-off. All three bars the [`write-adr` skill](../../.agent-factory/factory/skills/write-adr/SKILL.md) sets are met.
 
 ### Alternatives (Pugh Matrix)
 
@@ -34,13 +34,13 @@ B wins decisively. A is the datum at 0, but its 0 on the must-have independence 
 
 ## Decision
 
-A project-local Pi extension, `factory/config/extensions/run-agent.ts`, symlinked to `.pi/extensions/run-agent.ts` by `init-factory`, registers one model-callable tool:
+A project-local Pi extension, `.agent-factory/factory/config/extensions/run-agent.ts`, symlinked to `.pi/extensions/run-agent.ts` by `init-factory`, registers one model-callable tool:
 
 ```
 run_agent(agent: string, task: string, model?: string)
 ```
 
-It resolves `factory/agents/<agent>.md`, resolves the model (the `model` argument, else `config/model.conf` `pi.<tier>` where the tier is read from the agent's own frontmatter, honoring `on_missing`), and spawns:
+It resolves `.agent-factory/factory/agents/<agent>.md`, resolves the model (the `model` argument, else `config/model.conf` `pi.<tier>` where the tier is read from the agent's own frontmatter, honoring `on_missing`), and spawns:
 
 ```
 pi --no-session -a --mode json --model <m> --append-system-prompt <agent.md> -p <task>
@@ -60,7 +60,7 @@ in the project directory, returning the child's final text and token usage parse
 
 - Author/reviewer independence and parallel dispatch — the properties that make the factory's multi-agent design work under Claude Code — become available under Pi, over the exact mechanism Pi's own docs sanction.
 - The child is a full factory citizen: it loads the guardrail (so subagents are bound by the same git-safety block, BR-033), the skills, and local-first orientation, without re-wiring any of it.
-- `run-agent.ts` lives in `factory/config/extensions/`, is symlinked into the git-ignored `.pi/`, and is reversed by `remove-factory` (FR-J5) — no tracked project state, consistent with the guardrail-extension precedent.
+- `run-agent.ts` lives in `.agent-factory/factory/config/extensions/`, is symlinked into the git-ignored `.pi/`, and is reversed by `remove-factory` (FR-J5) — no tracked project state, consistent with the guardrail-extension precedent.
 - `model.conf` keeps one parser; tier semantics stay identical across `trigger` and `run_agent`.
 
 **Negative / risks**
@@ -72,7 +72,7 @@ in the project directory, returning the child's final text and token usage parse
 
 ## Referenced from
 
-- [09_architecture_decisions.md](../09_architecture_decisions.md)
-- [docs/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md](../spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md)
+- [09_architecture_decisions.md](../arc42/09_architecture_decisions.md)
+- [docs/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md](../~archive/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md)
 - [docs/spec/prd.md § FR-J](../spec/prd.md#4-functional-requirements)
 - [docs/proposals/implemented/pi-invocation-layer.md](../proposals/implemented/pi-invocation-layer.md)

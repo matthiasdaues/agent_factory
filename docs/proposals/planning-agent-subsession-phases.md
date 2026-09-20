@@ -12,12 +12,12 @@ impact:
   architecture_change: false
   external_contract_change: false
   boundaries:
-    - factory/agents/planning-agent.md
-    - factory/skills/create-backlog/SKILL.md
-    - factory/skills/create-backlog-epics/SKILL.md
-    - factory/skills/create-backlog-write-epics/SKILL.md
-    - factory/skills/create-backlog-story-slices/SKILL.md
-    - factory/skills/create-backlog-stories/SKILL.md
+    - .agent-factory/factory/agents/planning-agent.md
+    - .agent-factory/factory/skills/create-backlog/SKILL.md
+    - .agent-factory/factory/skills/create-backlog-epics/SKILL.md
+    - .agent-factory/factory/skills/create-backlog-write-epics/SKILL.md
+    - .agent-factory/factory/skills/create-backlog-story-slices/SKILL.md
+    - .agent-factory/factory/skills/create-backlog-stories/SKILL.md
 
 governance:
   assurance: routine

@@ -11,7 +11,7 @@ The feature spans fourteen actors and twenty-five Rules with behavioral scenario
 
 ## 2. Test Layers in Scope
 
-The project's three-layer model (structural gates, contract tests, behavioral verification) applies. The table below assigns each contract group to its primary owning layer and risk class following the conventions in `factory/rulebooks/conventions/testing-strategy.md`.
+The project's three-layer model (structural gates, contract tests, behavioral verification) applies. The table below assigns each contract group to its primary owning layer and risk class following the conventions in `.agent-factory/factory/rulebooks/conventions/testing-strategy.md`.
 
 ### Base — structural gates
 
@@ -48,17 +48,17 @@ The project's three-layer model (structural gates, contract tests, behavioral ve
 
 ### Top — behavioral verification
 
-| Contract group                                           | Entry point                       | Risk class |
-| -------------------------------------------------------- | --------------------------------- | ---------- |
-| `cycle select` end-to-end (state file + binding update)  | `factory/scripts/cycle`           | standard   |
-| `cycle retry` end-to-end (limit enforcement, exit codes) | `factory/scripts/cycle`           | standard   |
-| `phase` diagnostic stub (exit 2, replacement message)    | `factory/scripts/phase`           | structural |
-| `transition-lint` cycle-model and state-file validation  | `factory/scripts/transition-lint` | standard   |
-| Characterization tests for kept contracts                | Existing lint and check commands  | standard   |
-| Agent and skill name preservation after migration        | `index-lint --check`              | structural |
-| Brownfield bootstrap produces three canonical objects    | Brownfield onboarding playbook    | standard   |
-| Workstream switch captures usage boundary                | Session menu + usage adapter      | standard   |
-| Usage analyst queries by workstream and cycle            | Usage analysis views              | standard   |
+| Contract group                                           | Entry point                                      | Risk class |
+| -------------------------------------------------------- | ------------------------------------------------ | ---------- |
+| `cycle select` end-to-end (state file + binding update)  | `.agent-factory/factory/scripts/cycle`           | standard   |
+| `cycle retry` end-to-end (limit enforcement, exit codes) | `.agent-factory/factory/scripts/cycle`           | standard   |
+| `phase` diagnostic stub (exit 2, replacement message)    | `.agent-factory/factory/scripts/phase`           | structural |
+| `transition-lint` cycle-model and state-file validation  | `.agent-factory/factory/scripts/transition-lint` | standard   |
+| Characterization tests for kept contracts                | Existing lint and check commands                 | standard   |
+| Agent and skill name preservation after migration        | `index-lint --check`                             | structural |
+| Brownfield bootstrap produces three canonical objects    | Brownfield onboarding playbook                   | standard   |
+| Workstream switch captures usage boundary                | Session menu + usage adapter                     | standard   |
+| Usage analyst queries by workstream and cycle            | Usage analysis views                             | standard   |
 
 ## 3. Contract Owners
 

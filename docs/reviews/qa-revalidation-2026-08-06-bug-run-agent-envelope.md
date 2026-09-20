@@ -36,7 +36,7 @@ suite.
 
 No new defects filed. One non-blocking **Suggestion** noted below (test
 granularity for FAGAN-0016); suggestions stay in the report only per
-[finding-format.md](../rulebooks/conventions/finding-format.md).
+[finding-format.md](../../.agent-factory/factory/rulebooks/conventions/finding-format.md).
 
 ## FAGAN-0016 — commit disclosure on non-zero / no-message / cancel paths
 
@@ -59,7 +59,7 @@ unchanged.
 
 **Suite:** `node --experimental-strip-types --import ./envelope-loader.mjs --test ./envelope.test.ts` → **19 pass, 0 fail** (incl. the three new
 `enrichWithChildCommits` cases). Run from
-`factory/config/extensions/__tests__/`.
+`.agent-factory/factory/config/extensions/__tests__/`.
 
 ## FAGAN-0017 — prefer envelope-shaped record over rightmost sibling
 
@@ -86,7 +86,7 @@ into `envelope.test.ts`.
 **Verdict: PASS.** Commit `4cc1ec2` updates `_SURVEY_DESIGN` to
 `_ROOT / "docs" / "proposals" / "implemented" / "research-survey-mode.md"`,
 matching where the branch moved the design doc. The old
-`factory/docs/design/research-survey-mode.md` is absent; the new path exists.
+`.agent-factory/factory/docs/design/research-survey-mode.md` is absent; the new path exists.
 `_FACTORY_GUIDE` (line 12) is unchanged and still resolves.
 
 **Suite:** `uvx pytest orchestrator/tests/test_research_survey_playbook.py -v`
@@ -117,7 +117,7 @@ drain params pass. Running both full files together: 15 passed.
 ## BUG-0011 — dispatch-wave spawn abort (not in scope)
 
 Left `open` and untouched, per instruction. `spawnPi` in
-`factory/config/extensions/dispatch-wave.ts` still injects `ctx.signal` into
+`.agent-factory/factory/config/extensions/dispatch-wave.ts` still injects `ctx.signal` into
 `spawn()` options, aborting children as "The operation was aborted"; the
 `runPiStreamed` sibling correctly omits it. No change this pass.
 

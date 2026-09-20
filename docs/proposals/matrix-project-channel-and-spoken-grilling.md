@@ -12,12 +12,12 @@ impact:
   architecture_change: true
   external_contract_change: true
   boundaries:
-    - factory/scripts/init-factory
-    - factory/scripts/run-playbook
-    - factory/skills/run-step/SKILL.md
-    - factory/scripts/phase
-    - factory/skills/grilling/SKILL.md
-    - factory/docs/factory-guide.md
+    - .agent-factory/factory/scripts/init-factory
+    - .agent-factory/factory/scripts/run-playbook
+    - .agent-factory/factory/skills/run-step/SKILL.md
+    - .agent-factory/factory/scripts/phase
+    - .agent-factory/factory/skills/grilling/SKILL.md
+    - .agent-factory/factory/docs/factory-guide.md
     - docs/arc42/architecture.dsl
 
 governance:
@@ -74,7 +74,7 @@ general autonomous personal agent. It is a narrow Matrix edge plus a
 project-aware Factory conversational session. The edge transports and renders;
 the conversational session supports clarifying discussion in text or voice
 messages and may run a suitable project-local workflow, such as
-[`grilling`](../../factory/skills/grilling/SKILL.md), when you ask for
+[`grilling`](../../.agent-factory/factory/skills/grilling/SKILL.md), when you ask for
 that interview style. The Factory validates and records durable results.
 
 The system must remain optional and independently deployable. Projects that
@@ -213,9 +213,9 @@ and routing that neither the Matrix Edge nor Factory scripts should own:
 
 It invokes only the public Factory CLI surface. It never writes FSM markers,
 declares a gate passed, or treats an agent response as deterministic evidence.
-Factory scripts such as [`phase`](../../factory/scripts/phase) and
-[`run-playbook`](../../factory/scripts/run-playbook) remain authoritative.
-[`run-step`](../../factory/skills/run-step/SKILL.md) is a dispatching skill over
+Factory scripts such as [`phase`](../../.agent-factory/factory/scripts/phase) and
+[`run-playbook`](../../.agent-factory/factory/scripts/run-playbook) remain authoritative.
+[`run-step`](../../.agent-factory/factory/skills/run-step/SKILL.md) is a dispatching skill over
 that public surface, not an additional workflow authority.
 
 ### Factory Runtime Port
@@ -419,7 +419,7 @@ new message may cancel an unsent synthesized response but cannot create
 concurrent reasoning turns against the same session.
 
 The project-local conversational agent runs the workflow selected for the
-session; [`grilling`](../../factory/skills/grilling/SKILL.md) is one available
+session; [`grilling`](../../.agent-factory/factory/skills/grilling/SKILL.md) is one available
 example. The Matrix Edge does not perform requirements reasoning. Each response
 contains complete text and, unless text-only mode is selected, synthesized
 audio. Code, paths, commands, identifiers, decisions, and proposed document
@@ -488,10 +488,10 @@ rather than calling the conversation local merely because STT is local.
 Consequential commands use exact syntax and a versioned external protocol:
 
 ```text
-!factory/v1 decide <gate-id> <accept|reject|changes> <nonce>
-!factory/v1 cancel <run-id> <nonce>
-!factory/v1 admit <submission-id> <nonce>
-!factory/v1 ack <notification-id>
+!.agent-factory/factory/v1 decide <gate-id> <accept|reject|changes> <nonce>
+!.agent-factory/factory/v1 cancel <run-id> <nonce>
+!.agent-factory/factory/v1 admit <submission-id> <nonce>
+!.agent-factory/factory/v1 ack <notification-id>
 ```
 
 Setup pins the accepted protocol major version. The Matrix Edge rejects unknown

@@ -9,7 +9,7 @@ Feature: Newcomer onboarding and incremental brownfield
   Rule: Newcomer walks through a guided tour before choosing a workflow
     # actor: Newcomer
     # @docs/arc42/beginner-intro.md
-    # @factory/config/AGENTS.md
+    # @.agent-factory/factory/config/AGENTS.md
 
     Scenario: Newcomer selects the guided tour from the session entrypoint
       Given the session entrypoint presents option A "I'm new here — show me around"
@@ -38,7 +38,7 @@ Feature: Newcomer onboarding and incremental brownfield
 
   Rule: User reorients mid-session via the guided-tour skill
     # actor: Returning User
-    # @factory/skills/guided-tour/SKILL.md
+    # @.agent-factory/factory/skills/guided-tour/SKILL.md
 
     Scenario: User invokes guided-tour skill for orientation
       Given the user is in an active session
@@ -55,7 +55,7 @@ Feature: Newcomer onboarding and incremental brownfield
 
   Rule: Session entrypoint presents four options including newcomer path
     # actor: Newcomer, Returning User
-    # @factory/config/AGENTS.md
+    # @.agent-factory/factory/config/AGENTS.md
 
     Scenario: Session entrypoint shows the four-option menu
       Given a new session starts
@@ -73,9 +73,9 @@ Feature: Newcomer onboarding and incremental brownfield
 
   Rule: In-session agents are adopted, not spawned as subagents
     # actor: Newcomer, Returning User
-    # @factory/agents/chat-agent.md
-    # @factory/agents/kit-manager.md
-    # @factory/agents/coaching-agent.md
+    # @.agent-factory/factory/agents/chat-agent.md
+    # @.agent-factory/factory/agents/kit-manager.md
+    # @.agent-factory/factory/agents/coaching-agent.md
 
     Scenario: Chat-agent is adopted in the current session
       Given the user selects option D "I just want to talk something through"
@@ -101,7 +101,7 @@ Feature: Newcomer onboarding and incremental brownfield
 
   Rule: Brownfield onboarding exits after three anchor files
     # actor: Brownfield User
-    # @factory/playbooks/brownfield-onboarding.md
+    # @.agent-factory/factory/playbooks/brownfield-onboarding.md
 
     Scenario: Stage 1 completes with three anchor files
       Given the brownfield-onboarding playbook is running
@@ -131,7 +131,7 @@ Feature: Newcomer onboarding and incremental brownfield
 
   Rule: Reverse-map skill populates scope map from forensic evidence
     # actor: Brownfield User
-    # @factory/skills/reverse-map/SKILL.md
+    # @.agent-factory/factory/skills/reverse-map/SKILL.md
 
     Scenario: Reverse-map sweeps tests first as primary evidence
       Given the reverse-map skill is invoked during Stage 1
@@ -178,7 +178,7 @@ Feature: Newcomer onboarding and incremental brownfield
 
   Rule: Feature-addition deepens anchor files incrementally
     # actor: Feature Developer
-    # @factory/playbooks/feature-addition.md
+    # @.agent-factory/factory/playbooks/feature-addition.md
 
     Scenario: Feature-addition adds a Rule to the scope map
       Given a feature-addition runs against a brownfield-lite baseline
@@ -207,7 +207,7 @@ Feature: Newcomer onboarding and incremental brownfield
 
   Rule: Feature-addition prerequisite checks anchor file presence, not a gate marker
     # actor: Feature Developer
-    # @factory/playbooks/feature-addition.md
+    # @.agent-factory/factory/playbooks/feature-addition.md
 
     Scenario: Feature-addition detects brownfield-lite readiness from anchor files
       Given the user starts a feature-addition

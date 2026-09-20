@@ -10,8 +10,8 @@ created: 2026-08-26
 
 ## Sources checked
 
-- `factory/config/hooks/block-dangerous-git.sh`
-- `factory/config/hooks/block-dangerous-git.json`
+- `.agent-factory/factory/config/hooks/block-dangerous-git.sh`
+- `.agent-factory/factory/config/hooks/block-dangerous-git.json`
 - `.github/hooks/block-dangerous-git.sh`
 - GitHub Docs: `content/copilot/how-tos/copilot-sdk/hooks/pre-tool-use.md`
 - GitHub Docs: `content/copilot/how-tos/copilot-sdk/features/hooks.md`

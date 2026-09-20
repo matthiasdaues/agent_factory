@@ -9,7 +9,7 @@ This plan implements the approved seven-EPIC decomposition for
 The architecture follows
 [ADR-0017](../docs/adr/0017-cycle-based-orchestration-supersedes-linear-playbook-fsm.md).
 Capacity tiers follow the
-[dispatch tier rubric](../factory/rulebooks/conventions/dispatch-contract.md#tier-rubric).
+[dispatch tier rubric](../.agent-factory/factory/rulebooks/conventions/dispatch-contract.md#tier-rubric).
 
 Actor goals link directly to durable feature rules. The EPICs do not depend on
 the phase-1 capability table.

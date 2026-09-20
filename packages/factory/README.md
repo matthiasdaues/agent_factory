@@ -184,4 +184,4 @@ factory/scripts/run-playbook \
   --cli claude
 ```
 
-Stops at human gates. Re-run without `--from-state` to resume. See the [orchestrator README](../orchestrator/README.md).
+Stops at human gates. Re-run without `--from-state` to resume.

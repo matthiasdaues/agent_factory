@@ -456,7 +456,7 @@ Factory-delivered content is spread across three top-level directories (`factory
 ### Actor Goals
 
 - Developer runs `init-factory` and finds all factory content under `.agent-factory/`: scripts, agents, skills, rulebooks, engine at `.agent-factory/factory/`; project configuration at `.agent-factory/config/`; usage state under `.agent-factory/usage/`
-- Developer verifies that no top-level `factory/` or `config/` directory exists after installation
+- Developer verifies that no top-level `.agent-factory/factory/` or `config/` directory exists after installation
 - Developer verifies that `packages/orchestrator/` no longer exists and no reference to it remains
 - Developer runs characterization tests (tests that verify existing contracts survive the migration) and confirms that every standard check, branch safety command, and indexed agent/skill name from the acceptance commit still works
 

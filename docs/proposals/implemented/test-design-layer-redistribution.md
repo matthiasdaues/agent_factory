@@ -12,19 +12,19 @@ impact:
   architecture_change: false
   external_contract_change: true
   boundaries:
-    - factory/skills/test-design/SKILL.md
-    - factory/agents/developer-agent.md
-    - factory/agents/qa-agent.md
-    - factory/agents/planning-agent.md
-    - factory/agents/reconciliation-agent.md
-    - factory/agents/implementation-agent.md
-    - factory/rulebooks/conventions/testing-strategy.md
-    - factory/rulebooks/conventions/cross-reference-format.md
-    - factory/skills/create-backlog/SKILL.md
-    - factory/skills/create-backlog-stories/SKILL.md
-    - factory/skills/create-backlog-write-epics/SKILL.md
-    - factory/scripts/test-design-verify
-    - factory/rulebooks/templates/story.md
+    - .agent-factory/factory/skills/test-design/SKILL.md
+    - .agent-factory/factory/agents/developer-agent.md
+    - .agent-factory/factory/agents/qa-agent.md
+    - .agent-factory/factory/agents/planning-agent.md
+    - .agent-factory/factory/agents/reconciliation-agent.md
+    - .agent-factory/factory/agents/implementation-agent.md
+    - .agent-factory/factory/rulebooks/conventions/testing-strategy.md
+    - .agent-factory/factory/rulebooks/conventions/cross-reference-format.md
+    - .agent-factory/factory/skills/create-backlog/SKILL.md
+    - .agent-factory/factory/skills/create-backlog-stories/SKILL.md
+    - .agent-factory/factory/skills/create-backlog-write-epics/SKILL.md
+    - .agent-factory/factory/scripts/test-design-verify
+    - .agent-factory/factory/rulebooks/templates/story.md
 
 governance:
   assurance: routine
@@ -65,10 +65,10 @@ traceability alongside its existing `@`-reference backfill.
 
 **In the first release:**
 
-- The `testability-probe` skill at `factory/skills/testability-probe/SKILL.md`,
+- The `testability-probe` skill at `.agent-factory/factory/skills/testability-probe/SKILL.md`,
   replacing the current `test-design` skill's planning-time role with testability
   assessment and contract ownership resolution.
-- The narrowed `test-design` skill at `factory/skills/test-design/SKILL.md`,
+- The narrowed `test-design` skill at `.agent-factory/factory/skills/test-design/SKILL.md`,
   refactored as an implementation skill invoked by the developer agent.
 - The `create-backlog` parent skill's operational sequence table updated to
   reference `testability-probe` at phase 2.5 instead of `test-design`.
@@ -87,7 +87,7 @@ traceability alongside its existing `@`-reference backfill.
   stories.
 - The `testing-strategy.md` convention extended with a section on the two-pass
   test authoring model.
-- The story template at `factory/rulebooks/templates/story.md` updated with
+- The story template at `.agent-factory/factory/rulebooks/templates/story.md` updated with
   `tests:` and `test-design-pass` field documentation.
 
 **Explicitly deferred (do NOT plan stories for these):**
@@ -350,7 +350,7 @@ traceability stays in story files.
 
 ### Story template
 
-The story template at `factory/rulebooks/templates/story.md` adds documentation
+The story template at `.agent-factory/factory/rulebooks/templates/story.md` adds documentation
 for two fields:
 
 - `tests:` — test modules this story owns. Populated by the developer agent at
@@ -373,14 +373,14 @@ for two fields:
 
 ## Completion Criteria
 
-01. The `testability-probe` skill exists at `factory/skills/testability-probe/SKILL.md`
+01. The `testability-probe` skill exists at `.agent-factory/factory/skills/testability-probe/SKILL.md`
     with the procedure described in Change 1: testability assessment (observable
     outcomes, instrumentation boundaries, red flags) and backlog-wide contract
     ownership resolution.
 02. The `testability-probe` skill writes ownership assignments ("contract X owned
     by ST-NNNN") and a testability paragraph per epic into `backlog/epics.md`, but
     does not write failure scenarios, test paths, or risk classifications.
-03. The `test-design` skill at `factory/skills/test-design/SKILL.md` is refactored
+03. The `test-design` skill at `.agent-factory/factory/skills/test-design/SKILL.md` is refactored
     as an implementation skill with the story-level procedure described in Change 2:
     it reads implemented code, classifies owned contracts by risk class, identifies
     untested integration paths and edge cases, and authors test files.
@@ -413,7 +413,7 @@ for two fields:
     scenarios) from `epics.md` into story files.
 16. The `testing-strategy.md` convention includes a section on the two-pass test
     authoring model.
-17. The story template at `factory/rulebooks/templates/story.md` documents the
+17. The story template at `.agent-factory/factory/rulebooks/templates/story.md` documents the
     `tests:` and `test-design-pass` fields.
 
 ## Open Questions — Resolved

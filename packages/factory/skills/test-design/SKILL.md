@@ -25,8 +25,8 @@ This skill is the implementation-time complement to the planning-time
 *who* owns each contract's tests; this skill designs and writes those tests
 with the actual code in hand.
 
-Proposal trace: [test-design-layer-redistribution.md](../../../docs/proposals/test-design-layer-redistribution.md).
-Prior skill trace: [test-design-skill.md](../../../docs/proposals/test-design-skill.md).
+Proposal trace: [test-design-layer-redistribution.md](../../../../docs/proposals/implemented/test-design-layer-redistribution.md).
+Prior skill trace: [test-design-skill.md](../../../../docs/proposals/test-design-skill.md).
 
 ## Prerequisite guard
 

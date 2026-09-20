@@ -8,7 +8,7 @@ status: resolved
 traces: [ADR-0010]
 ---
 
-# Failure path leaves the project without a factory/ and no recovery note
+# Failure path leaves the project without a .agent-factory/factory/ and no recovery note
 
 **What is wrong:** update-factory `shutil.rmtree(target_factory)` unconditionally
 before delegating to the sourced init-factory. If init returns non-zero — a
@@ -33,9 +33,9 @@ Verified on `798d95b`. update-factory now `os.rename`s `target/factory/` to
 `.agent-factory/factory-backup-<uuid>` (no `rmtree`) before the reinstall, and
 on a non-zero `_run_init` return restores it in place (guarded by
 `backup.is_dir() and not target_factory.exists()`), so the project is never
-left without a `factory/`. On success the backup is `rmtree`'d. The rollback
+left without a `.agent-factory/factory/`. On success the backup is `rmtree`'d. The rollback
 is documented in the script docstring, ADR-0010 (new "refresh is
 rollback-safe" consequence), and the factory-guide "Updating it again"
 section. `test_failed_reinstall_restores_previous_factory` asserts the prior
-`factory/` (with a custom marker) reappears after a failed reinstall and that
+`.agent-factory/factory/` (with a custom marker) reappears after a failed reinstall and that
 no `factory-backup-*` dir lingers.

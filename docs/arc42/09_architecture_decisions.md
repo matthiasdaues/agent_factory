@@ -17,7 +17,7 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0007 | [Normalize runtime usage through CLI adapters into local append-only records](../adr/0007-normalize-runtime-usage-through-cli-adapters.md)                    | superseded by ADR-0009 | none        |
 | 0008 | [Separate proposal impact, governance, estimates, and actuals](../adr/0008-separate-proposal-impact-governance-estimates-and-actuals.md)                      | accepted               | none        |
 | 0009 | [CLI-prefixed usage record filenames when filesystem-safe](../adr/0009-cli-prefixed-usage-record-filenames-when-filesystem-safe.md)                           | accepted               | none        |
-| 0010 | [Refresh an installed factory/ by remove-and-reinstall](../adr/0010-refresh-installed-factory-by-remove-and-reinstall.md)                                     | accepted               | none        |
+| 0010 | [Refresh an installed .agent-factory/factory/ by remove-and-reinstall](../adr/0010-refresh-installed-factory-by-remove-and-reinstall.md)                      | accepted               | none        |
 | 0011 | [Gherkin .feature as consolidated specification format](../adr/0011-gherkin-feature-as-consolidated-specification-format.md)                                  | proposed               | pugh-matrix |
 | 0012 | [Dispatcher-owned semantic gate loop](../adr/0012-dispatcher-owned-semantic-gate-loop.md)                                                                     | proposed               | pugh-matrix |
 | 0013 | [YAML agent context replaces markdown charter](../adr/0013-yaml-agent-context-replaces-markdown-charter.md)                                                   | proposed               | pugh-matrix |
@@ -31,7 +31,7 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 
 ### Ownership and Control
 
-**ADR-0002** establishes that `factory/scripts/{transition-lint,phase,trigger}` and the `run-step` skill own flow control state (the marker, FSM, gates). `orchestrator/` is one possible trigger among peers (you at the terminal, orchestrator CLI). This inversion makes playbook runs CLI-agnostic and resume-from-observable-state by design.
+**ADR-0002** establishes that `.agent-factory/factory/scripts/{transition-lint,phase,trigger}` and the `run-step` skill own flow control state (the marker, FSM, gates). `orchestrator/` is one possible trigger among peers (you at the terminal, orchestrator CLI). This inversion makes playbook runs CLI-agnostic and resume-from-observable-state by design.
 
 ### Validation Strategy
 
@@ -45,7 +45,7 @@ All follow the "Agentic Creation, Deterministic Validation" principle: agents cr
 
 ### Monorepo Scoping
 
-**ADR-0001** declares one root `.pre-commit-config.yaml` for the monorepo, with each subproject's hooks namespaced (e.g., `-orchestrator` suffix) and path-scoped (`files: ^orchestrator/`). `factory/scripts/merge-precommit-config` splices subproject hook blocks into the root file.
+**ADR-0001** declares one root `.pre-commit-config.yaml` for the monorepo, with each subproject's hooks namespaced (e.g., `-orchestrator` suffix) and path-scoped (`files: ^orchestrator/`). `.agent-factory/factory/scripts/merge-precommit-config` splices subproject hook blocks into the root file.
 
 ### Pi Invocation Layer
 
@@ -85,7 +85,7 @@ proposal, preserving the original forecast for calibration.
 ## Factory Install, Update, and Removal
 
 **ADR-0010** gives the one-time install a forward path: `update-factory`
-refreshes an installed `factory/` to the current checkout by remove-and-
+refreshes an installed `.agent-factory/factory/` to the current checkout by remove-and-
 reinstall — a byte-exact replacement followed by a re-run of the sourced
 `init-factory` — rather than a recency-based diff-and-merge, which is
 nondeterministic and rests on unreliable file mtimes. `init-factory` records

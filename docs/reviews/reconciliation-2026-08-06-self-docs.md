@@ -1,7 +1,7 @@
 ---
 title: Reconciliation — Factory Self-Documentation vs Code-as-Built
 date: 2026-08-06
-scope: factory self-documentation (root README + referenced docs, factory/, orchestrator/)
+scope: factory self-documentation (root README + referenced docs, .agent-factory/factory/, orchestrator/)
 source: reconcile
 baseline: 46d84c8 (chore/reconcile-docs checkout)
 reviewer: reconciliation-agent (separate session)
@@ -15,15 +15,15 @@ contradiction forced it). Targets reconciled against the code-as-built:
 
 1. Root `README.md` and root-level docs it references (`docs/arc42/concepts.md`,
    `docs/arc42/beginner-intro.md`, `docs/arc42/CONTEXT-MAP.md`, `docs/README.md`).
-2. `factory/` self-documentation (`factory/README.md`, `factory/docs/`).
+2. `.agent-factory/factory/` self-documentation (`.agent-factory/factory/README.md`, `.agent-factory/factory/docs/`).
 3. `orchestrator/` self-documentation (`orchestrator/README.md`,
    `orchestrator/docs/**`, `orchestrator/docs/adr/`).
 
 `orchestrator/CONTEXT.md` was checked for — it does not exist (see RECON
 discrepancy 1 below).
 
-**Method.** Built truth maps from code (`factory/scripts/`, `factory/config/`,
-`factory/playbooks/*.fsm.yml`, `orchestrator/src/`, `orchestrator/pyproject.toml`,
+**Method.** Built truth maps from code (`.agent-factory/factory/scripts/`, `.agent-factory/factory/config/`,
+`.agent-factory/factory/playbooks/*.fsm.yml`, `orchestrator/src/`, `orchestrator/pyproject.toml`,
 `.pre-commit-config.yaml`, `docs/adr/`, `docs/spec/use_cases/`) and diffed against
 the prose claims in the in-scope docs. Verified file paths/existence, command
 names and flags, behaviour claims, and architecture/ownership statements. Ran
@@ -33,13 +33,13 @@ documented invocation forms.
 
 ## Discrepancy table
 
-| #   | Finding                                                                                                                                                                                                                                                                                     | Artifact                                | Category | Severity | Disposition                                                                                                                                 |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- | -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | CONTEXT-MAP links to `../orchestrator/CONTEXT.md` (removed) and calls the orchestrator "the `ai_tooling` agent chain" — a dead term two generations stale.                                                                                                                                  | `docs/arc42/CONTEXT-MAP.md:7`           | Defect   | Major    | **Fixed** — entry now links `orchestrator/README.md` + `orchestrator/docs/adr/` and drops `ai_tooling`.                                     |
-| 2   | `factory/README.md` top line says "you re-run `init-factory` to update it," contradicting ADR-0010 and the README's own "use the update script instead."                                                                                                                                    | `factory/README.md:3`                   | Defect   | Minor    | **Fixed** — now says run `update-factory`.                                                                                                  |
-| 3   | `factory/docs/factory-guide.md` § Linting and gating gives manual-mode examples for 3 of 4 gates as bare positionals (`spec-lint docs/spec/`, `backlog-lint backlog/`, `matrix-lint config/model.conf`) that the scripts reject — they require `--spec-dir`/`--backlog-dir`/`--matrix`.     | `factory/docs/factory-guide.md`         | Defect   | Major    | **Fixed** — examples corrected to the flag forms, all verified to run.                                                                      |
-| 4   | `orchestrator/README.md` Files tree implies a single test file (`tests/ └── test_run_playbook.py # 18 tests`) and omits `__init__.py` from `src/`. The suite is now 50 files; `src/` has `__init__.py`.                                                                                     | `orchestrator/README.md` (Files)        | Defect   | Minor    | **Fixed** — tree now notes the 50-file suite and lists `__init__.py`.                                                                       |
-| 5   | Pre-push full-suite test gate is documented (ADR-0003 + `factory/README.md` § Test execution hooks) but never wired into either `factory/config/pre-commit-config.yaml` or `.pre-commit-config.yaml`. ADR-0003 is accepted/unsuperseded; the README correctly restates the intended design. | `factory/config/pre-commit-config.yaml` | Defect   | Major    | **Code defect filed** → `docs/findings/RECON-0017.md`. Docs left aligned with ADR-0003 (the intended truth); configuration is what drifted. |
+| #   | Finding                                                                                                                                                                                                                                                                                                                   | Artifact                                               | Category | Severity | Disposition                                                                                                                                 |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | CONTEXT-MAP links to `../orchestrator/CONTEXT.md` (removed) and calls the orchestrator "the `ai_tooling` agent chain" — a dead term two generations stale.                                                                                                                                                                | `docs/arc42/CONTEXT-MAP.md:7`                          | Defect   | Major    | **Fixed** — entry now links `orchestrator/README.md` + `orchestrator/docs/adr/` and drops `ai_tooling`.                                     |
+| 2   | `.agent-factory/factory/README.md` top line says "you re-run `init-factory` to update it," contradicting ADR-0010 and the README's own "use the update script instead."                                                                                                                                                   | `.agent-factory/factory/README.md:3`                   | Defect   | Minor    | **Fixed** — now says run `update-factory`.                                                                                                  |
+| 3   | `.agent-factory/factory/docs/factory-guide.md` § Linting and gating gives manual-mode examples for 3 of 4 gates as bare positionals (`spec-lint docs/spec/`, `backlog-lint backlog/`, `matrix-lint config/model.conf`) that the scripts reject — they require `--spec-dir`/`--backlog-dir`/`--matrix`.                    | `.agent-factory/factory/docs/factory-guide.md`         | Defect   | Major    | **Fixed** — examples corrected to the flag forms, all verified to run.                                                                      |
+| 4   | `orchestrator/README.md` Files tree implies a single test file (`tests/ └── test_run_playbook.py # 18 tests`) and omits `__init__.py` from `src/`. The suite is now 50 files; `src/` has `__init__.py`.                                                                                                                   | `orchestrator/README.md` (Files)                       | Defect   | Minor    | **Fixed** — tree now notes the 50-file suite and lists `__init__.py`.                                                                       |
+| 5   | Pre-push full-suite test gate is documented (ADR-0003 + `.agent-factory/factory/README.md` § Test execution hooks) but never wired into either `.agent-factory/factory/config/pre-commit-config.yaml` or `.pre-commit-config.yaml`. ADR-0003 is accepted/unsuperseded; the README correctly restates the intended design. | `.agent-factory/factory/config/pre-commit-config.yaml` | Defect   | Major    | **Code defect filed** → `docs/findings/RECON-0017.md`. Docs left aligned with ADR-0003 (the intended truth); configuration is what drifted. |
 
 ## Observations (not filed, not edited)
 
@@ -49,14 +49,14 @@ documented invocation forms.
   explicitly excluded from scope, and is a known long-standing partial state
   (`arch-lint` is intentionally tolerant of missing chapters). Not edited;
   reconciling it means writing architecture chapters, which is out of scope.
-- **`factory/playbooks/greenfield-development.fsm.yml`** declares
+- **`.agent-factory/factory/playbooks/greenfield-development.fsm.yml`** declares
   `audit.output_file: .orchestrator/audit.log`, but the orchestrator
   (`orchestrator/src/agent_factory_orchestrator/cli.py`) hardcodes
   `.current-work/audit.log`, which is what `orchestrator/README.md` documents.
   The FSM's declarative `audit` block is stale metadata the code does not read.
   Out of scope (playbook/FSM artifact, not self-documentation prose); flagged
   here for a future pass.
-- **`factory/README.md` § Test execution hooks** says FSM entry conditions check
+- **`.agent-factory/factory/README.md` § Test execution hooks** says FSM entry conditions check
   `tests_pass` "before advancing to QA or DONE states." As-built, `tests_pass`
   gates the Implementation→Gate transition and entry to `PHASE_5_QUALITY` (QA),
   not `DONE`. Minor imprecision left untouched because it sits inside the
@@ -65,19 +65,19 @@ documented invocation forms.
 
 ## Verified accurate (no change)
 
-- Root `README.md` — repo-layout claims, links to `factory/`, `orchestrator/`,
+- Root `README.md` — repo-layout claims, links to `.agent-factory/factory/`, `orchestrator/`,
   `docs/arc42/concepts.md`, `docs/arc42/beginner-intro.md`, the workflow-diagram asset
   (`docs/assets/images/workflow-diagram.svg` exists).
 - `docs/arc42/concepts.md` — project directory tree, phase chain, research-workflow
-  description, `update-factory` mention, `factory/config/` template labelling.
+  description, `update-factory` mention, `.agent-factory/factory/config/` template labelling.
 - `docs/arc42/beginner-intro.md` — all six playbook references resolve; orchestrator
   `.fsm.yml` description; two-modes framing.
 - `docs/arc42/CONTEXT-MAP.md` — Usage Accounting (`usage/` absent, no code) and
   Factory API ("vision-stub only") claims still accurate.
-- `factory/README.md` — `init-factory` footprint, `run-playbook`
+- `.agent-factory/factory/README.md` — `init-factory` footprint, `run-playbook`
   `AF_ORCHESTRATOR_SOURCE` / `orchestrator-v0.1.0` tag (tag exists), `--cli claude|copilot` backends, `run-tests --staged` agent loop, framework
   auto-detection, ADR-0003/UC-09 links.
-- `factory/docs/factory-guide.md` — agents/skills/playbooks listings,
+- `.agent-factory/factory/docs/factory-guide.md` — agents/skills/playbooks listings,
   `run_agent`/`dispatch_wave` Pi extensions, runtime usage-capture pipeline,
   research validators (`schema-validate`/`policy-validate` positional forms),
   guardrail deny list, session logging, update-factory workflow.

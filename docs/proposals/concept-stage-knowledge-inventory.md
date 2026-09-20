@@ -12,13 +12,13 @@ impact:
   architecture_change: true
   external_contract_change: true
   boundaries:
-    - factory/docs/factory-guide.md
-    - factory/agents/virgil.md
-    - factory/playbooks/greenfield-development.md
-    - factory/playbooks/brownfield-onboarding.md
-    - factory/skills/capture-context/SKILL.md
-    - factory/rulebooks/templates/
-    - factory/rulebooks/schemas/
+    - .agent-factory/factory/docs/factory-guide.md
+    - .agent-factory/factory/agents/virgil.md
+    - .agent-factory/factory/playbooks/greenfield-development.md
+    - .agent-factory/factory/playbooks/brownfield-onboarding.md
+    - .agent-factory/factory/skills/capture-context/SKILL.md
+    - .agent-factory/factory/rulebooks/templates/
+    - .agent-factory/factory/rulebooks/schemas/
 
 governance:
   assurance: high
@@ -80,7 +80,7 @@ Together they imply that a concept stage should establish coverage, ownership, a
 ## Assessment of Agent Factory today
 
 Agent Factory does not currently define a formal Concept phase. Phase 0 contains conversational and utility work; the formal chain starts at Requirements.
-That is visible in the Factory guide (factory/docs/factory-guide.md:123).
+That is visible in the Factory guide (.agent-factory/factory/docs/factory-guide.md:123).
 
 Its current ingredients provide good but incomplete coverage:
 
@@ -101,11 +101,11 @@ Its current ingredients provide good but incomplete coverage:
 | Operations, support and retirement       | Infrastructure hints appear later                        | Weak                                                    |
 | Knowledge ownership and freshness        | Read: paths exist                                        | Missing owners, review dates, and validity states       |
 
-The agent-context documentation (factory/docs/factory-guide.md:161) explicitly calls it a routing switchboard, not a knowledge base. That is the right
+The agent-context documentation (.agent-factory/factory/docs/factory-guide.md:161) explicitly calls it a routing switchboard, not a knowledge base. That is the right
 design, but it cannot alone prove knowledge coverage.
 
-There is also artifact-contract drift: the current capture-context skill (factory/skills/capture-context/SKILL.md:28) mandates one docs/agent-context.md
-file and rejects the retired YAML model, while the greenfield playbook (factory/playbooks/greenfield-development.md:59) still requires those YAML files and
+There is also artifact-contract drift: the current capture-context skill (.agent-factory/factory/skills/capture-context/SKILL.md:28) mandates one docs/agent-context.md
+file and rejects the retired YAML model, while the greenfield playbook (.agent-factory/factory/playbooks/greenfield-development.md:59) still requires those YAML files and
 the old capture-charter skill. A formal concept-stage gate would first need to resolve this inconsistency.
 
 ## Recommended concept-stage model
@@ -196,7 +196,7 @@ Agent Factory starts its formal delivery chain at Requirements. Phase 0
 currently provides conversation, project fitting, proposal drafting, and
 knowledge routing, but it has no defined Concept-stage contract or exit gate.
 
-The existing [Factory guide § Agent Context](../../factory/docs/factory-guide.md#agent-context)
+The existing [Factory guide § Agent Context](../../.agent-factory/factory/docs/factory-guide.md#agent-context)
 defines `docs/agent-context.md` as a routing switchboard rather than a knowledge
 base. This separation is useful, but routing alone cannot show whether the
 project has considered every required knowledge area.
@@ -208,9 +208,9 @@ freshness less consistently. Unknown information can remain implicit or spread
 across conversations and later-phase documents.
 
 The current greenfield contract also contains incompatible artifact paths. The
-[capture-context skill § Concern model](../../factory/skills/capture-context/SKILL.md#concern-model)
+[capture-context skill § Concern model](../../.agent-factory/factory/skills/capture-context/SKILL.md#concern-model)
 requires one `docs/agent-context.md` file and retires the earlier YAML model.
-The [greenfield playbook § Step 1.0](../../factory/playbooks/greenfield-development.md#step-10--scaffold-project-charter)
+The [greenfield playbook § Step 1.0](../../.agent-factory/factory/playbooks/greenfield-development.md#step-10--scaffold-project-charter)
 still requires the retired YAML files and the former `capture-charter` skill.
 A formal Concept stage needs one consistent artifact contract.
 

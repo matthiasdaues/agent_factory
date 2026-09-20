@@ -39,9 +39,9 @@ This resolution order is why `halt_conditions` must name the **author** state be
 
 - **Never** a blanket bypass: `--dangerously-skip-permissions` (Claude Code) and `--allow-all-tools` (Copilot CLI) are excluded from the background-mode command construction entirely — there is no flag path that reaches them from `trigger agent ... --background`.
 - **Never** a bare interpreter wildcard: an allowlist entry that only scopes the outer command while leaving `python3 *`, `uv *`, `uvx *`, or `npm *` unscoped is treated as equivalent to no scoping, and is excluded on that basis.
-- Every allowlist entry is derived from a command literally observed in this repo's own playbooks, skills, agents, and config files — grep-verified, not guessed ahead of a real need, per [YAGNI](../../../factory/rulebooks/conventions/foundational-principles.md#yagni). Adding a new entry requires the same evidence standard.
+- Every allowlist entry is derived from a command literally observed in this repo's own playbooks, skills, agents, and config files — grep-verified, not guessed ahead of a real need, per [YAGNI](../../../.agent-factory/factory/rulebooks/conventions/foundational-principles.md#yagni). Adding a new entry requires the same evidence standard.
 - Claude Code's allow/deny lists use its own `Bash(<cmd> *)` glob syntax; Copilot CLI's use its colon-wildcard `shell(<cmd>:*)` syntax. The two-word-prefix form (`shell(git commit:*)`) is confirmed against GitHub's own documentation; the three-word forms (`shell(uv run pytest:*)`) follow the same pattern but are unconfirmed — see [T-05](../todos.md#t-05-copilot-clis-three-word-shell-wildcard-syntax-unconfirmed).
-- The deny list mirrors [`block-dangerous-git.sh`](../../../factory/config/hooks/block-dangerous-git.sh)'s own pattern list exactly — a second, independent layer, not a substitute for it.
+- The deny list mirrors [`block-dangerous-git.sh`](../../../.agent-factory/factory/config/hooks/block-dangerous-git.sh)'s own pattern list exactly — a second, independent layer, not a substitute for it.
 - `--interactive` mode constructs no allow/deny list at all; it launches a live session the actor controls directly, after printing the composed prompt (BR-013).
 
 ## Phase handoff and result envelope (BR-037…BR-042)
@@ -92,7 +92,7 @@ This resolution order is why `halt_conditions` must name the **author** state be
 
 - A destination path is safe to proceed past only if it is missing, or already a symlink resolving to the exact expected target. Any other existing state (a real file, a real directory, or a symlink to something else) raises a `Collision`.
 - A `Collision` stops the entire run immediately — steps already completed earlier in the run stay applied; no step later than the collision point runs at all (BR-021).
-- `config/model.conf` is copied only if absent; its presence is checked once, and its content is never diffed or refreshed afterward (BR-022) — the same non-diffing treatment `factory/` itself receives once already present.
+- `config/model.conf` is copied only if absent; its presence is checked once, and its content is never diffed or refreshed afterward (BR-022) — the same non-diffing treatment `.agent-factory/factory/` itself receives once already present.
 
 ## Project-owned test gates (`testing.yaml`, BR-023, BR-024, BR-025, BR-026, BR-027, BR-028, BR-029)
 
@@ -177,7 +177,7 @@ See [newcomer-onboarding.feature](../newcomer-onboarding.feature).
 - `update-context` is retired and performs no write. The team maintains `docs/agent-context.md` directly.
 - `detect-test-regime` and test gates own the schema and values in `docs/testing.yaml`; concern validation does not parse test configuration.
 
-See [agent-context.feature](../agent-context.feature) and [interface-contracts.md § concern-lint](interface-contracts.md#factoryscriptsconcern-lint).
+See [agent-context.feature](../agent-context.feature) and [interface-contracts.md § concern-lint](interface-contracts.md#agent-factoryfactoryscriptsconcern-lint).
 
 ## Dispatch ledger (`dispatch`)
 

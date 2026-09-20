@@ -12,23 +12,23 @@ impact:
   architecture_change: false
   external_contract_change: true
   boundaries:
-    - factory/skills/handoff/SKILL.md
-    - factory/scripts/handoff-lint
-    - factory/rulebooks/conventions/handoff-format.md
-    - factory/rulebooks/conventions/report-format.md
-    - factory/rulebooks/conventions/cache-hygiene.md
-    - factory/playbooks/greenfield-development.md
-    - factory/playbooks/feature-addition.md
-    - factory/scripts/usage-capture
-    - factory/skills/retrospective/SKILL.md
-    - factory/agents/requirements-agent.md
-    - factory/agents/architecture-agent.md
-    - factory/agents/spec-review-agent.md
-    - factory/agents/architecture-review-agent.md
-    - factory/agents/qa-agent.md
-    - factory/agents/reconciliation-agent.md
-    - factory/agents/implementation-agent.md
-    - factory/agents/developer-agent.md
+    - .agent-factory/factory/skills/handoff/SKILL.md
+    - .agent-factory/factory/scripts/handoff-lint
+    - .agent-factory/factory/rulebooks/conventions/handoff-format.md
+    - .agent-factory/factory/rulebooks/conventions/report-format.md
+    - .agent-factory/factory/rulebooks/conventions/cache-hygiene.md
+    - .agent-factory/factory/playbooks/greenfield-development.md
+    - .agent-factory/factory/playbooks/feature-addition.md
+    - .agent-factory/factory/scripts/usage-capture
+    - .agent-factory/factory/skills/retrospective/SKILL.md
+    - .agent-factory/factory/agents/requirements-agent.md
+    - .agent-factory/factory/agents/architecture-agent.md
+    - .agent-factory/factory/agents/spec-review-agent.md
+    - .agent-factory/factory/agents/architecture-review-agent.md
+    - .agent-factory/factory/agents/qa-agent.md
+    - .agent-factory/factory/agents/reconciliation-agent.md
+    - .agent-factory/factory/agents/implementation-agent.md
+    - .agent-factory/factory/agents/developer-agent.md
 
 governance:
   assurance: elevated
@@ -93,14 +93,14 @@ The factory already has a `token-usage-tracking` proposal (implemented) for *cap
 
 **Mechanism.** Every factory playbook and every long-running agent workflow ends a phase by invoking a Factory-owned, CLI-agnostic `handoff` skill and begins the next phase in a fresh session that reads only on-disk artifacts. The transcript does not cross a phase boundary. Crossing a phase boundary in the same session is a workflow defect; single-phase work is exempt.
 
-**Where the rule lives.** A new `factory/rulebooks/conventions/handoff-format.md` (extending the existing `handoff-format` rulebook if it has content, or creating it) defines:
+**Where the rule lives.** A new `.agent-factory/factory/rulebooks/conventions/handoff-format.md` (extending the existing `handoff-format` rulebook if it has content, or creating it) defines:
 
 - The phase boundary set: requirements → review, review → architecture, architecture → review, review → remedies, remedies → planning, planning → implementation. Every arrow is a `handoff`.
 - The handoff document's required contents: the phase's on-disk artifact list (with paths), the open findings/decisions carried forward, the next phase's entry point, and a one-paragraph "what was decided, what is open" summary. No transcript replay.
 - The receiving session's first action: read the handoff document and the referenced artifacts, not the prior session's history.
 - The compression invariant: prose is dense but unambiguous; compression removes wording, never informational detail. Every decision, open item, artifact path, exact 40-character SHA, branch state, gate result, and next action survives intact.
 
-`factory/scripts/handoff-lint` validates the required sections, referenced artifact paths, exact SHA shape, branch/upstream fields, verification evidence, open decisions, and next action before the phase may close. Semantic review remains responsible for detecting omitted information that structural validation cannot infer.
+`.agent-factory/factory/scripts/handoff-lint` validates the required sections, referenced artifact paths, exact SHA shape, branch/upstream fields, verification evidence, open decisions, and next action before the phase may close. Semantic review remains responsible for detecting omitted information that structural validation cannot infer.
 
 **Playbook and agent updates.** Each factory agent that participates in a multi-phase workflow (`requirements-agent`, `architecture-agent`, `spec-review-agent`, `architecture-review-agent`, `qa-agent`, `reconciliation-agent`, `implementation-agent`, `developer-agent`) gains a "Phase boundary: invoke `handoff`" step in its workflow, and a "Phase entry: read the handoff document and named artifacts" step at its start. The greenfield-development and feature-addition playbooks mark every phase transition as a `handoff` point.
 
@@ -110,7 +110,7 @@ The factory already has a `token-usage-tracking` proposal (implemented) for *cap
 
 **Mechanism.** Before a child agent run by `run_agent`, `dispatch_wave`, or a native sub-agent mechanism returns, it persists its complete result in canonical tracked report and finding artifacts. Its parent-facing response is a bounded result envelope: disposition, finding counts by severity, the complete artifact-path list, and the next action. The full text is read on demand, not on every subsequent turn.
 
-**Where the rule lives.** `factory/rulebooks/conventions/report-format.md` gains a section: "Agent results injected into the orchestrating transcript are a summary plus a file path, never the verbatim result. The full result lives in a tracked file; the transcript carries only the summary." The agents that consume `run_agent` results (`implementation-agent` as dispatcher; any orchestrating role) reference this rule.
+**Where the rule lives.** `.agent-factory/factory/rulebooks/conventions/report-format.md` gains a section: "Agent results injected into the orchestrating transcript are a summary plus a file path, never the verbatim result. The full result lives in a tracked file; the transcript carries only the summary." The agents that consume `run_agent` results (`implementation-agent` as dispatcher; any orchestrating role) reference this rule.
 
 **What the summary contains.** The disposition (pass/fail), the count of findings by severity, the file paths of the full report and any finding files, and the one- to three-sentence "what to do next" the result implies. Nothing more. The verbatim finding text, the full reasoning, the per-finding detail — all in the file, none in the transcript.
 
@@ -120,7 +120,7 @@ The factory already has a `token-usage-tracking` proposal (implemented) for *cap
 
 **Mechanism.** When a `read` would inject a large file (tens of thousands of tokens), the agent reads in `offset`/`limit` chunks. The first chunk establishes the working context; further chunks are read only if needed.
 
-**Where the rule lives.** A short `factory/rulebooks/conventions/cache-hygiene.md` (new) records the discipline. Every skill that includes a potentially large `read` step (`inspect-spec`, `atam-review`, `fagan-review`, `reconcile-spec`, `derive-spec`, `scaffold-arc42`, etc.) cites it at that step.
+**Where the rule lives.** A short `.agent-factory/factory/rulebooks/conventions/cache-hygiene.md` (new) records the discipline. Every skill that includes a potentially large `read` step (`inspect-spec`, `atam-review`, `fagan-review`, `reconcile-spec`, `derive-spec`, `scaffold-arc42`, etc.) cites it at that step.
 
 **What does not change.** The CLI's prompt-caching mechanism is not modified. Chunking is advisory because a static gate cannot determine which parts of a file the task requires.
 
@@ -130,22 +130,22 @@ The factory already has a `token-usage-tracking` proposal (implemented) for *cap
 
 **Mechanism.** The existing `usage-capture` already records per-turn usage. At session end, capture the cache-miss turn count, cache-miss input-token total, late-phase vs early-phase input-token ratio, and the CLI/provider identity needed to interpret those figures. This is a one-time write to the session log, not a new artifact. The signals are retrospective inputs only in the first release; they are not exposed as live controls to the running agent.
 
-**Where the rule lives.** `factory/scripts/usage-capture` (or its lifecycle script) computes and stores the three derived numbers. `factory/skills/retrospective/SKILL.md` reads them when mining the session for friction.
+**Where the rule lives.** `.agent-factory/factory/scripts/usage-capture` (or its lifecycle script) computes and stores the three derived numbers. `.agent-factory/factory/skills/retrospective/SKILL.md` reads them when mining the session for friction.
 
 ## Scope
 
 **In the first release:**
 
-- `factory/rulebooks/conventions/handoff-format.md` (new or extended) defines the phase-boundary `handoff` rule, the boundary set, and the handoff-document contents.
-- `factory/skills/handoff/SKILL.md` provides the Factory-owned, CLI-agnostic handoff operation and is generated to every supported CLI.
-- `factory/scripts/handoff-lint` mechanically validates every phase handoff.
-- `factory/rulebooks/conventions/report-format.md` gains the "agent results injected as summary + file path" section.
-- `factory/rulebooks/conventions/cache-hygiene.md` (new) records on-demand chunked reads and the measurement-first cache rule.
+- `.agent-factory/factory/rulebooks/conventions/handoff-format.md` (new or extended) defines the phase-boundary `handoff` rule, the boundary set, and the handoff-document contents.
+- `.agent-factory/factory/skills/handoff/SKILL.md` provides the Factory-owned, CLI-agnostic handoff operation and is generated to every supported CLI.
+- `.agent-factory/factory/scripts/handoff-lint` mechanically validates every phase handoff.
+- `.agent-factory/factory/rulebooks/conventions/report-format.md` gains the "agent results injected as summary + file path" section.
+- `.agent-factory/factory/rulebooks/conventions/cache-hygiene.md` (new) records on-demand chunked reads and the measurement-first cache rule.
 - Every multi-phase factory agent (`requirements-agent`, `architecture-agent`, `spec-review-agent`, `architecture-review-agent`, `qa-agent`, `reconciliation-agent`, `implementation-agent`, `developer-agent`) gains the "Phase boundary: invoke `handoff`" and "Phase entry: read handoff + artifacts" steps.
 - The `greenfield-development` and `feature-addition` playbooks mark every phase transition as a `handoff` point.
-- `factory/scripts/usage-capture` (or its lifecycle) adds the three derived usage signals at session end.
-- `factory/skills/retrospective/SKILL.md` reads the derived signals when mining a session.
-- Proposal-path contracts are updated from `factory/docs/proposals/` to the repository-root `docs/proposals/` location before feature intake proceeds.
+- `.agent-factory/factory/scripts/usage-capture` (or its lifecycle) adds the three derived usage signals at session end.
+- `.agent-factory/factory/skills/retrospective/SKILL.md` reads the derived signals when mining a session.
+- Proposal-path contracts are updated from `.agent-factory/factory/docs/proposals/` to the repository-root `docs/proposals/` location before feature intake proceeds.
 
 **Explicitly deferred (do NOT plan stories for these):**
 
@@ -188,15 +188,15 @@ None. Phase gating is a hard workflow contract; the first release owns a cross-C
 
 ## Completion Criteria
 
-- `factory/rulebooks/conventions/handoff-format.md` defines the phase-boundary set, the handoff-document contents, and the mandatory-invoke rule.
+- `.agent-factory/factory/rulebooks/conventions/handoff-format.md` defines the phase-boundary set, the handoff-document contents, and the mandatory-invoke rule.
 - The Factory-owned `handoff` skill is generated for every supported CLI and produces dense, unambiguous handoffs without dropping informational detail.
-- `factory/scripts/handoff-lint` blocks phase closure when required structure, paths, exact SHAs, state, evidence, decisions, or next action are absent or malformed.
-- `factory/rulebooks/conventions/report-format.md` documents the agent-result summary-plus-path injection rule.
-- `factory/rulebooks/conventions/cache-hygiene.md` records on-demand chunked reads, provider-qualified measurement, and no unsupported prose-restabilisation ritual.
+- `.agent-factory/factory/scripts/handoff-lint` blocks phase closure when required structure, paths, exact SHAs, state, evidence, decisions, or next action are absent or malformed.
+- `.agent-factory/factory/rulebooks/conventions/report-format.md` documents the agent-result summary-plus-path injection rule.
+- `.agent-factory/factory/rulebooks/conventions/cache-hygiene.md` records on-demand chunked reads, provider-qualified measurement, and no unsupported prose-restabilisation ritual.
 - Every multi-phase factory agent listed in `boundaries` has a "Phase boundary: invoke `handoff`" step and a "Phase entry: read handoff + artifacts" step.
 - The `greenfield-development` and `feature-addition` playbooks mark every phase transition as a `handoff` point.
-- `factory/scripts/usage-capture` (or its lifecycle) writes the three derived usage signals plus CLI/provider identity at session end.
-- `factory/skills/retrospective/SKILL.md` reads the three derived signals and uses them in the "Caused Friction" category.
+- `.agent-factory/factory/scripts/usage-capture` (or its lifecycle) writes the three derived usage signals plus CLI/provider identity at session end.
+- `.agent-factory/factory/skills/retrospective/SKILL.md` reads the three derived signals and uses them in the "Caused Friction" category.
 - A retrospective on a session that uses the phase-gating rule shows a lower late-phase vs early-phase input ratio than the 11.3× measured in the session that motivated this proposal.
 
 ## Guiding Rule

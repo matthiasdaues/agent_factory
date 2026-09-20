@@ -210,7 +210,7 @@ The author/reviewer split depends on each agent running in its own session, so t
 - **Codex** generates native custom agents under `.codex/agents/`. When a separate session is required, spawn the generated custom agent through Codex's native subagent mechanism. Direct interactive agent selection may remain in the current session unless an isolation boundary applies.
 - **Pi** has no native subagent. `init-factory` installs a project-local extension, `.pi/extensions/run-agent.ts`, that registers a `run_agent` tool. Calling it spawns a genuinely separate `pi` subprocess with the chosen agent's markdown as its system prompt and returns the child's result. Under Pi, run a factory agent by calling `run_agent` — not by reading the agent file and acting it out in the current session, which would leak the author's reasoning into the review.
 
-`run_agent` resolves the child's model from `config/model.conf` — the `pi.<tier>` row for the agent's declared tier — unless an explicit model id is passed, and it bounds nested spawns with a recursion-depth cap. The git-safety guardrail extension loads in the child too, so a spawned agent stays governed by the same guardrail as its parent. See [ADR-0004](../../docs/adr/0004-pi-subagent-invocation-via-subprocess-spawn.md).
+`run_agent` resolves the child's model from `config/model.conf` — the `pi.<tier>` row for the agent's declared tier — unless an explicit model id is passed, and it bounds nested spawns with a recursion-depth cap. The git-safety guardrail extension loads in the child too, so a spawned agent stays governed by the same guardrail as its parent. See [ADR-0004](../../../docs/adr/0004-pi-subagent-invocation-via-subprocess-spawn.md).
 
 For parallel work, a second Pi extension, `.pi/extensions/dispatch-wave.ts`, registers a `dispatch_wave` tool — the port of `implementation-agent`, which under Claude Code relies on the native Agent tool's `isolation: "worktree"` and simultaneous subagent spawns. Given one caller-planned, file-disjoint wave, `dispatch_wave` cuts a feature branch in its own git worktree per item, spawns each agent there in parallel, and — unless told not to — runs `premerge-check` before merging each finished branch into the target. It does not plan the wave: output-file overlap and dependency ordering stay with the calling agent, exactly as `implementation-agent` documents. `premerge-check` runs against the wave's frozen base, so a sibling merge advancing the target never falsely flags a later branch as stale.
 
@@ -381,7 +381,7 @@ records because it entered both model contexts; that is real normalized usage,
 not aggregation duplication.
 
 The architecture rationale is recorded in
-[ADR-0007](../../docs/adr/0007-normalize-runtime-usage-through-cli-adapters.md).
+[ADR-0007](../../../docs/adr/0007-normalize-runtime-usage-through-cli-adapters.md).
 
 ### Usage-capture test ownership
 
@@ -451,7 +451,7 @@ After either playbook completes (or after brownfield Stage 1), all feature work 
 
 ### Feature delivery and other full-chain playbooks
 
-Once a project has been onboarded, these playbooks drive feature delivery and other structured work through some or all of the five-phase chain (requirements → architecture → planning → implementation → quality — see [docs/arc42/concepts.md § The phase chain](../../docs/arc42/concepts.md#the-phase-chain)):
+Once a project has been onboarded, these playbooks drive feature delivery and other structured work through some or all of the five-phase chain (requirements → architecture → planning → implementation → quality — see [docs/arc42/concepts.md § The phase chain](../../../docs/arc42/concepts.md#the-phase-chain)):
 
 | Playbook                                                        | For                                                                                                                                                                                                   |
 | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -504,7 +504,7 @@ A playbook can ship a `.fsm.yml` alongside its `.md` in `factory/playbooks/` —
 
 If the marker file is absent, both tools are no-ops — a project not using the harness sees no behavior change.
 
-See [Structured Playbooks as a Deterministic Harness](../../docs/proposals/playbook-structured-harness-strategy.md) for the full design rationale and the proof of concept's scope. The harness now has its own full specification — actors, use cases, entity model, and business rules — at [docs/spec/prd.md](../../docs/spec/prd.md).
+See [Structured Playbooks as a Deterministic Harness](../../../docs/proposals/playbook-structured-harness-strategy.md) for the full design rationale and the proof of concept's scope. The harness now has its own full specification — actors, use cases, entity model, and business rules — at [docs/spec/prd.md](../../../docs/spec/prd.md).
 
 ## Proposals
 
@@ -524,7 +524,7 @@ Rulebooks are grouped by kind, one directory per kind. `index-lint` derives each
 | [`templates/`](../rulebooks/templates/)     | Fill-in skeletons for artifacts — ADRs, and the ten `research-*.md` artifact templates      | Yes              |
 | [`schemas/`](../rulebooks/schemas/)         | JSON-Schema data contracts (`research-*.schema.json`) the research validators check against | No — see below   |
 
-The research feature adds files across all three, marked by a `research-` filename prefix rather than a per-feature subtree (see [ADR-0006](../../docs/adr/0006-research-flat-storage-and-validation-pipeline.md)). Two points are deliberate, not drift:
+The research feature adds files across all three, marked by a `research-` filename prefix rather than a per-feature subtree (see [ADR-0006](../../../docs/adr/0006-research-flat-storage-and-validation-pipeline.md)). Two points are deliberate, not drift:
 
 - The four **research policies** live under `conventions/`, so `index-lint` catalogs them with `category: conventions` even though their own frontmatter reads `category: policies` — a label describing their nature. There is no `policies/` directory.
 - `schemas/` is a genuinely new category of rulebook: machine-readable data, not prose. Its `.schema.json` files are intentionally **absent** from `INDEX.yaml`, because `index-lint` scans Markdown frontmatter only. The validators resolve them by path, never by catalog name.
@@ -567,7 +567,7 @@ factory/scripts/schema-validate <artifact-file> <schema-file>
 factory/scripts/policy-validate --pipeline <artifact-or-dir>...   # runs stage 1, then stage 2, stopping at the first failure
 ```
 
-An artifact must pass stage 1, then stage 2, then stage 3 before the next playbook step begins. The schemas live in [`factory/rulebooks/schemas/`](../rulebooks/schemas/). See [ADR-0006](../../docs/adr/0006-research-flat-storage-and-validation-pipeline.md) and [`research-topic.md` § The Validation Gate](../playbooks/research-topic.md).
+An artifact must pass stage 1, then stage 2, then stage 3 before the next playbook step begins. The schemas live in [`factory/rulebooks/schemas/`](../rulebooks/schemas/). See [ADR-0006](../../../docs/adr/0006-research-flat-storage-and-validation-pipeline.md) and [`research-topic.md` § The Validation Gate](../playbooks/research-topic.md).
 
 ### Semantic quality gates
 
@@ -728,7 +728,7 @@ Session logging is an opt-in, append-only audit trail of gate-script runs. It ex
 
 The log file lives under `.current-work/`, which is gitignored — local machine state, not portable, not meant to be reviewed.
 
-See [docs/proposals/session-log-addendum.md](../../docs/proposals/session-log-addendum.md) for the full design rationale.
+See [docs/proposals/session-log-addendum.md](../../../docs/proposals/session-log-addendum.md) for the full design rationale.
 
 ## Using this in an existing repo
 
@@ -832,4 +832,4 @@ Agent Factory targets macOS and Linux only. Both rely on native, git-tracked sym
 ## Referenced from
 
 - [factory/README.md](../README.md)
-- [docs/spec/prd.md § Problem Statement](../../docs/spec/prd.md#1-problem-statement)
+- [docs/spec/prd.md § Problem Statement](../../../docs/spec/prd.md#1-problem-statement)

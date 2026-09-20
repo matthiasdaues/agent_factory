@@ -19,16 +19,16 @@
 
 ## Discrepancy table
 
-| Finding                                                                                                                                          | Artifact                                | Classification | Severity | Action                                                                                            |
-| ------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------- | -------------- | -------- | ------------------------------------------------------------------------------------------------- |
-| Pi descendant records written inside a dispatched worktree are deleted when that worktree is removed.                                            | [RECON-0009](../findings/RECON-0009.md) | Code defect    | Major    | Filed; implementation pending.                                                                    |
-| Pi capture synchronously waits up to thirty seconds on human shutdown and child tool-result paths.                                               | [RECON-0010](../findings/RECON-0010.md) | Code defect    | Major    | Filed; implementation pending.                                                                    |
-| Pi subprocess spend is not included in its parent root; total spend must add the root and each distinct descendant once.                         | Proposal, guide, ADR-0007, ST-0044      | Spec stale     | Major    | Updated the conservation rule and required regression coverage.                                   |
-| The guide still described resolved Pi parent-session propagation as unresolved.                                                                  | `factory/docs/factory-guide.md`         | Spec stale     | Minor    | Replaced with the implemented active-session resolution order.                                    |
-| Copilot emits cumulative root snapshots on repeated `agentStop` events, but the contract did not say to select only the latest session snapshot. | Proposal and guide                      | Spec stale     | Major    | Defined snapshot records, latest-root selection, and repeated-turn conservation coverage.         |
-| RECON-0006: Pi child records could lose their human parent session.                                                                              | [RECON-0006](../findings/RECON-0006.md) | Prior finding  | Major    | Verified resolved by shared active-session resolution and executable installed-path tool tests.   |
-| RECON-0007: Codex hooks were installed without activation guidance or trusted live evidence.                                                     | [RECON-0007](../findings/RECON-0007.md) | Prior finding  | Major    | Verified resolved by installer output tests and the trusted live Codex acceptance record.         |
-| RECON-0008: Claude root and child records lacked a proven conservation rule and captured the wrong child transcript.                             | [RECON-0008](../findings/RECON-0008.md) | Prior finding  | Major    | Verified resolved by adapter/conservation tests and the controlled live Claude acceptance record. |
+| Finding                                                                                                                                          | Artifact                                       | Classification | Severity | Action                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- | -------------- | -------- | ------------------------------------------------------------------------------------------------- |
+| Pi descendant records written inside a dispatched worktree are deleted when that worktree is removed.                                            | [RECON-0009](../findings/RECON-0009.md)        | Code defect    | Major    | Filed; implementation pending.                                                                    |
+| Pi capture synchronously waits up to thirty seconds on human shutdown and child tool-result paths.                                               | [RECON-0010](../findings/RECON-0010.md)        | Code defect    | Major    | Filed; implementation pending.                                                                    |
+| Pi subprocess spend is not included in its parent root; total spend must add the root and each distinct descendant once.                         | Proposal, guide, ADR-0007, ST-0044             | Spec stale     | Major    | Updated the conservation rule and required regression coverage.                                   |
+| The guide still described resolved Pi parent-session propagation as unresolved.                                                                  | `.agent-factory/factory/docs/factory-guide.md` | Spec stale     | Minor    | Replaced with the implemented active-session resolution order.                                    |
+| Copilot emits cumulative root snapshots on repeated `agentStop` events, but the contract did not say to select only the latest session snapshot. | Proposal and guide                             | Spec stale     | Major    | Defined snapshot records, latest-root selection, and repeated-turn conservation coverage.         |
+| RECON-0006: Pi child records could lose their human parent session.                                                                              | [RECON-0006](../findings/RECON-0006.md)        | Prior finding  | Major    | Verified resolved by shared active-session resolution and executable installed-path tool tests.   |
+| RECON-0007: Codex hooks were installed without activation guidance or trusted live evidence.                                                     | [RECON-0007](../findings/RECON-0007.md)        | Prior finding  | Major    | Verified resolved by installer output tests and the trusted live Codex acceptance record.         |
+| RECON-0008: Claude root and child records lacked a proven conservation rule and captured the wrong child transcript.                             | [RECON-0008](../findings/RECON-0008.md)        | Prior finding  | Major    | Verified resolved by adapter/conservation tests and the controlled live Claude acceptance record. |
 
 ## Prior finding verification
 
@@ -51,7 +51,7 @@
 - `docs/proposals/implemented/token-usage-tracking.md` — defined native capture
   records as snapshots, latest-root Copilot selection, and Pi
   root-plus-descendants conservation.
-- `factory/docs/factory-guide.md` — removed stale RECON-0006 wording and aligned
+- `.agent-factory/factory/docs/factory-guide.md` — removed stale RECON-0006 wording and aligned
   Copilot/Pi aggregation guidance with the executable adapters.
 - `docs/adr/0007-normalize-runtime-usage-through-cli-adapters.md` — recorded
   Pi's non-inclusive subprocess boundary and Copilot cumulative-root rule.

@@ -3,7 +3,7 @@ id: FAGAN-0017
 source: fagan-review
 severity: minor
 category: defect
-artifact: factory/config/extensions/run-agent.ts:336
+artifact: .agent-factory/factory/config/extensions/run-agent.ts:336
 status: resolved
 traces: [BUG-0008, UC-10, BR-040]
 ---
@@ -34,7 +34,7 @@ regression test for the envelope-then-larger-sibling case.
 
 ## Verification Evidence
 
-- Probe `factory/config/extensions/__tests__/__qa_probe.mjs` (run via the
+- Probe `.agent-factory/factory/config/extensions/__tests__/__qa_probe.mjs` (run via the
   envelope-loader stub) case 3:
   `goodText + " example: " + JSON.stringify({a:{b:1,c:2,d:3,e:4,f:5}})`
   → `extractEnvelopeObject` returns `{"a":{"b":1,…}}` (the later sibling),

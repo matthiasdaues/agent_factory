@@ -15,21 +15,21 @@ impact:
   architecture_change: true
   external_contract_change: true
   boundaries:
-    - factory/scripts/dispatch
-    - factory/scripts/step-guard
-    - factory/agents/implementation-agent.md
-    - factory/agents/developer-agent.md
-    - factory/agents/planning-agent.md
-    - factory/rulebooks/rules.md
-    - factory/rulebooks/conventions/dispatch-contract.md
-    - factory/rulebooks/conventions/branching-policy.md
-    - factory/rulebooks/templates/story.md
-    - factory/scripts/backlog-lint
-    - factory/scripts/premerge-check
-    - factory/scripts/verify-base
-    - factory/scripts/init-factory
-    - factory/skills/create-backlog/SKILL.md
-    - factory/docs/factory-guide.md
+    - .agent-factory/factory/scripts/dispatch
+    - .agent-factory/factory/scripts/step-guard
+    - .agent-factory/factory/agents/implementation-agent.md
+    - .agent-factory/factory/agents/developer-agent.md
+    - .agent-factory/factory/agents/planning-agent.md
+    - .agent-factory/factory/rulebooks/rules.md
+    - .agent-factory/factory/rulebooks/conventions/dispatch-contract.md
+    - .agent-factory/factory/rulebooks/conventions/branching-policy.md
+    - .agent-factory/factory/rulebooks/templates/story.md
+    - .agent-factory/factory/scripts/backlog-lint
+    - .agent-factory/factory/scripts/premerge-check
+    - .agent-factory/factory/scripts/verify-base
+    - .agent-factory/factory/scripts/init-factory
+    - .agent-factory/factory/skills/create-backlog/SKILL.md
+    - .agent-factory/factory/docs/factory-guide.md
     - config/project.json
     - config/model.conf
     - .claude/settings.json
@@ -156,7 +156,7 @@ non-terminal states require re-preparation.
 
 ### Phase 1 — Dispatch script
 
-A single `factory/scripts/dispatch` script (Python, stdlib only) with
+A single `.agent-factory/factory/scripts/dispatch` script (Python, stdlib only) with
 subcommands covering the full story lifecycle. Each subcommand is atomic and
 idempotent: it does its work, updates the ledger, and writes any durable
 state changes to git.
@@ -188,7 +188,7 @@ incompatible with `--feature-branch`.
 Verify all stories in waves < N are terminal (mechanical wave gate). For each
 story being prepared: create story branch and worktree off the feature branch,
 verify the mapping with `git worktree list --porcelain`, run
-`factory/scripts/verify-base <feature-branch> --expect-base <sha>`, write
+`.agent-factory/factory/scripts/verify-base <feature-branch> --expect-base <sha>`, write
 the step manifest (Phase 2), and record `prepared` in the ledger. Parallel-safe
 stories and serial-chain heads are prepared from the feature branch tip;
 chain links stay `pending`.
@@ -262,7 +262,7 @@ subagent has been spawned yet.
 
 #### Implementation-agent changes
 
-The [implementation-agent](../../../factory/agents/implementation-agent.md)
+The [implementation-agent](../../../.agent-factory/factory/agents/implementation-agent.md)
 workflow is rewritten to call dispatch subcommands instead of performing git
 operations directly. The agent's remaining job is: review the plan, spawn
 subagents, and call script subcommands in sequence.
@@ -303,13 +303,13 @@ it. A manifest already present blocks the next write (no-supersede).
 
 #### Enforcement hooks
 
-A single shared script `factory/scripts/step-guard` accepts the tool event as
+A single shared script `.agent-factory/factory/scripts/step-guard` accepts the tool event as
 JSON and a guard type (`read`, `write`, `bash`, `context`). CLI-specific
 adapters normalize tool input before calling it, following the pattern of
-[`block-dangerous-git.sh`](../../../factory/config/hooks/block-dangerous-git.sh).
+[`block-dangerous-git.sh`](../../../.agent-factory/factory/config/hooks/block-dangerous-git.sh).
 
 **Read guard** (`PreToolUse` on `Read`): file path must match a declared
-`inputs` glob or an always-allowed prefix. Always-allowed: `factory/`,
+`inputs` glob or an always-allowed prefix. Always-allowed: `.agent-factory/factory/`,
 `.claude/`, `.github/`, `.pi/`, `.codex/`, `.current-work/`.
 
 **Write guard** (`PreToolUse` on `Edit`, `Write`): file path must match a
@@ -368,7 +368,7 @@ risk_domains: [security]   # optional; closed enum, validated by backlog-lint
 | otherwise                                                                                                               | `standard`     |
 
 `safety_critical_paths` is a list of gitignore-style globs in
-`config/project.json` (e.g., `["factory/scripts/*", "factory/config/hooks/*"]`). An empty or absent list means the path-match
+`config/project.json` (e.g., `[".agent-factory/factory/scripts/*", ".agent-factory/factory/config/hooks/*"]`). An empty or absent list means the path-match
 rule never fires.
 
 Mismatch disposition: a `strong` suggestion against a lower declared tier
@@ -446,33 +446,33 @@ one escalation slot. If the seam session fails repeatedly with
 Phase 1:
 
 - `.current-work/` directory layout, added to `.gitignore` by `init-factory`
-- `factory/scripts/dispatch` with subcommands: `plan`, `init`, `prepare-wave`,
+- `.agent-factory/factory/scripts/dispatch` with subcommands: `plan`, `init`, `prepare-wave`,
   `prepare-story`, `mark-dispatched`, `verify-story`, `merge-story`,
   `mark-blocked`, `mark-failed`, `re-dispatch` (basic: any `failed` or
   `blocked` story, no class-aware constraints), `close-wave`, `status`
 - `config/project.json`: `test_command` key
-- [implementation-agent.md](../../../factory/agents/implementation-agent.md)
+- [implementation-agent.md](../../../.agent-factory/factory/agents/implementation-agent.md)
   rewritten to call dispatch subcommands
-- [dispatch-contract.md](../../../factory/rulebooks/conventions/dispatch-contract.md)
+- [dispatch-contract.md](../../../.agent-factory/factory/rulebooks/conventions/dispatch-contract.md)
   updated: `prepared` status, script-owned ledger under `.current-work/`,
   pre-spawn verify-base, `premerge-check --scope`
-- [branching-policy.md](../../../factory/rulebooks/conventions/branching-policy.md)
+- [branching-policy.md](../../../.agent-factory/factory/rulebooks/conventions/branching-policy.md)
   updated: verify-base preamble notes script-owned path
 
 Phase 2:
 
-- `factory/scripts/step-guard` — shared enforcement for read, write, Bash,
+- `.agent-factory/factory/scripts/step-guard` — shared enforcement for read, write, Bash,
   and context guards
 - `dispatch clear-manifest --force --worktree <path>` for stale manifest
   recovery
 - Step manifest schema and lifecycle integrated into `dispatch prepare-wave`
   and `dispatch prepare-story`
 - CLI-specific hook wiring for all four CLIs
-- [init-factory](../../../factory/scripts/init-factory) installs step-guard
+- [init-factory](../../../.agent-factory/factory/scripts/init-factory) installs step-guard
   wiring alongside existing hooks
 - Step declarations for
-  [feature-addition.md](../../../factory/playbooks/feature-addition.md)
-- [rules.md](../../../factory/rulebooks/rules.md) updated with step-boundary rules
+  [feature-addition.md](../../../.agent-factory/factory/playbooks/feature-addition.md)
+- [rules.md](../../../.agent-factory/factory/rulebooks/rules.md) updated with step-boundary rules
 - Epic-0 spike verifying the Copilot CLI `pre_tool_use` event surface for
   `Read`/`Edit`/`Write` matchers
 
@@ -484,15 +484,15 @@ Phase 3:
   a migration task that adds defaults to existing backlogs.
 - Tier rubric in `dispatch plan` and `dispatch init` (same code path),
   recorded in
-  [dispatch-contract.md](../../../factory/rulebooks/conventions/dispatch-contract.md),
-  cited from [planning-agent.md](../../../factory/agents/planning-agent.md)
+  [dispatch-contract.md](../../../.agent-factory/factory/rulebooks/conventions/dispatch-contract.md),
+  cited from [planning-agent.md](../../../.agent-factory/factory/agents/planning-agent.md)
 - `config/project.json`: `safety_critical_paths` key (list of
   gitignore-style globs for the strong-tier path-match rule)
 - `risk_domains` field on
-  [story.md](../../../factory/rulebooks/templates/story.md),
+  [story.md](../../../.agent-factory/factory/rulebooks/templates/story.md),
   validated by `backlog-lint`
 - `strategy` field on
-  [story.md](../../../factory/rulebooks/templates/story.md),
+  [story.md](../../../.agent-factory/factory/rulebooks/templates/story.md),
   validated by `backlog-lint`; selection guidance: use `seams-first` when
   the story's acceptance criteria are expressible as test assertions and
   the implementation path is not obvious from the tests alone; use
@@ -536,7 +536,7 @@ Phase 3:
 success is a no-op; re-running after failure resumes from recorded state.
 
 **Script-generated commits.** Follow
-[commit-conventions.md](../../../factory/rulebooks/conventions/commit-conventions.md):
+[commit-conventions.md](../../../.agent-factory/factory/rulebooks/conventions/commit-conventions.md):
 merge commits, status-correction commits, and baseline commits each have a
 defined format. The ledger itself is not committed — it is ephemeral state
 under `.current-work/`.
@@ -567,7 +567,7 @@ file, committed test output, or story file section. Free text is not evidence.
 contract only, not the agent definition or skills. The A/B result revises it.
 
 **Risk vocabulary.** Story `risk_domains` reuses the six values from
-[proposal.md](../../../factory/rulebooks/templates/proposal.md) governance.
+[proposal.md](../../../.agent-factory/factory/rulebooks/templates/proposal.md) governance.
 The terms match; the values are authored per story and never inherited from a
 proposal.
 

@@ -19,7 +19,7 @@ commit `4857385` only; the rest of the branch was already re-validated at
 BUG-0011 open; this pass independently verifies the fix, runs the suites, and
 sets the finding status.
 
-`BUG-0011`: `spawnPi` in `factory/config/extensions/dispatch-wave.ts` passed
+`BUG-0011`: `spawnPi` in `.agent-factory/factory/config/extensions/dispatch-wave.ts` passed
 the parent agent-turn `signal` straight into `spawn("pi", …, { signal })`, so
 an abort at/just after the nested spawn killed the child at birth and was
 reported as `failed to spawn pi: The operation was aborted` for a child that
@@ -50,7 +50,7 @@ empty), so the inspected code is the committed fix.
 `_spawn("pi", args, { cwd, env })` — only `cwd` and `env`. The old `signal:`
 key is gone. The `signal` is consumed solely by an early-abort short-circuit
 and a `signal.addEventListener("abort", terminate, { once: true })` listener.
-Verified in `factory/config/extensions/dispatch-wave.ts` (`spawnPi` body) and
+Verified in `.agent-factory/factory/config/extensions/dispatch-wave.ts` (`spawnPi` body) and
 the regression test asserts `capturedOptions?.signal === undefined`.
 
 **(b) Already-aborted → distinct cancellation, not the misleading error.**
@@ -81,7 +81,7 @@ cancelled child.
 
 ## Suites
 
-Run from `factory/config/extensions/__tests__/`:
+Run from `.agent-factory/factory/config/extensions/__tests__/`:
 
 - `node --experimental-strip-types --import ./envelope-loader.mjs --test ./spawn-abort.test.ts`
   → **3 pass, 0 fail** (pre-aborted cancellation; ENOENT surfaces as error;
@@ -134,10 +134,10 @@ within the grace window on abort.
 
 ## Finding table
 
-| Finding                                                                                                                                                            | Artifact                                               | Category | Severity |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ | -------- | -------- |
-| BUG-0011 reported symptom (never-ran child misreported as `failed to spawn pi: The operation was aborted`) — fixed; status set `resolved`.                         | `factory/config/extensions/dispatch-wave.ts:spawnPi`   | Defect   | Major    |
-| BUG-0012 (new): mid-run cancellation never terminates the child — group SIGTERM/SIGKILL ESRCHs on a non-detached spawn; `dispatch_wave` blocks until natural exit. | `factory/config/extensions/dispatch-wave.ts:terminate` | Defect   | Major    |
+| Finding                                                                                                                                                            | Artifact                                                              | Category | Severity |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- | -------- | -------- |
+| BUG-0011 reported symptom (never-ran child misreported as `failed to spawn pi: The operation was aborted`) — fixed; status set `resolved`.                         | `.agent-factory/factory/config/extensions/dispatch-wave.ts:spawnPi`   | Defect   | Major    |
+| BUG-0012 (new): mid-run cancellation never terminates the child — group SIGTERM/SIGKILL ESRCHs on a non-detached spawn; `dispatch_wave` blocks until natural exit. | `.agent-factory/factory/config/extensions/dispatch-wave.ts:terminate` | Defect   | Major    |
 
 ## Completion
 

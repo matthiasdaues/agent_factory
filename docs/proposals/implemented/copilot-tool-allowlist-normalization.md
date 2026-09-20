@@ -13,8 +13,8 @@ impact:
   external_contract_change: false
   boundaries:
     - .github/agents/*.md
-    - factory/agents/*.md
-    - factory/scripts/init-factory
+    - .agent-factory/factory/agents/*.md
+    - .agent-factory/factory/scripts/init-factory
 
 governance:
   assurance: standard
@@ -63,7 +63,7 @@ intended narrower scope.
 
 3. **Cross-CLI divergence.** Claude Code, Pi, and Codex each have
    different native tool names. The canonical agent definitions in
-   `factory/agents/` are CLI-neutral today — they carry no `tools:`
+   `.agent-factory/factory/agents/` are CLI-neutral today — they carry no `tools:`
    key. Adding Copilot-specific tool names to the canonical definition
    would break that neutrality.
 
@@ -76,7 +76,7 @@ generated per-CLI copy gets the correct tool names for that CLI.
 ### Concrete changes
 
 1. **Extend `init-factory`** to inject a `tools:` frontmatter key when
-   generating `.github/agents/*.md` from `factory/agents/*.md`. The
+   generating `.github/agents/*.md` from `.agent-factory/factory/agents/*.md`. The
    tool names are resolved from a CLI-specific mapping table:
 
    | Canonical role | Copilot tool name |
@@ -106,7 +106,7 @@ generated per-CLI copy gets the correct tool names for that CLI.
 
 ### What this does NOT do
 
-- Does not change canonical `factory/agents/*.md` definitions.
+- Does not change canonical `.agent-factory/factory/agents/*.md` definitions.
 - Does not add tool restrictions for Claude Code or Pi (those CLIs
   enforce scope through step-guard hooks, not tool allowlists).
 - Does not require a new script — `init-factory` already generates
@@ -125,4 +125,4 @@ generated per-CLI copy gets the correct tool names for that CLI.
 1. A Copilot dispatch run produces zero "Unknown tool name" warnings.
 2. Developer-agent subagents run with only the declared tool set.
 3. `index-lint` rejects unknown tool names in `.github/agents/` files.
-4. Canonical `factory/agents/` files remain free of CLI-specific keys.
+4. Canonical `.agent-factory/factory/agents/` files remain free of CLI-specific keys.

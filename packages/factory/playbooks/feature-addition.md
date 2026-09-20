@@ -10,19 +10,16 @@ steps:
       - 'docs/proposals/**/*.md'
       - 'docs/spec/**/*.md'
       - 'docs/spec/**/*.feature'
-      - 'docs/agent-context/**/*.yaml'
-      - 'docs/charter/**/*.md'
+      - 'docs/agent-context.md'
     outputs:
       - 'docs/proposals/**/*.md'
     max_input_tokens: 40000
   - name: context-amendment-check
     inputs:
       - 'docs/proposals/**/*.md'
-      - 'docs/agent-context/**/*.yaml'
-      - 'docs/charter/**/*.md'
+      - 'docs/agent-context.md'
     outputs:
-      - 'docs/agent-context/**/*.yaml'
-      - 'docs/charter/**/*.md'
+      - 'docs/agent-context.md'
       - 'backlog/ST-0*.md'
     max_input_tokens: 40000
   - name: accept-proposal
@@ -288,24 +285,19 @@ multiplies cost by the number of questions asked.
 
 **Manual decision**: Does this feature require charter amendments?
 
-Read project context from [`docs/agent-context/`](../../docs/agent-context/) (falls back to [`docs/charter/`](../../docs/charter/) for legacy projects) to understand current declarations
+Read project context from [`docs/agent-context.md`](../../../docs/agent-context.md) to understand current declarations
 for tech stack, development practices, and house rules.
 
 **If no amendments needed** → Skip to Step 0.2.
 
 **If amendments needed**:
 
-1. Invoke [`update-charter`](../skills/update-charter/SKILL.md) to update the
-   relevant section(s) of `docs/agent-context/stack.yaml`,
-   `docs/agent-context/workflow.yaml`, or `docs/agent-context/governance.yaml`
-   (falls back to `docs/charter/tech-stack.md`, `docs/charter/development.md`,
-   or `docs/charter/house-rules.md` for legacy projects).
-2. Run `factory/scripts/charter-lint --planning-gate` on changed documents to
+1. Invoke [`capture-context`](../skills/capture-context/SKILL.md) with `--update --scan` to update
+   the relevant sections of `docs/agent-context.md`.
+2. Run `.agent-factory/factory/scripts/concern-lint` on the changed document to
    ensure completeness.
 3. If new decisions emerge that imply infrastructure, setup, or configuration
-   artifacts not already in the repository, derive corresponding Epic 0 stories
-   (using the [`capture-charter`](../skills/capture-charter/SKILL.md) Step 3
-   workflow as reference).
+   artifacts not already in the repository, derive corresponding Epic 0 stories.
 4. Proceed to Step 0.2.
 
 ### Decision Point 0.2 — Accept

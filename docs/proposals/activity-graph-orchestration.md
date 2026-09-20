@@ -564,7 +564,7 @@ conversation reaches a concrete next step.
 ### Folder consolidation
 
 All factory-delivered content is consolidated under `.agent-factory/`. The
-top-level `factory/` and `config/` directories are eliminated as separate
+top-level `.agent-factory/factory/` and `config/` directories are eliminated as separate
 roots. `.current-work/` remains the runtime root for linked worktrees, dispatch
 ledgers, and verification markers; it is not factory-delivered content.
 CLI-specific directories (`.claude/`, `.pi/`, `.codex/`, `.github/`),
@@ -577,7 +577,7 @@ The unified layout:
 ├── install.json                     # factory version, installed CLIs
 ├── checksums.json                   # per-file integrity
 │
-├── factory/                         # installed factory tree
+├── .agent-factory/factory/                         # installed factory tree
 │   ├── scripts/                     # dispatch scripts (run-step, etc.)
 │   ├── agents/                      # agent definitions
 │   ├── skills/                      # skill definitions
@@ -618,7 +618,7 @@ The layout migration has one bootstrap exception. The existing
 `factory/scripts/init-factory --update <project-root> --force` command starts
 the migration from the pre-migration layout. It installs and validates the new
 tree, including `.agent-factory/factory/scripts/init-factory`, before removing
-the old top-level `factory/` and `config/` directories. After that successful
+the old top-level `.agent-factory/factory/` and `config/` directories. After that successful
 migration, every runtime command and internal reference uses
 `.agent-factory/factory/`; no compatibility shim remains at `factory/`.
 
@@ -630,7 +630,7 @@ Design rationale:
 - **Runtime stays separate.** Linked worktrees, dispatch ledgers, and
   verification markers remain under `.current-work/` with their existing path
   contracts and safety enforcement.
-- **`factory/` and `config/` move inward.** They are factory artifacts, not
+- **`.agent-factory/factory/` and `config/` move inward.** They are factory artifacts, not
   project artifacts. Placing them under `.agent-factory/` makes the ownership
   boundary visible in the directory tree.
 - **Sessions under workstreams.** A session binding serves a workstream. Open
@@ -647,7 +647,7 @@ Design rationale:
   for active features remain under `.current-work/<feature-branch>/`.
 
 All scripts, hooks, agent definitions, skill definitions, CLI index files, and
-configuration that reference `factory/`, `config/`, `.current-work/cycles/`,
+configuration that reference `.agent-factory/factory/`, `config/`, `.current-work/cycles/`,
 or the old `.agent-factory/` sub-paths are updated. Branching, worktree,
 dispatch-ledger, and verification-marker references to `.current-work/` remain
 unchanged. The `.gitignore` is updated to cover the new layout. The install
@@ -956,7 +956,7 @@ None.
   session bindings under `workstreams/sessions/`, quality gate results under
   `checks/`, and usage pipeline state under `usage/` with `records/`,
   `transcripts/`, `control/`, `runtime/`, `analysis/` subfolders. No script,
-  hook, agent definition, or CLI index references the old `factory/`, `config/`,
+  hook, agent definition, or CLI index references the old `.agent-factory/factory/`, `config/`,
   `.current-work/cycles/`, or `.agent-factory/` sub-paths at the project root.
   Existing branching, worktree, dispatch-ledger, and verification-marker paths
   under `.current-work/` remain unchanged.
@@ -1114,7 +1114,7 @@ Compatibility section.
 
 ### 11. `phase` script stub is unmentioned
 
-The cycle proposal kept `factory/scripts/phase` as a diagnostic stub for
+The cycle proposal kept `.agent-factory/factory/scripts/phase` as a diagnostic stub for
 one release. The activity-graph proposal is silent on `phase`. Since
 EPIC 1 is preserved and `phase` already exists as a stub, the proposal
 should say whether the stub survives unchanged, is removed, or is updated
@@ -1175,7 +1175,7 @@ Disposition: findings
 | PROP-02 | major    | 02    | resolved  | `.agent-factory/` internal restructuring has no Scope item. The current layout (`factory-install.json`, `factory-checksums.json`, four `usage-*` siblings, flat usage records in `usage/`) differs from the Design layout (`install.json`, `checksums.json`, `usage/records/`, `usage/control/`, etc.). Completion Criteria describe the target state but no scope item covers the migration from current to target. **Resolution:** Separate scope item added for `.agent-factory/` internal restructuring.                                               |
 | PROP-03 | major    | 02    | resolved  | Folder consolidation changes the branching policy. `block-dangerous-git.sh` hardcodes `.current-work/*` as the sole allowed worktree path (lines 91-108). `branching-policy.md` and `git-workflow.md` prescribe `.current-work/` as the worktree root. Changing the folder name changes the project's branching and safety enforcement model. The scope buries this under "Update all path references" rather than acknowledging it as a distinct concern. **Resolution:** Separate scope item added for branching policy and git-hook enforcement update. |
 | PROP-04 | major    | 05    | resolved  | `packages/orchestrator` is not in the boundary list but has 30+ `.current-work/` references including hardcoded paths in source code (`cli.py` lines 27-28), the PRD, demo script, README, backlog stories, and supplementary specs. It is a separate package from `packages/factory` and is not covered by any listed boundary. **Resolution:** `packages/orchestrator` retired wholesale. Scope item added.                                                                                                                                              |
-| PROP-05 | minor    | 03    | resolved  | The `check` condition type says named validators are "the same scripts the factory already runs" but the codebase has two validator forms: Python classes in `engine/validators/` (e.g. `proposal.py`) and bash scripts in `factory/scripts/` (e.g. `spec-lint`). The design does not specify how the evaluator resolves a validator name to an executable or what interface it expects. **Resolution:** Engine architectural constraints section added. Validator resolution specified.                                                                   |
+| PROP-05 | minor    | 03    | resolved  | The `check` condition type says named validators are "the same scripts the factory already runs" but the codebase has two validator forms: Python classes in `engine/validators/` (e.g. `proposal.py`) and bash scripts in `.agent-factory/factory/scripts/` (e.g. `spec-lint`). The design does not specify how the evaluator resolves a validator name to an executable or what interface it expects. **Resolution:** Engine architectural constraints section added. Validator resolution specified.                                                    |
 | PROP-06 | minor    | 01    | resolved  | "EPIC 1 infrastructure remains functional" groups four capabilities (state files, session bindings, intent commands, deterministic checks) into one assertion. Each should be a separately testable criterion, or the single criterion should enumerate what "functional" means for each. **Resolution:** Split into four separate completion criteria.                                                                                                                                                                                                    |
 | PROP-07 | minor    | 02    | resolved  | Scope says "replace `origin_cycle` and `return_cycle` with `origin_artifact` and `return_artifact`" but neither field exists in the current research brief schema (`research-brief.schema.json`) or template. EPICs 2-7 where these would have been added were never implemented. The scope item should say "add" not "replace." **Resolution:** Scope item dropped. The precondition graph handles routing; no explicit origin/return fields needed.                                                                                                      |
 | PROP-08 | minor    | 08    | no change | All estimate fields are `unknown` for a scope with countable units: 17 agent definition restructurings, 6 engine module rewrites/deletes, 150+ `.current-work/` path references, two folder migrations, new evaluator, and contract changes. While `unknown` is permitted by policy, even a rough token range would provide planning signal. **Resolution:** Estimates stay `unknown` per policy.                                                                                                                                                          |

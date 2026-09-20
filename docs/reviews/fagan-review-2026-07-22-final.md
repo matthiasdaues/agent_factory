@@ -12,9 +12,9 @@
 
 ## Finding table
 
-| Finding                                                                                                                                                                                                                                      | Artifact                                                                               | Category | Severity |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | -------- | -------- |
-| A detached Pi worker can exit before Python accepts cleanup ownership, leaking its pending marker and staged transcript; add launcher-owned cleanup or a supervised handshake, durable diagnostics, and deterministic async-test completion. | `factory/config/extensions/pi-usage.ts:168`; `factory/scripts/usage-capture-runtime:9` | Defect   | Major    |
+| Finding                                                                                                                                                                                                                                      | Artifact                                                                                                             | Category | Severity |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | -------- | -------- |
+| A detached Pi worker can exit before Python accepts cleanup ownership, leaking its pending marker and staged transcript; add launcher-owned cleanup or a supervised handshake, durable diagnostics, and deterministic async-test completion. | `.agent-factory/factory/config/extensions/pi-usage.ts:168`; `.agent-factory/factory/scripts/usage-capture-runtime:9` | Defect   | Major    |
 
 Filed as `docs/findings/FAGAN-0004.md`.
 

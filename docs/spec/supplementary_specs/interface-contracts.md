@@ -2,7 +2,7 @@
 
 Command-line contract for every script this specification covers: inputs, flags, outputs, and exit codes. All scripts are stdlib-only Python 3.8+; none requires a virtualenv.
 
-## `factory/scripts/transition-lint`
+## `.agent-factory/factory/scripts/transition-lint`
 
 |               |                                                                                                                                    |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
@@ -14,7 +14,7 @@ Command-line contract for every script this specification covers: inputs, flags,
 
 See [UC-02](../../~archive/spec/use_cases/UC-02-block-an-out-of-phase-commit.md).
 
-## `factory/scripts/phase advance`
+## `.agent-factory/factory/scripts/phase advance`
 
 |               |                                                                                                        |
 | ------------- | ------------------------------------------------------------------------------------------------------ |
@@ -26,7 +26,7 @@ See [UC-02](../../~archive/spec/use_cases/UC-02-block-an-out-of-phase-commit.md)
 
 See [UC-01](../../~archive/spec/use_cases/UC-01-advance-a-playbook-phase.md).
 
-## `factory/scripts/phase retry`
+## `.agent-factory/factory/scripts/phase retry`
 
 |               |                                                                                                    |
 | ------------- | -------------------------------------------------------------------------------------------------- |
@@ -38,21 +38,21 @@ See [UC-01](../../~archive/spec/use_cases/UC-01-advance-a-playbook-phase.md).
 
 See [UC-03](../../~archive/spec/use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md).
 
-## `factory/scripts/trigger`
+## `.agent-factory/factory/scripts/trigger`
 
-|                 |                                                                                                                                                         |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage           | `trigger agent <name> [--background\|--interactive] [--cli claude\|copilot] [--cwd DIR]`                                                                |
-|                 | `trigger playbook <name> --step <agent-name-or-index> [--background\|--interactive] [...]`                                                              |
-|                 | `trigger list`                                                                                                                                          |
-| Reads           | `factory/INDEX.yaml`'s source data (via `index-lint`'s loaders); `config/model.conf` (via `matrix-lint`'s parser); the resolved agent's definition file |
-| Writes          | Nothing of its own — the dispatched CLI subprocess writes whatever its own session produces                                                             |
-| Exit code       | The invoked CLI's own exit code (`--background`); `0` after printing launch instructions (`--interactive`); `2` on a resolution error                   |
-| Default `--cli` | `claude`                                                                                                                                                |
+|                 |                                                                                                                                                                        |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage           | `trigger agent <name> [--background\|--interactive] [--cli claude\|copilot] [--cwd DIR]`                                                                               |
+|                 | `trigger playbook <name> --step <agent-name-or-index> [--background\|--interactive] [...]`                                                                             |
+|                 | `trigger list`                                                                                                                                                         |
+| Reads           | `.agent-factory/factory/INDEX.yaml`'s source data (via `index-lint`'s loaders); `config/model.conf` (via `matrix-lint`'s parser); the resolved agent's definition file |
+| Writes          | Nothing of its own — the dispatched CLI subprocess writes whatever its own session produces                                                                            |
+| Exit code       | The invoked CLI's own exit code (`--background`); `0` after printing launch instructions (`--interactive`); `2` on a resolution error                                  |
+| Default `--cli` | `claude`                                                                                                                                                               |
 
 See [UC-04](../../~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md).
 
-## `factory/scripts/dispatch`
+## `.agent-factory/factory/scripts/dispatch`
 
 |               |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -64,7 +64,7 @@ See [UC-04](../../~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md
 
 `dispatch` is the script-owned implementation dispatch state machine. `prepare-wave` / `prepare-story` establish the `prepared` state by creating the story branch/worktree, recording the declared base, writing the step manifest, and running `verify-base` before any developer-agent spawns. `escalate` performs a read-only check of the ledger, branch verification, and scope boundaries before granting a one-tier promotion or blocking the story when the wave slot is exhausted. `merge-story` runs `premerge-check --scope`/`--scope-glob` with `--max-files` scaled from the story's declared `outputs` count (`max(20, len(outputs) * 2)`, so the pre-existing default of 20 holds for small stories), performs the merge, updates the story file status in the merge commit, runs post-merge tests, and records the terminal outcome in the ledger. `close-wave` succeeds only when every story in the requested wave is terminal, and it records a wave closeout entry with completed, blocked, failed, next_ready, and branch_head fields. `suggest-merge-args` reads the ledger and sums each story's declared `outputs` count to print a recommended `--max-files` value (floored at 20) for the final feature-branch-to-dev merge, which routinely exceeds any single story's per-story threshold.
 
-## `factory/scripts/step-guard`
+## `.agent-factory/factory/scripts/step-guard`
 
 |             |                                                                                                                                                                                                                                                                              |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -78,19 +78,19 @@ See [UC-04](../../~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md
 
 See [UC-12](../../~archive/spec/use_cases/UC-12-audit-dispatch-safeguards.md).
 
-## `factory/scripts/index-lint`
+## `.agent-factory/factory/scripts/index-lint`
 
-|           |                                                                                                                                        |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage     | `index-lint [--agents-dir DIR] [--skills-dir DIR] [--playbooks-dir DIR] [--rulebooks-dir DIR] [--out PATH] [--check]`                  |
-| Reads     | `factory/agents/*.md`, `factory/skills/*/SKILL.md`, `factory/playbooks/*.md`, `factory/rulebooks/**/*.md` (excluding templates)        |
-| Writes    | `factory/INDEX.yaml` (or `--out`), unless `--check` or content is unchanged                                                            |
-| Exit code | `0` if up to date (now or already); `1` in `--check` mode if it was stale                                                              |
-| stderr    | One `[WARNING]` per: agent missing `phase-name`, skill missing `category`, agent `total_tokens` exceeding 20 000, tiktoken unavailable |
+|           |                                                                                                                                                                                             |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage     | `index-lint [--agents-dir DIR] [--skills-dir DIR] [--playbooks-dir DIR] [--rulebooks-dir DIR] [--out PATH] [--check]`                                                                       |
+| Reads     | `.agent-factory/factory/agents/*.md`, `.agent-factory/factory/skills/*/SKILL.md`, `.agent-factory/factory/playbooks/*.md`, `.agent-factory/factory/rulebooks/**/*.md` (excluding templates) |
+| Writes    | `.agent-factory/factory/INDEX.yaml` (or `--out`), unless `--check` or content is unchanged                                                                                                  |
+| Exit code | `0` if up to date (now or already); `1` in `--check` mode if it was stale                                                                                                                   |
+| stderr    | One `[WARNING]` per: agent missing `phase-name`, skill missing `category`, agent `total_tokens` exceeding 20 000, tiktoken unavailable                                                      |
 
 See [UC-06](../../~archive/spec/use_cases/UC-06-regenerate-the-catalog.md).
 
-## `factory/config/hooks/block-dangerous-git.sh`
+## `.agent-factory/factory/config/hooks/block-dangerous-git.sh`
 
 |            |                                                                                                                                                                                           |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -101,12 +101,12 @@ See [UC-06](../../~archive/spec/use_cases/UC-06-regenerate-the-catalog.md).
 
 See [UC-07](../../~archive/spec/use_cases/UC-07-block-a-dangerous-git-command.md).
 
-## `factory/config/extensions/run-agent.ts` — the `run_agent` tool
+## `.agent-factory/factory/config/extensions/run-agent.ts` — the `run_agent` tool
 
 |            |                                                                                                                                                                                                                                                                                                             |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Invocation | Pi model-callable tool `run_agent(agent: string, task: string, model?: string)`, registered by the project-local extension when Pi trusts the project                                                                                                                                                       |
-| Reads      | `factory/agents/<agent>.md` (persona and `tier` frontmatter); `config/model.conf` `pi.<tier>` (via the shared tier resolver); the `PI_RUN_AGENT_DEPTH` env var                                                                                                                                              |
+| Reads      | `.agent-factory/factory/agents/<agent>.md` (persona and `tier` frontmatter); `config/model.conf` `pi.<tier>` (via the shared tier resolver); the `PI_RUN_AGENT_DEPTH` env var                                                                                                                               |
 | Spawns     | `pi --no-session -a --mode json --model <m> --append-system-prompt <agent.md> -p <task>` in the project directory, with `PI_RUN_AGENT_DEPTH` incremented                                                                                                                                                    |
 | Streaming  | Asynchronously spools complete stdout to protected capture staging, incrementally parses arbitrarily chunked JSONL with bounded non-result state, and emits bounded progress updates                                                                                                                        |
 | Returns    | A BR-040 bounded result envelope plus `{ usage, exitCode }` parsed from the child's final assistant `message_end`; an error result on unknown agent, unresolved model, exceeded depth, spawn failure, non-zero/no-result exit, or cancellation                                                              |
@@ -115,7 +115,7 @@ See [UC-07](../../~archive/spec/use_cases/UC-07-block-a-dangerous-git-command.md
 
 See [UC-10](../../~archive/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md).
 
-## `factory/scripts/usage-capture`
+## `.agent-factory/factory/scripts/usage-capture`
 
 |                   |                                                                                                                                                      |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -133,7 +133,7 @@ See [system-use-cases.md § Usage capture attribution](../../~archive/spec/use_c
 
 - **BR-036**: usage capture applies model attribution in this order: explicit invocation context, latest non-empty CLI-native transcript model, then null; registry-complete contract coverage is mandatory.
 
-## `factory/scripts/handoff-lint`
+## `.agent-factory/factory/scripts/handoff-lint`
 
 |           |                                                                                                                                                                         |
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -161,17 +161,17 @@ The envelope applies to native subagents, `run_agent`, and `dispatch_wave`; runt
 
 ## `factory/scripts/init-factory`
 
-|               |                                                                                                                                                                                                           |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage         | `init-factory [--source DIR] [--target DIR]`                                                                                                                                                              |
-| Reads         | The source checkout's `factory/`; the target's existing `.gitignore`, runtime hook/settings files, `.pre-commit-config.yaml`, and `config/model.conf`, if present                                         |
-| Writes        | `factory/` (copy, once), `.gitignore` (merge), `.claude/`, `.github/`, `.codex/`, `.agents/`, and `.pi/` runtime surfaces, `config/model.conf` (copy, once), `.pre-commit-config.yaml` (symlink or merge) |
-| Exit code     | `0` on success, including a clean no-op re-run; `1` on any collision or unsupported existing state                                                                                                        |
-| stdout/stderr | One `init-factory: <line>` report line per step; `init-factory: STOPPED — <reason>` on collision                                                                                                          |
+|               |                                                                                                                                                                                                                          |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Usage         | `init-factory [--source DIR] [--target DIR]`                                                                                                                                                                             |
+| Reads         | The source checkout's `.agent-factory/factory/`; the target's existing `.gitignore`, runtime hook/settings files, `.pre-commit-config.yaml`, and `config/model.conf`, if present                                         |
+| Writes        | `.agent-factory/factory/` (copy, once), `.gitignore` (merge), `.claude/`, `.github/`, `.codex/`, `.agents/`, and `.pi/` runtime surfaces, `config/model.conf` (copy, once), `.pre-commit-config.yaml` (symlink or merge) |
+| Exit code     | `0` on success, including a clean no-op re-run; `1` on any collision or unsupported existing state                                                                                                                       |
+| stdout/stderr | One `init-factory: <line>` report line per step; `init-factory: STOPPED — <reason>` on collision                                                                                                                         |
 
 See [UC-08](../../~archive/spec/use_cases/UC-08-initialize-agent-factory-into-a-project.md).
 
-## `factory/scripts/backlog-lint`
+## `.agent-factory/factory/scripts/backlog-lint`
 
 |               |                                                                                                                                                                                    |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -226,7 +226,7 @@ All stories must have YAML frontmatter with the following fields:
 - `concerns` must be a mapping with only `domain` and `technical` keys (both optional); each value must be a list of strings
 - `quality-gates` is a closed enum (`crap-score`, `mutation-analysis`, `dependency-check`); omitting a factory-default gate requires justification in `notes`
 
-## `factory/scripts/module-graph-check`
+## `.agent-factory/factory/scripts/module-graph-check`
 
 |           |                                                                                                                                                                                     |
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -238,7 +238,7 @@ All stories must have YAML frontmatter with the following fields:
 
 The script derives the module map from `architecture.dsl` (containers, components, relationships), compares it against Phase 1 outputs, and checks three conditions: (a) new module not in DSL, (b) changed public interface, (c) new or inverted dependency direction. Override semantics: `false`→`true` machine wins (annotated `# mechanical detection`); `true`→`false` prior human declaration respected conservatively. A new entity in an existing module does not trigger `architecture_change=true`.
 
-## `factory/scripts/test-design-verify`
+## `.agent-factory/factory/scripts/test-design-verify`
 
 |               |                                                                                                                                                                                                                                                      |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -323,7 +323,7 @@ risk_classes:
 | `budget`             | string         | yes      | `unbounded` or `equivalence`                   |
 | `requires`           | list of string | no       | Named invariants the contract must demonstrate |
 
-## `factory/scripts/concern-lint`
+## `.agent-factory/factory/scripts/concern-lint`
 
 |               |                                                       |
 | ------------- | ----------------------------------------------------- |
@@ -623,13 +623,13 @@ Proposal trace: [activity-graph-orchestration.md](../../proposals/activity-graph
 
 The following scripts are deleted with no replacement shim:
 
-| Script                            | Reason                                                                     |
-| --------------------------------- | -------------------------------------------------------------------------- |
-| `factory/scripts/cycle select`    | Replaced by `intent select` and unrestricted human agent selection         |
-| `factory/scripts/cycle retry`     | No retry logic in the engine; external orchestrators own retries           |
-| `factory/scripts/cycle grant`     | No delegation in the engine; chaining is external via deterministic fences |
-| `factory/scripts/phase` (stub)    | No phases exist to diagnose                                                |
-| `factory/scripts/transition-lint` | No transitions exist to lint                                               |
+| Script                                           | Reason                                                                     |
+| ------------------------------------------------ | -------------------------------------------------------------------------- |
+| `.agent-factory/factory/scripts/cycle select`    | Replaced by `intent select` and unrestricted human agent selection         |
+| `.agent-factory/factory/scripts/cycle retry`     | No retry logic in the engine; external orchestrators own retries           |
+| `.agent-factory/factory/scripts/cycle grant`     | No delegation in the engine; chaining is external via deterministic fences |
+| `.agent-factory/factory/scripts/phase` (stub)    | No phases exist to diagnose                                                |
+| `.agent-factory/factory/scripts/transition-lint` | No transitions exist to lint                                               |
 
 ## Usage Record v1 Schema — Deferred Additions
 

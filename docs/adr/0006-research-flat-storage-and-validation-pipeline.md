@@ -24,8 +24,8 @@ The falsification-driven research feature adds a sixth family to the factory cat
 
 **A three-stage validation pipeline, schema → policy → semantic, split by whether a machine can decide.** Validation is layered by decidability, not bundled:
 
-- **Stage 1 — schema** (`factory/scripts/schema-validate`): a stdlib-only JSON-Schema validator. Purely structural — required fields, types, enums, identifier patterns, timestamp formats, array minimums. The load-bearing gate every later stage assumes.
-- **Stage 2 — policy** (`factory/scripts/policy-validate`): a stdlib-only validator for the *enforceable* half of the four research policies — role separation, cross-artifact references, quorum, current claim versions. It reads across a set of related artifacts. Its `--pipeline` mode runs stage 1 then stage 2 in order and stops at the first failing stage.
+- **Stage 1 — schema** (`.agent-factory/factory/scripts/schema-validate`): a stdlib-only JSON-Schema validator. Purely structural — required fields, types, enums, identifier patterns, timestamp formats, array minimums. The load-bearing gate every later stage assumes.
+- **Stage 2 — policy** (`.agent-factory/factory/scripts/policy-validate`): a stdlib-only validator for the *enforceable* half of the four research policies — role separation, cross-artifact references, quorum, current claim versions. It reads across a set of related artifacts. Its `--pipeline` mode runs stage 1 then stage 2 in order and stops at the first failing stage.
 - **Stage 3 — semantic**: the judgment a script cannot make — evidence support, source independence in substance, test severity, claim atomicity. This stage belongs to a qualified human or agent reviewer.
 
 The order is fixed and progression blocks on the first failing stage. This is the direct application of the standing "Agentic Creation, Deterministic Validation" principle: mechanise every check that can be mechanised (stages 1 and 2), and name the residue that cannot (stage 3) rather than pretending a script can settle it. Both scripts are stdlib-only, exactly like `spec-lint` and `arch-lint`, so they run without a virtualenv.
@@ -56,7 +56,7 @@ Once "keep the catalog's existing conventions, mechanise what is mechanisable, a
 
 ## Referenced from
 
-- [09_architecture_decisions.md](../09_architecture_decisions.md)
-- [factory/playbooks/research-topic.md](../../factory/playbooks/research-topic.md)
-- [factory/docs/factory-guide.md § Rulebooks](../../factory/docs/factory-guide.md#rulebooks)
-- [05_building_block_view.md § 5.2.2](05_building_block_view.md#522-research-artifact-validators-schema-validate-policy-validate)
+- [09_architecture_decisions.md](../arc42/09_architecture_decisions.md)
+- [factory/playbooks/research-topic.md](../../.agent-factory/factory/playbooks/research-topic.md)
+- [factory/docs/factory-guide.md § Rulebooks](../../.agent-factory/factory/docs/factory-guide.md#rulebooks)
+- [05_building_block_view.md § 5.2.2](../arc42/05_building_block_view.md#522-research-artifact-validators-schema-validate-policy-validate)

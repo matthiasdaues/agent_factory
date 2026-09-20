@@ -3,7 +3,7 @@
 ## Scope
 
 - Range: `af81d0a..0652870613460c0f34ff749f85a4a64a954b5306`.
-- Code compared: `factory/scripts/{usage-capture,init-factory,remove-factory}`;
+- Code compared: `.agent-factory/factory/scripts/{usage-capture,init-factory,remove-factory}`;
   Claude, Copilot, Codex, and Pi hook/extension adapters; focused usage,
   installation, removal, and end-to-end tests.
 - Documentation compared: the token-usage proposal, ST-0035 through ST-0044,
@@ -23,7 +23,7 @@
 | `record_id` remained an open choice after implementation settled it.                                                                         | `docs/proposals/implemented/token-usage-tracking.md`                    | Defect     | Major    | Documented session sequence, line-count seed, UUID fallback, and one-writer assumption.   |
 | Capture-site wording assumed two hook kinds, which does not describe Pi.                                                                     | `docs/proposals/implemented/token-usage-tracking.md`                    | Defect     | Minor    | Reworded around native capture sites.                                                     |
 | Failure wording promised stderr visibility that lifecycle adapters suppress.                                                                 | `docs/proposals/implemented/token-usage-tracking.md`                    | Defect     | Minor    | Distinguished direct invocation from native adapters.                                     |
-| The factory guide lacked one shared four-CLI usage contract and Claude coverage.                                                             | `factory/docs/factory-guide.md`                                         | Defect     | Major    | Added unified storage, schema, trigger, accounting, trust, removal, and failure guidance. |
+| The factory guide lacked one shared four-CLI usage contract and Claude coverage.                                                             | `.agent-factory/factory/docs/factory-guide.md`                          | Defect     | Major    | Added unified storage, schema, trigger, accounting, trust, removal, and failure guidance. |
 | ST-0044 called Pi provider usage cumulative although code sums per-response values.                                                          | `backlog/ST-0044.md`                                                    | Defect     | Minor    | Corrected the completed-story analysis.                                                   |
 | The cross-cutting capture design had no durable architecture rationale.                                                                      | [ADR-0007](../adr/0007-normalize-runtime-usage-through-cli-adapters.md) | Defect     | Major    | Added ADR and architecture links; no Pugh Matrix warranted.                               |
 | Same-session line-count ID allocation is not atomic.                                                                                         | `docs/proposals/implemented/token-usage-tracking.md`                    | Suggestion | Minor    | Documented the MVP one-writer-per-session assumption.                                     |
@@ -45,7 +45,7 @@
 - `docs/proposals/implemented/token-usage-tracking.md` — synchronized nullable
   usage, record IDs, capture wording, failure visibility, and concurrency
   assumptions.
-- `factory/docs/factory-guide.md` — added the unified four-CLI operational
+- `.agent-factory/factory/docs/factory-guide.md` — added the unified four-CLI operational
   guide and linked open defects.
 - `backlog/ST-0044.md` — corrected Pi per-response provider accounting.
 - `docs/adr/0007-normalize-runtime-usage-through-cli-adapters.md` — recorded

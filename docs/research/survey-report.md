@@ -17,7 +17,7 @@
 
 The prompt assembly order is: provider header → provider prompt → environment info → custom instructions (AGENTS.md/CLAUDE.md) → agent-specific prompt → user override. [SR-0012]
 
-**Factory mapping**: The factory's orientation file (`factory/config/AGENTS.<cli>.md`) maps directly. For OpenCode, the factory would provide either:
+**Factory mapping**: The factory's orientation file (`.agent-factory/factory/config/AGENTS.<cli>.md`) maps directly. For OpenCode, the factory would provide either:
 
 - An `AGENTS.md` in the project root (like Pi and Codex), or
 - An `AGENTS.opencode.md` symlinked into `.opencode/` and referenced via the `instructions` config field.
@@ -64,7 +64,7 @@ The permission system uses the same `allow`/`ask`/`deny` model as Claude Code, w
 
 Agent modes: `primary` (user-facing), `subagent` (invoked by other agents), `all` (both).
 
-**Factory mapping**: The factory's markdown agent definitions (`.claude/agents/*.md`) are already in a compatible format. OpenCode's agent frontmatter uses a subset of similar fields. The factory would symlink `factory/agents/` into `.opencode/agents/`. Key differences:
+**Factory mapping**: The factory's markdown agent definitions (`.claude/agents/*.md`) are already in a compatible format. OpenCode's agent frontmatter uses a subset of similar fields. The factory would symlink `.agent-factory/factory/agents/` into `.opencode/agents/`. Key differences:
 
 - OpenCode uses `description` (required); factory agents use `description` plus additional frontmatter (`tier`, `eligible_cycles`, `inputs`, `outputs`, `triggers`, `handoff-to`, `version`). OpenCode ignores unknown frontmatter fields, so factory agent files should work as-is — OpenCode would read `description` and the markdown body as the system prompt, ignoring factory-specific fields.
 - OpenCode's `mode` field (`primary`/`subagent`/`all`) has no factory equivalent but would default to `subagent` for most factory agents.

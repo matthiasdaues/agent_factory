@@ -31,11 +31,11 @@ UC-09 specifies phase advance invoking `run-tests` via `script_exit_zero` entry 
 >
 > - `pre-commit` (git commit) — runs changed-file subset for fast feedback
 > - `pre-push` (git push) — runs full suite as the "ready to share" gate
-> - `phase advance` evaluates `script_exit_zero: factory/scripts/run-tests --full` as an entry condition
+> - `phase advance` evaluates `script_exit_zero: .agent-factory/factory/scripts/run-tests --full` as an entry condition
 
 **UC-09 Preconditions**:
 
-> - For `phase advance` invocation: the FSM declares a `script_exit_zero` entry condition referencing `factory/scripts/run-tests`.
+> - For `phase advance` invocation: the FSM declares a `script_exit_zero` entry condition referencing `.agent-factory/factory/scripts/run-tests`.
 
 **UC-09 Extension 2a.3**:
 
@@ -47,7 +47,7 @@ UC-09 specifies phase advance invoking `run-tests` via `script_exit_zero` entry 
 
 **And T-03 confirms**:
 
-> `factory/scripts/phase`'s `evaluate_condition` always returns `(True, "script_exit_zero <script> (stubbed pass)")` for this condition type — it never actually runs the named script.
+> `.agent-factory/factory/scripts/phase`'s `evaluate_condition` always returns `(True, "script_exit_zero <script> (stubbed pass)")` for this condition type — it never actually runs the named script.
 
 ## Impact
 
@@ -78,7 +78,7 @@ One of three mechanical hooks fires:
 
 - `pre-commit` (git commit) — runs changed-file subset for fast feedback
 - `pre-push` (git push) — runs full suite as the "ready to share" gate
-- `phase advance` evaluates `script_exit_zero: factory/scripts/run-tests --full` as an entry condition *(requires T-03 implementation)*
+- `phase advance` evaluates `script_exit_zero: .agent-factory/factory/scripts/run-tests --full` as an entry condition *(requires T-03 implementation)*
 ```
 
 This preserves the complete specification while explicitly acknowledging the implementation dependency.

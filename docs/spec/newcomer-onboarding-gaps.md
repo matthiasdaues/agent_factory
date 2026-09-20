@@ -34,25 +34,25 @@ None. Every Rule has at least one Scenario.
 
 ## Boundary Coverage
 
-| Boundary file                               | Touched by Rule                                 | @-reference                                       |
-| ------------------------------------------- | ----------------------------------------------- | ------------------------------------------------- |
-| docs/arc42/beginner-intro.md                | Guided tour                                     | @docs/arc42/beginner-intro.md                     |
-| factory/playbooks/brownfield-onboarding.md  | Brownfield exits after three anchor files       | @factory/playbooks/brownfield-onboarding.md       |
-| factory/playbooks/feature-addition.md       | Feature-addition deepens; prerequisite checks   | @factory/playbooks/feature-addition.md            |
-| factory/agents/chat-agent.md                | In-session agents adopted                       | @factory/agents/chat-agent.md                     |
-| factory/agents/kit-manager.md               | In-session agents adopted                       | @factory/agents/kit-manager.md                    |
-| factory/agents/coaching-agent.md            | In-session agents adopted                       | @factory/agents/coaching-agent.md                 |
-| factory/config/AGENTS.md                    | Session entrypoint; guided tour                 | @factory/config/AGENTS.md                         |
-| factory/playbooks/greenfield-development.md | Coaching-agent adoption (greenfield retro step) | Not directly specified — covered by adopt pattern |
-| factory/skills/reverse-map/SKILL.md         | Reverse-map skill                               | new artifact (no @-reference)                     |
-| factory/skills/guided-tour/SKILL.md         | Guided-tour skill                               | new artifact (no @-reference)                     |
+| Boundary file                                              | Touched by Rule                                 | @-reference                                                |
+| ---------------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------- |
+| docs/arc42/beginner-intro.md                               | Guided tour                                     | @docs/arc42/beginner-intro.md                              |
+| .agent-factory/factory/playbooks/brownfield-onboarding.md  | Brownfield exits after three anchor files       | @.agent-factory/factory/playbooks/brownfield-onboarding.md |
+| .agent-factory/factory/playbooks/feature-addition.md       | Feature-addition deepens; prerequisite checks   | @.agent-factory/factory/playbooks/feature-addition.md      |
+| .agent-factory/factory/agents/chat-agent.md                | In-session agents adopted                       | @.agent-factory/factory/agents/chat-agent.md               |
+| .agent-factory/factory/agents/kit-manager.md               | In-session agents adopted                       | @.agent-factory/factory/agents/kit-manager.md              |
+| .agent-factory/factory/agents/coaching-agent.md            | In-session agents adopted                       | @.agent-factory/factory/agents/coaching-agent.md           |
+| .agent-factory/factory/config/AGENTS.md                    | Session entrypoint; guided tour                 | @.agent-factory/factory/config/AGENTS.md                   |
+| .agent-factory/factory/playbooks/greenfield-development.md | Coaching-agent adoption (greenfield retro step) | Not directly specified — covered by adopt pattern          |
+| .agent-factory/factory/skills/reverse-map/SKILL.md         | Reverse-map skill                               | new artifact (no @-reference)                              |
+| .agent-factory/factory/skills/guided-tour/SKILL.md         | Guided-tour skill                               | new artifact (no @-reference)                              |
 
 ## New Artifacts Required
 
-| Artifact                            | Created by                     |
-| ----------------------------------- | ------------------------------ |
-| factory/skills/reverse-map/SKILL.md | This feature (Design §4)       |
-| factory/skills/guided-tour/SKILL.md | This feature (OQ-1 resolution) |
+| Artifact                                           | Created by                     |
+| -------------------------------------------------- | ------------------------------ |
+| .agent-factory/factory/skills/reverse-map/SKILL.md | This feature (Design §4)       |
+| .agent-factory/factory/skills/guided-tour/SKILL.md | This feature (OQ-1 resolution) |
 
 ## Notes
 

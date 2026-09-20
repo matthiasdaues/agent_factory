@@ -12,7 +12,7 @@ impact:
   architecture_change: true
   external_contract_change: true
   boundaries:
-    - factory/scripts/usage-capture
+    - .agent-factory/factory/scripts/usage-capture
     - docs/spec/supplementary_specs/interface-contracts.md
 
 governance:
@@ -194,7 +194,7 @@ from a separate authoritative source.
 ## The Capture Tool
 
 A single, factory-owned Python capture program and runtime launcher:
-`factory/scripts/usage-capture` plus `usage-capture-runtime`. Initialization is
+`.agent-factory/factory/scripts/usage-capture` plus `usage-capture-runtime`. Initialization is
 the only dependency-install boundary: it provisions `tiktoken==0.13.0` and
 exact transitives into `.agent-factory/usage-runtime` from committed hashed
 requirements. Every automatic capture site invokes the launcher uniformly;
@@ -395,7 +395,7 @@ records is not aggregation duplication: both model invocations consumed it.
 
 The release is complete when:
 
-- `factory/scripts/usage-capture` exists and, given a transcript and context,
+- `.agent-factory/factory/scripts/usage-capture` exists and, given a transcript and context,
   writes a well-formed record to `.agent-factory/usage/<session-key>.jsonl` and
   persists linked full evidence or an explicitly marked omitted placeholder.
 - Records carry `normalized_*` counts produced by `cl100k_base` over the full

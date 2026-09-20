@@ -33,7 +33,7 @@ Technical requirements at the system's interfaces, expressed in **EARS** syntax 
 
 ## Dispatch (`trigger`)
 
-- When `trigger` resolves a target, it shall read agent and playbook data from `factory/INDEX.yaml`'s own source, not a separately maintained copy (UC-04).
+- When `trigger` resolves a target, it shall read agent and playbook data from `.agent-factory/factory/INDEX.yaml`'s own source, not a separately maintained copy (UC-04).
 - The background-mode permission allowlist shall never include `--dangerously-skip-permissions` or `--allow-all-tools` (UC-04, BR-011).
 - The background-mode permission allowlist shall never include a bare interpreter wildcard (UC-04, BR-011).
 - Where `--interactive` is given, `trigger` shall print the composed prompt rather than pass it programmatically to the launched session (UC-04, BR-013).
@@ -42,7 +42,7 @@ Technical requirements at the system's interfaces, expressed in **EARS** syntax 
 
 ## Catalog generation (`index-lint`)
 
-- `factory/INDEX.yaml` shall be generated exclusively by `index-lint`, never edited by hand (UC-06, BR-015).
+- `.agent-factory/factory/INDEX.yaml` shall be generated exclusively by `index-lint`, never edited by hand (UC-06, BR-015).
 - `index-lint` shall scan `agents/*.md`, `skills/*/SKILL.md`, `playbooks/*.md`, and `rulebooks/**/*.md` (excluding templates), computing `tokens` per entry and `total_tokens` for agents and playbooks (UC-06, FR-E1).
 - When `index-lint` derives a playbook's agent sequence, it shall read the playbook's own `**Agent**: `x\`\` prose lines, not a separately maintained list (UC-06, BR-015).
 - Where `--check` is given and the generated content differs from disk, `index-lint` shall exit `1` without writing (UC-06, BR-016).
@@ -51,7 +51,7 @@ Technical requirements at the system's interfaces, expressed in **EARS** syntax 
 ## Resume decision (`run-step`)
 
 - When a playbook has a companion `.fsm.yml`, `run-step` shall resolve the current agent from that state's `agent:` field (UC-05, BR-017).
-- Where a playbook has no companion `.fsm.yml`, `run-step` shall resolve the current agent from `factory/INDEX.yaml`'s derived `agents:` list, in order (UC-05).
+- Where a playbook has no companion `.fsm.yml`, `run-step` shall resolve the current agent from `.agent-factory/factory/INDEX.yaml`'s derived `agents:` list, in order (UC-05).
 - If a state's declared outputs exist and its gate reports open findings, then `run-step` shall call `phase retry` before re-dispatching the same agent (UC-05, UC-03).
 - If a state's declared outputs exist and its gate errors rather than reporting findings, then `run-step` shall stop and escalate to the actor (UC-05, BR-018).
 - If a state's declared outputs exist, its gate passes clean, and no open findings remain, then `run-step` shall call `phase advance` (UC-05, UC-01).

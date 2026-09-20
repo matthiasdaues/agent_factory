@@ -11,7 +11,7 @@ traces: [ADR-0010]
 # Preservation guarantee asserted by a test that bypasses the real reinstall
 
 **What is wrong:** `test_agent_factory_usage_tracking_survives_update` docstring
-states the user-facing guarantee — "update replaces only factory/ and never
+states the user-facing guarantee — "update replaces only .agent-factory/factory/ and never
 removes .agent-factory/ usage transcripts or lifecycle state" — but the
 autouse `_isolate_install` fixture monkeypatches `update_factory._run_init`
 with a plain `shutil.copytree` mirror. The real

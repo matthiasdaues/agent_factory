@@ -12,13 +12,13 @@ impact:
   architecture_change: false
   external_contract_change: true
   boundaries:
-    - factory/rulebooks/templates/story.md
-    - factory/skills/create-backlog/SKILL.md
-    - factory/skills/create-backlog-stories/SKILL.md
-    - factory/skills/create-backlog-write-epics/SKILL.md
-    - factory/skills/create-backlog-story-slices/SKILL.md
-    - factory/agents/developer-agent.md
-    - factory/scripts/backlog-lint
+    - .agent-factory/factory/rulebooks/templates/story.md
+    - .agent-factory/factory/skills/create-backlog/SKILL.md
+    - .agent-factory/factory/skills/create-backlog-stories/SKILL.md
+    - .agent-factory/factory/skills/create-backlog-write-epics/SKILL.md
+    - .agent-factory/factory/skills/create-backlog-story-slices/SKILL.md
+    - .agent-factory/factory/agents/developer-agent.md
+    - .agent-factory/factory/scripts/backlog-lint
 
 governance:
   assurance: elevated
@@ -86,7 +86,7 @@ sequence and Junior Clarity / Senior Acceptance gates.
 
 ### New story template structure
 
-The template (`factory/rulebooks/templates/story.md`) changes from the current
+The template (`.agent-factory/factory/rulebooks/templates/story.md`) changes from the current
 seven-section body to a thirteen-section body. Sections marked (required) must
 appear in every story; sections marked (conditional) appear when they apply.
 
@@ -362,7 +362,7 @@ when it is important.
 
 ### Developer-agent reading cue updates
 
-The developer-agent (`factory/agents/developer-agent.md`) reads story sections
+The developer-agent (`.agent-factory/factory/agents/developer-agent.md`) reads story sections
 by heading name. The following cues change:
 
 | Current cue                                               | New cue                                              | Agent line |
@@ -396,17 +396,17 @@ structure.
 
 **In the first release:**
 
-- Redesigned `factory/rulebooks/templates/story.md` with new section structure.
-- Updated `factory/skills/create-backlog-stories/SKILL.md` to fill new sections.
-- Updated `factory/skills/create-backlog-write-epics/SKILL.md` with Goal column
+- Redesigned `.agent-factory/factory/rulebooks/templates/story.md` with new section structure.
+- Updated `.agent-factory/factory/skills/create-backlog-stories/SKILL.md` to fill new sections.
+- Updated `.agent-factory/factory/skills/create-backlog-write-epics/SKILL.md` with Goal column
   and Domain Rules subsection.
-- Updated `factory/skills/create-backlog-story-slices/SKILL.md` with Goal column
+- Updated `.agent-factory/factory/skills/create-backlog-story-slices/SKILL.md` with Goal column
   in slice table.
-- Updated `factory/skills/create-backlog/SKILL.md` with revised composition
+- Updated `.agent-factory/factory/skills/create-backlog/SKILL.md` with revised composition
   rules and quality gate.
-- Updated `factory/scripts/backlog-lint` to validate `risk_level` as an
+- Updated `.agent-factory/factory/scripts/backlog-lint` to validate `risk_level` as an
   optional enum field.
-- Updated `factory/agents/developer-agent.md` reading cues to match new
+- Updated `.agent-factory/factory/agents/developer-agent.md` reading cues to match new
   section headings.
 
 **Explicitly deferred (do NOT plan stories for these):**
@@ -452,22 +452,22 @@ Disposition: findings
 
 ### Findings
 
-| ID      | Severity | Check | Status   | Finding                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ------- | -------- | ----- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PROP-01 | major    | 04    | resolved | `external_contract_change: false` is inconsistent. The developer-agent (`factory/agents/developer-agent.md`, lines 69-76) checks for `## Scope` and `Notes for the Implementer` sections by name. The proposal removes both. The developer-agent would flag new-format stories as incomplete (missing Scope) and lose access to pre-existing test paths (Notes for the Implementer removed). This is a contract change. |
-| PROP-02 | major    | 02    | resolved | Scope boundary ambiguous for backlog-lint backward compatibility. Scope defers migration of existing backlogs but updates backlog-lint to require new sections by heading match. Enforcing new required sections in lint will reject existing old-format stories. The proposal must decide: backward-compatible lint (both formats pass), or migration required alongside the lint update.                              |
-| PROP-03 | minor    | 05    | resolved | `factory/scripts/backlog-lint` is explicitly changed in the Design and listed in the Scope but is missing from `impact.boundaries`. Add it to the boundary list.                                                                                                                                                                                                                                                        |
-| PROP-04 | minor    | 01    | resolved | Completion criterion 3 ("developer-agent can answer all eight quality-bar questions") is not mechanically verifiable. "Can answer" is subjective; verification by one implementation run is sample-size-one. Specify the passing condition, e.g., the developer-agent starts implementation without requesting clarification for any of the eight questions.                                                            |
-| PROP-05 | minor    | 06    | resolved | Open Question 2 ("Should Suggested Agent Plan carry a disclaimer...") is already resolved by the section definition: "The developer-agent follows or adapts; the plan is guidance, not a contract." Remove from Open Questions or record as a resolved decision.                                                                                                                                                        |
-| PROP-06 | minor    | 08    | resolved | Estimated consumption floor inconsistent with stated multiplier. `15 x 8,000 = 120,000`, but `estimated_consumption.min` is 80,000 (implies ~10x). Either lower the multiplier or raise the consumption floor to 120,000.                                                                                                                                                                                               |
-| PROP-07 | minor    | 03    | resolved | Design/template mismatch on Required Behavior conditionality. Skill step 07 instructs unconditional derivation ("derive Required Behavior from spec rules"), but the template marks the section as conditional. Align: the skill should instruct derivation, then let the agent decide whether the section adds information beyond Outputs.                                                                             |
-| PROP-08 | minor    | 02    | resolved | Test-design output sections (Failure scenarios, Prior Tests) are injected into story bodies by create-backlog-stories today but are absent from the new 13-section structure. The proposal claims test-design output "feeds into stories as before" without specifying placement in the new section order. State where these conditional sections sit relative to Acceptance Criteria and Verification.                 |
+| ID      | Severity | Check | Status   | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------- | -------- | ----- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-01 | major    | 04    | resolved | `external_contract_change: false` is inconsistent. The developer-agent (`.agent-factory/factory/agents/developer-agent.md`, lines 69-76) checks for `## Scope` and `Notes for the Implementer` sections by name. The proposal removes both. The developer-agent would flag new-format stories as incomplete (missing Scope) and lose access to pre-existing test paths (Notes for the Implementer removed). This is a contract change. |
+| PROP-02 | major    | 02    | resolved | Scope boundary ambiguous for backlog-lint backward compatibility. Scope defers migration of existing backlogs but updates backlog-lint to require new sections by heading match. Enforcing new required sections in lint will reject existing old-format stories. The proposal must decide: backward-compatible lint (both formats pass), or migration required alongside the lint update.                                             |
+| PROP-03 | minor    | 05    | resolved | `.agent-factory/factory/scripts/backlog-lint` is explicitly changed in the Design and listed in the Scope but is missing from `impact.boundaries`. Add it to the boundary list.                                                                                                                                                                                                                                                        |
+| PROP-04 | minor    | 01    | resolved | Completion criterion 3 ("developer-agent can answer all eight quality-bar questions") is not mechanically verifiable. "Can answer" is subjective; verification by one implementation run is sample-size-one. Specify the passing condition, e.g., the developer-agent starts implementation without requesting clarification for any of the eight questions.                                                                           |
+| PROP-05 | minor    | 06    | resolved | Open Question 2 ("Should Suggested Agent Plan carry a disclaimer...") is already resolved by the section definition: "The developer-agent follows or adapts; the plan is guidance, not a contract." Remove from Open Questions or record as a resolved decision.                                                                                                                                                                       |
+| PROP-06 | minor    | 08    | resolved | Estimated consumption floor inconsistent with stated multiplier. `15 x 8,000 = 120,000`, but `estimated_consumption.min` is 80,000 (implies ~10x). Either lower the multiplier or raise the consumption floor to 120,000.                                                                                                                                                                                                              |
+| PROP-07 | minor    | 03    | resolved | Design/template mismatch on Required Behavior conditionality. Skill step 07 instructs unconditional derivation ("derive Required Behavior from spec rules"), but the template marks the section as conditional. Align: the skill should instruct derivation, then let the agent decide whether the section adds information beyond Outputs.                                                                                            |
+| PROP-08 | minor    | 02    | resolved | Test-design output sections (Failure scenarios, Prior Tests) are injected into story bodies by create-backlog-stories today but are absent from the new 13-section structure. The proposal claims test-design output "feeds into stories as before" without specifying placement in the new section order. State where these conditional sections sit relative to Acceptance Criteria and Verification.                                |
 
 ### Resolutions
 
-- **PROP-01:** Set `external_contract_change: true`. Added `factory/agents/developer-agent.md` to boundaries. Added "Developer-agent reading cue updates" design section with heading migration table. Moved developer-agent from deferred to in-scope.
+- **PROP-01:** Set `external_contract_change: true`. Added `.agent-factory/factory/agents/developer-agent.md` to boundaries. Added "Developer-agent reading cue updates" design section with heading migration table. Moved developer-agent from deferred to in-scope.
 - **PROP-02:** Removed heading-match validation from backlog-lint. Lint only adds `risk_level` as optional enum. Old-format stories pass unchanged.
-- **PROP-03:** Added `factory/scripts/backlog-lint` to `impact.boundaries`.
+- **PROP-03:** Added `.agent-factory/factory/scripts/backlog-lint` to `impact.boundaries`.
 - **PROP-04:** Reworded to "developer-agent starts implementation without requesting clarification for any of the eight quality-bar questions."
 - **PROP-05:** Removed the answered open question (Suggested Agent Plan disclaimer).
 - **PROP-06:** Raised `estimated_consumption.min` to 120,000 (15 × 8,000).
@@ -492,7 +492,7 @@ All eight findings from the first review individually verified as resolved:
 | ------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | PROP-01 | resolved | `external_contract_change: true` in frontmatter; `developer-agent.md` in boundaries; reading cue migration table added to Design section |
 | PROP-02 | resolved | backlog-lint section explicitly states no heading-match validation; old-format stories pass unchanged                                    |
-| PROP-03 | resolved | `factory/scripts/backlog-lint` present in `impact.boundaries`                                                                            |
+| PROP-03 | resolved | `.agent-factory/factory/scripts/backlog-lint` present in `impact.boundaries`                                                             |
 | PROP-04 | resolved | Criterion 3 reworded to observable outcome: "starts implementation without requesting clarification"                                     |
 | PROP-05 | resolved | Answered open question (Suggested Agent Plan disclaimer) removed; two genuine questions remain                                           |
 | PROP-06 | resolved | `estimated_consumption.min` raised to 120,000; arithmetic consistent (15 x 8,000 = 120,000)                                              |

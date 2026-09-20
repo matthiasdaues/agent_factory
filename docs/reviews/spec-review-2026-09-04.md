@@ -24,15 +24,15 @@ Artifacts read: all 18 files under `docs/spec/`, the agentic-quality proposal, a
 
 | Finding                                                                                                                                                                                                                               | Artifact                                                                                                 | Category | Severity | Characteristic |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------- | -------- | -------------- |
-| [SPEC-0014](../findings/SPEC-0014.md): `REQUIRED_ARTIFACTS` omits `scope-map.md`. Proposal and both playbook terminal conditions define it as required. `check_required_artifacts()` cannot detect its absence. **Fix:** add to list. | `factory/scripts/spec-lint:82`                                                                           | Defect   | Major    | Complete       |
-| `traceability.json` emits empty `actor_goals` and `use_cases` arrays. Scope-map supersedes it for `.feature`-based specifications. **Fix:** remove `--graph` output and the generated file; scope-map is the traceability mechanism.  | `factory/scripts/spec-lint`                                                                              | Defect   | Minor    | Complete       |
+| [SPEC-0014](../findings/SPEC-0014.md): `REQUIRED_ARTIFACTS` omits `scope-map.md`. Proposal and both playbook terminal conditions define it as required. `check_required_artifacts()` cannot detect its absence. **Fix:** add to list. | `.agent-factory/factory/scripts/spec-lint:82`                                                            | Defect   | Major    | Complete       |
+| `traceability.json` emits empty `actor_goals` and `use_cases` arrays. Scope-map supersedes it for `.feature`-based specifications. **Fix:** remove `--graph` output and the generated file; scope-map is the traceability mechanism.  | `.agent-factory/factory/scripts/spec-lint`                                                               | Defect   | Minor    | Complete       |
 | 8 stale BR references (TRACE002 warnings). BR definitions lived in archived UC files; parenthetical tags are now dangling. **Fix:** strip the `(BR-NNN)` tags from prose; the rules they described are stated inline.                 | `docs/spec/prd.md`, `validation-rules.md`, `state-machines.md`, `todos.md`, `test-gate-presence-gaps.md` | Defect   | Minor    | Complete       |
 
 ## Superseded completion criteria (verified)
 
 The following agentic-quality proposal criteria were superseded by `test-gate-presence.feature` and are correctly absent:
 
-- `factory/scripts/mutation-analysis` — intentionally deleted. Mutation-analysis is now a skill providing setup guidance, not a gate script.
+- `.agent-factory/factory/scripts/mutation-analysis` — intentionally deleted. Mutation-analysis is now a skill providing setup guidance, not a gate script.
 - `premerge-check` semantic gate integration — superseded by dispatcher-owned gate loop (2 gates: crap-score, dependency-check).
 
 ## Verified as implemented

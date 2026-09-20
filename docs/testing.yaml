@@ -2,7 +2,7 @@
 # Code is the source of truth. Re-run the detect-test-regime skill when the
 # project's test setup changes.
 
-testing_strategy: factory/rulebooks/conventions/testing-strategy.md
+testing_strategy: .agent-factory/factory/rulebooks/conventions/testing-strategy.md
 
 test_all: "uv run pytest --tb=short --quiet"
 

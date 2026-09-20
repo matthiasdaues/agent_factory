@@ -3,7 +3,7 @@ id: FAGAN-0010
 source: fagan-review
 severity: major
 category: defect
-artifact: factory/config/extensions/run-agent.ts:275
+artifact: .agent-factory/factory/config/extensions/run-agent.ts:275
 status: resolved
 traces: [UC-10, BR-034a, BUG-0004]
 ---

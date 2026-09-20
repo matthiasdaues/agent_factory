@@ -12,8 +12,8 @@ impact:
   architecture_change: true
   external_contract_change: true
   boundaries:
-    - factory/config/extensions/run-agent.ts
-    - factory/config/extensions/dispatch-wave.ts
+    - .agent-factory/factory/config/extensions/run-agent.ts
+    - .agent-factory/factory/config/extensions/dispatch-wave.ts
 
 governance:
   assurance: high
@@ -33,9 +33,9 @@ estimate:
 # Feature Request — Pi Invocation Layer
 
 **Status:** Input to the `feature-addition` playbook (Phase 1, Requirements)
-**Scope:** Contained to the `factory/` subproject — a new CLI-dispatch surface,
+**Scope:** Contained to the `.agent-factory/factory/` subproject — a new CLI-dispatch surface,
 not an overarching repository change. It extends the existing
-[Factory Flow Control spec](../../../docs/spec/prd.md) (domain: `factory/` — the
+[Factory Flow Control spec](../../../docs/spec/prd.md) (domain: `.agent-factory/factory/` — the
 state-machine harness, dispatch mechanism, and generated catalog); it does not
 touch the `orchestrator/` subproject.
 **Scope size:** Large — new runtime component, a new model-callable tool, a
@@ -152,7 +152,7 @@ traceless-removal, or git-safety guarantees.
 
 ### Phase 1 — single-agent primitive
 
-A new extension, `factory/config/extensions/run-agent.ts`, symlinked to
+A new extension, `.agent-factory/factory/config/extensions/run-agent.ts`, symlinked to
 `.pi/extensions/run-agent.ts` by `init-factory` (the same pattern the guardrail
 extension already uses). It registers one model-callable tool:
 
@@ -160,7 +160,7 @@ extension already uses). It registers one model-callable tool:
 run_agent(agent: string, task: string, model?: string)
 ```
 
-Execution: resolve `factory/agents/<agent>.md`; resolve the model (the `model`
+Execution: resolve `.agent-factory/factory/agents/<agent>.md`; resolve the model (the `model`
 argument, else `model.conf` `pi.<tier>`, else a default); spawn
 
 ```
@@ -186,11 +186,11 @@ Code's Agent tool (`isolation: "worktree"`, simultaneous subagent spawns).
 
 ### Supporting changes
 
-- **`factory/config/AGENTS.md`** — correct the orientation. Under Pi, agents are
+- **`.agent-factory/factory/config/AGENTS.md`** — correct the orientation. Under Pi, agents are
   not auto-discovered from `.pi/agents/`; to run one in a separate session the
   model calls `run_agent`, rather than reading the file and role-playing it in
   context.
-- **`factory/config/model.conf`** — add `pi.economy`, `pi.standard`, and
+- **`.agent-factory/factory/config/model.conf`** — add `pi.economy`, `pi.standard`, and
   `pi.strong` tier rows (only `copilot.*` tiers exist today).
 - **`factory/scripts/init-factory`** — extend the Pi step to symlink
   `run-agent.ts` alongside the guardrail extension, with a wiring test mirroring
@@ -209,7 +209,7 @@ Code's Agent tool (`isolation: "worktree"`, simultaneous subagent spawns).
 **Out of scope**
 
 - The headless orchestrator path (`orchestrator/run_playbook.py` →
-  `factory/scripts/trigger --cli ...`). Adding `--cli pi` there is a separate,
+  `.agent-factory/factory/scripts/trigger --cli ...`). Adding `--cli pi` there is a separate,
   automation-oriented feature; this brief is the *conversational* invocation
   layer.
 - Any change to how Claude Code or Copilot CLI invoke agents.
@@ -217,12 +217,12 @@ Code's Agent tool (`isolation: "worktree"`, simultaneous subagent spawns).
 ## 6. Constraints and interactions
 
 - **Non-interference and traceless removal.** `run-agent.ts` lives in
-  `factory/config/extensions/`, is symlinked into the git-ignored `.pi/`, and
+  `.agent-factory/factory/config/extensions/`, is symlinked into the git-ignored `.pi/`, and
   must be reversed by `remove-factory` the same way the guardrail is. It adds no
   tracked project state.
 - **Guardrail interplay.** A spawned child loads `.pi/extensions/` under `-a`,
   so the git-safety guardrail applies to subagents too. Confirm the child can
-  still run the one sanctioned test path, `factory/scripts/run-tests --staged`.
+  still run the one sanctioned test path, `.agent-factory/factory/scripts/run-tests --staged`.
 - **Trust.** The parent is already trusted; the child in the same directory
   inherits the decision from `~/.pi/agent/trust.json`. Decide whether to rely on
   that or pass `-a` explicitly per spawn (recommended, for determinism).
@@ -256,7 +256,7 @@ Code's Agent tool (`isolation: "worktree"`, simultaneous subagent spawns).
 - `init-factory` installs `run-agent.ts` idempotently and `remove-factory`
   reverses it to a clean `git status`.
 - The git-safety guardrail still blocks its full pattern set inside spawned
-  subagents, and still permits `factory/scripts/run-tests --staged`.
+  subagents, and still permits `.agent-factory/factory/scripts/run-tests --staged`.
 - No new tracked state enters the target project.
 
 ## 9. References
@@ -264,11 +264,11 @@ Code's Agent tool (`isolation: "worktree"`, simultaneous subagent spawns).
 - Pi scaffold commit: `e18fa48` on `bug/pi-init-factory`.
 - Factory spec this feature extends: [`docs/spec/prd.md`](../../../docs/spec/prd.md)
   (Factory Flow Control).
-- Guardrail port precedent: [`factory/config/extensions/block-dangerous-git.ts`](../../../factory/config/extensions/block-dangerous-git.ts)
-  and its shell twin `factory/config/hooks/block-dangerous-git.sh`.
+- Guardrail port precedent: [`factory/config/extensions/block-dangerous-git.ts`](../../../.agent-factory/factory/config/extensions/block-dangerous-git.ts)
+  and its shell twin `.agent-factory/factory/config/hooks/block-dangerous-git.sh`.
 - Install/remove precedent: `factory/scripts/init-factory`,
   `factory/scripts/remove-factory`.
-- CLI-safety and Pi caveat prose: [`factory/docs/factory-guide.md`](../../../factory/docs/factory-guide.md)
+- CLI-safety and Pi caveat prose: [`factory/docs/factory-guide.md`](../../../.agent-factory/factory/docs/factory-guide.md)
   (§ CLI safety guardrails).
 - Pi docs (primary source): `earendil-works/pi`,
   `packages/coding-agent/docs/{usage,skills,prompt-templates,extensions,security,json}.md`.

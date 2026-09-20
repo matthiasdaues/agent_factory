@@ -30,8 +30,8 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: FSM gate conditions resolve test command from charter
     # actor: User, Orchestrator-as-Trigger
-    # @factory/playbooks/greenfield-development.fsm.yml
-    # @factory/playbooks/bug-fix.fsm.yml
+    # @.agent-factory/factory/playbooks/greenfield-development.fsm.yml
+    # @.agent-factory/factory/playbooks/bug-fix.fsm.yml
 
     Scenario: Phase advance resolves test command from charter
       Given a playbook FSM declares a script_exit_zero entry condition
@@ -70,13 +70,13 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: Guardrail allowlists charter-declared test commands for agents
     # actor: CLI-Invoked Agent
-    # @factory/config/hooks/block-dangerous-git.sh
+    # @.agent-factory/factory/config/hooks/block-dangerous-git.sh
 
     Scenario: Agent runs a charter-declared test command
       Given docs/testing.yaml declares test_staged_command
       When an agent runs the exact declared command string
       Then block-dangerous-git.sh allows the command
-      # @factory/config/hooks/block-dangerous-git.sh
+      # @.agent-factory/factory/config/hooks/block-dangerous-git.sh
 
     Scenario: Agent blocked from bare test command
       Given an agent session
@@ -104,7 +104,7 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: Factory does not inject test hooks into pre-commit config
     # actor: User
-    # @factory/config/pre-commit-config.yaml
+    # @.agent-factory/factory/config/pre-commit-config.yaml
 
     Scenario: Pre-commit config contains no test-related hooks
       Given Factory's pre-commit configuration
@@ -119,22 +119,22 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: Factory deletes run-tests and mutation-analysis scripts
     # actor: User
-    # @factory/scripts/run-tests (deleted)
-    # @factory/scripts/mutation-analysis (deleted)
+    # @.agent-factory/factory/scripts/run-tests (deleted)
+    # @.agent-factory/factory/scripts/mutation-analysis (deleted)
 
     Scenario: run-tests script is deleted from repository
       Given the Factory repository
-      Then factory/scripts/run-tests does not exist
-      And no consumer project receives it through the factory/scripts symlink
+      Then .agent-factory/factory/scripts/run-tests does not exist
+      And no consumer project receives it through the .agent-factory/factory/scripts symlink
 
     Scenario: mutation-analysis script is deleted from repository
       Given the Factory repository
-      Then factory/scripts/mutation-analysis does not exist
+      Then .agent-factory/factory/scripts/mutation-analysis does not exist
       And mutation testing is entirely the project's responsibility
 
   Rule: Detect-test-regime skill discovers test entrypoints during onboarding
     # actor: User
-    # @factory/skills/detect-test-regime/SKILL.md
+    # @.agent-factory/factory/skills/detect-test-regime/SKILL.md
     # @factory/scripts/init-factory
 
     Scenario: Single test entrypoint detected
@@ -157,7 +157,7 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: Dispatcher gate sequence reduces from three to two
     # actor: User, CLI-Invoked Agent
-    # @factory/agents/implementation-agent.md
+    # @.agent-factory/factory/agents/implementation-agent.md
     # @docs/adr/0012-dispatcher-owned-semantic-gate-loop.md
 
     Scenario: Dispatcher runs two quality gates after developer commit
@@ -180,13 +180,13 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: Mutation-analysis skill provides setup guidance
     # actor: User
-    # @factory/skills/mutation-analysis/SKILL.md
+    # @.agent-factory/factory/skills/mutation-analysis/SKILL.md
 
     Scenario: Mutation-analysis skill describes setup process
       Given the mutation-analysis skill document
       Then it describes how to set up project-owned mutation testing
       And it does not prescribe a specific tool chain
-      And it does not reference factory/scripts/mutation-analysis
+      And it does not reference .agent-factory/factory/scripts/mutation-analysis
 
   Rule: Remove-factory leaves project test infrastructure intact
     # actor: User
@@ -207,7 +207,7 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: Gate contract is exit-code-only
     # actor: User, Orchestrator-as-Trigger
-    # @factory/scripts/phase
+    # @.agent-factory/factory/scripts/phase
 
     Scenario: Factory does not parse structured test output
       Given a charter-declared test command that outputs JSON results
@@ -256,7 +256,7 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: QA strategy grounds contract-owner assignments in charter
     # actor: CLI-Invoked Agent
-    # @factory/skills/qa-strategy-from-spec/SKILL.md
+    # @.agent-factory/factory/skills/qa-strategy-from-spec/SKILL.md
 
     Scenario: QA strategy reads charter layer bindings
       Given docs/testing.yaml declares a layers section
@@ -306,7 +306,7 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: Developer-agent feeds back test-harness mismatches
     # actor: CLI-Invoked Agent
-    # @factory/agents/developer-agent.md
+    # @.agent-factory/factory/agents/developer-agent.md
 
     Scenario: Developer-agent detects harness mismatch during implementation
       Given a QA strategy prescribes a layer and tooling for a contract
@@ -322,7 +322,7 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: Mutation-analysis skill classifies survivors by contract ownership
     # actor: CLI-Invoked Agent
-    # @factory/skills/mutation-analysis/SKILL.md
+    # @.agent-factory/factory/skills/mutation-analysis/SKILL.md
 
     Scenario: Mutation analysis with contract-owner table classifies owner_held
       Given a per-feature QA strategy with a contract-owner table

@@ -29,4 +29,4 @@ This documentation derives from the specification in [`spec/`](spec/prd.md). The
 
 ## See also
 
-- [factory/README.md](../factory/README.md) — the toolset (agents, skills, playbooks)
+- [factory/README.md](../.agent-factory/factory/README.md) — the toolset (agents, skills, playbooks)

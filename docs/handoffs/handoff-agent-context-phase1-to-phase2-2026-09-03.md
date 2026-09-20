@@ -3,7 +3,7 @@
 **Date:** 2026-09-03\
 **From:** Requirements phase (spec derivation + spec review)\
 **To:** Architecture phase (architecture-agent)\
-**Playbook:** [feature-addition.md](../../factory/playbooks/feature-addition.md)\
+**Playbook:** [feature-addition.md](../../.agent-factory/factory/playbooks/feature-addition.md)\
 **Proposal:** [yaml-charter-lifecycle.md](../proposals/yaml-charter-lifecycle.md)
 
 ## Current State
@@ -27,8 +27,8 @@
 
 ### Phase 1 gate result
 
-- `factory/scripts/validate` — pass (0 errors)
-- `factory/scripts/module-graph-check` — `architecture_change=true`, detected `context-lint` as new module
+- `.agent-factory/factory/scripts/validate` — pass (0 errors)
+- `.agent-factory/factory/scripts/module-graph-check` — `architecture_change=true`, detected `context-lint` as new module
 - Open `SPEC-*` findings — none
 - Spec review disposition — **pass** (repeat pass confirmed both prior findings resolved)
 

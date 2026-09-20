@@ -8,9 +8,9 @@ target: "docs/proposals/implemented/capture-project-constraints.md (status open,
 # Proposal Review — Project Charter
 
 Semantic review of [capture-project-constraints.md](../proposals/implemented/capture-project-constraints.md)
-against the [proposal template](../../factory/rulebooks/templates/proposal.md),
+against the [proposal template](../../.agent-factory/factory/rulebooks/templates/proposal.md),
 the factory artifacts it references, and the conventions in
-[rules.md](../../factory/rulebooks/rules.md). Not a spec review; spec-lint not run.
+[rules.md](../../.agent-factory/factory/rulebooks/rules.md). Not a spec review; spec-lint not run.
 
 ## Verdict
 
@@ -26,19 +26,19 @@ stakeholder acceptance at feature-addition Decision Point 0.2.
 
 ## Finding table
 
-| Finding                                                                                                                                                                                                                                                                                                 | Artifact                                                                                      | Category   | Severity |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ---------- | -------- |
-| `tests:` field workflow has no timing/ownership decision — who writes the pre-existing tests, when relative to planning and `backlog-lint`, and who populates `tests:` if tests arrive after backlog approval. Decide and state it in the proposal. → [PROP-0001](../findings/PROP-0001.md)             | docs/proposals/implemented/capture-project-constraints.md § Story template: `tests:` field    | Defect     | Major    |
-| Post-Epic-0 `development.md` reconciliation has no owner or mechanism — "happens naturally" assigns work to "the developer who implements the last Epic 0 story", which no story names and no agent can identify. Derive it as a story or assign it explicitly. → [PROP-0002](../findings/PROP-0002.md) | docs/proposals/implemented/capture-project-constraints.md § development.md "Two-phase nature" | Defect     | Major    |
-| `impact.boundaries` omits artifacts the Scope itself modifies — `implementation-agent.md`, `architecture-agent.md`, `backlog-lint`, `rules.md`, the `validate` skill. Align boundaries with the in-scope list. → [PROP-0003](../findings/PROP-0003.md)                                                  | docs/proposals/implemented/capture-project-constraints.md frontmatter `impact.boundaries`     | Defect     | Major    |
-| `update-charter` invocation during requirements and architecture has no delivery vehicle — neither `requirements-agent.md` nor `architecture-agent.md` is updated in Scope, so no agent in those phases knows the skill exists. Add the agent updates to Scope. → [PROP-0004](../findings/PROP-0004.md) | docs/proposals/implemented/capture-project-constraints.md § Incremental filling / § Scope     | Defect     | Major    |
-| Brownfield planning gate is unanchored — "same planning gate applies" but the brownfield playbook has no planning phase; "after architecture deepening review" is ambiguous between Phase 4 (Component-Resolution) and Phase 5 (ATAM). State the gate's trigger point.                                  | docs/proposals/implemented/capture-project-constraints.md § Workflow insertion                | Question   | Minor    |
-| Epic 0 sequencing relies on an agent instruction ("schedule as wave 1") with no mechanical enforcement; feature stories carry no `deps:` on Epic 0. Either use `deps` or state why the instruction suffices.                                                                                            | docs/proposals/implemented/capture-project-constraints.md § Epic 0                            | Suggestion | Minor    |
-| Precedent cited incorrectly: `domain-modeling` maintains `docs/CONTEXT.md`, not `docs/arc42/CONTEXT.md`.                                                                                                                                                                                                | docs/proposals/implemented/capture-project-constraints.md § Skill: `update-charter`           | Defect     | Minor    |
-| `estimated_consumption.min` 120000 implies a 15× multiplier on `normalized_tokens.min` 8000, not the declared 25× (the max matches 25×). Recompute or note the asymmetric range.                                                                                                                        | docs/proposals/implemented/capture-project-constraints.md frontmatter `estimate`              | Defect     | Minor    |
-| Greenfield insertion anchors on "vision capture", which is not a step in the current greenfield playbook (it starts at Phase 1 Requirements). Name the playbook step to be added or amended.                                                                                                            | docs/proposals/implemented/capture-project-constraints.md § Workflow insertion                | Question   | Minor    |
-| `update-charter`'s "one commit per update" has no story/bug ID context per [commit-conventions.md](../../factory/rulebooks/conventions/commit-conventions.md) — charter updates during requirements/architecture carry no ST/BUG/SPEC/ATAM ID. State the commit-ID rule for charter updates.            | docs/proposals/implemented/capture-project-constraints.md § Skill: `update-charter`           | Question   | Minor    |
-| `capture-charter` and the planning-agent both write `backlog/ST-NNNN.md`; the ID allocation rule between them (who owns the next NNNN at planning time) is unstated.                                                                                                                                    | docs/proposals/implemented/capture-project-constraints.md § Epic 0                            | Question   | Minor    |
+| Finding                                                                                                                                                                                                                                                                                                     | Artifact                                                                                      | Category   | Severity |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ---------- | -------- |
+| `tests:` field workflow has no timing/ownership decision — who writes the pre-existing tests, when relative to planning and `backlog-lint`, and who populates `tests:` if tests arrive after backlog approval. Decide and state it in the proposal. → [PROP-0001](../findings/PROP-0001.md)                 | docs/proposals/implemented/capture-project-constraints.md § Story template: `tests:` field    | Defect     | Major    |
+| Post-Epic-0 `development.md` reconciliation has no owner or mechanism — "happens naturally" assigns work to "the developer who implements the last Epic 0 story", which no story names and no agent can identify. Derive it as a story or assign it explicitly. → [PROP-0002](../findings/PROP-0002.md)     | docs/proposals/implemented/capture-project-constraints.md § development.md "Two-phase nature" | Defect     | Major    |
+| `impact.boundaries` omits artifacts the Scope itself modifies — `implementation-agent.md`, `architecture-agent.md`, `backlog-lint`, `rules.md`, the `validate` skill. Align boundaries with the in-scope list. → [PROP-0003](../findings/PROP-0003.md)                                                      | docs/proposals/implemented/capture-project-constraints.md frontmatter `impact.boundaries`     | Defect     | Major    |
+| `update-charter` invocation during requirements and architecture has no delivery vehicle — neither `requirements-agent.md` nor `architecture-agent.md` is updated in Scope, so no agent in those phases knows the skill exists. Add the agent updates to Scope. → [PROP-0004](../findings/PROP-0004.md)     | docs/proposals/implemented/capture-project-constraints.md § Incremental filling / § Scope     | Defect     | Major    |
+| Brownfield planning gate is unanchored — "same planning gate applies" but the brownfield playbook has no planning phase; "after architecture deepening review" is ambiguous between Phase 4 (Component-Resolution) and Phase 5 (ATAM). State the gate's trigger point.                                      | docs/proposals/implemented/capture-project-constraints.md § Workflow insertion                | Question   | Minor    |
+| Epic 0 sequencing relies on an agent instruction ("schedule as wave 1") with no mechanical enforcement; feature stories carry no `deps:` on Epic 0. Either use `deps` or state why the instruction suffices.                                                                                                | docs/proposals/implemented/capture-project-constraints.md § Epic 0                            | Suggestion | Minor    |
+| Precedent cited incorrectly: `domain-modeling` maintains `docs/CONTEXT.md`, not `docs/arc42/CONTEXT.md`.                                                                                                                                                                                                    | docs/proposals/implemented/capture-project-constraints.md § Skill: `update-charter`           | Defect     | Minor    |
+| `estimated_consumption.min` 120000 implies a 15× multiplier on `normalized_tokens.min` 8000, not the declared 25× (the max matches 25×). Recompute or note the asymmetric range.                                                                                                                            | docs/proposals/implemented/capture-project-constraints.md frontmatter `estimate`              | Defect     | Minor    |
+| Greenfield insertion anchors on "vision capture", which is not a step in the current greenfield playbook (it starts at Phase 1 Requirements). Name the playbook step to be added or amended.                                                                                                                | docs/proposals/implemented/capture-project-constraints.md § Workflow insertion                | Question   | Minor    |
+| `update-charter`'s "one commit per update" has no story/bug ID context per [commit-conventions.md](../../.agent-factory/factory/rulebooks/conventions/commit-conventions.md) — charter updates during requirements/architecture carry no ST/BUG/SPEC/ATAM ID. State the commit-ID rule for charter updates. | docs/proposals/implemented/capture-project-constraints.md § Skill: `update-charter`           | Question   | Minor    |
+| `capture-charter` and the planning-agent both write `backlog/ST-NNNN.md`; the ID allocation rule between them (who owns the next NNNN at planning time) is unstated.                                                                                                                                        | docs/proposals/implemented/capture-project-constraints.md § Epic 0                            | Question   | Minor    |
 
 ## 1. Template compliance
 
@@ -78,28 +78,28 @@ Criteria cover every in-scope item except the `development.md` reconciliation
 
 Verified claims:
 
-- [greenfield-development.md](../../factory/playbooks/greenfield-development.md)
+- [greenfield-development.md](../../.agent-factory/factory/playbooks/greenfield-development.md)
   Step 3.3 is "Confirm Backlog — manual approval required" — the proposal's
   analogy holds.
-- [feature-addition.md](../../factory/playbooks/feature-addition.md) Step 0.1
+- [feature-addition.md](../../.agent-factory/factory/playbooks/feature-addition.md) Step 0.1
   is proposal intake ("Clarify") — holds.
-- [brownfield-onboarding.md](../../factory/playbooks/brownfield-onboarding.md),
-  [planning-agent.md](../../factory/agents/planning-agent.md),
-  [developer-agent.md](../../factory/agents/developer-agent.md),
-  [implementation-agent.md](../../factory/agents/implementation-agent.md),
-  [architecture-agent.md](../../factory/agents/architecture-agent.md),
-  [create-backlog](../../factory/skills/create-backlog/SKILL.md),
-  [story.md](../../factory/rulebooks/templates/story.md), and
-  `factory/scripts/backlog-lint` all exist.
+- [brownfield-onboarding.md](../../.agent-factory/factory/playbooks/brownfield-onboarding.md),
+  [planning-agent.md](../../.agent-factory/factory/agents/planning-agent.md),
+  [developer-agent.md](../../.agent-factory/factory/agents/developer-agent.md),
+  [implementation-agent.md](../../.agent-factory/factory/agents/implementation-agent.md),
+  [architecture-agent.md](../../.agent-factory/factory/agents/architecture-agent.md),
+  [create-backlog](../../.agent-factory/factory/skills/create-backlog/SKILL.md),
+  [story.md](../../.agent-factory/factory/rulebooks/templates/story.md), and
+  `.agent-factory/factory/scripts/backlog-lint` all exist.
 - Adding `tests:` to the story template makes sense; the proposal correctly
   includes updating `backlog-lint`, whose schema is closed ("rejects unknown
   fields" per create-backlog).
-- The [rules.md](../../factory/rulebooks/rules.md) "Coding" section is a
+- The [rules.md](../../.agent-factory/factory/rulebooks/rules.md) "Coding" section is a
   placeholder; extending it fits.
-- No contradiction with [testing-strategy.md](../../factory/rulebooks/conventions/testing-strategy.md)
+- No contradiction with [testing-strategy.md](../../.agent-factory/factory/rulebooks/conventions/testing-strategy.md)
   (the proposal routes the pre-existing-tests workflow through the
   developer-agent rather than duplicating lint rules),
-  [foundational-principles.md](../../factory/rulebooks/conventions/foundational-principles.md)
+  [foundational-principles.md](../../.agent-factory/factory/rulebooks/conventions/foundational-principles.md)
   (charter-lint is a deterministic gate; the skills are bounded), or the rule
   against proposals in shipped agents' `inputs:` (the proposal adds
   `docs/charter/*.md`, a shipped artifact, not the proposal itself).

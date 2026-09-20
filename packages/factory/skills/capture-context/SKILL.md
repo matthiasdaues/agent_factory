@@ -17,7 +17,7 @@ Lifecycle skill for `docs/agent-context.md` — the concern-based routing
 interface between agents and a project's own knowledge. See
 [Agent Context Composition](../../rulebooks/conventions/agent-context-composition.md)
 for the binding structural rules this skill follows, and
-[factory-concern-oriented-agent-context.md](../../../docs/proposals/factory-concern-oriented-agent-context.md)
+[factory-concern-oriented-agent-context.md](../../../../docs/proposals/factory-concern-oriented-agent-context.md)
 for the design rationale.
 
 Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.

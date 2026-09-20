@@ -23,19 +23,19 @@ What extension points does OpenCode CLI expose (configuration, system prompts, a
 
 ## Source Targets
 
-| Target                              | Purpose                                    |
-| ----------------------------------- | ------------------------------------------ |
-| opencode.ai/docs/config/            | Full config reference                      |
-| opencode.ai/docs/agents/            | Agent definition format                    |
-| opencode.ai/docs/rules/             | AGENTS.md / CLAUDE.md handling             |
-| opencode.ai/docs/skills/            | Skill system                               |
-| opencode.ai/docs/permissions/       | Permission model                           |
-| opencode.ai/docs/mcp-servers/       | MCP integration                            |
-| opencode.ai/docs/cli/               | CLI commands and flags                     |
-| GitHub issues #12472                | Claude Code hooks compatibility status     |
-| GitHub issues #18100, #17870, #9280 | Subagent depth, model inheritance, nesting |
-| factory/scripts/init-factory        | Factory's wiring pipeline                  |
-| factory/rulebooks/rules.md          | Factory's CLI integration rules            |
+| Target                                    | Purpose                                    |
+| ----------------------------------------- | ------------------------------------------ |
+| opencode.ai/docs/config/                  | Full config reference                      |
+| opencode.ai/docs/agents/                  | Agent definition format                    |
+| opencode.ai/docs/rules/                   | AGENTS.md / CLAUDE.md handling             |
+| opencode.ai/docs/skills/                  | Skill system                               |
+| opencode.ai/docs/permissions/             | Permission model                           |
+| opencode.ai/docs/mcp-servers/             | MCP integration                            |
+| opencode.ai/docs/cli/                     | CLI commands and flags                     |
+| GitHub issues #12472                      | Claude Code hooks compatibility status     |
+| GitHub issues #18100, #17870, #9280       | Subagent depth, model inheritance, nesting |
+| factory/scripts/init-factory              | Factory's wiring pipeline                  |
+| .agent-factory/factory/rulebooks/rules.md | Factory's CLI integration rules            |
 
 ## Stop Conditions
 

@@ -74,8 +74,8 @@ module emerges.
 - `tests/factory/test_block_dangerous_git.py` -- 2 regression tests
 - `tests/factory/test_concern_lint.py` -- 2 regression tests
 
-Installed copies synced: `factory/config/hooks/block-dangerous-git.sh`,
-`factory/scripts/concern-lint`.
+Installed copies synced: `.agent-factory/factory/config/hooks/block-dangerous-git.sh`,
+`.agent-factory/factory/scripts/concern-lint`.
 
 ## Disposition
 

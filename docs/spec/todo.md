@@ -57,7 +57,7 @@ The spec's `dispatch verify-story` uses `git cat-file -e` and `git branch --cont
 - source: discussion of [PROP-09](../proposals/cycle-based-orchestration.md#review--2026-09-14)
 
 The cycle-based CONCEPT contract names `docs/spec/entity-model.md` as a canonical
-artifact, while the [brownfield onboarding procedure](../../factory/playbooks/brownfield-onboarding.md#step-32--extract-entity-model)
+artifact, while the [brownfield onboarding procedure](../../.agent-factory/factory/playbooks/brownfield-onboarding.md#step-32--extract-entity-model)
 produces `docs/spec/supplementary_specs/entity-model.md` only during its optional
 second stage. Other delivery scenarios must use the same canonical ERD location.
 

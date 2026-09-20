@@ -3,7 +3,7 @@
 **Date:** 2026-09-03\
 **From:** Architecture phase (architecture-agent)\
 **To:** Architecture review (architecture-review-agent)\
-**Playbook:** [feature-addition.md](../../factory/playbooks/feature-addition.md)\
+**Playbook:** [feature-addition.md](../../.agent-factory/factory/playbooks/feature-addition.md)\
 **Proposal:** [yaml-charter-lifecycle.md](../proposals/yaml-charter-lifecycle.md)
 
 ## Current State
@@ -23,8 +23,8 @@
 
 ### Phase 2.1 gate result
 
-- `factory/scripts/validate` -- pass (0 errors)
-- `factory/scripts/structurizr validate` -- pass (warnings about EOL theme only)
+- `.agent-factory/factory/scripts/validate` -- pass (0 errors)
+- `.agent-factory/factory/scripts/structurizr validate` -- pass (warnings about EOL theme only)
 - Pre-commit hooks -- all pass (mdformat, link-check, mermaid-lint, arch-lint)
 - Open `ATAM-*` findings -- none (no review yet)
 

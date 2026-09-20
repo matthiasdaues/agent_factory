@@ -12,8 +12,8 @@ impact:
   architecture_change: true
   external_contract_change: true
   boundaries:
-    - factory/config/hooks/block-dangerous-git.sh
-    - factory/scripts/commit-safe
+    - .agent-factory/factory/config/hooks/block-dangerous-git.sh
+    - .agent-factory/factory/scripts/commit-safe
 
 governance:
   assurance: critical

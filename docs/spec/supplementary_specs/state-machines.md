@@ -1,6 +1,6 @@
 # State Machines — Factory Flow Control
 
-Lifecycles for factory entities. Written per [state-machine-notation.md § Canonical Format](../../../factory/rulebooks/conventions/state-machine-notation.md#canonical-format): pseudocode is authoritative, Mermaid is derived.
+Lifecycles for factory entities. Written per [state-machine-notation.md § Canonical Format](../../../.agent-factory/factory/rulebooks/conventions/state-machine-notation.md#canonical-format): pseudocode is authoritative, Mermaid is derived.
 
 ## Workstream State Lifecycle
 
@@ -91,7 +91,7 @@ stateDiagram-v2
 
 ## Concern Registry Lifecycle
 
-The lifecycle of the single `docs/agent-context.md` concern registry. Written per [state-machine-notation.md § Canonical Format](../../../factory/rulebooks/conventions/state-machine-notation.md#canonical-format): pseudocode is authoritative, Mermaid is derived.
+The lifecycle of the single `docs/agent-context.md` concern registry. Written per [state-machine-notation.md § Canonical Format](../../../.agent-factory/factory/rulebooks/conventions/state-machine-notation.md#canonical-format): pseudocode is authoritative, Mermaid is derived.
 
 ### Pseudocode
 

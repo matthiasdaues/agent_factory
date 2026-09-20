@@ -8,7 +8,7 @@ Disposition: **Fail** — three open Major defects block Architecture.
 
 ## Reviewed specification
 
-The repeat review verified the remediation against the accepted [Local Usage Processing and Analysis proposal](../proposals/usage-processing-and-storage.md), the implemented [Concern-Oriented Agent Context proposal](../proposals/factory-concern-oriented-agent-context.md), and the complete changed specification set:
+The repeat review verified the remediation against the accepted [Local Usage Processing and Analysis proposal](../proposals/implemented/usage-processing-and-storage.md), the implemented [Concern-Oriented Agent Context proposal](../proposals/factory-concern-oriented-agent-context.md), and the complete changed specification set:
 
 - [agent-context.feature](../spec/agent-context.feature)
 - [local-usage-processing-and-analysis.feature](../spec/local-usage-processing-and-analysis.feature)
@@ -22,7 +22,7 @@ The repeat review verified the remediation against the accepted [Local Usage Pro
 
 The fresh semantic pass also inspected the other live feature, PRD, test-design, test-gate, interface, entity, and validation contracts where they intersect the concern-oriented test-configuration migration.
 
-`factory/scripts/spec-lint --spec-dir docs/spec` reported 0 errors, 0 warnings, and 27 information findings across 18 files.
+`.agent-factory/factory/scripts/spec-lint --spec-dir docs/spec` reported 0 errors, 0 warnings, and 27 information findings across 18 files.
 
 ## Deterministic findings
 

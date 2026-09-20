@@ -8,9 +8,9 @@ Human Operator
 
 ## Stakeholders & Interests
 
-- **Human Operator** — wants `factory/`, the guardrail hook, and the gate config wired into a project — new or with its own history — in one idempotent run, and wants to be told exactly what stopped it if something cannot proceed safely.
+- **Human Operator** — wants `.agent-factory/factory/`, the guardrail hook, and the gate config wired into a project — new or with its own history — in one idempotent run, and wants to be told exactly what stopped it if something cannot proceed safely.
 - **Existing project files** — want to be left alone; `init-factory` must never overwrite a `.gitignore`, `.pre-commit-config.yaml`, or `config/model.conf` that the project has already customized.
-- **Every other use case in this spec** — depends on `init-factory` having run at least once (see [PRD § Assumptions](../prd.md#7-assumptions)); none of `transition-lint`, `phase advance`/`retry`, `trigger`, or the guardrail hook works without `factory/` and the wiring this use case produces.
+- **Every other use case in this spec** — depends on `init-factory` having run at least once (see [PRD § Assumptions](../prd.md#7-assumptions)); none of `transition-lint`, `phase advance`/`retry`, `trigger`, or the guardrail hook works without `.agent-factory/factory/` and the wiring this use case produces.
 
 ## Trigger
 
@@ -25,7 +25,7 @@ The actor runs `factory/scripts/init-factory`, optionally with `--target` and `-
 
 01. Actor runs `init-factory --target <project-dir>`.
 02. `init-factory` creates the target directory if missing, runs `git init` if it is not already a repo, and repairs a dangling `origin/HEAD` symref if one is found (best-effort; see Extension 2a).
-03. `init-factory` copies `factory/` from the source checkout into the target, since `--target/factory` does not yet exist.
+03. `init-factory` copies `.agent-factory/factory/` from the source checkout into the target, since `--target/factory` does not yet exist.
 04. `init-factory` merges the required lines into `--target/.gitignore`, appending only what is missing.
 05. `init-factory` creates the Claude Code, GitHub Copilot CLI, Codex, and Pi
     runtime directories.
@@ -36,8 +36,8 @@ The actor runs `factory/scripts/init-factory`, optionally with `--target` and `-
 07. `init-factory` wires `block-dangerous-git.sh` into the Claude Code,
     GitHub Copilot CLI, and Codex hook configurations, and installs Pi's
     equivalent project-local extension.
-08. `init-factory` copies `config/model.conf` from `factory/config/model.conf`, since `--target/config/model.conf` does not yet exist.
-09. `init-factory` symlinks `.pre-commit-config.yaml` to `factory/config/pre-commit-config.yaml`, since the target has none yet.
+08. `init-factory` copies `config/model.conf` from `.agent-factory/factory/config/model.conf`, since `--target/config/model.conf` does not yet exist.
+09. `init-factory` symlinks `.pre-commit-config.yaml` to `.agent-factory/factory/config/pre-commit-config.yaml`, since the target has none yet.
 10. `init-factory` runs `uvx pre-commit install`.
 11. `init-factory` scans the target for an existing test entrypoint (Makefile, package.json, tox, nox, Justfile, Taskfile, pytest config) and, if exactly one is found, records it as `test_command` in `docs/charter/testing.yaml` — the deterministic core of the `detect-test-regime` skill (BR-030).
 12. `init-factory` exits `0` and reports the target is set up.
@@ -53,10 +53,10 @@ The actor runs `factory/scripts/init-factory`, optionally with `--target` and `-
 - **8a. `--target/config/model.conf` already exists**
   - 8a1. `init-factory` leaves it untouched and reports so — the file is meant to diverge per project (BR-022).
 - **9a. `--target/.pre-commit-config.yaml` already exists as a real file (not a symlink)**
-  - 9a1. `init-factory` hands off to `factory/scripts/merge-precommit-config`, which splices Agent Factory's hooks into the existing `repos:` list without disturbing what was already there.
+  - 9a1. `init-factory` hands off to `.agent-factory/factory/scripts/merge-precommit-config`, which splices Agent Factory's hooks into the existing `repos:` list without disturbing what was already there.
   - 9a2. If the merge script cannot handle the existing file's structure, `init-factory` raises a `Collision` and exits `1`, naming the path.
 - **3a. `--target/factory` already exists**
-  - 3a1. `init-factory` skips the copy entirely and reports so — refreshing an existing `factory/` is the update script's job (`factory/scripts/update-factory`), not `init-factory`'s.
+  - 3a1. `init-factory` skips the copy entirely and reports so — refreshing an existing `.agent-factory/factory/` is the update script's job (`factory/scripts/update-factory`), not `init-factory`'s.
 - **7a. `--target/.claude/settings.json` exists but is not valid JSON, or its top-level value is not an object, or `hooks`/`hooks.PreToolUse` is not the expected shape**
   - 7a1. `init-factory` raises a `Collision`, names the exact path, and asks the actor to wire the guardrail hook in by hand.
 - **11a. `--target/docs/charter/testing.yaml` already exists**
@@ -66,7 +66,7 @@ The actor runs `factory/scripts/init-factory`, optionally with `--target` and `-
 
 ## Postconditions
 
-- **Success Guarantee**: on a clean run, `factory/` is present, all four runtime
+- **Success Guarantee**: on a clean run, `.agent-factory/factory/` is present, all four runtime
   surfaces are installed with their native guardrail integration,
   `config/model.conf` exists, `.pre-commit-config.yaml` is in place, and
   `pre-commit` is installed.
@@ -78,7 +78,7 @@ The actor runs `factory/scripts/init-factory`, optionally with `--target` and `-
 - **BR-021**: `init-factory` stops the entire run at the first step that finds an unexpected file at a destination path — it never partially applies a run past a collision.
 - **BR-022**: `init-factory` never touches `config/model.conf` once it exists — the file is meant to diverge per project.
 - **BR-030**: `init-factory` scans for an existing test entrypoint and records exactly one unambiguous match as `test_command` in `docs/charter/testing.yaml`. It never injects a test-related hook into `.pre-commit-config.yaml` (see [UC-09 § BR-029](UC-09-run-tests-via-hook.md#business-rules)), never overwrites an existing `testing.yaml`, and never guesses when zero or several entrypoints are found — it surfaces the gap instead. This is the deterministic subset of the `detect-test-regime` skill, run because `init-factory` itself has no AI in the loop.
-- `init-factory` is idempotent: re-running it against an already-initialized target reports "nothing to do" everywhere except the one thing it never diffs (an existing `factory/` directory, per Extension 3a).
+- `init-factory` is idempotent: re-running it against an already-initialized target reports "nothing to do" everywhere except the one thing it never diffs (an existing `.agent-factory/factory/` directory, per Extension 3a).
 
 ## Activity Diagram
 
@@ -86,13 +86,13 @@ The actor runs `factory/scripts/init-factory`, optionally with `--target` and `-
 flowchart TD
     A[init-factory invoked] --> B[Ensure target dir + git repo]
     B --> B1{origin/HEAD dangling?}
-    B1 -->|no| C{factory/ already present?}
+    B1 -->|no| C{.agent-factory/factory/ already present?}
     B1 -->|yes| B2[Try git remote set-head origin --auto]
     B2 -->|repaired| C
     B2 -->|remote unreachable| B3[Fall back to local origin/main or origin/master]
     B3 --> C
     C -->|yes| D[Skip copy, report skipped]
-    C -->|no| E[Copy factory/ from source]
+    C -->|no| E[Copy .agent-factory/factory/ from source]
     D --> F[Merge .gitignore]
     E --> F
     F --> G[Create four CLI runtime surfaces]
@@ -123,7 +123,7 @@ Feature: Initialize Agent Factory into a project
   Scenario: Fresh project is fully wired
     Given an empty target directory
     When the actor runs init-factory --target that directory
-    Then factory/ is copied in
+    Then .agent-factory/factory/ is copied in
     And Claude Code, GitHub Copilot CLI, Codex, and Pi surfaces are installed
     And each runtime has its native guardrail integration
     And init-factory exits 0

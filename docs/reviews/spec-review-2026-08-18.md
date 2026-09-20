@@ -1,8 +1,8 @@
 # Spec Review — 2026-08-18 — Proposal: Mechanize Dispatch Orchestration
 
-**Artifact under review:** [docs/proposals/mechanize-dispatch-orchestration.md](../proposals/mechanize-dispatch-orchestration.md) (status: draft, schema_version 2)
+**Artifact under review:** [docs/proposals/mechanize-dispatch-orchestration.md](../proposals/superseded/mechanize-dispatch-orchestration.md) (status: draft, schema_version 2)
 **Review type:** semantic-only pass of the inspect-spec workflow, adapted to a design-origin proposal. `spec-lint` not applicable (proposal, not spec chain).
-**References:** [dispatch-contract.md](../../factory/rulebooks/conventions/dispatch-contract.md), [branching-policy.md](../../factory/rulebooks/conventions/branching-policy.md), [implementation-agent.md](../../factory/agents/implementation-agent.md), [proposal template](../../factory/rulebooks/templates/proposal.md), [premerge-check](../../factory/scripts/premerge-check), [verify-base](../../factory/scripts/verify-base), [block-dangerous-git.sh](../../factory/config/hooks/block-dangerous-git.sh)
+**References:** [dispatch-contract.md](../../.agent-factory/factory/rulebooks/conventions/dispatch-contract.md), [branching-policy.md](../../.agent-factory/factory/rulebooks/conventions/branching-policy.md), [implementation-agent.md](../../.agent-factory/factory/agents/implementation-agent.md), [proposal template](../../.agent-factory/factory/rulebooks/templates/proposal.md), [premerge-check](../../.agent-factory/factory/scripts/premerge-check), [verify-base](../../.agent-factory/factory/scripts/verify-base), [block-dangerous-git.sh](../../.agent-factory/factory/config/hooks/block-dangerous-git.sh)
 
 ## Verdict
 

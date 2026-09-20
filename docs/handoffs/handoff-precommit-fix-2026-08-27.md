@@ -4,22 +4,22 @@ Branch: `dev` @ `63e73cd`. All changes staged, NOT yet committed — pre-commit 
 
 ## What was done
 
-Fixed 13 test failures (across 5 root causes) that blocked pre-commit. All 969 tests pass when run directly via `factory/scripts/run-tests --full` (except ~30 pre-existing dispatch worktree failures and 1 stale INDEX.yaml, both predating this session).
+Fixed 13 test failures (across 5 root causes) that blocked pre-commit. All 969 tests pass when run directly via `.agent-factory/factory/scripts/run-tests --full` (except ~30 pre-existing dispatch worktree failures and 1 stale INDEX.yaml, both predating this session).
 
 ### Completed fixes (all staged, uncommitted)
 
 | Root cause                                                      | Files changed                                                                                                                               | What                                                                                                                                                                                                                                     |
 | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ruff version drift                                              | `.pre-commit-config.yaml`, `factory/config/pre-commit-config.yaml`, `pyproject.toml`                                                        | Pinned `uvx ruff@0.16.5` in all 8 entries; added per-file-ignores for test noise rules (`PLW1510`, `RUF012`)                                                                                                                             |
-| dispatch-wave.ts signal TypeError + Node.js v24 unsettled await | `factory/config/extensions/dispatch-wave.ts`                                                                                                | `signal: AbortSignal` → `AbortSignal \| undefined` + optional chaining; removed `child.unref()` so event loop waits for "close"                                                                                                          |
-| run-agent.ts artifact validation order                          | `factory/config/extensions/run-agent.ts`                                                                                                    | Swapped `git add` / `git ls-files --error-unmatch` order — `add` before `ls-files` silently staged untracked files                                                                                                                       |
-| Worktree path convention                                        | `factory/config/hooks/block-dangerous-git.sh`, `tests/orchestrator/test_guardrail_parser.py`                                                | `.current-work/worktrees/` → `.current-work/`                                                                                                                                                                                            |
+| Ruff version drift                                              | `.pre-commit-config.yaml`, `.agent-factory/factory/config/pre-commit-config.yaml`, `pyproject.toml`                                         | Pinned `uvx ruff@0.16.5` in all 8 entries; added per-file-ignores for test noise rules (`PLW1510`, `RUF012`)                                                                                                                             |
+| dispatch-wave.ts signal TypeError + Node.js v24 unsettled await | `.agent-factory/factory/config/extensions/dispatch-wave.ts`                                                                                 | `signal: AbortSignal` → `AbortSignal \| undefined` + optional chaining; removed `child.unref()` so event loop waits for "close"                                                                                                          |
+| run-agent.ts artifact validation order                          | `.agent-factory/factory/config/extensions/run-agent.ts`                                                                                     | Swapped `git add` / `git ls-files --error-unmatch` order — `add` before `ls-files` silently staged untracked files                                                                                                                       |
+| Worktree path convention                                        | `.agent-factory/factory/config/hooks/block-dangerous-git.sh`, `tests/orchestrator/test_guardrail_parser.py`                                 | `.current-work/worktrees/` → `.current-work/`                                                                                                                                                                                            |
 | AGENTS.md assertion drift                                       | `tests/orchestrator/test_factory_orientation.py`                                                                                            | Updated stale assertion to match current AGENTS.md content                                                                                                                                                                               |
 | Trivial code fixes                                              | `tests/orchestrator/test_phase_advance.py`, `tests/orchestrator/test_schema_validate.py`, `tests/orchestrator/test_usage_capture_pi_e2e.py` | 5 `_msg` renames, 2 `dict \| None` fixes, 1 redundant noqa removal                                                                                                                                                                       |
 | **init-factory Codex step-guard dedup bug**                     | `factory/scripts/init-factory` (line ~1089)                                                                                                 | `already_wired` check matched by command only; Edit and Write share `GUARD_TYPE=write` command → Write entry silently skipped. Fixed: check `(matcher, command)` pair                                                                    |
 | **remove-factory step-guard event mismatch**                    | `factory/scripts/remove-factory` (line ~275)                                                                                                | Stripped step-guard hooks from `"PreToolUse"` but init-factory puts Claude step-guards under per-tool events (Read/Edit/Write/Bash). Fixed: `"PreToolUse"` → `event`                                                                     |
 | Stale test assertions (6 tests)                                 | `tests/orchestrator/test_init_factory_step_guard.py`, `tests/orchestrator/test_init_factory_codex.py`                                       | Claude: assert per-tool events not PreToolUse; Codex: check `(matcher, command)` counts; orientation: expect injection not skip; AGENTS.md: `"before ANY Skill/Agent call"` → `"resolve skill invocations through the INDEX.yaml first"` |
-| INDEX.yaml stale                                                | `factory/INDEX.yaml`                                                                                                                        | Regenerated via `factory/scripts/index-lint`                                                                                                                                                                                             |
+| INDEX.yaml stale                                                | `.agent-factory/factory/INDEX.yaml`                                                                                                         | Regenerated via `.agent-factory/factory/scripts/index-lint`                                                                                                                                                                              |
 
 ### Test file renames (also staged, from a prior session)
 
@@ -62,7 +62,7 @@ The root cause: `git worktree add` to `.current-work/worktrees/` fails inside `/
 git diff --cached --stat  # 85 files changed, 777 insertions(+), 129 deletions(-)
 ```
 
-All code fixes + all test renames are staged. No unstaged modifications. Two untracked files: `factory/agents/proposal-review-agent.md`, `factory/skills/draft-proposal/` (unrelated).
+All code fixes + all test renames are staged. No unstaged modifications. Two untracked files: `.agent-factory/factory/agents/proposal-review-agent.md`, `.agent-factory/factory/skills/draft-proposal/` (unrelated).
 
 ## Key code locations
 
@@ -70,8 +70,8 @@ All code fixes + all test renames are staged. No unstaged modifications. Two unt
 - remove-factory step-guard: `factory/scripts/remove-factory` lines 274–276
 - CLAUDE_STEP_GUARD_HOOK_COMMANDS: `factory/scripts/init-factory` lines 143–148
 - CODEX_STEP_GUARD_HOOK_COMMANDS: `factory/scripts/init-factory` lines 168–173
-- dispatch worktree creation: `factory/scripts/prepare-wave` (not modified, investigate here)
-- pre-commit test hook: `.pre-commit-config.yaml` → `run-tests` hook → `factory/scripts/run-tests --changed-only`
+- dispatch worktree creation: `.agent-factory/factory/scripts/prepare-wave` (not modified, investigate here)
+- pre-commit test hook: `.pre-commit-config.yaml` → `run-tests` hook → `.agent-factory/factory/scripts/run-tests --changed-only`
 
 ## Suggested skills
 

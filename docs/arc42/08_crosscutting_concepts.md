@@ -6,7 +6,7 @@
 
 **Principle**: Creation is agentic; validation is deterministic. Tests, cycle-model gates, and dangerous-command checks are triggered mechanically rather than left to agent judgment. Agent guardrails prevent bypass in the managed workflow; you retain Git's standard `--no-verify` escape hatch when you control the Git client. Other deterministic validators run *on demand*, invoked by a playbook, agent, or you; their result remains trustworthy because it is a mechanical exit code, not an agent's word.
 
-Derived from [`factory/rulebooks/conventions/foundational-principles.md`](../../factory/rulebooks/conventions/foundational-principles.md).
+Derived from [`factory/rulebooks/conventions/foundational-principles.md`](../../.agent-factory/factory/rulebooks/conventions/foundational-principles.md).
 
 ### What It Means
 
@@ -91,7 +91,7 @@ Machine-readable output from validation scripts goes to **stdout**, human-readab
 Example (`crap-score`):
 
 ```bash
-$ factory/scripts/crap-score --story-id ST-0042
+$ .agent-factory/factory/scripts/crap-score --story-id ST-0042
 # stderr: progress, per-function analysis
 Analyzing 3 changed functions...
 src/auth.py::login PASS (CRAP=4)
@@ -135,15 +135,15 @@ state, derive "what's next." No recovery logic, no stale state reconciliation.
 
 The falsification-driven research feature validates its JSON artifacts through a fixed three-stage order, layered by *whether a machine can decide the check* rather than bundled into one pass:
 
-| Stage         | Owner                               | Decides                                                                                          |
-| ------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------ |
-| 1 -- schema   | `factory/scripts/schema-validate`   | Structure -- required fields, types, enums, identifier patterns, timestamps, array minimums      |
-| 2 -- policy   | `factory/scripts/policy-validate`   | Enforceable cross-artifact policy -- role separation, references, quorum, current claim versions |
-| 3 -- semantic | a qualified human or agent reviewer | Meaning -- evidence support, source independence in substance, test severity, claim atomicity    |
+| Stage         | Owner                                            | Decides                                                                                          |
+| ------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| 1 -- schema   | `.agent-factory/factory/scripts/schema-validate` | Structure -- required fields, types, enums, identifier patterns, timestamps, array minimums      |
+| 2 -- policy   | `.agent-factory/factory/scripts/policy-validate` | Enforceable cross-artifact policy -- role separation, references, quorum, current claim versions |
+| 3 -- semantic | a qualified human or agent reviewer              | Meaning -- evidence support, source independence in substance, test severity, claim atomicity    |
 
 The order is fixed: an artifact must pass stage 1, then stage 2, then stage 3 before the next playbook step begins, and progression blocks on the first failing stage (`policy-validate --pipeline` chains stages 1 and 2 and stops at the first failure). This is the same "Agentic Creation, Deterministic Validation" principle applied to a new domain: mechanise every check that can be mechanised (stages 1-2, stdlib-only exit-code validators, exactly like `spec-lint` and `arch-lint`), and name honestly the residue that a script cannot settle (stage 3).
 
-Two distinctions from section 8.2 matter. First, these validators are **on demand, not hook-enforced**: the research playbook and agents invoke them, so they are deterministic and reproducible but do not run automatically at an operation boundary the way a pre-commit gate does. Second, the schemas they check against are **data, not prose** -- JSON-Schema files under `factory/rulebooks/schemas/`, a rulebook category deliberately outside `INDEX.yaml`. See [ADR-0006](09_architecture_decisions.md) and [`research-topic.md` section The Validation Gate](../../factory/playbooks/research-topic.md).
+Two distinctions from section 8.2 matter. First, these validators are **on demand, not hook-enforced**: the research playbook and agents invoke them, so they are deterministic and reproducible but do not run automatically at an operation boundary the way a pre-commit gate does. Second, the schemas they check against are **data, not prose** -- JSON-Schema files under `factory/rulebooks/schemas/`, a rulebook category deliberately outside `INDEX.yaml`. See [ADR-0006](09_architecture_decisions.md) and [`research-topic.md` section The Validation Gate](../../.agent-factory/factory/playbooks/research-topic.md).
 
 ## 8.7 Semantic Quality Gates
 
@@ -159,7 +159,7 @@ A developer agent running its own quality gates is self-validation. The same pri
 
 ### Coherence with Testing Strategy
 
-The Factory's [testing-strategy.md](../../factory/rulebooks/conventions/testing-strategy.md) says "Test count and coverage percentage are diagnostics, not quality targets." The semantic gates respect this:
+The Factory's [testing-strategy.md](../../.agent-factory/factory/rulebooks/conventions/testing-strategy.md) says "Test count and coverage percentage are diagnostics, not quality targets." The semantic gates respect this:
 
 - **CRAP score** is a composite structural gate. Coverage enters as a counterweight to cyclomatic complexity; the threshold is on the composite score (CRAP \<= 8 by default), not on coverage itself. The pressure it applies is toward smaller code -- not toward higher coverage percentages.
 - **Dependency check** enforces what `architecture.dsl` already declares. Neither TDD nor the testing strategy addresses dependency direction; this gate fills an unoccupied gap.
@@ -179,11 +179,11 @@ The `.feature` file produced by `derive-feature` is both a specification documen
 - The **developer agent** reads the `.feature` file for acceptance criteria and writes step definitions that wire Given/When/Then steps to `@`-referenced code. Running the `.feature` through the test framework is part of the TDD cycle.
 - The **QA agent** runs the `.feature` file as an acceptance test. Each Scenario is a contract to verify; the `@`-references point at the code to inspect.
 
-The behavioral specification and the acceptance test are the same artifact. The [testing-strategy.md](../../factory/rulebooks/conventions/testing-strategy.md) convention recognizes `.feature` file execution as the acceptance test layer, distinct from unit and integration tests that own internal contracts. See [ADR-0011](../adr/0011-gherkin-feature-as-consolidated-specification-format.md).
+The behavioral specification and the acceptance test are the same artifact. The [testing-strategy.md](../../.agent-factory/factory/rulebooks/conventions/testing-strategy.md) convention recognizes `.feature` file execution as the acceptance test layer, distinct from unit and integration tests that own internal contracts. See [ADR-0011](../adr/0011-gherkin-feature-as-consolidated-specification-format.md).
 
 ## 8.10 Code Traceability via @-References
 
-The `@`-reference notation links Gherkin Rules and Scenarios to the source code that implements them. The notation is scoped to `.feature` files only -- prose documents continue to use full Markdown links per [cross-reference-format.md](../../factory/rulebooks/conventions/cross-reference-format.md).
+The `@`-reference notation links Gherkin Rules and Scenarios to the source code that implements them. The notation is scoped to `.feature` files only -- prose documents continue to use full Markdown links per [cross-reference-format.md](../../.agent-factory/factory/rulebooks/conventions/cross-reference-format.md).
 
 **Syntax:** `# @<path>::<Symbol>.<member>` (class or method), `# @<path>` (module-level).
 
@@ -269,7 +269,7 @@ Multiple workstreams may be active simultaneously within a project. Each workstr
 
 ## Referenced from
 
-- [foundational-principles.md](../../factory/rulebooks/conventions/foundational-principles.md)
+- [foundational-principles.md](../../.agent-factory/factory/rulebooks/conventions/foundational-principles.md)
 - [05_building_block_view.md section 5.2.1](05_building_block_view.md#521-project-owned-test-gates-via-charter-declaration)
 - [05_building_block_view.md section 5.2.3](05_building_block_view.md#523-semantic-quality-gates-crap-score-mutation-analysis-dependency-check)
 - [05_building_block_view.md section 5.2.5](05_building_block_view.md#525-agent-context-validation-concern-lint)

@@ -19,14 +19,14 @@ The calling Pi session invokes the model-callable tool `run_agent(agent, task, m
 ## Preconditions
 
 - Pi has trusted the project and loaded `.pi/extensions/run-agent.ts`.
-- `factory/agents/<agent>.md` exists.
+- `.agent-factory/factory/agents/<agent>.md` exists.
 - `config/model.conf` declares a model for the agent's tier under the `pi` CLI, or `on_missing` permits proceeding without one.
 - `pi` is on `PATH`.
 
 ## Main Success Scenario
 
 1. The caller invokes `run_agent` with an `agent` name and a `task` string.
-2. The extension resolves `factory/agents/<agent>.md`.
+2. The extension resolves `.agent-factory/factory/agents/<agent>.md`.
 3. The extension resolves the model: the `model` argument if given, else `config/model.conf` `pi.<agent-tier>` (the tier read from the agent's own frontmatter), honoring `on_missing`.
 4. The extension spawns a separate `pi` subprocess in the project directory — ephemeral (`--no-session`), project trust granted (`-a`), JSON event stream (`--mode json`), the resolved `--model`, the agent file appended as the system prompt (`--append-system-prompt`), and the `task` as the single prompt (`-p`).
 5. The child loads the project `AGENTS.md`, the factory skills, and the guardrail extension — a full factory citizen in a context that never received the caller's conversation.
@@ -44,7 +44,7 @@ The calling Pi session invokes the model-callable tool `run_agent(agent, task, m
 ## Extensions
 
 - **2a. The named agent does not exist**
-  - 2a1. The tool returns an error result naming the missing `factory/agents/<agent>.md`; no subprocess spawns.
+  - 2a1. The tool returns an error result naming the missing `.agent-factory/factory/agents/<agent>.md`; no subprocess spawns.
 - **3a. No model is configured for `pi.<tier>` and `on_missing: halt`**
   - 3a1. The tool returns an error result reporting the unresolved tier; no subprocess spawns.
 - **4a. The spawn would exceed the recursion depth bound**
@@ -107,7 +107,7 @@ Feature: Invoke a factory agent under Pi via run_agent
 
   Scenario: A known agent runs in a separate session and returns its result
     Given ".pi/extensions/run-agent.ts" is loaded in a trusted project
-    And "spec-review-agent" exists in factory/agents/
+    And "spec-review-agent" exists in .agent-factory/factory/agents/
     And config/model.conf declares a model for its tier under pi
     When the caller invokes run_agent with agent "spec-review-agent" and a task
     Then a separate pi subprocess runs the agent persona over the task
@@ -157,6 +157,6 @@ Feature: Invoke a factory agent under Pi via run_agent
 ## Referenced from
 
 - [actor-goal-list.md](../actor-goal-list.md)
-- [factory/config/extensions/run-agent.ts](../../../factory/config/extensions/run-agent.ts)
+- [factory/config/extensions/run-agent.ts](../../../.agent-factory/factory/config/extensions/run-agent.ts)
 - [supplementary_specs/interface-contracts.md](../supplementary_specs/interface-contracts.md)
 - [docs/proposals/implemented/pi-invocation-layer.md](../../proposals/implemented/pi-invocation-layer.md)

@@ -59,7 +59,7 @@ defines a cycle-native flow-control model.
 ## Summary
 
 Introduce `packages/factory/engine/` as the home of reusable deterministic
-Factory capabilities while retaining `factory/scripts/*` as the installed
+Factory capabilities while retaining `.agent-factory/factory/scripts/*` as the installed
 command interface. The first release changes the tests to exercise tracked
 source and extracts one canonical Flow Control model from `phase` and
 `transition-lint`. Usage capture, runtime adapters, dispatch, and installation
@@ -82,7 +82,7 @@ implementation details.
 
 The current test seam can select the wrong source. The shared fixture in
 [`tests/conftest.py`](../../tests/conftest.py) loads scripts from the ignored,
-installed `factory/scripts/` tree rather than tracked
+installed `.agent-factory/factory/scripts/` tree rather than tracked
 [`packages/factory/scripts/`](../../packages/factory/scripts). At review time,
 these installed files differed from tracked source:
 
@@ -171,10 +171,10 @@ subprocesses and freeze these public contracts.
 The accepted commands remain:
 
 ```text
-factory/scripts/phase advance [--by NAME] [--dry-run]
+.agent-factory/factory/scripts/phase advance [--by NAME] [--dry-run]
     [--repo-root PATH] [--marker PATH] [--playbooks-dir PATH]
     [--playbook NAME]
-factory/scripts/phase retry [--repo-root PATH] [--marker PATH]
+.agent-factory/factory/scripts/phase retry [--repo-root PATH] [--marker PATH]
     [--playbooks-dir PATH] [--default-max-iterations N]
 ```
 
@@ -310,16 +310,16 @@ packages/factory/scripts/init-factory --source <repository-root>
     --cli codex --usage-transcript-retention omit
 ```
 
-It then asserts that `factory/engine/flow_control/` exists and invokes both
+It then asserts that `.agent-factory/factory/engine/flow_control/` exists and invokes both
 copied commands:
 
 ```text
-factory/scripts/transition-lint --repo-root <temporary-project>
-factory/scripts/phase advance --dry-run --repo-root <temporary-project>
+.agent-factory/factory/scripts/transition-lint --repo-root <temporary-project>
+.agent-factory/factory/scripts/phase advance --dry-run --repo-root <temporary-project>
 ```
 
 Both commands must import the copied engine and return their characterized
-result. A second fixture omits `factory/engine/flow_control/` from the copied
+result. A second fixture omits `.agent-factory/factory/engine/flow_control/` from the copied
 tree and proves both commands fail loudly with an import error; a silently
 partial installation is not acceptable.
 
@@ -401,15 +401,15 @@ covering these exact active sources:
   [`greenfield-development.md`](../../packages/factory/playbooks/greenfield-development.md),
   and
   [`brownfield-onboarding.md`](../../packages/factory/playbooks/brownfield-onboarding.md)
-  call the deleted `factory/scripts/charter-lint`;
+  call the deleted `.agent-factory/factory/scripts/charter-lint`;
 - [`interface-contracts.md`](../spec/supplementary_specs/interface-contracts.md)
   still publishes the deleted `charter-lint` command;
 - [`scope-map.md`](../spec/scope-map.md) assigns a feature to the deleted
-  `factory/scripts/run-tests` command;
+  `.agent-factory/factory/scripts/run-tests` command;
 - [`factory-guide.md`](../../packages/factory/docs/factory-guide.md) advertises
-  the nonexistent `factory/scripts/mutation-testing` command; and
+  the nonexistent `.agent-factory/factory/scripts/mutation-testing` command; and
 - [`STRUCTURIZR.md`](../../packages/factory/skills/scaffold-arc42/STRUCTURIZR.md)
-  advertises the unsupported `factory/scripts/structurizr export-png` command.
+  advertises the unsupported `.agent-factory/factory/scripts/structurizr export-png` command.
 
 The cleanup must preserve historical proposals, ADR amendments, findings, and
 other records that deliberately describe the removed commands.
@@ -511,7 +511,7 @@ the entry conditions above.
 - `test_load_script_uses_tracked_factory_source` fails against the old shared
   fixture and passes after `tests/conftest.py` selects
   `packages/factory/scripts/`.
-- No shared Factory test helper selects the ignored root `factory/` mirror.
+- No shared Factory test helper selects the ignored root `.agent-factory/factory/` mirror.
 - The subprocess characterization tests assert every `phase` and
   `transition-lint` contract enumerated in the Design and pass before and after
   extraction.
@@ -532,7 +532,7 @@ the entry conditions above.
 - The AST boundary test fails on a fixture that imports `scripts` from
   `engine`, passes for standard-library imports, and scans every engine Python
   file.
-- The temporary installation contains `factory/engine/flow_control` and both
+- The temporary installation contains `.agent-factory/factory/engine/flow_control` and both
   copied adapters execute successfully without a separately installed Factory
   package.
 - The missing-engine installation fixture makes both adapters fail loudly and

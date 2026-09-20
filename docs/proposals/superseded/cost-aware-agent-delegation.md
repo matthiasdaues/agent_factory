@@ -12,14 +12,14 @@ impact:
   architecture_change: false
   external_contract_change: true
   boundaries:
-    - factory/agents/implementation-agent.md
-    - factory/agents/developer-agent.md
-    - factory/agents/planning-agent.md
-    - factory/rulebooks/conventions/dispatch-contract.md
-    - factory/scripts/backlog-lint
-    - factory/rulebooks/templates/story.md
-    - factory/skills/create-backlog/SKILL.md
-    - factory/scripts/dispatch
+    - .agent-factory/factory/agents/implementation-agent.md
+    - .agent-factory/factory/agents/developer-agent.md
+    - .agent-factory/factory/agents/planning-agent.md
+    - .agent-factory/factory/rulebooks/conventions/dispatch-contract.md
+    - .agent-factory/factory/scripts/backlog-lint
+    - .agent-factory/factory/rulebooks/templates/story.md
+    - .agent-factory/factory/skills/create-backlog/SKILL.md
+    - .agent-factory/factory/scripts/dispatch
     - config/model.conf
 
 governance:
@@ -64,7 +64,7 @@ no new agent role.
 ## Motivation
 
 The Factory already holds the *principle* of cheap delegation.
-[dispatch-contract.md § Model Tier And Wave Size](../../../factory/rulebooks/conventions/dispatch-contract.md#model-tier-and-wave-size)
+[dispatch-contract.md § Model Tier And Wave Size](../../../.agent-factory/factory/rulebooks/conventions/dispatch-contract.md#model-tier-and-wave-size)
 tells a dispatcher to set the cheapest tier that fits, cap waves at six, and
 estimate spend before launching. That guidance arrived through
 [agent-dispatch-token-efficiency.md](../implemented/agent-dispatch-token-efficiency.md)
@@ -76,7 +76,7 @@ is the *procedure* that turns the principle into repeatable decisions:
    dispatcher cannot disagree with the planner on the record.
 
 2. **A two-line handoff.** The subagent prompt in
-   [implementation-agent.md § Workflow](../../../factory/agents/implementation-agent.md#workflow)
+   [implementation-agent.md § Workflow](../../../.agent-factory/factory/agents/implementation-agent.md#workflow)
    names a story path and a branch. It states no allowed write paths, no
    forbidden actions, no stop conditions, and no return schema. The dispatcher
    then verifies the result against git and the gates because the report
@@ -89,7 +89,7 @@ is the *procedure* that turns the principle into repeatable decisions:
    reasoning. Nothing in the Factory says so, and nothing prevents a retry
    from silently costing a second full session.
 
-4. **A cost lever left unused.** [developer-agent.md § Workflow](../../../factory/agents/developer-agent.md#workflow)
+4. **A cost lever left unused.** [developer-agent.md § Workflow](../../../.agent-factory/factory/agents/developer-agent.md#workflow)
    already skips the Red phase when a story carries a non-empty `tests:`
    field, reading those tests as its specification. Nobody authors those tests
    on purpose. The most expensive part of a story — deciding the seams — is
@@ -105,15 +105,15 @@ rules are already Factory law.
 
 - **Deterministic where the decision is mechanical.** A tier suggestion, a
   prompt budget, and an escalation predicate are computable from recorded
-  state. They belong in `factory/scripts/dispatch`, not in dispatcher
-  judgment — per [foundational-principles.md § Agentic Creation, Deterministic Validation](../../../factory/rulebooks/conventions/foundational-principles.md#agentic-creation-deterministic-validation).
+  state. They belong in `.agent-factory/factory/scripts/dispatch`, not in dispatcher
+  judgment — per [foundational-principles.md § Agentic Creation, Deterministic Validation](../../../.agent-factory/factory/rulebooks/conventions/foundational-principles.md#agentic-creation-deterministic-validation).
 - **Missing context is a handoff defect, not a capability defect.** Only two
   failure classes may raise the tier. Every other class re-dispatches at the
   same tier with an amended handoff.
 - **The handoff contract is substitutive, not additive.** Every clause added
   to the dispatch prompt is removed from static agent prose or dropped as
   inapplicable. Growth is bounded by a measured budget, because a diluted
-  prompt degrades compliance — per [foundational-principles.md § Eichhorst's Principle](../../../factory/rulebooks/conventions/foundational-principles.md#eichhorsts-principle).
+  prompt degrades compliance — per [foundational-principles.md § Eichhorst's Principle](../../../.agent-factory/factory/rulebooks/conventions/foundational-principles.md#eichhorsts-principle).
 - **The planner's tier stands unless overridden on the record.** The rubric
   advises; it never silently rewrites a story.
 - **One escalation per story, ever.** A second failure after escalation is
@@ -123,7 +123,7 @@ rules are already Factory law.
 
 This feature layers on the accepted
 [mechanize-dispatch-orchestration.md](mechanize-dispatch-orchestration.md),
-which moves deterministic orchestration into `factory/scripts/dispatch`. That
+which moves deterministic orchestration into `.agent-factory/factory/scripts/dispatch`. That
 script already computes a wave plan with per-story tiers, and already emits a
 subagent prompt template from `dispatch prepare-wave` and
 `dispatch prepare-story`. Those two outputs are the insertion points for
@@ -132,7 +132,7 @@ subcommands that proposal defines.
 
 **Sequencing.** These stories are blocked on
 [mechanize-dispatch-orchestration.md](mechanize-dispatch-orchestration.md)
-being implemented; `factory/scripts/dispatch` does not exist yet. One
+being implemented; `.agent-factory/factory/scripts/dispatch` does not exist yet. One
 amendment to that proposal is made now rather than after the fact: its
 `dispatch mark-failed <story-id> --reason <text>` becomes
 `dispatch mark-failed <story-id> --class <class> --evidence <path>`, so the
@@ -184,19 +184,19 @@ make the rubric suggest `strong` for almost everything and mean nothing.
 rejects any other value. The field is optional; an absent `risk_domains` is
 an empty list, and the rubric falls through to its remaining rows.
 
-| Condition, evaluated top to bottom, first match wins                                                                                                                        | Suggested tier |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| `risk_domains` includes `security`, `privacy`, or `data_integrity`; or `outputs` touches `factory/scripts/`, `factory/rulebooks/`, a git hook, or `.pre-commit-config.yaml` | `strong`       |
-| `outputs` spans two or more top-level directories, or `deps` has three or more entries                                                                                      | `standard`     |
-| `tests` is non-empty and `outputs` stays within one top-level directory                                                                                                     | `economy`      |
-| `outputs` stays within one top-level directory and `tests` is absent                                                                                                        | `standard`     |
-| otherwise                                                                                                                                                                   | `standard`     |
+| Condition, evaluated top to bottom, first match wins                                                                                                                                                      | Suggested tier |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `risk_domains` includes `security`, `privacy`, or `data_integrity`; or `outputs` touches `.agent-factory/factory/scripts/`, `.agent-factory/factory/rulebooks/`, a git hook, or `.pre-commit-config.yaml` | `strong`       |
+| `outputs` spans two or more top-level directories, or `deps` has three or more entries                                                                                                                    | `standard`     |
+| `tests` is non-empty and `outputs` stays within one top-level directory                                                                                                                                   | `economy`      |
+| `outputs` stays within one top-level directory and `tests` is absent                                                                                                                                      | `standard`     |
+| otherwise                                                                                                                                                                                                 | `standard`     |
 
 The rubric is deliberately crude. Its purpose is to make the planner's
 implicit reasoning visible and arguable, not to be right unaided. It is
-recorded in [dispatch-contract.md](../../../factory/rulebooks/conventions/dispatch-contract.md)
+recorded in [dispatch-contract.md](../../../.agent-factory/factory/rulebooks/conventions/dispatch-contract.md)
 as a new section and cited from
-[planning-agent.md](../../../factory/agents/planning-agent.md), so the planner
+[planning-agent.md](../../../.agent-factory/factory/agents/planning-agent.md), so the planner
 assigns tiers from the same table the dispatcher checks them against.
 
 ### Axis 2 — Subagent handoff contract
@@ -204,7 +204,7 @@ assigns tiers from the same table the dispatcher checks them against.
 `dispatch prepare-wave` and `dispatch prepare-story` generate the full
 subagent prompt from the story file and the prepared worktree, replacing the
 prose template in
-[implementation-agent.md § Workflow](../../../factory/agents/implementation-agent.md#workflow).
+[implementation-agent.md § Workflow](../../../.agent-factory/factory/agents/implementation-agent.md#workflow).
 The generated prompt carries exactly seven parts:
 
 | Part              | Source                           | Content                                                                                                                       |
@@ -213,7 +213,7 @@ The generated prompt carries exactly seven parts:
 | Workspace         | script                           | Worktree path and feature branch                                                                                              |
 | Allowed writes    | story `outputs`                  | The declared globs, verbatim; nothing else may be written                                                                     |
 | Forbidden actions | fixed                            | Merge, push, branch or worktree creation, ledger writes, edits to other story files, any hook bypass                          |
-| Required checks   | `config/project.json` and script | The project `test_command`, then `factory/scripts/validate`                                                                   |
+| Required checks   | `config/project.json` and script | The project `test_command`, then `.agent-factory/factory/scripts/validate`                                                    |
 | Stop conditions   | fixed                            | Ambiguous acceptance criterion; a required input absent; a needed write outside `outputs`; a test the agent believes is wrong |
 | Return envelope   | fixed schema                     | `status`, `commit_sha`, `files_changed`, `checks`, `blockers`, `failure_class`                                                |
 
@@ -223,11 +223,11 @@ Three clauses are *removed* in the same change, which is what keeps the budget:
   [mechanize-dispatch-orchestration.md](mechanize-dispatch-orchestration.md),
   which runs the check before the subagent is spawned.
 - The verbatim sub-agent addressing clause from
-  [dispatch-contract.md § Sub-Agent Addressing](../../../factory/rulebooks/conventions/dispatch-contract.md#sub-agent-addressing).
+  [dispatch-contract.md § Sub-Agent Addressing](../../../.agent-factory/factory/rulebooks/conventions/dispatch-contract.md#sub-agent-addressing).
   A developer agent spawns no sub-agents; the clause is inapplicable and is
   emitted only for dispatches whose target role may fan out.
 - The narrative workflow restatement, which duplicates
-  [developer-agent.md § Workflow](../../../factory/agents/developer-agent.md#workflow)
+  [developer-agent.md § Workflow](../../../.agent-factory/factory/agents/developer-agent.md#workflow)
   and the `implement-issue` skill the agent already loads.
 
 The script measures the assembled prompt with the fixed cross-CLI tokenizer of
@@ -283,7 +283,7 @@ session per wave rather than one per story, which on the figures in
 and 10 million tokens.
 
 The ledger schema in
-[dispatch-contract.md § Dispatch Ledger](../../../factory/rulebooks/conventions/dispatch-contract.md#dispatch-ledger)
+[dispatch-contract.md § Dispatch Ledger](../../../.agent-factory/factory/rulebooks/conventions/dispatch-contract.md#dispatch-ledger)
 gains an `attempts` list per story, each entry recording `session`
 (`seam` or `impl`), `tier`, `failure_class`, `evidence`, `commit_sha`, and
 `normalized_total` from the usage record. Without the attempt history the
@@ -307,7 +307,7 @@ strategy: direct | seams-first    # default: direct
 2. **Implementation session**, at one tier below the declared tier, floored at
    `economy`. It reads the committed tests as its specification and goes
    straight to Green — the path
-   [developer-agent.md § Workflow](../../../factory/agents/developer-agent.md#workflow)
+   [developer-agent.md § Workflow](../../../.agent-factory/factory/agents/developer-agent.md#workflow)
    already defines for a non-empty `tests:` field. It may not modify the test
    files. An implementer that believes a test is wrong stops and reports
    `failure_class: seam_defect`, which returns the work to the seam session
@@ -334,7 +334,7 @@ cost is real and third-order.
 ### Method and caveat
 
 Aggregated from 91 sessions in `.agent-factory/usage/*.jsonl`, produced by
-`factory/scripts/usage-capture`. The `reported_*` fields in those records are
+`.agent-factory/factory/scripts/usage-capture`. The `reported_*` fields in those records are
 **cumulative per session**, not per turn; the figures below take the last
 record of each session. Summing every record inflates the total roughly
 eleven-fold and is the error to avoid when this measurement is repeated.
@@ -409,8 +409,8 @@ recorded and the budget adjusted from it.
 - The tier rubric table, recorded in `dispatch-contract.md`, cited from
   `planning-agent.md`, and computed as a suggestion by `dispatch plan`.
 - The story-level `risk_domains` field: added to
-  [story.md](../../../factory/rulebooks/templates/story.md), authored by the
-  planner via [create-backlog](../../../factory/skills/create-backlog/SKILL.md),
+  [story.md](../../../.agent-factory/factory/rulebooks/templates/story.md), authored by the
+  planner via [create-backlog](../../../.agent-factory/factory/skills/create-backlog/SKILL.md),
   and validated by `backlog-lint` against the six-value enum.
 - Asymmetric mismatch disposition: a `strong` suggestion against a lower
   declared tier blocks `dispatch init`; every other mismatch warns. Both are
@@ -457,7 +457,7 @@ A/B measurement. The escalation predicate reads only entries with
 
 **Risk vocabulary.** Story `risk_domains` reuses the six values of
 `governance.risk_domains` from
-[proposal.md](../../../factory/rulebooks/templates/proposal.md) so the two read
+[proposal.md](../../../.agent-factory/factory/rulebooks/templates/proposal.md) so the two read
 as one vocabulary. Sharing the terms is deliberate; sharing the values between
 a proposal and its stories is not, and nothing derives one from the other.
 
@@ -470,7 +470,7 @@ rather than a warning.
 
 **Tier arithmetic.** Tier + 1 and tier − 1 are defined over the ordered triple
 `economy < standard < strong` from
-[config/model.conf](../../../config/model.conf). `strong + 1` and `economy − 1`
+[config/model.conf](../../../.agent-factory/config/model.conf). `strong + 1` and `economy − 1`
 are not errors; they saturate, and saturation at `strong` is condition 4 of
 the escalation predicate.
 

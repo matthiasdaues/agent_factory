@@ -22,31 +22,31 @@ All story files live at `backlog/ST-NNNN.md` and contain complete acceptance cri
 
 ### Wave 1 — No dependencies, parallel (2 stories)
 
-| Story   | Title                                        | Tier     | Model  | Deps | Outputs                         |
-| ------- | -------------------------------------------- | -------- | ------ | ---- | ------------------------------- |
-| ST-0169 | Merge beginner content into factory-guide.md | standard | sonnet | none | `factory/docs/factory-guide.md` |
-| ST-0170 | Create VIRGIL agent definition               | standard | sonnet | none | `factory/agents/virgil.md`      |
+| Story   | Title                                        | Tier     | Model  | Deps | Outputs                                        |
+| ------- | -------------------------------------------- | -------- | ------ | ---- | ---------------------------------------------- |
+| ST-0169 | Merge beginner content into factory-guide.md | standard | sonnet | none | `.agent-factory/factory/docs/factory-guide.md` |
+| ST-0170 | Create VIRGIL agent definition               | standard | sonnet | none | `.agent-factory/factory/agents/virgil.md`      |
 
 ### Wave 2 — Depends on Wave 1, all file-disjoint, parallel (9 stories)
 
-| Story   | Title                                        | Tier    | Model | Deps    | Outputs                                      |
-| ------- | -------------------------------------------- | ------- | ----- | ------- | -------------------------------------------- |
-| ST-0171 | Create newcomer-tour skill                   | economy | haiku | ST-0169 | `factory/skills/newcomer-tour/SKILL.md`      |
-| ST-0172 | Create explain-concept skill                 | economy | haiku | ST-0169 | `factory/skills/explain-concept/SKILL.md`    |
-| ST-0173 | Update AGENTS.md references                  | economy | haiku | ST-0170 | `factory/config/AGENTS.md`                   |
-| ST-0174 | Update guided-tour skill                     | economy | haiku | ST-0170 | `factory/skills/guided-tour/SKILL.md`        |
-| ST-0175 | Replace beginner-intro.md with redirect stub | economy | haiku | ST-0169 | `docs/arc42/beginner-intro.md`               |
-| ST-0176 | Update factory README link                   | economy | haiku | ST-0169 | `factory/README.md`                          |
-| ST-0177 | Update draft-proposal skill refs             | economy | haiku | ST-0170 | `factory/skills/draft-proposal/SKILL.md`     |
-| ST-0178 | Update detect-test-regime skill refs         | economy | haiku | ST-0170 | `factory/skills/detect-test-regime/SKILL.md` |
-| ST-0181 | Create comic-relief skill                    | economy | haiku | ST-0170 | `factory/skills/comic-relief/SKILL.md`       |
+| Story   | Title                                        | Tier    | Model | Deps    | Outputs                                                     |
+| ------- | -------------------------------------------- | ------- | ----- | ------- | ----------------------------------------------------------- |
+| ST-0171 | Create newcomer-tour skill                   | economy | haiku | ST-0169 | `.agent-factory/factory/skills/newcomer-tour/SKILL.md`      |
+| ST-0172 | Create explain-concept skill                 | economy | haiku | ST-0169 | `.agent-factory/factory/skills/explain-concept/SKILL.md`    |
+| ST-0173 | Update AGENTS.md references                  | economy | haiku | ST-0170 | `.agent-factory/factory/config/AGENTS.md`                   |
+| ST-0174 | Update guided-tour skill                     | economy | haiku | ST-0170 | `.agent-factory/factory/skills/guided-tour/SKILL.md`        |
+| ST-0175 | Replace beginner-intro.md with redirect stub | economy | haiku | ST-0169 | `docs/arc42/beginner-intro.md`                              |
+| ST-0176 | Update factory README link                   | economy | haiku | ST-0169 | `.agent-factory/factory/README.md`                          |
+| ST-0177 | Update draft-proposal skill refs             | economy | haiku | ST-0170 | `.agent-factory/factory/skills/draft-proposal/SKILL.md`     |
+| ST-0178 | Update detect-test-regime skill refs         | economy | haiku | ST-0170 | `.agent-factory/factory/skills/detect-test-regime/SKILL.md` |
+| ST-0181 | Create comic-relief skill                    | economy | haiku | ST-0170 | `.agent-factory/factory/skills/comic-relief/SKILL.md`       |
 
 ### Wave 3 — Depends on Wave 2, serial (2 stories)
 
-| Story   | Title                           | Tier    | Model | Deps                                        | Outputs                                                         |
-| ------- | ------------------------------- | ------- | ----- | ------------------------------------------- | --------------------------------------------------------------- |
-| ST-0179 | Retire chat-agent + kit-manager | economy | haiku | ST-0170, ST-0173, ST-0174, ST-0177, ST-0178 | `factory/agents/chat-agent.md`, `factory/agents/kit-manager.md` |
-| ST-0180 | Update INDEX.yaml               | economy | haiku | ST-0170, ST-0171, ST-0172, ST-0179, ST-0181 | `factory/INDEX.yaml`                                            |
+| Story   | Title                           | Tier    | Model | Deps                                        | Outputs                                                                                       |
+| ------- | ------------------------------- | ------- | ----- | ------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| ST-0179 | Retire chat-agent + kit-manager | economy | haiku | ST-0170, ST-0173, ST-0174, ST-0177, ST-0178 | `.agent-factory/factory/agents/chat-agent.md`, `.agent-factory/factory/agents/kit-manager.md` |
+| ST-0180 | Update INDEX.yaml               | economy | haiku | ST-0170, ST-0171, ST-0172, ST-0179, ST-0181 | `.agent-factory/factory/INDEX.yaml`                                                           |
 
 **Wave 3 ordering:** ST-0179 before ST-0180 (ST-0180 depends on ST-0179). Both can use haiku.
 
@@ -63,14 +63,14 @@ All story files live at `backlog/ST-NNNN.md` and contain complete acceptance cri
 - Source content: `docs/arc42/beginner-intro.md`
 - Add "Getting Started" section before existing "Agents" section
 - Remove orchestrator refs, `orchestrator/README.md` links, `docs/arc42/concepts.md` links
-- Rewrite internal links to `factory/`-relative paths
+- Rewrite internal links to `.agent-factory/factory/`-relative paths
 - Replace opening line with direct lead-in
 - Add seam: "Everything below is reference material. You don't need it yet."
 - Manual mode only — no "Graduating to automatic mode" section
 
 ### ST-0170 (VIRGIL definition)
 
-- Model on existing `factory/agents/chat-agent.md` structure
+- Model on existing `.agent-factory/factory/agents/chat-agent.md` structure
 - Thin agent: role statement, skill table, boundaries, triggers
 - Absorb kit-manager workflow (assess → fill → validate) as procedural guidance
 - Literary DNA section with three core archetypes (Virgil/Dante, Vimes/Pratchett, Jeeves/Wodehouse) and two secondary frames (Sam Gamgee, Radar O'Reilly)
@@ -88,7 +88,7 @@ All story files live at `backlog/ST-NNNN.md` and contain complete acceptance cri
 
 ### ST-0179 (retire agents)
 
-- DELETE `factory/agents/chat-agent.md` and `factory/agents/kit-manager.md`
+- DELETE `.agent-factory/factory/agents/chat-agent.md` and `.agent-factory/factory/agents/kit-manager.md`
 - Only after all references are updated (Wave 3)
 
 ### ST-0180 (INDEX.yaml)
@@ -102,7 +102,7 @@ All Wave 2 stories are file-disjoint — safe for full parallel dispatch. Wave 3
 
 ## Pre-existing Conditions
 
-- `factory/config/AGENTS.md` shows as modified in working tree (git status `M`). Check whether drift is intentional before dispatching ST-0173.
+- `.agent-factory/factory/config/AGENTS.md` shows as modified in working tree (git status `M`). Check whether drift is intentional before dispatching ST-0173.
 - Four untracked handoff files exist in `docs/handoffs/` — unrelated to this epic.
 
 ## Suggested Skills
@@ -122,4 +122,4 @@ Invoke the `implementation-agent` dispatcher with:
 - Base SHA: `20fdbaea20941e26086015110126f609a3ae7671`
 - Wave plan as documented above
 
-The dispatcher should call `factory/scripts/dispatch init` first, then proceed through waves 1–3 per the implementation-agent protocol.
+The dispatcher should call `.agent-factory/factory/scripts/dispatch init` first, then proceed through waves 1–3 per the implementation-agent protocol.

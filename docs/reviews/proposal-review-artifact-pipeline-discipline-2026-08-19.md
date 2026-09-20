@@ -23,14 +23,14 @@
 
 Verified claims:
 
-- `factory/config/hooks/block-dangerous-git.sh` exists and performs exactly the
+- `.agent-factory/factory/config/hooks/block-dangerous-git.sh` exists and performs exactly the
   claimed jq normalization across Claude Code, Copilot CLI, and Codex.
 - Pi extension block mechanism is real (`{block: true, reason}` in
   `.pi/extensions/block-dangerous-git.ts`).
 - `SubagentStop` hooks are configured in `.claude/settings.json` and
   `.codex/hooks.json`.
 - `.current-work/` is git-ignored, consistent with the manifest location.
-- `factory/scripts/step-guard` and `factory/scripts/write-step-manifest` are
+- `.agent-factory/factory/scripts/step-guard` and `.agent-factory/factory/scripts/write-step-manifest` are
   correctly absent (new deliverables).
 
 ## Pass 2 — Findings
@@ -41,7 +41,7 @@ Verified claims:
 step agent can read undeclared files via `bash cat`, `rg`, or `grep`, and
 write outside its declared outputs via shell redirect. The project's own
 precedent (`block-dangerous-git.sh`) guards the `Bash` matcher precisely
-because that is the dangerous surface, and [AGENTS.md](../../AGENTS.md)
+because that is the dangerous surface, and [AGENTS.md](../../.agent-factory/factory/config/AGENTS.md)
 mandates `rg`/`bash` for hidden files. The Core Principle "an agent that tries
 to read outside its declared inputs is blocked before the read executes" is
 unachievable as designed.
@@ -96,30 +96,30 @@ completion-event surface on all four CLIs.
 
 **What is wrong.** The criterion "blocked from reading files outside its
 declared inputs (verified by test)" conflicts with runtime reality: skill
-files (`factory/skills/*/SKILL.md`, `.pi/skills/*`) are read by every
+files (`.agent-factory/factory/skills/*/SKILL.md`, `.pi/skills/*`) are read by every
 skill-invoking agent (e.g. spec-review-agent reads `inspect-spec`), and are
 neither always-allowed nor in the declared inputs of the example steps. The
-first release either fails its own test or allows all of `factory/`, which the
+first release either fails its own test or allows all of `.agent-factory/factory/`, which the
 proposal itself says "weakens the context bound."
 
-**What to do.** Resolve before acceptance: always-allow `factory/skills/`,
-`factory/agents/`, and invoked playbooks (harness-fetched prompt machinery),
+**What to do.** Resolve before acceptance: always-allow `.agent-factory/factory/skills/`,
+`.agent-factory/factory/agents/`, and invoked playbooks (harness-fetched prompt machinery),
 and restate the context bound as covering *project* documentation, not factory
 machinery.
 
 ### 6. Minor — mdformat gate fails
 
-**What is wrong.** `factory/scripts/mdformat --check` rejects the proposal
+**What is wrong.** `.agent-factory/factory/scripts/mdformat --check` rejects the proposal
 (list numbering 2./3./4. is renumbered to 1.).
 
-**What to do.** Run `factory/scripts/mdformat --number` on the file per
-[rules.md § Markdown formatting](../../factory/rulebooks/rules.md).
+**What to do.** Run `.agent-factory/factory/scripts/mdformat --number` on the file per
+[rules.md § Markdown formatting](../../.agent-factory/factory/rulebooks/rules.md).
 
 ### 7. Minor — Cross-reference rule violations
 
 **What is wrong.** Prose cites `rules.md`, `dispatch-contract.md`,
 `feature-addition.md`, `block-dangerous-git.sh`, and `factory-guide.md` as
-code spans; [rules.md § Cross-references](../../factory/rulebooks/rules.md)
+code spans; [rules.md § Cross-references](../../.agent-factory/factory/rulebooks/rules.md)
 requires full markdown links anchored to a section.
 
 **What to do.** Convert artifact references in prose to anchored markdown
@@ -129,7 +129,7 @@ links.
 
 **What is wrong.** Scope names "Updated factory-guide.md" and "Updated
 init-factory" but neither appears in `impact.boundaries`; the guide's real
-path is `factory/docs/factory-guide.md`.
+path is `.agent-factory/factory/docs/factory-guide.md`.
 
 **What to do.** Add both tracked paths to `impact.boundaries`.
 
@@ -154,7 +154,7 @@ surface, or record it as an explicit assumption.
 ## What holds up
 
 - The mechanization rationale is sound: the no-supersede guard turns an
-  existing MUST NOT ([rules.md § Dispatch](../../factory/rulebooks/rules.md))
+  existing MUST NOT ([rules.md § Dispatch](../../.agent-factory/factory/rulebooks/rules.md))
   into a deterministic gate — exactly the "agents create, gates validate"
   principle.
 - Deferred scope is YAGNI-clean; the token-budget model is internally
@@ -176,16 +176,16 @@ ______________________________________________________________________
 # Pass 2 — Repeat review (2026-08-19)
 
 Per
-[review-loop-discipline.md](../../factory/rulebooks/conventions/review-loop-discipline.md):
+[review-loop-discipline.md](../../.agent-factory/factory/rulebooks/conventions/review-loop-discipline.md):
 deterministic gates re-run, each prior finding verified individually, and the
 full proposal re-inspected fresh against the revised text.
 
 ## Deterministic gates (re-run)
 
-| Check              | Result                                                                                                                              |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `mdformat --check` | Pass                                                                                                                                |
-| `link-check`       | **Fail** — 2 broken links: `../../factory/scripts/step-guard`, `../../factory/scripts/write-step-manifest` (files do not exist yet) |
+| Check              | Result                                                                                                                                                            |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mdformat --check` | Pass                                                                                                                                                              |
+| `link-check`       | **Fail** — 2 broken links: `../../.agent-factory/factory/scripts/step-guard`, `../../.agent-factory/factory/scripts/write-step-manifest` (files do not exist yet) |
 
 ## Verification of prior findings
 
@@ -195,10 +195,10 @@ full proposal re-inspected fresh against the revised text.
 | 2   | Critical | **Resolved**                 | Manifest resolved via `git rev-parse --show-toplevel`; "Worktree isolation" section; `--worktree <path>` flag; completion criterion "two concurrent worktrees"                                                                          |
 | 3   | Major    | **Resolved**                 | `role` field removed; "Lifecycle-based scoping" — manifest existence is the activation signal; orchestrator operates between steps; completion criterion "no manifest → unrestricted"                                                   |
 | 4   | Major    | **Resolved**                 | `running_agents` removed; no-supersede enforced by `write-step-manifest` refusing to overwrite; no `PostToolUse` needed                                                                                                                 |
-| 5   | Major    | **Resolved**                 | Open Question 2 struck through and resolved: `factory/`, CLI directories, `.current-work/` always allowed; new Core Principle scopes the bound to project artifacts; completion criterion restated to "project files"                   |
+| 5   | Major    | **Resolved**                 | Open Question 2 struck through and resolved: `.agent-factory/factory/`, CLI directories, `.current-work/` always allowed; new Core Principle scopes the bound to project artifacts; completion criterion restated to "project files"    |
 | 6   | Minor    | **Resolved**                 | `mdformat --check` passes                                                                                                                                                                                                               |
 | 7   | Minor    | **Resolved with regression** | Prose references converted to links — but two links point to not-yet-existing files and break `link-check` (see finding 11)                                                                                                             |
-| 8   | Minor    | **Partially resolved**       | `factory/docs/factory-guide.md` and `factory/scripts/init-factory` added; `factory/scripts/write-step-manifest` still missing (see finding 12)                                                                                          |
+| 8   | Minor    | **Partially resolved**       | `.agent-factory/factory/docs/factory-guide.md` and `factory/scripts/init-factory` added; `.agent-factory/factory/scripts/write-step-manifest` still missing (see finding 12)                                                            |
 | 9   | Minor    | **Resolved**                 | Glob-flavor question recorded in Open Questions with explicit requirement to pin one flavor and define `**` semantics                                                                                                                   |
 | 10  | Minor    | **Resolved**                 | Epic-0 spike story for the Copilot CLI event surface added to Scope, recorded as an assumption until confirmed                                                                                                                          |
 
@@ -207,7 +207,7 @@ full proposal re-inspected fresh against the revised text.
 ### 11. Minor — Broken links to not-yet-existing scripts
 
 **What is wrong.** The finding-7 fix converted the code-span references to
-`factory/scripts/step-guard` and `factory/scripts/write-step-manifest` into
+`.agent-factory/factory/scripts/step-guard` and `.agent-factory/factory/scripts/write-step-manifest` into
 markdown links. Both files are future deliverables; `link-check` fails.
 
 **What to do.** Revert these two references to code spans — the cross-reference
@@ -217,11 +217,11 @@ Alternatively ship stub scripts; code spans are simpler.
 
 ### 12. Minor — `write-step-manifest` missing from `impact.boundaries`
 
-**What is wrong.** Scope and Design name `factory/scripts/write-step-manifest`
+**What is wrong.** Scope and Design name `.agent-factory/factory/scripts/write-step-manifest`
 as a first-release deliverable, but `impact.boundaries` lists only
-`factory/scripts/step-guard`.
+`.agent-factory/factory/scripts/step-guard`.
 
-**What to do.** Add `factory/scripts/write-step-manifest` to
+**What to do.** Add `.agent-factory/factory/scripts/write-step-manifest` to
 `impact.boundaries`.
 
 ## Suggestions (non-blocking)
@@ -233,7 +233,7 @@ as a first-release deliverable, but `impact.boundaries` lists only
   would save the first user confusion.
 - **No-supersede scope note.** The write-refusal guard blocks *any* second
   concurrent step in the same working directory, not just a same-role
-  supersede — broader than the [rules.md § Dispatch](../../factory/rulebooks/rules.md#dispatch)
+  supersede — broader than the [rules.md § Dispatch](../../.agent-factory/factory/rulebooks/rules.md#dispatch)
   MUST NOT it mechanizes. Simpler and safe; worth one sentence acknowledging
   the broader semantics.
 
@@ -242,7 +242,7 @@ as a first-release deliverable, but `impact.boundaries` lists only
 - Finding 9's glob-flavor question and the two remaining original Open
   Questions (`read_guard: warn`, `max_input_tokens` default) stay open. That
   is acceptable for `draft`, but per
-  [rules.md § Proposals](../../factory/rulebooks/rules.md#proposals) the
+  [rules.md § Proposals](../../.agent-factory/factory/rulebooks/rules.md#proposals) the
   interview moving the proposal to `open` should be decision-complete — these
   three need answers before or during that interview.
 - The layered-enforcement restatement (Core Principles) is the right call: it

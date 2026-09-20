@@ -1,6 +1,6 @@
 # QA Strategy — Mechanized Dispatch and Step Isolation
 
-Derived from [mechanized-dispatch.md](mechanized-dispatch.md) (behavioral specification) and the [Contract-Owned Testing Strategy](../../../factory/rulebooks/conventions/testing-strategy.md). This document assigns each observable contract to its owning test layer, identifies equivalence classes, and defines the integration and end-to-end fixtures needed.
+Derived from [mechanized-dispatch.md](mechanized-dispatch.md) (behavioral specification) and the [Contract-Owned Testing Strategy](../../../.agent-factory/factory/rulebooks/conventions/testing-strategy.md). This document assigns each observable contract to its owning test layer, identifies equivalence classes, and defines the integration and end-to-end fixtures needed.
 
 ## Principles Applied
 
@@ -162,19 +162,19 @@ Owner: `tests/test_dispatch_merge_integration.py`
 
 #### 3d. Step Guard Enforcement
 
-| Contract                             | Test fixture                                             | Assertions                     |
-| ------------------------------------ | -------------------------------------------------------- | ------------------------------ |
-| Read guard allows declared input     | Manifest with inputs, simulated Read event JSON          | Exit 0                         |
-| Read guard allows Factory prefixes   | Manifest with inputs, Read event for factory/ path       | Exit 0                         |
-| Read guard denies out-of-scope       | Manifest with inputs, Read event for unlisted path       | Non-zero exit                  |
-| Write guard allows declared output   | Manifest with outputs, simulated Write event JSON        | Exit 0                         |
-| Write guard denies ledger            | Any manifest, Write event targeting dispatch-ledger.yaml | Non-zero exit                  |
-| Write guard denies manifest          | Any manifest, Write event targeting current-step.yml     | Non-zero exit                  |
-| Write guard allows findings          | Any manifest, Write event for docs/findings/             | Exit 0                         |
-| Write guard allows gate markers      | Any manifest, Write event for verify-base-ok             | Exit 0                         |
-| Bash guard extracts and checks paths | Manifest, Bash event with `cat <path>`                   | Allowed/denied per input scope |
-| Bash guard passes opaque commands    | Manifest, Bash event with `git status`                   | Exit 0                         |
-| No manifest → unrestricted           | No manifest file, any event                              | Exit 0                         |
+| Contract                             | Test fixture                                                      | Assertions                     |
+| ------------------------------------ | ----------------------------------------------------------------- | ------------------------------ |
+| Read guard allows declared input     | Manifest with inputs, simulated Read event JSON                   | Exit 0                         |
+| Read guard allows Factory prefixes   | Manifest with inputs, Read event for .agent-factory/factory/ path | Exit 0                         |
+| Read guard denies out-of-scope       | Manifest with inputs, Read event for unlisted path                | Non-zero exit                  |
+| Write guard allows declared output   | Manifest with outputs, simulated Write event JSON                 | Exit 0                         |
+| Write guard denies ledger            | Any manifest, Write event targeting dispatch-ledger.yaml          | Non-zero exit                  |
+| Write guard denies manifest          | Any manifest, Write event targeting current-step.yml              | Non-zero exit                  |
+| Write guard allows findings          | Any manifest, Write event for docs/findings/                      | Exit 0                         |
+| Write guard allows gate markers      | Any manifest, Write event for verify-base-ok                      | Exit 0                         |
+| Bash guard extracts and checks paths | Manifest, Bash event with `cat <path>`                            | Allowed/denied per input scope |
+| Bash guard passes opaque commands    | Manifest, Bash event with `git status`                            | Exit 0                         |
+| No manifest → unrestricted           | No manifest file, any event                                       | Exit 0                         |
 
 Owner: `tests/test_step_guard_integration.py`
 

@@ -22,7 +22,7 @@ ______________________________________________________________________
 **Deterministic Validation:**
 
 ```
-$ factory/scripts/spec-lint --spec-dir docs/spec --graph docs/spec/traceability.json
+$ .agent-factory/factory/scripts/spec-lint --spec-dir docs/spec --graph docs/spec/traceability.json
 spec-lint: 0 error(s), 0 warning(s), 5 info across 17 spec file(s).
 ```
 
@@ -250,8 +250,8 @@ ______________________________________________________________________
 
 ## 10. Sign-off
 
-Review completed per [factory/rulebooks/conventions/report-format.md](../../factory/rulebooks/conventions/report-format.md).
+Review completed per [factory/rulebooks/conventions/report-format.md](../../.agent-factory/factory/rulebooks/conventions/report-format.md).
 
-Findings filed per [factory/rulebooks/conventions/finding-format.md](../../factory/rulebooks/conventions/finding-format.md).
+Findings filed per [factory/rulebooks/conventions/finding-format.md](../../.agent-factory/factory/rulebooks/conventions/finding-format.md).
 
 **Next step**: Hand off to Requirements Agent to address open findings (SPEC-001, SPEC-002).

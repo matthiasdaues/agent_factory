@@ -15,7 +15,7 @@ Upstream: agent_factory/dev
 Upstream SHA: bc92ba14fbeb59281f4614f4bbb0582072ba3e40
 Ahead: 16
 Behind: 0
-Working tree: modified `factory/INDEX.yaml`, `factory/config/AGENTS.md` (user-owned); untracked `backlog/ST-0147.md` through `backlog/ST-0158.md` (12 new story files, pending commit); untracked `docs/handoffs/handoff-merge-testing-initiatives-2026-08-28.md`, `docs/handoffs/handoff-test-framework-priority-fix-2026-08-28.md`, `docs/proposals/test-gate-presence-over-test-execution.md`
+Working tree: modified `.agent-factory/factory/INDEX.yaml`, `.agent-factory/factory/config/AGENTS.md` (user-owned); untracked `backlog/ST-0147.md` through `backlog/ST-0158.md` (12 new story files, pending commit); untracked `docs/handoffs/handoff-merge-testing-initiatives-2026-08-28.md`, `docs/handoffs/handoff-test-framework-priority-fix-2026-08-28.md`, `docs/proposals/test-gate-presence-over-test-execution.md`
 Retained work: worktree at `.current-work/worktrees/test-gate-presence-over-test-execution` on branch `test-gate-presence-over-test-execution` (HEAD ebf85c51543bc2b3fd497d4b5db0457390fbaf44, clean working tree); worktree at `.current-work/worktrees/feature/newcomer-onboarding-and-incremental-brownfield` (separate feature, do not touch)
 
 ## Decisions and open items
@@ -24,7 +24,7 @@ Decisions: the stakeholder approved the 12-story backlog (ST-0147 through ST-015
 
 The feature merges two proposals:
 
-1. **Test Gate Presence over Test Execution** — Factory stops owning test execution. Deletes `factory/scripts/run-tests` and `factory/scripts/mutation-analysis`. Projects declare test commands in `docs/charter/testing.yaml`. Gates are exit-code-only. Proposal at `.current-work/worktrees/test-gate-presence-over-test-execution/docs/proposals/test-gate-presence-over-test-execution.md`.
+1. **Test Gate Presence over Test Execution** — Factory stops owning test execution. Deletes `.agent-factory/factory/scripts/run-tests` and `.agent-factory/factory/scripts/mutation-analysis`. Projects declare test commands in `docs/charter/testing.yaml`. Gates are exit-code-only. Proposal at `.current-work/worktrees/test-gate-presence-over-test-execution/docs/proposals/test-gate-presence-over-test-execution.md`.
 
 2. **Contract-Traced Testing Strategy** — superseded and folded into test-gate-presence. Wires qa-strategy-from-spec, kit-manager, developer-agent, and mutation-analysis skill into a closed loop where the charter is authority and the repo is ground truth. Proposal at `docs/proposals/contract-traced-testing-strategy.md` (status: superseded, committed on dev at b2a53cd).
 

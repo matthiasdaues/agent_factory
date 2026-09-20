@@ -85,7 +85,7 @@ ______________________________________________________________________
 
 ### ✅ **Single Responsibility (SRP)**
 
-- **Finding:** Each story's outputs are narrow (e.g., `factory/scripts/dispatch`, `tests/test_dispatch_*.py`). No class/function has multiple responsibilities.
+- **Finding:** Each story's outputs are narrow (e.g., `.agent-factory/factory/scripts/dispatch`, `tests/test_dispatch_*.py`). No class/function has multiple responsibilities.
 - **Classification:** ✅ Compliant — no defects found.
 
 ### ✅ **Dependency Inversion (DIP)**
@@ -124,7 +124,7 @@ ______________________________________________________________________
 ### ⚠️ **Readability of Tier Rubric**
 
 - **Finding (Trivial):** `suggest_tier()` uses a first-match-wins rubric with 6 rules. The logic is correct but nested conditionals could be extracted for better readability.
-- **Evidence:** `factory/scripts/dispatch_lib.py:1137` has 28 lines of nested conditionals.
+- **Evidence:** `.agent-factory/factory/scripts/dispatch_lib.py:1137` has 28 lines of nested conditionals.
 - **Classification:** ⚠️ Trivial — acceptable for a simple rubric; no maintenance issue.
 
 ______________________________________________________________________

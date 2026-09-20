@@ -350,7 +350,7 @@ found a specification gap and stopped the slicing process
 › Perform the epic-Slicing on cycle-based-orchestration. Ignore the pre-existing documents epics-cycle-based-orchestration.md and ST-0252 and
 ST-0253. This is a comparison test run on step 1 of the backlog creation.
 
-• Ran sed -n '1,240p' factory/rulebooks/rules.md && sed -n '241,520p' factory/rulebooks/rules.md && sed -n '1,260p' .codex/INDEX.yaml && if \[ -f
+• Ran sed -n '1,240p' .agent-factory/factory/rulebooks/rules.md && sed -n '241,520p' .agent-factory/factory/rulebooks/rules.md && sed -n '1,260p' .codex/INDEX.yaml && if \[ -f
 │ config/project-context.json \]; then sed -n '1,220p' config/project-context.json; fi
 └ # Rules
 
@@ -528,7 +528,7 @@ file would also conflict with its revision-and-digest protections.
 • I’ll map each defined cycle operation to its stated human-facing interface so the missing grant operation is clear by comparison.
 
 • Explored
-└ Search ^### Session menu|option B|option C|starts? a new workstream|continue|reopen|switch|factory/scripts/cycle|run-step|transition-lint|
+└ Search ^### Session menu|option B|option C|starts? a new workstream|continue|reopen|switch|.agent-factory/factory/scripts/cycle|run-step|transition-lint|
 phase.\*stub in cycle-based-orchestration.md
 
 ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -543,15 +543,15 @@ Continue/reopen a workstream Session menu option C
 ───────────────────────────────── ───────────────────────────────────────────────────────────────────────────────────────
 Switch workstreams Factory detects a topic boundary and asks for human confirmation; no command is named
 ───────────────────────────────── ───────────────────────────────────────────────────────────────────────────────────────
-Select a cycle or change work factory/scripts/cycle select --state STATE TARGET [--work REF ...]
+Select a cycle or change work .agent-factory/factory/scripts/cycle select --state STATE TARGET [--work REF ...]
 ───────────────────────────────── ───────────────────────────────────────────────────────────────────────────────────────
-Retry the current cycle factory/scripts/cycle retry --state STATE
+Retry the current cycle .agent-factory/factory/scripts/cycle retry --state STATE
 ───────────────────────────────── ───────────────────────────────────────────────────────────────────────────────────────
 Resume/execute cycle work run-step skill
 ───────────────────────────────── ───────────────────────────────────────────────────────────────────────────────────────
 Validate cycle models and state transition-lint, normally through pre-commit
 ───────────────────────────────── ───────────────────────────────────────────────────────────────────────────────────────
-Use an obsolete phase command factory/scripts/phase, which exits 2 and names the replacement
+Use an obsolete phase command .agent-factory/factory/scripts/phase, which exits 2 and names the replacement
 ───────────────────────────────── ───────────────────────────────────────────────────────────────────────────────────────
 View recommendations Automatically after reopening a workstream and at cycle exit
 ───────────────────────────────── ───────────────────────────────────────────────────────────────────────────────────────
@@ -560,7 +560,7 @@ Manage delegation grants No interface specified
 The command definitions are in the compatibility table (docs/proposals/cycle-based-orchestration.md:341). Menu behavior appears under Session
 menu (docs/proposals/cycle-based-orchestration.md:516).
 
-The closest established pattern would be extending factory/scripts/cycle, for example with a delegate subcommand. The proposal does not make
+The closest established pattern would be extending .agent-factory/factory/scripts/cycle, for example with a delegate subcommand. The proposal does not make
 that decision.
 
 ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

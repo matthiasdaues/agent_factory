@@ -164,5 +164,5 @@ The marker enables traceability from test to contract-owner table and supports m
 
 - Surviving owner per major contract: path resolution and fence logic at the contract test layer; CLI scripts and filesystem operations at the integration test layer; structural validation at the deterministic linter layer.
 - Expected overlap to remove later: integration tests that exercise path resolution end-to-end may duplicate contract test assertions on evaluator evidence; the contract test owns the logic, and the integration test owns the filesystem boundary.
-- Consolidation rule: keep one owner per contract per [testing-strategy.md](../../factory/rulebooks/conventions/testing-strategy.md).
-- Deletion protocol: follow [testing-strategy.md § Delete overlapping tests safely](../../factory/rulebooks/conventions/testing-strategy.md#delete-overlapping-tests-safely).
+- Consolidation rule: keep one owner per contract per [testing-strategy.md](../../.agent-factory/factory/rulebooks/conventions/testing-strategy.md).
+- Deletion protocol: follow [testing-strategy.md § Delete overlapping tests safely](../../.agent-factory/factory/rulebooks/conventions/testing-strategy.md#delete-overlapping-tests-safely).

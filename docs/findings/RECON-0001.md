@@ -3,7 +3,7 @@ id: RECON-0001
 source: reconcile-spec
 severity: major
 category: defect
-artifact: factory/scripts/merge-precommit-config#L45
+artifact: .agent-factory/factory/scripts/merge-precommit-config#L45
 status: resolved
 traces: [ADR-0001]
 ---

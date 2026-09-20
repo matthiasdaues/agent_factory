@@ -87,7 +87,7 @@ Ask the inverse of spec-review: **"Does the spec still match the code?"** Make t
 
 ## Lifecycle
 
-Follow the [agent lifecycle protocol](../../rulebooks/conventions/agent-lifecycle-protocol.md).
+Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-protocol.md).
 
 ## Workflow
 
@@ -101,7 +101,7 @@ Follow the [agent lifecycle protocol](../../rulebooks/conventions/agent-lifecycl
    - For each Scenario without an `@`-ref, inspect the step definitions and code, then add `# @<path>::<Symbol>` (or `.<member>`, or bare `@<path>`).
    - After backfill, every Rule MUST have at least one `@`-ref (its own or from a Scenario). A Rule with none is filed as a `RECON` finding.
    - A Scenario still without an `@`-ref means no implementing code was found — file as a separate `RECON` finding.
-4. **Reconcile the scope map** (pre-merge to dev, when `docs/spec/scope-map.md` exists) — Per [Design 2 — Scope map reconciliation](../../docs/proposals/implemented/agentic-quality-gates-and-specification-consolidation.md#2-specification-as-gherkin-feature-file--derive-feature):
+4. **Reconcile the scope map** (pre-merge to dev, when `docs/spec/scope-map.md` exists) — Per [Design 2 — Scope map reconciliation](../../../docs/proposals/implemented/agentic-quality-gates-and-specification-consolidation.md#2-specification-as-gherkin-feature-file--derive-feature):
    - Grep every live `.feature` file on the branch for `^  Rule:` lines and diff the resulting Rule set against the scope map's Rule column.
    - **Skip migration rows**: rows pointing at `UC-XX-*.md` (old-format entries from the pre-Gherkin scope-map migration) are exempt — they have no `.feature` file to compare against.
    - **Discovery** — a Rule in the `.feature` file but absent from the scope map means a new actor-goal pair was found during implementation. Add it as `implemented` with its `.feature` link, and file a `RECON` finding.

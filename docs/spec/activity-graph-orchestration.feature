@@ -475,7 +475,7 @@ Feature: Activity-graph orchestration
       Given init-factory completes
       When the project root is inspected
       Then .agent-factory/factory/ contains scripts, agents, skills, rulebooks, and engine
-      And no top-level factory/ directory exists
+      And no top-level .agent-factory/factory/ directory exists
 
     Scenario: Project configuration lives under .agent-factory/config/
       Given init-factory completes

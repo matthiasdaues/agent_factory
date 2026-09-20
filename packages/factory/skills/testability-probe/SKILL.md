@@ -30,7 +30,7 @@ runs after [`create-backlog-write-epics`](../create-backlog-write-epics/SKILL.md
 [`create-backlog-story-slices`](../create-backlog-story-slices/SKILL.md)
 (phase 3).
 
-Proposal trace: [test-design-layer-redistribution.md](../../../docs/proposals/test-design-layer-redistribution.md).
+Proposal trace: [test-design-layer-redistribution.md](../../../../docs/proposals/implemented/test-design-layer-redistribution.md).
 
 ## Prerequisite guard
 

@@ -60,11 +60,11 @@ not the full QA phase.
 
 ## Review gates
 
-Every finding must pass the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md) before it is filed.
+Every finding must pass the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) before it is filed.
 
 ## Lifecycle
 
-Follow the [agent lifecycle protocol](../../rulebooks/conventions/agent-lifecycle-protocol.md).
+Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-protocol.md).
 
 ## Workflow
 

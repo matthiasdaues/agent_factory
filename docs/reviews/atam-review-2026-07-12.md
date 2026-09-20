@@ -310,7 +310,7 @@ ______________________________________________________________________
 1. **Address ATAM-0001** - Add `run-tests --staged` mode to allow agent test iteration without committing:
 
    - Command runs tests on staged files only
-   - Agent allowlist includes `factory/scripts/run-tests --staged` (not bare test commands)
+   - Agent allowlist includes `.agent-factory/factory/scripts/run-tests --staged` (not bare test commands)
    - Pre-commit hook still runs authoritative `--changed-only` on actual commit
    - Preserves "tests run via factory mechanisms" while unblocking agent workflow
 
@@ -427,7 +427,7 @@ Both Major findings from this ATAM review were addressed immediately via archite
 
 **Mitigation implemented**:
 
-- Added `factory/scripts/run-tests --staged` mode for agent iteration
+- Added `.agent-factory/factory/scripts/run-tests --staged` mode for agent iteration
 - Agents can stage test files and verify before committing (tight feedback loop)
 - Agent allowlist extended to include `--staged` mode (BR-024 updated)
 - Bare test commands remain blocked (preserves single validation path)

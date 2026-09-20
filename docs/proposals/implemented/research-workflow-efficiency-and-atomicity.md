@@ -12,9 +12,9 @@ impact:
   architecture_change: false
   external_contract_change: true
   boundaries:
-    - factory/rulebooks/conventions/dispatch-contract.md
-    - factory/playbooks/research-topic.md
-    - factory/playbooks/research-survey.md
+    - .agent-factory/factory/rulebooks/conventions/dispatch-contract.md
+    - .agent-factory/factory/playbooks/research-topic.md
+    - .agent-factory/factory/playbooks/research-survey.md
 
 governance:
   assurance: high

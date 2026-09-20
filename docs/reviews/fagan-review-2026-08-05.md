@@ -21,11 +21,11 @@ Inspected the full diff of `feat/update-factory` (tip `47628e3`) against `dev`
 - `docs/adr/0010-refresh-installed-factory-by-remove-and-reinstall.md` (new
   ADR) and `docs/arc42/09_architecture_decisions.md` index + summary.
 - `docs/arc42/concepts.md`, `docs/spec/use_cases/UC-08-initialize-agent-factory-into-a-project.md`,
-  `factory/docs/factory-guide.md` — documentation updates.
+  `.agent-factory/factory/docs/factory-guide.md` — documentation updates.
 
 `docs/CONTEXT.md` does not exist, so there was no project glossary against which
 to check terminology drift. The relevant spec is
-[UC-08](../spec/use_cases/UC-08-initialize-agent-factory-into-a-project.md); the
+[UC-08](../~archive/spec/use_cases/UC-08-initialize-agent-factory-into-a-project.md); the
 design rationale is in [ADR-0010](../adr/0010-refresh-installed-factory-by-remove-and-reinstall.md).
 
 Every changed file was inspected for correctness, Clean Architecture, SOLID,
@@ -81,12 +81,12 @@ re-implementing it.
 
 ## Findings
 
-| Finding                                                                                                            | Artifact                                        | Category   | Severity |
-| ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- | ---------- | -------- |
-| [FAGAN-0012](../findings/FAGAN-0012.md) Preservation guarantee asserted by a test that bypasses the real reinstall | `orchestrator/tests/test_update_factory.py:191` | Defect     | Major    |
-| [FAGAN-0013](../findings/FAGAN-0013.md) Real `_run_init` subprocess delegation seam is never exercised             | `orchestrator/tests/test_update_factory.py:46`  | Suggestion | Minor    |
-| [FAGAN-0014](../findings/FAGAN-0014.md) Failure path leaves the project without a factory/ and no recovery note    | `factory/scripts/update-factory:140`            | Suggestion | Minor    |
-| [FAGAN-0015](../findings/FAGAN-0015.md) Corrupt manifest reported as "no manifest found"                           | `factory/scripts/update-factory:53`             | Suggestion | Minor    |
+| Finding                                                                                                                        | Artifact                                        | Category   | Severity |
+| ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- | ---------- | -------- |
+| [FAGAN-0012](../findings/FAGAN-0012.md) Preservation guarantee asserted by a test that bypasses the real reinstall             | `orchestrator/tests/test_update_factory.py:191` | Defect     | Major    |
+| [FAGAN-0013](../findings/FAGAN-0013.md) Real `_run_init` subprocess delegation seam is never exercised                         | `orchestrator/tests/test_update_factory.py:46`  | Suggestion | Minor    |
+| [FAGAN-0014](../findings/FAGAN-0014.md) Failure path leaves the project without a .agent-factory/factory/ and no recovery note | `factory/scripts/update-factory:140`            | Suggestion | Minor    |
+| [FAGAN-0015](../findings/FAGAN-0015.md) Corrupt manifest reported as "no manifest found"                                       | `factory/scripts/update-factory:53`             | Suggestion | Minor    |
 
 ## Verification
 

@@ -13,13 +13,13 @@ impact:
   external_contract_change: true
   boundaries:
     - orchestrator
-    - factory/scripts/init-factory
-    - factory/scripts/run-playbook
-    - factory/config/hooks/block-dangerous-git.sh
-    - factory/scripts/commit-safe
-    - factory/scripts/verify-base
-    - factory/scripts/premerge-check
-    - factory/docs/factory-guide.md
+    - .agent-factory/factory/scripts/init-factory
+    - .agent-factory/factory/scripts/run-playbook
+    - .agent-factory/factory/config/hooks/block-dangerous-git.sh
+    - .agent-factory/factory/scripts/commit-safe
+    - .agent-factory/factory/scripts/verify-base
+    - .agent-factory/factory/scripts/premerge-check
+    - .agent-factory/factory/docs/factory-guide.md
     - docs/arc42/architecture.dsl
 
 governance:
@@ -462,7 +462,7 @@ contract requires the separate DAC/ACL interoperability tests above.
 
 The `orchestrator/` subproject is in very early stages. Today it turns the
 playbook crank: it selects the next step and calls project-local scripts. Its
-in-project `factory/scripts/run-playbook` shim can select a package source from
+in-project `.agent-factory/factory/scripts/run-playbook` shim can select a package source from
 the environment. Neither component is suitable for privileged execution, and
 this proposal does not claim otherwise.
 
@@ -768,10 +768,10 @@ skill: the ten checks applied to a design seed rather than to a falsifiable
 research claim. The review reads this proposal against the two documents it
 supersedes and the twenty-one findings adjudicated in their appended reviews,
 against the controls this repository ships today
-(`factory/config/hooks/block-dangerous-git.sh`, `factory/scripts/commit-safe`,
-`factory/scripts/verify-base`, `factory/scripts/premerge-check`), against the
+(`.agent-factory/factory/config/hooks/block-dangerous-git.sh`, `.agent-factory/factory/scripts/commit-safe`,
+`.agent-factory/factory/scripts/verify-base`, `.agent-factory/factory/scripts/premerge-check`), against the
 orchestrator as it actually exists (`orchestrator/README.md`,
-`factory/scripts/run-playbook`), and against the
+`.agent-factory/factory/scripts/run-playbook`), and against the
 [sandboxed Factory PoC](../../poc/sandboxed-factory/README.md) that supplies
 its only execution evidence.
 
@@ -817,7 +817,7 @@ naming it.
 
 **BLOCKER B1 — the supersession retires shipped controls and defers their
 replacement to a proposal that does not exist.** Today
-`factory/config/hooks/block-dangerous-git.sh` denies `git push`,
+`.agent-factory/factory/config/hooks/block-dangerous-git.sh` denies `git push`,
 `push --force`, `reset --hard`, `clean -fd`, `branch -D`, and `--no-verify`
 outright, and gates commits and merges on `.current-work/verify-base-ok` and
 `.current-work/premerge-check-ok`. This proposal declares hooks non-boundaries
@@ -836,14 +836,14 @@ superseded proposals. Add a Completion Criterion: no release may demote a
 control unless the same release ships its replacement, and until the
 orchestrator exists, the current hook keeps its behavior with its scope
 relabelled as accident prevention rather than authority. Restore
-`factory/config/hooks/block-dangerous-git.sh` and `factory/scripts/commit-safe`
+`.agent-factory/factory/config/hooks/block-dangerous-git.sh` and `.agent-factory/factory/scripts/commit-safe`
 to `impact.boundaries`.
 
 **MAJOR A1 — the orchestrator is trusted by declaration, while its documented
 purpose, location, and distribution all contradict that trust.**
 `orchestrator/README.md` states that the orchestrator "replaces you pressing
 'enter' between agent sessions. Nothing more," and that it "holds no opinions."
-`factory/scripts/run-playbook` — copied into every initialized project, and
+`.agent-factory/factory/scripts/run-playbook` — copied into every initialized project, and
 therefore inside the read-write grant — is a thirty-line shim that runs
 `uvx --from` a *mutable* Git tag (`orchestrator-v0.1.0`), with the source
 overridable through the `AF_ORCHESTRATOR_SOURCE` environment variable. This
@@ -855,7 +855,7 @@ rewrite the shim and set its environment cannot influence it.
 *Amendment.* State that privileged orchestrator execution occurs outside every
 delegated path, under an identity distinct from `agent-factory`, from an
 immutable, digest-pinned artifact, with environment-sourced source overrides
-refused on the privileged path. Add `factory/scripts/run-playbook` and the
+refused on the privileged path. Add `.agent-factory/factory/scripts/run-playbook` and the
 orchestrator package to `impact.boundaries`, and add a matrix case: *agent
 edits the in-project launcher or sets `AF_ORCHESTRATOR_SOURCE`* must not change
 what the privileged path executes.
@@ -863,7 +863,7 @@ what the privileged path executes.
 **MAJOR A2 — gate implementations live inside the read-write grant, and the
 mechanism that protected them has been dropped.** The responsibility table
 assigns local workflow legality to "Factory orchestrator and gate
-implementations," but `init-factory` copies `factory/scripts/*` into the
+implementations," but `init-factory` copies `.agent-factory/factory/scripts/*` into the
 project, which the delegation model then grants read-write. The superseded
 containerization proposal solved this twice over — image-owned gates under
 `/opt/agent-factory/factory`, and host-owned gate authorizations binding full
@@ -874,7 +874,7 @@ the baseline, so the problem is now unmitigated in the default configuration.
 *Amendment.* Require that gate implementations and gate-authorization records
 reside outside every read-write grant in both profiles, and carry forward the
 SHA-bound, atomically consumed authorization record. Add matrix cases: *agent
-edits `factory/scripts/premerge-check`* and *agent fabricates an authorization
+edits `.agent-factory/factory/scripts/premerge-check`* and *agent fabricates an authorization
 record* must not produce an accepted gate result.
 
 **MAJOR A3 — Goal 4 contradicts the identity model, and the deferral list
@@ -983,7 +983,7 @@ executable until a project-local policy path exists to plant. *Amendment:*
 resolve the question in one place, and name the decoy path the test writes.
 
 **MINOR A11 — `supersedes` carries a list, and the predecessors were retired
-before their replacement was accepted.** `factory/rulebooks/templates/proposal.md`
+before their replacement was accepted.** `.agent-factory/factory/rulebooks/templates/proposal.md`
 line 20 defines `supersedes` as "proposal path, or null," and the second review
 of the containerization proposal already flagged list usage as a template
 violation. Both predecessors now read `status: superseded` while this document

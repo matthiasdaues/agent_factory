@@ -11,7 +11,7 @@ Feature: Test Design Skill
 
   Rule: Planning Agent designs test scenarios from feature contracts
     # actor: Planning Agent
-    # @factory/skills/test-design/SKILL.md
+    # @.agent-factory/factory/skills/test-design/SKILL.md
 
     Scenario: Test-design skill reads feature contracts and scope map
       Given backlog/epics.md exists with confirmed epic slicing
@@ -50,7 +50,7 @@ Feature: Test Design Skill
 
   Rule: Test-design skill guards on detect-test-regime prerequisite
     # actor: Planning Agent
-    # @factory/skills/detect-test-regime/SKILL.md
+    # @.agent-factory/factory/skills/detect-test-regime/SKILL.md
 
     Scenario: Prerequisite met when testing_strategy is present
       Given docs/testing.yaml contains a testing_strategy link
@@ -72,7 +72,7 @@ Feature: Test Design Skill
 
   Rule: Test-design skill assigns one test owner per contract across the backlog
     # actor: Planning Agent
-    # @factory/skills/test-design/SKILL.md
+    # @.agent-factory/factory/skills/test-design/SKILL.md
 
     Scenario: Ownership assigned to the story that introduces the contract
       Given a contract is traced by multiple stories across epics
@@ -95,7 +95,7 @@ Feature: Test Design Skill
 
   Rule: Test-design skill classifies contracts by risk class
     # actor: Planning Agent
-    # @factory/rulebooks/conventions/testing-strategy.md
+    # @.agent-factory/factory/rulebooks/conventions/testing-strategy.md
 
     Scenario: Risk class resolved from testing.yaml overrides
       Given docs/testing.yaml contains a risk_classes section
@@ -119,7 +119,7 @@ Feature: Test Design Skill
 
   Rule: Test-design skill propagates prior tests to non-owning stories
     # actor: Planning Agent
-    # @factory/skills/test-design/SKILL.md
+    # @.agent-factory/factory/skills/test-design/SKILL.md
 
     Scenario: Non-owning story receives Prior Tests section
       Given story A owns the test for contract DOM-01
@@ -136,8 +136,8 @@ Feature: Test Design Skill
 
   Rule: Create-backlog sequence integrates test-design as optional step
     # actor: Planning Agent
-    # @factory/skills/create-backlog/SKILL.md
-    # @factory/skills/create-backlog-write-epics/SKILL.md
+    # @.agent-factory/factory/skills/create-backlog/SKILL.md
+    # @.agent-factory/factory/skills/create-backlog-write-epics/SKILL.md
 
     Scenario: Operational sequence includes test-design between phases 2 and 3
       Given the create-backlog parent skill's operational sequence table
@@ -159,7 +159,7 @@ Feature: Test Design Skill
 
   Rule: Create-backlog-stories carries test-design sections into story files
     # actor: Planning Agent
-    # @factory/skills/create-backlog-stories/SKILL.md
+    # @.agent-factory/factory/skills/create-backlog-stories/SKILL.md
 
     Scenario: Story files receive test-design sections from epics.md
       Given backlog/epics.md contains Test Design sections from the test-design skill
@@ -176,7 +176,7 @@ Feature: Test Design Skill
 
   Rule: Developer-Agent consumes test-design as prescribed RED phase
     # actor: Developer-Agent
-    # @factory/agents/developer-agent.md
+    # @.agent-factory/factory/agents/developer-agent.md
 
     Scenario: Developer-Agent uses Test Design section as RED phase input
       Given the story file contains a Test Design section
@@ -201,7 +201,7 @@ Feature: Test Design Skill
 
   Rule: Developer-Agent falls back without test-design output
     # actor: Developer-Agent
-    # @factory/agents/developer-agent.md
+    # @.agent-factory/factory/agents/developer-agent.md
 
     Scenario: Developer-Agent falls back to existing behavior
       Given the story file has no Test Design section
@@ -217,10 +217,10 @@ Feature: Test Design Skill
 
   Rule: Testing strategy defines risk-class conventions
     # actor: User
-    # @factory/rulebooks/conventions/testing-strategy.md
+    # @.agent-factory/factory/rulebooks/conventions/testing-strategy.md
 
     Scenario: Testing strategy declares three default risk classes
-      Given the testing strategy at factory/rulebooks/conventions/testing-strategy.md
+      Given the testing strategy at .agent-factory/factory/rulebooks/conventions/testing-strategy.md
       Then it defines the critical risk class for atomicity, concurrency, and security invariants
       And it defines the standard risk class for CRUD operations and input validation
       And it defines the structural risk class for declarative structure and schema conformance
@@ -240,7 +240,7 @@ Feature: Test Design Skill
   Rule: User configures risk classes per project in testing.yaml
     # actor: User
     # @docs/testing.yaml
-    # @factory/rulebooks/templates/charter-testing.yaml
+    # @.agent-factory/factory/rulebooks/templates/charter-testing.yaml
 
     Scenario: Project overrides default risk class settings
       Given docs/testing.yaml contains a risk_classes section
@@ -256,14 +256,14 @@ Feature: Test Design Skill
       Then it applies the custom class's format, budget, and requires rules
 
     Scenario: Template includes risk_classes schema by example
-      Given the charter template at factory/rulebooks/templates/charter-testing.yaml
+      Given the charter template at .agent-factory/factory/rulebooks/templates/charter-testing.yaml
       Then it includes a risk_classes section with format, budget, and optional requires fields
       And the schema is defined by a concrete YAML example
 
   Rule: User configures gate thresholds in testing.yaml
     # actor: User
     # @docs/testing.yaml
-    # @factory/rulebooks/templates/charter-testing.yaml
+    # @.agent-factory/factory/rulebooks/templates/charter-testing.yaml
 
     Scenario: Gates section declares crap_score configuration
       Given docs/testing.yaml contains a gates section
@@ -276,13 +276,13 @@ Feature: Test Design Skill
       And mutation testing is disabled by default until project infrastructure is ready
 
     Scenario: Template includes gates section
-      Given the charter template at factory/rulebooks/templates/charter-testing.yaml
+      Given the charter template at .agent-factory/factory/rulebooks/templates/charter-testing.yaml
       Then it includes a gates section with crap_score and mutation_testing entries
       And each entry documents its enabled flag and any threshold parameters
 
   Rule: Dispatcher reads gate configuration from testing.yaml
     # actor: Dispatcher (Implementation-Agent)
-    # @factory/agents/implementation-agent.md
+    # @.agent-factory/factory/agents/implementation-agent.md
     # @docs/adr/0012-dispatcher-owned-semantic-gate-loop.md
 
     Scenario: Dispatcher reads per-gate enabled flag from testing.yaml
@@ -306,7 +306,7 @@ Feature: Test Design Skill
 
   Rule: Test-design-verify gate validates test-design completeness
     # actor: Dispatcher (Implementation-Agent)
-    # @factory/scripts/test-design-verify
+    # @.agent-factory/factory/scripts/test-design-verify
 
     Scenario: Gate resolves trace-to-scenario chain
       Given a story with traces frontmatter listing DOM-01 and OBS-04
@@ -362,8 +362,8 @@ Feature: Test Design Skill
 
   Rule: CRAP score reads threshold from testing.yaml gates section
     # actor: Dispatcher (Implementation-Agent)
-    # @factory/scripts/crap-score
-    # @factory/skills/crap-score/SKILL.md
+    # @.agent-factory/factory/scripts/crap-score
+    # @.agent-factory/factory/skills/crap-score/SKILL.md
 
     Scenario: CRAP script reads threshold from testing.yaml
       Given docs/testing.yaml declares gates.crap_score.threshold as 8
@@ -381,5 +381,5 @@ Feature: Test Design Skill
       When it resolves the threshold
       Then it reads from testing.yaml's gates.crap_score.threshold
       And the read_threshold_from_house_rules function is replaced
-      # @factory/scripts/crap-score::read_threshold_from_testing_yaml
-      # @factory/scripts/crap-score::resolve_threshold
+      # @.agent-factory/factory/scripts/crap-score::read_threshold_from_testing_yaml
+      # @.agent-factory/factory/scripts/crap-score::resolve_threshold

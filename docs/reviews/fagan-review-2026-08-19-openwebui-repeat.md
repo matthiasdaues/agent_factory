@@ -78,7 +78,7 @@ None new. Q1, Q2 answered by the author; [T-0001](../spec/todo.md) and [T-0002](
 
 ## Verification pass 2 (second repeat, 2026-08-19)
 
-Scope per [review-loop-discipline.md](../../factory/rulebooks/conventions/review-loop-discipline.md): deterministic gates re-run, each open finding verified individually, and the full inspection re-run fresh on the current 444-line file — not just the prior findings list. Author claims were not trusted; every check below was re-executed by the reviewer.
+Scope per [review-loop-discipline.md](../../.agent-factory/factory/rulebooks/conventions/review-loop-discipline.md): deterministic gates re-run, each open finding verified individually, and the full inspection re-run fresh on the current 444-line file — not just the prior findings list. Author claims were not trusted; every check below was re-executed by the reviewer.
 
 ### Deterministic gates re-run
 

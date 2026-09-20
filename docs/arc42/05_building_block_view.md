@@ -21,7 +21,7 @@ and local JSONL spool.
 | Cycle State Files          | One YAML workstream state file per active workstream under `.current-work/cycles/`; tracks cycle, attempt, revision, work refs, and grant     | YAML (storage)            |
 | Session Bindings           | Session-to-workstream navigation state under `.current-work/session-bindings/<cli>/<session-id>.yaml`                                         | YAML (storage)            |
 | State Files                | Local git-ignored dispatch ledgers, quality-gate reports, and legacy playbook marker                                                          | YAML/JSON (storage)       |
-| Catalog                    | Generated `factory/INDEX.yaml` from agent/skill/playbook/rulebook frontmatter, with token counts                                              | YAML (storage)            |
+| Catalog                    | Generated `.agent-factory/factory/INDEX.yaml` from agent/skill/playbook/rulebook frontmatter, with token counts                               | YAML (storage)            |
 | Usage Record Contract      | Factory-owned record schema and producer-consumer compatibility policy; v1 schema includes optional workstream, origin, and cycle fields      | JSON Schema, YAML         |
 | Raw Usage Spool            | Authoritative append-only records under `.agent-factory/usage/`                                                                               | JSONL (storage)           |
 | Install Manifest           | Records installed CLI integrations and opt-in components                                                                                      | JSON (storage)            |
@@ -98,12 +98,12 @@ The falsification-driven research feature validates its JSON artifacts through a
 - `schema-validate <artifact-file> <schema-file>` is stage 1, the load-bearing gate every later stage assumes. It implements only the JSON-Schema keyword subset the research schemas need, not a full Draft implementation.
 - `policy-validate <artifact-or-dir>...` is stage 2. Its `--pipeline` mode runs stage 1 then stage 2 in order and stops at the first failing stage.
 - Semantic judgment -- evidence support, source independence in substance, test severity, claim atomicity -- is stage 3, deliberately left to a qualified human or agent reviewer. No script decides it.
-- The schemas the validators read live in `factory/rulebooks/schemas/research-*.schema.json`, a rulebook category of JSON-Schema data contracts that is intentionally absent from `INDEX.yaml` (which catalogs Markdown only).
+- The schemas the validators read live in `.agent-factory/factory/rulebooks/schemas/research-*.schema.json`, a rulebook category of JSON-Schema data contracts that is intentionally absent from `INDEX.yaml` (which catalogs Markdown only).
 
 **Referenced Specifications**:
 
 - [ADR-0006 -- Research: flat storage and validation pipeline](../adr/0006-research-flat-storage-and-validation-pipeline.md)
-- [factory/playbooks/research-topic.md section The Validation Gate](../../factory/playbooks/research-topic.md)
+- [factory/playbooks/research-topic.md section The Validation Gate](../../.agent-factory/factory/playbooks/research-topic.md)
 
 ### 5.2.3 Semantic quality gates (crap-score, mutation-analysis, dependency-check)
 
@@ -167,7 +167,7 @@ The three required category headings are `## Always (cross-cutting)`, `## Techni
 **Referenced Specifications:**
 
 - [agent-context.feature](../spec/agent-context.feature)
-- [interface-contracts.md section concern-lint](../spec/supplementary_specs/interface-contracts.md#factoryscriptsconcern-lint)
+- [interface-contracts.md section concern-lint](../spec/supplementary_specs/interface-contracts.md#agent-factoryfactoryscriptsconcern-lint)
 - [validation-rules.md section Concern registry validation](../spec/supplementary_specs/validation-rules.md#concern-registry-validation-concern-lint-ctx--codes)
 
 ## 5.3 Level 2: Component View -- Cycle Engine
@@ -217,37 +217,37 @@ The adapter commands follow a consistent protocol: acquire the OS-level exclusiv
 
 Every building block's entry point, invoked how, and by whom:
 
-| Script / Component           | Invoked by                             | Entry point                                                         | Exit codes                                         |
-| ---------------------------- | -------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------- |
-| cycle select                 | Human, orchestrator                    | `factory/scripts/cycle select --state STATE TARGET [--work REF]`    | 0 (selected), 1 (conflict), 2 (invalid)            |
-| cycle retry                  | Human, orchestrator                    | `factory/scripts/cycle retry --state STATE`                         | 0 (allowed), 1 (conflict), 2 (paused), 3 (invalid) |
-| phase                        | Human (legacy invocation)              | `factory/scripts/phase advance\|retry`                              | Always 2 (names replacement command)               |
-| transition-lint              | Pre-commit hook                        | `factory/scripts/transition-lint`                                   | 0 (pass), 1 (findings)                             |
-| block-dangerous-git.sh       | Claude, Copilot, Codex native hook     | stdin: CLI-specific command JSON, stdout: empty, exit 0 or 2        | 0 (allow), 2 (deny)                                |
-| trigger                      | Human, orchestrator, run-step skill    | `factory/scripts/trigger agent <name> [--background]`               | 0 (dispatched), 1+ (error)                         |
-| usage-capture                | Native CLI hooks and Pi extensions     | `factory/scripts/usage-capture --cli ... --transcript ...`          | 0 (captured or best-effort no-op)                  |
-| index-lint                   | Pre-commit hook, CI                    | `factory/scripts/index-lint [--check]`                              | 0 (fresh), 1 (stale)                               |
-| run-step skill               | Any supported CLI (LLM-executed)       | Skill markdown invoked by AI                                        | (N/A -- skill is prose)                            |
-| run-agent (Pi extension)     | Pi session (via `run_agent` tool call) | `.pi/extensions/run-agent.ts` spawns `pi ... -p <task>`             | (tool result: text + usage, or error)              |
-| dispatch-wave (Pi extension) | Pi session (via `dispatch_wave` call)  | `.pi/extensions/dispatch-wave.ts` spawns worktree + merge/item      | (tool result: per-item status, or error)           |
-| openrouter-discover          | User, CI (`--check`)                   | `factory/scripts/openrouter-discover [--list\|--suggest\|--check]`  | 0 (ok), 1 (drift)                                  |
-| schema-validate              | Research skills/agents, CLI            | `factory/scripts/schema-validate <artifact-file> <schema-file>`     | 0 (conforms), 1 (violations), 2 (operational)      |
-| policy-validate              | Research skills/agents, CLI            | `factory/scripts/policy-validate [--pipeline] <artifact-or-dir>...` | 0 (pass), 1 (fail), 2 (operational)                |
-| crap-score                   | Implementation-agent dispatcher        | `factory/scripts/crap-score [--story-id <id>]`                      | 0 (pass), 1 (fail)                                 |
-| dependency-check             | Implementation-agent dispatcher        | `factory/scripts/dependency-check [--story-id <id>]`                | 0 (pass), 1 (violations)                           |
-| concern-lint                 | Pre-commit hook, validate skill        | `factory/scripts/concern-lint [--root DIR] [--format text\|json]`   | 0 (pass), 1+ (CTX-\* findings)                     |
-| module-graph-check           | Orchestrating session                  | `factory/scripts/module-graph-check <proposal-path>`                | 0 (no change), 1 (change detected)                 |
-| init-factory                 | Human, orchestrator                    | `factory/scripts/init-factory [--update] <path>`                    | 0 (installed/updated), 1+ (error)                  |
-| update-factory               | Human, orchestrator                    | `factory/scripts/update-factory`                                    | 0 (updated), 1+ (error)                            |
-| remove-factory               | Human, orchestrator                    | `factory/scripts/remove-factory`                                    | 0 (removed), 1+ (error)                            |
-| usage-query                  | Human (operator)                       | `uv run --project .agent-factory/usage-analysis usage-query <view>` | 0 (result), 1+ (preflight/error)                   |
-| Input Snapshot               | usage-query (internal)                 | Python module                                                       | (internal)                                         |
-| Contract Check               | usage-query (internal)                 | Python module                                                       | (internal)                                         |
-| Operational Preflight        | usage-query (internal)                 | Python module                                                       | (internal)                                         |
-| Accounting Registry          | usage-query (internal)                 | Python module                                                       | (internal)                                         |
-| Query Model v1               | usage-query (internal)                 | DuckDB SQL views                                                    | (internal)                                         |
-| Result Adapters              | usage-query (internal)                 | Python module                                                       | (internal)                                         |
-| Parquet Exporter             | usage-query (internal)                 | Python module                                                       | (internal)                                         |
+| Script / Component           | Invoked by                             | Entry point                                                                        | Exit codes                                         |
+| ---------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------- |
+| cycle select                 | Human, orchestrator                    | `.agent-factory/factory/scripts/cycle select --state STATE TARGET [--work REF]`    | 0 (selected), 1 (conflict), 2 (invalid)            |
+| cycle retry                  | Human, orchestrator                    | `.agent-factory/factory/scripts/cycle retry --state STATE`                         | 0 (allowed), 1 (conflict), 2 (paused), 3 (invalid) |
+| phase                        | Human (legacy invocation)              | `.agent-factory/factory/scripts/phase advance\|retry`                              | Always 2 (names replacement command)               |
+| transition-lint              | Pre-commit hook                        | `.agent-factory/factory/scripts/transition-lint`                                   | 0 (pass), 1 (findings)                             |
+| block-dangerous-git.sh       | Claude, Copilot, Codex native hook     | stdin: CLI-specific command JSON, stdout: empty, exit 0 or 2                       | 0 (allow), 2 (deny)                                |
+| trigger                      | Human, orchestrator, run-step skill    | `.agent-factory/factory/scripts/trigger agent <name> [--background]`               | 0 (dispatched), 1+ (error)                         |
+| usage-capture                | Native CLI hooks and Pi extensions     | `.agent-factory/factory/scripts/usage-capture --cli ... --transcript ...`          | 0 (captured or best-effort no-op)                  |
+| index-lint                   | Pre-commit hook, CI                    | `.agent-factory/factory/scripts/index-lint [--check]`                              | 0 (fresh), 1 (stale)                               |
+| run-step skill               | Any supported CLI (LLM-executed)       | Skill markdown invoked by AI                                                       | (N/A -- skill is prose)                            |
+| run-agent (Pi extension)     | Pi session (via `run_agent` tool call) | `.pi/extensions/run-agent.ts` spawns `pi ... -p <task>`                            | (tool result: text + usage, or error)              |
+| dispatch-wave (Pi extension) | Pi session (via `dispatch_wave` call)  | `.pi/extensions/dispatch-wave.ts` spawns worktree + merge/item                     | (tool result: per-item status, or error)           |
+| openrouter-discover          | User, CI (`--check`)                   | `.agent-factory/factory/scripts/openrouter-discover [--list\|--suggest\|--check]`  | 0 (ok), 1 (drift)                                  |
+| schema-validate              | Research skills/agents, CLI            | `.agent-factory/factory/scripts/schema-validate <artifact-file> <schema-file>`     | 0 (conforms), 1 (violations), 2 (operational)      |
+| policy-validate              | Research skills/agents, CLI            | `.agent-factory/factory/scripts/policy-validate [--pipeline] <artifact-or-dir>...` | 0 (pass), 1 (fail), 2 (operational)                |
+| crap-score                   | Implementation-agent dispatcher        | `.agent-factory/factory/scripts/crap-score [--story-id <id>]`                      | 0 (pass), 1 (fail)                                 |
+| dependency-check             | Implementation-agent dispatcher        | `.agent-factory/factory/scripts/dependency-check [--story-id <id>]`                | 0 (pass), 1 (violations)                           |
+| concern-lint                 | Pre-commit hook, validate skill        | `.agent-factory/factory/scripts/concern-lint [--root DIR] [--format text\|json]`   | 0 (pass), 1+ (CTX-\* findings)                     |
+| module-graph-check           | Orchestrating session                  | `.agent-factory/factory/scripts/module-graph-check <proposal-path>`                | 0 (no change), 1 (change detected)                 |
+| init-factory                 | Human, orchestrator                    | `factory/scripts/init-factory [--update] <path>`                                   | 0 (installed/updated), 1+ (error)                  |
+| update-factory               | Human, orchestrator                    | `factory/scripts/update-factory`                                                   | 0 (updated), 1+ (error)                            |
+| remove-factory               | Human, orchestrator                    | `factory/scripts/remove-factory`                                                   | 0 (removed), 1+ (error)                            |
+| usage-query                  | Human (operator)                       | `uv run --project .agent-factory/usage-analysis usage-query <view>`                | 0 (result), 1+ (preflight/error)                   |
+| Input Snapshot               | usage-query (internal)                 | Python module                                                                      | (internal)                                         |
+| Contract Check               | usage-query (internal)                 | Python module                                                                      | (internal)                                         |
+| Operational Preflight        | usage-query (internal)                 | Python module                                                                      | (internal)                                         |
+| Accounting Registry          | usage-query (internal)                 | Python module                                                                      | (internal)                                         |
+| Query Model v1               | usage-query (internal)                 | DuckDB SQL views                                                                   | (internal)                                         |
+| Result Adapters              | usage-query (internal)                 | Python module                                                                      | (internal)                                         |
+| Parquet Exporter             | usage-query (internal)                 | Python module                                                                      | (internal)                                         |
 
 ## 5.7 Level 2: Component View -- Usage Capture
 

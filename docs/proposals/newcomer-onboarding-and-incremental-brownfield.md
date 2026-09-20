@@ -14,13 +14,13 @@ impact:
   external_contract_change: false
   boundaries:
     - docs/arc42/beginner-intro.md
-    - factory/playbooks/brownfield-onboarding.md
-    - factory/playbooks/feature-addition.md
-    - factory/agents/chat-agent.md
-    - factory/agents/kit-manager.md
-    - factory/agents/coaching-agent.md
-    - factory/config/AGENTS.md
-    - factory/playbooks/greenfield-development.md
+    - .agent-factory/factory/playbooks/brownfield-onboarding.md
+    - .agent-factory/factory/playbooks/feature-addition.md
+    - .agent-factory/factory/agents/chat-agent.md
+    - .agent-factory/factory/agents/kit-manager.md
+    - .agent-factory/factory/agents/coaching-agent.md
+    - .agent-factory/factory/config/AGENTS.md
+    - .agent-factory/factory/playbooks/greenfield-development.md
 
 governance:
   assurance: elevated
@@ -321,7 +321,7 @@ by a real change, and each diff small enough for an enterprise PR review.
 
 - ~~Should the guided tour be a standalone skill (invocable as
   `/guided-tour`) or only reachable through the entrypoint menu?~~
-  **Resolved:** standalone skill at `factory/skills/guided-tour/SKILL.md`.
+  **Resolved:** standalone skill at `.agent-factory/factory/skills/guided-tour/SKILL.md`.
   The tour covers reorientation on demand ("where am I", "what do I do",
   "what's next"), not just first-time onboarding.
 - ~~Does the Stage 1 / Stage 2 split need a gate marker (a file that
@@ -410,16 +410,16 @@ All seven findings from the initial review have been verified as resolved:
 - **PROP-0013** (major, Check 01): CC-3 now includes CONTEXT.md in the brownfield-lite exit condition.
 - **PROP-0014** (major, Check 03): Stage 1 scope-map line now cross-references the reverse-map skill with "Populated by the `reverse-map` skill (Design Section 4)."
 - **PROP-0015** (minor, Check 06): OQ-3 struck through and marked "Resolved" with explanation referencing Design Section 4.
-- **PROP-0016** (minor, Check 05): `factory/config/AGENTS.md` added to boundaries (canonical file; `.claude/CLAUDE.md` is a symlink to it). `factory/playbooks/greenfield-development.md` also added as a coaching-agent invocation site.
+- **PROP-0016** (minor, Check 05): `.agent-factory/factory/config/AGENTS.md` added to boundaries (canonical file; `.claude/CLAUDE.md` is a symlink to it). `.agent-factory/factory/playbooks/greenfield-development.md` also added as a coaching-agent invocation site.
 - **PROP-0017** (minor, Check 08): `estimated_consumption.min` corrected from 80,000 to 120,000; arithmetic now consistent (8,000 x 15 = 120,000).
 - **PROP-0018** (minor, Check 01): CC-4 rewritten with concrete testable condition: "If the feature changes the structural shape, the architecture-agent updates `architecture.dsl` in the same run."
 - **PROP-0019** (minor, Check 03): Factory glossary stub removed entirely. CONTEXT.md serves as the vocabulary collector with explicit derivation path to arc42 chapter 12.
 
 ### Findings
 
-| ID                                    | Severity | Check | Status | Finding                                                                                                                                                                                               |
-| ------------------------------------- | -------- | ----- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [PROP-0020](../findings/PROP-0020.md) | minor    | 05    | open   | `factory/skills/reverse-map/SKILL.md` listed in `impact.boundaries` but does not exist at the reviewed commit. The skill is a new artifact created by this proposal, not an existing file to inspect. |
+| ID                                    | Severity | Check | Status | Finding                                                                                                                                                                                                              |
+| ------------------------------------- | -------- | ----- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [PROP-0020](../findings/PROP-0020.md) | minor    | 05    | open   | `.agent-factory/factory/skills/reverse-map/SKILL.md` listed in `impact.boundaries` but does not exist at the reviewed commit. The skill is a new artifact created by this proposal, not an existing file to inspect. |
 
 ### Check Results
 
@@ -427,7 +427,7 @@ All seven findings from the initial review have been verified as resolved:
 2. **Scope boundary sharp?** PASS — In/Deferred partition is clean and mechanically separable.
 3. **Design decomposable?** PASS — All five design sections provide enough specificity for Planning to write INVEST stories without re-deriving the design.
 4. **Impact classification consistent?** PASS — scope, architecture_change, and external_contract_change match the design.
-5. **Boundary references exist?** FAIL — Eight of nine boundaries resolve. `factory/skills/reverse-map/SKILL.md` does not exist at the reviewed commit (PROP-0020). It is a new artifact this proposal creates, fully described in the Design section.
+5. **Boundary references exist?** FAIL — Eight of nine boundaries resolve. `.agent-factory/factory/skills/reverse-map/SKILL.md` does not exist at the reviewed commit (PROP-0020). It is a new artifact this proposal creates, fully described in the Design section.
 6. **Open questions genuine?** PASS — OQ-1 and OQ-2 are genuine with stated trade-offs; OQ-3 is properly resolved and marked.
 7. **Motivation justifies timing?** PASS — Concrete adoption blocker with three specific UX violations.
 8. **Estimate plausible?** PASS — Arithmetic correct (120,000 = 8,000 x 15; 300,000 = 20,000 x 15); multiplier of 15 is at the low end of the typical 15-25x range but defensible for a process/documentation change; confidence: low and basis: judgment are honest.

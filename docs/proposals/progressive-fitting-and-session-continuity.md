@@ -12,15 +12,15 @@ impact:
   architecture_change: false
   external_contract_change: false
   boundaries:
-    - factory/agents/virgil.md
-    - factory/skills/capture-context/SKILL.md
-    - factory/config/session-menu.md
-    - factory/skills/newcomer-tour/SKILL.md
-    - factory/skills/explain-concept/SKILL.md
-    - factory/skills/guided-tour/SKILL.md
-    - factory/playbooks/poc-spike.md
-    - factory/scripts/init-factory
-    - factory/config/AGENTS.md
+    - .agent-factory/factory/agents/virgil.md
+    - .agent-factory/factory/skills/capture-context/SKILL.md
+    - .agent-factory/factory/config/session-menu.md
+    - .agent-factory/factory/skills/newcomer-tour/SKILL.md
+    - .agent-factory/factory/skills/explain-concept/SKILL.md
+    - .agent-factory/factory/skills/guided-tour/SKILL.md
+    - .agent-factory/factory/playbooks/poc-spike.md
+    - .agent-factory/factory/scripts/init-factory
+    - .agent-factory/factory/config/AGENTS.md
     - config/project-context.json
 
 governance:
@@ -287,7 +287,7 @@ continue. The check reads the fitting keys from `project-context.json`
 > Test regime and hooks remain. Continue the fitting, or skip to the
 > menu?"
 
-This requires a change to the session-start flow in `factory/config/AGENTS.md`
+This requires a change to the session-start flow in `.agent-factory/factory/config/AGENTS.md`
 (the canonical orientation content consumed by all CLIs). Today the
 session-start check handles only `fitting.status == "unfitted"` and offers
 the fitting or the menu. The change: handle `"fitting"` as a third state.
@@ -462,7 +462,7 @@ pass 2) have been verified as resolved in the current text:
   adds /config/model.conf to the target's gitignore block).
 
 - PROP-02 (minor, check 05): init-factory missing from boundaries →
-  resolved. Both factory/scripts/init-factory and factory/config/AGENTS.md
+  resolved. Both factory/scripts/init-factory and .agent-factory/factory/config/AGENTS.md
   appear in impact.boundaries.
 
 - PROP-03 (minor, check 03): no design item for fitting-progress display →

@@ -1,10 +1,10 @@
 # Todos — Factory Flow Control
 
-Deferred decisions and named gaps found while reverse-engineering this specification from `factory/`'s code, per [rules.md § Todos](../../factory/rulebooks/rules.md#todos). None of these block the mechanisms documented in [../~archive/spec/use_cases/](../~archive/spec/use_cases/) — each is a known, intentional gap in the current implementation, not a defect this spec papers over.
+Deferred decisions and named gaps found while reverse-engineering this specification from `factory/`'s code, per [rules.md § Todos](../../.agent-factory/factory/rulebooks/rules.md#todos). None of these block the mechanisms documented in [../~archive/spec/use_cases/](../~archive/spec/use_cases/) — each is a known, intentional gap in the current implementation, not a defect this spec papers over.
 
 ## T-01: No CLI-failure classification in `trigger`
 
-`factory/scripts/trigger` returns the invoked CLI's raw exit code. It does not distinguish an auth failure from a config error from a genuine task failure, the way `orchestrator`'s `CopilotAdapter` does (regex-matched stderr, `orchestrator` ADR-0002). A non-zero exit today means: read the output, do not auto-retry. Named in [`factory/skills/run-step/SKILL.md` § What this deliberately does not do (yet)](../../factory/skills/run-step/SKILL.md#what-this-deliberately-does-not-do-yet). Fold classification in if it turns out to matter in practice — not built ahead of a real case (YAGNI).
+`factory/scripts/trigger` returns the invoked CLI's raw exit code. It does not distinguish an auth failure from a config error from a genuine task failure, the way `orchestrator`'s `CopilotAdapter` does (regex-matched stderr, `orchestrator` ADR-0002). A non-zero exit today means: read the output, do not auto-retry. Named in [`factory/skills/run-step/SKILL.md` § What this deliberately does not do (yet)](../../.agent-factory/factory/skills/run-step/SKILL.md#what-this-does-not-read). Fold classification in if it turns out to matter in practice — not built ahead of a real case (YAGNI).
 
 - [ ] Decide whether `trigger` should classify failures itself, or whether that stays a caller-side concern.
 
@@ -16,7 +16,7 @@ Deferred decisions and named gaps found while reverse-engineering this specifica
 
 ## T-03: `script_exit_zero` condition type ~~is stubbed~~ — partially resolved
 
-`factory/scripts/phase`'s `evaluate_condition` now executes the named script and checks its exit code (lines 259-288). The basic subprocess-run behavior is implemented. However, the `charter:test_command` notation introduced by the test-gate-presence feature (FSM YAML `script: "charter:test_command"` with `charter_file: docs/testing.yaml`) is not yet resolved at runtime — see [RECON-0020](../../docs/findings/RECON-0020.md).
+`.agent-factory/factory/scripts/phase`'s `evaluate_condition` now executes the named script and checks its exit code (lines 259-288). The basic subprocess-run behavior is implemented. However, the `charter:test_command` notation introduced by the test-gate-presence feature (FSM YAML `script: "charter:test_command"` with `charter_file: docs/testing.yaml`) is not yet resolved at runtime — see [RECON-0020](../../docs/findings/RECON-0020.md).
 
 - [x] Implement the real subprocess run + exit-code check.
 - [ ] Implement charter resolution for the `charter:<field>` notation ([RECON-0020](../../docs/findings/RECON-0020.md)).
@@ -37,17 +37,17 @@ Deferred decisions and named gaps found while reverse-engineering this specifica
 
 - status: superseded
 
-Superseded by the Test Gate Presence over Test Execution feature ([proposal](../proposals/test-gate-presence-over-test-execution.md)). Factory no longer detects or constructs test commands; `factory/scripts/run-tests` is deleted. Framework selection is entirely the project's responsibility, declared in `docs/testing.yaml`. Multi-framework orchestration, if needed, is the project's own test entrypoint's concern.
+Superseded by the Test Gate Presence over Test Execution feature ([proposal](../proposals/test-gate-presence-over-test-execution.md)). Factory no longer detects or constructs test commands; `.agent-factory/factory/scripts/run-tests` is deleted. Framework selection is entirely the project's responsibility, declared in `docs/testing.yaml`. Multi-framework orchestration, if needed, is the project's own test entrypoint's concern.
 
 ## T-07: `verify-base` and `premerge-check` were prompt-required, not hook-enforced
 
 - status: resolved
 
-`factory/scripts/verify-base` and `factory/scripts/premerge-check` now write a marker file on success; `block-dangerous-git.sh` denies `git commit` in a marker-less worktree and `git merge <branch>` without a matching `premerge-check-ok` marker. Mechanical enforcement, not a prompt instruction. Still open: `Edit`/`Write` inside a marker-less worktree aren't gated, only `git commit` — a subagent can still read/edit before verifying, just can't persist a commit.
+`.agent-factory/factory/scripts/verify-base` and `.agent-factory/factory/scripts/premerge-check` now write a marker file on success; `block-dangerous-git.sh` denies `git commit` in a marker-less worktree and `git merge <branch>` without a matching `premerge-check-ok` marker. Mechanical enforcement, not a prompt instruction. Still open: `Edit`/`Write` inside a marker-less worktree aren't gated, only `git commit` — a subagent can still read/edit before verifying, just can't persist a commit.
 
 ## T-08: Pi guardrail is an extension, weaker than the native hook path
 
-Under Pi the git-safety guardrail is a project-local extension loaded only after project trust resolves, not a native `PreToolUse` hook. A non-interactive run that has not saved trust (or is not launched with `-a`) can skip it. `run_agent` passes `-a` on every spawn so its children load the guardrail, but the parent Pi session's own guardrail still depends on trust. Documented in [factory/docs/factory-guide.md § CLI safety guardrails](../../factory/docs/factory-guide.md#cli-safety-guardrails).
+Under Pi the git-safety guardrail is a project-local extension loaded only after project trust resolves, not a native `PreToolUse` hook. A non-interactive run that has not saved trust (or is not launched with `-a`) can skip it. `run_agent` passes `-a` on every spawn so its children load the guardrail, but the parent Pi session's own guardrail still depends on trust. Documented in [factory/docs/factory-guide.md § CLI safety guardrails](../../.agent-factory/factory/docs/factory-guide.md#cli-safety-guardrails).
 
 - [ ] Decide whether to recommend the global `~/.pi/agent/extensions/` install or a container as the stronger default for Pi.
 

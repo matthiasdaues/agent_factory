@@ -52,7 +52,7 @@ Open items: [SPEC-0021](../findings/SPEC-0021.md) and [SPEC-0022](../findings/SP
 
 ## Gate and verification evidence
 
-Gates: `factory/scripts/handoff-lint docs/handoffs/handoff-local-usage-processing-and-analysis-requirements-remediation-repeat.md --repo-root .` passes. `factory/scripts/spec-lint --spec-dir docs/spec` passes with 0 errors, 0 warnings, and 27 pre-existing informational notices across 18 files. `factory/scripts/statemachine-lint docs/spec/supplementary_specs/state-machines.md` passes with 0 errors, 0 warnings, and 0 information findings. Changed-artifact `factory/scripts/link-check` passes. `git diff --check` passes. Commit hooks repeated mdformat, link-check, spec-lint, Mermaid lint, and statemachine-lint successfully.
+Gates: `.agent-factory/factory/scripts/handoff-lint docs/handoffs/handoff-local-usage-processing-and-analysis-requirements-remediation-repeat.md --repo-root .` passes. `.agent-factory/factory/scripts/spec-lint --spec-dir docs/spec` passes with 0 errors, 0 warnings, and 27 pre-existing informational notices across 18 files. `.agent-factory/factory/scripts/statemachine-lint docs/spec/supplementary_specs/state-machines.md` passes with 0 errors, 0 warnings, and 0 information findings. Changed-artifact `.agent-factory/factory/scripts/link-check` passes. `git diff --check` passes. Commit hooks repeated mdformat, link-check, spec-lint, Mermaid lint, and statemachine-lint successfully.
 Verification: the proposal's operational-preflight proof and completion criterion require all six ancestry codes, including `USAGE_ANCESTRY_PARENT_CONFLICT`. The entity diagram and prose both require exactly one latest snapshot per logical run. Requirements changed no finding status.
 
 ## Next action

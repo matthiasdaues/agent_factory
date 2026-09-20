@@ -4,15 +4,15 @@ status: accepted
 evaluation: none
 ---
 
-# Refresh an installed factory/ by remove-and-reinstall
+# Refresh an installed .agent-factory/factory/ by remove-and-reinstall
 
 ## Context
 
-`init-factory` copies the toolset's `factory/` into a target project exactly
+`init-factory` copies the toolset's `.agent-factory/factory/` into a target project exactly
 once, on install. The install is deliberately idempotent and tracelessly
-removable, but had no way to move an *existing* `factory/` forward when the
+removable, but had no way to move an *existing* `.agent-factory/factory/` forward when the
 agent_factory checkout the project was installed from gets newer. The
-workaround was manual: delete the project's `factory/` and re-run
+workaround was manual: delete the project's `.agent-factory/factory/` and re-run
 `init-factory`. The install manifest recorded what init added for `remove- factory` but not *where the checkout it came from* was, so an update script
 had no reliable way to know which repo to pull from.
 
@@ -23,14 +23,14 @@ an installed project up to date with a factory checkout.
 
 - **Remove-and-reinstall, not diff-and-merge.** `update-factory` replaces
   `target/factory/` with a byte-exact copy of the current checkout, then
-  re-runs the *sourced* `init-factory` so every derived step outside `factory/`
+  re-runs the *sourced* `init-factory` so every derived step outside `.agent-factory/factory/`
   is brought up to date too: regenerated Codex adapters, re-verified runtime
   symlinks, re-merged guardrail/usage hook wiring, and a re-run pre-commit
-  install. A recency merge (make `factory/` match the source "per element based
+  install. A recency merge (make `.agent-factory/factory/` match the source "per element based
   on the file's timestamp") is rejected: the contract is fully determined by
   (target, source), so the merge can only add nondeterministic divergence, and
   git stamps every file with its checkout time rather than its last edit time,
-  making mtime an unreliable oracle. `factory/` holds no project-owned state —
+  making mtime an unreliable oracle. `.agent-factory/factory/` holds no project-owned state —
   it is git-ignored, manifest-whitelisted for removal, and meant to be an exact
   mirror of the checkout — so a wholesale replacement can never lose work.
 - **Record the source at install time.** `init-factory` now writes the resolved
@@ -44,10 +44,10 @@ an installed project up to date with a factory checkout.
   permissions, never deletes usage data. The manifest
   `.agent-factory/factory-install.json` is rewritten by the re-run — expected,
   it is the removal manifest — but usage data survives.
-- **The refresh is rollback-safe.** The old `factory/` is moved aside (not
+- **The refresh is rollback-safe.** The old `.agent-factory/factory/` is moved aside (not
   deleted) before the reinstall and restored in place if the sourced
   `init-factory` returns non-zero, so a collision never leaves the project
-  without a `factory/` and dangling runtime symlinks.
+  without a `.agent-factory/factory/` and dangling runtime symlinks.
 
 `evaluation: none` because remove-and-reinstall is the obvious path (it is the
 shape the existing design already carved out for "the update script's job"),
@@ -57,7 +57,7 @@ than a genuine tie.
 ## Consequences
 
 **Easier**: a one-command, deterministic upgrade path that keeps an install
-current and re-derives everything that depends on `factory/` content; the
+current and re-derives everything that depends on `.agent-factory/factory/` content; the
 recorded `factory_source` makes most updates flag-free; usage-tracking
 continuity is guaranteed across updates.
 

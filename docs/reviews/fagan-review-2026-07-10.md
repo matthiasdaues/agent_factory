@@ -11,7 +11,7 @@
     `_run_menu_mode()`'s inline fallback, `_handle_init()`'s `_COPY_DIRS` resolution,
     the two leftover "Agent HQ" string replacements (`ST-0065` commit `ce71932`,
     `RECON-0004` commit `cf9fd70`).
-  - `factory/scripts/merge-precommit-config` — `extract_marker_id()`,
+  - `.agent-factory/factory/scripts/merge-precommit-config` — `extract_marker_id()`,
     `MARKER_HOOK_ID` removal, `HOOK_ID_LINE` regex (`RECON-0001` commit `6378652`).
   - `orchestrator/tests/test_merge_precommit_config.py` (new, same commit).
   - `.pre-commit-config.yaml` (root, de-symlinked and merged, `ST-0067`),
@@ -29,16 +29,16 @@
 
 ## Finding table
 
-| Finding                                                                                                                                                                                                                                                                                                            | Artifact                                                   | Category | Severity |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- | -------- | -------- |
-| `extract_marker_id()` can silently pick up a hook id from a later, non-`repo: local` block if the local block itself has no `- id:` line before the next top-level `repo:` entry — a real latent bug in newly-introduced code, uncovered by the new test suite (which only exercises the single-block happy path). | `factory/scripts/merge-precommit-config#extract_marker_id` | Defect   | Minor    |
+| Finding                                                                                                                                                                                                                                                                                                            | Artifact                                                                  | Category | Severity |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- | -------- | -------- |
+| `extract_marker_id()` can silently pick up a hook id from a later, non-`repo: local` block if the local block itself has no `- id:` line before the next top-level `repo:` entry — a real latent bug in newly-introduced code, uncovered by the new test suite (which only exercises the single-block happy path). | `.agent-factory/factory/scripts/merge-precommit-config#extract_marker_id` | Defect   | Minor    |
 
 Filed as `docs/findings/FAGAN-0001.md`.
 
 ## Five focus areas
 
-**1. Correctness.** The `cli.py` path fixes (`factory/agents`, `factory/skills`,
-`factory/scripts`) are simple, mechanical, and verified by `orchestrator/tests/test_init.py`
+**1. Correctness.** The `cli.py` path fixes (`.agent-factory/factory/agents`, `.agent-factory/factory/skills`,
+`.agent-factory/factory/scripts`) are simple, mechanical, and verified by `orchestrator/tests/test_init.py`
 (asserts `(root / "factory" / "agents").is_dir()` etc.) and the commit's own claimed
 `33 failed → 0 failed` full-suite result. The `merge-precommit-config` fix correctly
 solves the regression it targets (both directions are now covered by
@@ -59,7 +59,7 @@ constant, not an over-abstraction.
 splice directions) is clear and well-named, but has a coverage gap on
 `extract_marker_id()`'s own boundary condition — see `FAGAN-0001`'s fix recommendation
 for the missing test case. `_resolve_agents_dir()`'s docstring ("package-relative first,
-then symlink in cwd") is stale against the now-real (non-symlinked) `factory/agents`
+then symlink in cwd") is stale against the now-real (non-symlinked) `.agent-factory/factory/agents`
 directory this fix resolves to — but this drift is part of the already-tracked
 `ADR-0010`/`T-41` distribution-model cleanup, not newly introduced by this range's
 edit (the docstring itself wasn't touched), so it is not re-flagged as a new finding.
@@ -67,7 +67,7 @@ edit (the docstring itself wasn't touched), so it is not re-flagged as a new fin
 **5. Consistency.** The `cli.py` fixes follow the existing codebase's established
 pattern of degrade-not-crash path resolution (`try`/`except RuntimeError` around
 `_tooling_root()`, `ValueError` on total failure) — consistent with the rest of the
-file. `_resolve_agents_dir()`'s cwd-fallback branch now resolving `factory/agents`
+file. `_resolve_agents_dir()`'s cwd-fallback branch now resolving `.agent-factory/factory/agents`
 even though `ADR-0010` describes that branch as a downstream project's own bare
 `agents/` dir is a deliberate, already-documented judgment call (recorded in
 `ST-0065`'s own Analysis section, with the regression-risk assessment "no existing

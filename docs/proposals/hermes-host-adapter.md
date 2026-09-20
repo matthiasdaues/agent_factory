@@ -13,8 +13,8 @@ impact:
   external_contract_change: false
   boundaries:
     - packages/factory/scripts/init_factory.py
-    - factory/rulebooks/rules.md
-    - factory/rulebooks/conventions/dispatch-contract.md
+    - .agent-factory/factory/rulebooks/rules.md
+    - .agent-factory/factory/rulebooks/conventions/dispatch-contract.md
     - .claude/INDEX.yaml
 
 governance:
@@ -118,7 +118,7 @@ profile with its own SOUL.md, model config, and memory space.
 ```
 ~/.hermes/profiles/
   factory-requirements-agent/
-    SOUL.md          # generated from factory/agents/requirements-agent.md
+    SOUL.md          # generated from .agent-factory/factory/agents/requirements-agent.md
     config.yaml      # model: <tier-mapped model>
   factory-architecture-agent/
     SOUL.md
@@ -185,14 +185,14 @@ command-approval configuration format — the adapter writes rules during
 
 ### Dispatch contract mechanism row
 
-| Logical operation    | Hermes mechanism                                                   |
-| -------------------- | ------------------------------------------------------------------ |
-| Spawn typed subagent | `hermes -p factory-<agent>` via delegate tool                      |
-| Independent session  | Profile isolation: separate HERMES_HOME, memory, conversations     |
-| Model tier           | Per-profile `config.yaml` with model mapped from Factory matrix    |
-| Worktree isolation   | `git worktree add -b` via terminal (same as Claude Code)           |
-| Gate execution       | Shell: `factory/scripts/premerge-check`, `verify-base`, `validate` |
-| Guardrail hooks      | Hermes command-approval rules                                      |
+| Logical operation    | Hermes mechanism                                                                  |
+| -------------------- | --------------------------------------------------------------------------------- |
+| Spawn typed subagent | `hermes -p factory-<agent>` via delegate tool                                     |
+| Independent session  | Profile isolation: separate HERMES_HOME, memory, conversations                    |
+| Model tier           | Per-profile `config.yaml` with model mapped from Factory matrix                   |
+| Worktree isolation   | `git worktree add -b` via terminal (same as Claude Code)                          |
+| Gate execution       | Shell: `.agent-factory/factory/scripts/premerge-check`, `verify-base`, `validate` |
+| Guardrail hooks      | Hermes command-approval rules                                                     |
 
 ## Scope
 

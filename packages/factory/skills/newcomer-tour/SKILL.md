@@ -76,4 +76,4 @@ Orient newcomers warmly and briefly.
 ## References
 
 - [Factory Guide — Getting Started section](../../docs/factory-guide.md)
-- [Newcomer Tour Proposal](../../../docs/proposals/newcomer-tour-as-portable-skill.md)
+- [Newcomer Tour Proposal](../../../../docs/proposals/newcomer-tour-as-portable-skill.md)

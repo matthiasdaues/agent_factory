@@ -21,7 +21,7 @@ From `git log feature/mechanize-dispatch --oneline`:
 
 ## Specification Alignment
 
-The commit convention is documented in `factory/rulebooks/conventions/commit-conventions.md` but not enforced by the CI/CD pipeline.
+The commit convention is documented in `.agent-factory/factory/rulebooks/conventions/commit-conventions.md` but not enforced by the CI/CD pipeline.
 
 ## Improvement Opportunity
 

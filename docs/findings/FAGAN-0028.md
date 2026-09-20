@@ -14,7 +14,7 @@ ______________________________________________________________________
 ## Evidence
 
 ```python
-# factory/scripts/dispatch_lib.py:1137
+# .agent-factory/factory/scripts/dispatch_lib.py:1137
 def suggest_tier(
     story_frontmatter: dict[str, Any], project_config: dict[str, Any]
 ) -> str:

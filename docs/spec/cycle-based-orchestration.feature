@@ -91,7 +91,7 @@ Scenario: Valid delivery model loads from tracked source
   And no route has a direction or classification field
 
 Scenario: Installed model matches tracked source
-  Given factory/engine/models/delivery.yaml is the installed copy
+  Given .agent-factory/factory/engine/models/delivery.yaml is the installed copy
   When the installed-shape test runs
   Then the installed model is schema-valid
   And the installed model is identical to the tracked source under packages/factory/engine/models/
@@ -522,13 +522,13 @@ Scenario: phase advance exits 2 and names the replacement
   Given the phase command is invoked with subcommand advance
   When the command runs
   Then it exits with code 2
-  And it prints a message naming factory/scripts/cycle select as the replacement
+  And it prints a message naming .agent-factory/factory/scripts/cycle select as the replacement
 
 Scenario: phase retry exits 2 and names the replacement
   Given the phase command is invoked with subcommand retry
   When the command runs
   Then it exits with code 2
-  And it prints a message naming factory/scripts/cycle retry as the replacement
+  And it prints a message naming .agent-factory/factory/scripts/cycle retry as the replacement
 ```
 
 Rule: transition-lint validates cycle models and state files

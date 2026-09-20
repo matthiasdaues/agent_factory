@@ -15,7 +15,7 @@ implementation stories are the dispatch units.
 
 This is Phase 7 of the
 [create-backlog sequence](../create-backlog/SKILL.md#operational-sequence),
-after [`make-concrete`](../make-concrete/SKILL.md) (Phase 6). Story format,
+after [`make-concrete`](../create-backlog-make-concrete/SKILL.md) (Phase 6). Story format,
 composition rules, and quality gates live in the
 [parent skill](../create-backlog/SKILL.md).
 

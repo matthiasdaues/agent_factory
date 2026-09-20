@@ -3,7 +3,7 @@ id: FAGAN-0007
 source: fagan-review
 severity: major
 category: defect
-artifact: factory/scripts/pi-capture-bootstrap.mjs:185
+artifact: .agent-factory/factory/scripts/pi-capture-bootstrap.mjs:185
 status: resolved
 traces: [ST-0044, ADR-0007, FAGAN-0006]
 ---

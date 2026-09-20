@@ -47,7 +47,7 @@
 
 | #   | Action                                                                                         | Category                   | Tracked in           |
 | --- | ---------------------------------------------------------------------------------------------- | -------------------------- | -------------------- |
-| 1   | Add `factory/` symlink creation to dispatch script worktree setup                              | Start                      | pending confirmation |
+| 1   | Add `.agent-factory/factory/` symlink creation to dispatch script worktree setup               | Start                      | pending confirmation |
 | 2   | Add scope-check to implementation agent: diff committed files against `touches` post-commit    | Start                      | pending confirmation |
 | 3   | Reconciliation agent: diff against merge-base not commit history                               | Start                      | pending confirmation |
 | 4   | Stories that add lint validation paths must include test cases in acceptance criteria          | Start                      | pending confirmation |

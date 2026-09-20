@@ -12,9 +12,9 @@ impact:
   architecture_change: false
   external_contract_change: true
   boundaries:
-    - factory/playbooks/research-survey.md
-    - factory/rulebooks/schemas/research-survey-plan.schema.json
-    - factory/rulebooks/schemas/research-survey-report.schema.json
+    - .agent-factory/factory/playbooks/research-survey.md
+    - .agent-factory/factory/rulebooks/schemas/research-survey-plan.schema.json
+    - .agent-factory/factory/rulebooks/schemas/research-survey-report.schema.json
 
 governance:
   assurance: high
@@ -88,7 +88,7 @@ Five steps, no conjectures/tests/reviews/votes/register:
 5. **Validate the report** — orchestrator checks every finding cites at least
    one recorded source and that no finding overstates its support.
 
-Dispatch follows the [dispatch-contract](../../../factory/rulebooks/conventions/dispatch-contract.md):
+Dispatch follows the [dispatch-contract](../../../.agent-factory/factory/rulebooks/conventions/dispatch-contract.md):
 economy tier by default, waves of at most six, and a pre-flight estimate.
 Every assignment declares a unique output path before dispatch.
 

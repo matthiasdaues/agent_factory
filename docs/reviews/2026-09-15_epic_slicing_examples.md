@@ -113,7 +113,7 @@ Step 1 — EPIC slicing approach
 ├─────┼──────────────────────────────┼────────────────────────────────────────┼─────────────────────────────────────────────────────────────┤
 │ │ Navigate cycles through │ Cycle Engine (delegation, decisions), │ Run cycle select to advance to REALIZE; create a delegation │
 │ 4 │ human selection, delegation │ State Adapter, CLI │ grant through REALIZE, see automatic continuation while │
-│ │ grants, and retry limits │ (factory/scripts/cycle) │ evidence passes; hit the delegated retry limit and see the │
+│ │ grants, and retry limits │ (.agent-factory/factory/scripts/cycle) │ evidence passes; hit the delegated retry limit and see the │
 │ │ │ │ engine pause for human direction. │
 ├─────┼──────────────────────────────┼────────────────────────────────────────┼─────────────────────────────────────────────────────────────┤
 │ │ │ Scripts (phase stub, cycle, │ Run phase advance and see exit 2 naming cycle select; run │
@@ -430,16 +430,16 @@ Gate results:
 
 Vertical slice check:
 
-| EPIC | Entry point                             | Decision logic                                  | Result lands                         | Vertical?                        |
-| ---- | --------------------------------------- | ----------------------------------------------- | ------------------------------------ | -------------------------------- |
-| 1    | none                                    | Engine + Model + Schemas + Validator            | delivery.yaml (read only)            | no — engine-only horizontal      |
-| 2    | Session Menu                            | State Adapter                                   | Cycle State Files + Session Bindings | yes                              |
-| 3    | none                                    | Engine (readiness, recommendations) + Validator | none (read only)                     | no — engine-only horizontal      |
-| 4    | CLI (factory/scripts/cycle)             | Cycle Engine + State Adapter                    | Cycle State Files                    | yes — but bundles four use cases |
-| 5    | Scripts (phase, cycle, transition-lint) | Catalog + Agent Definitions                     | INDEX.yaml                           | yes                              |
-| 6    | Session binding                         | Usage Capture + Usage Record Contract           | Usage Analysis Runtime               | yes                              |
-| 7    | Entity Model authoring                  | Pydantic generation + Validator                 | Persistence integration              | yes                              |
-| 8    | Research Brief + Brownfield Playbook    | Cycle Engine (assessment)                       | Entity Model + architecture.dsl      | forced — two verticals in one    |
+| EPIC | Entry point                                | Decision logic                                  | Result lands                         | Vertical?                        |
+| ---- | ------------------------------------------ | ----------------------------------------------- | ------------------------------------ | -------------------------------- |
+| 1    | none                                       | Engine + Model + Schemas + Validator            | delivery.yaml (read only)            | no — engine-only horizontal      |
+| 2    | Session Menu                               | State Adapter                                   | Cycle State Files + Session Bindings | yes                              |
+| 3    | none                                       | Engine (readiness, recommendations) + Validator | none (read only)                     | no — engine-only horizontal      |
+| 4    | CLI (.agent-factory/factory/scripts/cycle) | Cycle Engine + State Adapter                    | Cycle State Files                    | yes — but bundles four use cases |
+| 5    | Scripts (phase, cycle, transition-lint)    | Catalog + Agent Definitions                     | INDEX.yaml                           | yes                              |
+| 6    | Session binding                            | Usage Capture + Usage Record Contract           | Usage Analysis Runtime               | yes                              |
+| 7    | Entity Model authoring                     | Pydantic generation + Validator                 | Persistence integration              | yes                              |
+| 8    | Research Brief + Brownfield Playbook       | Cycle Engine (assessment)                       | Entity Model + architecture.dsl      | forced — two verticals in one    |
 
 Spec coverage: Rules 13 (reconciliation) and 18 (agent cycle eligibility) have no explicit home.
 

@@ -12,9 +12,9 @@ impact:
   architecture_change: false
   external_contract_change: false
   boundaries:
-    - factory/scripts/model-discover
-    - factory/scripts/openrouter-discover
-    - factory/agents/virgil.md
+    - .agent-factory/factory/scripts/model-discover
+    - .agent-factory/factory/scripts/openrouter-discover
+    - .agent-factory/factory/agents/virgil.md
     - config/model.conf
 
 governance:
@@ -201,12 +201,12 @@ VIRGIL's step 0 self-driving.
 
 ## What exists today
 
-- `factory/scripts/openrouter-discover` — OpenRouter-only, Pi-only.
+- `.agent-factory/factory/scripts/openrouter-discover` — OpenRouter-only, Pi-only.
   `--list`, `--suggest`, `--check`. Public catalog endpoint, no auth
   required. 270 lines, stdlib only.
-- `factory/scripts/resolve-model` — offline tier-to-model resolution
+- `.agent-factory/factory/scripts/resolve-model` — offline tier-to-model resolution
   from `model.conf`. Consumed by `trigger` and Pi's `run_agent` tool.
-- `factory/scripts/matrix-lint` — validates `model.conf` syntax. Its
+- `.agent-factory/factory/scripts/matrix-lint` — validates `model.conf` syntax. Its
   `parse_matrix()` is reused by `resolve-model` and
   `openrouter-discover`.
 - `config/model.conf` — the file this proposal helps populate. Now

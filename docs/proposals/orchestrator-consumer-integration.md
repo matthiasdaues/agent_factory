@@ -12,8 +12,8 @@ impact:
   architecture_change: false
   external_contract_change: true
   boundaries:
-    - factory/scripts/init-factory
-    - factory/scripts/run-playbook
+    - .agent-factory/factory/scripts/init-factory
+    - .agent-factory/factory/scripts/run-playbook
     - orchestrator/pyproject.toml
     - orchestrator/src/agent_factory_orchestrator/cli.py
 
@@ -48,10 +48,10 @@ separate capability gap.
 
 ## Motivation
 
-The accepted `run-playbook` design names `factory/scripts/run-playbook` as the
+The accepted `run-playbook` design names `.agent-factory/factory/scripts/run-playbook` as the
 delivery boundary, but the implementation currently exists only at
 `orchestrator/src/run_playbook.py`. `init-factory` deliberately copies
-`factory/` and not the authoring repository's nested `orchestrator/` project.
+`.agent-factory/factory/` and not the authoring repository's nested `orchestrator/` project.
 Consequently, consumer projects receive the FSM, gates, and trigger but not the
 executable that connects them.
 
@@ -69,7 +69,7 @@ Package the canonical implementation as `agent-factory-orchestrator`, exposing
 the `agent-factory-orchestrate` console entry point. Invoke it through `uvx`,
 which creates an isolated, cached tool environment.
 
-Ship `factory/scripts/run-playbook` only as a small launcher. It resolves an
+Ship `.agent-factory/factory/scripts/run-playbook` only as a small launcher. It resolves an
 exact package source from `AF_ORCHESTRATOR_SOURCE`, defaulting to the
 `orchestrator-v0.1.0` tag and `orchestrator/` subdirectory in the Agent Factory
 GitHub repository, then delegates to:
@@ -80,12 +80,12 @@ uvx --from "$AF_ORCHESTRATOR_SOURCE" agent-factory-orchestrate
 
 The environment override permits development checkouts and pinned Git sources
 without changing the consumer repository. `init-factory` copies the launcher
-as part of `factory/` but neither installs nor uninstalls a global tool.
+as part of `.agent-factory/factory/` but neither installs nor uninstalls a global tool.
 
 Document the consumer command:
 
 ```bash
-factory/scripts/run-playbook \
+.agent-factory/factory/scripts/run-playbook \
   --playbook greenfield-development \
   --from-state PHASE_2_ARCHITECTURE \
   --cli claude
@@ -96,7 +96,7 @@ factory/scripts/run-playbook \
 **In the first release:**
 
 - Package the canonical orchestrator and expose a console entry point.
-- Ship a thin, version-pinned `uvx` launcher inside `factory/scripts/`.
+- Ship a thin, version-pinned `uvx` launcher inside `.agent-factory/factory/scripts/`.
 - Preserve the existing `orchestrator/src/run_playbook.py` command path.
 - Test that a fresh `init-factory` target can invoke the local package through
   the installed launcher.
@@ -134,7 +134,7 @@ None.
 - `uv build orchestrator` produces a valid wheel and source distribution.
 - The package exposes `agent-factory-orchestrate`.
 - A fresh `init-factory` target contains executable
-  `factory/scripts/run-playbook`, whose default source pins an exact Git tag.
+  `.agent-factory/factory/scripts/run-playbook`, whose default source pins an exact Git tag.
 - With `AF_ORCHESTRATOR_SOURCE` set to the local package, running the installed
   launcher's `--help` exits zero and advertises Claude and Copilot.
 - The existing orchestrator unit tests exercise the packaged implementation.

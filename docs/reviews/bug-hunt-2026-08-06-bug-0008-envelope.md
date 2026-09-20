@@ -21,7 +21,7 @@ regressions from pre-existing/environmental failures.
 ## Cycle
 
 1. **Hunt.** Ran the envelope suite (13 passed) and a 16-case parser probe
-   (`factory/config/extensions/__tests__/__qa_probe.mjs`) covering unbalanced
+   (`.agent-factory/factory/config/extensions/__tests__/__qa_probe.mjs`) covering unbalanced
    braces, multiple valid objects, braces/escapes inside strings, UTF-8/emoji,
    CRLF, unclosed fences, and every field-validation branch. Ran the full
    orchestrator suite (excluding two Python 3.11-only modules that cannot
@@ -57,7 +57,7 @@ Python 3.11+; the local venv is 3.10. Not branch defects.
   0.84.0 exposes it; ADR-0004 pins 0.80.8. Recommend the CI/verified
   environment run the suite under the pinned pi 0.80.8 to confirm #4–#7 are
   green there and to harden the new pi-e2e tests against the installed version.
-- The probe artifact `factory/config/extensions/__tests__/__qa_probe.mjs` is a
+- The probe artifact `.agent-factory/factory/config/extensions/__tests__/__qa_probe.mjs` is a
   throwaway QA instrument; remove it or fold its cases into `envelope.test.ts`
   (see FAGAN-0018).
 - FAGAN-0016 (the BUG-0008 disclosure not extending to non-zero/no-message/cancel

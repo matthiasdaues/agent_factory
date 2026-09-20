@@ -264,7 +264,7 @@ The cycle-native engine retains these constraints from the superseded proposal:
   to the engine.
 
 The tracked engine source lives under `packages/factory/engine/`. Installation
-copies the same relative tree to `factory/engine/`. The engine contains every
+copies the same relative tree to `.agent-factory/factory/engine/`. The engine contains every
 component that evaluates, recommends, selects, resumes, retries, delegates, or
 dispatches work:
 
@@ -340,21 +340,21 @@ The cycle migration keeps these observable contracts:
 
 The cycle migration intentionally replaces these contracts:
 
-| Current contract                        | Replacement                                                                     |
-| --------------------------------------- | ------------------------------------------------------------------------------- |
-| Playbook `.fsm.yml` routing authority   | `factory/engine/models/delivery.yaml` recommendation model                      |
-| `.current-work/playbook-state.yml`      | One `.current-work/cycles/<workstream-id>.yaml` file per workstream             |
-| Agent `phase` metadata                  | Cycle eligibility metadata                                                      |
-| `run-step` playbook resolution          | Cycle-state and recommendation-model resolution                                 |
-| `phase advance`                         | `factory/scripts/cycle select --state STATE TARGET [--work REF ...]`            |
-| `phase retry`                           | `factory/scripts/cycle retry --state STATE`                                     |
-| `transition-lint` phase-order rejection | Cycle-model and cycle-state integrity checks; recommendation warnings exit zero |
-| Supplementary entity-model path         | The canonical LinkML entity-model contract defined above                        |
-| Python 3.8+ minimum for phase commands  | Python 3.10+ minimum for all cycle-based orchestration commands                 |
-| `backlog/epics.md`                      | `backlog/epics-<feature-name>.md`                                               |
+| Current contract                        | Replacement                                                                         |
+| --------------------------------------- | ----------------------------------------------------------------------------------- |
+| Playbook `.fsm.yml` routing authority   | `.agent-factory/factory/engine/models/delivery.yaml` recommendation model           |
+| `.current-work/playbook-state.yml`      | One `.current-work/cycles/<workstream-id>.yaml` file per workstream                 |
+| Agent `phase` metadata                  | Cycle eligibility metadata                                                          |
+| `run-step` playbook resolution          | Cycle-state and recommendation-model resolution                                     |
+| `phase advance`                         | `.agent-factory/factory/scripts/cycle select --state STATE TARGET [--work REF ...]` |
+| `phase retry`                           | `.agent-factory/factory/scripts/cycle retry --state STATE`                          |
+| `transition-lint` phase-order rejection | Cycle-model and cycle-state integrity checks; recommendation warnings exit zero     |
+| Supplementary entity-model path         | The canonical LinkML entity-model contract defined above                            |
+| Python 3.8+ minimum for phase commands  | Python 3.10+ minimum for all cycle-based orchestration commands                     |
+| `backlog/epics.md`                      | `backlog/epics-<feature-name>.md`                                                   |
 
 The cutover retires `phase` after all factory consumers use `cycle`.
-`factory/scripts/phase` remains for one release as a diagnostic stub. It exits
+`.agent-factory/factory/scripts/phase` remains for one release as a diagnostic stub. It exits
 2 and names the replacement command. It does not emulate the old
 single-forward-transition behavior. Playbook Finite State Machine files remain
 reference documents and lose runtime authority.
@@ -363,7 +363,7 @@ reference documents and lose runtime authority.
 
 The tracked product source is
 `packages/factory/engine/models/delivery.yaml`. An installed project reads
-`factory/engine/models/delivery.yaml`. The file contains the five delivery
+`.agent-factory/factory/engine/models/delivery.yaml`. The file contains the five delivery
 cycles, the terminal `DONE` node, artifact declarations, and every route that
 the factory can recommend. Its schema and compatibility rules live under
 `packages/factory/engine/schemas/`.
@@ -993,7 +993,7 @@ None.
 - `run-step`, `phase`, and `transition-lint` consume that engine. No delivery
   transition reads a playbook FSM as its authority after cutover.
 - Installed-shape tests find the same engine tree and model under
-  `factory/engine/`. Dependency-boundary tests reject engine imports from
+  `.agent-factory/factory/engine/`. Dependency-boundary tests reject engine imports from
   scripts, configuration, agent definitions, skills, or orchestrator code.
 - Two workstream state files can hold different cycles and work references in
   one repository. Selecting either file does not modify the other.
@@ -1016,8 +1016,8 @@ None.
   boundary measurement exists.
 - Usage analysis groups records by workstream, cycle, and both dimensions
   without reading `.current-work`.
-- `factory/scripts/cycle select` changes the selected workstream's cycle and
-  work references. `factory/scripts/cycle retry` retries that workstream's
+- `.agent-factory/factory/scripts/cycle select` changes the selected workstream's cycle and
+  work references. `.agent-factory/factory/scripts/cycle retry` retries that workstream's
   current cycle.
 - Every cycle declares `delegated_attempt_limit`. Entering another cycle or
   changing selected work resets `attempt` to `1`; other activity does not.
@@ -1028,7 +1028,7 @@ None.
 - A human retry at or above the delegated limit proceeds with a warning and no
   override ceremony. Invalid state does not increment the attempt. Any failure
   after a retry is accepted retains the incremented attempt.
-- `factory/scripts/phase` no longer implements transitions. Its one-release
+- `.agent-factory/factory/scripts/phase` no longer implements transitions. Its one-release
   diagnostic stub exits 2 and names the corresponding `cycle` command.
 - `transition-lint` rejects invalid cycle models and malformed state files.
   Failed recommendation evidence produces warnings and exits zero.
@@ -1054,16 +1054,16 @@ Disposition: findings
 
 ### Findings
 
-| ID      | Severity | Check | Status           | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| ------- | -------- | ----- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PROP-01 | major    | 01    | open (unchanged) | Completion criterion 10 ("Existing agents, skills, and deterministic gates preserve their responsibilities and outputs") is not testable. It is an open-ended backward compatibility guarantee with no enumerable set of behaviors to verify. A planning agent cannot write a story for it because it cannot determine when the story is done.                                                                                                                                           |
-| PROP-02 | major    | 01    | open (unchanged) | Completion criteria 1, 2, and 6 use undefined verification terms. "Machine-readable format" (criterion 1) does not name the format. "Enforced" (criterion 2) does not name the enforcement mechanism. "Runs at every cycle transition" (criterion 6) does not specify how coverage is confirmed.                                                                                                                                                                                         |
-| PROP-03 | major    | 02    | open (unchanged) | "Define per-artifact mechanical readiness criteria" is simultaneously in scope and listed as Open Question 1. A scope item that is also an open question cannot be mechanically decided in or out. Resolve the question or move the item to deferred.                                                                                                                                                                                                                                    |
-| PROP-04 | major    | 02    | open (unchanged) | The deferral of "modifying the deterministic factory engine's flow-control model" conflicts with the in-scope item "Migrate `run-step` from playbook-step execution to cycle-step execution." `run-step` currently depends on `playbook-state.yml`, FSM states, and `factory/scripts/phase` — all engine flow-control artifacts. Migrating `run-step` without modifying the engine's flow-control model is not obviously possible. State which engine artifacts change and which do not. |
-| PROP-05 | minor    | 02    | open (unchanged) | The boundary between the in-scope "delegation-grant interaction model" and the deferred "automated delegation without human presence" is unclear. The in-scope Design section says "the system chains autonomous cycles," which reads as the deferred automation. Clarify where definition ends and automation begins.                                                                                                                                                                   |
-| PROP-06 | major    | 05    | open (unchanged) | Boundary reference `packages/factory/engine/flow_control` does not exist at the reviewed commit. The entire `packages/factory/engine/` directory is absent from the dev tree. The proposal claims to affect something that cannot be inspected. Remove the reference or point to the actual path.                                                                                                                                                                                        |
-| PROP-07 | minor    | 08    | open (unchanged) | Estimate field `basis: analogous` does not match the template schema value `analogous_change`, and no analogous prior change is identified. If no comparable change exists, the basis should be `judgment`, not `analogous`.                                                                                                                                                                                                                                                             |
-| PROP-08 | minor    | 07    | open (unchanged) | The motivation identifies structural limitations but does not state "why now." What has changed that makes this the time to restructure orchestration rather than continue with the working playbook model?                                                                                                                                                                                                                                                                              |
+| ID      | Severity | Check | Status           | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------- | -------- | ----- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-01 | major    | 01    | open (unchanged) | Completion criterion 10 ("Existing agents, skills, and deterministic gates preserve their responsibilities and outputs") is not testable. It is an open-ended backward compatibility guarantee with no enumerable set of behaviors to verify. A planning agent cannot write a story for it because it cannot determine when the story is done.                                                                                                                                                          |
+| PROP-02 | major    | 01    | open (unchanged) | Completion criteria 1, 2, and 6 use undefined verification terms. "Machine-readable format" (criterion 1) does not name the format. "Enforced" (criterion 2) does not name the enforcement mechanism. "Runs at every cycle transition" (criterion 6) does not specify how coverage is confirmed.                                                                                                                                                                                                        |
+| PROP-03 | major    | 02    | open (unchanged) | "Define per-artifact mechanical readiness criteria" is simultaneously in scope and listed as Open Question 1. A scope item that is also an open question cannot be mechanically decided in or out. Resolve the question or move the item to deferred.                                                                                                                                                                                                                                                   |
+| PROP-04 | major    | 02    | open (unchanged) | The deferral of "modifying the deterministic factory engine's flow-control model" conflicts with the in-scope item "Migrate `run-step` from playbook-step execution to cycle-step execution." `run-step` currently depends on `playbook-state.yml`, FSM states, and `.agent-factory/factory/scripts/phase` — all engine flow-control artifacts. Migrating `run-step` without modifying the engine's flow-control model is not obviously possible. State which engine artifacts change and which do not. |
+| PROP-05 | minor    | 02    | open (unchanged) | The boundary between the in-scope "delegation-grant interaction model" and the deferred "automated delegation without human presence" is unclear. The in-scope Design section says "the system chains autonomous cycles," which reads as the deferred automation. Clarify where definition ends and automation begins.                                                                                                                                                                                  |
+| PROP-06 | major    | 05    | open (unchanged) | Boundary reference `packages/factory/engine/flow_control` does not exist at the reviewed commit. The entire `packages/factory/engine/` directory is absent from the dev tree. The proposal claims to affect something that cannot be inspected. Remove the reference or point to the actual path.                                                                                                                                                                                                       |
+| PROP-07 | minor    | 08    | open (unchanged) | Estimate field `basis: analogous` does not match the template schema value `analogous_change`, and no analogous prior change is identified. If no comparable change exists, the basis should be `judgment`, not `analogous`.                                                                                                                                                                                                                                                                            |
+| PROP-08 | minor    | 07    | open (unchanged) | The motivation identifies structural limitations but does not state "why now." What has changed that makes this the time to restructure orchestration rather than continue with the working playbook model?                                                                                                                                                                                                                                                                                             |
 
 ### Summary
 

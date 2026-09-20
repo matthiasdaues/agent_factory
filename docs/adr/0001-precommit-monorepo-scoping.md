@@ -9,7 +9,7 @@ evaluation: none
 ## Context
 
 This repository is a monorepo hosting several independently-tooled
-subprojects under one root: `factory/` (the agent-factory scripts and
+subprojects under one root: `.agent-factory/factory/` (the agent-factory scripts and
 skills), `orchestrator/` (its own Python project with its own dev-tool
 versions), and a future `factory_api/`. Each subproject wants its own
 lint/format/test hooks running at commit time, pinned to its own tool
@@ -22,7 +22,7 @@ additional configs. A per-subproject discovered config (e.g.
 config) therefore cannot coexist: only the root file is ever picked up by
 `pre-commit run`, `pre-commit install`, or the CI invocation, and any
 subproject-local config silently never runs. This has already surfaced
-once — orchestrator's own [ST-0067](../../orchestrator/backlog/ST-0067.md)
+once — orchestrator's own ST-0067 (retired with orchestrator)
 had to fold its dev-scoped hooks into the shared root file for exactly this
 reason.
 
@@ -35,7 +35,7 @@ subproject that joins the monorepo later, hence a root-level ADR sequence
 (`docs/adr/`), separate from `orchestrator/docs/adr/`'s own 0001-0019.
 
 This decision generalizes
-[orchestrator/docs/adr/0003-pre-commit-as-gate-bus.md](../../orchestrator/docs/adr/0003-pre-commit-as-gate-bus.md),
+orchestrator/docs/adr/0003-pre-commit-as-gate-bus.md (retired with orchestrator),
 which decided `pre-commit` as the deterministic gate bus for a single
 project (orchestrator). That decision still holds for *why* pre-commit is
 the gate; this ADR answers the orthogonal, whole-repo question of how
@@ -72,7 +72,7 @@ This is what ST-0067 executes concretely for orchestrator: the root file
 stops being a symlink and becomes a real, merged file carrying both the
 generic factory hooks (excluding `^orchestrator/`) and the seven
 `-orchestrator`-suffixed, `^orchestrator/`-scoped hooks above, invoking
-`factory/scripts/<name>` rather than a bare `scripts/<name>`. The same
+`.agent-factory/factory/scripts/<name>` rather than a bare `scripts/<name>`. The same
 namespacing + scoping shape is what `factory_api/` (or any later
 subproject) is expected to reproduce when it needs its own hooks: pick its
 own suffix (e.g. `-factory-api`), scope with `files: ^factory_api/`, append
@@ -80,7 +80,7 @@ to the same root list.
 
 ### `merge-precommit-config` as the two-way splicing mechanism
 
-`factory/scripts/merge-precommit-config` already exists and is documented
+`.agent-factory/factory/scripts/merge-precommit-config` already exists and is documented
 (README.md) for one direction of this problem: when `init-factory` runs
 against a project that already has a real, non-symlinked
 `.pre-commit-config.yaml`, it hands off to this script to splice Agent

@@ -8,7 +8,7 @@ date: 2026-07-12
 found_by: architecture-review-agent
 resolved_by: architecture-agent
 resolved_at: 2026-07-12T11:21:00Z
-resolution_summary: Added `run-tests --staged` mode for agent iteration. Agents can stage test files and verify before committing. Agent allowlist extended to include `factory/scripts/run-tests --staged` while bare test commands remain blocked. Documented in ADR-0003 Amendment, BR-024, BR-028.
+resolution_summary: Added `run-tests --staged` mode for agent iteration. Agents can stage test files and verify before committing. Agent allowlist extended to include `.agent-factory/factory/scripts/run-tests --staged` while bare test commands remain blocked. Documented in ADR-0003 Amendment, BR-024, BR-028.
 tags: [ATAM, test-hooks, agent-workflow, TDD, resolved]
 ---
 
@@ -77,7 +77,7 @@ But "mitigated by seeing hook output" underestimates the severity. The mitigatio
 
 Allow agents to trigger `run-tests --changed-only` without committing when only test files are modified. Requires:
 
-1. New command: `factory/scripts/run-tests --changed-only --no-commit` (runs tests, doesn't require commit)
+1. New command: `.agent-factory/factory/scripts/run-tests --changed-only --no-commit` (runs tests, doesn't require commit)
 2. Agent allowlist includes this command (but NOT bare `pytest`)
 3. Command only works when `git diff --name-only` shows only `test_*` / `*_test.*` files
 
@@ -101,12 +101,12 @@ Document that agent test development is intentionally commit-bounded. Agents mus
 
 ## Recommended Action
 
-**Option 1** with scoping: `factory/scripts/run-tests --staged` command that runs tests on staged files only, without requiring commit completion. Agents can stage test files and run `run-tests --staged` to verify before committing.
+**Option 1** with scoping: `.agent-factory/factory/scripts/run-tests --staged` command that runs tests on staged files only, without requiring commit completion. Agents can stage test files and run `run-tests --staged` to verify before committing.
 
 **Implementation**:
 
 - Add `--staged` mode to `run-tests` (reads `git diff --staged --name-only`)
-- Agent allowlist includes `factory/scripts/run-tests --staged` (not bare test commands)
+- Agent allowlist includes `.agent-factory/factory/scripts/run-tests --staged` (not bare test commands)
 - Pre-commit hook still runs authoritative `--changed-only` on actual commit
 - Both paths use same `run-tests` script, preserving single implementation
 

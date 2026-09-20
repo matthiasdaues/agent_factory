@@ -10,7 +10,7 @@ Human Operator (or Orchestrator-as-Trigger, acting on its behalf)
 
 - **Human Operator** — wants a crashed session, a closed terminal, or a fresh session to never leave work stranded behind stale state; wants "what's next" answered correctly every time, without trusting a status field that could itself be wrong.
 - **Orchestrator-as-Trigger** — wants the same resume guarantee without maintaining a persisted run-status file of its own.
-- **`factory/scripts/phase`/`trigger`** — want to stay the sole owners of state mutation and dispatch respectively; this use case only reads what they have already written and decides which of them to call next.
+- **`.agent-factory/factory/scripts/phase`/`trigger`** — want to stay the sole owners of state mutation and dispatch respectively; this use case only reads what they have already written and decides which of them to call next.
 
 ## Trigger
 
@@ -24,23 +24,23 @@ The actor invokes the `run-step` skill (or works through its procedure by hand) 
 
 1. Actor invokes `run-step`.
 2. `run-step` reads `.current-work/playbook-state.yml`. A marker exists, naming a playbook and a state.
-3. `run-step` checks whether that playbook has a companion `.fsm.yml` (via `factory/INDEX.yaml`'s `fsm:` field). One exists; `run-step` reads the current state's `agent:` field directly from the FSM — not a position in `INDEX.yaml`'s derived `agents:` list, which carries no state names (BR-017).
+3. `run-step` checks whether that playbook has a companion `.fsm.yml` (via `.agent-factory/factory/INDEX.yaml`'s `fsm:` field). One exists; `run-step` reads the current state's `agent:` field directly from the FSM — not a position in `INDEX.yaml`'s derived `agents:` list, which carries no state names (BR-017).
 4. `run-step` checks the current state's declared `outputs:` glob against what is actually on disk, and runs that phase's own gate.
 5. The outputs do not yet exist.
-6. `run-step` dispatches the resolved agent via `factory/scripts/trigger`, running that state's author workflow from its own Step 1.
+6. `run-step` dispatches the resolved agent via `.agent-factory/factory/scripts/trigger`, running that state's author workflow from its own Step 1.
 
 ## Extensions
 
 - **2a. No marker exists**
   - 2a1. `run-step` asks the actor which playbook to run.
-  - 2a2. `run-step` bootstraps a marker by calling `factory/scripts/phase advance` with no prior marker — see [UC-01 § Main Success Scenario, step 2](UC-01-advance-a-playbook-phase.md#main-success-scenario).
+  - 2a2. `run-step` bootstraps a marker by calling `.agent-factory/factory/scripts/phase advance` with no prior marker — see [UC-01 § Main Success Scenario, step 2](UC-01-advance-a-playbook-phase.md#main-success-scenario).
 - **3a. The playbook has no companion `.fsm.yml`**
   - 3a1. `run-step` uses `INDEX.yaml`'s `agents:` array for that playbook, in order.
   - 3a2. `run-step` asks the actor to confirm which step they are on the first time, since nothing on disk names it.
 - **5a. Outputs exist, the gate passes clean, and no open findings remain for this phase**
-  - 5a1. The step is done. `run-step` calls `factory/scripts/phase advance` (see [UC-01](UC-01-advance-a-playbook-phase.md)), then repeats step 3 for the new state.
+  - 5a1. The step is done. `run-step` calls `.agent-factory/factory/scripts/phase advance` (see [UC-01](UC-01-advance-a-playbook-phase.md)), then repeats step 3 for the new state.
 - **5b. Outputs exist and the gate reports open findings**
-  - 5b1. `run-step` calls `factory/scripts/phase retry` first (see [UC-03](UC-03-retry-a-phase-within-the-iteration-cap.md)).
+  - 5b1. `run-step` calls `.agent-factory/factory/scripts/phase retry` first (see [UC-03](UC-03-retry-a-phase-within-the-iteration-cap.md)).
   - 5b2. The cap is not yet hit — `run-step` re-dispatches the same agent; its own workflow reads the open findings and addresses them.
   - 5b3. The cap is hit — `run-step` stops and escalates to the actor rather than re-dispatching (BR-018).
 - **5c. Outputs exist but the gate errors, rather than reporting findings**
@@ -119,4 +119,4 @@ Feature: Resume an interrupted playbook run
 ## Referenced from
 
 - [actor-goal-list.md](../actor-goal-list.md)
-- [factory/skills/run-step/SKILL.md](../../../factory/skills/run-step/SKILL.md)
+- [factory/skills/run-step/SKILL.md](../../../.agent-factory/factory/skills/run-step/SKILL.md)

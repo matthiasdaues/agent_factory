@@ -12,13 +12,13 @@ impact:
   architecture_change: true
   external_contract_change: true
   boundaries:
-    - factory/scripts/init-factory
-    - factory/scripts/run-playbook
-    - factory/scripts/run-tests
-    - factory/config/pre-commit-config.yaml
-    - factory/config/hooks/block-dangerous-git.sh
-    - factory/scripts/commit-safe
-    - factory/docs/factory-guide.md
+    - .agent-factory/factory/scripts/init-factory
+    - .agent-factory/factory/scripts/run-playbook
+    - .agent-factory/factory/scripts/run-tests
+    - .agent-factory/factory/config/pre-commit-config.yaml
+    - .agent-factory/factory/config/hooks/block-dangerous-git.sh
+    - .agent-factory/factory/scripts/commit-safe
+    - .agent-factory/factory/docs/factory-guide.md
     - docs/arc42/architecture.dsl
 
 governance:
@@ -327,7 +327,7 @@ existing initializer with immutable image content as its source:
 
 Initialization retains the current non-interference, collision, idempotency,
 and reversible-removal contracts of
-[`init-factory`](../../../factory/scripts/init-factory). It does not overwrite
+[`init-factory`](../../../.agent-factory/factory/scripts/init-factory). It does not overwrite
 project-owned configuration or change unrelated modes. Preflight resolves all
 destinations before mutation; a collision stops at the existing documented
 boundary.
@@ -421,8 +421,8 @@ and creates a host-side commit with hooks disabled.
 
 The launcher exposes structured Git operations, not an unrestricted argument
 pass-through. Its image-owned policy replaces the security-relevant behavior
-of `factory/config/hooks/block-dangerous-git.sh` and uses
-`factory/scripts/commit-safe` as the implementation behind the structured
+of `.agent-factory/factory/config/hooks/block-dangerous-git.sh` and uses
+`.agent-factory/factory/scripts/commit-safe` as the implementation behind the structured
 `git commit` operation. Repository-local CLI hooks retain only
 defense-in-depth feedback.
 
@@ -926,7 +926,7 @@ finished.
 
 **BLOCKER B1 — the first release promotes `git push` to a supported command
 and retires an active control without replacing it.** The shipped guardrail
-`factory/config/hooks/block-dangerous-git.sh` (lines 68-76) currently denies
+`.agent-factory/factory/config/hooks/block-dangerous-git.sh` (lines 68-76) currently denies
 agent-issued `git push`, `push --force`, `reset --hard`, `clean -fd`, and
 `branch -D` outright. This proposal lists `agent-factory git push` in the
 launcher synopsis as ordinary usage and declares container Git "the only
@@ -1043,7 +1043,7 @@ the split; only offline gating of foreign project hooks is deferred.
 proposal cites needs one.** The proposal declares `deny` for hooks and
 prepared deterministic gates and `standard` for provider access and `prepare`.
 It assigns no posture to `init`, `update`, or `doctor`. The cited
-[`init-factory`](../../../factory/scripts/init-factory) runs
+[`init-factory`](../../../.agent-factory/factory/scripts/init-factory) runs
 `uvx pre-commit install` (line 1472), which requires network access on a cold
 cache. Under `deny`, initialization of a fresh project fails; under
 `standard`, the first command run against an untrusted project has network
@@ -1238,7 +1238,7 @@ boundary and a wrapper, and this proposal has been careful about it everywhere
 else.
 
 **MINOR A14 — which copy of `commit-safe` runs is ambiguous.** The policy
-section names `factory/scripts/commit-safe` as the implementation behind the
+section names `.agent-factory/factory/scripts/commit-safe` as the implementation behind the
 structured commit operation. Initialization copies Factory content into the
 project, so a writable `/workspace/factory/scripts/commit-safe` also exists and
 the threat model declares it untrusted. *Amendment:* cite the image-owned path
@@ -1252,7 +1252,7 @@ release-1 command that contacts a registry. *Amendment:* declare it with the
 other commands, or fold registry acquisition into an explicit `update` step.
 
 **MINOR A16 — `supersedes` is used for a relationship it does not express.**
-`factory/rulebooks/templates/proposal.md` defines `supersedes` as a single
+`.agent-factory/factory/rulebooks/templates/proposal.md` defines `supersedes` as a single
 proposal path, and states that the superseded proposal takes status
 `superseded`. Here it holds a list whose entry carries a section anchor, and
 the hardening proposal remains `open` and amended rather than replaced. The
@@ -1280,7 +1280,7 @@ you.
 
 **NOTE A19 — the marker migration has no ordering rule.** The proposal states
 that `.current-work/verify-base-ok` and `.current-work/premerge-check-ok`
-"grant no authority," but `factory/config/hooks/block-dangerous-git.sh` still
+"grant no authority," but `.agent-factory/factory/config/hooks/block-dangerous-git.sh` still
 reads them as authorization today. Until the broker ships, both mechanisms
 exist and the weaker one decides. *Amendment:* require that the same release
 which introduces host-owned authorizations removes the marker-reading logic

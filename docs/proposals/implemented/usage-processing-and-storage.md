@@ -473,7 +473,7 @@ keyed by component name) alongside the existing `cli` key.
 Today `--update` does not exist on init-factory; the separate `update-factory`
 script handles Factory-core updates. This proposal adds `--update <component>`
 to init-factory for component-scoped updates. `update-factory` continues to
-own the Factory-core refresh (replacing `factory/`, re-deriving symlinks and
+own the Factory-core refresh (replacing `.agent-factory/factory/`, re-deriving symlinks and
 hooks). The division: `update-factory` updates the Factory install;
 `init-factory --update usage` updates an individual opt-in component. When
 `update-factory` runs, it does not touch installed components; when

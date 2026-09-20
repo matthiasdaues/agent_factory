@@ -179,5 +179,5 @@ See [story-frontmatter-fields.md](../references/story-frontmatter-fields.md) for
 
 ## Referenced from
 
-- [create-backlog § Step 2](../../skills/create-backlog/SKILL.md#step-2--break-epics-into-user-stories)
+- [create-backlog § Operational sequence](../../skills/create-backlog/SKILL.md#operational-sequence)
 - [backlog-lint script](../../scripts/backlog-lint)

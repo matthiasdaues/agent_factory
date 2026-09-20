@@ -95,7 +95,7 @@ References: [validation-rules.md § Cycle model validation rule 08](../spec/supp
 | Field             | Description                                                                                                                        |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | Quality attribute | Compatibility                                                                                                                      |
-| Stimulus          | A user or script invokes `factory/scripts/phase advance` after the cycle-based migration.                                          |
+| Stimulus          | A user or script invokes `.agent-factory/factory/scripts/phase advance` after the cycle-based migration.                           |
 | Environment       | The `phase` diagnostic stub is installed. The cycle-based commands (`cycle select`, `cycle retry`) are available.                  |
 | Response          | The stub exits 2 and prints the name of the replacement command. It does not emulate the old single-forward-transition behavior.   |
 | Response measure  | Exit code 2. Standard error names `cycle select` as the replacement. Characterization tests verify the exit code and message text. |

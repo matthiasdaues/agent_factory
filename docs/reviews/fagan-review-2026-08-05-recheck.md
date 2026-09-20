@@ -24,7 +24,7 @@ files (+143/-8):
   `test_update_preserves_usage_state_through_real_reinstall`,
   `test_corrupt_manifest_fails_with_distinct_message` — four in all).
 - `docs/adr/0010-…md` — new "refresh is rollback-safe" consequence.
-- `factory/docs/factory-guide.md` — rollback note in "Updating it again".
+- `.agent-factory/factory/docs/factory-guide.md` — rollback note in "Updating it again".
 
 Each prior finding (FAGAN-0012 major defect; FAGAN-0013, 0014, 0015 minor
 suggestions) was re-inspected for correctness, Clean Architecture, SOLID,
@@ -71,14 +71,14 @@ guard `backup.is_dir() and not target_factory.exists()`. On success the backup
 is removed. The rollback-safety guarantee is now documented in the script
 docstring, ADR-0010 (new consequence), and the factory-guide "Updating it
 again" section. `test_failed_reinstall_restores_previous_factory` asserts the
-prior `factory/` (with a custom marker) reappears after a failed reinstall and
+prior `.agent-factory/factory/` (with a custom marker) reappears after a failed reinstall and
 that no `factory-backup-*` dir lingers.
 
 The restore guard `not target_factory.exists()` deliberately avoids clobbering
-a `factory/` that the sourced init-factory may have partially created before
-colliding. In that edge case the new (incomplete) `factory/` remains and the
+a `.agent-factory/factory/` that the sourced init-factory may have partially created before
+colliding. In that edge case the new (incomplete) `.agent-factory/factory/` remains and the
 backup lingers under `.agent-factory/` until the user re-runs successfully;
-this is a cosmetic leftover, not the dangling-symlink-without-`factory/` state
+this is a cosmetic leftover, not the dangling-symlink-without-`.agent-factory/factory/` state
 the finding was about, so it does not warrant a new finding.
 
 ### FAGAN-0015 (minor, suggestion) — RESOLVED
@@ -113,12 +113,12 @@ manifest and asserts exit 1 plus "not valid JSON" in stderr.
 
 ## Findings
 
-| Finding                                                                                                            | Artifact                                        | Category   | Severity | Status   |
-| ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- | ---------- | -------- | -------- |
-| [FAGAN-0012](../findings/FAGAN-0012.md) Preservation guarantee asserted by a test that bypasses the real reinstall | `orchestrator/tests/test_update_factory.py:191` | Defect     | Major    | resolved |
-| [FAGAN-0013](../findings/FAGAN-0013.md) Real `_run_init` subprocess delegation seam is never exercised             | `orchestrator/tests/test_update_factory.py:46`  | Suggestion | Minor    | resolved |
-| [FAGAN-0014](../findings/FAGAN-0014.md) Failure path leaves the project without a factory/ and no recovery note    | `factory/scripts/update-factory:140`            | Suggestion | Minor    | resolved |
-| [FAGAN-0015](../findings/FAGAN-0015.md) Corrupt manifest reported as "no manifest found"                           | `factory/scripts/update-factory:53`             | Suggestion | Minor    | resolved |
+| Finding                                                                                                                        | Artifact                                        | Category   | Severity | Status   |
+| ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- | ---------- | -------- | -------- |
+| [FAGAN-0012](../findings/FAGAN-0012.md) Preservation guarantee asserted by a test that bypasses the real reinstall             | `orchestrator/tests/test_update_factory.py:191` | Defect     | Major    | resolved |
+| [FAGAN-0013](../findings/FAGAN-0013.md) Real `_run_init` subprocess delegation seam is never exercised                         | `orchestrator/tests/test_update_factory.py:46`  | Suggestion | Minor    | resolved |
+| [FAGAN-0014](../findings/FAGAN-0014.md) Failure path leaves the project without a .agent-factory/factory/ and no recovery note | `factory/scripts/update-factory:140`            | Suggestion | Minor    | resolved |
+| [FAGAN-0015](../findings/FAGAN-0015.md) Corrupt manifest reported as "no manifest found"                                       | `factory/scripts/update-factory:53`             | Suggestion | Minor    | resolved |
 
 No new findings.
 
