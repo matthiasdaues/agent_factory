@@ -481,7 +481,7 @@ The command accepts `--dimensions <name>[,<name>...]` and `--time-granularity no
 
 #### Logical-run and source-position contract
 
-The registry keys are exactly the producer values `claude-code`, `pi`, `codex`, and `copilot`. Logical-run identity is `(cli, session_id, run_id)`. Claude Code and Pi descendants contribute once per distinct key. Codex and Copilot descendants remain attribution-only. `parent_run_id` defines ancestry and is not an identity field. Evidence source, capture sequence, and record content are excluded after reduction.
+The registry keys are exactly the producer values `claude-code`, `pi`, `codex`, `copilot`, and `opencode`. Logical-run identity is `(cli, session_id, run_id)`. Claude Code, Pi, and OpenCode descendants contribute once per distinct key. Codex and Copilot descendants remain attribution-only. `parent_run_id` defines ancestry and is not an identity field. Evidence source, capture sequence, and record content are excluded after reduction.
 
 Before latest-snapshot selection, strict preflight groups all evidence snapshots by logical-run key and requires exactly one distinct `parent_run_id`, with null treated as a value. If snapshots disagree, every evidence snapshot for that key is classified as `USAGE_ANCESTRY_PARENT_CONFLICT`; no snapshot establishes or overrides the parent. The conflict enters the query-scoped failure relation and blocks canonical accounting.
 
@@ -489,7 +489,7 @@ Each `(cli, session_id)` partition must form one rooted directed tree. The root 
 
 Strict preflight reports ancestry failures before accounting. Root count other than one is `USAGE_ANCESTRY_ROOT_COUNT`. A parent ID absent from every selected run is `USAGE_ANCESTRY_PARENT_MISSING`. A parent ID found only under another CLI or session is `USAGE_ANCESTRY_PARENT_BOUNDARY`. A self-link is `USAGE_ANCESTRY_SELF_PARENT`. A directed cycle is `USAGE_ANCESTRY_CYCLE`. All detectable failures enter the query-scoped failure relation; any such failure blocks every stable view except `capture_health`.
 
-Canonical session dimensions and `captured_at` come from the selected root snapshot. Additive Claude and Pi descendants contribute measures but do not replace root dimensions. Cache aggregation uses exactly the logical runs whose measures contribute under the selected CLI conservation rule.
+Canonical session dimensions and `captured_at` come from the selected root snapshot. Additive Claude, Pi, and OpenCode descendants contribute measures but do not replace root dimensions. Cache aggregation uses exactly the logical runs whose measures contribute under the selected CLI conservation rule.
 
 A source path is made relative to the selected usage directory, converted to `/` separators, stripped of `.` segments, rejected if absolute or containing `..`, decoded as valid UTF-8, and normalized segment-by-segment to Unicode NFC. Source position is `(normalized_source_path, source_line)`, comparing paths lexicographically by unsigned UTF-8 bytes and lines as one-based unsigned integers. The latest snapshot is the maximum `(capture_sequence, normalized_source_path, source_line)` tuple, with numeric ordering for the first and last items.
 
@@ -613,7 +613,7 @@ Feature trace: [opencode-cli-integration.feature](../opencode-cli-integration.fe
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | Plugin ID       | `agent-factory`                                                                                                               |
 | API             | OpenCode V2 `Plugin.define()` with `setup(ctx)` function                                                                      |
-| Hooks           | `execute.before`, `execute.after`, `permission.hook("evaluate")`, `session.hook("context")`, `session.hook("prompt")`         |
+| Hooks           | `execute.before`, `execute.after`, `permission.hook("evaluate")`, `session.hook("context")`                                   |
 | Reads           | `.current-work/current-step.yml` (step manifest), agent definition frontmatter (tier, permissions, outputs)                   |
 | Enforces        | Ordered allow/ask/deny permission rules, step-boundary reads and writes, dangerous Git command denial, tool removal per agent |
 | Fails closed on | Initialization failure, manifest loading failure, permission evaluation failure, worktree creation failure                    |

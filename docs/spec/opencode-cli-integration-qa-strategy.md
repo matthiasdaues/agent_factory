@@ -73,7 +73,8 @@ Generated from:
 | Generated agent defs carry model field           | Scenario: Generated agent definitions carry OpenCode-specific fields         | Integration test      | OCI-26-IT-01 | `tests/integration/test_opencode_install.py` | `uv run pytest --tb=short --quiet` | planned |
 | model.conf opencode entries parsed correctly     | Scenario: Fitting presents OpenCode model identifiers in provider/model form | Integration test      | OCI-27-IT-01 | `tests/integration/test_opencode_model.py`   | `uv run pytest --tb=short --quiet` | planned |
 | Missing model tier halts                         | Scenario: Missing model mapping halts                                        | Integration test      | OCI-28-IT-01 | `tests/integration/test_opencode_model.py`   | `uv run pytest --tb=short --quiet` | planned |
-| End-to-end smoke with live OpenCode              | Gap: no live OpenCode in CI                                                  | End-to-end smoke test | OCI-29-E2-01 | `tests/integration/test_opencode_e2e.py`     | `opencode` CLI required            | blocked |
+| Documentation records OpenCode support           | Scenario: Documentation records OpenCode support                             | Contract test         | OCI-29-CT-01 | `tests/factory/test_opencode_install.py`     | `uv run pytest --tb=short --quiet` | planned |
+| End-to-end smoke with live OpenCode              | Gap: no live OpenCode in CI                                                  | End-to-end smoke test | OCI-30-E2-01 | `tests/integration/test_opencode_e2e.py`     | `opencode` CLI required            | blocked |
 
 ### Spec marker convention
 

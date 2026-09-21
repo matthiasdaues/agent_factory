@@ -44,6 +44,8 @@ The proposal carries four open questions that affect specification completeness.
 
 4. **Claude Code compatibility and skill discovery** — When `OPENCODE_DISABLE_CLAUDE_CODE=1` disables compatibility mode, `.claude/skills/` discovery may be suppressed. If so, the scenario "Skills are discoverable under .agents/skills/" already covers the correct path, but the installer must verify that skills are placed at `.agents/skills/` and not at `.claude/skills/`. Affects: Rule "OpenCode user discovers agents and skills through native paths."
 
+5. **Pre-release version handling** — The version check compares against `1.18.31` as a minimum. Whether a pre-release suffix (e.g. `1.18.31-beta`) passes or fails the check is unspecified. The implementation must decide whether to accept pre-release versions of a supported release or reject them. Affects: Rule "Project maintainer installs Factory for OpenCode CLI."
+
 ## Deferred Scope
 
 The following capabilities are explicitly deferred in the proposal and excluded from this specification. No Rules, Scenarios, or stories are planned for them.
