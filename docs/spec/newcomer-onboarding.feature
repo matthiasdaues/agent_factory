@@ -8,7 +8,7 @@ Feature: Newcomer onboarding and incremental brownfield
 
   Rule: Newcomer walks through a guided tour before choosing a workflow
     # actor: Newcomer
-    # @docs/arc42/beginner-intro.md
+    # @.agent-factory/factory/docs/factory-guide.md
     # @.agent-factory/factory/config/AGENTS.md
 
     Scenario: Newcomer selects the guided tour from the session entrypoint

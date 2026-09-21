@@ -7,6 +7,7 @@ Proposal trace: docs/proposals/factory-concern-oriented-agent-context.md
 
 Rule: Factory agent reads project knowledge by concern
 \# actor: Factory Agent
+\# @docs/agent-context.md
 
 ```
 Scenario: Cross-cutting concerns are always active
@@ -79,6 +80,7 @@ Scenario: Declined migration preserves the existing project
 
 Rule: Planning maintainer assigns controlled concerns to stories
 \# actor: Planning maintainer
+\# @.agent-factory/factory/agents/planning-agent.md
 
 ```
 Scenario: Story concerns use the confirmed vocabulary
@@ -96,6 +98,7 @@ Scenario: A missing concern requires confirmation
 
 Rule: Project team maintains concern routes directly
 \# actor: Project team
+\# @docs/agent-context.md
 
 ```
 Scenario: Maintainer updates a moved knowledge path
@@ -157,6 +160,7 @@ Scenario: Factory consumers use only the canonical test path
 
 Rule: Factory governance codifies concern-oriented composition
 \# actor: Factory governance
+\# @.agent-factory/factory/rulebooks/conventions/agent-context-composition.md
 
 ```
 Scenario: Composition rules distinguish routing from configuration

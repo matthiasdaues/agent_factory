@@ -5,6 +5,7 @@ without operating a database service, reading transcripts, or changing capture.
 
 Rule: Local operator queries only published views over a fixed local input set
 \# actor: Local operator
+\# @packages/usage/src/usage/input_snapshot.py
 
 ```
 Scenario: Default input selection is local and deterministic
@@ -40,6 +41,7 @@ Scenario: File enumeration order does not affect results
 
 Rule: Local operator obtains conservative canonical usage without duplication
 \# actor: Local operator
+\# @packages/usage/src/usage/accounting.py
 
 ```
 Scenario: Logical-run identity is CLI-specific and source-independent
@@ -108,6 +110,7 @@ Scenario: Cache signals preserve unavailable states
 
 Rule: Local operator diagnoses all invalid evidence before accounting
 \# actor: Local operator
+\# @packages/usage/src/usage/preflight.py
 
 ```
 Scenario: Preflight classifies every selected line
@@ -151,6 +154,7 @@ Scenario: Diagnostic mode labels incomplete evidence
 
 Rule: Local analyst consumes typed table, JSON, relation, and Arrow results
 \# actor: Local analyst
+\# @packages/usage/src/usage/adapters.py
 
 ```
 Scenario: Table and JSON preserve the selected view
@@ -177,6 +181,7 @@ Scenario: Deferred dataframe formats are unavailable
 
 Rule: Local operator exports attributable Parquet without damaging prior output
 \# actor: Local operator
+\# @packages/usage/src/usage/parquet_exporter.py
 
 ```
 Scenario: Successful export round-trips the published view
@@ -200,6 +205,7 @@ Scenario: Parquet remains an explicit rebuildable export
 
 Rule: Local analyst receives a verified DuckDB UI exploration path
 \# actor: Local analyst
+\# @packages/usage/src/usage/explorer.py
 
 ```
     Scenario: UI documentation targets the same published query model
@@ -317,6 +323,7 @@ Scenario: Analysis remains transcript-blind
 
 Rule: Quality maintainer assigns one deterministic owner to each observable contract
 \# actor: Quality maintainer
+\# @packages/usage/src/usage/registry.py
 
 ```
 Scenario: Contract and accounting gates have distinct ownership

@@ -27,6 +27,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
                 readinessEvaluator = component "Readiness Evaluator" "Accepts evaluation evidence from the precondition evaluator and derives per-agent AgentReadiness verdicts with eligible/unsatisfied/warnings" "Python"
                 recommendationClassifier = component "Recommendation Classifier" "Classifies agents by eligibility into eligible and blocked groups from readiness verdicts" "Python"
                 workstreamResolver = component "Workstream Resolver" "Resolves workstream identity from session binding" "Python"
+                sessionBindingManager = component "Session Binding Manager" "Creates and manages session-to-workstream bindings; records session_id, workstream_id, and bound_at" "Python"
             }
 
             # Validator — deterministic gates and validators
@@ -38,6 +39,8 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
                 crapScore = component "crap-score" "CRAP scoring gate: cyclomatic complexity weighted against test coverage, diff-scoped per story" "Bash/Python"
                 dependencyCheck = component "dependency-check" "Dependency-rule enforcement gate: validates imports against architecture.dsl dependency declarations" "Bash/Python"
                 moduleGraphCheck = component "module-graph-check" "Derives module map from architecture.dsl, compares against concept outputs to determine architecture routing" "Bash/Python"
+                fenceRunner = component "Fence Runner" "Deterministic output validation after agent activity; snapshots declared output patterns, compares post-activity filesystem state, and stores fence evidence" "Python"
+                proposalValidator = component "Proposal Validator" "Checks proposal file existence, format, and required fields; returns the shared validator result shape" "Python"
             }
 
             # Dispatcher — agent and model resolution, CLI session spawning
@@ -137,6 +140,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         readinessEvaluator -> recommendationClassifier "Passes readiness verdicts"
         workstreamResolver -> workstreamState "Resolves workstream identity"
         workstreamResolver -> sessionBindings "Reads session-to-workstream mapping"
+        sessionBindingManager -> sessionBindings "Creates session-to-workstream bindings"
 
         # ================================================================
         # Relationships — Validator
@@ -200,6 +204,13 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         cliAgent -> dependencyCheck "Implementation-agent dispatcher runs after developer commit"
         crapScore -> stateFiles "Writes JSON report to .current-work/crap-score/"
         dependencyCheck -> stateFiles "Writes JSON report to .current-work/dependency-check/"
+
+        # ================================================================
+        # Relationships — Fence Runner and Proposal Validator
+        # ================================================================
+        cliAgent -> fenceRunner "Runs after agent activity to validate declared outputs"
+        fenceRunner -> stateFiles "Stores fence evidence"
+        intentCli -> proposalValidator "intent assess validates proposal artifacts"
 
         # ================================================================
         # Relationships — Module-graph check

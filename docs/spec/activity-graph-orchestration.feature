@@ -521,6 +521,7 @@ Feature: Activity-graph orchestration
 
   Rule: Orchestrator package is dormant
     # actor: Factory maintainer
+    # @packages/orchestrator/
 
     Scenario: packages/orchestrator/ exists but is not active
       Given the orchestrator retirement was cancelled
@@ -531,6 +532,7 @@ Feature: Activity-graph orchestration
 
   Rule: Cycle-based orchestration proposal is superseded
     # actor: Factory maintainer
+    # @docs/proposals/cycle-based-orchestration.md
 
     Scenario: Superseded proposal carries status superseded
       Given docs/proposals/cycle-based-orchestration.md exists
