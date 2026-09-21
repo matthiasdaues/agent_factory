@@ -6,12 +6,12 @@ Part of [Agent Factory](../../README.md).
 
 ## Prerequisites
 
-| Tool                 | Why                                                           | Install                                                                                                                               |
-| -------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| **Git ≥ 2.x**        | Version control                                               | macOS: `xcode-select --install`. Linux: `sudo apt install git` / `sudo dnf install git`.                                              |
-| **Python ≥ 3.10**    | Runs init and check scripts                                   | macOS: `brew install python@3.12`. Linux: `sudo apt install python3.12` or equivalent.                                                |
-| **uv**               | Runs check tools and pre-commit hooks without global installs | `curl -LsSf https://astral.sh/uv/install.sh \| sh` ([docs](https://docs.astral.sh/uv/))                                               |
-| **An AI coding CLI** | Runs agents and skills                                        | [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [GitHub Copilot CLI](https://docs.github.com/en/copilot), Pi, or Codex |
+| Tool                 | Why                                                           | Install                                                                                  |
+| -------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| **Git ≥ 2.x**        | Version control                                               | macOS: `xcode-select --install`. Linux: `sudo apt install git` / `sudo dnf install git`. |
+| **Python ≥ 3.10**    | Runs init and check scripts                                   | macOS: `brew install python@3.12`. Linux: `sudo apt install python3.12` or equivalent.   |
+| **uv**               | Runs check tools and pre-commit hooks without global installs | `curl -LsSf https://astral.sh/uv/install.sh \| sh` ([docs](https://docs.astral.sh/uv/))  |
+| **An AI coding CLI** | Runs agents and skills                                        | Claude Code, GitHub Copilot CLI, Pi, or Codex                                            |
 
 Optional: **tiktoken** (`pip install tiktoken`) for token counting in INDEX.yaml; **Docker** for rendering architecture diagrams.
 
@@ -163,7 +163,7 @@ Tests run through gates, not agents:
 
 1. **Pre-commit** — changed files only (`--no-verify` to bypass)
 2. **Pre-push** — full suite (`git push --no-verify` to bypass)
-3. **Phase advance** — FSM entry conditions check `tests_pass`
+3. **Phase advance** — entry conditions check `tests_pass`
 
 Projects declare test commands in `docs/testing.yaml`:
 
@@ -172,16 +172,3 @@ Projects declare test commands in `docs/testing.yaml`:
 - `test_changed_command` — changed files (pre-commit)
 
 See [ADR-0003](../../docs/adr/0003-test-execution-via-hooks.md).
-
-### Automated playbook execution
-
-The orchestrator (work in progress) drives agent sessions and gates after the human-driven requirements phase:
-
-```bash
-.agent-factory/factory/scripts/run-playbook \
-  --playbook greenfield-development \
-  --from-state PHASE_2_ARCHITECTURE \
-  --cli claude
-```
-
-Stops at human gates. Re-run without `--from-state` to resume.

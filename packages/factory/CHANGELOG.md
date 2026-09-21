@@ -11,7 +11,9 @@ implementation of all twelve stories (ST-0240 through ST-0251),
 delivering the `packages/usage` Python package from contract to
 interactive explorer. Agent and skill inventory consolidated after
 audit. Cycle-based orchestration proposal superseded by the activity
-graph.
+graph. Post-implementation reconciliation resolved 52 findings across
+architecture, specification, and factory documentation. Agent Zero
+research survey completed. OpenCode CLI integration proposed.
 
 ### Features
 
@@ -97,6 +99,12 @@ graph.
   skills removed with updated references.
 - **EPIC slicing gate strengthened.** Grilling and concreteness pass now
   enforced more strictly before stories enter the backlog.
+- **Research directory layout convention.** New convention at
+  `rulebooks/conventions/research-directory-layout.md` standardizing
+  research output structure across survey and falsification playbooks.
+- **Research playbooks updated.** `research-survey` and `research-topic`
+  playbooks extended with directory layout references and improved
+  source-record handling.
 
 ### Fixes
 
@@ -123,6 +131,13 @@ graph.
   with ergonomic wrapper scripts.
 - **Scope check fallback.** Falls back to `touches` when story
   `outputs` frontmatter is absent.
+- **Pi-specific errors.** AGENTS.md orientation simplified for Pi,
+  TypeScript extension imports corrected (`dispatch-wave.ts`,
+  `run-agent.ts`, `pi-usage.ts`, `step-guard.ts`), and init-factory
+  CLI detection logic hardened.
+- **Stale agent-context entries.** Removed obsolete entries from
+  `docs/agent-context.md` that referenced retired cycle-engine
+  components.
 
 ### Refactoring
 
@@ -131,6 +146,13 @@ graph.
   added.
 - **Root convenience scripts removed.** `usage-query` and
   `usage-explore` wrappers removed from the project root.
+- **Cycle script removed.** `packages/factory/scripts/cycle` (406 lines)
+  deleted — orphaned after the activity graph replaced the cycle engine
+  in ST-0263.
+- **Cycle-engine diagrams replaced.** `CycleEngineComponents` renamed to
+  `AgentSelection`, `CycleTransition` renamed to
+  `EligibilityEngineComponents`. New `AgentDependencyGraph` diagram
+  added.
 
 ### Documentation
 
@@ -142,8 +164,32 @@ graph.
   (ATAM-0003 through ATAM-0009), four spec-review findings resolved
   (SPEC-0023 through SPEC-0026). Stories rejected; proposal superseded
   by the activity graph.
-- **Opencode integration research.** Exploration of OpenCode as a
-  fifth CLI integration.
+- **OpenCode CLI integration proposal.** Full proposal at
+  `docs/proposals/opencode-cli-integration.md` (status: open) with
+  research survey (12 sources) moved to
+  `docs/research/opencode-cli-integration/`.
+- **Agent Zero research survey.** Survey at
+  `docs/research/agent-zero/` with 7 source records and a survey
+  report evaluating Agent Zero's architecture, extension points, and
+  potential integration with the factory.
+- **Architecture reconciled.** Chapters 5 (building block view),
+  6 (runtime view), 7 (deployment view), 8 (crosscutting concepts),
+  and 9 (architecture decisions) updated to reflect the activity graph
+  replacing the cycle engine. Structurizr DSL workspace updated.
+  Glossary and context map corrected.
+- **Reconciliation review filed.** 52 findings across 4 domains at
+  `docs/reviews/reconciliation-2026-09-20.md`. Three systemic patterns
+  identified: `.agent-factory/` migration not propagated (23 findings),
+  HKPO menu not propagated (7 findings), engine rewrite not reflected
+  in architecture (13 findings).
+- **Factory guide rewritten.** Updated for `.agent-factory/` paths and
+  HKPO session menu layout.
+- **Newcomer onboarding specification updated.** Four scenarios
+  rewritten for the HKPO session menu.
+- **Scope map reconciled.** Updated after layout migration and
+  activity-graph implementation.
+- **PRD updated.** Path references corrected for `.agent-factory/`
+  layout.
 - Specification reconciled after ST-0241 implementation.
 - QA strategy updated: LU-03-CT-01 state moved to available.
 - ST-0243, ST-0244, ST-0245 marked done.
