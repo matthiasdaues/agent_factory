@@ -332,3 +332,98 @@ stateDiagram-v2
 - [activity-graph-orchestration.feature](../activity-graph-orchestration.feature)
 - [entity-model.md](entity-model.md)
 - [interface-contracts.md](interface-contracts.md)
+
+## OpenCode Plugin Health Lifecycle
+
+The lifecycle of the Factory plugin within an OpenCode session. The plugin must fail closed: an unhealthy state stops the Factory entry flow and names the recovery action.
+
+Feature trace: [opencode-cli-integration.feature](../opencode-cli-integration.feature)
+
+### Pseudocode
+
+```text
+State: UNLOADED
+On PluginSetup[success]:
+  ChangeState(HEALTHY)
+On PluginSetup[failure]:
+  ChangeState(UNHEALTHY)
+
+State: HEALTHY
+On ManifestLoadFailure:
+  ChangeState(UNHEALTHY)
+On PermissionEvaluationFailure:
+  ChangeState(UNHEALTHY)
+On WorktreeCreationFailure:
+  ChangeState(UNHEALTHY)
+On SessionEnds:
+  ChangeState(UNLOADED)
+
+State: UNHEALTHY
+On FactoryEntryAttempt:
+  Reject — report failed control and recovery action
+  ChangeState(UNHEALTHY)
+On SessionEnds:
+  ChangeState(UNLOADED)
+```
+
+### Derived Mermaid
+
+```mermaid
+stateDiagram-v2
+    [*] --> UNLOADED
+    UNLOADED --> HEALTHY : PluginSetup (success)
+    UNLOADED --> UNHEALTHY : PluginSetup (failure)
+    HEALTHY --> UNHEALTHY : ManifestLoadFailure
+    HEALTHY --> UNHEALTHY : PermissionEvaluationFailure
+    HEALTHY --> UNHEALTHY : WorktreeCreationFailure
+    HEALTHY --> UNLOADED : SessionEnds
+    UNHEALTHY --> UNHEALTHY : FactoryEntryAttempt (rejected)
+    UNHEALTHY --> UNLOADED : SessionEnds
+```
+
+### Notes
+
+- **UNLOADED** means the plugin is not active. This is the state before the OpenCode session loads the plugin and after the session ends.
+- **HEALTHY** means the plugin initialized and all controls are operational. Tool invocations, permission evaluations, and worktree operations proceed normally.
+- **UNHEALTHY** means one or more Factory controls failed. The plugin stops the Factory entry flow and names the failed control and the recovery action. The error message is specific: "Factory plugin: manifest loading failed — re-run init-factory" rather than a generic failure.
+- Usage capture failure does not transition to UNHEALTHY. Usage capture is best-effort; its failure is reported but does not block the session.
+- The plugin does not self-heal during a session. An UNHEALTHY plugin requires a new session after the underlying issue is resolved.
+
+## OpenCode Session Isolation Lifecycle
+
+The lifecycle of a write-denial lock on the primary checkout while isolated child work is active.
+
+Feature trace: [opencode-cli-integration.feature](../opencode-cli-integration.feature)
+
+### Pseudocode
+
+```text
+State: UNLOCKED
+On ChildSessionDispatched:
+  ChangeState(LOCKED)
+
+State: LOCKED
+On WriteAttemptToPrimaryCheckout:
+  Reject — session-scoped write denial
+  ChangeState(LOCKED)
+On AllChildSessionsComplete:
+  ChangeState(UNLOCKED)
+
+```
+
+### Derived Mermaid
+
+```mermaid
+stateDiagram-v2
+    [*] --> UNLOCKED
+    UNLOCKED --> LOCKED : ChildSessionDispatched
+    LOCKED --> LOCKED : WriteAttemptToPrimaryCheckout (rejected)
+    LOCKED --> UNLOCKED : AllChildSessionsComplete
+```
+
+### Notes
+
+- **UNLOCKED** means the primary checkout accepts writes normally. No isolated child work is active.
+- **LOCKED** means one or more child sessions are running in isolated worktrees. Writes to the primary checkout are denied through a session-scoped write denial enforced by the plugin's permission hook.
+- The lock is session-scoped. It does not persist across sessions.
+- The lock applies to the primary checkout only. Each child session writes to its own worktree without restriction (within its step-manifest boundary).

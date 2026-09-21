@@ -320,3 +320,70 @@ For each artifact type, the following mechanical validation checks apply. Semant
 **Research brief.** Passes brief schema validation (`research-brief.schema.json`). `decision_needed` is the only delivery-link field. No `origin_cycle` or `return_cycle` fields exist.
 
 **Research report.** Passes route-specific validation (survey or falsification). References the originating brief. Records evidence disposition for each claim or source.
+
+## OpenCode CLI Integration Validation Rules
+
+Proposal trace: [opencode-cli-integration.md](../../proposals/opencode-cli-integration.md).
+Feature trace: [opencode-cli-integration.feature](../opencode-cli-integration.feature).
+
+### Installation validation
+
+1. Detection markers for OpenCode are `.opencode/`, `opencode.json`, and `opencode.jsonc`. The presence of any one marker selects OpenCode as an active CLI target.
+2. Explicit `--cli opencode` selection produces the same installation as auto-detection.
+3. The installer checks `opencode --version` before creating any OpenCode path. A version older than `1.18.31` stops installation and prints an upgrade instruction naming the minimum version.
+4. The installer creates `.opencode/INDEX.yaml`, `.opencode/agents/`, and links the plugin into `.opencode/plugins/`. Skills are placed at `.agents/skills/`.
+5. Every created OpenCode path is recorded in `.agent-factory/install.json` under the `opencode` CLI key.
+6. Repeated installation against the same project state produces no additional changes (idempotent).
+7. User-owned files under `.opencode/` are not overwritten, modified, or removed during installation or update.
+
+### Removal validation
+
+1. `remove-factory` removes every path listed in `.agent-factory/install.json` for the `opencode` CLI key.
+2. `remove-factory` does not remove user-owned OpenCode configuration (files not recorded in `.agent-factory/install.json`).
+
+### Coexistence validation
+
+1. A project with Pi, Codex, and OpenCode installed has exactly one root `AGENTS.md`.
+2. Adding OpenCode to an existing multi-CLI project does not modify the other CLIs' files.
+
+### Plugin permission validation
+
+1. The plugin evaluates allow rules first, ask rules second, and deny rules last.
+2. An explicit configured deny is final. The plugin's permission hook does not change a `deny` effect to `allow` or `ask`.
+3. A pre-tool hook reads the active step manifest and denies reads outside its declared inputs.
+4. A pre-tool hook reads the active step manifest and denies writes outside its declared outputs.
+5. Shell commands matching a denied Git pattern are denied before execution.
+6. Review agents whose definitions declare no write outputs receive read-only tool sets (write tools removed).
+7. Tool removal restricts the active agent to its declared tool set.
+8. Child sessions inherit session-scoped restrictions from the root session and apply their own generated agent permissions.
+
+### Plugin fail-closed validation
+
+1. The plugin fails closed when initialization fails. The Factory entry flow stops and the error names the failed control and the recovery action.
+2. The plugin fails closed when the step manifest cannot be read or parsed. Tool invocations are denied.
+3. The plugin fails closed when the permission evaluation hook encounters an error. Tool invocations are denied.
+4. The plugin fails closed when worktree creation fails. The dispatch is denied and the error names the recovery action.
+5. Usage capture failure does not trigger fail-closed behavior. Usage capture is best-effort.
+
+### Usage capture validation
+
+1. Completed root sessions produce one usage record following the existing usage contract with `cli: opencode`.
+2. Completed child sessions produce one usage record following the existing usage contract with `cli: opencode`.
+3. The root session's usage record does not include the child session's usage.
+4. Session completion does not reactivate the agent. No OpenCode-specific completion gate is introduced.
+5. Usage capture failure is reported but does not block the session.
+
+### Worktree isolation validation
+
+1. The plugin registers a worktree strategy through `ctx.worktree.transform()` with strategy ID `agent-factory`.
+2. Branch and worktree creation is delegated to Factory scripts. The Factory's naming, base, path, and verification rules remain authoritative.
+3. Each dispatched child receives its own branch and worktree under `.current-work/<feature-branch>/`.
+4. Each dispatched child verifies its declared base commit before reading or changing files.
+5. The primary checkout receives a session-scoped write denial while any child session is active in an isolated worktree.
+
+### Model configuration validation
+
+1. `model.conf` supports `opencode.economy`, `opencode.standard`, and `opencode.strong` entries.
+2. Model identifiers follow the `provider/model` format.
+3. A missing required tier halts dispatch with the existing `on_missing = halt` policy.
+4. Each generated OpenCode agent definition carries an explicit `model` field derived from its tier mapping in `model.conf`. This is the workaround for the model inheritance bug (OpenCode issue #49765).

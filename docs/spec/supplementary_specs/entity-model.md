@@ -494,3 +494,80 @@ erDiagram
 - **GOVERNED_ARTIFACT** is any artifact in the closed first-release set: proposals, epics, stories, Gherkin feature files, `architecture.dsl`, `scope-map.md`, and `entity-model.yaml`. The `scope` field is read from YAML frontmatter when present, otherwise from a `scope:` declaration on the first line of the file. Proposals use `scope` in place of `title`. A lint check at artifact creation time verifies the declaration is present and carries either `global` or a known workstream identifier.
 - **Path resolution:** The evaluator resolves a `path_pattern` in four ordered steps: glob expansion (replace placeholders with `*`), scope filtering (keep only candidates whose `scope` matches the bound workstream or equals `global`; skipped in Open Stage), condition checking (evaluate all conditions, remove failing candidates), and cardinality (zero = unsatisfied, one = satisfied, multiple = reported for human selection).
 - **No delegation in the engine.** Chaining happens externally — an external orchestrator inspects evaluator evidence after each fence. No delegation grant, attempt counter, or retry limit exists in the engine, agent definitions, or session bindings.
+
+## OpenCode CLI Integration Entities
+
+The OpenCode integration adds a fifth CLI target and a V2 plugin that maps Factory safety controls to OpenCode primitives. The existing `MODEL_MATRIX_ENTRY` gains an `opencode` CLI value. New entities model the plugin, its configuration, and the OpenCode-specific catalog surface.
+
+Feature trace: [opencode-cli-integration.feature](../opencode-cli-integration.feature)
+
+```mermaid
+erDiagram
+    OPENCODE_PLUGIN ||--|| PLUGIN_PERMISSION_RULE_SET : "enforces"
+    OPENCODE_PLUGIN ||--o| STEP_MANIFEST : "reads"
+    OPENCODE_PLUGIN ||--|| WORKTREE_STRATEGY : "registers"
+    OPENCODE_PLUGIN ||--o{ OPENCODE_USAGE_RECORD : "captures"
+    OPENCODE_CATALOG ||--o{ OPENCODE_AGENT_DEF : "lists"
+    OPENCODE_CATALOG ||--|| OPENCODE_INDEX : "rooted at"
+    OPENCODE_AGENT_DEF ||--o| MODEL_MATRIX_ENTRY : "tier resolves via"
+    INSTALL_MANIFEST ||--o{ INSTALLED_PATH : "records"
+
+    OPENCODE_PLUGIN {
+        string id "agent-factory"
+        string setup "V2 Plugin.define() setup function"
+        string health "healthy | unhealthy"
+    }
+    PLUGIN_PERMISSION_RULE_SET {
+        list allow_rules "ordered"
+        list ask_rules "ordered"
+        list deny_rules "ordered, final"
+    }
+    STEP_MANIFEST {
+        string path ".current-work/current-step.yml"
+        list declared_inputs "readable paths"
+        list declared_outputs "writable paths"
+    }
+    WORKTREE_STRATEGY {
+        string id "agent-factory"
+        string delegate "Factory scripts for branch and worktree operations"
+    }
+    OPENCODE_USAGE_RECORD {
+        string session_id "root or child session identifier"
+        string cli "opencode"
+        string contract "existing usage contract"
+    }
+    OPENCODE_CATALOG {
+        string index_path ".opencode/INDEX.yaml"
+        string agents_dir ".opencode/agents/"
+        string skills_dir ".agents/skills/"
+    }
+    OPENCODE_AGENT_DEF {
+        string name "agent name from canonical catalog"
+        string mode "OpenCode agent mode"
+        string model "provider/model identifier from tier mapping"
+        object permissions "generated from agent definition"
+    }
+    OPENCODE_INDEX {
+        string path ".opencode/INDEX.yaml"
+        string generated_by "init-factory"
+    }
+    INSTALL_MANIFEST {
+        string path ".agent-factory/install.json"
+    }
+    INSTALLED_PATH {
+        string path "absolute or repo-relative path"
+        string owner "factory or user"
+    }
+```
+
+### Notes
+
+- **OPENCODE_PLUGIN** is the V2 plugin at `packages/factory/config/plugins/agent-factory.ts`. It exposes its setup function through `Plugin.define()`. The `health` field is runtime state: `healthy` after successful initialization, `unhealthy` when initialization, manifest loading, permission evaluation, or worktree creation fails. An unhealthy plugin stops the Factory entry flow.
+- **PLUGIN_PERMISSION_RULE_SET** applies rules in order: allow, ask, deny. Deny rules are final — a permission hook may narrow a decision but never broaden a configured denial.
+- **STEP_MANIFEST** is the same `.current-work/current-step.yml` used by the existing step-guard. The plugin reads it through the `execute.before` hook and denies reads or writes outside its declared boundary.
+- **WORKTREE_STRATEGY** delegates branch and worktree creation to Factory scripts. OpenCode tracks the resulting location and starts each child session there. The original checkout receives a session-scoped write denial while isolated work is active.
+- **OPENCODE_USAGE_RECORD** follows the existing usage contract. Root and child session usage is reported separately. The child session's usage is not included in the root's record.
+- **OPENCODE_CATALOG** is the OpenCode-visible catalog surface. Agents live under `.opencode/agents/`. Skills live under `.agents/skills/`, which OpenCode discovers natively. The catalog is linked from `.opencode/INDEX.yaml`.
+- **OPENCODE_AGENT_DEF** carries a `model` field derived from the agent's tier mapping in `model.conf`. This is a workaround for the model inheritance bug (OpenCode issue #49765). Each generated definition has explicit model, mode, and permission fields.
+- **MODEL_MATRIX_ENTRY.cli** gains the value `opencode` alongside the existing `copilot`, `codex`, and `pi`. Claude Code resolves its model outside `model.conf`.
+- **INSTALL_MANIFEST** at `.agent-factory/install.json` records every path init-factory creates for each CLI. `remove-factory` uses this record to remove Factory-owned paths without disturbing user-owned files.

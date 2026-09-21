@@ -602,3 +602,103 @@ The precondition graph handles routing: a research agent's output is an artifact
 | `decision_needed` | `string` or `null` | The decision the research result must inform (unchanged) |
 
 Standalone research omits this field. The existing survey and falsification routes remain unchanged.
+
+## OpenCode CLI Integration Contracts
+
+Feature trace: [opencode-cli-integration.feature](../opencode-cli-integration.feature)
+
+### `packages/factory/config/plugins/agent-factory.ts` — Factory plugin
+
+|                 |                                                                                                                               |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Plugin ID       | `agent-factory`                                                                                                               |
+| API             | OpenCode V2 `Plugin.define()` with `setup(ctx)` function                                                                      |
+| Hooks           | `execute.before`, `execute.after`, `permission.hook("evaluate")`, `session.hook("context")`, `session.hook("prompt")`         |
+| Reads           | `.current-work/current-step.yml` (step manifest), agent definition frontmatter (tier, permissions, outputs)                   |
+| Enforces        | Ordered allow/ask/deny permission rules, step-boundary reads and writes, dangerous Git command denial, tool removal per agent |
+| Fails closed on | Initialization failure, manifest loading failure, permission evaluation failure, worktree creation failure                    |
+| Error contract  | Error names the failed control and the recovery action                                                                        |
+
+### Plugin permission evaluation
+
+|                |                                                                                                                                         |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Hook           | `permission.hook("evaluate")`                                                                                                           |
+| Fires after    | Configured `allow` and `ask` rules                                                                                                      |
+| Cannot broaden | A configured `deny` is final. The hook may change `effect` to `deny` but never to `allow` or `ask` when the configured effect is `deny` |
+| Effect values  | `allow`, `ask`, `deny`                                                                                                                  |
+| Message        | Appears as denial reason or escalated request text                                                                                      |
+
+### Plugin tool removal
+
+|                |                                                                                  |
+| -------------- | -------------------------------------------------------------------------------- |
+| Hook           | `session.hook("context")`                                                        |
+| Removes        | Tools not in the active agent's declared tool set                                |
+| Review agents  | Receive read-only permissions unless their procedure declares a write output     |
+| Child sessions | Inherit session-scoped restrictions; apply their own generated agent permissions |
+
+### Plugin usage capture
+
+|                     |                                                                  |
+| ------------------- | ---------------------------------------------------------------- |
+| Observes            | Completed root and child sessions                                |
+| Sends to            | Existing Factory usage pipeline                                  |
+| Contract            | Existing usage record contract with `cli: opencode`              |
+| Double-count guard  | Root session usage does not include child session usage          |
+| Completion behavior | Session completion does not reactivate the agent                 |
+| Failure behavior    | Usage capture failure is reported but does not block the session |
+
+### Plugin worktree strategy
+
+|                    |                                                                                          |
+| ------------------ | ---------------------------------------------------------------------------------------- |
+| API                | `ctx.worktree.transform()` with `WorktreeDefinition` interface                           |
+| Strategy ID        | `agent-factory`                                                                          |
+| Branch creation    | Delegated to Factory scripts (naming, base, verification rules)                          |
+| Worktree creation  | Delegated to Factory scripts (path under `.current-work/<feature-branch>/`)              |
+| Write denial       | Session-scoped write denial on the primary checkout while isolated work is active        |
+| Child session path | OpenCode tracks the worktree location and starts each child session there                |
+| Failure behavior   | Fails closed: worktree creation failure denies the dispatch with a named recovery action |
+
+### `init-factory` OpenCode CLI additions
+
+|                   |                                                                                                          |
+| ----------------- | -------------------------------------------------------------------------------------------------------- |
+| Detection markers | `.opencode/`, `opencode.json`, `opencode.jsonc`                                                          |
+| CLI name          | `opencode`                                                                                               |
+| Dot-dir           | `.opencode`                                                                                              |
+| Version check     | `opencode --version` must report `1.18.31` or later. Failure stops installation with upgrade instruction |
+| Creates           | `.opencode/INDEX.yaml`, `.opencode/agents/`, `.opencode/plugins/agent-factory.ts` (link)                 |
+| Skills path       | `.agents/skills/` (native OpenCode discovery path)                                                       |
+| Orientation       | Injected by the plugin via `session.hook("context")`, not via `instructions` field or root `AGENTS.md`   |
+| Manifest          | Records every created OpenCode path in `.agent-factory/install.json`                                     |
+| Idempotency       | Repeated installation produces no additional changes                                                     |
+| User preservation | User-owned files under `.opencode/` remain unchanged                                                     |
+
+### `model.conf` OpenCode entries
+
+|                |                                                                                                                                              |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Key format     | `opencode.economy`, `opencode.standard`, `opencode.strong`                                                                                   |
+| Value format   | `provider/model` identifier                                                                                                                  |
+| Missing policy | `on_missing = halt` (existing policy)                                                                                                        |
+| Workaround     | Each generated agent definition carries an explicit `model` field from its tier mapping due to model inheritance bug (OpenCode issue #49765) |
+
+### `AGENTS.md` OpenCode additions
+
+|                  |                                                              |
+| ---------------- | ------------------------------------------------------------ |
+| CLI table        | Adds OpenCode row with `.opencode/INDEX.yaml`                |
+| Orientation file | `AGENTS.opencode.md` (new, under `packages/factory/config/`) |
+| Root AGENTS.md   | Not replaced — OpenCode orientation is plugin-injected       |
+
+### `AGENTS.opencode.md` — OpenCode orientation
+
+|                  |                                                                    |
+| ---------------- | ------------------------------------------------------------------ |
+| Injected by      | Factory plugin via `session.hook("context")`                       |
+| Describes        | OpenCode tool names, child-session behavior, skill discovery paths |
+| Session start    | Session-start procedure for OpenCode                               |
+| Does not use     | Legacy `instructions` configuration field                          |
+| Does not replace | Root `AGENTS.md`                                                   |
