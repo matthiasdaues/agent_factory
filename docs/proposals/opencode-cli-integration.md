@@ -1,10 +1,10 @@
 ---
 schema_version: 2
 title: OpenCode CLI Integration
-status: open
+status: accepted
 owner: Agent Factory maintainers
 created: 2026-09-20
-updated: 2026-09-21
+updated: 2026-09-22
 supersedes:
 
 impact:
@@ -14,8 +14,6 @@ impact:
   boundaries:
     - packages/factory/scripts/init-factory
     - packages/factory/config/AGENTS.md
-    - packages/factory/config/AGENTS.opencode.md
-    - packages/factory/config/plugins/agent-factory.ts
     - packages/factory/config/model.conf
     - packages/factory/rulebooks/rules.md
     - packages/factory/docs/factory-guide.md
@@ -55,15 +53,28 @@ safety controls today.
 
 The completed [OpenCode research survey](../research/opencode-cli-integration/survey-report.md) found
 native support for Markdown agents, skills, Model Context Protocol (MCP)
-servers, and child sessions. A later check against the current
+servers, and child sessions. A follow-up study of the
 [OpenCode V2 plugin API](https://opencode.ai/v2/docs/build/plugins/) and
-[permission model](https://opencode.ai/v2/docs/permissions) found additional
-safety controls. OpenCode V2 plugins can intercept tools, evaluate permissions,
-control sessions, and manage Git worktrees.
+[permission model](https://opencode.ai/v2/docs/permissions) confirmed that V2
+plugins can intercept tools (`execute.before`/`execute.after` hooks), evaluate
+permissions (`permission.hook("evaluate")`), observe sessions
+(`session.hook("context"/"prompt")`), manage Git worktrees
+(`worktree.transform()` + CRUD), and restrict tools per agent
+(`tool.transform()` with `editor.remove()`). These findings are documented in
+[SR-0013](../research/opencode-cli-integration/sources/SR-0013.md) through
+[SR-0017](../research/opencode-cli-integration/sources/SR-0017.md). The
+community [cc-safety-net plugin](../research/opencode-cli-integration/sources/SR-0016.md)
+independently confirms that tool denial and shell blocking work in V2 plugins.
 
 The original survey's blocker conclusion therefore does not apply to OpenCode
 V2. The Factory needs a dedicated plugin that maps those controls to existing
 Factory invariants.
+
+One known limitation remains: OpenCode's model inheritance bug persists in V2
+(issue #49765, open as of 2026-09-18). Subagents fall back to the global model
+instead of inheriting the parent's model. The `event.model` field in the plugin
+context hook is typed `readonly`, so a plugin-based override is not currently
+possible. See [Model mapping](#model-mapping) for the mitigation.
 
 ## Core Principles
 
@@ -153,6 +164,12 @@ for economy, standard, and strong tiers. The fitting flow presents OpenCode
 model identifiers in `provider/model` form. Missing mappings follow the
 existing halt policy.
 
+Because of the model inheritance bug (issue #49765), the plugin must set the
+model for each child session explicitly through agent catalog entries rather
+than relying on runtime inheritance. Each generated OpenCode agent definition
+carries a `model` field derived from its tier mapping in `model.conf`. This
+workaround becomes removable when OpenCode fixes the inheritance bug.
+
 ### Verification
 
 Installer tests cover fresh installation, update, removal, coexistence with Pi
@@ -194,6 +211,16 @@ installed in continuous integration.
   its tested plugin lifecycle.
 - An MCP-based adapter is deferred because the native plugin API exposes the
   required permission, session, tool, and worktree controls.
+- Built-in task tracking (TaskCreate/TaskUpdate equivalent) is deferred because
+  OpenCode has no native task tool. The plugin can register a custom tool via
+  `ctx.tool.transform()` in a later release if needed. Task tracking is a
+  convenience, not a safety invariant.
+- Built-in workflow orchestration (Workflow tool equivalent) is deferred because
+  no direct substitute exists in the V2 plugin API. External orchestrators or a
+  custom plugin tool can be added later.
+- Built-in persistent cross-session memory is deferred because the Factory's
+  file-based memory convention works without CLI-native support. The plugin's
+  `ctx.storage` provides plugin-scoped persistence for plugin state only.
 
 ## Design Details
 
@@ -216,7 +243,30 @@ scripts, and Git worktrees own enforcement.
 
 ## Open Questions
 
-None. The proposal defers no decision needed to plan the first release.
+1. **`execute.before` denial contract** — The `execute.before` hook's return
+   type is `void | Promise<void>` in the official docs, but the cc-safety-net
+   plugin demonstrates denial by returning `Tool.Error`. Is this a stable API
+   contract or an undocumented side effect? The plugin's enforcement model
+   depends on this mechanism. [SR-0016]
+
+2. **Permission hooks in child sessions** — Whether `permission.hook("evaluate")`
+   fires for child sessions (not just the root session) is undocumented. If it
+   does not, child sessions may bypass plugin-enforced permission narrowing.
+   [SR-0013]
+
+3. **Tool removal persistence** — Whether tool removal via `context` hook
+   (`delete event.tools.X`) persists across turns or is re-evaluated per turn
+   is undocumented. If per-turn, the plugin must re-apply restrictions on every
+   context assembly. [SR-0013]
+
+4. **Claude Code compatibility and skill discovery** — When
+   `OPENCODE_DISABLE_CLAUDE_CODE=1` disables compatibility mode, does it also
+   suppress `.claude/skills/` discovery? If so, the installer must copy or link
+   skills into `.agents/skills/` or `.opencode/skills/` rather than relying on
+   the Claude Code discovery path. [SR-0014]
+
+These questions can be resolved during implementation by testing against the
+target OpenCode version. None blocks the planning phase.
 
 ## Completion Criteria
 
@@ -257,3 +307,74 @@ None. The proposal defers no decision needed to plan the first release.
 ## Guiding Rule
 
 Map every Factory safety invariant to an enforceable OpenCode control.
+
+## Review — 2026-09-21
+
+Reviewer: proposal-review-agent
+Reviewed commit: 9e302527cffb4df610e34485acd334fbeb2a2619
+Disposition: findings
+
+### Findings
+
+| ID      | Severity | Check | Status   | Finding                                                                                                                                                                                                                                                                                                           |
+| ------- | -------- | ----- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-01 | major    | 05    | resolved | Two boundary paths removed from `impact.boundaries`. New-file paths are described as deliverables in the Design section.                                                                                                                                                                                          |
+| PROP-02 | major    | 06    | resolved | V2 plugin API documented in SR-0013 through SR-0017. Open Questions section now lists four genuine unresolved questions with source references. Motivation section updated with specific V2 API capabilities and evidence citations. Model inheritance bug acknowledged with mitigation in Model mapping section. |
+| PROP-03 | minor    | 02    | resolved | TaskCreate/TaskUpdate, Workflow tool, and persistent memory added to the Deferred list with rationale.                                                                                                                                                                                                            |
+| PROP-04 | minor    | 03    | resolved | Five source records (SR-0013 through SR-0017) added to `docs/research/opencode-cli-integration/sources/`, covering V2 plugin API surface, Claude Code compatibility, subagent depth, enforcement in practice, and survey gap coverage.                                                                            |
+
+### Summary
+
+All four findings addressed on 2026-09-21. Boundary paths corrected (PROP-01).
+V2 plugin API evidence added as SR-0013 through SR-0017, Open Questions
+populated, model inheritance bug acknowledged with mitigation (PROP-02). Survey
+gaps added to Deferred with rationale (PROP-03). Evidence trail now covers the
+design's V2 assumptions (PROP-04). Ready for re-review.
+
+## Review — 2026-09-21 (repeat pass)
+
+Reviewer: proposal-review-agent
+Reviewed commit: 9e302527cffb4df610e34485acd334fbeb2a2619
+Disposition: clean
+
+Note: reviewed the working-tree copy. The fixes to PROP-01 through PROP-04 and
+the five new source records (SR-0013 through SR-0017) are not yet committed.
+
+### Prior Findings
+
+All four findings from the first review verified individually:
+
+- **PROP-01** (boundary references): the two non-existent paths were removed.
+  All six remaining paths in `impact.boundaries` resolve. Set to resolved.
+- **PROP-02** (open questions and evidence): five source records added with full
+  provenance, evidence, contrary-evidence searches, and limitations. Open
+  Questions lists four genuine API-behavior questions with source citations.
+  Model inheritance bug acknowledged with a concrete workaround in the Model
+  mapping section. Set to resolved.
+- **PROP-03** (scope gaps): TaskCreate/TaskUpdate, Workflow tool, and persistent
+  cross-session memory added to the Deferred list, each with a rationale tied to
+  OpenCode's current capabilities. Set to resolved.
+- **PROP-04** (design evidence): SR-0013 through SR-0017 cover the V2 plugin API
+  surface, Claude Code compatibility mode, subagent depth and model inheritance,
+  enforcement in practice (cc-safety-net), and survey gap coverage. The design
+  section's assumptions now trace to documented evidence. Set to resolved.
+
+### Eight-Check Results
+
+| Check | Name                             | Result | Notes                                                                                                                         |
+| ----- | -------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| 01    | Completion criteria testable     | pass   | All 19 criteria specify concrete observable outcomes verifiable without author consultation.                                  |
+| 02    | Scope boundary sharp             | pass   | 11 in-scope items and 7 deferred items partition the space. Each deferred item carries a rationale.                           |
+| 03    | Design decomposable              | pass   | Seven design subsections map to concrete stories. No "use a suitable approach" language.                                      |
+| 04    | Impact classification consistent | pass   | cross_component, architecture_change: true, external_contract_change: true match the plugin, orientation, and contract scope. |
+| 05    | Boundary references exist        | pass   | All six paths in impact.boundaries resolve in the working tree.                                                               |
+| 06    | Open questions genuine           | pass   | Four questions target undocumented API behavior with cited sources. None is padding.                                          |
+| 07    | Motivation justifies timing      | pass   | V2 plugin API removes the V1 blocker identified in the original survey. The enabler arrived.                                  |
+| 08    | Estimate plausible               | pass   | All numeric fields are unknown with confidence: low. Honest given four open questions and an unfamiliar plugin API.           |
+
+### Summary
+
+All eight checks pass. All four prior findings resolved. No new findings. The
+proposal is ready to plan from. Next step per feature-addition routing:
+architecture_change is true, so hand off to the Requirements Agent or
+Architecture Agent.
