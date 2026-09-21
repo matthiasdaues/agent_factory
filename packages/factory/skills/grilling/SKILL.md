@@ -20,7 +20,7 @@ Do not enact the plan until shared understanding is reached.
 
 - **Direct user session** — ask one question at a time, waiting for feedback
   before continuing.
-- **Subagent session** (you were spawned by an orchestrator or another agent) —
+- **Subagent session** (you were spawned by another agent) —
   batch up to five related questions per round-trip. Group by theme; number each
   question so the caller can answer concisely. Each round-trip reprocesses your
   full context, so fewer round-trips means dramatically lower token cost.

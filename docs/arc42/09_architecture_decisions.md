@@ -31,21 +31,21 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 
 ### Ownership and Control
 
-**ADR-0002** establishes that `.agent-factory/factory/scripts/{transition-lint,phase,trigger}` and the `run-step` skill own flow control state (the marker, FSM, gates). `orchestrator/` is one possible trigger among peers (you at the terminal, orchestrator CLI). This inversion makes playbook runs CLI-agnostic and resume-from-observable-state by design.
+**ADR-0002** establishes that Factory scripts own flow control. A human at the terminal or an automated script can trigger these mechanisms. This separation makes playbook runs CLI-agnostic and resume-from-observable-state by design.
 
 ### Validation Strategy
 
 **ADR-0001** and **ADR-0003** establish the hook-triggered validation pattern:
 
-- **Pre-commit hooks** gate which files may be staged (`transition-lint`).
+- **Pre-commit hooks** gate commits via linters (`concern-lint`, `index-lint`, etc.).
 - **PreToolUse hooks** block destructive git commands and bare test commands before they execute (`block-dangerous-git.sh`); charter-declared test commands are allowlisted with exact-string matching.
-- **FSM gates** (`script_exit_zero`) resolve `charter:test_command` from `docs/testing.yaml` and integrate test execution into phase advance entry conditions.
+- **Precondition evaluation** checks agent `inputs.required` declarations against the filesystem, including test configuration presence via `docs/testing.yaml`.
 
 All follow the "Agentic Creation, Deterministic Validation" principle: agents create, hooks validate, no self-validation. Testing is project-owned infrastructure declared in the charter; Factory ensures test gates exist but does not own test execution or framework detection.
 
 ### Monorepo Scoping
 
-**ADR-0001** declares one root `.pre-commit-config.yaml` for the monorepo, with each subproject's hooks namespaced (e.g., `-orchestrator` suffix) and path-scoped (`files: ^orchestrator/`). `.agent-factory/factory/scripts/merge-precommit-config` splices subproject hook blocks into the root file.
+**ADR-0001** declares one root `.pre-commit-config.yaml` for the monorepo, with each subproject's hooks namespaced and path-scoped. `.agent-factory/factory/scripts/merge-precommit-config` splices subproject hook blocks into the root file.
 
 ### Pi Invocation Layer
 
@@ -62,8 +62,7 @@ establishes one CLI-agnostic runtime usage pipeline with per-CLI transcript
 normalizers and native lifecycle adapters. Fixed `cl100k_base` counts
 provide the cross-CLI comparison metric, while nullable provider counts
 support cost reconciliation. Append-only local JSONL and linked transcript
-copies are the MVP backend; the orchestrator does not duplicate CLI-owned
-capture. Root and child records follow each platform's conservation
+copies are the MVP backend. Root and child records follow each platform's conservation
 semantics so attribution is not added twice to an inclusive root. **ADR-0009**
 revises the storage-naming decision: the session-level key is
 `<cli>_<session_id>` (record file and transcript directory), so a directory
@@ -154,27 +153,14 @@ best meets reproducibility, capture independence, local operation, strict
 accounting, and Clean Architecture dependency direction without introducing a
 freshness or synchronization lifecycle.
 
-### Cycle-Based Orchestration
+### Cycle-Based Orchestration (no longer active)
 
-**ADR-0017** replaces the linear playbook FSM with a cycle-based directed
-graph. Five delivery cycles (IDEA, CONCEPT, ROADMAP, REFINE, REALIZE) plus
-DONE form the graph. A declarative YAML delivery model declares cycles, routes,
-artifact declarations, trusted validators, and per-cycle delegated attempt
-limits. A pure Cycle Engine container returns immutable decisions; a State
-Adapter container owns state writes. The Pugh Matrix compared the existing
-linear FSM (baseline), the cycle-based graph, and an enhanced FSM with
-conditional branching. The cycle-based graph dominated on six of eight
-criteria, losing only on backward compatibility.
-
-**ADR-0018** establishes that the engine sees CONCEPT as one cycle; agents
-manage their internal ordering. This keeps the delivery model simple (five
-cycles, no substates) and allows agent definitions to evolve their internal
-methodology independently of the engine.
+ADR-0017 and ADR-0018 describe the cycle-based orchestration design that was evaluated and partially implemented. This design is no longer active; the Eligibility Engine with precondition-based agent selection is the current mechanism. The ADRs remain as historical records.
 
 ## Superseded Decisions
 
 ADR-0013 and ADR-0014 are superseded by ADR-0016 (concern-oriented agent
-context).
+context). ADR-0017 and ADR-0018 describe designs that are no longer active.
 
 ## Referenced from
 

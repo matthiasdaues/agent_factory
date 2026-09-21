@@ -9,7 +9,7 @@
 
 # Required: Full test suite command.
 # This command runs from the repository root and must exit 0 when all tests pass.
-# Factory gates use this command to validate phase advancement.
+# Factory's eligibility preconditions use this command to validate agent readiness.
 test_command: "uv run pytest --tb=short --quiet"
 
 # Optional: Test command for staged files only.

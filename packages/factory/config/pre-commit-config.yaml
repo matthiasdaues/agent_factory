@@ -114,15 +114,3 @@ repos:
         language: system
         pass_filenames: false
         files: ^(\.agent-factory/factory/agents/.*\.md|\.agent-factory/factory/skills/.*/SKILL\.md|\.agent-factory/factory/playbooks/.*\.md)$
-
-      # Enforce playbook phase ordering. A playbook moves through
-      # phases in a fixed sequence (requirements → architecture →
-      # planning → implementation → QA). This blocks commits that
-      # skip or reorder phases. Inspects all staged files, so it
-      # always runs — no-op when no phase marker is staged.
-      - id: agent_factory_hook-transition-lint
-        name: "agent_factory: transition-lint (playbook phase-ordering gate)"
-        entry: bash -c '[ -d .agent-factory ] || exit 0; exec .agent-factory/factory/scripts/transition-lint' --
-        language: system
-        pass_filenames: false
-        always_run: true

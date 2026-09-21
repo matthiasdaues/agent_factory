@@ -93,17 +93,17 @@ The project's own component names apply, not generic labels. Two components insi
 
 **Example — bad vs. good:**
 
-Bad: "Validate the delivery model against versioned schemas" — starts from an internal rule. The outcome names components. No user entry point. Capabilities column is empty — no user origin exists.
+Bad: "Validate agent definitions against their YAML schema" — starts from an internal rule. The outcome names components. No user entry point. Capabilities column is empty — no user origin exists.
 
-| #   | Capabilities | Primary backend rules            | What the user can do after  | Path through the system                            | Demo sentence                                   | Open issues |
-| --- | ------------ | -------------------------------- | --------------------------- | -------------------------------------------------- | ----------------------------------------------- | ----------- |
-| 1   | —            | Delivery model schema validation | Validate the delivery model | transition-lint → Cycle Model Loader → diagnostics | Run transition-lint and see validation results. | —           |
+| #   | Capabilities | Primary backend rules       | What the user can do after      | Path through the system                 | Demo sentence                              | Open issues |
+| --- | ------------ | --------------------------- | ------------------------------- | --------------------------------------- | ------------------------------------------ | ----------- |
+| 1   | —            | Agent definition validation | Validate agent YAML frontmatter | index-lint → Agent Loader → diagnostics | Run index-lint and see validation results. | —           |
 
-Good: "Check which cycle the evidence supports and choose the next one" — starts from what the user does. The model validation happens inside. Capabilities and primary rules are traceable.
+Good: "See which agents are eligible and dispatch one" — starts from what the user does. The precondition evaluation happens inside. Capabilities and primary rules are traceable.
 
-| #   | Capabilities   | Primary backend rules              | What the user can do after                                      | Path through the system                                                                                                  | Demo sentence                                                                                                            | Open issues |
-| --- | -------------- | ---------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ----------- |
-| 1   | CAP-03, CAP-04 | Readiness evaluation, route guards | Check which cycle the evidence supports and choose the next one | `cycle select` → Readiness Evaluator recommends routes → chosen cycle and evidence appear in workstream state and output | Run `cycle select`, choose REALIZE despite its warning, then reopen the workstream and see REALIZE as its current cycle. | —           |
+| #   | Capabilities   | Primary backend rules                         | What the user can do after                     | Path through the system                                                                       | Demo sentence                                                        | Open issues |
+| --- | -------------- | --------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ----------- |
+| 1   | CAP-03, CAP-04 | Precondition evaluation, readiness derivation | See which agents are eligible and dispatch one | `intent select` → Precondition Evaluator checks inputs → eligible agents listed with evidence | Run `intent select`, pick the implementation agent, then trigger it. | —           |
 
 The completed capability table and the EPIC table are presented together as this skill's terminal output.
 

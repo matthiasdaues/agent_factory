@@ -13,7 +13,7 @@ Operational procedure for **new project development** from requirements through 
 
 - [ ] Project repository initialized
 - [ ] `CONTEXT.md` exists (or will be created in Phase 1)
-- [ ] Orchestrator configured OR manual session management ready
+- [ ] Session management ready
 
 ## Phase Boundary Contract
 
@@ -60,20 +60,18 @@ Work that remains inside one route's outgoing phase is exempt under
 
 ```bash
 # In the active session (stakeholder present), right after vision capture:
-capture-charter --init
+capture-context --init
 ```
 
-**Skill**: `capture-charter` (`--init` mode)
-**Expected outputs**: `docs/agent-context/stack.yaml`, `docs/agent-context/workflow.yaml`,
-`docs/agent-context/governance.yaml` (falls back to `docs/charter/*.md` for legacy projects) — skeleton created from the templates, answers
+**Skill**: `capture-context` (`--init` mode)
+**Expected outputs**: `docs/agent-context.md` — skeleton created from the template, answers
 already known from the vision conversation filled in, everything else left
 `To be decided.`
 
 ### Step 1.1 — Run Requirements Agent
 
 ```bash
-orchestrator run-phase requirements
-# OR manual: Start new session, activate requirements-agent
+# Start new session, activate requirements-agent
 ```
 
 **Agent**: `requirements-agent`
@@ -81,14 +79,13 @@ orchestrator run-phase requirements
 
 As requirements decisions settle a charter entry — a data store, a
 licensing constraint, an integration requirement — the requirements agent
-records it in `docs/agent-context/stack.yaml` (falls back to `docs/charter/tech-stack.md`)
-incrementally, rather than waiting for the completeness sweep.
+records it in `docs/agent-context.md` incrementally, rather than waiting for
+the completeness sweep.
 
 ### Step 1.2 — Run Spec Review Agent (Separate Session)
 
 ```bash
-orchestrator run-phase spec-review
-# OR manual: Start NEW session, activate spec-review-agent
+# Start NEW session, activate spec-review-agent
 ```
 
 **Agent**: `spec-review-agent`
@@ -108,8 +105,7 @@ grep -l "status: open" docs/findings/SPEC-*.md
 ### Step 1.4 — Loop: Address Findings
 
 ```bash
-orchestrator run-phase requirements
-# OR manual: Start NEW session, activate requirements-agent
+# Start NEW session, activate requirements-agent
 ```
 
 **Instructions**: Requirements agent reads open `SPEC-*` findings and addresses them
@@ -121,8 +117,7 @@ Return to Step 1.2 (run spec-review-agent again)
 ### Step 2.1 — Run Architecture Agent
 
 ```bash
-orchestrator run-phase architecture
-# OR manual: Start new session, activate architecture-agent
+# Start new session, activate architecture-agent
 ```
 
 **Agent**: `architecture-agent`
@@ -131,14 +126,13 @@ orchestrator run-phase architecture
 The workspace property `"arc42.projected"` defaults to `"false"` in fresh DSL files and is set to `"true"` by the architecture-agent only when the user requests arc42 chapter projection from the DSL.
 
 As architecture decisions settle a charter entry — infrastructure, deployment
-topology, a cloud provider — the architecture agent invokes `update-charter`
-to record it in `docs/agent-context/stack.yaml` (falls back to `docs/charter/tech-stack.md`) incrementally.
+topology, a cloud provider — the architecture agent records it in
+`docs/agent-context.md` incrementally.
 
 ### Step 2.2 — Run Architecture Review Agent (Separate Session)
 
 ```bash
-orchestrator run-phase architecture-review
-# OR manual: Start NEW session, activate architecture-review-agent
+# Start NEW session, activate architecture-review-agent
 ```
 
 **Agent**: `architecture-review-agent`
@@ -158,8 +152,7 @@ grep -l "status: open" docs/findings/ATAM-*.md
 ### Step 2.4 — Loop: Address Findings
 
 ```bash
-orchestrator run-phase architecture
-# OR manual: Start NEW session, activate architecture-agent
+# Start NEW session, activate architecture-agent
 ```
 
 **Instructions**: Architecture agent reads open `ATAM-*` findings and addresses them
@@ -170,13 +163,12 @@ Return to Step 2.2 (run architecture-review-agent again)
 
 ```bash
 # In the active session (stakeholder present):
-capture-charter
+capture-context
 ```
 
-**Skill**: `capture-charter` (completeness sweep mode, no flag)
-**Expected outputs**: `docs/agent-context/stack.yaml` and `docs/agent-context/workflow.yaml` (falls back to `docs/charter/tech-stack.md` and `docs/charter/development.md`)
-with every entry resolved to a concrete answer or an explicit deferral
-(`docs/agent-context/governance.yaml` or `docs/charter/house-rules.md` may still carry open items), Epic 0 stories
+**Skill**: `capture-context` (completeness sweep mode, no flag)
+**Expected outputs**: `docs/agent-context.md` with every entry resolved to a concrete answer
+or an explicit deferral, Epic 0 stories
 (`epic: "Epic 0 — Project Setup"`) written to `backlog/ST-*.md`, including the
 closing "update development.md" story that depends on every other Epic 0 story
 
@@ -198,14 +190,13 @@ stakeholder for approval together — same manual-approval pattern as Step 3.3
 ### Step 3.1 — Run Planning Agent
 
 ```bash
-orchestrator run-phase planning
-# OR manual: Start new session, activate planning-agent
+# Start new session, activate planning-agent
 ```
 
 **Agent**: `planning-agent`
 **Expected outputs**: `backlog/ST-*.md` files
 
-The planning agent reads the project context from `docs/agent-context/*.yaml` (falls back to `docs/charter/*.md`) and acknowledges that Epic 0
+The planning agent reads the project context from `docs/agent-context.md` and acknowledges that Epic 0
 stories already exist in `backlog/` — written by the charter completeness
 sweep in Step 2.5. It derives feature stories after them: each feature
 story's `deps:` chains to the closing Epic 0 "update development.md" story,
@@ -232,8 +223,7 @@ so no feature story is dependency-ready until Epic 0 is done.
 ### Step 4.1 — Run Implementation Agent (Dispatcher)
 
 ```bash
-orchestrator run-phase implementation
-# OR manual: Start new session, activate implementation-agent
+# Start new session, activate implementation-agent
 ```
 
 **Agent**: `implementation-agent` (spawns parallel `developer-agent` subagents)
@@ -247,8 +237,7 @@ separate scheduling logic.
 ### Step 4.2 — Run Code Review Agent (Separate Session)
 
 ```bash
-orchestrator run-phase code-review
-# OR manual: Start NEW session, activate code-review-agent
+# Start NEW session, activate code-review-agent
 ```
 
 **Agent**: `code-review-agent`
@@ -268,8 +257,7 @@ grep -l "status: open" docs/findings/IMPL-*.md
 ### Step 4.4 — Loop: Fix Implementation Defects
 
 ```bash
-orchestrator run-phase implementation
-# OR manual: Start NEW session, activate implementation-agent
+# Start NEW session, activate implementation-agent
 ```
 
 **Instructions**: Implementation agent reads open `IMPL-*` findings and fixes code
@@ -279,8 +267,7 @@ Return to Step 4.2 (run code-review-agent again)
 ### Step 4.5 — Run Reconciliation Agent (Separate Session)
 
 ```bash
-orchestrator run-phase reconciliation
-# OR manual: Start NEW session, activate reconciliation-agent
+# Start NEW session, activate reconciliation-agent
 ```
 
 **Agent**: `reconciliation-agent`
@@ -300,8 +287,7 @@ grep -l "status: open" docs/findings/RECON-*.md
 ### Step 4.7 — Loop: Fix Reconciliation Defects
 
 ```bash
-orchestrator run-phase implementation
-# OR manual: Start NEW session, activate implementation-agent
+# Start NEW session, activate implementation-agent
 ```
 
 **Instructions**: Implementation agent reads open `RECON-*` findings and fixes code
@@ -313,8 +299,7 @@ Return to Step 4.5 (run reconciliation-agent again)
 ### Step 5.1 — Run QA Agent
 
 ```bash
-orchestrator run-phase qa
-# OR manual: Start new session, activate qa-agent
+# Start new session, activate qa-agent
 ```
 
 **Agent**: `qa-agent` (Fagan + Security + Bug Hunt)
@@ -334,8 +319,7 @@ grep -l "status: open" docs/findings/{FAGAN,SEC,BUG}-*.md
 ### Step 5.3 — Loop: Fix Defects
 
 ```bash
-orchestrator run-phase implementation
-# OR manual: Start NEW session, activate implementation-agent
+# Start NEW session, activate implementation-agent
 ```
 
 **Instructions**: Implementation agent reads open findings and fixes them
@@ -394,6 +378,6 @@ Run ad-hoc at end of any session. The coaching-agent runs in the current session
 
 ## State Tracking
 
-**Current phase**: Check orchestrator state OR manually track in session notes
+**Current phase**: Track in session notes
 **Open findings**: `grep -r "status: open" docs/findings/`
-**Loop count**: Track manually or via orchestrator iteration counter
+**Loop count**: Track manually

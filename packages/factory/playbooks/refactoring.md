@@ -96,29 +96,6 @@ EOF
 "Refactor [module] per REFACTOR-001. Apply [pattern/principle]. Keep all tests passing."
 ```
 
-**OR via orchestrator:**
-
-```bash
-# Create temporary story
-cat > backlog/REFACTOR-001.md << EOF
----
-id: REFACTOR-001
-status: pending
-deps: []
----
-
-Refactor [module]
-
-**Acceptance Criteria:**
-- [ ] Code complexity reduced
-- [ ] [Specific pattern] applied
-- [ ] All existing tests pass unchanged
-- [ ] No behavior changes
-EOF
-
-orchestrator run-phase implementation
-```
-
 **Agent**: `developer-agent`
 **Approach**:
 
@@ -142,7 +119,7 @@ npm test
 ### Step 4.1 — Run QA Agent
 
 ```bash
-orchestrator run-phase qa
+# Start new session, activate qa-agent
 ```
 
 **Agent**: `qa-agent`

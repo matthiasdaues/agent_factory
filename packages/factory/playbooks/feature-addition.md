@@ -115,12 +115,10 @@ steps:
       - 'docs/spec/**/*.md'
       - 'docs/spec/**/*.feature'
       - '.agent-factory/factory/**/*.py'
-      - 'orchestrator/**/*.py'
       - 'tests/**/*.py'
       - 'config/**/*.json'
     outputs:
       - '.agent-factory/factory/**/*.py'
-      - 'orchestrator/**/*.py'
       - 'tests/**/*.py'
       - 'config/**/*.json'
       - 'docs/**/*.md'
@@ -132,7 +130,6 @@ steps:
       - 'docs/spec/**/*.md'
       - 'docs/spec/**/*.feature'
       - '.agent-factory/factory/**/*.py'
-      - 'orchestrator/**/*.py'
       - 'tests/**/*.py'
       - 'config/**/*.json'
     outputs:
@@ -150,12 +147,10 @@ steps:
       - 'docs/spec/**/*.md'
       - 'docs/spec/**/*.feature'
       - '.agent-factory/factory/**/*.py'
-      - 'orchestrator/**/*.py'
       - 'tests/**/*.py'
       - 'config/**/*.json'
     outputs:
       - '.agent-factory/factory/**/*.py'
-      - 'orchestrator/**/*.py'
       - 'tests/**/*.py'
       - 'config/**/*.json'
       - 'docs/**/*.md'
@@ -169,7 +164,6 @@ steps:
   - name: qa
     inputs:
       - '.agent-factory/factory/**/*.py'
-      - 'orchestrator/**/*.py'
       - 'tests/**/*.py'
       - 'docs/**/*.md'
       - 'config/**/*.json'
@@ -371,8 +365,7 @@ reads only the findings and the affected files, cutting the fix-cycle cost by
 ### Step 1.1 — Update Specification
 
 ```bash
-orchestrator run-phase requirements
-# OR manual: Start new session, activate requirements-agent
+# Start new session, activate requirements-agent
 ```
 
 **Agent**: `requirements-agent`
@@ -383,7 +376,7 @@ orchestrator run-phase requirements
 ### Step 1.2 — Spec Review
 
 ```bash
-orchestrator run-phase spec-review
+# Start NEW session, activate spec-review-agent
 ```
 
 **Agent**: `spec-review-agent`
@@ -459,7 +452,7 @@ continuing.
 ### Step 2.1 — Update Architecture
 
 ```bash
-orchestrator run-phase architecture
+# Start new session, activate architecture-agent
 ```
 
 **Agent**: `architecture-agent`
@@ -468,7 +461,7 @@ orchestrator run-phase architecture
 ### Step 2.2 — Architecture Review
 
 ```bash
-orchestrator run-phase architecture-review
+# Start NEW session, activate architecture-review-agent
 ```
 
 **Agent**: `architecture-review-agent`
@@ -489,7 +482,7 @@ grep -l "status: open" docs/findings/ATAM-*.md
 ### Step 3.1 — Create Stories
 
 ```bash
-orchestrator run-phase planning
+# Start new session, activate planning-agent
 ```
 
 **Agent**: `planning-agent`
@@ -528,7 +521,7 @@ deferred scope, and applies the declared governance and risk domains.
 ### Step 4.1 — Implement Stories
 
 ```bash
-orchestrator run-phase implementation
+# Start new session, activate implementation-agent
 ```
 
 **Agent**: `implementation-agent`
@@ -536,8 +529,7 @@ orchestrator run-phase implementation
 ### Step 4.2 — Code Review (Separate Session)
 
 ```bash
-orchestrator run-phase code-review
-# OR manual: Start NEW session, activate code-review-agent
+# Start NEW session, activate code-review-agent
 ```
 
 **Agent**: `code-review-agent`
@@ -557,7 +549,7 @@ grep -l "status: open" docs/findings/IMPL-*.md
 ### Step 4.4 — Reconcile
 
 ```bash
-orchestrator run-phase reconciliation
+# Start NEW session, activate reconciliation-agent
 ```
 
 **Agent**: `reconciliation-agent`
@@ -578,7 +570,7 @@ grep -l "status: open" docs/findings/RECON-*.md
 ### Step 5.1 — QA
 
 ```bash
-orchestrator run-phase qa
+# Start new session, activate qa-agent
 ```
 
 **Agent**: `qa-agent`

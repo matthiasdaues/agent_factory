@@ -83,7 +83,7 @@ All three are local configuration, not project source. Edit them directly any ti
 Two git-ignored directories appear as you work. You never create them by hand.
 
 - **`.agent-factory/`** — the factory's private runtime area. Holds the install manifest (`install.json`), the usage-capture runtime (tokenizer, adapters), and all recorded usage data (`usage/*.jsonl` and `usage/transcripts/`). Created by `init-factory`; removed cleanly by `remove-factory`. You read usage records here; you never edit them.
-- **`.current-work/`** — ephemeral working state for the active playbook run. Holds the phase-gate marker (`playbook-state.yml`), per-story step manifests, the dispatch ledger, and session logs. Scoped to your local machine and the current piece of work — not portable, not meant to be committed. Disappears when the work is done.
+- **`.current-work/`** — ephemeral working state for the active workstream. Holds per-story step manifests, the dispatch ledger, and session logs. Scoped to your local machine and the current piece of work — not portable, not meant to be committed. Disappears when the work is done.
 
 ## First playbook
 

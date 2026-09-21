@@ -4,76 +4,28 @@ scope: global
 
 # Entity Model — Factory Flow Control
 
-The entities `.agent-factory/factory/scripts/transition-lint`, `.agent-factory/factory/scripts/phase`, `.agent-factory/factory/scripts/trigger`, and `.agent-factory/factory/scripts/index-lint` read, write, or generate, and how they relate. Applying **SOLID** (Single Responsibility): each entity owns one concern of the run's state — the marker owns *where a run is*, the FSM definition owns *what the run's phases are*, the catalog owns *what agents/skills/playbooks/rulebooks exist*.
+The entities that `.agent-factory/factory/scripts/trigger`, `.agent-factory/factory/scripts/index-lint`, `.agent-factory/factory/engine/eligibility.py`, and the dispatch subcommands read, write, or generate, and how they relate. Applying **SOLID** (Single Responsibility): each entity owns one concern — the catalog owns *what agents/skills/playbooks/rulebooks exist*, the precondition evaluator owns *what can run*, and dispatch owns *what is running*.
+
+## Catalog Entities
 
 ```mermaid
 erDiagram
-    FSM_DEFINITION ||--o{ STATE_DEFINITION : declares
-    FSM_DEFINITION ||--o{ HALT_CONDITION : declares
-    FSM_DEFINITION ||--o{ GATE_CONDITION : "gate_conditions library"
-    STATE_DEFINITION ||--o{ GATE_CONDITION : "entry_conditions reference"
-    HALT_CONDITION }o--|| STATE_DEFINITION : caps
-    PLAYBOOK_STATE_MARKER }o--|| FSM_DEFINITION : "instance of (by playbook name)"
-    PLAYBOOK_STATE_MARKER }o--|| STATE_DEFINITION : "currently at (by state name)"
-    GATE_CONDITION ||--o{ FINDING : "no_open_findings counts"
     CATALOG ||--o{ AGENT_ENTRY : lists
     CATALOG ||--o{ SKILL_ENTRY : lists
     CATALOG ||--o{ PLAYBOOK_ENTRY : lists
     CATALOG ||--o{ RULEBOOK_ENTRY : lists
-    PLAYBOOK_ENTRY ||--o| FSM_DEFINITION : "fsm field points at"
     PLAYBOOK_ENTRY ||--o{ AGENT_ENTRY : "agents sequence"
     AGENT_ENTRY ||--o| MODEL_MATRIX_ENTRY : "tier resolves via"
+    FINDING {
+        string id "TAG-NNNN"
+        string status "open | resolved, frontmatter field"
+    }
     HANDOFF ||--o{ ARTIFACT_REFERENCE : names
     HANDOFF ||--|| REPOSITORY_STATE : records
     HANDOFF_SEMANTIC_REVIEW }o--|| HANDOFF : evaluates
     CHILD_RESULT_ENVELOPE ||--o{ ARTIFACT_REFERENCE : points_to
     SESSION_USAGE_SIGNAL }o--|| REPOSITORY_STATE : qualifies_session
 
-    FSM_DEFINITION {
-        string playbook
-        string version
-        string type "workflow-state-machine"
-    }
-    STATE_DEFINITION {
-        string name
-        string description
-        string agent "nullable — null for a human-approval state"
-        string session "stateful or stateless, nullable"
-        list   outputs "glob patterns"
-        list   entry_conditions "gate_conditions names"
-        bool   final "nullable, true on the terminal state"
-    }
-    GATE_CONDITION {
-        string name
-        string type "file_exists | files_exist | no_open_findings | script_exit_zero"
-        string path "nullable — file_exists"
-        list   paths "nullable — files_exist"
-        string pattern "nullable — no_open_findings, single glob"
-        list   patterns "nullable — no_open_findings, multiple globs"
-        string script "nullable — script_exit_zero, stubbed to pass"
-    }
-    HALT_CONDITION {
-        string type "max_iterations | script_failure | circular_dependency"
-        string state "nullable — the state max_iterations names"
-        string event "nullable"
-        int    limit "nullable — max_iterations only"
-        string message "nullable — human escalation text"
-    }
-    PLAYBOOK_STATE_MARKER {
-        string playbook
-        string state
-        string gate "nullable"
-        string result "pass, nullable"
-        int    open_findings
-        string next "nullable — next state name"
-        int    iteration
-        string recorded_by "human or an agent/CLI identifier"
-        string recorded_at "UTC timestamp, ISO 8601, script clock only"
-    }
-    FINDING {
-        string id "TAG-NNNN"
-        string status "open | resolved, frontmatter field"
-    }
     CATALOG {
         string generated_by "index-lint"
     }
@@ -101,7 +53,6 @@ erDiagram
         string category "nullable"
         string description
         string path
-        string fsm "nullable — path to the .fsm.yml"
         int    tokens "tiktoken cl100k_base body count"
         int    total_tokens "nullable — body + unique agent totals"
     }
@@ -156,7 +107,7 @@ erDiagram
         string status "implemented | specified | deferred"
         string confidence "nullable — verified | flagged | high | medium-high | medium | medium-low | low | lowest | claimed"
         string sources "spec or evidence origin — UC file, .feature file, test file, doc"
-        string feature_link "nullable — path to implementing code#59; anchors conceptual rule to codebase"
+        string feature_link "nullable — path to implementing code, anchors conceptual rule to codebase"
     }
     ANCHOR_FILE_SET {
         string architecture_dsl "docs/arc42/architecture.dsl"
@@ -167,15 +118,10 @@ erDiagram
 
 ## Notes
 
-- **FSM_DEFINITION** is one `.agent-factory/factory/playbooks/<name>.fsm.yml` file. Only `greenfield-development` has one today — see [PRD § NG4](../prd.md#non-goals). `phase advance`, `phase retry`, and `transition-lint` each parse it independently with the same minimal, indentation-based subset parser (block mappings, block sequences including sequences of multi-key mappings, inline comments, scalars) — not a general YAML library, matching this repo's zero-dependency convention.
-- **STATE_DEFINITION.outputs** is a list of glob patterns (`*` within a segment, `**` across segments, `?` one non-separator character) that `transition-lint` matches staged file paths against, and `run-step` matches on-disk files against, to decide state ownership.
-- **GATE_CONDITION.type = script_exit_zero** is stubbed to always pass in the current implementation — a named, deferred gap. See [T-03](../todos.md#t-03-script_exit_zero-condition-type-is-stubbed--partially-resolved).
-- **HALT_CONDITION** of type `max_iterations` is the only type `phase retry` currently enforces; `script_failure` and `circular_dependency` are declared in `greenfield-development.fsm.yml` but have no enforcing script yet — see [T-04](../todos.md#t-04-halt_conditions-types-other-than-max_iterations-are-unenforced).
-- **PLAYBOOK_STATE_MARKER** is the single source of truth for "where is this run" — one flat file at `.current-work/playbook-state.yml`, git-ignored. Full field-level rules in [validation-rules.md](validation-rules.md).
-- **FINDING.status** is read from the finding file's YAML frontmatter (a `---`-delimited block whose first line is exactly `---`); `no_open_findings` conditions count files matching a glob whose `status` is exactly `open`. Filing conventions: [finding-format.md § When to file](../../../.agent-factory/factory/rulebooks/conventions/finding-format.md#when-to-file).
+- **FINDING.status** is read from the finding file's YAML frontmatter (a `---`-delimited block whose first line is exactly `---`); open finding counts check files matching a glob whose `status` is exactly `open`. Filing conventions: [finding-format.md § When to file](../../../.agent-factory/factory/rulebooks/conventions/finding-format.md#when-to-file).
 - **CATALOG** is `.agent-factory/factory/INDEX.yaml` — one file holding four entry types (agents, skills, playbooks, rulebooks). It is generated wholesale on every `index-lint` run; there is no per-entry incremental update. Every entry carries a `tokens` field; agents and playbooks also carry `total_tokens`.
 - **AGENT_ENTRY.tier** and **MODEL_MATRIX_ENTRY.tier** share the same three-value vocabulary (`economy | standard | strong`); `trigger` resolves an agent's dispatch model by looking up `<cli>.<tier>` in `config/model.conf`.
-- **HANDOFF** is the restart contract between two phases. It owns phase continuity; **REPOSITORY_STATE** owns the exact revision and validation evidence, and **ARTIFACT_REFERENCE** names durable information instead of embedding it in a transcript. **HANDOFF_SEMANTIC_REVIEW** records the separate human/agent judgment that the mechanically valid handoff omitted or distorted no material fact.
+- **HANDOFF** is the restart contract between two workflow phases. It owns phase continuity; **REPOSITORY_STATE** owns the exact revision and validation evidence, and **ARTIFACT_REFERENCE** names durable information instead of embedding it in a transcript. **HANDOFF_SEMANTIC_REVIEW** records the separate human/agent judgment that the mechanically valid handoff omitted or distorted no material fact.
 - **DISPATCH_LEDGER** is the script-owned dispatch record at `.current-work/<feature-branch>/dispatch-ledger.yaml`; each story entry tracks lifecycle fields including `tier`, `attempts`, and the pre-spawn `prepared` state, and each `WaveCloseout` entry records a wave summary (`number`, `completed`, `blocked`, `failed`, `next_ready`, `branch_head`).
 - **CHILD_RESULT_ENVELOPE** is deliberately smaller than the tracked result it references. **SESSION_USAGE_SIGNAL** is retrospective evidence qualified by CLI/provider, never live workflow state.
 - **SCOPE_MAP_ROW** is one row in `docs/spec/scope-map.md`. The table always has five columns: Rule, Status, Confidence, Sources, Feature Link. `confidence` is populated by the `reverse-map` skill during brownfield onboarding; rows created by `derive-feature` or `scope-map-migration` leave it empty. `sources` names the spec or evidence origin (UC file, .feature file, test file). `feature_link` anchors the conceptual rule to the implementing code — the bridge between the specification plane and the codebase. It is empty when the rule is `specified` (not yet implemented) or when the implementing code has not been identified; the `reconciliation-agent` fills it after implementation. The confidence hierarchy follows a forensic evidence model: passing tests are `verified`, code entry points are `high`, external docs are progressively lower. See [newcomer-onboarding.feature](../newcomer-onboarding.feature).
@@ -308,7 +254,6 @@ erDiagram
 ## Referenced from
 
 - [actor-goal-list.md](../../~archive/spec/actor-goal-list.md)
-- [UC-01](../../~archive/spec/use_cases/UC-01-advance-a-playbook-phase.md)
 - [test-design.feature](../test-design.feature)
 - [agent-context.feature](../agent-context.feature)
 
@@ -448,9 +393,7 @@ erDiagram
 
 ## Activity-Graph Orchestration Entities
 
-The activity graph replaces both the linear playbook FSM and the cycle engine as the delivery routing model. Agents declare structured inputs and outputs. The precondition evaluator checks inputs against the repository. Sequence emerges from the dependency chain — no named stages, no transition matrix, no route table.
-
-These entities supersede `DELIVERY_MODEL`, `CYCLE_DECLARATION`, `ROUTE_DECLARATION`, `DELEGATION_GRANT`, and the v1 `WORKSTREAM_STATE` and `SESSION_BINDING`. The superseded entities are removed from the codebase; they remain documented in git history. `VALIDATOR_RESULT` carries forward with the same structure.
+The activity graph is the delivery routing model. Agents declare structured inputs and outputs. The precondition evaluator checks inputs against the repository. Sequence emerges from the dependency chain — no named stages, no transition matrix, no route table.
 
 Proposal trace: [activity-graph-orchestration.md](../../proposals/activity-graph-orchestration.md)
 
@@ -545,7 +488,7 @@ erDiagram
 - **OUTPUT_DECLARATION** names a `validator` that runs against created or modified files matching `path_pattern` after the activity completes. `required: true` means the fence fails if no match exists. `required: false` means the output is optional — if it changed, its validator runs; if it did not change, it is skipped.
 - **PRECONDITION_EVIDENCE** is the evaluator's per-requirement result. One evidence record per required input per agent. The evaluator never writes repository state.
 - **FENCE_EVIDENCE** is stored at `.agent-factory/checks/fences/<session-id>/<invocation-id>.yaml`. The aggregate passes only when every required output changed, `declarations_changed >= minimum_required`, and every invoked validator passed. Fence failure does not block human action. For external orchestrators, the fence result determines whether chaining proceeds.
-- **VALIDATOR_RESULT** is immutable once produced. Carried forward from the cycle model with the same structure. Every result carries the assessed commit SHA, individual check results, and warnings.
+- **VALIDATOR_RESULT** is immutable once produced. Every result carries the assessed commit SHA, individual check results, and warnings.
 - **WORKSTREAM_STATE** is persisted at `.agent-factory/workstreams/<workstream-id>.yaml`. The file is immutable after creation — no `cycle`, `attempt`, `revision`, `delegation`, or `work` fields. Multiple sessions may bind to the same workstream. No concurrency control is needed because the file does not change.
 - **SESSION_BINDING** is persisted at `.agent-factory/workstreams/sessions/<session-id>.yaml`. The `workstream_id` key must always be present: a known identifier means the session is bound, explicit `null` means Open Stage, and a missing key fails validation. Selecting a different workstream updates `workstream_id` and `bound_at`. The binding is session-scoped and dies with the session.
 - **GOVERNED_ARTIFACT** is any artifact in the closed first-release set: proposals, epics, stories, Gherkin feature files, `architecture.dsl`, `scope-map.md`, and `entity-model.yaml`. The `scope` field is read from YAML frontmatter when present, otherwise from a `scope:` declaration on the first line of the file. Proposals use `scope` in place of `title`. A lint check at artifact creation time verifies the declaration is present and carries either `global` or a known workstream identifier.

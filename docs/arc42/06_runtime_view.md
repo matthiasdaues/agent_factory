@@ -4,8 +4,8 @@
 
 ## 6.1 Overview
 
-This chapter describes key interaction sequences for Factory gates, cycle
-transitions, and local usage analysis. Dynamic views in
+This chapter describes key interaction sequences for Factory gates,
+eligibility evaluation, and local usage analysis. Dynamic views in
 [`architecture.dsl`](architecture.dsl) own the canonical step order.
 
 ## 6.2 Agent Selection
@@ -42,31 +42,29 @@ sequenceDiagram
 
 ## 6.3 Test Gate Presence
 
-Factory ensures test gates exist; the project decides what runs inside them. Testing is project-owned infrastructure declared in `docs/testing.yaml`. Factory's guardrails and cycle gates read that declaration. Factory does not own test execution, framework detection, or structured test output.
+Factory ensures test gates exist; the project decides what runs inside them. Testing is project-owned infrastructure declared in `docs/testing.yaml`. Factory's guardrails and eligibility preconditions read that declaration. Factory does not own test execution, framework detection, or structured test output.
 
-### 6.3.1 Sequence: Charter Declaration and Cycle Gate
+### 6.3.1 Sequence: Precondition Evaluation with Test Gate
 
 ```mermaid
 sequenceDiagram
     participant H as User
-    participant CS as cycle select
-    participant EE as Eligibility Engine
+    participant I as intent select
+    participant PE as Precondition Evaluator
     participant C as docs/testing.yaml
 
     H->>C: Declare test_command in testing.yaml
-    H->>CS: Invokes cycle select with target cycle
-    CS->>EE: Requests transition decision
-    EE->>EE: Readiness Evaluator checks trusted validators
-    EE->>C: Resolves test_command from testing.yaml
-    C-->>EE: test_command: "uv run pytest --tb=short --quiet"
-    EE->>EE: Evaluates artifact evidence (exit code)
-    alt Readiness met
-        EE-->>CS: Route recommended
-        CS->>CS: Write new cycle state
-        CS-->>H: Cycle selected
-    else Readiness unmet
-        EE-->>CS: Warning: evidence insufficient
-        CS-->>H: Recommendation with warnings
+    H->>I: Invokes intent select
+    I->>PE: Evaluates agent preconditions
+    PE->>C: Resolves test_command from testing.yaml
+    C-->>PE: test_command: "uv run pytest --tb=short --quiet"
+    PE->>PE: Checks inputs.required declarations against filesystem
+    alt Preconditions met
+        PE-->>I: Agent eligible
+        I-->>H: Agent listed with evidence
+    else Preconditions unmet
+        PE-->>I: Agent blocked (unsatisfied requirements)
+        I-->>H: Agent listed with blocking reasons
     end
 ```
 
@@ -185,9 +183,9 @@ sequenceDiagram
     MG->>CO: Read interface-contracts.md, entity-model.md
     MG->>MG: Compare feature outputs against module map
     alt No module-graph change
-        MG-->>S: Exit 0 — skip architecture cycle
+        MG-->>S: Exit 0 — skip architecture
     else Module boundary changed
-        MG-->>S: Exit 1 — enter architecture cycle
+        MG-->>S: Exit 1 — enter architecture
         MG->>MG: Update proposal frontmatter: architecture_change: true
     end
 ```
@@ -195,7 +193,7 @@ sequenceDiagram
 **Key Points:**
 
 - Runs once per feature, at the architecture boundary. Not per story, not per commit.
-- Tests module-graph topology only: new modules, changed public interfaces, inverted dependency directions. A new entity in an existing module does not trigger the architecture cycle.
+- Tests module-graph topology only: new modules, changed public interfaces, inverted dependency directions. A new entity in an existing module does not trigger the architecture check.
 - The orchestrating session owns the check. It is not a hook or a dispatcher gate.
 
 ## 6.5 Agent Context Validation
@@ -286,11 +284,7 @@ leaves an existing destination unchanged. No scheduled refresh exists.
 
 Full sequences for these flows are in their respective use cases:
 
-- **Phase advance with multiple entry conditions** (legacy) -- [UC-01](../~archive/spec/use_cases/UC-01-advance-a-playbook-phase.md)
-- **Retry loop with iteration cap** (legacy) -- [UC-03](../~archive/spec/use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md)
 - **Agent dispatch (interactive vs. background)** -- [UC-04](../~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md)
-- **Resume after interruption** -- [UC-05](../~archive/spec/use_cases/UC-05-resume-an-interrupted-playbook-run.md)
-- **Transition-lint blocking out-of-phase commit** (legacy) -- [UC-02](../~archive/spec/use_cases/UC-02-block-an-out-of-phase-commit.md)
 
 ## Referenced from
 

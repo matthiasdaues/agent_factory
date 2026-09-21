@@ -2,38 +2,20 @@
 
 Field- and behavior-level rules each mechanism enforces, grouped by the entity or mechanism they govern. Business rule IDs (BR-###) are defined here or in the use case that introduces them; this file is the canonical index.
 
-## Marker schema (`PLAYBOOK_STATE_MARKER`)
-
-- `playbook` and `state` are required. `phase advance` and `phase retry` both refuse (non-zero exit) if either is missing from an existing marker file.
-- `state` must name a state defined in the resolved FSM. `transition-lint` reports `TL-STATE` (error) if it does not; `phase advance` and `phase retry` fail resolving the current state's transitions in the same case.
-- `recorded_at` is written in UTC, `%Y-%m-%dT%H:%M:%SZ` format, always from the writing script's own `datetime.now(timezone.utc)` call — never accepted as an input field.
-- `iteration` is an integer, defaulting to `1` when absent or unparseable. `phase advance` always resets it to `1` on a successful advance; `phase retry` is the only mechanism that increments it.
-- The marker is rendered as flat `key: value` lines in a fixed field order (`playbook`, `state`, `gate`, `result`, `open_findings`, `next`, `iteration`, `recorded_by`, `recorded_at`); a value of `None` renders as the literal `null`.
-- The marker file lives at `.current-work/playbook-state.yml` and is git-ignored — local, single-machine state, never committed, never a distributed lock (see [PRD § Constraints](../prd.md#5-constraints)).
-
-## Entry conditions (`GATE_CONDITION`)
+## Precondition types (`eligibility.py`)
 
 - `file_exists`: satisfied if `repo_root.glob(path)` yields at least one match.
 - `files_exist`: satisfied if every path in `paths` yields at least one glob match; the unmet reason lists every missing path by name.
 - `no_open_findings`: satisfied if zero matching finding files (by `pattern` or `patterns`, globbed under `docs/findings/`) have frontmatter `status: open`. A file whose frontmatter cannot be parsed (no leading `---` block) is not counted as open.
 - `script_exit_zero`: executes the named script and checks for exit code 0. When the `script` field uses the `charter:<field>` notation (e.g. `charter:test_command`), the evaluator reads the `charter_file` path from the condition, parses the YAML, and resolves the named field to the actual command before execution. Blocks with a clear message when the charter file is absent or the field is missing. See [UC-09](../../~archive/spec/use_cases/UC-09-run-tests-via-hook.md) and [ADR-0003](../../adr/0003-test-execution-via-hooks.md).
-- An `entry_conditions` name with no matching entry in `gate_conditions` is treated as unmet, with the reason `"<name> (not defined in gate_conditions)"`.
-- Unmet conditions are collected exhaustively, not short-circuited — a refusal always lists every unmet condition, not just the first.
+- A precondition name with no matching evaluator is treated as unmet, with the reason `"<name> (not defined)"`.
+- Unmet preconditions are collected exhaustively, not short-circuited — a refusal always lists every unmet precondition, not just the first.
 
 ## Glob matching (`outputs:` ownership)
 
 - `*` matches within one path segment; `**` matches across segments (`**/` also consumes a trailing `/`); `?` matches exactly one non-separator character. Every other character is matched literally.
-- A staged (or on-disk) path can match more than one state's globs; `transition-lint` reports the sorted list of matches and treats the first as the file's owner for messaging purposes.
-- A path matching no state's `outputs:` glob is ungoverned: `transition-lint` never reports a finding for it, and `run-step` never treats it as evidence a state's outputs exist.
-
-## Iteration cap resolution (BR-008, BR-009, BR-010)
-
-1. Resolve the loop-back target: the current state's `else` transition target, if the FSM declares one; otherwise the current state itself.
-2. Look up a `halt_conditions` entry of `type: max_iterations` naming that target state. If found, its `limit` (falling back to the default if unparseable) and `message` apply.
-3. If no such entry exists, `--default-max-iterations` (default `5`) applies, with no escalation message.
-4. Increment the marker's `iteration`. If the result exceeds the resolved limit, refuse (exit `2`) and leave the marker unwritten. Otherwise write the marker with the new `iteration` and a fresh `recorded_at`.
-
-This resolution order is why `halt_conditions` must name the **author** state being retried (e.g. `PHASE_1_REQUIREMENTS`), not its gate (`PHASE_1_GATE`) — `greenfield-development.fsm.yml` declares all three review-loop caps this way.
+- A path can match more than one agent's output declarations. The fence runner validates all matching declarations.
+- A path matching no agent's `outputs:` declarations is ungoverned: `run-step` never treats it as evidence an agent's outputs exist.
 
 ## Permission scoping (`trigger`, BR-011, BR-012, BR-013)
 
@@ -99,12 +81,12 @@ This resolution order is why `halt_conditions` must name the **author** state be
 - **BR-023**: Factory does not detect or construct test commands. The project declares its test commands in `docs/testing.yaml`. Factory reads that declaration; it does not guess, detect, or override. The `detect-test-regime` skill scans for existing test entrypoints during onboarding and populates the charter; it is not a runtime detection mechanism.
 - **BR-024**: Bare test commands (`pytest`, `npm test`, `go test`, `cargo test`, and common variants) are blocked for agent execution via `block-dangerous-git.sh` deny patterns. The agent allowlist is populated from `docs/testing.yaml`: all declared command fields (`test_command`, `test_staged_command`, `test_changed_command`) are allowlisted with exact-string matching. No prefix matching. A command that differs from the declared string by even one character is denied.
 - **BR-025**: The `test_changed_command` field in `docs/testing.yaml` is optional. When present, it is the command the project uses for fast feedback on changed files. Factory does not engineer mode flags or substitute its own mode logic; the project owns its mode story.
-- **BR-026**: The `test_command` field in `docs/testing.yaml` is required. It is the full test suite command used by FSM `script_exit_zero` gate conditions. Factory calls it as-is from the repository root and reads only its exit code.
+- **BR-026**: The `test_command` field in `docs/testing.yaml` is required. It is the full test suite command used by the `script_exit_zero` precondition evaluator. Factory calls it as-is from the repository root and reads only its exit code.
 - **BR-027**: Factory does not parse structured test output. The gate contract is exit-code-only: zero means pass, nonzero means fail. Structured test counts, JSON summaries, and reporting are the project's concern.
 - **BR-028**: The `test_staged_command` field in `docs/testing.yaml` is optional. When present, it is the command agents may use for TDD iteration on staged files. It is allowlisted in `block-dangerous-git.sh` with exact matching.
 - **BR-029**: Factory does not inject test hooks into `.pre-commit-config.yaml`. Test hooks are project-owned infrastructure. The project decides when and how tests trigger on commit, push, or other events. The `agent_factory_hook-run-tests-full` entry that previously existed in Factory's pre-commit config is removed.
 
-The `script_exit_zero` condition evaluator resolves `test_command` from `docs/testing.yaml` via the `charter:test_command` notation and reads its exit code; the pass/fail decision is exit-code-only (BR-027).
+The `script_exit_zero` precondition evaluator resolves `test_command` from `docs/testing.yaml` via the `charter:test_command` notation and reads its exit code; the pass/fail decision is exit-code-only (BR-027).
 
 ## Anchor-file prerequisite (feature-addition)
 
@@ -144,8 +126,6 @@ See [newcomer-onboarding.feature](../newcomer-onboarding.feature).
 ## Referenced from
 
 - [entity-model.md](entity-model.md)
-- [UC-01](../../~archive/spec/use_cases/UC-01-advance-a-playbook-phase.md)
-- [UC-03](../../~archive/spec/use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md)
 - [UC-04](../../~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md)
 - [UC-06](../../~archive/spec/use_cases/UC-06-regenerate-the-catalog.md)
 - [UC-08](../../~archive/spec/use_cases/UC-08-initialize-agent-factory-into-a-project.md)
@@ -248,8 +228,6 @@ These rules support the [local usage feature](../local-usage-processing-and-anal
 Release 1 excludes persistent analytical databases, automatic Parquet materialization, notebooks, dashboard products, the community `dash` extension, services, containers, remote resources, centralized collection, access control, price catalogs, transcript-content indexing, automatic evidence retention or deletion, Pandas, and Polars.
 
 ## Activity-Graph Orchestration Validation Rules
-
-These rules govern the activity-graph delivery model that supersedes both the linear playbook-FSM model and the cycle-based model. The playbook-FSM rules above remain as documentation of the pre-migration behavior.
 
 Proposal trace: [activity-graph-orchestration.md](../../proposals/activity-graph-orchestration.md).
 Feature trace: [activity-graph-orchestration.feature](../activity-graph-orchestration.feature).

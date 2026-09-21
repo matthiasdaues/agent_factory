@@ -2,42 +2,6 @@
 
 Command-line contract for every script this specification covers: inputs, flags, outputs, and exit codes. All scripts are stdlib-only Python 3.8+; none requires a virtualenv.
 
-## `.agent-factory/factory/scripts/transition-lint`
-
-|               |                                                                                                                                    |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Usage         | `transition-lint [--repo-root DIR] [--marker PATH] [--playbooks-dir DIR] [--format text\|json] [--report-only]`                    |
-| Reads         | `.current-work/playbook-state.yml` (or `--marker`); `git diff --cached --name-only`; the marker's playbook `.fsm.yml`              |
-| Writes        | Nothing — read-only                                                                                                                |
-| Exit code     | Count of error-severity findings (`0` = clean), unless `--report-only` (always `0`)                                                |
-| Finding codes | `TL-NOMARKER` (info), `TL-MARKER` (error — missing `playbook`/`state`), `TL-NOFSM` (error), `TL-STATE` (error), `TL-ORDER` (error) |
-
-See [UC-02](../../~archive/spec/use_cases/UC-02-block-an-out-of-phase-commit.md).
-
-## `.agent-factory/factory/scripts/phase advance`
-
-|               |                                                                                                        |
-| ------------- | ------------------------------------------------------------------------------------------------------ |
-| Usage         | `phase advance [--by NAME] [--repo-root DIR] [--marker PATH] [--playbooks-dir DIR] [--playbook NAME]`  |
-| Reads         | The marker (if present); the target `.fsm.yml`; `docs/findings/**` (for `no_open_findings` conditions) |
-| Writes        | The marker, only on success                                                                            |
-| Exit code     | `0` on success; `1` on refusal (unmet conditions, terminal state, missing FSM)                         |
-| stdout/stderr | Success message to stdout; refusal message (with every unmet condition) to stderr                      |
-
-See [UC-01](../../~archive/spec/use_cases/UC-01-advance-a-playbook-phase.md).
-
-## `.agent-factory/factory/scripts/phase retry`
-
-|               |                                                                                                    |
-| ------------- | -------------------------------------------------------------------------------------------------- |
-| Usage         | `phase retry [--repo-root DIR] [--marker PATH] [--playbooks-dir DIR] [--default-max-iterations N]` |
-| Reads         | The marker (required — errors if absent); the target `.fsm.yml`'s `halt_conditions`                |
-| Writes        | The marker, only when the retry is allowed                                                         |
-| Exit code     | `0` allowed; `1` no marker; `2` cap exceeded                                                       |
-| stdout/stderr | Success message to stdout; refusal (with cap and any declared `message`) to stderr                 |
-
-See [UC-03](../../~archive/spec/use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md).
-
 ## `.agent-factory/factory/scripts/trigger`
 
 |                 |                                                                                                                                                                        |
@@ -566,9 +530,9 @@ All component operations are idempotent. An update whose consumer range excludes
 
 Non-owning layers may exercise a journey but must not duplicate the owner's assertions.
 
-## Activity-Graph Orchestration Commands
+## Eligibility and Orchestration Commands
 
-These commands supersede the cycle-based command contracts. The `cycle` command family (`cycle select`, `cycle retry`, `cycle grant`), the `phase` diagnostic stub, and the migrated `transition-lint` are all deleted. All scripts are stdlib-only Python 3.10+.
+All scripts are stdlib-only Python 3.10+.
 
 Proposal trace: [activity-graph-orchestration.md](../../proposals/activity-graph-orchestration.md)
 
@@ -619,18 +583,6 @@ Proposal trace: [activity-graph-orchestration.md](../../proposals/activity-graph
 | Human sessions    | Fence result is informational — no enforcement, no warning for missing or unexpected outputs                                                                    |
 | External chaining | The caller (implementation-agent dispatcher, script, or human) inspects the fence result and evaluator evidence to decide whether to dispatch the next activity |
 
-### Deleted commands
-
-The following scripts are deleted with no replacement shim:
-
-| Script                                           | Reason                                                                     |
-| ------------------------------------------------ | -------------------------------------------------------------------------- |
-| `.agent-factory/factory/scripts/cycle select`    | Replaced by `intent select` and unrestricted human agent selection         |
-| `.agent-factory/factory/scripts/cycle retry`     | No retry logic in the engine; external orchestrators own retries           |
-| `.agent-factory/factory/scripts/cycle grant`     | No delegation in the engine; chaining is external via deterministic fences |
-| `.agent-factory/factory/scripts/phase` (stub)    | No phases exist to diagnose                                                |
-| `.agent-factory/factory/scripts/transition-lint` | No transitions exist to lint                                               |
-
 ## Usage Record v1 Schema — Deferred Additions
 
 The following fields were planned as v1-additive additions. They are deferred to a future proposal that addresses usage record enrichment, capture-hook integration, and workstream-dimension analysis in bulk:
@@ -641,11 +593,9 @@ The following fields were planned as v1-additive additions. They are deferred to
 | `workstream_origin` | `string` or `null` | Path to the workstream's origin artifact       | deferred |
 | `skills_invoked`    | `array` or `null`  | Skill names called during the session          | deferred |
 
-No `cycle` field exists — named cycles are not part of the activity-graph model.
+## Research Brief Schema
 
-## Research Brief Schema — Simplified
-
-The cycle-based `origin_cycle` and `return_cycle` fields are removed. The precondition graph handles routing: a research agent's output is an artifact, and any agent that declares that artifact as a required input sees the requirement become satisfied when the research completes.
+The precondition graph handles routing: a research agent's output is an artifact, and any agent that declares that artifact as a required input sees the requirement become satisfied when the research completes.
 
 | Field             | Type               | Description                                              |
 | ----------------- | ------------------ | -------------------------------------------------------- |

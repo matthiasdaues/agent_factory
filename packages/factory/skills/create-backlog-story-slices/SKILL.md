@@ -25,7 +25,7 @@ For each confirmed EPIC, sketch a table of candidate stories. Each row names an 
 | #   | Capability | Actor / consumer | Trigger or entry point | Observable outcome | Production path | Demo |
 | --- | ---------- | ---------------- | ---------------------- | ------------------ | --------------- | ---- |
 
-**Capability column:** active verb phrase — this becomes the story title. "Start a workstream and select any cycle", not "Workstream creation and cycle selection."
+**Capability column:** active verb phrase — this becomes the story title. "Start a workstream and see eligible agents", not "Workstream creation and agent selection."
 
 **Actor / consumer column:** the person, agent, or external system that initiates or consumes the capability.
 

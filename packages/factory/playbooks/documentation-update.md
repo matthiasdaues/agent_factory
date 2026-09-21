@@ -31,8 +31,7 @@ Run this playbook when:
 ### Step 1.1 — Code vs Spec Reconciliation
 
 ```bash
-orchestrator run-phase reconciliation
-# OR manual: Start new session, activate reconciliation-agent
+# Start new session, activate reconciliation-agent
 ```
 
 **Agent**: `reconciliation-agent`
@@ -75,7 +74,7 @@ grep -l "status: open" docs/findings/RECON-*.md
 Code defects = implementation doesn't match spec **intent**
 
 ```bash
-orchestrator run-phase implementation
+# Start new session, activate implementation-agent
 ```
 
 **Agent**: `implementation-agent`
@@ -113,7 +112,7 @@ Return to Step 1.1 (re-run reconciliation)
 ### Step 3.1 — Spec Review (If Spec Changed Significantly)
 
 ```bash
-orchestrator run-phase spec-review
+# Start NEW session, activate spec-review-agent
 ```
 
 **Agent**: `spec-review-agent`
@@ -130,7 +129,7 @@ grep -l "status: open" docs/findings/SPEC-*.md
 ### Step 3.2 — Architecture Review (If Architecture Changed)
 
 ```bash
-orchestrator run-phase architecture-review
+# Start NEW session, activate architecture-review-agent
 ```
 
 **Agent**: `architecture-review-agent`

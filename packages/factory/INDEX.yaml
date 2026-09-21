@@ -870,7 +870,7 @@ playbooks:
     category: orchestration
     description: Operational procedure for fixing defects in production or development.
     path: playbooks/bug-fix.md
-    fsm: playbooks/bug-fix.fsm.yml
+
     agents:
       - developer-agent
       - qa-agent
@@ -910,7 +910,7 @@ playbooks:
     category: orchestration
     description: Operational procedure for new project development from requirements through deployment.
     path: playbooks/greenfield-development.md
-    fsm: playbooks/greenfield-development.fsm.yml
+
     agents:
       - requirements-agent
       - spec-review-agent

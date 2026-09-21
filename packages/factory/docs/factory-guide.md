@@ -496,26 +496,6 @@ the bounded claims with `mode: falsification`, and start
 `research-topic.md`. The survey report remains source context, not evidence
 that those claims already earned a falsification verdict.
 
-## Playbook phase gates
-
-Playbooks above are prose: nothing stops staging an architecture file before the spec gate clears except the human remembering the playbook's own instructions. An optional structured harness, layered on top, catches phase-boundary mistakes mechanically instead.
-
-A playbook can ship a `.fsm.yml` alongside its `.md` in `.agent-factory/factory/playbooks/` — a state machine describing each phase's `outputs:` file globs and the `entry_conditions` required to advance into it. Only [`greenfield-development.fsm.yml`](../playbooks/greenfield-development.fsm.yml) exists today. This is opt-in, not a default every playbook must adopt.
-
-| Component                                        | What it does                                                                                                         |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| `.current-work/playbook-state.yml`               | Local, git-ignored marker recording which state the project is currently in.                                         |
-| `.agent-factory/factory/scripts/transition-lint` | Pre-commit gate. Blocks staging a file whose `outputs:` glob belongs to a state other than the marker's current one. |
-| `.agent-factory/factory/scripts/phase advance`   | Subcommand that checks the next state's `entry_conditions` and, if satisfied, advances the marker.                   |
-
-`transition-lint` deliberately does not evaluate `entry_conditions` — by its own docstring, it "governs ordering *between* phases," not within one, and "does not evaluate a state's `entry_conditions`" because "that is `phase advance`'s job." It only checks whether a staged file belongs to the current state, naming the offending path and pointing at `phase advance` when a file belongs to a later one. This is a deliberate design choice, not a gap: condition-checking lives in one place only.
-
-`phase advance` reads the next state's `entry_conditions`, evaluates each against a small `gate_conditions` library, and refuses — non-zero exit, marker unchanged — if any is unmet. Implemented condition types: `file_exists`, `files_exist`, `no_open_findings`, and `script_exit_zero` (stubbed to always pass in this proof of concept). On success it writes the marker with `recorded_at` taken from `phase advance`'s own process clock, never agent-supplied.
-
-If the marker file is absent, both tools are no-ops — a project not using the harness sees no behavior change.
-
-See [Structured Playbooks as a Deterministic Harness](../../../docs/proposals/playbook-structured-harness-strategy.md) for the full design rationale and the proof of concept's scope. The harness now has its own full specification — actors, use cases, entity model, and business rules — at [docs/spec/prd.md](../../../docs/spec/prd.md).
-
 ## Proposals
 
 A proposal is the seed brief that opens a feature-addition — the design origin the Planning phase turns into a backlog. Proposals live in the repository-root `docs/proposals/`, one markdown file per feature, written to the [proposal template](../rulebooks/templates/proposal.md). Its versioned frontmatter records lifecycle, impact, governance, and dated forecasts for active human-review hours and normalized AI tokens. Forecasts remain distinct from append-only actuals and provider billing. Its body records the summary, motivation, design, explicit in-scope / deferred split, open questions, and completion criteria. Clarification and grilling amend this artifact directly: `draft` becomes reviewable `open`, stakeholder acceptance authorizes downstream work, and material planning changes require reacceptance. A proposal is a design *origin*, not a runtime artifact — a shipped agent's `inputs:` must never reference it. See [feature-addition.md](../playbooks/feature-addition.md) for the lifecycle and routing gates.
@@ -581,13 +561,12 @@ An artifact must pass stage 1, then stage 2, then stage 3 before the next playbo
 
 ### Semantic quality gates
 
-Three semantic gates fire between a developer's commit and merge, enforced by the gate-check loop in `feature-addition`:
+Two semantic gates fire between a developer's commit and merge, enforced by the gate-check loop in `feature-addition`:
 
 | Gate             | Script                                            | What it checks                                                                                                                                     |
 | ---------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | CRAP score       | `.agent-factory/factory/scripts/crap-score`       | Composite structural risk (cyclomatic complexity weighted against coverage). The gate threshold is on the composite score, not on coverage itself. |
-| Mutation testing | `.agent-factory/factory/scripts/mutation-testing` | Mutation testing — verifies that tests detect injected faults, not just that they run.                                                             |
-| Dependency check | `.agent-factory/factory/scripts/dependency-check` | Dependency vulnerability scan against known advisories.                                                                                            |
+| Dependency check | `.agent-factory/factory/scripts/dependency-check` | Validates that module import directions match declarations in `architecture.dsl`.                                                                  |
 
 The planning agent fills each story's `quality-gates` field from the `gates` section of `docs/testing.yaml` — only gates marked `enabled: true` are included. A project can further override at the story, house-rules, or factory-default level (resolved in that priority order). The gate-check loop allows a maximum of three fix iterations per tier and escalates to tier+1 on failure, with a ceiling of six total developer spawns per story.
 
@@ -655,7 +634,7 @@ Precedence: an explicit `--model` flag overrides `model.conf`, which overrides t
 
 Agent Factory adds pre-commit hooks to `.pre-commit-config.yaml`. This is the one tracked file the install modifies (besides a `.gitignore` block). Every hook id starts with `agent_factory_hook-`, so the block is easy to find, easy to audit, and safe to remove.
 
-The hooks fall into two groups. The formatter — `mdformat` for Markdown — auto-fixes style on commit. Gate scripts — `link-check`, `mermaid-lint`, `spec-lint`, `arch-lint`, `backlog-lint`, `concern-lint`, `matrix-lint`, `statemachine-lint`, `index-lint`, `transition-lint` — reject a commit when a deterministic check fails.
+The hooks fall into two groups. The formatter — `mdformat` for Markdown — auto-fixes style on commit. Gate scripts — `link-check`, `mermaid-lint`, `spec-lint`, `arch-lint`, `backlog-lint`, `concern-lint`, `matrix-lint`, `statemachine-lint`, `index-lint` — reject a commit when a deterministic check fails.
 
 #### Nothing is installed into your project
 

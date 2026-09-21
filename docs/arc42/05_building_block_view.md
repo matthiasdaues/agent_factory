@@ -8,26 +8,23 @@ Factory Flow Control produces usage evidence and distributes the opt-in Usage
 Analysis system. The two systems share only the Factory-owned record contract
 and local JSONL spool.
 
-| Container                  | Responsibility                                                                                                                                | Technology                |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| **Eligibility Engine**     | Evaluates agent preconditions against the repository, derives per-agent readiness, and classifies agents by eligibility                       | Python 3.10+              |
-| **State Adapter**          | Thin command adapters that acquire locks, call the engine for decisions, write cycle state, and present recommendations                       | Python                    |
-| **Validator**              | Enforces gates, permissions, cycle-model integrity, project-declared test gate presence, agent-context structure, and semantic quality checks | Bash, Python              |
-| **Dispatcher**             | Resolves agents/models from catalog, spawns CLI sessions with scoped permits                                                                  | Bash, Python              |
-| **Usage Capture**          | Normalizes CLI transcripts and appends canonical runtime usage records with optional workstream and cycle context                             | Python, shell, TypeScript |
-| **Distribution**           | Installs, updates, removes, and reports opt-in components without coupling them to Factory core                                               | Bash, Python              |
-| Delivery Model             | Declarative YAML cycle graph with five delivery cycles, terminal DONE node, artifact declarations, trusted validators, and every route        | YAML (storage)            |
-| Cycle Schemas              | JSON Schema Draft 2020-12 definitions for cycle-model-v1 and cycle-state-v1 validation                                                        | JSON Schema (storage)     |
-| Cycle State Files          | One YAML workstream state file per active workstream under `.current-work/cycles/`; tracks cycle, attempt, revision, work refs, and grant     | YAML (storage)            |
-| Session Bindings           | Session-to-workstream navigation state under `.current-work/session-bindings/<cli>/<session-id>.yaml`                                         | YAML (storage)            |
-| State Files                | Local git-ignored dispatch ledgers, quality-gate reports, and legacy playbook marker                                                          | YAML/JSON (storage)       |
-| Catalog                    | Generated `.agent-factory/factory/INDEX.yaml` from agent/skill/playbook/rulebook frontmatter, with token counts                               | YAML (storage)            |
-| Usage Record Contract      | Factory-owned record schema and producer-consumer compatibility policy; v1 schema includes optional workstream, origin, and cycle fields      | JSON Schema, YAML         |
-| Raw Usage Spool            | Authoritative append-only records under `.agent-factory/usage/`                                                                               | JSONL (storage)           |
-| Install Manifest           | Records installed CLI integrations and opt-in components                                                                                      | JSON (storage)            |
-| **Usage Analysis Runtime** | Reads a snapshotted input set and publishes versioned local DuckDB views                                                                      | Python, DuckDB, PyArrow   |
-| DuckDB UI                  | Optional ephemeral localhost exploration of the published views                                                                               | DuckDB bundled UI         |
-| Installed Analysis Module  | Locked executable package, SQL, registry, and contract copy under `.agent-factory/usage-analysis/`                                            | Files (storage)           |
+| Container                  | Responsibility                                                                                                                               | Technology                |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| **Eligibility Engine**     | Evaluates agent preconditions against the repository, derives per-agent readiness, and classifies agents by eligibility                      | Python 3.10+              |
+| **Validator**              | Enforces gates, permissions, project-declared test gate presence, agent-context structure, and semantic quality checks                       | Bash, Python              |
+| **Dispatcher**             | Resolves agents/models from catalog, spawns CLI sessions with scoped permits                                                                 | Bash, Python              |
+| **Usage Capture**          | Normalizes CLI transcripts and appends canonical runtime usage records with optional workstream context                                      | Python, shell, TypeScript |
+| **Distribution**           | Installs, updates, removes, and reports opt-in components without coupling them to Factory core                                              | Bash, Python              |
+| Workstream State           | Immutable workstream identity records under `.agent-factory/workstreams/`; each records schema_version, workstream_id, topic, and origin_ref | YAML (storage)            |
+| Session Bindings           | Session-to-workstream mapping under `.agent-factory/workstreams/sessions/<session-id>.yaml`; records session_id, workstream_id, and bound_at | YAML (storage)            |
+| State Files                | Local git-ignored dispatch ledgers and quality-gate reports                                                                                  | YAML/JSON (storage)       |
+| Catalog                    | Generated `.agent-factory/factory/INDEX.yaml` from agent/skill/playbook/rulebook frontmatter, with token counts                              | YAML (storage)            |
+| Usage Record Contract      | Factory-owned record schema and producer-consumer compatibility policy; v1 schema includes optional workstream and origin fields             | JSON Schema, YAML         |
+| Raw Usage Spool            | Authoritative append-only records under `.agent-factory/usage/`                                                                              | JSONL (storage)           |
+| Install Manifest           | Records installed CLI integrations and opt-in components                                                                                     | JSON (storage)            |
+| **Usage Analysis Runtime** | Reads a snapshotted input set and publishes versioned local DuckDB views                                                                     | Python, DuckDB, PyArrow   |
+| DuckDB UI                  | Optional ephemeral localhost exploration of the published views                                                                              | DuckDB bundled UI         |
+| Installed Analysis Module  | Locked executable package, SQL, registry, and contract copy under `.agent-factory/usage-analysis/`                                           | Files (storage)           |
 
 ![Containers](../assets/images/Containers.svg)
 
@@ -35,10 +32,9 @@ and local JSONL spool.
 
 The **Validator** container enforces deterministic gates. Two are hook-triggered -- they fire mechanically on a git or CLI event, so an agent cannot skip them:
 
-| Component                  | Trigger Point                | What it validates                                                                        | Exit codes             |
-| -------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------- | ---------------------- |
-| **transition-lint**        | Pre-commit hook (git commit) | Cycle model integrity and workstream state files; reports failed recommendation evidence | 0 (pass), 1 (findings) |
-| **block-dangerous-git.sh** | Native hook or Pi extension  | Shell command not in deny list; charter-declared test commands are allowlisted           | 0 (allow), 2 (deny)    |
+| Component                  | Trigger Point               | What it validates                                                              | Exit codes          |
+| -------------------------- | --------------------------- | ------------------------------------------------------------------------------ | ------------------- |
+| **block-dangerous-git.sh** | Native hook or Pi extension | Shell command not in deny list; charter-declared test commands are allowlisted | 0 (allow), 2 (deny) |
 
 One is a structural validator for project knowledge files, running both as a pre-commit hook and on demand:
 
@@ -48,7 +44,7 @@ One is a structural validator for project knowledge files, running both as a pre
 
 Two more -- `schema-validate` and `policy-validate` -- are on-demand validators invoked by the research skills and agents (and from the CLI) rather than by a hook. They are described in [section 5.2.2](#522-research-artifact-validators-schema-validate-policy-validate).
 
-Three additional on-demand validators enforce semantic code quality and architecture routing. Two are invoked by the implementation-agent dispatcher (not by hooks) and are described in [section 5.2.3](#523-semantic-quality-gates-crap-score-mutation-analysis-dependency-check); one routes between cycles:
+Three additional on-demand validators enforce semantic code quality and architecture routing. Two are invoked by the implementation-agent dispatcher (not by hooks) and are described in [section 5.2.3](#523-semantic-quality-gates-crap-score-mutation-analysis-dependency-check); one determines whether a feature needs the architecture phase:
 
 | Component              | Trigger Point                                   | What it validates                                          | Exit codes                       |
 | ---------------------- | ----------------------------------------------- | ---------------------------------------------------------- | -------------------------------- |
@@ -58,11 +54,11 @@ Three additional on-demand validators enforce semantic code quality and architec
 
 ### 5.2.1 Project-Owned Test Gates via Charter Declaration
 
-**Purpose**: Factory ensures test gates exist; the project decides what runs inside them. Testing is project-owned infrastructure declared in `testing.yaml` (at `docs/testing.yaml`). Factory's guardrails and cycle gates read that declaration. Factory does not own test execution, framework detection, or structured test output.
+**Purpose**: Factory ensures test gates exist; the project decides what runs inside them. Testing is project-owned infrastructure declared in `testing.yaml` (at `docs/testing.yaml`). Factory's guardrails and eligibility preconditions read that declaration. Factory does not own test execution, framework detection, or structured test output.
 
 **Test configuration** (`testing.yaml`, resolved via format detection):
 
-- `test_command` (required) -- full test suite command, used by gate conditions
+- `test_command` (required) -- full test suite command, used by precondition evaluation
 - `test_staged_command` (optional) -- command for TDD iteration on staged files, allowlisted for agents
 - `test_changed_command` (optional) -- command for fast feedback on changed files
 - `layers` (optional) -- layer bindings mapping Factory layer names to project-specific tooling, infrastructure, entry points, anti-patterns, and fidelity declarations
@@ -71,7 +67,7 @@ Three additional on-demand validators enforce semantic code quality and architec
 
 **Integration Points**:
 
-- **Cycle-gate evaluation**: Trusted validators declared in the delivery model reference charter test commands. The Readiness Evaluator checks their results as artifact evidence for route recommendations. Blocks when the test configuration is absent or `test_command` is missing.
+- **Precondition evaluation**: The Eligibility Engine's precondition evaluator checks agent `inputs.required` declarations against the filesystem. Agents that require passing tests declare `testing.yaml` as a required input. Blocks when the test configuration is absent or `test_command` is missing.
 - **Agent allowlist** (BR-024): `block-dangerous-git.sh` reads all declared command fields from `testing.yaml` (via format detection) and allowlists them with exact-string matching. Bare test commands remain blocked for agents.
 - **Onboarding**: The `detect-test-regime` skill scans for existing test entrypoints during `init-factory` and populates `testing.yaml`. When multiple entrypoints are detected, it asks for disambiguation.
 - **Project hooks**: Factory does not inject test hooks into `.pre-commit-config.yaml`. Test hooks are project-owned infrastructure.
@@ -135,7 +131,7 @@ A deterministic script that replaces manual architecture-change declarations wit
 **Interfaces:**
 
 - **IN:** `docs/arc42/architecture.dsl`, `docs/spec/supplementary_specs/interface-contracts.md`, `docs/spec/supplementary_specs/entity-model.md`
-- **OUT (exit code):** 0 (no module-graph change, skip architecture cycle), 1 (module-graph change detected, enter architecture cycle)
+- **OUT (exit code):** 0 (no module-graph change, skip architecture), 1 (module-graph change detected, enter architecture)
 - **OUT (side effect):** Updates the proposal's `impact.architecture_change` field in frontmatter
 
 **Override semantics:**
@@ -183,24 +179,11 @@ The **Eligibility Engine** is a pure domain-logic container. It evaluates agent 
 | **Precondition Evaluator**    | Evaluates each agent's `inputs.required` declarations against the filesystem: resolves path patterns, checks frontmatter conditions, runs validator scripts | Agent definitions, filesystem     | Per-agent evaluation evidence             |
 | **Readiness Evaluator**       | Accepts evaluation evidence from the Precondition Evaluator and derives per-agent readiness verdicts with eligible/unsatisfied/warnings                     | Evaluation evidence               | AgentReadiness verdicts                   |
 | **Recommendation Classifier** | Classifies agents by eligibility into eligible and blocked groups from readiness verdicts                                                                   | Readiness verdicts                | Eligible and blocked agent groups         |
-| **Workstream Resolver**       | Resolves workstream identity from session binding and validates revision and digest consistency                                                             | Session binding, workstream state | Resolved workstream identity              |
+| **Workstream Resolver**       | Resolves workstream identity from session binding                                                                                                           | Session binding, workstream state | Resolved workstream identity              |
 
 All components are stateless functions. The engine receives its inputs and returns results; it has no side effects. This separation ensures the engine can be tested in isolation with no filesystem or lock dependencies.
 
-## 5.4 Level 2: Component View -- State Adapter
-
-The **State Adapter** contains thin command adapters that acquire locks, call the engine for decisions, write workstream state, and advance playbook phases. Each adapter is a CLI entry point.
-
-![State Adapter components](../assets/images/StateAdapterComponents.svg)
-
-| Component          | What it does                                                                                                                | Reads                                              | Writes                              |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- | ----------------------------------- |
-| **phase**          | Advances or retries a structured-playbook run's state marker, enforcing the target state's entry conditions before it moves | Workstream state, session binding, engine          | Workstream state, session binding   |
-| **run-step skill** | Derives "what's next" from cycle state and the delivery model; dispatches the resolved agent                                | Workstream state, delivery model, delegation grant | (read-only; dispatches via trigger) |
-
-The adapter commands follow a consistent protocol: acquire the OS-level exclusive lock, validate the expected state, call the engine, write the state mutation, release the lock. This protocol guarantees that concurrent sessions on the same workstream detect stale state rather than silently overwriting each other's transitions.
-
-## 5.5 Level 2: Component View -- Dispatcher
+## 5.4 Level 2: Component View -- Dispatcher
 
 | Component                        | What it does                                                                                                                      | Reads                 | Writes                |
 | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------- | --------------------- |
@@ -210,19 +193,17 @@ The adapter commands follow a consistent protocol: acquire the OS-level exclusiv
 | **dispatch-wave** (Pi extension) | Pi model-callable tool: runs a parallel wave of agents, each in its own git worktree, integrating `premerge-check` before merging | agent .md, model.conf | git worktrees, merges |
 | **openrouter-discover**          | Curation tool: queries the OpenRouter catalog to curate/validate `pi.*` tier rows in model.conf, offline of the runtime path      | OpenRouter API        | (none)                |
 
-## 5.6 Interfaces Summary
+## 5.5 Interfaces Summary
 
 Every building block's entry point, invoked how, and by whom:
 
 | Script / Component           | Invoked by                             | Entry point                                                                        | Exit codes                                    |
 | ---------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------- |
-| phase                        | Human, orchestrator                    | `.agent-factory/factory/scripts/phase advance\|retry`                              | 0 (advanced), 1 (blocked), 2 (invalid)        |
-| transition-lint              | Pre-commit hook                        | `.agent-factory/factory/scripts/transition-lint`                                   | 0 (pass), 1 (findings)                        |
+| intent                       | Human                                  | `.agent-factory/factory/scripts/intent select\|assess`                             | 0 (result), 1+ (error)                        |
 | block-dangerous-git.sh       | Claude, Copilot, Codex native hook     | stdin: CLI-specific command JSON, stdout: empty, exit 0 or 2                       | 0 (allow), 2 (deny)                           |
-| trigger                      | Human, orchestrator, run-step skill    | `.agent-factory/factory/scripts/trigger agent <name> [--background]`               | 0 (dispatched), 1+ (error)                    |
+| trigger                      | Human                                  | `.agent-factory/factory/scripts/trigger agent <name> [--background]`               | 0 (dispatched), 1+ (error)                    |
 | usage-capture                | Native CLI hooks and Pi extensions     | `.agent-factory/factory/scripts/usage-capture --cli ... --transcript ...`          | 0 (captured or best-effort no-op)             |
 | index-lint                   | Pre-commit hook, CI                    | `.agent-factory/factory/scripts/index-lint [--check]`                              | 0 (fresh), 1 (stale)                          |
-| run-step skill               | Any supported CLI (LLM-executed)       | Skill markdown invoked by AI                                                       | (N/A -- skill is prose)                       |
 | run-agent (Pi extension)     | Pi session (via `run_agent` tool call) | `.pi/extensions/run-agent.ts` spawns `pi ... -p <task>`                            | (tool result: text + usage, or error)         |
 | dispatch-wave (Pi extension) | Pi session (via `dispatch_wave` call)  | `.pi/extensions/dispatch-wave.ts` spawns worktree + merge/item                     | (tool result: per-item status, or error)      |
 | openrouter-discover          | User, CI (`--check`)                   | `.agent-factory/factory/scripts/openrouter-discover [--list\|--suggest\|--check]`  | 0 (ok), 1 (drift)                             |
@@ -232,9 +213,9 @@ Every building block's entry point, invoked how, and by whom:
 | dependency-check             | Implementation-agent dispatcher        | `.agent-factory/factory/scripts/dependency-check [--story-id <id>]`                | 0 (pass), 1 (violations)                      |
 | concern-lint                 | Pre-commit hook, validate skill        | `.agent-factory/factory/scripts/concern-lint [--root DIR] [--format text\|json]`   | 0 (pass), 1+ (CTX-\* findings)                |
 | module-graph-check           | Orchestrating session                  | `.agent-factory/factory/scripts/module-graph-check <proposal-path>`                | 0 (no change), 1 (change detected)            |
-| init-factory                 | Human, orchestrator                    | `factory/scripts/init-factory [--update] <path>`                                   | 0 (installed/updated), 1+ (error)             |
-| update-factory               | Human, orchestrator                    | `factory/scripts/update-factory`                                                   | 0 (updated), 1+ (error)                       |
-| remove-factory               | Human, orchestrator                    | `factory/scripts/remove-factory`                                                   | 0 (removed), 1+ (error)                       |
+| init-factory                 | Human                                  | `factory/scripts/init-factory [--update] <path>`                                   | 0 (installed/updated), 1+ (error)             |
+| update-factory               | Human                                  | `factory/scripts/update-factory`                                                   | 0 (updated), 1+ (error)                       |
+| remove-factory               | Human                                  | `factory/scripts/remove-factory`                                                   | 0 (removed), 1+ (error)                       |
 | usage-query                  | Human (operator)                       | `uv run --project .agent-factory/usage-analysis usage-query <view>`                | 0 (result), 1+ (preflight/error)              |
 | Input Snapshot               | usage-query (internal)                 | Python module                                                                      | (internal)                                    |
 | Contract Check               | usage-query (internal)                 | Python module                                                                      | (internal)                                    |
@@ -244,11 +225,11 @@ Every building block's entry point, invoked how, and by whom:
 | Result Adapters              | usage-query (internal)                 | Python module                                                                      | (internal)                                    |
 | Parquet Exporter             | usage-query (internal)                 | Python module                                                                      | (internal)                                    |
 
-## 5.7 Level 2: Component View -- Usage Capture
+## 5.6 Level 2: Component View -- Usage Capture
 
-| Component         | Responsibility                                                                                                                        |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| **usage-capture** | Normalize one CLI-native transcript and append a canonical usage record to the raw spool, with optional workstream and cycle context. |
+| Component         | Responsibility                                                                                                              |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **usage-capture** | Normalize one CLI-native transcript and append a canonical usage record to the raw spool, with optional workstream context. |
 
 `usage-capture` is a CLI-agnostic pipeline with two adapter seams. A
 CLI-specific normalizer maps Claude Code, Copilot, Codex, or Pi events into
@@ -258,18 +239,17 @@ logging adapter appends the canonical record beneath `.agent-factory/usage/`
 and persists the exact tokenized transcript copy referenced by the record.
 
 When a session binding exists for the current CLI and session, the
-orchestration adapter reads the workstream identifier, workstream origin, and
-current cycle name from it and includes them in the usage record. These three
-fields are optional and nullable; missing cycle context leaves all three null.
-Usage capture does not import the Eligibility Engine.
+workstream adapter reads the workstream identifier and workstream origin
+from it and includes them in the usage record. These fields are optional
+and nullable. Usage capture does not import the Eligibility Engine.
 
 Native lifecycle adapters own invocation: Claude `Stop`/`SubagentStop`,
 Copilot `agentStop`/`subagentStop`, Codex `Stop`/`SubagentStop`, and Pi
-`session_shutdown` plus inline child capture. The orchestrator never writes a
-second record. See
+`session_shutdown` plus inline child capture. Each adapter fires exactly
+once per session. See
 [ADR-0007](../adr/0007-normalize-runtime-usage-through-cli-adapters.md).
 
-## 5.8 Level 2: Component View -- Usage Analysis Runtime
+## 5.7 Level 2: Component View -- Usage Analysis Runtime
 
 Usage Analysis is a separate bounded context and depends on Factory's published
 usage-record contract. Factory capture has no dependency on analysis.
@@ -291,7 +271,7 @@ finds a failure, `capture_health` remains available while the other five stable
 views refuse partial results. Raw JSONL remains authoritative; DuckDB state,
 Parquet files, and UI state are disposable.
 
-## 5.9 Level 2: Component View -- Distribution
+## 5.8 Level 2: Component View -- Distribution
 
 | Component          | Responsibility                                                                    |
 | ------------------ | --------------------------------------------------------------------------------- |

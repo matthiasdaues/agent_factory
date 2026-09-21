@@ -11,13 +11,11 @@ is no database server, container, daemon, remote service, or cloud resource.
 
 The project checkout contains three independent runtime boundaries:
 
-- **Cycle orchestration state** under `.current-work/cycles/` holds one YAML
-  workstream state file per active workstream, OS-level lock files under
-  `.current-work/cycles/.locks/`, and session bindings under
-  `.current-work/session-bindings/<cli>/<session-id>.yaml`. The delivery model
-  at `packages/factory/engine/models/delivery.yaml` and JSON Schema definitions
-  for cycle-model-v1 and cycle-state-v1 are read-only inputs to the Cycle
-  Engine.
+- **Workstream state** under `.agent-factory/workstreams/` holds immutable
+  workstream identity files. Session bindings under
+  `.agent-factory/workstreams/sessions/<session-id>.yaml` record
+  session-to-workstream mappings. The Eligibility Engine reads agent
+  definitions and the repository; it has no separate model file.
 - **`.agent-factory/usage/`** holds Factory-owned, append-only JSONL evidence.
   Capture writes here whether or not analysis is installed.
 - **`.agent-factory/usage-analysis/`** is the opt-in component installed by
@@ -27,9 +25,8 @@ The project checkout contains three independent runtime boundaries:
 
 The Eligibility Engine runs in-process within the `intent select` command
 invocation. It evaluates agent preconditions against the repository and
-returns immutable readiness verdicts. The State Adapter writes the result to
-the workstream state file and releases the lock. There is no long-running
-engine process.
+returns immutable readiness verdicts. There is no long-running engine process
+and no state written by the engine.
 
 The operator starts a query with
 `uv run --project .agent-factory/usage-analysis usage-query`. The embedded
@@ -54,7 +51,7 @@ reports component presence without updating components.
 `remove-factory` remains the complete-uninstall operation: it removes both the
 analysis module and the raw usage data beneath `.agent-factory/`.
 
-Cycle orchestration state files under `.current-work/cycles/` are local,
+Workstream state files under `.agent-factory/workstreams/` are local,
 git-ignored working state. They survive Factory updates and are removed only
 by explicit operator action or `remove-factory`.
 

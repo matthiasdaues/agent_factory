@@ -35,7 +35,7 @@ statements:
 
 ```text
 module_a must_not_depend_on module_b
-factory must_not_depend_on orchestrator
+engine must_not_depend_on scripts
 ```
 
 The left-hand side is the importing module boundary. The right-hand side

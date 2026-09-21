@@ -4,23 +4,22 @@
 
 ## 8.1 Agentic Creation, Deterministic Validation
 
-**Principle**: Creation is agentic; validation is deterministic. Tests, cycle-model gates, and dangerous-command checks are triggered mechanically rather than left to agent judgment. Agent guardrails prevent bypass in the managed workflow; you retain Git's standard `--no-verify` escape hatch when you control the Git client. Other deterministic validators run *on demand*, invoked by a playbook, agent, or you; their result remains trustworthy because it is a mechanical exit code, not an agent's word.
+**Principle**: Creation is agentic; validation is deterministic. Tests, precondition checks, and dangerous-command checks are triggered mechanically rather than left to agent judgment. Agent guardrails prevent bypass in the managed workflow; you retain Git's standard `--no-verify` escape hatch when you control the Git client. Other deterministic validators run *on demand*, invoked by a playbook, agent, or you; their result remains trustworthy because it is a mechanical exit code, not an agent's word.
 
 Derived from [`factory/rulebooks/conventions/foundational-principles.md`](../../.agent-factory/factory/rulebooks/conventions/foundational-principles.md).
 
 ### What It Means
 
-| Concern                      | Who/What Owns It                                                                  | Enforced How                                                                                                           |
-| ---------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| **Creation**                 | Agents and humans write specs, code, tests, docs, ADRs                            | Agentic -- LLM-driven or human-authored, inherently non-deterministic                                                  |
-| **Validation**               | Scripts check artifacts against predefined, state-dependent rules                 | Deterministic -- hooks, exit codes, no judgment calls                                                                  |
-| Test gates present           | Charter declares test commands; eligibility gates and guardrails read the charter | Trusted validator resolves `charter:test_command`; exit 0/1                                                            |
-| Commits gated                | Pre-commit hook runs `transition-lint`                                            | Validates workstream state files                                                                                       |
-| Git safety                   | PreToolUse hook runs `block-dangerous-git.sh`                                     | Denies commands before execution, exit 2                                                                               |
-| Agent eligibility            | `intent select` evaluates readiness via the Eligibility Engine                    | Precondition-based agent selection; warnings when preconditions unmet                                                  |
-| Research artifacts validated | `schema-validate` (stage 1) and `policy-validate` (stage 2), invoked on demand    | Deterministic -- exit codes, no judgment; invoked by the research playbook/agents, not hook-enforced (see section 8.6) |
-| Semantic code quality gated  | `crap-score`, `dependency-check`, invoked by dispatcher                           | Deterministic -- exit codes; dispatcher-owned, not hook-enforced (see section 8.7)                                     |
-| Architecture routing         | `module-graph-check`, invoked by orchestrating session                            | Deterministic -- compares module map from DSL against concept outputs (see section 8.8)                                |
+| Concern                      | Who/What Owns It                                                                          | Enforced How                                                                                                           |
+| ---------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **Creation**                 | Agents and humans write specs, code, tests, docs, ADRs                                    | Agentic -- LLM-driven or human-authored, inherently non-deterministic                                                  |
+| **Validation**               | Scripts check artifacts against predefined, state-dependent rules                         | Deterministic -- hooks, exit codes, no judgment calls                                                                  |
+| Test gates present           | Charter declares test commands; eligibility preconditions and guardrails read the charter | Precondition evaluator resolves `testing.yaml`; exit 0/1                                                               |
+| Git safety                   | PreToolUse hook runs `block-dangerous-git.sh`                                             | Denies commands before execution, exit 2                                                                               |
+| Agent eligibility            | `intent select` evaluates readiness via the Eligibility Engine                            | Precondition-based agent selection; warnings when preconditions unmet                                                  |
+| Research artifacts validated | `schema-validate` (stage 1) and `policy-validate` (stage 2), invoked on demand            | Deterministic -- exit codes, no judgment; invoked by the research playbook/agents, not hook-enforced (see section 8.6) |
+| Semantic code quality gated  | `crap-score`, `dependency-check`, invoked by dispatcher                                   | Deterministic -- exit codes; dispatcher-owned, not hook-enforced (see section 8.7)                                     |
+| Architecture routing         | `module-graph-check`, invoked by orchestrating session                                    | Deterministic -- compares module map from DSL against concept outputs (see section 8.8)                                |
 
 ### Why It Matters
 
@@ -28,14 +27,14 @@ Derived from [`factory/rulebooks/conventions/foundational-principles.md`](../../
 
 **Separation of concerns**: Agents are excellent at generation (specs, code, tests). They are poor at discipline (running the right tests, not bypassing gates). Hooks enforce discipline; agents create value. This separation makes AI-assisted output shippable.
 
-**No self-validation**: An agent reporting "tests passed" is unverified hearsay. A charter-declared test command exiting 0 from a cycle gate is a fact. The architecture treats agent output as untrusted until a deterministic gate validates it.
+**No self-validation**: An agent reporting "tests passed" is unverified hearsay. A charter-declared test command exiting 0 from a mechanically triggered gate is a fact. The architecture treats agent output as untrusted until a deterministic gate validates it.
 
 ### Concrete Manifestation: Test Gate Presence
 
 Test gate presence exemplifies this principle end-to-end:
 
 1. **Project declares test commands** -- you write `testing.yaml` (at `docs/testing.yaml`) with `test_command`, and optionally `test_staged_command` and `test_changed_command`.
-2. **Cycle gate resolves the declared command** -- the Readiness Evaluator checks trusted validators that reference charter test commands. Results are artifact evidence for route recommendations.
+2. **Precondition evaluation resolves the declared command** -- the Eligibility Engine evaluates `inputs.required` declarations against the repository, including test configuration presence.
 3. **Agent uses the declared command** -- `block-dangerous-git.sh` reads all declared command fields from the testing configuration and allowlists them with exact-string matching. An agent running a declared command proceeds normally.
 4. **Agent blocked from bare test commands** -- `block-dangerous-git.sh` denies `pytest`, `npm test`, etc. at PreToolUse unless they exactly match a declared command. Agent cannot bypass or "double-check" -- only the declared, mechanically gated result is trustworthy.
 
@@ -45,11 +44,10 @@ Test gate presence exemplifies this principle end-to-end:
 
 Factory Flow Control uses **mechanically triggered gates** as the enforcement layer. Three trigger types participate:
 
-| Hook Type             | Fires When                 | Runs What                                            | Cannot Be Bypassed By           | Exit Codes           |
-| --------------------- | -------------------------- | ---------------------------------------------------- | ------------------------------- | -------------------- |
-| **Pre-commit**        | `git commit`               | `transition-lint` (cycle model and state validation) | Agent (human can `--no-verify`) | 0 (allow), 1 (block) |
-| **PreToolUse**        | Before every shell command | `block-dangerous-git.sh` (charter-aware allowlist)   | Agent or human (CLI enforces)   | 0 (allow), 2 (deny)  |
-| **Cycle gate** (eval) | `cycle select` invocation  | Readiness Evaluator with trusted validator results   | Manual invocation required      | (recommendation)     |
+| Hook Type                  | Fires When                 | Runs What                                          | Cannot Be Bypassed By         | Exit Codes          |
+| -------------------------- | -------------------------- | -------------------------------------------------- | ----------------------------- | ------------------- |
+| **PreToolUse**             | Before every shell command | `block-dangerous-git.sh` (charter-aware allowlist) | Agent or human (CLI enforces) | 0 (allow), 2 (deny) |
+| **Eligibility evaluation** | `intent select` invocation | Precondition evaluator against agent definitions   | Manual invocation required    | (evidence table)    |
 
 ### Zero-Trust Command Execution
 
@@ -67,14 +65,14 @@ This is **preventive validation**, not reactive. The agent never sees test outpu
 
 Testing is project-owned infrastructure. Factory does not detect frameworks, construct test commands, or own test execution. The project declares its test commands in `testing.yaml` (at `docs/testing.yaml`):
 
-| Field                  | Purpose                                                          | Used By                                          |
-| ---------------------- | ---------------------------------------------------------------- | ------------------------------------------------ |
-| `test_command`         | Full test suite command (required)                               | Trusted validator in cycle gate, agent allowlist |
-| `test_staged_command`  | Fast TDD iteration on staged files (optional)                    | Agent allowlist                                  |
-| `test_changed_command` | Fast feedback on changed files (optional)                        | Agent allowlist                                  |
-| `layers`               | Layer bindings mapping Factory layer names to tooling (optional) | QA strategy grounding                            |
+| Field                  | Purpose                                                          | Used By                                   |
+| ---------------------- | ---------------------------------------------------------------- | ----------------------------------------- |
+| `test_command`         | Full test suite command (required)                               | Eligibility precondition, agent allowlist |
+| `test_staged_command`  | Fast TDD iteration on staged files (optional)                    | Agent allowlist                           |
+| `test_changed_command` | Fast feedback on changed files (optional)                        | Agent allowlist                           |
+| `layers`               | Layer bindings mapping Factory layer names to tooling (optional) | QA strategy grounding                     |
 
-**Zero-install**: Factory does not install test frameworks. It reads the test configuration and executes the declared command as-is. If `testing.yaml` is absent or `test_command` is missing, the cycle gate blocks with a clear message.
+**Zero-install**: Factory does not install test frameworks. It reads the test configuration and executes the declared command as-is. If `testing.yaml` is absent or `test_command` is missing, the precondition evaluator reports the gap.
 
 **Exit-code-only contract** (BR-027): Factory reads only the exit code; structured test output (JSON summaries, coverage reports) is the project's concern, not Factory's.
 
@@ -106,27 +104,26 @@ $ echo $?
 1
 ```
 
-Gates that evaluate results (e.g., the Readiness Evaluator checking trusted validators, the dispatcher checking gate reports) read the exit code only. JSON reports are for human/log consumption, not for gate decisions. Project-owned test commands follow the same contract: Factory reads only the exit code (BR-027).
+Gates that evaluate results (e.g., the dispatcher checking gate reports) read the exit code only. JSON reports are for human/log consumption, not for gate decisions. Project-owned test commands follow the same contract: Factory reads only the exit code (BR-027).
 
-## 8.5 Single Source of Truth: Delivery Model and Workstream State
+## 8.5 Single Source of Truth: Workstream State and Agent Definitions
 
-The delivery model (`packages/factory/engine/models/delivery.yaml`) and the
-per-workstream state files (`.current-work/cycles/<workstream-id>.yaml`) are the
-**only** sources of truth for "what cycle are we in" and "what routes are
-available."
+Workstream identity files under `.agent-factory/workstreams/` and agent
+definitions in YAML frontmatter are the sources of truth for "which workstream
+is active" and "which agents are eligible."
 
 - **Observable-state resume** (ADR-0002): Every mechanism (`intent select`,
-  `run-step`, `transition-lint`) derives its answer from these files on disk,
-  not from a separately persisted execution status. If the workstream state
-  file says `phase: REFINE`, then the workstream is in REFINE — regardless of
-  what any orchestrator process last remembered.
+  dispatch, validation) derives its answer from files on disk, not from a
+  separately persisted execution status.
 - **No process-local state**: The Eligibility Engine is a pure function. It
-  receives precondition definitions and workstream state as arguments and
-  returns eligible agents. It does not hold state between invocations.
-- **Session bindings are navigation, not truth**: Session bindings track which
-  workstream a session is observing and at which revision. They are a
-  concurrency-control mechanism, not a source of truth for the workstream's
-  cycle.
+  receives agent definitions and the repository as arguments and returns
+  eligible agents. It does not hold state between invocations.
+- **Workstream state is immutable identity**: Each workstream file records
+  `schema_version`, `workstream_id`, `topic`, and `origin_ref`. No mutable
+  fields, no revision history, no locks.
+- **Session bindings are navigation, not truth**: Session bindings under
+  `.agent-factory/workstreams/sessions/` track which workstream a session is
+  observing. They record `session_id`, `workstream_id`, and `bound_at`.
 
 This makes resumption trivial: start a new agent session, read the workstream
 state, derive "what's next." No recovery logic, no stale state reconciliation.
@@ -166,9 +163,9 @@ The Factory's [testing-strategy.md](../../.agent-factory/factory/rulebooks/conve
 
 ## 8.8 Architecture as a Concern, Not a Phase
 
-The `module-graph-check` script makes architecture-cycle routing mechanical: it reads the module map from `architecture.dsl`, compares it against the feature's concept outputs, and determines whether the feature actually changes module boundaries, dependency directions, or public interfaces.
+The `module-graph-check` script makes architecture routing mechanical: it reads the module map from `architecture.dsl`, compares it against the feature's concept outputs, and determines whether the feature actually changes module boundaries, dependency directions, or public interfaces.
 
-This does not eliminate the architecture cycle. It makes the routing decision deterministic. Features that add a new API endpoint to an existing module skip the architecture cycle; features that introduce a new module or invert a dependency direction enter it. After implementation, the reconciliation-agent catches any module-graph changes that the concept-phase check missed.
+This makes the routing decision deterministic. Features that add a new API endpoint to an existing module skip architecture work; features that introduce a new module or invert a dependency direction enter it. After implementation, the reconciliation-agent catches any module-graph changes that the earlier check missed.
 
 The pattern is two-pass: coarse structural routing from requirements, precise reconciliation from code.
 
@@ -232,7 +229,7 @@ and [validation rules section Local usage processing and analysis](../spec/suppl
 
 ## 8.13 Precondition-Based Agent Eligibility
 
-The eligibility engine supersedes the earlier cycle-based orchestration model (retired in ST-0263). Agent selection is now driven by precondition evaluation against the repository, not by cycle-graph route recommendations.
+Agent selection is driven by precondition evaluation against the repository.
 
 ### What exists
 
@@ -249,13 +246,9 @@ The eligibility engine is composed of three modules:
 
 The engine is read-only: it reads agent definitions and the repository, returns immutable decisions, and never writes state.
 
-### Delivery model on disk
-
-The declarative delivery model (`packages/factory/engine/models/delivery.yaml`) remains on disk. It declares five delivery cycles (IDEA, CONCEPT, ROADMAP, REFINE, REALIZE) plus a terminal DONE node, with artifact declarations, routes, and trusted validators. The cycle-model-v1 JSON Schema still validates it. However, the model-loading, route-recommendation, delegation, and retry components that consumed it were removed in ST-0263. The delivery model currently serves as a reference artifact for the cycle graph topology.
-
 ### Workstream concurrency
 
-Multiple workstreams may be active simultaneously within a project. Each workstream has its own state file under `.current-work/cycles/` and its own revision history. OS-level exclusive locks under `.current-work/cycles/.locks/` prevent concurrent mutation of the same workstream. Session bindings track which workstream each CLI session is observing, so a session always knows whether its view of the workstream is current.
+Multiple workstreams may be active simultaneously within a project. Each workstream has its own immutable identity file under `.agent-factory/workstreams/`. Session bindings under `.agent-factory/workstreams/sessions/` track which workstream each CLI session is observing.
 
 ## Referenced from
 
@@ -268,5 +261,5 @@ Multiple workstreams may be active simultaneously within a project. Each workstr
 - [06_runtime_view.md section 6.4](06_runtime_view.md#64-semantic-gate-loop)
 - [06_runtime_view.md section 6.5](06_runtime_view.md#65-agent-context-validation)
 - [09_architecture_decisions.md](09_architecture_decisions.md)
-- [05_building_block_view.md section 5.8](05_building_block_view.md#58-level-2-component-view----usage-analysis-runtime)
+- [05_building_block_view.md section 5.7](05_building_block_view.md#57-level-2-component-view----usage-analysis-runtime)
 - [07_deployment_view.md](07_deployment_view.md)
