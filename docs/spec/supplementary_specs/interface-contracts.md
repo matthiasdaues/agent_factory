@@ -83,7 +83,7 @@ See [UC-10](../../~archive/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.
 
 |                   |                                                                                                                                                      |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Invocation        | `usage-capture --cli <claude-code\|copilot\|codex\|pi> --transcript PATH --session ID [--model MODEL] [...]`                                         |
+| Invocation        | `usage-capture --cli <claude-code\|copilot\|codex\|pi\|opencode> --transcript PATH --session ID [--model MODEL] [...]`                               |
 | Reads             | One CLI-native transcript, explicit invocation context, and `config/project.json`                                                                    |
 | Writes            | One normalized JSONL usage record with non-null `project_id` and `project_name`, configured evidence, and session-end derived signals when available |
 | Model attribution | Explicit `--model` first; otherwise the latest non-empty native transcript model; otherwise null                                                     |
@@ -325,7 +325,7 @@ The [feature specification](../local-usage-processing-and-analysis.feature) adds
 | Schema dialect       | JSON Schema Draft 2020-12                                                                  |
 | Installed projection | `.agent-factory/usage-analysis/contract/`                                                  |
 | Consumer rule        | Usage Analysis reads only the installed projection and declares its accepted version range |
-| Known CLI values     | `claude-code`, `copilot`, `codex`, and `pi` (registry, not schema-enforced)                |
+| Known CLI values     | `claude-code`, `copilot`, `codex`, `pi`, and `opencode` (registry, not schema-enforced)    |
 | Gate                 | `packages/usage/scripts/usage-contract-check`                                              |
 
 The YAML manifest declares owner, current version, compatibility policy, and accepted consumer range. The schema owns field names, types, nullability, and nested structure. The gate additionally owns cross-field invariants and producer/consumer version agreement. A failure identifies source file, line number, field, and stable failure code.
