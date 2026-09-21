@@ -53,7 +53,7 @@ The Factory supports Claude Code, GitHub Copilot CLI, Pi, and OpenAI Codex.
 OpenCode users cannot install a dedicated integration or apply the Factory's
 safety controls today.
 
-The completed [OpenCode research survey](../research/survey-report.md) found
+The completed [OpenCode research survey](../research/opencode-cli-integration/survey-report.md) found
 native support for Markdown agents, skills, Model Context Protocol (MCP)
 servers, and child sessions. A later check against the current
 [OpenCode V2 plugin API](https://opencode.ai/v2/docs/build/plugins/) and
