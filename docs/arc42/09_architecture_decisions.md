@@ -39,7 +39,7 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 
 - **Pre-commit hooks** gate which files may be staged (`transition-lint`).
 - **PreToolUse hooks** block destructive git commands and bare test commands before they execute (`block-dangerous-git.sh`); charter-declared test commands are allowlisted with exact-string matching.
-- **FSM gates** (`script_exit_zero`) resolve `charter:test_command` from `docs/charter/testing.yaml` and integrate test execution into phase advance entry conditions.
+- **FSM gates** (`script_exit_zero`) resolve `charter:test_command` from `docs/testing.yaml` and integrate test execution into phase advance entry conditions.
 
 All follow the "Agentic Creation, Deterministic Validation" principle: agents create, hooks validate, no self-validation. Testing is project-owned infrastructure declared in the charter; Factory ensures test gates exist but does not own test execution or framework detection.
 
@@ -91,7 +91,7 @@ reinstall — a byte-exact replacement followed by a re-run of the sourced
 nondeterministic and rests on unreliable file mtimes. `init-factory` records
 the checkout it copied from (`factory_source`) in the install manifest so
 `update-factory` knows which repo to pull from by default, `--source`
-overriding. `update-factory` replaces only `factory/`; `.agent-factory/` usage
+overriding. `update-factory` replaces only `.agent-factory/factory/`; `.agent-factory/` usage
 transcripts and lifecycle state survive an update.
 
 ### Consolidated Specification Format

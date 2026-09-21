@@ -16,22 +16,22 @@ inputs:
 outputs:
   minimum_changed: 1
   declarations:
-    - path_pattern: docs/research/research-plan.md
+    - path_pattern: docs/research/*/research-plan.md
       validator:
       required: true
-    - path_pattern: docs/research/research-survey-plan.md
+    - path_pattern: docs/research/*/research-survey-plan.md
       validator:
       required: false
-    - path_pattern: "docs/research/assignments/*.md"
+    - path_pattern: "docs/research/*/assignments/*.md"
       validator:
       required: false
-    - path_pattern: docs/research/survey-report.md
+    - path_pattern: docs/research/*/survey-report.md
       validator:
       required: false
-    - path_pattern: docs/research/claim-register.md
+    - path_pattern: docs/research/*/claim-register.md
       validator:
       required: false
-    - path_pattern: docs/research/final-report.md
+    - path_pattern: docs/research/*/final-report.md
       validator:
       required: false
 triggers:

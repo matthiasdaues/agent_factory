@@ -10,17 +10,17 @@ Derived from [`factory/rulebooks/conventions/foundational-principles.md`](../../
 
 ### What It Means
 
-| Concern                      | Who/What Owns It                                                               | Enforced How                                                                                                           |
-| ---------------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| **Creation**                 | Agents and humans write specs, code, tests, docs, ADRs                         | Agentic -- LLM-driven or human-authored, inherently non-deterministic                                                  |
-| **Validation**               | Scripts check artifacts against predefined, state-dependent rules              | Deterministic -- hooks, exit codes, no judgment calls                                                                  |
-| Test gates present           | Charter declares test commands; cycle gates and guardrails read the charter    | Trusted validator resolves `charter:test_command`; exit 0/1                                                            |
-| Commits gated                | Pre-commit hook runs `transition-lint`                                         | Validates cycle model integrity and workstream state files                                                             |
-| Git safety                   | PreToolUse hook runs `block-dangerous-git.sh`                                  | Denies commands before execution, exit 2                                                                               |
-| Cycle gates                  | `cycle select` evaluates readiness via the Cycle Engine                        | Route recommendation with artifact evidence; warnings when evidence insufficient                                       |
-| Research artifacts validated | `schema-validate` (stage 1) and `policy-validate` (stage 2), invoked on demand | Deterministic -- exit codes, no judgment; invoked by the research playbook/agents, not hook-enforced (see section 8.6) |
-| Semantic code quality gated  | `crap-score`, `dependency-check`, invoked by dispatcher                        | Deterministic -- exit codes; dispatcher-owned, not hook-enforced (see section 8.7)                                     |
-| Architecture routing         | `module-graph-check`, invoked by orchestrating session                         | Deterministic -- compares module map from DSL against concept outputs (see section 8.8)                                |
+| Concern                      | Who/What Owns It                                                                  | Enforced How                                                                                                           |
+| ---------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **Creation**                 | Agents and humans write specs, code, tests, docs, ADRs                            | Agentic -- LLM-driven or human-authored, inherently non-deterministic                                                  |
+| **Validation**               | Scripts check artifacts against predefined, state-dependent rules                 | Deterministic -- hooks, exit codes, no judgment calls                                                                  |
+| Test gates present           | Charter declares test commands; eligibility gates and guardrails read the charter | Trusted validator resolves `charter:test_command`; exit 0/1                                                            |
+| Commits gated                | Pre-commit hook runs `transition-lint`                                            | Validates workstream state files                                                                                       |
+| Git safety                   | PreToolUse hook runs `block-dangerous-git.sh`                                     | Denies commands before execution, exit 2                                                                               |
+| Agent eligibility            | `intent select` evaluates readiness via the Eligibility Engine                    | Precondition-based agent selection; warnings when preconditions unmet                                                  |
+| Research artifacts validated | `schema-validate` (stage 1) and `policy-validate` (stage 2), invoked on demand    | Deterministic -- exit codes, no judgment; invoked by the research playbook/agents, not hook-enforced (see section 8.6) |
+| Semantic code quality gated  | `crap-score`, `dependency-check`, invoked by dispatcher                           | Deterministic -- exit codes; dispatcher-owned, not hook-enforced (see section 8.7)                                     |
+| Architecture routing         | `module-graph-check`, invoked by orchestrating session                            | Deterministic -- compares module map from DSL against concept outputs (see section 8.8)                                |
 
 ### Why It Matters
 
@@ -115,14 +115,14 @@ per-workstream state files (`.current-work/cycles/<workstream-id>.yaml`) are the
 **only** sources of truth for "what cycle are we in" and "what routes are
 available."
 
-- **Observable-state resume** (ADR-0002): Every mechanism (`cycle select`,
-  `cycle retry`, `run-step`, `transition-lint`) derives its answer from these
-  files on disk, not from a separately persisted execution status. If the
-  workstream state file says `cycle: REFINE`, then the workstream is in REFINE
-  -- regardless of what any orchestrator process last remembered.
-- **No process-local state**: The Cycle Engine is a pure function. It receives
-  the delivery model and workstream state as arguments and returns a decision.
-  It does not hold state between invocations.
+- **Observable-state resume** (ADR-0002): Every mechanism (`intent select`,
+  `run-step`, `transition-lint`) derives its answer from these files on disk,
+  not from a separately persisted execution status. If the workstream state
+  file says `phase: REFINE`, then the workstream is in REFINE — regardless of
+  what any orchestrator process last remembered.
+- **No process-local state**: The Eligibility Engine is a pure function. It
+  receives precondition definitions and workstream state as arguments and
+  returns eligible agents. It does not hold state between invocations.
 - **Session bindings are navigation, not truth**: Session bindings track which
   workstream a session is observing and at which revision. They are a
   concurrency-control mechanism, not a source of truth for the workstream's
@@ -230,40 +230,30 @@ blocks every other stable view when any selected line or ancestry is invalid.
 See [ADR-0015](../adr/0015-query-authoritative-jsonl-with-ephemeral-duckdb-views.md)
 and [validation rules section Local usage processing and analysis](../spec/supplementary_specs/validation-rules.md#local-usage-processing-and-analysis).
 
-## 8.13 Cycle-Based Orchestration Model
+## 8.13 Precondition-Based Agent Eligibility
 
-The delivery orchestration model replaces the linear playbook FSM with a cycle-based directed graph where artifact state drives transition recommendations and humans drive routing decisions.
+The eligibility engine supersedes the earlier cycle-based orchestration model (retired in ST-0263). Agent selection is now driven by precondition evaluation against the repository, not by cycle-graph route recommendations.
 
-### Declarative Delivery Model
+### What exists
 
-The delivery model (`packages/factory/engine/models/delivery.yaml`) declares five delivery cycles (IDEA, CONCEPT, ROADMAP, REFINE, REALIZE) plus a terminal DONE node. Each cycle declares:
+The `intent` CLI (`packages/factory/scripts/intent`) provides two subcommands:
 
-- **Artifact declarations**: Named artifacts the cycle is expected to produce, with trusted validators that can verify their presence and quality.
-- **Routes**: Directed edges to other cycles, each with artifact-readiness preconditions. The route table is static; the delivery model does not contain executable logic.
-- **Delegated attempt limit**: The maximum number of retry attempts an agent may consume before delegation pauses and control returns to the human.
+- **`intent select`**: Loads agent definitions from YAML frontmatter (`engine.agent_loader.load_agent_definitions`), evaluates each agent's `inputs.required` declarations against the filesystem (`engine.eligibility.evaluate_all`), and presents per-agent eligibility evidence. Workstream-scoped filtering is supported via `--workstream`.
+- **`intent assess`**: Discovers governed artifacts by type (proposals, features, stories, arc42 chapters, ADRs), validates each against frontmatter checks and lint scripts, and reports per-artifact assessment results.
 
-The model is validated against the cycle-model-v1 JSON Schema on every load. The schema rejects direction fields (how to do work), classification fields (organizational metadata), and executable commands (scripts or shell invocations). This constraint keeps the model declarative.
+The eligibility engine is composed of three modules:
 
-### Artifact-Driven Route Recommendation
+1. **Precondition evaluator** (`engine/eligibility.py`): Resolves each requirement's `path_pattern` against the filesystem, filters by workstream scope, checks frontmatter conditions or runs validator scripts, and returns per-requirement evidence.
+2. **Readiness derivation** (`engine/readiness.py`): Accepts evaluation evidence and produces `AgentReadiness` dataclasses with `eligible`, `unsatisfied`, and `warnings` fields.
+3. **Recommendation classifier** (`engine/recommendations.py`): Classifies agents into eligible and blocked groups from readiness verdicts.
 
-Route recommendations follow a three-step protocol:
+The engine is read-only: it reads agent definitions and the repository, returns immutable decisions, and never writes state.
 
-1. **Readiness evaluation**: The Readiness Evaluator receives trusted validator results and determines whether artifact evidence supports each route leaving the current cycle.
-2. **Route recommendation**: The Route Recommender applies the supported-route cardinality table: zero supported routes produce a warning, one supported route is recommended, and multiple supported routes are presented as choices for the human.
-3. **Human decision**: The human selects the target cycle. The engine recommends; it does not decide.
+### Delivery model on disk
 
-This model makes reconciliation the standard assessment. Every cycle transition evaluates artifact state and presents what the evidence supports. The human may follow the recommendation, choose a different supported route, or select any route regardless of readiness.
+The declarative delivery model (`packages/factory/engine/models/delivery.yaml`) remains on disk. It declares five delivery cycles (IDEA, CONCEPT, ROADMAP, REFINE, REALIZE) plus a terminal DONE node, with artifact declarations, routes, and trusted validators. The cycle-model-v1 JSON Schema still validates it. However, the model-loading, route-recommendation, delegation, and retry components that consumed it were removed in ST-0263. The delivery model currently serves as a reference artifact for the cycle graph topology.
 
-### Delegation and Retry
-
-Delegation grants allow agents to advance through cycles without pausing for human approval at each boundary. Two forms exist:
-
-- **Explicit-route grant**: An ordered list of cycles the agent may traverse. The agent pauses when it encounters a cycle not in the list.
-- **Destination grant**: Names only the target cycle. The agent advances until it reaches the target, pausing when the engine cannot recommend a single route.
-
-Each cycle declares a `delegated_attempt_limit`. When the limit is reached, the delegation pauses regardless of grant form. This prevents runaway agent loops while preserving the ability to delegate multi-cycle work.
-
-### Workstream Concurrency
+### Workstream concurrency
 
 Multiple workstreams may be active simultaneously within a project. Each workstream has its own state file under `.current-work/cycles/` and its own revision history. OS-level exclusive locks under `.current-work/cycles/.locks/` prevent concurrent mutation of the same workstream. Session bindings track which workstream each CLI session is observing, so a session always knows whether its view of the workstream is current.
 
@@ -273,7 +263,7 @@ Multiple workstreams may be active simultaneously within a project. Each workstr
 - [05_building_block_view.md section 5.2.1](05_building_block_view.md#521-project-owned-test-gates-via-charter-declaration)
 - [05_building_block_view.md section 5.2.3](05_building_block_view.md#523-semantic-quality-gates-crap-score-mutation-analysis-dependency-check)
 - [05_building_block_view.md section 5.2.5](05_building_block_view.md#525-agent-context-validation-concern-lint)
-- [06_runtime_view.md section 6.2](06_runtime_view.md#62-cycle-transition)
+- [06_runtime_view.md section 6.2](06_runtime_view.md#62-agent-selection)
 - [06_runtime_view.md section 6.3](06_runtime_view.md#63-test-gate-presence)
 - [06_runtime_view.md section 6.4](06_runtime_view.md#64-semantic-gate-loop)
 - [06_runtime_view.md section 6.5](06_runtime_view.md#65-agent-context-validation)

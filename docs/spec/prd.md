@@ -68,7 +68,7 @@ ______________________________________________________________________
 ### FR-D — Dispatch (`trigger`)
 
 - **FR-D1** — Resolves an agent name, or one playbook step by name or index, from `.agent-factory/factory/INDEX.yaml`'s own source data.
-- **FR-D2** — Resolves a tier to a concrete model via `config/model.conf`, honouring `on_missing`.
+- **FR-D2** — Resolves a tier to a concrete model via `.agent-factory/config/model.conf`, honouring `on_missing`.
 - **FR-D3** — Background mode invokes the CLI non-interactively under a hardcoded, scoped tool allowlist — never a blanket permission bypass.
 - **FR-D4** — Interactive mode prints the composed prompt and launches a live CLI session; it does not seed the message programmatically.
 
@@ -91,7 +91,7 @@ ______________________________________________________________________
 
 ### FR-H — Installation (`init-factory`)
 
-- **FR-H1** — Idempotent: copies `.agent-factory/factory/`, merges `.gitignore`, and installs Factory surfaces for Claude Code (`.claude/`), GitHub Copilot CLI (`.github/`), Codex (`.codex/` and `.agents/`), and Pi (`.pi/`). The first three receive the native guardrail hook; Pi receives the equivalent project-local extension. It copies `config/model.conf` once and merges or symlinks `.pre-commit-config.yaml`.
+- **FR-H1** — Idempotent: copies `.agent-factory/factory/`, merges `.gitignore`, and installs Factory surfaces for Claude Code (`.claude/`), GitHub Copilot CLI (`.github/`), Codex (`.codex/` and `.agents/`), and Pi (`.pi/`). The first three receive the native guardrail hook; Pi receives the equivalent project-local extension. It copies `.agent-factory/config/model.conf` once and merges or symlinks `.pre-commit-config.yaml`.
 - **FR-H2** — Collision-safe: any step that finds something unexpected at a destination path stops the whole run before touching anything later.
 
 ### FR-I — Project-Owned Test Gates (testing declaration)
@@ -107,7 +107,7 @@ ______________________________________________________________________
 
 Pi has no native subagent concept, so a factory agent cannot run in a separate Pi session the way Claude Code spawns a subagent. `run_agent` supplies that missing invocation layer as a project-local extension tool.
 
-- **FR-J1** — The extension `.pi/extensions/run-agent.ts` registers a model-callable tool `run_agent(agent, task, model?)` that resolves `.agent-factory/factory/agents/<agent>.md`, resolves the model (`model` argument, else `config/model.conf` `pi.<tier>`, honoring `on_missing`), and spawns a separate `pi` subprocess (`--no-session -a --mode json --model <m> --append-system-prompt <agent> -p <task>`), returning the child's final text and token usage parsed from `message_end`.
+- **FR-J1** — The extension `.pi/extensions/run-agent.ts` registers a model-callable tool `run_agent(agent, task, model?)` that resolves `.agent-factory/factory/agents/<agent>.md`, resolves the model (`model` argument, else `.agent-factory/config/model.conf` `pi.<tier>`, honoring `on_missing`), and spawns a separate `pi` subprocess (`--no-session -a --mode json --model <m> --append-system-prompt <agent> -p <task>`), returning the child's final text and token usage parsed from `message_end`.
 - **FR-J2** — The spawn is a genuinely separate session that never receives the caller's context, preserving author/reviewer independence; on a resolution, recursion, or spawn error the tool returns a diagnostic result and launches nothing.
 - **FR-J3** — A fixed recursion-depth bound, carried in an environment variable the parent sets and the child reads, caps nested `run_agent` spawns.
 - **FR-J4** — The dispatcher tool `dispatch_wave`, layered on the `run_agent` primitive, spawns several agents in parallel — each in its own git worktree, each under a per-story model tier — and integrates `premerge-check`; it ports `implementation-agent`, whose current prose depends on Claude Code's native Agent-tool worktree isolation.

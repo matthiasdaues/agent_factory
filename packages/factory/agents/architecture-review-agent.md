@@ -17,7 +17,7 @@ inputs:
     - type: architecture
       path_pattern: docs/arc42/architecture.dsl
   context:
-    - docs/arc42/CONTEXT.md
+    - docs/CONTEXT.md
     - docs/spec/prd.md
     - docs/*.md
     - docs/assets/images/*

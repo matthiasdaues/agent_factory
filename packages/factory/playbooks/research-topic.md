@@ -26,12 +26,20 @@ skills, its input artifacts, and its output artifacts. Between every step the
 playbook runs a three-stage validation gate, and progression blocks whenever a
 stage fails.
 
+## Working Root
+
+All artifact paths in this playbook are relative to a per-topic slug
+directory: `docs/research/<slug>/`. The slug is the kebab-case topic name
+(e.g. `agent-zero`, `opencode-cli-integration`). Every agent and skill
+invocation receives this directory as its working root. See
+[research-directory-layout.md](../rulebooks/conventions/research-directory-layout.md).
+
 ## Prerequisites
 
 - [ ] `research-brief.md` exists and is ready for validation.
 - [ ] The research templates, schemas, and policies are present under
-  `factory/rulebooks/`.
-- [ ] The research agents and skills are indexed in `factory/INDEX.yaml`.
+  `.agent-factory/factory/rulebooks/`.
+- [ ] The research agents and skills are indexed in `.agent-factory/factory/INDEX.yaml`.
 
 ### Research Capability Preflight
 
@@ -76,11 +84,11 @@ Every artifact produced by a step must pass the three-stage validation gate
 before the next step begins. The stages run in a fixed order, and progression
 blocks on the first failing stage.
 
-1. **Schema validation** — `factory/scripts/schema-validate` checks that the
+1. **Schema validation** — `.agent-factory/factory/scripts/schema-validate` checks that the
    artifact has the required form: required fields, field types, allowed
    values, identifier formats, artifact types and states, timestamps,
    references, hashes, vote values, and defect levels.
-2. **Policy validation** — `factory/scripts/policy-validate` checks the
+2. **Policy validation** — `.agent-factory/factory/scripts/policy-validate` checks the
    enforceable rules across artifacts and roles: role separation, references,
    quorum, current claim versions, and the remaining policy constraints.
 3. **Semantic review** — a qualified agent checks evidence, reasoning, scope,
@@ -179,7 +187,7 @@ missing source-family data, missing assumptions, missing refutation
 conditions, stale content hashes, and invalid artifact states.
 
 As the first, cheapest check the orchestrator runs
-`factory/scripts/conjecture-lint <conjecture> --expect-tests <plan tests-per-claim>`,
+`.agent-factory/factory/scripts/conjecture-lint <conjecture> --expect-tests <plan tests-per-claim>`,
 which flags a **non-atomic (compound) claim** and a **planned-test-count that
 does not match the review protocol** — the two defects that, caught later, force
 a resolution/re-test pass after the claim's tests, reviews, and votes have

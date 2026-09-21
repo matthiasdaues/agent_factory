@@ -99,14 +99,14 @@ The workspace property `"arc42.projected"` defaults to `"false"` and is set to `
 ### Step 2.3 — Validate and Export Structurizr Model
 
 ```bash
-factory/scripts/structurizr validate
-factory/scripts/structurizr export-all
+.agent-factory/factory/scripts/structurizr validate
+.agent-factory/factory/scripts/structurizr export-all
 ```
 
 ### Step 2.4 — Validate Architecture
 
 ```bash
-factory/scripts/arch-lint --docs-dir docs/arc42
+.agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42
 ```
 
 **If errors** → Fix and re-validate
@@ -210,9 +210,9 @@ Second architecture pass: deepen the baseline architecture using domain knowledg
 ### Step 4.2 — Validate and Export Updated Model
 
 ```bash
-factory/scripts/structurizr validate
-factory/scripts/structurizr export-all
-factory/scripts/arch-lint --docs-dir docs/arc42
+.agent-factory/factory/scripts/structurizr validate
+.agent-factory/factory/scripts/structurizr export-all
+.agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42
 ```
 
 **If errors** → Fix and re-validate
@@ -270,7 +270,7 @@ Present the completed charter to the stakeholder. Run the planning gate to
 verify no `To be decided.` entries remain in tech-stack.md or development.md:
 
 ```bash
-factory/scripts/charter-lint --planning-gate
+.agent-factory/factory/scripts/charter-lint --planning-gate
 ```
 
 This gate must pass before any specification work or planning decisions that

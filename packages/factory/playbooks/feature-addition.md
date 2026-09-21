@@ -408,7 +408,7 @@ Run the mechanical module-graph check to verify whether the feature's Phase 1
 outputs declare architectural changes:
 
 ```bash
-factory/scripts/module-graph-check
+.agent-factory/factory/scripts/module-graph-check
 ```
 
 **What the check does:**
@@ -500,7 +500,7 @@ orchestrator run-phase planning
 ### Step 3.2 — Validate
 
 ```bash
-factory/scripts/backlog-lint --backlog-dir backlog
+.agent-factory/factory/scripts/backlog-lint --backlog-dir backlog
 ```
 
 **If errors** → Fix and return to Step 3.1

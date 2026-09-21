@@ -156,6 +156,12 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST** replace or move superseded instructions instead of leaving them mixed with current open work.
 - **MUST** move superseded documentation artifacts under `~archive/`, preserving their original relative path (for example, `docs/arc42/old.md` → `~archive/docs/arc42/old.md`).
 
+## Research
+
+→ [research-directory-layout.md](conventions/research-directory-layout.md)
+
+- **MUST** place each research effort under its own slug directory: `docs/research/<slug>/` — never directly under `docs/research/`.
+
 ## Cross-references
 
 → [cross-reference-format.md](conventions/cross-reference-format.md)

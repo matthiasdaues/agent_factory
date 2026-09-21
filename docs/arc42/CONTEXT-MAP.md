@@ -4,7 +4,7 @@ Map of bounded contexts in the agent_factory repo. Each context has its own doma
 
 ## Contexts
 
-- **Factory** — the agent/skill/playbook system, dynamically run by an AI CLI, plus its deterministic flow-control harness. The harness includes a pure Cycle Engine (`packages/factory/engine/`) that loads a declarative delivery model, evaluates artifact readiness, and returns immutable routing decisions; a State Adapter (`cycle select`, `cycle retry`, `run-step`) that owns state writes and lock acquisition; and deterministic validators (`transition-lint`, `block-dangerous-git.sh`, `context-lint`). See [spec/prd.md](../spec/prd.md) for its specification and [README.md](../README.md) for its arc42 architecture documentation.
+- **Factory** — the agent/skill/playbook system, dynamically run by an AI CLI, plus its deterministic flow-control harness. The harness includes a pure Eligibility Engine (`packages/factory/engine/`) that evaluates agent preconditions against the repository and returns immutable readiness verdicts; a State Adapter (`intent select`, `run-step`) that owns state writes and lock acquisition; and deterministic validators (`transition-lint`, `block-dangerous-git.sh`, `concern-lint`). See [spec/prd.md](../spec/prd.md) for its specification and [README.md](../README.md) for its arc42 architecture documentation.
 
 - **Usage Analysis** — opt-in local `packages/usage/` subproject that consumes
   Factory's versioned raw usage spool read-only. At runtime it is installed at

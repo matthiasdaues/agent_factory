@@ -480,7 +480,8 @@ Feature: Activity-graph orchestration
     Scenario: Project configuration lives under .agent-factory/config/
       Given init-factory completes
       When the project root is inspected
-      Then .agent-factory/config/ contains project-context.json and testing.yaml
+      Then .agent-factory/config/ contains project-context.json
+      And docs/testing.yaml contains the test regime configuration
       And no top-level config/ directory exists
 
     Scenario: Workstream state files live under .agent-factory/workstreams/
@@ -504,7 +505,7 @@ Feature: Activity-graph orchestration
       Then records are under .agent-factory/usage/records/
       And transcripts are under .agent-factory/usage/transcripts/
       And control state is under .agent-factory/usage/control/
-      And the query database is at .agent-factory/usage/store.duckdb
+      And the query database is at .agent-factory/usage.duckdb
 
     Scenario: .current-work/ remains the runtime root
       Given .current-work/ contains linked worktrees, dispatch ledgers, and verification markers
@@ -518,23 +519,15 @@ Feature: Activity-graph orchestration
       Then install.json exists instead of factory-install.json
       And checksums.json exists instead of factory-checksums.json
 
-  Rule: Orchestrator package is retired
+  Rule: Orchestrator package is dormant
     # actor: Factory maintainer
 
-    Scenario: packages/orchestrator/ does not exist
-      Given folder consolidation and orchestrator retirement complete
+    Scenario: packages/orchestrator/ exists but is not active
+      Given the orchestrator retirement was cancelled
       When the project tree is inspected
-      Then packages/orchestrator/ does not exist
-
-    Scenario: No references to orchestrator remain
-      Given the orchestrator is retired
-      When documentation, backlog stories, and CI configuration are inspected
-      Then no file references the orchestrator package
-
-    Scenario: Still-needed tests are migrated
-      Given orchestrator tests covered behavior the factory engine still needs
-      When the retirement completes
-      Then those tests exist under packages/factory/engine/ or the appropriate package
+      Then packages/orchestrator/ exists on disk
+      And no factory script or agent imports from packages/orchestrator/
+      And the orchestrator may be revisited in a future iteration
 
   Rule: Cycle-based orchestration proposal is superseded
     # actor: Factory maintainer

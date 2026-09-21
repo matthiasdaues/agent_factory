@@ -9,8 +9,6 @@ skills:
   - handoff
 inputs:
   required:
-    - type: prd
-      path_pattern: docs/spec/prd.md
     - type: feature
       path_pattern: "docs/spec/*.feature"
     - type: scope-map

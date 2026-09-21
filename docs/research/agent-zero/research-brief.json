@@ -1,0 +1,33 @@
+{
+  "mode": "survey",
+  "research_question": "What is Agent Zero (the open-source autonomous agent framework), what are its architecture, capabilities, and extension points, and how could it integrate with or complement the Agent Factory workflow?",
+  "intended_use": "Evaluate whether Agent Zero can serve as a runtime engine, an alternative agent backend, or a complementary tool within Agent Factory — and if so, design the integration seam.",
+  "audience": "Agent Factory maintainers deciding whether and how to incorporate Agent Zero into the factory's multi-CLI architecture.",
+  "scope": "Agent Zero's architecture (agent loop, tool system, memory, knowledge base), multi-agent capabilities, configuration model, extension points (custom tools, custom agents, prompts, MCP support), and how each maps to or conflicts with Agent Factory concepts (skills, agents, playbooks, dispatch, INDEX.yaml, role separation, gate validation).",
+  "exclusions": [
+    "Other autonomous agent frameworks (AutoGPT, CrewAI, LangGraph, etc.) except for brief positioning context",
+    "Agent Zero's internal LLM prompt engineering and system prompt content beyond what the extension model exposes",
+    "Pricing, licensing, or commercial viability assessment",
+    "Agent Zero's GUI or web interface — focus on the programmatic and CLI layer"
+  ],
+  "freshness_requirements": [
+    "Agent Zero repository and documentation as of 2026-09",
+    "Sources older than 12 months acceptable only for stable, unchanged architectural patterns"
+  ],
+  "source_requirements": [
+    "Agent Zero's official GitHub repository (README, docs, wiki)",
+    "Agent Zero's source code for architecture, tool registration, agent lifecycle, and configuration loading",
+    "Agent Zero's example configurations and custom tool/agent definitions",
+    "Agent Factory's existing CLI integration code and rules.md for the target integration pattern",
+    "Community discussions or blog posts with verifiable technical detail (issue trackers, technical write-ups)"
+  ],
+  "cost_of_error": "Pursuing an integration that does not fit Agent Zero's actual extension model, wasting design and implementation effort. Low external risk — internal tooling decision with no user-facing exposure.",
+  "completion_criteria": [
+    "Agent Zero's architecture (agent loop, tool system, memory) is documented with source references",
+    "Agent Zero's extension points (custom tools, custom agents, configuration, MCP) are documented",
+    "Agent Zero's multi-agent capabilities (delegation, communication, isolation) are documented",
+    "A mapping table exists showing each Factory integration point and its Agent Zero equivalent or gap",
+    "Integration candidates are identified: which Factory concepts map naturally, which require adaptation, which have no counterpart",
+    "Blockers and risks for integration are identified"
+  ]
+}

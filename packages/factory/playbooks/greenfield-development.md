@@ -183,7 +183,7 @@ closing "update development.md" story that depends on every other Epic 0 story
 ### Step 2.6 — Planning Gate
 
 ```bash
-factory/scripts/charter-lint --planning-gate
+.agent-factory/factory/scripts/charter-lint --planning-gate
 ```
 
 **If exit code non-zero** → Return to Step 2.5, resolve the reported `To be decided.` entries
@@ -214,7 +214,7 @@ so no feature story is dependency-ready until Epic 0 is done.
 ### Step 3.2 — Validate Backlog
 
 ```bash
-factory/scripts/backlog-lint --backlog-dir backlog
+.agent-factory/factory/scripts/backlog-lint --backlog-dir backlog
 ```
 
 **If exit code 0** → Go to Step 3.3

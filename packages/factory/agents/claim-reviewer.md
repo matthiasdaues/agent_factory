@@ -17,10 +17,10 @@ inputs:
 outputs:
   minimum_changed: 1
   declarations:
-    - path_pattern: "docs/research/reviews/*.md"
+    - path_pattern: "docs/research/*/reviews/*.md"
       validator:
       required: true
-    - path_pattern: "docs/research/votes/*.md"
+    - path_pattern: "docs/research/*/votes/*.md"
       validator:
       required: true
 handoff-to:

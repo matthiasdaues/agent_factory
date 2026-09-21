@@ -21,7 +21,7 @@ inputs:
     - type: supplementary-spec
       path_pattern: "docs/spec/supplementary_specs/*.md"
   context:
-    - config/model.conf
+    - .agent-factory/config/model.conf
     - docs/spec/prd.md
     - docs/CONTEXT.md
     - docs/agent-context.md

@@ -20,10 +20,10 @@ inputs:
 outputs:
   minimum_changed: 1
   declarations:
-    - path_pattern: docs/research/final-report.md
+    - path_pattern: docs/research/*/final-report.md
       validator:
       required: true
-    - path_pattern: docs/research/survey-report.md
+    - path_pattern: docs/research/*/survey-report.md
       validator:
       required: false
 triggers:

@@ -25,11 +25,11 @@ The project checkout contains three independent runtime boundaries:
   dependencies, SQL query model, accounting registry, and installed copy of
   the usage-record contract.
 
-The Cycle Engine runs in-process within the `cycle select` or `cycle retry`
-command invocation. It loads the delivery model, evaluates readiness, and
-returns an immutable decision. The State Adapter writes the result to the
-workstream state file and releases the lock. There is no long-running engine
-process.
+The Eligibility Engine runs in-process within the `intent select` command
+invocation. It evaluates agent preconditions against the repository and
+returns immutable readiness verdicts. The State Adapter writes the result to
+the workstream state file and releases the lock. There is no long-running
+engine process.
 
 The operator starts a query with
 `uv run --project .agent-factory/usage-analysis usage-query`. The embedded

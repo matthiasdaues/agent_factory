@@ -13,7 +13,7 @@ inputs:
 outputs:
   minimum_changed: 1
   declarations:
-    - path_pattern: "docs/research/claims/*.md"
+    - path_pattern: "docs/research/*/claims/*.md"
       validator:
       required: true
 version: 0.1.1

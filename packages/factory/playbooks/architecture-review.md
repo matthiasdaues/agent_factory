@@ -55,7 +55,7 @@ ls docs/arc42/01_introduction_and_goals.md \
 ### Step 1.2 — Lint Architecture
 
 ```bash
-factory/scripts/arch-lint --docs-dir docs/arc42
+.agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42
 ```
 
 **If errors** → Document in `docs/spec/todos.md`, may need architecture-agent to fix

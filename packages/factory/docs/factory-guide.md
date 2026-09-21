@@ -1,6 +1,6 @@
 # Factory Guide
 
-What's inside `factory/`, and how its pieces fit together. New here? The [Getting Started](#getting-started) section below walks you through your first session, by hand, one step at a time.
+What's inside `.agent-factory/factory/`, and how its pieces fit together. New here? The [Getting Started](#getting-started) section below walks you through your first session, by hand, one step at a time.
 
 ## Getting Started
 
@@ -30,7 +30,7 @@ Agent Factory hands your assistant five kinds of things. Learn these five words 
 
 You never memorise the full list. Your assistant reads a catalogue — [`INDEX.yaml`](../INDEX.yaml) — and picks the right agent or skill for what you asked. Your job is to know *that these things exist* so you understand what the assistant is doing when it says "I'll use the requirements agent now." INDEX.yaml is also useful to you directly: it lists every agent, skill, and playbook with a one-line description, the phase it belongs to, and its token cost — handy when you want to see what is available or estimate how much a playbook run will consume.
 
-### Two ways to run it (manual mode only)
+### How you run it
 
 Agent Factory runs in **manual mode**: you drive a playbook yourself, one step at a time. Each step ends with a set of defined artifacts — a specification, an architecture document, a slice of code — and those artifacts are the visible marker that the step is done. You read them, decide whether the work is good, and start the next step. Nothing moves without you.
 
@@ -46,9 +46,9 @@ You are what makes this real. When the requirements, architecture, or developer 
 
 After setup, several things exist that you will encounter later. You do not need to touch them now, but knowing they are there prevents surprises:
 
-- **`config/project.json`** — your project's identity card: a stable UUID, the name you gave at install time, and your declared test command. You will never edit this by hand in normal use.
-- **`config/model.conf`** — the model matrix. It controls which AI model handles which kind of work. Economy agents handle routine tasks; strong agents handle architecture and review. If you use multiple AI coding CLIs, each one gets its own mapping here. The fitting walk-through (below) helps you configure it; greenfield projects get sensible defaults.
-- **`config/project-context.json`** — a deterministic scan of your project's languages, frameworks, CI, linters, test runners, and docs structure. Written once at install time; the fitting process uses it to confirm what the scan found. Greenfield projects get an empty scan with `fitting.status: "greenfield"`.
+- **`.agent-factory/config/project.json`** — your project's identity card: a stable UUID, the name you gave at install time, and your declared test command. You will never edit this by hand in normal use.
+- **`.agent-factory/config/model.conf`** — the model matrix. It controls which AI model handles which kind of work. Economy agents handle routine tasks; strong agents handle architecture and review. If you use multiple AI coding CLIs, each one gets its own mapping here. The fitting walk-through (below) helps you configure it; greenfield projects get sensible defaults.
+- **`.agent-factory/config/project-context.json`** — a deterministic scan of your project's languages, frameworks, CI, linters, test runners, and docs structure. Written once at install time; the fitting process uses it to confirm what the scan found. Greenfield projects get an empty scan with `fitting.status: "greenfield"`.
 - **`docs/testing.yaml`** — if init-factory detects a single unambiguous test entrypoint (a `Makefile` test target, `pytest.ini`, `package.json` test script, etc.), it records the `test_command` here. When multiple candidates exist, it asks you to choose; when none are found, the file is not created.
 - **`docs/agent-context.md`** — does not exist yet. Created during fitting via `capture-context`, which scans the repo and proposes concerns (cross-cutting, technical, domain) for agent routing. Think of it as a small switchboard that tells agents where your project's knowledge lives, so they look things up instead of guessing.
 
@@ -56,12 +56,12 @@ All of these are local configuration, not project source — they are git-ignore
 
 ### Your very first session
 
-Do the setup once, following [`factory/README.md`](../README.md) — it lists the handful of tools you need and the one script that wires everything up. When it is done, open your AI assistant in your project folder and say hello. It should greet you back with four options:
+Do the setup once, following [`.agent-factory/factory/README.md`](../README.md) — it lists the handful of tools you need and the one script that wires everything up. When it is done, open your AI assistant in your project folder and say hello. It should greet you back with four options:
 
-- **A — I'm new here — show me around.** The assistant walks you through the basics, section by section, answering questions as you go.
-- **B — I want to start something.** Opens a menu of situations — spike, new project, feature, bug fix, research — and picks the right playbook for you.
-- **C — I want to run an agent or playbook directly.** For when you know the factory well enough to name what you want.
-- **D — I just want to talk something through.** Open conversation — no structure, no artifacts, just thinking out loud until the idea finds its shape.
+- **H — Help: I'm new here or need orientation.** The assistant walks you through the basics, section by section, answering questions as you go.
+- **K — Housekeeping: project setup and maintenance.** Check factory state, re-fit, update the factory, or refresh agent context.
+- **P — Project Work: start or continue a workstream.** Opens a menu of situations — spike, new project, feature, bug fix, research — and picks the right playbook for you. Or continue where you left off.
+- **O — Open Stage: let's just talk.** Open conversation — no structure, no artifacts, just thinking out loud until the idea finds its shape.
 
 The voice behind that greeting is **VIRGIL** — the guide you meet before the work has a definite shape. The name is both an allusion and an acronym: Virgil guided Dante through Hell and up the mountain of Purgatory — which is what onboarding a legacy project often feels like — and the letters stand for *Versatile Interactive Resource: Guide, Instructor, Liaison*. Think J.A.R.V.I.S., only without the copyright attached. Every Factory session starts with VIRGIL; once you choose a direction, VIRGIL either hands you off to the right playbook or stays with you for open-ended conversation.
 
@@ -99,11 +99,16 @@ Once the first spike feels comfortable, pick the recipe that matches your situat
 | You want to…                                           | Start with               |
 | ------------------------------------------------------ | ------------------------ |
 | See whether a rough idea works at all                  | `poc-spike`              |
+| Validate a technical risk before committing to it      | `technical-poc`          |
 | Fix one reported bug                                   | `bug-fix`                |
 | Bring the docs back in line with the code              | `documentation-update`   |
 | Build a brand-new project properly, start to finish    | `greenfield-development` |
 | Add Agent Factory to code that already exists          | `brownfield-onboarding`  |
 | Add a feature to a project the factory already manages | `feature-addition`       |
+| Restructure code without changing behaviour            | `refactoring`            |
+| Evaluate existing architecture against quality goals   | `architecture-review`    |
+| Survey a topic with sourced citations                  | `research-survey`        |
+| Test a specific claim through falsification            | `research-topic`         |
 
 The full list, with a sentence on each, lives in [§ Playbooks](#playbooks) below.
 
@@ -115,7 +120,7 @@ The full list, with a sentence on each, lives in [§ Playbooks](#playbooks) belo
 
 ### Where to go next
 
-- Set up the tooling: [`factory/README.md`](../README.md)
+- Set up the tooling: [`.agent-factory/factory/README.md`](../README.md)
 - Run your first spike: `poc-spike`
 
 You do not need anything else to start. Run one `poc-spike`, watch the loop, and come back for the rest when you are curious. The factory rewards learning by doing.
@@ -126,7 +131,7 @@ After a spike or two, you will want to run a full playbook — `greenfield-devel
 
 **Agent context.** The first real playbook run will ask you to set up `docs/agent-context.md` — a single Markdown file organized by concern (cross-cutting, technical, domain). Each concern carries a description and `Read:` paths pointing agents to the project's own knowledge. The assistant walks you through it as a structured interview; you confirm, correct, or adjust each concern. Agents read this file instead of guessing. You fill it in once and edit it directly as decisions change. See [§ Agent Context](#agent-context) below for the full picture.
 
-**The model matrix.** `config/model.conf` maps agent tiers — economy, standard, strong — to concrete AI models. If you use multiple coding CLIs (Claude Code, Copilot CLI, Pi, Codex), each one needs its own model ids here. The fitting walk-through configures this interactively. If you are building a greenfield project and skipped the fitting, the defaults work — but open `config/model.conf` at least once so you know it exists. See [§ Model matrix and tiers](#model-matrix-and-tiers) below.
+**The model matrix.** `.agent-factory/config/model.conf` maps agent tiers — economy, standard, strong — to concrete AI models. If you use multiple coding CLIs (Claude Code, Copilot CLI, Pi, Codex), each one needs its own model ids here. The fitting walk-through configures this interactively. If you are building a greenfield project and skipped the fitting, the defaults work — but open `.agent-factory/config/model.conf` at least once so you know it exists. See [§ Model matrix and tiers](#model-matrix-and-tiers) below.
 
 **The phase chain.** Full playbooks drive work through five phases in order — requirements, architecture, planning, implementation, quality — with a different agent for each. The author/reviewer split described earlier applies at every phase. You do not need to memorize the chain; the playbook tells you what comes next. But knowing the shape helps you understand why the assistant asks for a specification before it writes code, or why it opens a fresh session for a review.
 
@@ -134,13 +139,16 @@ After a spike or two, you will want to run a full playbook — `greenfield-devel
 
 ## Factory directory layout
 
-After `init-factory` runs, `factory/` contains the full toolset:
+After `init-factory` runs, `.agent-factory/factory/` contains the full toolset:
 
 ```
-factory/
+.agent-factory/factory/
 ├── agents/          One markdown file per agent (requirements-agent.md, etc.)
-├── config/          model.conf (tier → model mapping), project.json (identity)
+├── CHANGELOG.md     Release history
+├── config/          Session menu, pre-commit config template
+├── contracts/       Interface contracts between factory components
 ├── docs/            This guide, proposals, and reference material
+├── engine/          Precondition-based agent eligibility engine
 ├── fixtures/        Sample data for spikes and demos
 ├── INDEX.yaml       Catalog of every agent, skill, playbook, and rulebook
 ├── playbooks/       Workflow recipes (greenfield-development.md, bug-fix.md, etc.)
@@ -148,15 +156,17 @@ factory/
 ├── reports/         Output directory for review and research reports
 ├── rulebooks/       Cross-cutting conventions, templates, and schemas
 ├── scripts/         Gates, linters, and helper scripts (all stdlib-only Python)
-└── skills/          Reusable how-to procedures (one directory per skill)
+├── skills/          Reusable how-to procedures (one directory per skill)
+├── tests/           Factory's own test suite
+└── VERSION          Current factory version string
 ```
 
-`config/` holds two files the installer creates:
+The installer creates two config files under `.agent-factory/config/` (outside the factory directory, git-ignored):
 
-- **`project.json`** — project identity: a stable UUID (`project_id`), the human-readable name you gave at install time (`project_name`), and your declared test command. Every usage-capture record carries the project id so records stay attributable even if the directory moves. The `safety_critical_paths` list feeds the tier rubric — outputs matching a glob there are routed to the strong tier.
-- **`model.conf`** — the model matrix. Maps agent tiers to concrete AI model ids, per CLI. See [Model matrix and tiers](#model-matrix-and-tiers) below.
+- **`.agent-factory/config/project.json`** — project identity: a stable UUID (`project_id`), the human-readable name you gave at install time (`project_name`), and your declared test command. Every usage-capture record carries the project id so records stay attributable even if the directory moves. The `safety_critical_paths` list feeds the tier rubric — outputs matching a glob there are routed to the strong tier.
+- **`.agent-factory/config/model.conf`** — the model matrix. Maps agent tiers to concrete AI model ids, per CLI. See [Model matrix and tiers](#model-matrix-and-tiers) below.
 
-Both files are git-ignored. They are local configuration, not project source.
+Both files are local configuration, not project source.
 
 ## Agent Context
 
@@ -188,7 +198,7 @@ Edit `docs/agent-context.md` directly — it is a plain Markdown file with no sp
 
 ## Agents
 
-An agent is one job — "write requirements," "review the architecture," "implement one story." Each agent is a single markdown file in `factory/agents/`, read by your AI CLI at the start of a session.
+An agent is one job — "write requirements," "review the architecture," "implement one story." Each agent is a single markdown file in `.agent-factory/factory/agents/`, read by your AI CLI at the start of a session.
 
 Most phases have two agents: an **author** and a **reviewer**. The author produces an artifact (a spec, an architecture doc, code). The reviewer checks it in a separate session, without seeing the author's reasoning — only the artifact itself. This catches mistakes a self-review would miss, the same way a second pair of eyes catches things you can't see in your own pull request.
 
@@ -200,7 +210,7 @@ In addition to the phase-chain agents, several **Phase 0 utility agents** suppor
 
 These agents form a natural pipeline from idea to feature delivery. A typical flow: **VIRGIL** explores an idea → the `draft-proposal` skill crystallizes it into a proposal → **proposal-review-agent** pressure-tests the proposal → the `feature-addition` playbook delivers the feature through the phase chain.
 
-The full list, grouped by phase, is in [`factory/INDEX.yaml`](../INDEX.yaml). Each entry includes a `tokens` field (tiktoken cl100k_base token count of the agent's prompt text) and a `total_tokens` field (body + referenced skills + referenced rulebooks) for context window budget planning.
+The full list, grouped by phase, is in [`.agent-factory/factory/INDEX.yaml`](../INDEX.yaml). Each entry includes a `tokens` field (tiktoken cl100k_base token count of the agent's prompt text) and a `total_tokens` field (body + referenced skills + referenced rulebooks) for context window budget planning.
 
 ### Running an agent in a separate session
 
@@ -210,7 +220,7 @@ The author/reviewer split depends on each agent running in its own session, so t
 - **Codex** generates native custom agents under `.codex/agents/`. When a separate session is required, spawn the generated custom agent through Codex's native subagent mechanism. Direct interactive agent selection may remain in the current session unless an isolation boundary applies.
 - **Pi** has no native subagent. `init-factory` installs a project-local extension, `.pi/extensions/run-agent.ts`, that registers a `run_agent` tool. Calling it spawns a genuinely separate `pi` subprocess with the chosen agent's markdown as its system prompt and returns the child's result. Under Pi, run a factory agent by calling `run_agent` — not by reading the agent file and acting it out in the current session, which would leak the author's reasoning into the review.
 
-`run_agent` resolves the child's model from `config/model.conf` — the `pi.<tier>` row for the agent's declared tier — unless an explicit model id is passed, and it bounds nested spawns with a recursion-depth cap. The git-safety guardrail extension loads in the child too, so a spawned agent stays governed by the same guardrail as its parent. See [ADR-0004](../../../docs/adr/0004-pi-subagent-invocation-via-subprocess-spawn.md).
+`run_agent` resolves the child's model from `.agent-factory/config/model.conf` — the `pi.<tier>` row for the agent's declared tier — unless an explicit model id is passed, and it bounds nested spawns with a recursion-depth cap. The git-safety guardrail extension loads in the child too, so a spawned agent stays governed by the same guardrail as its parent. See [ADR-0004](../../../docs/adr/0004-pi-subagent-invocation-via-subprocess-spawn.md).
 
 For parallel work, a second Pi extension, `.pi/extensions/dispatch-wave.ts`, registers a `dispatch_wave` tool — the port of `implementation-agent`, which under Claude Code relies on the native Agent tool's `isolation: "worktree"` and simultaneous subagent spawns. Given one caller-planned, file-disjoint wave, `dispatch_wave` cuts a feature branch in its own git worktree per item, spawns each agent there in parallel, and — unless told not to — runs `premerge-check` before merging each finished branch into the target. It does not plan the wave: output-file overlap and dependency ordering stay with the calling agent, exactly as `implementation-agent` documents. `premerge-check` runs against the wave's frozen base, so a sibling merge advancing the target never falsely flags a later branch as stale.
 
@@ -240,7 +250,7 @@ definitions remain inactive until reviewed again.
 
 Agent Factory records runtime token usage for Claude Code, GitHub Copilot CLI,
 Codex, and Pi. Every capture site calls the same
-`factory/scripts/usage-capture` pipeline: a CLI-specific transcript normalizer,
+`.agent-factory/factory/scripts/usage-capture` pipeline: a CLI-specific transcript normalizer,
 the fixed `tiktoken cl100k_base` comparison tokenizer, and an append-only JSONL
 logging adapter. One record is appended to
 `.agent-factory/usage/<session-key>.jsonl`; the exact text that was tokenized is
@@ -250,7 +260,7 @@ runtime area.
 
 Initialization explicitly asks for a project name; non-interactive automation
 passes `--project-name`. The installer generates a stable UUID and writes both
-values to the git-ignored `config/project.json` (see [Factory directory layout](#factory-directory-layout) for the full contents of that file). Every usage record contains
+values to the git-ignored `.agent-factory/config/project.json` (see [Factory directory layout](#factory-directory-layout) for the full contents of that file). Every usage record contains
 the non-null `project_id` and `project_name`; rerunning initialization preserves
 them.
 
@@ -407,7 +417,7 @@ code.
 
 ## Skills
 
-A skill is a how-to — a reusable procedure an agent (or you, directly) invokes to do one well-defined thing: run a structured interview, write an ADR, run a security review. Each skill is a folder in `factory/skills/` holding a `SKILL.md`. Agents call skills; skills don't call agents.
+A skill is a how-to — a reusable procedure an agent (or you, directly) invokes to do one well-defined thing: run a structured interview, write an ADR, run a security review. Each skill is a folder in `.agent-factory/factory/skills/` holding a `SKILL.md`. Agents call skills; skills don't call agents.
 
 Notable skills by concern:
 
@@ -419,11 +429,11 @@ Notable skills by concern:
 | Quality gates   | `crap-score` (composite structural risk), `mutation-testing` (mutation testing), `dependency-check` (dependency vulnerability scan)                                          |
 | Implementation  | `run-step` (execute a single step manifest within step isolation)                                                                                                            |
 
-The full list is also in [`factory/INDEX.yaml`](../INDEX.yaml), with token counts per skill.
+The full list is also in [`.agent-factory/factory/INDEX.yaml`](../INDEX.yaml), with token counts per skill.
 
 ## Playbooks
 
-A playbook is a step-by-step recipe in `factory/playbooks/` for a specific situation — which agents to run, in what order, with what to check in between. Pick the one that matches what you're doing; don't run the full phase chain when a smaller playbook fits.
+A playbook is a step-by-step recipe in `.agent-factory/factory/playbooks/` for a specific situation — which agents to run, in what order, with what to check in between. Pick the one that matches what you're doing; don't run the full phase chain when a smaller playbook fits.
 
 ### Beginner playbooks
 
@@ -490,13 +500,13 @@ that those claims already earned a falsification verdict.
 
 Playbooks above are prose: nothing stops staging an architecture file before the spec gate clears except the human remembering the playbook's own instructions. An optional structured harness, layered on top, catches phase-boundary mistakes mechanically instead.
 
-A playbook can ship a `.fsm.yml` alongside its `.md` in `factory/playbooks/` — a state machine describing each phase's `outputs:` file globs and the `entry_conditions` required to advance into it. Only [`greenfield-development.fsm.yml`](../playbooks/greenfield-development.fsm.yml) exists today. This is opt-in, not a default every playbook must adopt.
+A playbook can ship a `.fsm.yml` alongside its `.md` in `.agent-factory/factory/playbooks/` — a state machine describing each phase's `outputs:` file globs and the `entry_conditions` required to advance into it. Only [`greenfield-development.fsm.yml`](../playbooks/greenfield-development.fsm.yml) exists today. This is opt-in, not a default every playbook must adopt.
 
-| Component                          | What it does                                                                                                         |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `.current-work/playbook-state.yml` | Local, git-ignored marker recording which state the project is currently in.                                         |
-| `factory/scripts/transition-lint`  | Pre-commit gate. Blocks staging a file whose `outputs:` glob belongs to a state other than the marker's current one. |
-| `factory/scripts/phase advance`    | Subcommand that checks the next state's `entry_conditions` and, if satisfied, advances the marker.                   |
+| Component                                        | What it does                                                                                                         |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `.current-work/playbook-state.yml`               | Local, git-ignored marker recording which state the project is currently in.                                         |
+| `.agent-factory/factory/scripts/transition-lint` | Pre-commit gate. Blocks staging a file whose `outputs:` glob belongs to a state other than the marker's current one. |
+| `.agent-factory/factory/scripts/phase advance`   | Subcommand that checks the next state's `entry_conditions` and, if satisfied, advances the marker.                   |
 
 `transition-lint` deliberately does not evaluate `entry_conditions` — by its own docstring, it "governs ordering *between* phases," not within one, and "does not evaluate a state's `entry_conditions`" because "that is `phase advance`'s job." It only checks whether a staged file belongs to the current state, naming the offending path and pointing at `phase advance` when a file belongs to a later one. This is a deliberate design choice, not a gap: condition-checking lives in one place only.
 
@@ -533,21 +543,21 @@ The research feature adds files across all three, marked by a `research-` filena
 
 A gate is a deterministic script — no LLM judgement involved — that catches a provable defect before a reviewer agent spends time on it: a broken cross-reference, a missing required section, an inconsistent ID. Cheap, reproducible, no false positives.
 
-| Gate                           | Fires at                 | What it checks                                                                                                                            |
-| ------------------------------ | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `factory/scripts/spec-lint`    | Phase 1 → 2 boundary     | Specification coverage: traceability across PRD, actor-goals, `.feature` files, and supplementary specs; ID uniqueness; required sections |
-| `factory/scripts/arch-lint`    | Phase 2 → 3 boundary     | arc42 chapters exist and cross-reference the Structurizr DSL, ADR index consistency, diagram file references                              |
-| `factory/scripts/backlog-lint` | Phase 3 → 4 boundary     | YAML frontmatter schema, dependency graph acyclicity, priority and status values                                                          |
-| `factory/scripts/concern-lint` | `agent-context.md` edit  | Section structure, `Read:`/`Boundary:` path resolution, concern-reference integrity against story frontmatter, no legacy YAML residue     |
-| `factory/scripts/matrix-lint`  | `config/model.conf` edit | Syntax, required fields, valid tier/model mappings                                                                                        |
+| Gate                                          | Fires at                                | What it checks                                                                                                                            |
+| --------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `.agent-factory/factory/scripts/spec-lint`    | Phase 1 → 2 boundary                    | Specification coverage: traceability across PRD, actor-goals, `.feature` files, and supplementary specs; ID uniqueness; required sections |
+| `.agent-factory/factory/scripts/arch-lint`    | Phase 2 → 3 boundary                    | arc42 chapters exist and cross-reference the Structurizr DSL, ADR index consistency, diagram file references                              |
+| `.agent-factory/factory/scripts/backlog-lint` | Phase 3 → 4 boundary                    | YAML frontmatter schema, dependency graph acyclicity, priority and status values                                                          |
+| `.agent-factory/factory/scripts/concern-lint` | `agent-context.md` edit                 | Section structure, `Read:`/`Boundary:` path resolution, concern-reference integrity against story frontmatter, no legacy YAML residue     |
+| `.agent-factory/factory/scripts/matrix-lint`  | `.agent-factory/config/model.conf` edit | Syntax, required fields, valid tier/model mappings                                                                                        |
 
 In manual mode (driving each agent by hand, one session at a time), the reviewer agent for that phase runs its gate as its first step. Run any gate yourself the same way:
 
 ```bash
-factory/scripts/spec-lint --spec-dir docs/spec/
-factory/scripts/arch-lint --docs-dir docs/arc42
-factory/scripts/backlog-lint --backlog-dir backlog/
-factory/scripts/matrix-lint --matrix config/model.conf
+.agent-factory/factory/scripts/spec-lint --spec-dir docs/spec/
+.agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42
+.agent-factory/factory/scripts/backlog-lint --backlog-dir backlog/
+.agent-factory/factory/scripts/matrix-lint --matrix .agent-factory/config/model.conf
 ```
 
 These scripts are stdlib-only Python — no install needed to run them.
@@ -556,38 +566,38 @@ These scripts are stdlib-only Python — no install needed to run them.
 
 The research workflow adds two more deterministic validators, stdlib-only in the same spirit but invoked on demand by the research skills and agents (and by you), not wired to a phase boundary. They implement the first two stages of a fixed three-stage validation order — **schema → policy → semantic** — that splits validation by whether a machine can decide it:
 
-| Stage        | Tool                                | Checks                                                                                                              |
-| ------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| 1 — schema   | `factory/scripts/schema-validate`   | One JSON artifact against one JSON Schema: required fields, types, enums, identifier patterns, timestamps           |
-| 2 — policy   | `factory/scripts/policy-validate`   | The enforceable half of the research policies across artifacts: role separation, references, quorum, claim versions |
-| 3 — semantic | a qualified human or agent reviewer | Evidence support, source independence, test severity, claim atomicity — the judgment no script makes                |
+| Stage        | Tool                                             | Checks                                                                                                              |
+| ------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| 1 — schema   | `.agent-factory/factory/scripts/schema-validate` | One JSON artifact against one JSON Schema: required fields, types, enums, identifier patterns, timestamps           |
+| 2 — policy   | `.agent-factory/factory/scripts/policy-validate` | The enforceable half of the research policies across artifacts: role separation, references, quorum, claim versions |
+| 3 — semantic | a qualified human or agent reviewer              | Evidence support, source independence, test severity, claim atomicity — the judgment no script makes                |
 
 ```bash
-factory/scripts/schema-validate <artifact-file> <schema-file>
-factory/scripts/policy-validate --pipeline <artifact-or-dir>...   # runs stage 1, then stage 2, stopping at the first failure
+.agent-factory/factory/scripts/schema-validate <artifact-file> <schema-file>
+.agent-factory/factory/scripts/policy-validate --pipeline <artifact-or-dir>...   # runs stage 1, then stage 2, stopping at the first failure
 ```
 
-An artifact must pass stage 1, then stage 2, then stage 3 before the next playbook step begins. The schemas live in [`factory/rulebooks/schemas/`](../rulebooks/schemas/). See [ADR-0006](../../../docs/adr/0006-research-flat-storage-and-validation-pipeline.md) and [`research-topic.md` § The Validation Gate](../playbooks/research-topic.md).
+An artifact must pass stage 1, then stage 2, then stage 3 before the next playbook step begins. The schemas live in [`.agent-factory/factory/rulebooks/schemas/`](../rulebooks/schemas/). See [ADR-0006](../../../docs/adr/0006-research-flat-storage-and-validation-pipeline.md) and [`research-topic.md` § The Validation Gate](../playbooks/research-topic.md).
 
 ### Semantic quality gates
 
 Three semantic gates fire between a developer's commit and merge, enforced by the gate-check loop in `feature-addition`:
 
-| Gate             | Script                             | What it checks                                                                                                                                     |
-| ---------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CRAP score       | `factory/scripts/crap-score`       | Composite structural risk (cyclomatic complexity weighted against coverage). The gate threshold is on the composite score, not on coverage itself. |
-| Mutation testing | `factory/scripts/mutation-testing` | Mutation testing — verifies that tests detect injected faults, not just that they run.                                                             |
-| Dependency check | `factory/scripts/dependency-check` | Dependency vulnerability scan against known advisories.                                                                                            |
+| Gate             | Script                                            | What it checks                                                                                                                                     |
+| ---------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CRAP score       | `.agent-factory/factory/scripts/crap-score`       | Composite structural risk (cyclomatic complexity weighted against coverage). The gate threshold is on the composite score, not on coverage itself. |
+| Mutation testing | `.agent-factory/factory/scripts/mutation-testing` | Mutation testing — verifies that tests detect injected faults, not just that they run.                                                             |
+| Dependency check | `.agent-factory/factory/scripts/dependency-check` | Dependency vulnerability scan against known advisories.                                                                                            |
 
 The planning agent fills each story's `quality-gates` field from the `gates` section of `docs/testing.yaml` — only gates marked `enabled: true` are included. A project can further override at the story, house-rules, or factory-default level (resolved in that priority order). The gate-check loop allows a maximum of three fix iterations per tier and escalates to tier+1 on failure, with a ceiling of six total developer spawns per story.
 
 ### Step isolation
 
-Per-step manifests at `.current-work/<feature-branch>/<story-branch>/current-step.yml` declare each step's inputs, outputs, and `max_input_tokens`. The `factory/scripts/step-guard` hook enforces these boundaries — an agent that reads a file not in its manifest or exceeds its token budget is blocked before the read completes.
+Per-step manifests at `.current-work/<feature-branch>/<story-branch>/current-step.yml` declare each step's inputs, outputs, and `max_input_tokens`. The `.agent-factory/factory/scripts/step-guard` hook enforces these boundaries — an agent that reads a file not in its manifest or exceeds its token budget is blocked before the read completes.
 
 ### Mechanized dispatch
 
-The `factory/scripts/dispatch` script owns the git state, ledger, and branch/worktree lifecycle for implementation. The LLM sequences script calls; the scripts own state transitions. The dispatcher maintains a machine-readable ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml` tracking every story's preparation, dispatch, verification, and merge state. Key subcommands:
+The `.agent-factory/factory/scripts/dispatch` script owns the git state, ledger, and branch/worktree lifecycle for implementation. The LLM sequences script calls; the scripts own state transitions. The dispatcher maintains a machine-readable ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml` tracking every story's preparation, dispatch, verification, and merge state. Key subcommands:
 
 - `dispatch init` — initialize the dispatch ledger for a feature branch.
 - `dispatch prepare-wave` / `dispatch prepare-story` — create story branches and worktrees, record the declared base SHA, and run `verify-base`.
@@ -602,7 +612,7 @@ Explicit review mode uses a separate serial path while preserving the ledger:
 - `dispatch review-accept <story-id> --sha <full-HEAD-SHA>` — verify the human commit's ancestry, story ID, `status: done`, output scope, clean checkout, and tests.
 - `dispatch review-close` — record closure after every story becomes terminal; do not merge or switch branches.
 
-Both initialization and acceptance call `factory/scripts/review-workspace-check`, the reusable clean-checkout and test-suite gate. Direct standalone branch creation remains blocked. Autonomous preparation and merge commands reject review ledgers, so the primary-checkout exception cannot weaken automated dispatch.
+Both initialization and acceptance call `.agent-factory/factory/scripts/review-workspace-check`, the reusable clean-checkout and test-suite gate. Direct standalone branch creation remains blocked. Autonomous preparation and merge commands reject review ledgers, so the primary-checkout exception cannot weaken automated dispatch.
 
 Every story in a wave must reach a terminal state (merged or explicitly blocked/failed) before the next wave launches. The tier rubric in [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md) is the single authoritative source for economy/standard/strong tier assignment.
 
@@ -618,7 +628,7 @@ Agent Factory uses three tiers — **economy**, **standard**, and **strong** —
 
 The tier rubric is first-match-wins and lives in [`dispatch-contract.md`](../rulebooks/conventions/dispatch-contract.md). Other documentation cites it rather than restating it.
 
-**`config/model.conf`** maps each tier to a concrete model id for each CLI. The file uses INI-style `[facts]` syntax:
+**`.agent-factory/config/model.conf`** maps each tier to a concrete model id for each CLI. The file uses INI-style `[facts]` syntax:
 
 ```ini
 [facts]
@@ -639,7 +649,7 @@ Precedence: an explicit `--model` flag overrides `model.conf`, which overrides t
 
 `matrix-lint` validates the file on every commit. It checks syntax, required fields, and whether each model id is well-formed. Errors block the commit.
 
-**Customizing.** Edit `config/model.conf` directly. Pin your preferred models, swap providers, or add a new CLI. The file is git-ignored local configuration — each developer can have their own mapping. To refresh Pi models against the OpenRouter catalog, run `factory/scripts/openrouter-discover --check` (detects drift) or `--suggest` (proposes replacements).
+**Customizing.** Edit `.agent-factory/config/model.conf` directly. Pin your preferred models, swap providers, or add a new CLI. The file is git-ignored local configuration — each developer can have their own mapping. To refresh Pi models against the OpenRouter catalog, run `.agent-factory/factory/scripts/openrouter-discover --check` (detects drift) or `--suggest` (proposes replacements).
 
 ### Pre-commit hooks
 
@@ -651,23 +661,23 @@ The hooks fall into two groups. The formatter — `mdformat` for Markdown — au
 
 The formatters need external tools, but the hooks never install them into your project tree, your virtualenv, or your global Python packages. They run through `uvx`, which downloads an ephemeral, pinned copy into its own cache (`~/.cache/uv/` or `$UV_CACHE_DIR`) the first time and reuses it afterward. Your `site-packages`, your `node_modules`, your carefully curated tool versions: untouched.
 
-If you already have `mdformat` installed globally, `uvx` ignores it. It runs its own pinned version, so the hook produces the same result on every machine regardless of what each developer has installed. This is the same zero-local-install pattern `factory/scripts/structurizr` uses for its Docker dependency.
+If you already have `mdformat` installed globally, `uvx` ignores it. It runs its own pinned version, so the hook produces the same result on every machine regardless of what each developer has installed. This is the same zero-local-install pattern `.agent-factory/factory/scripts/structurizr` uses for its Docker dependency.
 
 The gate scripts (`spec-lint`, `arch-lint`, `backlog-lint`, and the rest) are stdlib-only Python. They need nothing beyond the Python interpreter already on your PATH — no pip install, no requirements file, no build step.
 
 #### Your teammates can commit without the factory
 
-The `.pre-commit-config.yaml` is tracked, so everyone who clones the repo gets the hook definitions. But `factory/` itself is git-ignored — it exists only on machines where `init-factory` has run. A colleague who has never heard of Agent Factory does not have it.
+The `.pre-commit-config.yaml` is tracked, so everyone who clones the repo gets the hook definitions. But `.agent-factory/factory/` itself is git-ignored — it exists only on machines where `init-factory` has run. A colleague who has never heard of Agent Factory does not have it.
 
-Every hook that calls a `factory/scripts/*` gate is wrapped in a one-line bash guard:
+Every hook that calls a `.agent-factory/factory/scripts/*` gate is wrapped in a one-line bash guard:
 
 ```bash
-bash -c '[ -d factory ] || exit 0; exec factory/scripts/<gate> "$@"' --
+bash -c '[ -d .agent-factory ] || exit 0; exec .agent-factory/factory/scripts/<gate> "$@"' --
 ```
 
-If `factory/` is not there, the hook exits 0 — a silent pass. Pre-commit moves on to the next hook. Your colleague commits normally, with no error, no warning, and no trace that Agent Factory was ever involved. The `mdformat` hook carries the same guard, so even the formatter stays quiet when the factory directory is absent.
+If `.agent-factory/factory/` is not there, the hook exits 0 — a silent pass. Pre-commit moves on to the next hook. Your colleague commits normally, with no error, no warning, and no trace that Agent Factory was ever involved. The `mdformat` hook carries the same guard, so even the formatter stays quiet when the factory directory is absent.
 
-This is deliberate. The `.pre-commit-config.yaml` is tracked because it must survive clones and branch switches. The `factory/` directory is untracked because it is local tooling, not project source. The guard bridges the two: hooks exist in the config for anyone who has the factory, and vanish for anyone who does not.
+This is deliberate. The `.pre-commit-config.yaml` is tracked because it must survive clones and branch switches. The `.agent-factory/factory/` directory is untracked because it is local tooling, not project source. The guard bridges the two: hooks exist in the config for anyone who has the factory, and vanish for anyone who does not.
 
 #### Your existing hooks are preserved
 
@@ -718,13 +728,13 @@ Treat it as a backstop, not a security boundary. It catches an accidental or und
 
 Session logging is an opt-in, append-only audit trail of gate-script runs. It exists to reconcile what an agent claims it did in a session against what actually happened on disk — not to replace or gate anything by default.
 
-**Enable it.** Set the `AF_SESSION_LOG` environment variable to a log-file path before running gates. `factory/scripts/_session_log.py` reads it fresh on each run: unset, logging is a no-op and nothing is written; set, it appends one line per wrapped run to that path, creating the parent directory if needed.
+**Enable it.** Set the `AF_SESSION_LOG` environment variable to a log-file path before running gates. `.agent-factory/factory/scripts/_session_log.py` reads it fresh on each run: unset, logging is a no-op and nothing is written; set, it appends one line per wrapped run to that path, creating the parent directory if needed.
 
 **What gets recorded.** Each JSON Lines entry has: `ts` (UTC timestamp from the script's own process clock, not agent-supplied), `script` (the gate's name), `argv` (its invocation arguments), `exit_code`, and `files_changed` (a `git status --porcelain` diff taken before and after the run — the ground truth for what moved on disk). A `summary` field is added when the wrapped gate supplies one (`spec-lint` folds in its `--format json` error/warning/info counts).
 
 **Current scope.** Only `spec-lint` is instrumented today. No other gate writes to the log yet.
 
-**Reconcile.** `factory/scripts/session-reconcile` compares the log against real git state: `--log` points at the log file (default `.current-work/session-log.jsonl`), `--base`/`--head` bound the commit range to diff (omit `--base` to check the working tree alone). It reports three finding codes: `RECON-UNEXPLAINED` (error) — a working-tree change no logged run or commit accounts for; `RECON-DRIFT` (warning) — a run logged a change that is now neither committed nor present in the working tree; `RECON-STALE` (warning) — `docs/spec/` changed but `spec-lint` never ran this session. Exit code is the error-finding count, unless `--report-only`.
+**Reconcile.** `.agent-factory/factory/scripts/session-reconcile` compares the log against real git state: `--log` points at the log file (default `.current-work/session-log.jsonl`), `--base`/`--head` bound the commit range to diff (omit `--base` to check the working tree alone). It reports three finding codes: `RECON-UNEXPLAINED` (error) — a working-tree change no logged run or commit accounts for; `RECON-DRIFT` (warning) — a run logged a change that is now neither committed nor present in the working tree; `RECON-STALE` (warning) — `docs/spec/` changed but `spec-lint` never ran this session. Exit code is the error-finding count, unless `--report-only`.
 
 The log file lives under `.current-work/`, which is gitignored — local machine state, not portable, not meant to be reviewed.
 
@@ -736,67 +746,67 @@ See [docs/proposals/session-log-addendum.md](../../../docs/proposals/session-log
 
 ```bash
 cd /path/to/existing-project
-/path/to/agent_factory/factory/scripts/init-factory
+/path/to/agent_factory/packages/factory/scripts/init-factory
 ```
 
 Two promises govern the whole install: it never disturbs what the project already owns, and everything it adds can be removed without a trace. Concretely, against an existing repo:
 
 - **`.gitignore`** — adds a single marker-delimited block headed `agent_factory related`, listing exactly the footprint it introduces. It never rewrites or duplicates what's already there, and it preserves your file's exact bytes (down to a missing final newline). Under `.github/` it ignores the specific entries it adds, one by one — never the whole directory, so your `.github/workflows/` stay tracked.
-- **`.pre-commit-config.yaml`** — the one tracked change. If the file doesn't exist, it's created carrying just Agent Factory's block. If it exists, `init-factory` hands off to `factory/scripts/merge-precommit-config`, which splices the `- repo: local` block — every hook id prefixed `agent_factory_hook-` — in at the top of your `repos:` list, leaving your own hooks untouched. An inert `.pre-commit-config.yml` is never touched; pre-commit only auto-reads `.yaml`.
+- **`.pre-commit-config.yaml`** — the one tracked change. If the file doesn't exist, it's created carrying just Agent Factory's block. If it exists, `init-factory` hands off to `.agent-factory/factory/scripts/merge-precommit-config`, which splices the `- repo: local` block — every hook id prefixed `agent_factory_hook-` — in at the top of your `repos:` list, leaving your own hooks untouched. An inert `.pre-commit-config.yml` is never touched; pre-commit only auto-reads `.yaml`.
 - **Orientation files** — if you already have a `.github/copilot-instructions.md`, `.claude/CLAUDE.md`, or root `AGENTS.md`, a marker-fenced orientation block is prepended to your file. For Claude Code it is a single `@`-include directive; for Copilot CLI, Pi, and Codex the full orientation content is inlined between markers. Your own content is preserved below the block, and `remove-factory` strips it on uninstall.
 - **Everything else** — your `docs/`, your scripts, your configuration — is left alone. `init-factory` never touches a file or directory it didn't create.
 
-The script is idempotent: run it again any time, and anything already correctly in place is skipped. It records what it did in `.agent-factory/factory-install.json`, and a re-run reads that manifest so it never loses track of what it owns. If it finds something it can't safely work around, it stops immediately and names the exact path — it never partially applies a run.
+The script is idempotent: run it again any time, and anything already correctly in place is skipped. It records what it did in `.agent-factory/install.json`, and a re-run reads that manifest so it never loses track of what it owns. If it finds something it can't safely work around, it stops immediately and names the exact path — it never partially applies a run.
 
-**Removing it again.** `factory/scripts/remove-factory` reverses the whole install from the manifest — deleting the git-ignored footprint, stripping the `agent_factory related` `.gitignore` block, stripping orientation blocks from existing orientation files, and removing the `agent_factory_hook-` pre-commit block while leaving your own hooks in place — back to a clean `git status`. A repo that had its own `.gitignore`, pre-commit config, orientation file, or workflows gets them all back byte-for-byte.
+**Removing it again.** `.agent-factory/factory/scripts/remove-factory` reverses the whole install from the manifest — deleting the git-ignored footprint, stripping the `agent_factory related` `.gitignore` block, stripping orientation blocks from existing orientation files, and removing the `agent_factory_hook-` pre-commit block while leaving your own hooks in place — back to a clean `git status`. A repo that had its own `.gitignore`, pre-commit config, orientation file, or workflows gets them all back byte-for-byte.
 
-**Updating it again.** When your `agent_factory` checkout gets newer and you want the installed project to match, run `factory/scripts/update-factory`. It replaces the installed `factory/` with a fresh copy of the current checkout, then re-runs the *sourced* `init-factory` so every derived step comes up to date too — regenerated Codex adapters, re-verified symlinks, re-merged guardrail/usage hook wiring, and a re-run `pre-commit install`:
+**Updating it again.** When your `agent_factory` checkout gets newer and you want the installed project to match, run `.agent-factory/factory/scripts/update-factory`. It replaces the installed `.agent-factory/factory/` with a fresh copy of the current checkout, then re-runs the *sourced* `init-factory` so every derived step comes up to date too — regenerated Codex adapters, re-verified symlinks, re-merged guardrail/usage hook wiring, and a re-run `pre-commit install`:
 
 ```bash
-/path/to/agent_factory/factory/scripts/update-factory --target /path/to/existing-project \
+/path/to/agent_factory/.agent-factory/factory/scripts/update-factory --target /path/to/existing-project \
     --source /path/to/agent_factory
 ```
 
-`--source` is optional on installs created after the field was recorded: `init-factory` stores the checkout it copied from (`factory_source`) in `.agent-factory/factory-install.json`, and `update-factory` reads that as its default. Only `factory/` is replaced — the project's own files, the `.gitignore`/`.pre-commit-config.yaml` edits, and the `.agent-factory/` usage-tracking transcripts and lifecycle state are all preserved. You can also run the installed copy from inside the project with `--source` if you no longer have the original checkout path in the manifest.
+`--source` is optional on installs created after the field was recorded: `init-factory` stores the checkout it copied from (`factory_source`) in `.agent-factory/install.json`, and `update-factory` reads that as its default. Only `.agent-factory/factory/` is replaced — the project's own files, the `.gitignore`/`.pre-commit-config.yaml` edits, and the `.agent-factory/` usage-tracking transcripts and lifecycle state are all preserved. You can also run the installed copy from inside the project with `--source` if you no longer have the original checkout path in the manifest.
 
-**Checking for local changes before updating.** Before replacing `factory/`, `update-factory` compares per-file SHA-256 checksums recorded at install time against the currently installed files. Files you added (custom skills, agents, scripts) or modified (tweaked prompts, adjusted rules) are detected and reported. Run `--check` to see the report without touching anything:
+**Checking for local changes before updating.** Before replacing `.agent-factory/factory/`, `update-factory` compares per-file SHA-256 checksums recorded at install time against the currently installed files. Files you added (custom skills, agents, scripts) or modified (tweaked prompts, adjusted rules) are detected and reported. Run `--check` to see the report without touching anything:
 
 ```bash
-factory/scripts/update-factory --check
+.agent-factory/factory/scripts/update-factory --check
 ```
 
 When user changes are found, the update stops by default (exit code 2). Pass `--force` to proceed anyway — changed and added files are preserved in `.agent-factory/factory-user-changes/<timestamp>/` so nothing is lost:
 
 ```bash
-factory/scripts/update-factory --force
+.agent-factory/factory/scripts/update-factory --force
 ```
 
 Installations created before checksum recording was introduced have no baseline to compare against. In that case the update proceeds as before (full replacement) and records checksums for future updates.
 
-If the sourced `init-factory` stops on a collision, `update-factory` rolls the refresh back: the old `factory/` is moved aside (not deleted) and restored in place, so the project is never left without a `factory/` and dangling runtime symlinks. Resolve the reported collision and re-run `update-factory` to finish.
+If the sourced `init-factory` stops on a collision, `update-factory` rolls the refresh back: the old `.agent-factory/factory/` is moved aside (not deleted) and restored in place, so the project is never left without a `.agent-factory/factory/` and dangling runtime symlinks. Resolve the reported collision and re-run `update-factory` to finish.
 
 **Adding or removing CLIs after install.** You do not need to re-run the full installer to wire a new CLI or unwire one you no longer use. `init-factory` supports incremental CLI management:
 
 ```bash
 # Add Copilot CLI wiring to an existing install
-factory/scripts/init-factory --add copilot
+.agent-factory/factory/scripts/init-factory --add copilot
 
 # Add multiple CLIs at once
-factory/scripts/init-factory --add copilot codex
+.agent-factory/factory/scripts/init-factory --add copilot codex
 
 # Interactive menu (omit the CLI name)
-factory/scripts/init-factory --add
+.agent-factory/factory/scripts/init-factory --add
 
 # Remove Pi wiring
-factory/scripts/init-factory --remove pi
+.agent-factory/factory/scripts/init-factory --remove pi
 
 # Interactive removal menu
-factory/scripts/init-factory --remove
+.agent-factory/factory/scripts/init-factory --remove
 ```
 
 `--add` creates the dot-directory, symlinks factory content, installs guardrails, step guards, usage capture, and freshness hooks for the new CLI, regenerates any adapter agents (Copilot, Codex), and updates the `.gitignore` block. `--remove` reverses all of that for the named CLI, strips its orientation block from any existing orientation file, and prunes empty dot-directories. Both update the install manifest so `remove-factory` stays accurate.
 
-To trigger the install conversationally instead of from a shell, use the `init-factory` skill (`factory/skills/init-factory/SKILL.md`): it confirms the target with you, runs the script, and relays its output.
+To trigger the install conversationally instead of from a shell, use the `init-factory` skill (`.agent-factory/factory/skills/init-factory/SKILL.md`): it confirms the target with you, runs the script, and relays its output.
 
 ## Troubleshooting
 
@@ -804,13 +814,13 @@ To trigger the install conversationally instead of from a shell, use the `init-f
 Something real is already at that path. Move, rename, or remove it, then re-run `init-factory`.
 
 **`merge-precommit-config` reports it cannot merge your `.pre-commit-config.yaml`**
-This happens when the file has no top-level `repos:` list in block style, or its existing hooks aren't indented at 2 spaces. Merge Agent Factory's hooks in by hand: copy the `- repo: local` block from `factory/config/pre-commit-config.yaml` into your file's `repos:` list.
+This happens when the file has no top-level `repos:` list in block style, or its existing hooks aren't indented at 2 spaces. Merge Agent Factory's hooks in by hand: copy the `- repo: local` block from `.agent-factory/factory/config/pre-commit-config.yaml` into your file's `repos:` list.
 
 **`uvx: command not found`**
-Install `uv` — see [factory/README.md § Prerequisites](../README.md#prerequisites). Every gate, and `pre-commit` itself, runs through `uvx`.
+Install `uv` — see [.agent-factory/factory/README.md § Prerequisites](../README.md#prerequisites). Every gate, and `pre-commit` itself, runs through `uvx`.
 
 **`docker info` fails, or diagram export fails**
-Start Docker Desktop (macOS) or the Docker daemon (Linux). This only blocks `factory/scripts/structurizr` — nothing else needs Docker.
+Start Docker Desktop (macOS) or the Docker daemon (Linux). This only blocks `.agent-factory/factory/scripts/structurizr` — nothing else needs Docker.
 
 **Your first commit fails, or modifies files you didn't touch**
 Expected — the `mdformat` hook auto-fixes formatting on commit. Re-stage and commit again:
@@ -820,8 +830,8 @@ git add -u
 git commit -m "<same message>"
 ```
 
-**`factory/` looks out of date after you update your `agent_factory` checkout**
-`init-factory` only copies `factory/` in once. To bring an installed project up to date, run `factory/scripts/update-factory` (see “Updating it again” above) instead of re-running `init-factory`. Run `update-factory --check` first to see whether you made local changes to `factory/` that the update would replace.
+**`.agent-factory/factory/` looks out of date after you update your `agent_factory` checkout**
+`init-factory` only copies `.agent-factory/factory/` in once. To bring an installed project up to date, run `.agent-factory/factory/scripts/update-factory` (see “Updating it again” above) instead of re-running `init-factory`. Run `update-factory --check` first to see whether you made local changes to `.agent-factory/factory/` that the update would replace.
 
 **`origin/HEAD` is dangling after a `master` → `main` rename**
 `init-factory` detects and repairs a dangling `origin/HEAD` symref automatically. It tries `git remote set-head origin --auto` first (requires network), then falls back to scanning locally-known remote-tracking branches for `main` or `master`. This is best-effort and never aborts the install.
@@ -831,5 +841,5 @@ Agent Factory targets macOS and Linux only. Both rely on native, git-tracked sym
 
 ## Referenced from
 
-- [factory/README.md](../README.md)
+- [.agent-factory/factory/README.md](../README.md)
 - [docs/spec/prd.md § Problem Statement](../../../docs/spec/prd.md#1-problem-statement)

@@ -19,7 +19,7 @@ inputs:
     - type: scope-map
       path_pattern: docs/spec/scope-map.md
   context:
-    - docs/arc42/CONTEXT.md
+    - docs/CONTEXT.md
     - docs/spec/prd.md
     - docs/reviews/atam-review.md
     - docs/agent-context.md

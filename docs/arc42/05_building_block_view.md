@@ -10,7 +10,7 @@ and local JSONL spool.
 
 | Container                  | Responsibility                                                                                                                                | Technology                |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| **Cycle Engine**           | Loads the delivery model, evaluates artifact readiness, produces route recommendations, checks delegation grants, enforces retry limits       | Python 3.10+              |
+| **Eligibility Engine**     | Evaluates agent preconditions against the repository, derives per-agent readiness, and classifies agents by eligibility                       | Python 3.10+              |
 | **State Adapter**          | Thin command adapters that acquire locks, call the engine for decisions, write cycle state, and present recommendations                       | Python                    |
 | **Validator**              | Enforces gates, permissions, cycle-model integrity, project-declared test gate presence, agent-context structure, and semantic quality checks | Bash, Python              |
 | **Dispatcher**             | Resolves agents/models from catalog, spawns CLI sessions with scoped permits                                                                  | Bash, Python              |
@@ -170,38 +170,35 @@ The three required category headings are `## Always (cross-cutting)`, `## Techni
 - [interface-contracts.md section concern-lint](../spec/supplementary_specs/interface-contracts.md#agent-factoryfactoryscriptsconcern-lint)
 - [validation-rules.md section Concern registry validation](../spec/supplementary_specs/validation-rules.md#concern-registry-validation-concern-lint-ctx--codes)
 
-## 5.3 Level 2: Component View -- Cycle Engine
+## 5.3 Level 2: Component View -- Eligibility Engine
 
-The **Cycle Engine** is a pure domain-logic container. It loads the declarative delivery model, evaluates artifact readiness, and returns immutable decisions. It never writes state, acquires locks, or imports scripts, configuration, or agent definitions. The dependency direction is inward: adapters call the engine, never the reverse.
+The **Eligibility Engine** is a pure domain-logic container. It evaluates agent preconditions against the repository, derives per-agent readiness, and classifies agents by eligibility. It never writes state, acquires locks, or imports scripts, configuration, or agent definitions. The dependency direction is inward: adapters call the engine, never the reverse.
 
-![Cycle Engine components](../assets/images/CycleEngineComponents.svg)
+![Eligibility Engine components](../assets/images/EligibilityEngineComponents.svg)
 
-| Component                | What it does                                                                                                                    | Reads                                      | Returns                             |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ----------------------------------- |
-| **Cycle Model Loader**   | Loads `delivery.yaml` and validates it against the cycle-model schema; rejects direction, classification, and executable fields | Delivery Model, Cycle Schemas              | Validated cycle graph               |
-| **Readiness Evaluator**  | Receives trusted validator results and determines whether artifact evidence supports a route recommendation                     | Validated model, validator results         | Readiness verdict per route         |
-| **Route Recommender**    | Applies the supported-route cardinality table: zero routes show warnings, one route recommends, multiple present choices        | Readiness verdicts                         | Route recommendation or choice list |
-| **Delegation Evaluator** | Checks whether a delegation grant covers the next transition; distinguishes explicit-route and destination grants               | Workstream state (grant section)           | Covered / not covered / pause       |
-| **Retry Evaluator**      | Enforces the per-cycle `delegated_attempt_limit`; returns allowed, paused, allowed_with_warning, or invalid_state               | Workstream state (attempt, limit)          | Retry decision                      |
-| **Workstream Resolver**  | Resolves workstream identity from session binding and validates revision and digest consistency                                 | Session binding, workstream state          | Resolved workstream identity        |
-| **Dispatch Eligibility** | Determines which agents and skills are eligible for the current cycle and work selection                                        | Validated model, workstream state, catalog | Eligible agent/skill list           |
+| Component                     | What it does                                                                                                                                                | Reads                             | Returns                                   |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ----------------------------------------- |
+| **intent**                    | CLI entry point with two subcommands: `select` (list agents with precondition evidence) and `assess` (validate governed artifacts); calls `evaluate_all`    | CLI arguments                     | Formatted agent list or assessment report |
+| **Agent Loader**              | Loads agent definitions from YAML frontmatter in the agents directory                                                                                       | Agent definition files            | Parsed agent definitions                  |
+| **Precondition Evaluator**    | Evaluates each agent's `inputs.required` declarations against the filesystem: resolves path patterns, checks frontmatter conditions, runs validator scripts | Agent definitions, filesystem     | Per-agent evaluation evidence             |
+| **Readiness Evaluator**       | Accepts evaluation evidence from the Precondition Evaluator and derives per-agent readiness verdicts with eligible/unsatisfied/warnings                     | Evaluation evidence               | AgentReadiness verdicts                   |
+| **Recommendation Classifier** | Classifies agents by eligibility into eligible and blocked groups from readiness verdicts                                                                   | Readiness verdicts                | Eligible and blocked agent groups         |
+| **Workstream Resolver**       | Resolves workstream identity from session binding and validates revision and digest consistency                                                             | Session binding, workstream state | Resolved workstream identity              |
 
 All components are stateless functions. The engine receives its inputs and returns results; it has no side effects. This separation ensures the engine can be tested in isolation with no filesystem or lock dependencies.
 
 ## 5.4 Level 2: Component View -- State Adapter
 
-The **State Adapter** contains thin command adapters that acquire locks, call the Cycle Engine for decisions, write cycle state, and present recommendations to the operator. Each adapter is a CLI entry point.
+The **State Adapter** contains thin command adapters that acquire locks, call the engine for decisions, write workstream state, and advance playbook phases. Each adapter is a CLI entry point.
 
 ![State Adapter components](../assets/images/StateAdapterComponents.svg)
 
-| Component          | What it does                                                                                                                                                      | Reads                                              | Writes                              |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- | ----------------------------------- |
-| **cycle select**   | Acquires the workstream lock, validates revision and digest, calls the engine for a transition decision, writes the new cycle with attempt 1, increments revision | Workstream state, session binding, engine          | Workstream state, session binding   |
-| **cycle retry**    | Acquires the workstream lock, calls the engine for a retry decision, increments attempt on success                                                                | Workstream state, session binding, engine          | Workstream state, session binding   |
-| **phase**          | Diagnostic stub: exits 2 and names the replacement cycle command. Remains for one release after cutover                                                           | (nothing)                                          | (nothing)                           |
-| **run-step skill** | Derives "what's next" from cycle state and the delivery model; dispatches the resolved agent                                                                      | Workstream state, delivery model, delegation grant | (read-only; dispatches via trigger) |
+| Component          | What it does                                                                                                                | Reads                                              | Writes                              |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- | ----------------------------------- |
+| **phase**          | Advances or retries a structured-playbook run's state marker, enforcing the target state's entry conditions before it moves | Workstream state, session binding, engine          | Workstream state, session binding   |
+| **run-step skill** | Derives "what's next" from cycle state and the delivery model; dispatches the resolved agent                                | Workstream state, delivery model, delegation grant | (read-only; dispatches via trigger) |
 
-The adapter commands follow a consistent protocol: acquire the OS-level exclusive lock under `.current-work/cycles/.locks/`, validate the expected revision and SHA-256 digest from the session binding against the workstream state file, call the engine, write the state mutation, release the lock. This protocol guarantees that concurrent sessions on the same workstream detect stale state rather than silently overwriting each other's transitions.
+The adapter commands follow a consistent protocol: acquire the OS-level exclusive lock, validate the expected state, call the engine, write the state mutation, release the lock. This protocol guarantees that concurrent sessions on the same workstream detect stale state rather than silently overwriting each other's transitions.
 
 ## 5.5 Level 2: Component View -- Dispatcher
 
@@ -217,37 +214,35 @@ The adapter commands follow a consistent protocol: acquire the OS-level exclusiv
 
 Every building block's entry point, invoked how, and by whom:
 
-| Script / Component           | Invoked by                             | Entry point                                                                        | Exit codes                                         |
-| ---------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------- |
-| cycle select                 | Human, orchestrator                    | `.agent-factory/factory/scripts/cycle select --state STATE TARGET [--work REF]`    | 0 (selected), 1 (conflict), 2 (invalid)            |
-| cycle retry                  | Human, orchestrator                    | `.agent-factory/factory/scripts/cycle retry --state STATE`                         | 0 (allowed), 1 (conflict), 2 (paused), 3 (invalid) |
-| phase                        | Human (legacy invocation)              | `.agent-factory/factory/scripts/phase advance\|retry`                              | Always 2 (names replacement command)               |
-| transition-lint              | Pre-commit hook                        | `.agent-factory/factory/scripts/transition-lint`                                   | 0 (pass), 1 (findings)                             |
-| block-dangerous-git.sh       | Claude, Copilot, Codex native hook     | stdin: CLI-specific command JSON, stdout: empty, exit 0 or 2                       | 0 (allow), 2 (deny)                                |
-| trigger                      | Human, orchestrator, run-step skill    | `.agent-factory/factory/scripts/trigger agent <name> [--background]`               | 0 (dispatched), 1+ (error)                         |
-| usage-capture                | Native CLI hooks and Pi extensions     | `.agent-factory/factory/scripts/usage-capture --cli ... --transcript ...`          | 0 (captured or best-effort no-op)                  |
-| index-lint                   | Pre-commit hook, CI                    | `.agent-factory/factory/scripts/index-lint [--check]`                              | 0 (fresh), 1 (stale)                               |
-| run-step skill               | Any supported CLI (LLM-executed)       | Skill markdown invoked by AI                                                       | (N/A -- skill is prose)                            |
-| run-agent (Pi extension)     | Pi session (via `run_agent` tool call) | `.pi/extensions/run-agent.ts` spawns `pi ... -p <task>`                            | (tool result: text + usage, or error)              |
-| dispatch-wave (Pi extension) | Pi session (via `dispatch_wave` call)  | `.pi/extensions/dispatch-wave.ts` spawns worktree + merge/item                     | (tool result: per-item status, or error)           |
-| openrouter-discover          | User, CI (`--check`)                   | `.agent-factory/factory/scripts/openrouter-discover [--list\|--suggest\|--check]`  | 0 (ok), 1 (drift)                                  |
-| schema-validate              | Research skills/agents, CLI            | `.agent-factory/factory/scripts/schema-validate <artifact-file> <schema-file>`     | 0 (conforms), 1 (violations), 2 (operational)      |
-| policy-validate              | Research skills/agents, CLI            | `.agent-factory/factory/scripts/policy-validate [--pipeline] <artifact-or-dir>...` | 0 (pass), 1 (fail), 2 (operational)                |
-| crap-score                   | Implementation-agent dispatcher        | `.agent-factory/factory/scripts/crap-score [--story-id <id>]`                      | 0 (pass), 1 (fail)                                 |
-| dependency-check             | Implementation-agent dispatcher        | `.agent-factory/factory/scripts/dependency-check [--story-id <id>]`                | 0 (pass), 1 (violations)                           |
-| concern-lint                 | Pre-commit hook, validate skill        | `.agent-factory/factory/scripts/concern-lint [--root DIR] [--format text\|json]`   | 0 (pass), 1+ (CTX-\* findings)                     |
-| module-graph-check           | Orchestrating session                  | `.agent-factory/factory/scripts/module-graph-check <proposal-path>`                | 0 (no change), 1 (change detected)                 |
-| init-factory                 | Human, orchestrator                    | `factory/scripts/init-factory [--update] <path>`                                   | 0 (installed/updated), 1+ (error)                  |
-| update-factory               | Human, orchestrator                    | `factory/scripts/update-factory`                                                   | 0 (updated), 1+ (error)                            |
-| remove-factory               | Human, orchestrator                    | `factory/scripts/remove-factory`                                                   | 0 (removed), 1+ (error)                            |
-| usage-query                  | Human (operator)                       | `uv run --project .agent-factory/usage-analysis usage-query <view>`                | 0 (result), 1+ (preflight/error)                   |
-| Input Snapshot               | usage-query (internal)                 | Python module                                                                      | (internal)                                         |
-| Contract Check               | usage-query (internal)                 | Python module                                                                      | (internal)                                         |
-| Operational Preflight        | usage-query (internal)                 | Python module                                                                      | (internal)                                         |
-| Accounting Registry          | usage-query (internal)                 | Python module                                                                      | (internal)                                         |
-| Query Model v1               | usage-query (internal)                 | DuckDB SQL views                                                                   | (internal)                                         |
-| Result Adapters              | usage-query (internal)                 | Python module                                                                      | (internal)                                         |
-| Parquet Exporter             | usage-query (internal)                 | Python module                                                                      | (internal)                                         |
+| Script / Component           | Invoked by                             | Entry point                                                                        | Exit codes                                    |
+| ---------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------- |
+| phase                        | Human, orchestrator                    | `.agent-factory/factory/scripts/phase advance\|retry`                              | 0 (advanced), 1 (blocked), 2 (invalid)        |
+| transition-lint              | Pre-commit hook                        | `.agent-factory/factory/scripts/transition-lint`                                   | 0 (pass), 1 (findings)                        |
+| block-dangerous-git.sh       | Claude, Copilot, Codex native hook     | stdin: CLI-specific command JSON, stdout: empty, exit 0 or 2                       | 0 (allow), 2 (deny)                           |
+| trigger                      | Human, orchestrator, run-step skill    | `.agent-factory/factory/scripts/trigger agent <name> [--background]`               | 0 (dispatched), 1+ (error)                    |
+| usage-capture                | Native CLI hooks and Pi extensions     | `.agent-factory/factory/scripts/usage-capture --cli ... --transcript ...`          | 0 (captured or best-effort no-op)             |
+| index-lint                   | Pre-commit hook, CI                    | `.agent-factory/factory/scripts/index-lint [--check]`                              | 0 (fresh), 1 (stale)                          |
+| run-step skill               | Any supported CLI (LLM-executed)       | Skill markdown invoked by AI                                                       | (N/A -- skill is prose)                       |
+| run-agent (Pi extension)     | Pi session (via `run_agent` tool call) | `.pi/extensions/run-agent.ts` spawns `pi ... -p <task>`                            | (tool result: text + usage, or error)         |
+| dispatch-wave (Pi extension) | Pi session (via `dispatch_wave` call)  | `.pi/extensions/dispatch-wave.ts` spawns worktree + merge/item                     | (tool result: per-item status, or error)      |
+| openrouter-discover          | User, CI (`--check`)                   | `.agent-factory/factory/scripts/openrouter-discover [--list\|--suggest\|--check]`  | 0 (ok), 1 (drift)                             |
+| schema-validate              | Research skills/agents, CLI            | `.agent-factory/factory/scripts/schema-validate <artifact-file> <schema-file>`     | 0 (conforms), 1 (violations), 2 (operational) |
+| policy-validate              | Research skills/agents, CLI            | `.agent-factory/factory/scripts/policy-validate [--pipeline] <artifact-or-dir>...` | 0 (pass), 1 (fail), 2 (operational)           |
+| crap-score                   | Implementation-agent dispatcher        | `.agent-factory/factory/scripts/crap-score [--story-id <id>]`                      | 0 (pass), 1 (fail)                            |
+| dependency-check             | Implementation-agent dispatcher        | `.agent-factory/factory/scripts/dependency-check [--story-id <id>]`                | 0 (pass), 1 (violations)                      |
+| concern-lint                 | Pre-commit hook, validate skill        | `.agent-factory/factory/scripts/concern-lint [--root DIR] [--format text\|json]`   | 0 (pass), 1+ (CTX-\* findings)                |
+| module-graph-check           | Orchestrating session                  | `.agent-factory/factory/scripts/module-graph-check <proposal-path>`                | 0 (no change), 1 (change detected)            |
+| init-factory                 | Human, orchestrator                    | `factory/scripts/init-factory [--update] <path>`                                   | 0 (installed/updated), 1+ (error)             |
+| update-factory               | Human, orchestrator                    | `factory/scripts/update-factory`                                                   | 0 (updated), 1+ (error)                       |
+| remove-factory               | Human, orchestrator                    | `factory/scripts/remove-factory`                                                   | 0 (removed), 1+ (error)                       |
+| usage-query                  | Human (operator)                       | `uv run --project .agent-factory/usage-analysis usage-query <view>`                | 0 (result), 1+ (preflight/error)              |
+| Input Snapshot               | usage-query (internal)                 | Python module                                                                      | (internal)                                    |
+| Contract Check               | usage-query (internal)                 | Python module                                                                      | (internal)                                    |
+| Operational Preflight        | usage-query (internal)                 | Python module                                                                      | (internal)                                    |
+| Accounting Registry          | usage-query (internal)                 | Python module                                                                      | (internal)                                    |
+| Query Model v1               | usage-query (internal)                 | DuckDB SQL views                                                                   | (internal)                                    |
+| Result Adapters              | usage-query (internal)                 | Python module                                                                      | (internal)                                    |
+| Parquet Exporter             | usage-query (internal)                 | Python module                                                                      | (internal)                                    |
 
 ## 5.7 Level 2: Component View -- Usage Capture
 
@@ -266,7 +261,7 @@ When a session binding exists for the current CLI and session, the
 orchestration adapter reads the workstream identifier, workstream origin, and
 current cycle name from it and includes them in the usage record. These three
 fields are optional and nullable; missing cycle context leaves all three null.
-Usage capture does not import the Cycle Engine.
+Usage capture does not import the Eligibility Engine.
 
 Native lifecycle adapters own invocation: Claude `Stop`/`SubagentStop`,
 Copilot `agentStop`/`subagentStop`, Codex `Stop`/`SubagentStop`, and Pi

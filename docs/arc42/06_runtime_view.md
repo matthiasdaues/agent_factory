@@ -8,64 +8,37 @@ This chapter describes key interaction sequences for Factory gates, cycle
 transitions, and local usage analysis. Dynamic views in
 [`architecture.dsl`](architecture.dsl) own the canonical step order.
 
-## 6.2 Cycle Transition
+## 6.2 Agent Selection
 
-Derived from dynamic view `CycleTransition` in [`architecture.dsl`](architecture.dsl).
+Derived from dynamic view `AgentSelection` in [`architecture.dsl`](architecture.dsl).
 
-A cycle transition is the primary routing operation. The human operator selects the next cycle for a workstream. The State Adapter acquires the workstream lock, validates the session binding against the current workstream state, calls the Cycle Engine for a transition decision, and writes the new state. The engine never writes state itself.
+Agent selection is the primary routing operation. The `intent select` command loads agent definitions, evaluates each agent's declared preconditions against the repository, and presents per-agent eligibility evidence. The eligibility engine never writes state.
 
-### 6.2.1 Sequence: Human Selects a Cycle
+### 6.2.1 Sequence: Human Runs `intent select`
 
 ```mermaid
 sequenceDiagram
     participant H as Human Operator
-    participant CS as cycle select
-    participant SB as Session Bindings
-    participant WS as Cycle State Files
-    participant CE as Cycle Engine
+    participant I as intent select
+    participant AL as Agent Loader
+    participant PE as Precondition Evaluator
+    participant RE as Readiness Evaluator
 
-    H->>CS: 1. Invokes cycle select with target cycle and work references
-    CS->>SB: 2. Reads session binding for the active workstream
-    CS->>WS: 3. Acquires workstream lock, reads and validates current state
-    CS->>CE: 4. Requests transition decision with validator results
-    CE-->>CS: Route recommendation (immutable)
-    CS->>WS: 5. Writes new cycle with attempt 1, increments revision
-    CS->>SB: 6. Updates session binding with new revision and digest
-    CS-->>H: Cycle selected, shows recommendation or choice list
+    H->>I: 1. Invokes intent select [--workstream ID]
+    I->>AL: 2. load_agent_definitions(agents_dir)
+    AL-->>I: List of agent dicts (from YAML frontmatter)
+    I->>PE: 3. evaluate_all(agents, workstream_id)
+    PE->>PE: 4. Per agent: resolve path patterns, check frontmatter conditions, run validator scripts
+    PE-->>I: Per-agent evidence (satisfied/unsatisfied per requirement)
+    I-->>H: Agent evidence table (eligible/ineligible with reasons)
 ```
 
 **Key Points**:
 
-- **Lock protocol**: The adapter acquires an OS-level exclusive lock under `.current-work/cycles/.locks/` before reading state. Concurrent sessions on the same workstream detect stale state rather than overwriting silently.
-- **Revision and digest validation**: The adapter compares the session binding's `observed_revision` and SHA-256 digest against the workstream state file. A mismatch means another session modified the state; the command exits 1 (conflict).
-- **Engine is read-only**: The Cycle Engine receives the delivery model, validator results, and current state. It returns an immutable decision object. It does not write state, acquire locks, or produce side effects.
-- **Work references**: The `--work` flag attaches artifact references (proposals, epic sections, story files) to the new cycle entry in the workstream state.
-
-### 6.2.2 Sequence: Delegated Cycle Transition (Agent-Driven)
-
-When the operator has issued a delegation grant for a workstream, the `run-step` skill and dispatched agent may advance through cycles without pausing for human approval at each boundary, up to the grant's limits.
-
-```mermaid
-sequenceDiagram
-    participant RS as run-step skill
-    participant CS as cycle select
-    participant CE as Cycle Engine
-    participant WS as Cycle State Files
-
-    RS->>CE: Check delegation grant covers next transition
-    CE-->>RS: Grant covers transition (explicit-route or destination)
-    RS->>CS: Invoke cycle select with target cycle
-    CS->>WS: Lock, validate, write
-    CS-->>RS: Cycle selected
-    RS->>RS: Derive next agent for the new cycle
-    Note over RS: Dispatches via trigger
-```
-
-**Key Points**:
-
-- **Two grant forms**: An explicit-route grant lists an ordered sequence of cycles; a destination grant names only the target cycle and delegates routing until the workstream reaches it.
-- **Pause conditions**: Explicit-route grants pause when the agent recommends a cycle not in the ordered list. Destination grants pause when the engine cannot recommend a single route.
-- **Retry limits**: Each cycle declares a `delegated_attempt_limit`. When the limit is reached, the delegation pauses regardless of grant form, returning control to the human.
+- **Precondition-based**: Each agent declares `inputs.required` in its YAML frontmatter. The evaluator resolves each requirement's `path_pattern` against the filesystem, optionally filtering by workstream scope and checking frontmatter conditions or validator scripts.
+- **Engine is read-only**: The eligibility engine reads agent definitions and the repository. It returns immutable evidence. It does not write state, acquire locks, or produce side effects.
+- **Workstream scoping**: When `--workstream` is passed, candidates are filtered by the `scope` field in their frontmatter (matching the workstream ID or `"global"`). Files without a scope declaration are included.
+- **Readiness derivation**: `derive_readiness()` accepts evaluation results and produces `AgentReadiness` dataclasses with `eligible`, `unsatisfied`, and `warnings` fields.
 
 ## 6.3 Test Gate Presence
 
@@ -77,22 +50,22 @@ Factory ensures test gates exist; the project decides what runs inside them. Tes
 sequenceDiagram
     participant H as User
     participant CS as cycle select
-    participant CE as Cycle Engine
+    participant EE as Eligibility Engine
     participant C as docs/testing.yaml
 
     H->>C: Declare test_command in testing.yaml
     H->>CS: Invokes cycle select with target cycle
-    CS->>CE: Requests transition decision
-    CE->>CE: Readiness Evaluator checks trusted validators
-    CE->>C: Resolves test_command from testing.yaml
-    C-->>CE: test_command: "uv run pytest --tb=short --quiet"
-    CE->>CE: Evaluates artifact evidence (exit code)
+    CS->>EE: Requests transition decision
+    EE->>EE: Readiness Evaluator checks trusted validators
+    EE->>C: Resolves test_command from testing.yaml
+    C-->>EE: test_command: "uv run pytest --tb=short --quiet"
+    EE->>EE: Evaluates artifact evidence (exit code)
     alt Readiness met
-        CE-->>CS: Route recommended
+        EE-->>CS: Route recommended
         CS->>CS: Write new cycle state
         CS-->>H: Cycle selected
     else Readiness unmet
-        CE-->>CS: Warning: evidence insufficient
+        EE-->>CS: Warning: evidence insufficient
         CS-->>H: Recommendation with warnings
     end
 ```

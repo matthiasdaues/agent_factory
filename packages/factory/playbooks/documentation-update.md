@@ -88,7 +88,7 @@ Return to Step 1.1 (re-run reconciliation)
 ### Step 2.1 — Lint Spec
 
 ```bash
-factory/scripts/spec-lint --spec-dir docs/spec
+.agent-factory/factory/scripts/spec-lint --spec-dir docs/spec
 ```
 
 **If errors** → Fix manually or re-run reconciliation-agent
@@ -97,7 +97,7 @@ factory/scripts/spec-lint --spec-dir docs/spec
 ### Step 2.2 — Lint Architecture
 
 ```bash
-factory/scripts/arch-lint --docs-dir docs/arc42
+.agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42
 ```
 
 **If errors** → Fix manually or run architecture-agent

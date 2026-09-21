@@ -20,7 +20,7 @@ inputs:
   context:
     - docs/spec/prd.md
     - docs/*.md
-    - docs/arc42/CONTEXT.md
+    - docs/CONTEXT.md
     - docs/agent-context.md
     - .agent-factory/factory/rulebooks/conventions/testing-strategy.md
     - .agent-factory/factory/rulebooks/conventions/cross-reference-format.md

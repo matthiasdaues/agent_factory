@@ -2,7 +2,7 @@
 name: newcomer-tour
 description: >-
   Give first-time Agent Factory users a short, interactive orientation when
-  they choose option A or ask to be shown around
+  they choose option H or ask to be shown around
 category: onboarding
 version: 1.0.0
 ---
@@ -38,9 +38,9 @@ Orient newcomers warmly and briefly.
 07. After the Getting Started walkthrough, cover **what init-factory put
     on their disk** — briefly explain the three configuration artifacts:
 
-    - `config/project.json` — project identity (UUID, name, test command).
+    - `.agent-factory/config/project.json` — project identity (UUID, name, test command).
       Created at install. Rarely edited by hand.
-    - `config/model.conf` — the model matrix. Maps agent tiers (economy,
+    - `.agent-factory/config/model.conf` — the model matrix. Maps agent tiers (economy,
       standard, strong) to AI model ids per CLI. Configured during fitting
       or by editing the file directly.
     - `docs/agent-context.md` — does not exist yet. Created during fitting

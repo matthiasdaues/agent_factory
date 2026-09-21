@@ -1,5 +1,5 @@
 // scope: global
-workspace "Agent Factory" "Cycle-based delivery orchestration, dispatch, validation, and usage capture for Agent Factory" {
+workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, validation, and usage capture for Agent Factory" {
 
     properties {
         "arc42.projected" "true"
@@ -18,30 +18,27 @@ workspace "Agent Factory" "Cycle-based delivery orchestration, dispatch, validat
         parquetFile = softwareSystem "Parquet Export" "Optional, attributable, atomically replaced local export; never authoritative state" "External"
 
         # Factory Flow Control system
-        factoryFlowControl = softwareSystem "Factory Flow Control" "Cycle-based orchestration, dispatch, and validation for Agent Factory" {
+        factoryFlowControl = softwareSystem "Factory Flow Control" "Precondition-based agent eligibility, dispatch, and validation for Agent Factory" {
 
-            # Cycle Engine — pure domain logic, returns immutable decisions, never writes state
-            cycleEngine = container "Cycle Engine" "Loads the delivery model, evaluates artifact readiness, produces route recommendations, checks delegation grants, and enforces retry limits; returns immutable decisions without writing state" "Python 3.10+" {
-                cycleModelLoader = component "Cycle Model Loader" "Loads delivery.yaml and validates it against the cycle-model schema; rejects direction fields, classification fields, and executable commands" "Python"
-                readinessEvaluator = component "Readiness Evaluator" "Receives trusted validator results and determines whether artifact evidence supports a route recommendation" "Python"
-                routeRecommender = component "Route Recommender" "Applies the supported-route cardinality table: zero routes show warnings, one route recommends, multiple routes present choices" "Python"
-                delegationEvaluator = component "Delegation Evaluator" "Checks whether a delegation grant covers the next transition; distinguishes explicit-route and destination grants and their pause conditions" "Python"
-                retryEvaluator = component "Retry Evaluator" "Enforces the per-cycle delegated_attempt_limit; returns allowed, paused, allowed_with_warning, or invalid_state" "Python"
+            # Eligibility Engine — pure domain logic, returns immutable decisions, never writes state
+            eligibilityEngine = container "Eligibility Engine" "Evaluates agent preconditions against the repository, derives per-agent readiness, and classifies agents by eligibility; returns immutable decisions without writing state" "Python 3.10+" {
+                intentCli = component "intent" "CLI entry point with two subcommands: select (list agents with precondition evidence) and assess (validate governed artifacts); calls evaluate_all and load_agent_definitions" "Python"
+                agentLoader = component "Agent Loader" "Loads agent definitions from YAML frontmatter in the agents directory" "Python"
+                preconditionEvaluator = component "Precondition Evaluator" "Evaluates each agent's inputs.required declarations against the filesystem: resolves path patterns, checks frontmatter conditions, runs validator scripts" "Python"
+                readinessEvaluator = component "Readiness Evaluator" "Accepts evaluation evidence from the precondition evaluator and derives per-agent AgentReadiness verdicts with eligible/unsatisfied/warnings" "Python"
+                recommendationClassifier = component "Recommendation Classifier" "Classifies agents by eligibility into eligible and blocked groups from readiness verdicts" "Python"
                 workstreamResolver = component "Workstream Resolver" "Resolves workstream identity from session binding and validates revision and digest consistency" "Python"
-                dispatchEligibility = component "Dispatch Eligibility" "Determines which agents and skills are eligible for the current cycle and work selection" "Python"
             }
 
             # State Adapter — thin command adapters that own state writes and lock acquisition
-            stateAdapter = container "State Adapter" "Thin command adapters that acquire locks, call the engine for decisions, write cycle state, and present recommendations" "Python" {
-                cycleSelect = component "cycle select" "Acquires the workstream lock, validates expected revision and digest, calls the engine for a transition decision, writes the new cycle with attempt 1, increments revision" "Python 3.10+"
-                cycleRetry = component "cycle retry" "Acquires the workstream lock, calls the engine for a retry decision, increments attempt on success, returns paused when the delegated limit is reached" "Python 3.10+"
-                phaseStub = component "phase" "Diagnostic stub: exits 2 and names the replacement cycle command. Remains for one release after cutover" "Python"
+            stateAdapter = container "State Adapter" "Thin command adapters that acquire locks, call the engine for decisions, write workstream state, and advance playbook phases" "Python" {
+                phaseAdvance = component "phase" "Advances or retries a structured-playbook run's state marker, enforcing the target state's entry_conditions before it moves" "Python 3.10+"
                 runStep = component "run-step skill" "Derives what comes next from cycle state and the delivery model; dispatches the resolved agent" "Markdown/LLM-executed"
             }
 
             # Validator — deterministic gates and validators
-            validator = container "Validator" "Enforces gates, permissions, cycle-model integrity, project-declared test gate presence, agent-context structure, and semantic quality checks" "Bash/Python" {
-                transitionLint = component "transition-lint" "Validates the cycle model and workstream state files; reports failed recommendation evidence as warnings that exit zero" "Python 3.10+"
+            validator = container "Validator" "Enforces gates, permissions, playbook phase ordering, project-declared test gate presence, agent-context structure, and semantic quality checks" "Bash/Python" {
+                transitionLint = component "transition-lint" "Validates playbook phase ordering by mapping staged files to FSM output globs; blocks commits that stage files belonging to a non-current phase" "Python 3.10+"
                 blockDangerousGit = component "block-dangerous-git.sh" "PreToolUse hook blocking destructive commands and allowlisting project-declared test commands via format-detected testing.yaml" "Bash"
                 concernLint = component "concern-lint" "Validates concern-oriented agent context: category headings, Read/Boundary path resolution, story concern vocabulary, and absence of legacy YAML files (CTX-* codes)" "Python"
                 schemaValidate = component "schema-validate" "Deterministic JSON-Schema validator for research artifacts: stage 1 of the schema->policy->semantic validation order" "Python"
@@ -72,10 +69,9 @@ workspace "Agent Factory" "Cycle-based delivery orchestration, dispatch, validat
                 removeFactory = component "remove-factory" "Performs complete Factory removal, including analysis and raw usage data" "Python"
             }
 
-            # Storage — cycle orchestration
-            deliveryModel = container "Delivery Model" "Declarative YAML cycle graph with five delivery cycles, terminal DONE node, artifact declarations, trusted validator references, and every declared route" "YAML file" "Storage"
-            cycleSchemas = container "Cycle Schemas" "JSON Schema Draft 2020-12 definitions for cycle-model-v1 and cycle-state-v1 validation" "JSON Schema files" "Storage"
-            cycleStateFiles = container "Cycle State Files" "One YAML workstream state file per active workstream under .current-work/cycles/; each tracks cycle, attempt, revision, work references, and optional delegation grant" "YAML files" "Storage"
+            # Storage — workstream orchestration
+            deliveryModel = container "Delivery Model" "Declarative YAML cycle graph with delivery cycles, terminal DONE node, artifact declarations, trusted validator references, and declared routes" "YAML file" "Storage"
+            cycleStateFiles = container "Workstream State Files" "One YAML workstream state file per active workstream under .current-work/cycles/; each tracks cycle, attempt, revision, work references, and optional delegation grant" "YAML files" "Storage"
             sessionBindings = container "Session Bindings" "Session-to-workstream navigation state under .current-work/session-bindings/<cli>/<session-id>.yaml; tracks observed revision and SHA-256 digest" "YAML files" "Storage"
 
             # Storage — existing
@@ -106,14 +102,13 @@ workspace "Agent Factory" "Cycle-based delivery orchestration, dispatch, validat
         deploymentEnvironment "Release 1" {
             deploymentNode "Operator Workstation" "Single local machine; no container, database server, or remote service" "Linux/macOS" {
                 deploymentNode "Factory Project" "Project checkout with a local .agent-factory directory" "Filesystem/processes" {
-                    containerInstance cycleEngine
+                    containerInstance eligibilityEngine
                     containerInstance stateAdapter
                     containerInstance validator
                     containerInstance dispatcher
                     containerInstance usageCaptureContainer
                     containerInstance distribution
                     containerInstance deliveryModel
-                    containerInstance cycleSchemas
                     containerInstance cycleStateFiles
                     containerInstance sessionBindings
                     containerInstance stateFiles
@@ -131,8 +126,8 @@ workspace "Agent Factory" "Cycle-based delivery orchestration, dispatch, validat
         # ================================================================
         # Relationships — Human Operator
         # ================================================================
-        humanOperator -> cycleSelect "Selects next cycle via CLI"
-        humanOperator -> cycleRetry "Retries current cycle via CLI"
+        humanOperator -> intentCli "Selects eligible agents via intent select"
+        humanOperator -> phaseAdvance "Advances or retries playbook phase"
         humanOperator -> git "Runs git commit, git push"
         humanOperator -> trigger "Invokes via CLI"
         humanOperator -> usageAnalysisRuntime "Runs usage-query locally"
@@ -144,8 +139,8 @@ workspace "Agent Factory" "Cycle-based delivery orchestration, dispatch, validat
         # ================================================================
         # Relationships — Orchestrator
         # ================================================================
-        orchestrator -> cycleSelect "Invokes programmatically"
-        orchestrator -> cycleRetry "Invokes programmatically"
+        orchestrator -> intentCli "Invokes programmatically"
+        orchestrator -> phaseAdvance "Invokes programmatically"
         orchestrator -> trigger "Invokes programmatically"
 
         # ================================================================
@@ -156,33 +151,33 @@ workspace "Agent Factory" "Cycle-based delivery orchestration, dispatch, validat
         git -> concernLint "Fires pre-commit"
 
         # ================================================================
-        # Relationships — State Adapter to Cycle Engine
+        # Relationships — State Adapter to Eligibility Engine
         # ================================================================
-        cycleSelect -> cycleEngine "Requests transition decision"
-        cycleRetry -> cycleEngine "Requests retry decision"
-        runStep -> cycleEngine "Requests next action recommendation"
+        phaseAdvance -> eligibilityEngine "Checks entry conditions"
+        runStep -> eligibilityEngine "Requests agent eligibility evaluation"
+        intentCli -> preconditionEvaluator "Calls evaluate_all for agent selection"
+        intentCli -> agentLoader "Calls load_agent_definitions"
+        preconditionEvaluator -> readinessEvaluator "Passes evaluation evidence"
+        readinessEvaluator -> recommendationClassifier "Passes readiness verdicts"
 
         # ================================================================
-        # Relationships — Cycle Engine to storage (read-only)
+        # Relationships — Eligibility Engine to storage (read-only)
         # ================================================================
-        cycleEngine -> deliveryModel "Loads delivery graph and route declarations"
-        cycleEngine -> cycleSchemas "Validates model and state against schema"
+        eligibilityEngine -> deliveryModel "Loads delivery graph and route declarations"
 
         # ================================================================
         # Relationships — State Adapter to storage
         # ================================================================
-        cycleSelect -> cycleStateFiles "Acquires lock, reads/writes workstream state"
-        cycleRetry -> cycleStateFiles "Acquires lock, reads/writes workstream state"
-        cycleSelect -> sessionBindings "Reads/writes session binding"
-        cycleRetry -> sessionBindings "Reads/writes session binding"
+        phaseAdvance -> cycleStateFiles "Reads workstream state for entry condition checks"
+        phaseAdvance -> sessionBindings "Reads/writes session binding"
         runStep -> cycleStateFiles "Reads workstream state and delegation grant"
         runStep -> trigger "Dispatches resolved agent"
 
         # ================================================================
         # Relationships — Validator
         # ================================================================
-        transitionLint -> deliveryModel "Validates cycle model"
-        transitionLint -> cycleStateFiles "Validates workstream state files"
+        transitionLint -> stateFiles "Reads playbook-state.yml for current phase"
+        transitionLint -> cycleStateFiles "Maps staged files against FSM output globs"
         blockDangerousGit -> cliAgent "Blocks destructive commands before execution"
         cliAgent -> concernLint "Validate skill or pre-commit hook invokes concern-lint on agent-context files"
         cliAgent -> schemaValidate "Research skills/agents validate an artifact against its schema (stage 1)"
@@ -266,19 +261,19 @@ workspace "Agent Factory" "Cycle-based delivery orchestration, dispatch, validat
             autoLayout lr
         }
 
-        component cycleEngine "CycleEngineComponents" "Cycle engine internals: model loading, readiness evaluation, route recommendation, delegation, retry limits, and dispatch eligibility" {
+        component eligibilityEngine "EligibilityEngineComponents" "Eligibility engine internals: agent loading, precondition evaluation, readiness derivation, and recommendation classification" {
             include *
             include stateAdapter
             include deliveryModel
-            include cycleSchemas
             autoLayout tb
         }
 
-        component stateAdapter "StateAdapterComponents" "State adapter commands: cycle select, cycle retry, phase stub, and run-step skill" {
+        component stateAdapter "StateAdapterComponents" "State adapter commands: phase advance/retry and run-step skill" {
             include *
-            include cycleEngine
+            include eligibilityEngine
             include cycleStateFiles
             include sessionBindings
+            include stateFiles
             include trigger
             include humanOperator
             include orchestrator
@@ -290,7 +285,7 @@ workspace "Agent Factory" "Cycle-based delivery orchestration, dispatch, validat
             include git
             include cliAgent
             include stateFiles
-            include deliveryModel
+            include stateFiles
             include cycleStateFiles
             autoLayout tb
         }
@@ -305,13 +300,12 @@ workspace "Agent Factory" "Cycle-based delivery orchestration, dispatch, validat
             autoLayout lr
         }
 
-        dynamic stateAdapter "CycleTransition" "Human selects the next cycle for a workstream" {
-            humanOperator -> cycleSelect "1. Invokes cycle select with target cycle and work references"
-            cycleSelect -> sessionBindings "2. Reads session binding for the active workstream"
-            cycleSelect -> cycleStateFiles "3. Acquires workstream lock; reads and validates current state"
-            cycleSelect -> cycleEngine "4. Requests transition decision with validator results"
-            cycleSelect -> cycleStateFiles "5. Writes new cycle with attempt 1; increments revision"
-            cycleSelect -> sessionBindings "6. Updates session binding with new revision and digest"
+        dynamic eligibilityEngine "AgentSelection" "Human selects an eligible agent for the current workstream" {
+            humanOperator -> intentCli "1. Invokes intent select"
+            intentCli -> agentLoader "2. Loads agent definitions from agents directory"
+            intentCli -> preconditionEvaluator "3. Evaluates each agent's preconditions against the filesystem"
+            preconditionEvaluator -> readinessEvaluator "4. Passes evaluation evidence for readiness derivation"
+            readinessEvaluator -> recommendationClassifier "5. Classifies agents into eligible and blocked groups"
         }
 
         dynamic validator "SemanticGateLoop" "Dispatcher-owned semantic gate execution after developer commit" {
