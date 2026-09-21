@@ -68,7 +68,17 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 
 ## Branching model
 
-Per [branching-policy.md](../rulebooks/conventions/branching-policy.md) and [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md): the invocation branch is `feature/<proposal-title>` cut from `dev`. Autonomous stories get worktrees; review mode uses the script-owned primary-checkout exception. `.agent-factory/factory/scripts/dispatch` owns branch/worktree creation, base recording, scope checks, cleanup, and the ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml`. Record **branch root** from `dispatch init` / `init-review` and **branch head** from `dispatch close-wave` / `review-close`, then hand off with `--base <branch-root> --head <branch-head>`.
+Per [branching-policy.md](../rulebooks/conventions/branching-policy.md) and
+[dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md), new
+invocation branches use `feature/<proposal-title>` and start from `dev`.
+Review mode may instead adopt the existing branch already current in the
+primary checkout. Autonomous stories get worktrees. Review mode uses
+the script-owned primary-checkout exception. The dispatch script owns branch
+creation or adoption, base recording, scope checks, cleanup, and the ledger.
+The ledger lives at `.current-work/<feature-branch>/dispatch-ledger.yaml`.
+Record the branch root from `dispatch init` or `init-review`. Record the branch
+head from `dispatch close-wave` or `review-close`. Hand off with
+`--base <branch-root> --head <branch-head>`.
 
 Per [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md), a wave large enough to risk a long-running, hard-to-verify dispatch must be split into smaller, independently mergeable dispatches rather than run as one.
 
@@ -93,25 +103,50 @@ No hardcoded factory default. If none of the three resolves, ask the user.
 
 Resolve before Step 1 and state the effective mode and its source.
 
-In `review` mode, `dispatch init-review` creates a single feature branch in the main checkout (sole exception to worktree-only creation). No story branches. The developer-agent works in the main checkout with the full local dev environment. Stories dispatch serially. The developer writes code and runs tests but does not stage or commit. After each story, the human reviews, sets `status: done`, and commits with `(ST-NNNN)`. `dispatch review-accept` verifies commit, scope, clean checkout, and tests before the next story proceeds.
+In `review` mode, `dispatch init-review` prepares one feature branch in the main
+checkout. It creates the branch from `dev` or adopts the current branch. The
+adoption path supports review work that the user prepared manually. It does
+not create or commit a branch. No story branches exist. The developer-agent
+uses the main checkout and its local development environment. Stories dispatch
+serially. The developer writes code and runs tests but does not stage or
+commit. After each story, the human reviews and sets `status: done`. The human
+commits with `(ST-NNNN)`. `dispatch review-accept` checks the commit, scope,
+clean checkout, and tests before the next story.
 
 For Pi: `review` mode uses `run_agent` (serial), never `dispatch_wave`.
 
 ## Workflow
 
-1. **Load backlog + initialise** — Parse all `backlog/ST-*.md`: `id`, `status`, `deps`, `tier`, `touches`. Build the dependency graph; identify ready stories (`status: pending`, all `deps` done). Read `docs/agent-context.md` for model selection. Concern resolution is implicit via the CLI include chain. **Autonomous:** `dispatch init --base <base-branch> --feature-branch feature/<proposal-title> --stories <ids>`. **Review:** `dispatch init-review --base dev --feature-branch <branch> --stories <ids>`. If the initializer fails, stop. If resuming, recover from the ledger.
+1. **Load backlog + initialise** — Parse `id`, `status`, `deps`, `tier`, and
+   `touches` from `backlog/ST-*.md`. Build the dependency graph. Identify ready
+   stories whose dependencies are done. Read `docs/agent-context.md` for model
+   selection. Concern resolution follows the command-line interface include
+   chain. Use one initializer:
+
+   - **Autonomous:** `dispatch init --base <base-branch> --feature-branch feature/<proposal-title> --stories <ids>`.
+   - **Review, new branch:** `dispatch init-review --base dev --feature-branch <branch> --stories <ids>`.
+   - **Review, existing current branch:** `dispatch init-review --adopt-existing --feature-branch <branch> --stories <ids>`.
+
+   Never bypass initialization because the branch already exists. Stop if the
+   initializer fails. Recover from the ledger when resuming.
+
 2. **Plan wave** — Call `.agent-factory/factory/scripts/dispatch plan --backlog-dir backlog [--stories <ids>]`. Group ready stories by declared `touches:` overlap (in addition to dependency-readiness, not instead of it):
+
    - **Epic 0 scheduling**: Stories with `epic: "Epic 0 — Project Setup"` go to **wave 1** with highest priority. No feature story dispatches until all must-have Epic 0 stories reach terminal state. Feature stories carry `deps:` on the final Epic 0 story, which chains from all others — the dependency graph enforces precedence automatically.
    - **Parallel-safe set**: file-disjoint stories → dispatch in parallel within the wave.
    - **Serial chain(s)**: stories sharing a touched directory → prepare, dispatch, verify, and merge one at a time, in dependency order.
      Never substitute EPIC for this grouping. Per [dispatch-contract.md § Wave Boundary As Hard Gate](../rulebooks/conventions/dispatch-contract.md#wave-boundary-as-hard-gate), every story in the **prior** wave must reach terminal state before this wave launches. Assign each story a model from its `tier` field, looked up in `model.conf` (`economy | standard | strong`). Developer sub-agents have no tier of their own — the story's `tier` is their sole axis. In `review` mode, wave planning still runs for ordering, but stories dispatch one at a time.
+
 3. **Prepare and dispatch** — **Autonomous:** `dispatch prepare-wave <wave>` for parallel-safe stories and serial-chain heads; `dispatch prepare-story <id>` for later serial links after predecessor merge. Call `mark-dispatching` before launch, `mark-dispatched` after. **Review:** `dispatch review-dispatch <id>` (requires clean index/worktree, HEAD matches last accepted). Spawn one developer with `--no-stage --no-commit`, then `mark-dispatched`.
+
 4. **Verify, gate-check, merge, checkpoint** — Per [dispatch-contract.md § Hard Checkpoint Per Story](../rulebooks/conventions/dispatch-contract.md#hard-checkpoint-per-story), every story must reach terminal state before the next wave launches. **Review mode:** present the changed-file summary and a brief description. The human reviews in their IDE, sets the story to `status: done`, and commits with the story ID in the subject. Call `.agent-factory/factory/scripts/dispatch review-accept <story-id> --sha <full-HEAD-SHA>`. The command verifies ancestry, commit subjects, story status, declared output scope, clean checkout, and tests before recording `done`. Wait for acceptance before proceeding. **Autonomous mode**, for each completed story:
    a. **SHA verification**: call `.agent-factory/factory/scripts/dispatch verify-story <story-id> --sha <reported-commit-sha>` on every commit SHA the subagent reported.
    b. **Gate-check loop**: run the semantic quality gates on the developer's committed artifacts. See [Gate-Check Loop](#gate-check-loop) below for the full algorithm, quality-gates resolution, iteration cap, escalation, and fix-iteration prompt template.
    c. **Merge**: when all gates pass, call `.agent-factory/factory/scripts/dispatch merge-story <story-id>`. The script owns `premerge-check`, the merge, the `status: done` update, post-merge tests, worktree/branch cleanup, and ledger persistence.
    d. **Failed/blocked stories**: record the outcome with the appropriate dispatch subcommand before continuing. A conflict or red suite means the overlap analysis missed a real collision — resolve it. Failed stories stay `pending`; they do not block unrelated stories in the same wave but do block the next wave until recorded.
+
 5. **Closeout** — In autonomous mode, call `.agent-factory/factory/scripts/dispatch close-wave <wave-number>` after every story in the wave is terminal. In review mode, continue serially until all stories are terminal, then call `.agent-factory/factory/scripts/dispatch review-close`. The review branch remains checked out for the human; the command records closure but does not merge or switch branches.
+
 6. **Repeat or finish** — Continue from Step 2 with the next ready story until all done (record branch head) or blocked state reported.
 
 **Prompt template for subagents (autonomous mode):**

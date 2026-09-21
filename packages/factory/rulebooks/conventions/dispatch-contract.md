@@ -193,7 +193,14 @@ stories:
     reason: <null or explanation for blocked/failed>
 ```
 
-Review mode uses the same story states with a narrower transition path: `pending` → `prepared` → `dispatching` → `dispatched` → `done`. `review-dispatch` performs the first two transitions around preflight and manifest creation; `mark-dispatched` records the real spawn; `review-accept` verifies the human commit before recording `done`. Blocked and failed remain terminal alternatives. Autonomous preparation and merge commands must reject a ledger whose `mode` is `review`.
+Review mode uses a narrower story transition path: `pending` → `prepared` →
+`dispatching` → `dispatched` → `done`. `init-review` may create a branch from
+`dev` or adopt the named branch already current in the primary checkout. An
+adopted dispatch records current `HEAD` as its initial root and head.
+`review-dispatch` performs the first two story transitions. `mark-dispatched`
+records the real spawn. `review-accept` verifies the human commit before
+recording `done`. Blocked and failed remain terminal alternatives. Autonomous
+preparation and merge commands must reject a ledger whose `mode` is `review`.
 
 The ledger is the dispatcher's working memory across session boundaries — on resume, the dispatcher reads it to determine which stories completed, which failed, what is merely prepared, and what the current base SHA is, rather than reconstructing state from git log heuristics.
 

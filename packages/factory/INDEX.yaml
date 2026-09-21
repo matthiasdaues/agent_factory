@@ -192,8 +192,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in autonomous mode, or serial human-reviewed work in the primary checkout in review mode. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 3602
-    total_tokens: 11864
+    tokens: 3708
+    total_tokens: 12089
     inputs:
       required:
         - type: story
@@ -235,7 +235,7 @@ agents:
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
     tokens: 1544
-    total_tokens: 13778
+    total_tokens: 13751
     inputs:
       required:
         - type: feature
@@ -257,7 +257,7 @@ agents:
     description: Review a feature proposal for clarity, feasibility, and planning readiness — consultative on drafts, adversarial on open proposals. Runs in a separate session from the proposal author.
     path: agents/proposal-review-agent.md
     tokens: 1460
-    total_tokens: 2981
+    total_tokens: 2977
     inputs:
       required:
         - type: proposal
@@ -317,7 +317,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 2195
-    total_tokens: 18072
+    total_tokens: 18110
     inputs:
       required:
         - type: scope-map
@@ -420,7 +420,7 @@ agents:
     description: Selects survey or falsification research from the brief, advances the chosen validated playbook, and enforces its role boundaries and release gate.
     path: agents/research-orchestrator.md
     tokens: 1252
-    total_tokens: 7609
+    total_tokens: 7647
     inputs:
       context:
         - .agent-factory/factory/playbooks/research-topic.md
@@ -526,7 +526,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 2608
-    total_tokens: 14252
+    total_tokens: 14248
     inputs:
       context:
         - .agent-factory/config/project-context.json
@@ -639,7 +639,7 @@ skills:
     category: planning
     description: Survey user capabilities, map them against the codebase, and present the EPIC slicing approach for user approval. Phase 1 of 4 in the create-backlog sequence.
     path: skills/create-backlog-epics/SKILL.md
-    tokens: 2430
+    tokens: 2403
   - name: create-backlog-stories
     category: planning
     description: Read confirmed slice tables, write backlog/ST-NNNN.md story files with MoSCoW priorities, dependencies, and quality gates. Phase 4 of 4 in the create-backlog sequence.
@@ -679,7 +679,7 @@ skills:
     category: implementation
     description: Enforce architecture.dsl dependency rules by scanning source imports and writing a JSON gate report.
     path: skills/dependency-check/SKILL.md
-    tokens: 598
+    tokens: 597
   - name: implement-issue
     category: implementation
     description: Implement a single backlog story with TDD — analyse, red-green, commit, check docs.
@@ -759,12 +759,12 @@ skills:
     category: utility
     description: Relentless interview to sharpen a plan or design until reaching shared understanding. Use when the user wants to stress-test a plan, get grilled on their design, or mentions "grill me" or "grill with docs".
     path: skills/grilling/SKILL.md
-    tokens: 844
+    tokens: 840
   - name: guided-tour
     category: utility
     description: Mid-session reorientation — show where the user is in the current workflow, what they can do next, and what factory concepts are relevant. Outside an active playbook, present the session entrypoint options with explanations.
     path: skills/guided-tour/SKILL.md
-    tokens: 548
+    tokens: 540
   - name: handoff
     category: utility
     description: Create and validate a dense phase-boundary restart contract before ending the outgoing session.
@@ -787,9 +787,9 @@ skills:
     tokens: 708
   - name: run-step
     category: utility
-    description: Resolve the next agent from the workstream's current cycle and agent eligibility, then dispatch it. Re-derives state from disk on every invocation.
+    description: Resolve the next agent from agent eligibility preconditions, then dispatch it. Re-derives state from disk on every invocation.
     path: skills/run-step/SKILL.md
-    tokens: 660
+    tokens: 566
   - name: scratchpad
     category: utility
     description: Append a quick note to session-scratchpad.md, sectioned by date. Use when the user says "note this down:", "make a note of this:", or invokes "/scratchpad" or "/scratch".
@@ -851,8 +851,8 @@ playbooks:
       - architecture-review-agent
       - architecture-agent
       - architecture-review-agent
-    tokens: 1112
-    total_tokens: 14634
+    tokens: 1105
+    total_tokens: 14627
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -863,19 +863,18 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 3043
-    total_tokens: 34637
+    tokens: 2975
+    total_tokens: 34607
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
     description: Operational procedure for fixing defects in production or development.
     path: playbooks/bug-fix.md
-
     agents:
       - developer-agent
       - qa-agent
-    tokens: 777
-    total_tokens: 15043
+    tokens: 681
+    total_tokens: 14947
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -886,8 +885,8 @@ playbooks:
       - implementation-agent
       - spec-review-agent
       - architecture-review-agent
-    tokens: 952
-    total_tokens: 40403
+    tokens: 948
+    total_tokens: 40662
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -903,14 +902,13 @@ playbooks:
       - code-review-agent
       - reconciliation-agent
       - qa-agent
-    tokens: 5040
-    total_tokens: 98684
+    tokens: 4979
+    total_tokens: 98859
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
     description: Operational procedure for new project development from requirements through deployment.
     path: playbooks/greenfield-development.md
-
     agents:
       - requirements-agent
       - spec-review-agent
@@ -922,8 +920,8 @@ playbooks:
       - reconciliation-agent
       - qa-agent
       - coaching-agent
-    tokens: 3425
-    total_tokens: 98233
+    tokens: 3110
+    total_tokens: 98154
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -938,8 +936,8 @@ playbooks:
     agents:
       - developer-agent
       - qa-agent
-    tokens: 1281
-    total_tokens: 15547
+    tokens: 1184
+    total_tokens: 15450
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -952,7 +950,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 1106
-    total_tokens: 12464
+    total_tokens: 12502
   - name: research-topic
     title: Research Topic Playbook
     category: orchestration
@@ -973,7 +971,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 3132
-    total_tokens: 16682
+    total_tokens: 16720
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration
@@ -984,7 +982,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 4227
+    tokens: 4348
   - name: agent-context-composition
     category: conventions
     path: rulebooks/conventions/agent-context-composition.md
@@ -996,7 +994,7 @@ rulebooks:
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
-    tokens: 3084
+    tokens: 3165
   - name: cache-hygiene
     category: conventions
     path: rulebooks/conventions/cache-hygiene.md
@@ -1016,7 +1014,7 @@ rulebooks:
   - name: dispatch-contract
     category: conventions
     path: rulebooks/conventions/dispatch-contract.md
-    tokens: 4501
+    tokens: 4539
   - name: finding-format
     category: conventions
     path: rulebooks/conventions/finding-format.md
@@ -1024,11 +1022,11 @@ rulebooks:
   - name: foundational-principles
     category: conventions
     path: rulebooks/conventions/foundational-principles.md
-    tokens: 492
+    tokens: 479
   - name: git-workflow
     category: conventions
     path: rulebooks/conventions/git-workflow.md
-    tokens: 1417
+    tokens: 1474
   - name: handoff-format
     category: conventions
     path: rulebooks/conventions/handoff-format.md

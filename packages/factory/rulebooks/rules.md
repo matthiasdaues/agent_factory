@@ -91,12 +91,12 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 → [branching-policy.md](conventions/branching-policy.md)
 
-- **MUST** create every new local branch atomically with its own linked worktree using `git worktree add -b <branch> .current-work/<feature-branch>/<branch> <base>`; the sole exception is a review-mode invocation branch created in the primary checkout by `factory/scripts/dispatch init-review` after its clean-tree and test preflight.
+- **MUST** create every new local branch atomically with its own linked worktree using `git worktree add -b <branch> .current-work/<feature-branch>/<branch> <base>`; the sole exception is a review-mode invocation branch created in the primary checkout by `factory/scripts/dispatch init-review` after its clean-tree and test preflight. The same command may adopt an existing review branch already checked out there; adoption creates no branch.
 - **MUST** place every worktree under `.current-work/<feature-branch>/` — never in the repository root, a sibling directory, or an arbitrary path.
 - **MUST** verify every new branch-to-worktree mapping with `git worktree list --porcelain` before doing work on that branch.
 - **MUST** create exactly one feature branch per story or bug — never per EPIC, sprint, or wave.
 - **MUST** commit all indexed artifacts (backlog stories, findings, proposals, and any other file with a sequential ID) to `dev` — `dev` is the single canonical index. Never commit indexed artifacts to a feature or invocation branch.
-- **MUST** create every invocation branch from `dev` (not `main`), using `feature/<proposal-title>` as the branch name. Story branches are cut from this invocation branch.
+- **MUST** create every new invocation branch from `dev` (not `main`), using `feature/<proposal-title>` as the branch name. An adopted review branch keeps its existing name and ancestry and records current `HEAD` as its review root. Story branches are cut from the invocation branch.
 - **MUST** create every feature branch and worktree from the invocation branch, recording its origin commit as the branch root.
 - **MUST** determine merge order from real file-overlap analysis, not a grouping label — file-disjoint branches merge in parallel, overlapping branches merge serially in dependency order.
 - **MUST** run the full test suite after every merge, before the next.
@@ -140,7 +140,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 → [git-workflow.md](conventions/git-workflow.md)
 
 - **MUST** issue git as a lone command — never chained after `cd` or another command (the working directory persists; the guardrail mis-parses compound lines).
-- **MUST NOT** switch the current checkout to create a branch except through the script-owned `factory/scripts/dispatch init-review` workflow; autonomous branches use a dedicated linked worktree with `git worktree add -b`.
+- **MUST NOT** switch the current checkout to create a branch except through the script-owned `factory/scripts/dispatch init-review` workflow; autonomous branches use a dedicated linked worktree with `git worktree add -b`. When review work already occupies the primary checkout, **MUST** use `dispatch init-review --adopt-existing` instead of bypassing dispatch initialization.
 - **MUST** run `factory/scripts/premerge-check <target> <branch>` before `git merge <branch>` — the merge is blocked without the resulting `.current-work/premerge-check-ok` marker.
 - **MUST NOT** bypass a failing pre-commit hook (`--no-verify`, `core.hooksPath`); fix the hook. Discard with `git checkout HEAD -- <path>`, not `git checkout .`.
 - **SHOULD** commit through the hooks with the two-pass sequence — `add` → `commit`; on "files were modified by this hook", `add -u` → recommit — or use `factory/scripts/commit-safe`.

@@ -2,7 +2,7 @@
 title: Branch and Worktree Scoping
 category: implementation
 enforcement: implementation-agent dispatch logic (T-35)
-version: 2.2.0
+version: 2.3.0
 ---
 
 # Branch and Worktree Scoping
@@ -34,7 +34,19 @@ The checkout in which a command starts remains on its existing branch. Work on t
 
 ### Review-Mode Primary-Checkout Exception
 
-An explicitly requested review-mode implementation may place its single invocation branch in the primary checkout. Only `factory/scripts/dispatch init-review --base dev --feature-branch feature/<name> --stories <ids>` may create that branch. The command requires the primary checkout on a clean `dev`, runs the configured test command before branch mutation, rejects an active autonomous dispatch, records the exact base SHA, and creates an ignored review ledger. Direct standalone branch creation remains forbidden.
+An explicitly requested review-mode implementation may use its single invocation
+branch in the primary checkout. The initializer supports two entry paths.
+
+- `dispatch init-review --base dev --feature-branch feature/<name> --stories <ids>`
+  creates a new branch from `dev`.
+- `dispatch init-review --adopt-existing --feature-branch <existing-branch> --stories <ids>`
+  adopts the named branch when it is already current.
+
+Both paths require a clean primary checkout. Both run the configured test
+command and reject an active autonomous dispatch. The creation path records
+the `dev` SHA. The adoption path records current `HEAD` as the review root.
+Adoption does not create, switch, stage, or commit a branch. Direct standalone
+branch creation remains forbidden.
 
 Review mode creates no story branches or worktrees. Before each serial story dispatch, `dispatch review-dispatch` requires an empty index and worktree and verifies `HEAD` against the last accepted ledger head. After human review and commit, `dispatch review-accept` verifies ancestry, the story ID in every commit subject, `status: done`, declared output scope, a clean checkout, and passing tests. Autonomous preparation and merge commands reject review ledgers. `dispatch review-close` records terminal closure without merging or switching branches.
 
@@ -45,13 +57,20 @@ All indexed artifacts — backlog stories (`ST-NNNN`), findings (`PROP-NN`, `REC
 The sequence is:
 
 1. **Planning agent** commits proposals and indexed artifacts (all `status: pending`) to `dev`.
-2. **Implementation agent** creates the invocation branch from `dev`.
+2. **Implementation agent** creates the invocation branch from `dev`, or
+   adopts the current review branch when the user prepared it manually.
 3. Story branches are cut from the invocation branch.
 4. After all stories pass gates, the invocation branch merges back to `dev`.
 
 ### Invocation Branch
 
-The invocation branch is created from `dev` using `feature/<proposal-title>` as the branch name. In autonomous mode every story branch is cut from this invocation branch, not from `dev` directly — the invocation branch is what makes the branch-root/branch-head SHA pair (below) well-defined. The autonomous invocation branch is created with its own linked worktree under the rule above; review mode uses the narrow primary-checkout exception.
+New invocation branches use `feature/<proposal-title>` and start from `dev`.
+An adopted review branch may keep another name and base. Adoption treats
+current `HEAD` as the start of the managed review delta. In autonomous mode,
+every story branch starts from the invocation branch. The invocation branch
+defines the branch-root and branch-head pair below. Autonomous invocation
+branches use linked worktrees. Review mode uses the narrow primary-checkout
+exception.
 
 ### Worktree Isolation
 

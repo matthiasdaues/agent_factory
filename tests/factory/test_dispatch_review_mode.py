@@ -90,6 +90,72 @@ def test_init_review_creates_primary_checkout_branch_and_review_ledger(review_re
     assert ledger["branch_head"] == base_sha
 
 
+def test_init_review_adopts_existing_non_dev_review_checkout(review_repo):
+    git(review_repo, "checkout", "--orphan", "review/manual-checkout")
+    git(review_repo, "commit", "-m", "chore: prepare manual review checkout")
+    adopted_head = git(review_repo, "rev-parse", "HEAD")
+
+    result = run_dispatch(
+        review_repo,
+        "init-review",
+        "--adopt-existing",
+        "--feature-branch",
+        "review/manual-checkout",
+        "--stories",
+        "ST-9000",
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert git(review_repo, "branch", "--show-current") == "review/manual-checkout"
+    assert git(review_repo, "rev-parse", "HEAD") == adopted_head
+    ledger_path = (
+        review_repo
+        / ".current-work"
+        / "review"
+        / "manual-checkout"
+        / "dispatch-ledger.yaml"
+    )
+    ledger = yaml.safe_load(ledger_path.read_text(encoding="utf-8"))
+    assert ledger["mode"] == "review"
+    assert ledger["branch_root"] == adopted_head
+    assert ledger["branch_head"] == adopted_head
+    assert ledger["stories"]["ST-9000"]["base_sha"] == adopted_head
+
+
+def test_init_review_adoption_requires_named_branch_to_be_current(review_repo):
+    result = run_dispatch(
+        review_repo,
+        "init-review",
+        "--adopt-existing",
+        "--feature-branch",
+        "review/manual-checkout",
+        "--stories",
+        "ST-9000",
+    )
+
+    assert result.returncode == 1
+    assert "requires the current branch to be 'review/manual-checkout'" in result.stderr
+
+
+def test_init_review_adoption_rejects_base_argument(review_repo):
+    git(review_repo, "switch", "-c", "review/manual-checkout")
+
+    result = run_dispatch(
+        review_repo,
+        "init-review",
+        "--adopt-existing",
+        "--base",
+        "dev",
+        "--feature-branch",
+        "review/manual-checkout",
+        "--stories",
+        "ST-9000",
+    )
+
+    assert result.returncode == 1
+    assert "--base cannot be combined with --adopt-existing" in result.stderr
+
+
 def test_init_review_checks_cleanliness_before_branch_mutation(review_repo):
     (review_repo / "uncommitted.txt").write_text("dirty\n", encoding="utf-8")
 
