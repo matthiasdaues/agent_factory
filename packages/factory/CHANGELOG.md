@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 — 2026-09-21
 
 Activity graph orchestration: full implementation of all seventeen
 stories (ST-0262 through ST-0278), delivering precondition evaluation,
@@ -105,6 +105,8 @@ research survey completed. OpenCode CLI integration proposed.
 - **Research playbooks updated.** `research-survey` and `research-topic`
   playbooks extended with directory layout references and improved
   source-record handling.
+- **DuckDB dependency bumped to >=1.3.0.** Required for UI extension
+  support in the usage explorer.
 
 ### Fixes
 
@@ -135,9 +137,7 @@ research survey completed. OpenCode CLI integration proposed.
   TypeScript extension imports corrected (`dispatch-wave.ts`,
   `run-agent.ts`, `pi-usage.ts`, `step-guard.ts`), and init-factory
   CLI detection logic hardened.
-- **Stale agent-context entries.** Removed obsolete entries from
-  `docs/agent-context.md` that referenced retired cycle-engine
-  components.
+- **Stale agent-context entries.** Removed obsolete `Factory source_root and packaging` section from `docs/agent-context.md`.
 
 ### Refactoring
 
@@ -146,9 +146,14 @@ research survey completed. OpenCode CLI integration proposed.
   added.
 - **Root convenience scripts removed.** `usage-query` and
   `usage-explore` wrappers removed from the project root.
-- **Cycle script removed.** `packages/factory/scripts/cycle` (406 lines)
-  deleted — orphaned after the activity graph replaced the cycle engine
-  in ST-0263.
+- **FSM phase harness removed.** `phase` script (631 lines),
+  `transition-lint` script (393 lines), `cycle` script (406 lines), and
+  FSM definition files (`*.fsm.yml`) deleted — dead code after the
+  activity graph replaced the cycle engine. ~30 live docs rewritten to
+  describe the precondition-based eligibility model. Cycle-based spec
+  files archived under `docs/~archive/`.
+- **`run-playbook` script removed.** Orphaned after the activity graph
+  replaced playbook-based flow control.
 - **Cycle-engine diagrams replaced.** `CycleEngineComponents` renamed to
   `AgentSelection`, `CycleTransition` renamed to
   `EligibilityEngineComponents`. New `AgentDependencyGraph` diagram
@@ -190,9 +195,30 @@ research survey completed. OpenCode CLI integration proposed.
   activity-graph implementation.
 - **PRD updated.** Path references corrected for `.agent-factory/`
   layout.
+- **Hermes Host Adapter proposal.** Draft proposal at
+  `docs/proposals/hermes-host-adapter.md`.
+- **Concept-Stage Knowledge Inventory proposal.** Draft proposal at
+  `docs/proposals/concept-stage-knowledge-inventory.md`.
+- **Browser exploration guide.** DuckDB UI and Web-UI exploration paths
+  documented.
+- **Cycle-retirement reconciliation.** Finding filed at
+  `docs/findings/RECON-cycle-retirement.md` with handoff documenting
+  the removal of the FSM phase harness.
 - Specification reconciled after ST-0241 implementation.
 - QA strategy updated: LU-03-CT-01 state moved to available.
 - ST-0243, ST-0244, ST-0245 marked done.
+
+### Tests
+
+- **Activity-graph behavioral tests.** Test suites for precondition
+  evaluation, eligibility, fence runner, intent commands, housekeeping,
+  and recommendations validating activity-graph model behavior.
+- **Capture-independence integration test.** Enforces that the usage
+  package does not depend on capture internals.
+- **Scope-lint tests.** Validation of scope declarations in governed
+  artifacts.
+- **Workstream and session-binding tests.** Lifecycle and binding
+  module coverage for workstream state v2.
 
 ## 0.12.0 — 2026-09-14
 
